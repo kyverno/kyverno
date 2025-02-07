@@ -4,12 +4,12 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -151,8 +151,8 @@ func FetchValidatingAdmissionPolicyBindings(vapBindingLister admissionregistrati
 	return bindings, nil
 }
 
-func FetchValidatingPolicies(vpolLister kyvernov2alpha1listers.ValidatingPolicyLister) ([]kyvernov2alpha1.ValidatingPolicy, error) {
-	var policies []kyvernov2alpha1.ValidatingPolicy
+func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicyLister) ([]policiesv1alpha1.ValidatingPolicy, error) {
+	var policies []policiesv1alpha1.ValidatingPolicy
 	if pols, err := vpolLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -268,7 +268,7 @@ func Test_CanAutoGen(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			var policy *kyvernov2alpha1.ValidatingPolicy
+			var policy *policiesv1alpha1.ValidatingPolicy
 			err := json.Unmarshal(test.policy, &policy)
 			assert.NilError(t, err)
 

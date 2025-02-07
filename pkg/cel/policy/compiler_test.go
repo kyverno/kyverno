@@ -3,7 +3,7 @@ package policy
 import (
 	"testing"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,19 +12,19 @@ import (
 func Test_compiler_Compile(t *testing.T) {
 	tests := []struct {
 		name    string
-		policy  *kyvernov2alpha1.ValidatingPolicy
+		policy  *policiesv1alpha1.ValidatingPolicy
 		wantErr bool
 	}{{
 		name: "simple",
-		policy: &kyvernov2alpha1.ValidatingPolicy{
+		policy: &policiesv1alpha1.ValidatingPolicy{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: kyvernov2alpha1.GroupVersion.String(),
+				APIVersion: policiesv1alpha1.GroupVersion.String(),
 				Kind:       "ValidatingPolicy",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: kyvernov2alpha1.ValidatingPolicySpec{
+			Spec: policiesv1alpha1.ValidatingPolicySpec{
 				ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
 					Variables: []admissionregistrationv1.Variable{{
 						Name:       "environment",
@@ -38,15 +38,15 @@ func Test_compiler_Compile(t *testing.T) {
 		},
 	}, {
 		name: "with configmap",
-		policy: &kyvernov2alpha1.ValidatingPolicy{
+		policy: &policiesv1alpha1.ValidatingPolicy{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: kyvernov2alpha1.GroupVersion.String(),
+				APIVersion: policiesv1alpha1.GroupVersion.String(),
 				Kind:       "ValidatingPolicy",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: kyvernov2alpha1.ValidatingPolicySpec{
+			Spec: policiesv1alpha1.ValidatingPolicySpec{
 				ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
 					Variables: []admissionregistrationv1.Variable{{
 						Name:       "cm",

@@ -18,8 +18,4 @@ limitations under the License.
 
 package v2alpha1
 
-type CELPolicyExceptionExpansion interface{}
-
 type GlobalContextEntryExpansion interface{}
-
-type ValidatingPolicyExpansion interface{}

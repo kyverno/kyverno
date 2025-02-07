@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
@@ -18,7 +18,7 @@ type AutogenRule struct {
 	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
 }
 
-func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*AutogenRule, error) {
+func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	// create a resource rule for the cronjob resource
 	matchConstraints := createMatchConstraints(controllers, operations)
@@ -78,7 +78,7 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 	}, nil
 }
 
-func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*AutogenRule, error) {
+func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	// create a resource rule for pod controllers
 	matchConstraints := createMatchConstraints(controllers, operations)

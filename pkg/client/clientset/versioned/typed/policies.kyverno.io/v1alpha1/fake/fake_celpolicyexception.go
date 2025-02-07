@@ -21,7 +21,7 @@ package fake
 import (
 	"context"
 
-	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	types "k8s.io/apimachinery/pkg/types"
@@ -31,29 +31,29 @@ import (
 
 // FakeCELPolicyExceptions implements CELPolicyExceptionInterface
 type FakeCELPolicyExceptions struct {
-	Fake *FakeKyvernoV2alpha1
+	Fake *FakePoliciesV1alpha1
 	ns   string
 }
 
-var celpolicyexceptionsResource = v2alpha1.SchemeGroupVersion.WithResource("celpolicyexceptions")
+var celpolicyexceptionsResource = v1alpha1.SchemeGroupVersion.WithResource("celpolicyexceptions")
 
-var celpolicyexceptionsKind = v2alpha1.SchemeGroupVersion.WithKind("CELPolicyException")
+var celpolicyexceptionsKind = v1alpha1.SchemeGroupVersion.WithKind("CELPolicyException")
 
 // Get takes name of the cELPolicyException, and returns the corresponding cELPolicyException object, and an error if there is any.
-func (c *FakeCELPolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CELPolicyException, err error) {
+func (c *FakeCELPolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.CELPolicyException, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(celpolicyexceptionsResource, c.ns, name), &v2alpha1.CELPolicyException{})
+		Invokes(testing.NewGetAction(celpolicyexceptionsResource, c.ns, name), &v1alpha1.CELPolicyException{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2alpha1.CELPolicyException), err
+	return obj.(*v1alpha1.CELPolicyException), err
 }
 
 // List takes label and field selectors, and returns the list of CELPolicyExceptions that match those selectors.
-func (c *FakeCELPolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CELPolicyExceptionList, err error) {
+func (c *FakeCELPolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.CELPolicyExceptionList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(celpolicyexceptionsResource, celpolicyexceptionsKind, c.ns, opts), &v2alpha1.CELPolicyExceptionList{})
+		Invokes(testing.NewListAction(celpolicyexceptionsResource, celpolicyexceptionsKind, c.ns, opts), &v1alpha1.CELPolicyExceptionList{})
 
 	if obj == nil {
 		return nil, err
@@ -63,8 +63,8 @@ func (c *FakeCELPolicyExceptions) List(ctx context.Context, opts v1.ListOptions)
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v2alpha1.CELPolicyExceptionList{ListMeta: obj.(*v2alpha1.CELPolicyExceptionList).ListMeta}
-	for _, item := range obj.(*v2alpha1.CELPolicyExceptionList).Items {
+	list := &v1alpha1.CELPolicyExceptionList{ListMeta: obj.(*v1alpha1.CELPolicyExceptionList).ListMeta}
+	for _, item := range obj.(*v1alpha1.CELPolicyExceptionList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -80,31 +80,31 @@ func (c *FakeCELPolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions
 }
 
 // Create takes the representation of a cELPolicyException and creates it.  Returns the server's representation of the cELPolicyException, and an error, if there is any.
-func (c *FakeCELPolicyExceptions) Create(ctx context.Context, cELPolicyException *v2alpha1.CELPolicyException, opts v1.CreateOptions) (result *v2alpha1.CELPolicyException, err error) {
+func (c *FakeCELPolicyExceptions) Create(ctx context.Context, cELPolicyException *v1alpha1.CELPolicyException, opts v1.CreateOptions) (result *v1alpha1.CELPolicyException, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(celpolicyexceptionsResource, c.ns, cELPolicyException), &v2alpha1.CELPolicyException{})
+		Invokes(testing.NewCreateAction(celpolicyexceptionsResource, c.ns, cELPolicyException), &v1alpha1.CELPolicyException{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2alpha1.CELPolicyException), err
+	return obj.(*v1alpha1.CELPolicyException), err
 }
 
 // Update takes the representation of a cELPolicyException and updates it. Returns the server's representation of the cELPolicyException, and an error, if there is any.
-func (c *FakeCELPolicyExceptions) Update(ctx context.Context, cELPolicyException *v2alpha1.CELPolicyException, opts v1.UpdateOptions) (result *v2alpha1.CELPolicyException, err error) {
+func (c *FakeCELPolicyExceptions) Update(ctx context.Context, cELPolicyException *v1alpha1.CELPolicyException, opts v1.UpdateOptions) (result *v1alpha1.CELPolicyException, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(celpolicyexceptionsResource, c.ns, cELPolicyException), &v2alpha1.CELPolicyException{})
+		Invokes(testing.NewUpdateAction(celpolicyexceptionsResource, c.ns, cELPolicyException), &v1alpha1.CELPolicyException{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2alpha1.CELPolicyException), err
+	return obj.(*v1alpha1.CELPolicyException), err
 }
 
 // Delete takes name of the cELPolicyException and deletes it. Returns an error if one occurs.
 func (c *FakeCELPolicyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(celpolicyexceptionsResource, c.ns, name, opts), &v2alpha1.CELPolicyException{})
+		Invokes(testing.NewDeleteActionWithOptions(celpolicyexceptionsResource, c.ns, name, opts), &v1alpha1.CELPolicyException{})
 
 	return err
 }
@@ -113,17 +113,17 @@ func (c *FakeCELPolicyExceptions) Delete(ctx context.Context, name string, opts 
 func (c *FakeCELPolicyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(celpolicyexceptionsResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &v2alpha1.CELPolicyExceptionList{})
+	_, err := c.Fake.Invokes(action, &v1alpha1.CELPolicyExceptionList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched cELPolicyException.
-func (c *FakeCELPolicyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CELPolicyException, err error) {
+func (c *FakeCELPolicyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.CELPolicyException, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(celpolicyexceptionsResource, c.ns, name, pt, data, subresources...), &v2alpha1.CELPolicyException{})
+		Invokes(testing.NewPatchSubresourceAction(celpolicyexceptionsResource, c.ns, name, pt, data, subresources...), &v1alpha1.CELPolicyException{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2alpha1.CELPolicyException), err
+	return obj.(*v1alpha1.CELPolicyException), err
 }

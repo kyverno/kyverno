@@ -82,6 +82,9 @@ crds:
       policies: true
       policyexceptions: true
       updaterequests: true
+
+    # -- Install CRDs in group `policies.kyverno.io`
+    policies:
       validatingpolicies: true
       celpolicyexceptions: true
 
