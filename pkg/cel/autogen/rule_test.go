@@ -15,7 +15,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		name          string
 		controllers   string
 		policySpec    []byte
-		generatedRule AutogenRule
+		generatedRule kyvernov2alpha1.AutogenRule
 	}{
 		{
 			name:        "autogen rule for deployments",
@@ -46,7 +46,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: AutogenRule{
+			generatedRule: kyvernov2alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -100,7 +100,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: AutogenRule{
+			generatedRule: kyvernov2alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -160,7 +160,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: AutogenRule{
+			generatedRule: kyvernov2alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -212,7 +212,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 func TestGenerateCronJobRule(t *testing.T) {
 	tests := []struct {
 		policySpec    []byte
-		generatedRule AutogenRule
+		generatedRule kyvernov2alpha1.AutogenRule
 	}{
 		{
 			policySpec: []byte(`{
@@ -241,7 +241,7 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: AutogenRule{
+			generatedRule: kyvernov2alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -299,7 +299,7 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: AutogenRule{
+			generatedRule: kyvernov2alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -364,7 +364,7 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: AutogenRule{
+			generatedRule: kyvernov2alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{

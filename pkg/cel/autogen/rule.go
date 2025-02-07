@@ -10,15 +10,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
-type AutogenRule struct {
-	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
-	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
-	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
-	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
-	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
-}
-
-func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*AutogenRule, error) {
+func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*kyvernov2alpha1.AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	// create a resource rule for the cronjob resource
 	matchConstraints := createMatchConstraints(controllers, operations)
@@ -69,7 +61,7 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 		}
 	}
 
-	return &AutogenRule{
+	return &kyvernov2alpha1.AutogenRule{
 		MatchConstraints: matchConstraints,
 		MatchConditions:  matchConditions,
 		Validations:      validations,
@@ -78,7 +70,7 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 	}, nil
 }
 
-func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*AutogenRule, error) {
+func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*kyvernov2alpha1.AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	// create a resource rule for pod controllers
 	matchConstraints := createMatchConstraints(controllers, operations)
@@ -127,7 +119,7 @@ func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, cont
 		}
 	}
 
-	return &AutogenRule{
+	return &kyvernov2alpha1.AutogenRule{
 		MatchConstraints: matchConstraints,
 		MatchConditions:  matchConditions,
 		Validations:      validations,
