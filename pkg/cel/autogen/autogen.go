@@ -45,8 +45,8 @@ func canAutoGen(spec *kyvernov2alpha1.ValidatingPolicySpec) (bool, sets.Set[stri
 	return true, podControllers
 }
 
-func generateRules(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) []AutogenRule {
-	var genRules []AutogenRule
+func generateRules(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) []kyvernov2alpha1.AutogenRule {
+	var genRules []kyvernov2alpha1.AutogenRule
 	// strip cronjobs from controllers if exist
 	isRemoved, controllers := stripCronJob(controllers)
 	// generate rule for pod controllers
@@ -82,10 +82,10 @@ func stripCronJob(controllers string) (bool, string) {
 	return isRemoved, strings.Join(newControllers, ",")
 }
 
-func ComputeRules(policy *kyvernov2alpha1.ValidatingPolicy) []AutogenRule {
-	applyAutoGen, desiredControllers := canAutoGen(&policy.Spec)
+func ComputeRules(policy kyvernov2alpha1.GenericPolicy) []kyvernov2alpha1.AutogenRule {
+	applyAutoGen, desiredControllers := canAutoGen(policy.GetSpec())
 	if !applyAutoGen {
-		return []AutogenRule{}
+		return []kyvernov2alpha1.AutogenRule{}
 	}
 
 	var actualControllers sets.Set[string]
@@ -98,6 +98,6 @@ func ComputeRules(policy *kyvernov2alpha1.ValidatingPolicy) []AutogenRule {
 	}
 
 	resources := strings.Join(actualControllers.UnsortedList(), ",")
-	genRules := generateRules(policy.Spec.DeepCopy(), resources)
+	genRules := generateRules(policy.GetSpec().DeepCopy(), resources)
 	return genRules
 }

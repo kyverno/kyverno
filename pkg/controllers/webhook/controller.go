@@ -13,6 +13,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
@@ -663,6 +664,9 @@ func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
 	updateStatusFunc := func(vpol kyvernov2alpha1.GenericPolicy) error {
 		status := vpol.GetStatus()
 		status.SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
+		status.Autogen.Rules = nil
+		rules := vpolautogen.ComputeRules(vpol)
+		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
 		return nil
 	}
 

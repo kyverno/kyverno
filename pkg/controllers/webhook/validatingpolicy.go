@@ -2,6 +2,7 @@ package webhook
 
 import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/utils/ptr"
@@ -46,6 +47,12 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 		// TODO(shuting): exclude?
 		for _, match := range vpol.GetMatchConstraints().ResourceRules {
 			webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+		}
+
+		for _, rule := range autogen.ComputeRules(vpol.(*kyvernov2alpha1.ValidatingPolicy)) {
+			for _, match := range rule.MatchConstraints.ResourceRules {
+				webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+			}
 		}
 
 		fineGrainedWebhook := false

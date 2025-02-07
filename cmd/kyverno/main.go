@@ -608,7 +608,7 @@ func main() {
 			// create compiler
 			compiler := celpolicy.NewCompiler()
 			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr)
+			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Kyverno().V2alpha1().CELPolicyExceptions().Lister())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
