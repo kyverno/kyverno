@@ -731,11 +731,16 @@ Required.</p>
     </table>
   
 
+<<<<<<< HEAD
   <H3 id="kyverno-io-v2alpha1-AutogenRule">AutogenRule
+=======
+  <H3 id="kyverno-io-v2alpha1-Attestation">Attestation
+>>>>>>> 298ab7254 (fix: codegen)
     </H3>
 
   
     <p>
+<<<<<<< HEAD
       (<em>Appears in:</em>
         <a href="#kyverno-io-v2alpha1-AutogenStatus">AutogenStatus</a>)
     </p>
@@ -917,6 +922,13 @@ Required.</p>
   
 
   <p><p>AutogenStatus contains autogen status information.</p>
+=======
+      (<em>Appears in:</em>)
+    </p>
+  
+
+  <p><p>Attestation defines the identification details of the  metadata that has to be verified</p>
+>>>>>>> 298ab7254 (fix: codegen)
 </p>
 
   
@@ -939,7 +951,11 @@ Required.</p>
     
     
       <tr>
+<<<<<<< HEAD
         <td><code>rules</code>
+=======
+        <td><code>name</code>
+>>>>>>> 298ab7254 (fix: codegen)
           
           <span style="color:blue;"> *</span>
           
@@ -948,8 +964,40 @@ Required.</p>
           
           
             
+<<<<<<< HEAD
               <a href="#kyverno-io-v2alpha1-AutogenRule">
                 <span style="font-family: monospace">[]AutogenRule</span>
+=======
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name for this attestation. It is used to refer to the attestation in verification</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>intoto</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-InToto">
+                <span style="font-family: monospace">InToto</span>
+>>>>>>> 298ab7254 (fix: codegen)
               </a>
             
           
@@ -957,7 +1005,162 @@ Required.</p>
         <td>
           
 
+<<<<<<< HEAD
           <p>Rules is a list of Rule instances. It contains auto generated rules added for pod controllers</p>
+=======
+          <p>InToto defines the details of attestation attached using intoto format</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>referrer</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Referrer">
+                <span style="font-family: monospace">Referrer</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Referrer defines the details of attestation attached using OCI 1.1 format</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Attestor">Attestor
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>)
+    </p>
+  
+
+  <p><p>Attestor is an identity that confirms or verifies the authenticity of an image or an attestation</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name for this attestor. It is used to refer to the attestor in verification</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>cosign</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Cosign">
+                <span style="font-family: monospace">Cosign</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Cosign defines attestor configuration for Cosign based signatures</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>notary</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Notary">
+                <span style="font-family: monospace">Notary</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Notary defines attestor configuration for Notary based signatures</p>
+>>>>>>> 298ab7254 (fix: codegen)
 
 
           
@@ -1337,7 +1540,8 @@ parent intermediate CA certificate of the signing certificate and end with the r
 
   
     <p>
-      (<em>Appears in:</em>)
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Attestor">Attestor</a>)
     </p>
   
 
@@ -1539,6 +1743,140 @@ parent intermediate CA certificate of the signing certificate and end with the r
 
       </tbody>
     </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Credentials">Credentials
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>allowInsecureRegistry</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AllowInsecureRegistry allows insecure access to a registry.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>providers</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-CredentialsProvidersType">
+                <span style="font-family: monospace">[]CredentialsProvidersType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Providers specifies a list of OCI Registry names, whose authentication providers are provided.
+It can be of one of these values: default,google,azure,amazon,github.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>secrets</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Secrets specifies a list of secrets that are provided for credentials.
+Secrets must live in the Kyverno namespace.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-CredentialsProvidersType">CredentialsProvidersType
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Credentials">Credentials</a>)
+    </p>
+  
+
+  <p><p>CredentialsProvidersType provides the list of credential providers required.</p>
+</p>
+
   
 
   <H3 id="kyverno-io-v2alpha1-ExternalAPICall">ExternalAPICall
@@ -2036,6 +2374,253 @@ apply a regexp for matching.</p>
     </table>
   
 
+  <H3 id="kyverno-io-v2alpha1-Image">Image
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name for this imageList. It is used to refer to the images in verification block as images.<!-- raw HTML omitted --></p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression defines CEL expression to extact images from the resource.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-ImageRule">ImageRule
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>)
+    </p>
+  
+
+  <p><p>ImageRule defines a Glob or a CEL expression for matching images</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>glob</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Glob defines a globbing pattern for matching images</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>cel</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Cel defines CEL Expressions for matching images</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-InToto">InToto
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Attestation">Attestation</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>type</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Type defines the type of attestation contained within the statement.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v2alpha1-Key">Key
     </H3>
 
@@ -2048,7 +2633,7 @@ apply a regexp for matching.</p>
   
 
   <p><p>This references a public verification key stored in
-a secret in the cosign-system namespace.
+a secret in the kyverno namespace.
 A Key must specify only one of SecretRef, Data or KMS</p>
 </p>
 
@@ -2467,7 +3052,8 @@ If left empty for namespaced resources, all resources from all namespaces will b
 
   
     <p>
-      (<em>Appears in:</em>)
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Attestor">Attestor</a>)
     </p>
   
 
@@ -2702,26 +3288,79 @@ The conditions array, the reason and message fields contain more detail about th
       </tr>
     
   
+<<<<<<< HEAD
     
     
       <tr>
         <td><code>autogen</code>
+=======
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Referrer">Referrer
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Attestation">Attestation</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>type</code>
+          
+          <span style="color:blue;"> *</span>
+>>>>>>> 298ab7254 (fix: codegen)
           
           </br>
 
           
           
             
+<<<<<<< HEAD
               <a href="#kyverno-io-v2alpha1-AutogenStatus">
                 <span style="font-family: monospace">AutogenStatus</span>
               </a>
+=======
+              <span style="font-family: monospace">string</span>
+>>>>>>> 298ab7254 (fix: codegen)
             
           
         </td>
         <td>
           
 
+<<<<<<< HEAD
           
+=======
+          <p>Type defines the type of attestation attached to the image.</p>
+
+>>>>>>> 298ab7254 (fix: codegen)
 
           
 
@@ -2825,7 +3464,7 @@ used by this Source.</p>
     
     
       <tr>
-        <td><code>tagPrefixy</code>
+        <td><code>tagPrefix</code>
           
           </br>
 
@@ -3009,7 +3648,7 @@ fully supported that should likely be the preferred way to handle these.</p>
     
     
       <tr>
-        <td><code>ata</code>
+        <td><code>data</code>
           
           </br>
 
