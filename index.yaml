@@ -15,6 +15,59 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.13.4
+    created: "2025-02-08T07:23:26.832894524Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.3.6
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.3.6
+    description: Kubernetes Native Policy Management
+    digest: 1abaf9c9953acdf926cae9ce7213ad0659f601ce742f5dee51fa8583bf225b07
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.3.6.tgz
+    version: 3.3.6
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: fixed
+          description: fix validation error in validate.yaml
+        - kind: fixed
+          description: fixed global image registry config by introducing *.image.defaultRegistry.
+        - kind: added
+          description: added a new option .reportsController.sanityChecks to disable checks for policy reports crds
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.13.3
     created: "2025-02-06T11:06:30.639777967Z"
     dependencies:
@@ -13216,4 +13269,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2025-02-06T11:09:23.135122443Z"
+generated: "2025-02-08T07:23:26.817045947Z"
