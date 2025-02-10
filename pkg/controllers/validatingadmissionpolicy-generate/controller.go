@@ -22,13 +22,13 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/kubernetes"
-	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -49,8 +49,8 @@ type controller struct {
 	// listers
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
-	vapLister        admissionregistrationv1beta1listers.ValidatingAdmissionPolicyLister
-	vapbindingLister admissionregistrationv1beta1listers.ValidatingAdmissionPolicyBindingLister
+	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -65,8 +65,8 @@ func NewController(
 	discoveryClient dclient.IDiscovery,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
-	vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer,
-	vapbindingInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyBindingInformer,
+	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
 	checker checker.AuthChecker,
 ) controllers.Controller {
@@ -191,22 +191,22 @@ func (c *controller) enqueueException(obj *kyvernov2.PolicyException) {
 	}
 }
 
-func (c *controller) addVAP(obj *admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+func (c *controller) addVAP(obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
 	c.enqueueVAP(obj)
 }
 
-func (c *controller) updateVAP(old, obj *admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+func (c *controller) updateVAP(old, obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
 	c.enqueueVAP(obj)
 }
 
-func (c *controller) deleteVAP(obj *admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+func (c *controller) deleteVAP(obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
 	c.enqueueVAP(obj)
 }
 
-func (c *controller) enqueueVAP(v *admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+func (c *controller) enqueueVAP(v *admissionregistrationv1.ValidatingAdmissionPolicy) {
 	if len(v.OwnerReferences) == 1 {
 		if v.OwnerReferences[0].Kind == "ClusterPolicy" {
 			cpol, err := c.cpolLister.Get(v.OwnerReferences[0].Name)
@@ -218,22 +218,22 @@ func (c *controller) enqueueVAP(v *admissionregistrationv1beta1.ValidatingAdmiss
 	}
 }
 
-func (c *controller) addVAPbinding(obj *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) addVAPbinding(obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	c.enqueueVAPbinding(obj)
 }
 
-func (c *controller) updateVAPbinding(old, obj *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) updateVAPbinding(old, obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
 	c.enqueueVAPbinding(obj)
 }
 
-func (c *controller) deleteVAPbinding(obj *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) deleteVAPbinding(obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	c.enqueueVAPbinding(obj)
 }
 
-func (c *controller) enqueueVAPbinding(vb *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) enqueueVAPbinding(vb *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	if len(vb.OwnerReferences) == 1 {
 		if vb.OwnerReferences[0].Kind == "ClusterPolicy" {
 			cpol, err := c.cpolLister.Get(vb.OwnerReferences[0].Name)
@@ -253,7 +253,7 @@ func (c *controller) getClusterPolicy(name string) (*kyvernov1.ClusterPolicy, er
 	return cpolicy, nil
 }
 
-func (c *controller) getValidatingAdmissionPolicy(name string) (*admissionregistrationv1beta1.ValidatingAdmissionPolicy, error) {
+func (c *controller) getValidatingAdmissionPolicy(name string) (*admissionregistrationv1.ValidatingAdmissionPolicy, error) {
 	vap, err := c.vapLister.Get(name)
 	if err != nil {
 		return nil, err
@@ -261,7 +261,7 @@ func (c *controller) getValidatingAdmissionPolicy(name string) (*admissionregist
 	return vap, nil
 }
 
-func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, error) {
+func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissionregistrationv1.ValidatingAdmissionPolicyBinding, error) {
 	vapbinding, err := c.vapbindingLister.Get(name)
 	if err != nil {
 		return nil, err
@@ -331,14 +331,14 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions); !ok {
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
-			err = c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
+			err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
 		}
 		// delete the ValidatingAdmissionPolicyBinding if exist
 		if vapBindingErr == nil {
-			err = c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{})
+			err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -356,7 +356,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.updateClusterPolicyStatus(ctx, *policy, false, vapErr.Error())
 			return vapErr
 		}
-		observedVAP = &admissionregistrationv1beta1.ValidatingAdmissionPolicy{
+		observedVAP = &admissionregistrationv1.ValidatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vapName,
 			},
@@ -368,7 +368,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.updateClusterPolicyStatus(ctx, *policy, false, vapBindingErr.Error())
 			return vapBindingErr
 		}
-		observedVAPbinding = &admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding{
+		observedVAPbinding = &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vapBindingName,
 			},
@@ -381,7 +381,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
-		_, err = c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{})
+		_, err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{})
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
@@ -390,8 +390,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		_, err = controllerutils.Update(
 			ctx,
 			observedVAP,
-			c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies(),
-			func(observed *admissionregistrationv1beta1.ValidatingAdmissionPolicy) error {
+			c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies(),
+			func(observed *admissionregistrationv1.ValidatingAdmissionPolicy) error {
 				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, exceptions)
 			})
 		if err != nil {
@@ -406,7 +406,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
 		}
-		_, err = c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicyBindings().Create(ctx, observedVAPbinding, metav1.CreateOptions{})
+		_, err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(ctx, observedVAPbinding, metav1.CreateOptions{})
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
@@ -415,8 +415,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		_, err = controllerutils.Update(
 			ctx,
 			observedVAPbinding,
-			c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicyBindings(),
-			func(observed *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) error {
+			c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings(),
+			func(observed *admissionregistrationv1.ValidatingAdmissionPolicyBinding) error {
 				return admissionpolicy.BuildValidatingAdmissionPolicyBinding(observed, policy)
 			})
 		if err != nil {

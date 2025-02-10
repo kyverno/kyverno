@@ -205,6 +205,119 @@ metadata:
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
+  name: celpolicyexceptions.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    kind: CELPolicyException
+    listKind: CELPolicyExceptionList
+    plural: celpolicyexceptions
+    singular: celpolicyexception
+  scope: Namespaced
+  versions:
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: PolicyException declares resources to be excluded from specified
+          policies.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec declares policy exception behaviors.
+            properties:
+              matchConditions:
+                description: MatchConditions is a list of CEL expressions that must
+                  be met for a resource to be excluded.
+                items:
+                  description: MatchCondition represents a condition which must by
+                    fulfilled for a request to be sent to a webhook.
+                  properties:
+                    expression:
+                      description: |-
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                        'object' - The object from the incoming request. The value is null for DELETE requests.
+                        'oldObject' - The existing object. The value is null for CREATE requests.
+                        'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                        'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                          See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                        'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                          request resource.
+                        Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                        Required.
+                      type: string
+                    name:
+                      description: |-
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        as well as providing an identifier for logging purposes. A good name should be descriptive of
+                        the associated expression.
+                        Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
+                        must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
+                        '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
+                        optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                        Required.
+                      type: string
+                  required:
+                  - expression
+                  - name
+                  type: object
+                type: array
+              policyRefs:
+                description: PolicyRefs identifies the policies to which the exception
+                  is applied.
+                items:
+                  properties:
+                    kind:
+                      description: Kind is the kind of the policy
+                      type: string
+                    name:
+                      description: Name is the name of the policy
+                      type: string
+                  required:
+                  - kind
+                  - name
+                  type: object
+                type: array
+            required:
+            - policyRefs
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kyverno-crds
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -5568,7 +5681,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -10642,7 +10755,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -20636,7 +20749,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -26127,7 +26240,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -31202,7 +31315,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -41197,7 +41310,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -48438,7 +48551,11 @@ spec:
     singular: validatingpolicy
   scope: Cluster
   versions:
-  - name: v2alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -48944,6 +49061,15 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              validationActions:
+                description: |-
+                  ValidationAction specifies the action to be taken when the matched resource violates the policy.
+                  Required.
+                items:
+                  description: ValidationAction specifies a policy enforcement action.
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               validations:
                 description: |-
                   Validations contain CEL expressions which is used to apply the validation.
@@ -49087,11 +49213,631 @@ spec:
                     type: integer
                 type: object
             type: object
+          status:
+            description: Status contains policy runtime data.
+            properties:
+              autogen:
+                description: AutogenStatus contains autogen status information.
+                properties:
+                  rules:
+                    description: Rules is a list of Rule instances. It contains auto
+                      generated rules added for pod controllers
+                    items:
+                      properties:
+                        auditAnnotations:
+                          items:
+                            description: AuditAnnotation describes how to produce
+                              an audit annotation for an API request.
+                            properties:
+                              key:
+                                description: |-
+                                  key specifies the audit annotation key. The audit annotation keys of
+                                  a ValidatingAdmissionPolicy must be unique. The key must be a qualified
+                                  name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
+
+                                  The key is combined with the resource name of the
+                                  ValidatingAdmissionPolicy to construct an audit annotation key:
+                                  "{ValidatingAdmissionPolicy name}/{key}".
+
+                                  If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
+                                  and the same audit annotation key, the annotation key will be identical.
+                                  In this case, the first annotation written with the key will be included
+                                  in the audit event and all subsequent annotations with the same key
+                                  will be discarded.
+
+                                  Required.
+                                type: string
+                              valueExpression:
+                                description: |-
+                                  valueExpression represents the expression which is evaluated by CEL to
+                                  produce an audit annotation value. The expression must evaluate to either
+                                  a string or null value. If the expression evaluates to a string, the
+                                  audit annotation is included with the string value. If the expression
+                                  evaluates to null or empty string the audit annotation will be omitted.
+                                  The valueExpression may be no longer than 5kb in length.
+                                  If the result of the valueExpression is more than 10kb in length, it
+                                  will be truncated to 10kb.
+
+                                  If multiple ValidatingAdmissionPolicyBinding resources match an
+                                  API request, then the valueExpression will be evaluated for
+                                  each binding. All unique values produced by the valueExpressions
+                                  will be joined together in a comma-separated list.
+
+                                  Required.
+                                type: string
+                            required:
+                            - key
+                            - valueExpression
+                            type: object
+                          type: array
+                        matchConditions:
+                          items:
+                            description: MatchCondition represents a condition which
+                              must by fulfilled for a request to be sent to a webhook.
+                            properties:
+                              expression:
+                                description: |-
+                                  Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                                  CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                                  'object' - The object from the incoming request. The value is null for DELETE requests.
+                                  'oldObject' - The existing object. The value is null for CREATE requests.
+                                  'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                  'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                                    See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                  'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                                    request resource.
+                                  Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                                  Required.
+                                type: string
+                              name:
+                                description: |-
+                                  Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                                  as well as providing an identifier for logging purposes. A good name should be descriptive of
+                                  the associated expression.
+                                  Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
+                                  must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
+                                  '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
+                                  optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                                  Required.
+                                type: string
+                            required:
+                            - expression
+                            - name
+                            type: object
+                          type: array
+                        matchConstraints:
+                          description: |-
+                            MatchResources decides whether to run the admission control policy on an object based
+                            on whether it meets the match criteria.
+                            The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
+                          properties:
+                            excludeResourceRules:
+                              description: |-
+                                ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                                The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
+                              items:
+                                description: NamedRuleWithOperations is a tuple of
+                                  Operations and Resources with ResourceNames.
+                                properties:
+                                  apiGroups:
+                                    description: |-
+                                      APIGroups is the API groups the resources belong to. '*' is all groups.
+                                      If '*' is present, the length of the slice must be one.
+                                      Required.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  apiVersions:
+                                    description: |-
+                                      APIVersions is the API versions the resources belong to. '*' is all versions.
+                                      If '*' is present, the length of the slice must be one.
+                                      Required.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  operations:
+                                    description: |-
+                                      Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                      for all of those operations and any future admission operations that are added.
+                                      If '*' is present, the length of the slice must be one.
+                                      Required.
+                                    items:
+                                      description: OperationType specifies an operation
+                                        for a request.
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  resourceNames:
+                                    description: ResourceNames is an optional white
+                                      list of names that the rule applies to.  An
+                                      empty set means that everything is allowed.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  resources:
+                                    description: |-
+                                      Resources is a list of resources this rule applies to.
+
+                                      For example:
+                                      'pods' means pods.
+                                      'pods/log' means the log subresource of pods.
+                                      '*' means all resources, but not subresources.
+                                      'pods/*' means all subresources of pods.
+                                      '*/scale' means all scale subresources.
+                                      '*/*' means all resources and their subresources.
+
+                                      If wildcard is present, the validation rule will ensure resources do not
+                                      overlap with each other.
+
+                                      Depending on the enclosing object, subresources might not be allowed.
+                                      Required.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  scope:
+                                    description: |-
+                                      scope specifies the scope of this rule.
+                                      Valid values are "Cluster", "Namespaced", and "*"
+                                      "Cluster" means that only cluster-scoped resources will match this rule.
+                                      Namespace API objects are cluster-scoped.
+                                      "Namespaced" means that only namespaced resources will match this rule.
+                                      "*" means that there are no scope restrictions.
+                                      Subresources match the scope of their parent resource.
+                                      Default is "*".
+                                    type: string
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchPolicy:
+                              description: |-
+                                matchPolicy defines how the "MatchResources" list is used to match incoming requests.
+                                Allowed values are "Exact" or "Equivalent".
+
+                                - Exact: match a request only if it exactly matches a specified rule.
+                                For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
+                                but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
+                                a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
+
+                                - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
+                                For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
+                                and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
+                                a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
+
+                                Defaults to "Equivalent"
+                              type: string
+                            namespaceSelector:
+                              description: |-
+                                NamespaceSelector decides whether to run the admission control policy on an object based
+                                on whether the namespace for that object matches the selector. If the
+                                object itself is a namespace, the matching is performed on
+                                object.metadata.labels. If the object is another cluster scoped resource,
+                                it never skips the policy.
+
+                                For example, to run the webhook on any objects whose namespace is not
+                                associated with "runlevel" of "0" or "1";  you will set the selector as
+                                follows:
+                                "namespaceSelector": {
+                                  "matchExpressions": [
+                                    {
+                                      "key": "runlevel",
+                                      "operator": "NotIn",
+                                      "values": [
+                                        "0",
+                                        "1"
+                                      ]
+                                    }
+                                  ]
+                                }
+
+                                If instead you want to only run the policy on any objects whose
+                                namespace is associated with the "environment" of "prod" or "staging";
+                                you will set the selector as follows:
+                                "namespaceSelector": {
+                                  "matchExpressions": [
+                                    {
+                                      "key": "environment",
+                                      "operator": "In",
+                                      "values": [
+                                        "prod",
+                                        "staging"
+                                      ]
+                                    }
+                                  ]
+                                }
+
+                                See
+                                https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+                                for more examples of label selectors.
+
+                                Default to the empty LabelSelector, which matches everything.
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: |-
+                                      A label selector requirement is a selector that contains values, a key, and an operator that
+                                      relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: |-
+                                          operator represents a key's relationship to a set of values.
+                                          Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: |-
+                                          values is an array of string values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                          the values array must be empty. This array is replaced during a strategic
+                                          merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                    operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            objectSelector:
+                              description: |-
+                                ObjectSelector decides whether to run the validation based on if the
+                                object has matching labels. objectSelector is evaluated against both
+                                the oldObject and newObject that would be sent to the cel validation, and
+                                is considered to match if either object matches the selector. A null
+                                object (oldObject in the case of create, or newObject in the case of
+                                delete) or an object that cannot have labels (like a
+                                DeploymentRollback or a PodProxyOptions object) is not considered to
+                                match.
+                                Use the object selector only if the webhook is opt-in, because end
+                                users may skip the admission webhook by setting the labels.
+                                Default to the empty LabelSelector, which matches everything.
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: |-
+                                      A label selector requirement is a selector that contains values, a key, and an operator that
+                                      relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: |-
+                                          operator represents a key's relationship to a set of values.
+                                          Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: |-
+                                          values is an array of string values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                          the values array must be empty. This array is replaced during a strategic
+                                          merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                    operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            resourceRules:
+                              description: |-
+                                ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                                The policy cares about an operation if it matches _any_ Rule.
+                              items:
+                                description: NamedRuleWithOperations is a tuple of
+                                  Operations and Resources with ResourceNames.
+                                properties:
+                                  apiGroups:
+                                    description: |-
+                                      APIGroups is the API groups the resources belong to. '*' is all groups.
+                                      If '*' is present, the length of the slice must be one.
+                                      Required.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  apiVersions:
+                                    description: |-
+                                      APIVersions is the API versions the resources belong to. '*' is all versions.
+                                      If '*' is present, the length of the slice must be one.
+                                      Required.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  operations:
+                                    description: |-
+                                      Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                      for all of those operations and any future admission operations that are added.
+                                      If '*' is present, the length of the slice must be one.
+                                      Required.
+                                    items:
+                                      description: OperationType specifies an operation
+                                        for a request.
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  resourceNames:
+                                    description: ResourceNames is an optional white
+                                      list of names that the rule applies to.  An
+                                      empty set means that everything is allowed.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  resources:
+                                    description: |-
+                                      Resources is a list of resources this rule applies to.
+
+                                      For example:
+                                      'pods' means pods.
+                                      'pods/log' means the log subresource of pods.
+                                      '*' means all resources, but not subresources.
+                                      'pods/*' means all subresources of pods.
+                                      '*/scale' means all scale subresources.
+                                      '*/*' means all resources and their subresources.
+
+                                      If wildcard is present, the validation rule will ensure resources do not
+                                      overlap with each other.
+
+                                      Depending on the enclosing object, subresources might not be allowed.
+                                      Required.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  scope:
+                                    description: |-
+                                      scope specifies the scope of this rule.
+                                      Valid values are "Cluster", "Namespaced", and "*"
+                                      "Cluster" means that only cluster-scoped resources will match this rule.
+                                      Namespace API objects are cluster-scoped.
+                                      "Namespaced" means that only namespaced resources will match this rule.
+                                      "*" means that there are no scope restrictions.
+                                      Subresources match the scope of their parent resource.
+                                      Default is "*".
+                                    type: string
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        validations:
+                          items:
+                            description: Validation specifies the CEL expression which
+                              is used to apply the validation.
+                            properties:
+                              expression:
+                                description: "Expression represents the expression
+                                  which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
+                                  expressions have access to the contents of the API
+                                  request/response, organized into CEL variables as
+                                  well as some other useful variables:\n\n- 'object'
+                                  - The object from the incoming request. The value
+                                  is null for DELETE requests.\n- 'oldObject' - The
+                                  existing object. The value is null for CREATE requests.\n-
+                                  'request' - Attributes of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
+                                  'params' - Parameter resource referred to by the
+                                  policy binding being evaluated. Only populated if
+                                  the policy has a ParamKind.\n- 'namespaceObject'
+                                  - The namespace object that the incoming object
+                                  belongs to. The value is null for cluster-scoped
+                                  resources.\n- 'variables' - Map of composited variables,
+                                  from its name to its lazily evaluated value.\n  For
+                                  example, a variable named 'foo' can be accessed
+                                  as 'variables.foo'.\n- 'authorizer' - A CEL Authorizer.
+                                  May be used to perform authorization checks for
+                                  the principal (user or service account) of the request.\n
+                                  \ See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
+                                  'authorizer.requestResource' - A CEL ResourceCheck
+                                  constructed from the 'authorizer' and configured
+                                  with the\n  request resource.\n\nThe `apiVersion`,
+                                  `kind`, `metadata.name` and `metadata.generateName`
+                                  are always accessible from the root of the\nobject.
+                                  No other metadata properties are accessible.\n\nOnly
+                                  property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
+                                  are accessible.\nAccessible property names are escaped
+                                  according to the following rules when accessed in
+                                  the expression:\n- '__' escapes to '__underscores__'\n-
+                                  '.' escapes to '__dot__'\n- '-' escapes to '__dash__'\n-
+                                  '/' escapes to '__slash__'\n- Property names that
+                                  exactly match a CEL RESERVED keyword escape to '__{keyword}__'.
+                                  The keywords are:\n\t  \"true\", \"false\", \"null\",
+                                  \"in\", \"as\", \"break\", \"const\", \"continue\",
+                                  \"else\", \"for\", \"function\", \"if\",\n\t  \"import\",
+                                  \"let\", \"loop\", \"package\", \"namespace\", \"return\".\nExamples:\n
+                                  \ - Expression accessing a property named \"namespace\":
+                                  {\"Expression\": \"object.__namespace__ > 0\"}\n
+                                  \ - Expression accessing a property named \"x-prop\":
+                                  {\"Expression\": \"object.x__dash__prop > 0\"}\n
+                                  \ - Expression accessing a property named \"redact__d\":
+                                  {\"Expression\": \"object.redact__underscores__d
+                                  > 0\"}\n\nEquality on arrays with list type of 'set'
+                                  or 'map' ignores element order, i.e. [1, 2] == [2,
+                                  1].\nConcatenation on arrays with x-kubernetes-list-type
+                                  use the semantics of the list type:\n  - 'set':
+                                  `X + Y` performs a union where the array positions
+                                  of all elements in `X` are preserved and\n    non-intersecting
+                                  elements in `Y` are appended, retaining their partial
+                                  order.\n  - 'map': `X + Y` performs a merge where
+                                  the array positions of all keys in `X` are preserved
+                                  but the values\n    are overwritten by values in
+                                  `Y` when the key sets of `X` and `Y` intersect.
+                                  Elements in `Y` with\n    non-intersecting keys
+                                  are appended, retaining their partial order.\nRequired."
+                                type: string
+                              message:
+                                description: |-
+                                  Message represents the message displayed when validation fails. The message is required if the Expression contains
+                                  line breaks. The message must not contain line breaks.
+                                  If unset, the message is "failed rule: {Rule}".
+                                  e.g. "must be a URL with the host matching spec.host"
+                                  If the Expression contains line breaks. Message is required.
+                                  The message must not contain line breaks.
+                                  If unset, the message is "failed Expression: {Expression}".
+                                type: string
+                              messageExpression:
+                                description: |-
+                                  messageExpression declares a CEL expression that evaluates to the validation failure message that is returned when this rule fails.
+                                  Since messageExpression is used as a failure message, it must evaluate to a string.
+                                  If both message and messageExpression are present on a validation, then messageExpression will be used if validation fails.
+                                  If messageExpression results in a runtime error, the runtime error is logged, and the validation failure message is produced
+                                  as if the messageExpression field were unset. If messageExpression evaluates to an empty string, a string with only spaces, or a string
+                                  that contains line breaks, then the validation failure message will also be produced as if the messageExpression field were unset, and
+                                  the fact that messageExpression produced an empty string/string with only spaces/string with line breaks will be logged.
+                                  messageExpression has access to all the same variables as the `expression` except for 'authorizer' and 'authorizer.requestResource'.
+                                  Example:
+                                  "object.x must be less than max ("+string(params.max)+")"
+                                type: string
+                              reason:
+                                description: |-
+                                  Reason represents a machine-readable description of why this validation failed.
+                                  If this is the first validation in the list to fail, this reason, as well as the
+                                  corresponding HTTP response code, are used in the
+                                  HTTP response to the client.
+                                  The currently supported reasons are: "Unauthorized", "Forbidden", "Invalid", "RequestEntityTooLarge".
+                                  If not set, StatusReasonInvalid is used in the response to the client.
+                                type: string
+                            required:
+                            - expression
+                            type: object
+                          type: array
+                        variables:
+                          items:
+                            description: Variable is the definition of a variable
+                              that is used for composition. A variable is defined
+                              as a named expression.
+                            properties:
+                              expression:
+                                description: |-
+                                  Expression is the expression that will be evaluated as the value of the variable.
+                                  The CEL expression has access to the same identifiers as the CEL expressions in Validation.
+                                type: string
+                              name:
+                                description: |-
+                                  Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                                  The variable can be accessed in other expressions through `variables`
+                                  For example, if name is "foo", the variable will be available as `variables.foo`
+                                type: string
+                            required:
+                            - expression
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          type: array
+                      type: object
+                    type: array
+                type: object
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              ready:
+                description: |-
+                  The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+                  The conditions array, the reason and message fields contain more detail about the policy's status.
+                type: boolean
+            type: object
         required:
         - spec
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -50584,6 +51330,7 @@ rules:
       - policyexceptions
       - validatingpolicies
       - validatingpolicies/status
+      - celpolicyexceptions
     verbs:
       - create
       - delete
@@ -51125,6 +51872,8 @@ rules:
       - policyexceptions
       - policies
       - clusterpolicies
+      - validatingpolicies
+      - validatingpolicies/status
     verbs:
       - create
       - delete
@@ -51774,7 +52523,7 @@ spec:
       serviceAccountName: kyverno-admission-controller
       initContainers:
         - name: kyverno-pre
-          image: "ghcr.io/kyverno/kyvernopre:latest"
+          image: "reg.kyverno.io/kyverno/kyvernopre:latest"
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
@@ -51819,7 +52568,7 @@ spec:
             value: kyverno-svc
       containers:
         - name: kyverno
-          image: "ghcr.io/kyverno/kyverno:latest"
+          image: "reg.kyverno.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
             - --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca
@@ -51980,7 +52729,7 @@ spec:
       serviceAccountName: kyverno-background-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/background-controller:latest"
+          image: "reg.kyverno.io/kyverno/background-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
@@ -52085,7 +52834,7 @@ spec:
       serviceAccountName: kyverno-cleanup-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/cleanup-controller:latest"
+          image: "reg.kyverno.io/kyverno/cleanup-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
@@ -52226,7 +52975,7 @@ spec:
       serviceAccountName: kyverno-reports-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/reports-controller:latest"
+          image: "reg.kyverno.io/kyverno/reports-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443

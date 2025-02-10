@@ -18,7 +18,7 @@ func TestGetKinds(t *testing.T) {
 		{
 			name: "Matching pods",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-1"
@@ -38,7 +38,7 @@ spec:
 		{
 			name: "Matching deployments, replicasets, daemonsets and statefulsets",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-2"
@@ -58,7 +58,7 @@ spec:
 		{
 			name: "Matching deployments/scale",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-3"
@@ -78,7 +78,7 @@ spec:
 		{
 			name: "Matching jobs and cronjobs",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-4"
@@ -98,7 +98,7 @@ spec:
 		{
 			name: "Multiple resource rules",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-5"
@@ -128,7 +128,7 @@ spec:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, policy, _, _, _ := yamlutils.GetPolicy(tt.policy)
-			kinds := GetKinds(policy[0])
+			kinds := GetKinds(policy[0].Spec.MatchConstraints)
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
 				t.Errorf("Expected %v, got %v", tt.wantKinds, kinds)
 			}
