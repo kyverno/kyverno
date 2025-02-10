@@ -332,7 +332,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			for _, s := range vars {
 				for _, banned := range validationpolicy.ForbiddenUserVariables {
 					if banned.Match([]byte(s[2])) {
-						log.V(4).Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
+						log.V(2).Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
 					}
 				}
 			}

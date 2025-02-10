@@ -214,7 +214,7 @@ func (h *mutationHandler) createReports(
 
 func logMutationResponse(patches []jsonpatch.JsonPatchOperation, engineResponses []engineapi.EngineResponse, logger logr.Logger) {
 	if len(patches) != 0 {
-		logger.V(2).Info("created patches", "count", len(patches))
+		logger.V(4).Info("created patches", "count", len(patches))
 	}
 
 	// if any of the policies fails, print out the error
