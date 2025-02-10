@@ -76,11 +76,13 @@ func createReportControllers(
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
+	kyvernoV2alpha1 := kyvernoInformer.Kyverno().V2alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
+			kyvernoV2alpha1.ValidatingPolicies(),
 			vapInformer,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -100,6 +102,7 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
+					kyvernoV2alpha1.ValidatingPolicies(),
 					vapInformer,
 				),
 				aggregationWorkers,
@@ -113,6 +116,7 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
+				kyvernoV2alpha1.ValidatingPolicies(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
@@ -129,8 +133,8 @@ func createReportControllers(
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
 				backgroundScanController,
-				backgroundScanWorkers),
-			)
+				backgroundScanWorkers,
+			))
 		}
 	}
 	return ctrls, func(ctx context.Context) error {
@@ -318,7 +322,6 @@ func main() {
 			setup.Logger.Error(err, "failed to start background-scan reports watcher")
 			os.Exit(1)
 		}
-
 		// create the circuit breaker
 		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
 			count, isRunning := ephrs.Count()

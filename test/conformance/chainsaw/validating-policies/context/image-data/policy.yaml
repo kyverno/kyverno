@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v2alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-deployment-labels
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  variables:
+    - name: image
+      expression: >-
+        context.GetImageData("ghcr.io/kyverno/kyverno:latest")
+    - name: accept
+      expression: >-
+        variables.image != null
+  validations:
+    - expression: >-
+        variables.accept
+      message: >-
+        Deployment must be accepted

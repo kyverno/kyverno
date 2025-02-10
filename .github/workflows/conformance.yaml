@@ -149,7 +149,27 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: background-only
           upgrade-scenario: ${{ matrix.upgrade }}
-
+  
+  cel-policy-exceptions:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+    needs: [ define-matrix, prepare-images ]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: cel-policy-exceptions
+          upgrade-scenario: ${{ matrix.upgrade }}
+  
   cleanup:
     runs-on: ubuntu-latest
     permissions:
@@ -1081,6 +1101,7 @@ jobs:
       - ttl
       - validate
       - validating-admission-policy-reports
+      - validating-policies
       - verify-manifests
       - verifyImages
       - webhook-configurations
@@ -1118,6 +1139,7 @@ jobs:
       - ttl
       - validate
       - validating-admission-policy-reports
+      - validating-policies
       - verify-manifests
       - verifyImages
       - webhook-configurations

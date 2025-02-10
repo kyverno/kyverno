@@ -36,6 +36,7 @@ import (
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -339,10 +340,21 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	}
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
-		request := engine.EngineRequest{
-			Context:  contextProvider,
-			Resource: resource,
-		}
+		request := engine.Request(
+			contextProvider,
+			resource.GroupVersionKind(),
+			// TODO
+			schema.GroupVersionResource{},
+			// TODO
+			"",
+			resource.GetName(),
+			resource.GetNamespace(),
+			admissionv1.Create,
+			resource,
+			nil,
+			false,
+			nil,
+		)
 		response, err := eng.Handle(ctx, request)
 		if err != nil {
 			if c.ContinueOnFail {

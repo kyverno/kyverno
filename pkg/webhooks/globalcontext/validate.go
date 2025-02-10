@@ -7,18 +7,17 @@ import (
 	"github.com/go-logr/logr"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	validation "github.com/kyverno/kyverno/pkg/validation/globalcontext"
-	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
 type gctxHandlers struct{}
 
-func NewHandlers() webhooks.GlobalContextHandlers {
+func NewHandlers() *gctxHandlers {
 	return &gctxHandlers{}
 }
 
 // Validate performs the validation check on global context entries
-func (h *gctxHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, startTime time.Time) handlers.AdmissionResponse {
+func (h *gctxHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, startTime time.Time) handlers.AdmissionResponse {
 	gctx, _, err := admissionutils.GetGlobalContextEntry(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal global context entry from admission request")

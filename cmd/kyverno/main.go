@@ -43,10 +43,12 @@ import (
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	webhookscelexception "github.com/kyverno/kyverno/pkg/webhooks/celexception"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -63,11 +65,13 @@ import (
 )
 
 const (
-	exceptionWebhookControllerName   = "exception-webhook-controller"
-	gctxWebhookControllerName        = "global-context-webhook-controller"
-	webhookControllerFinalizerName   = "kyverno.io/webhooks"
-	exceptionControllerFinalizerName = "kyverno.io/exceptionwebhooks"
-	gctxControllerFinalizerName      = "kyverno.io/globalcontextwebhooks"
+	exceptionWebhookControllerName      = "exception-webhook-controller"
+	celExceptionWebhookControllerName   = "celexception-webhook-controller"
+	gctxWebhookControllerName           = "global-context-webhook-controller"
+	webhookControllerFinalizerName      = "kyverno.io/webhooks"
+	exceptionControllerFinalizerName    = "kyverno.io/exceptionwebhooks"
+	celExceptionControllerFinalizerName = "kyverno.io/celexceptionwebhooks"
+	gctxControllerFinalizerName         = "kyverno.io/globalcontextwebhooks"
 )
 
 var (
@@ -201,6 +205,38 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, exceptionControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, exceptionControllerFinalizerName),
 	)
+	celExceptionWebhookController := genericwebhookcontroller.NewController(
+		celExceptionWebhookControllerName,
+		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+		caInformer,
+		deploymentInformer,
+		config.CELExceptionValidatingWebhookConfigurationName,
+		config.CELExceptionValidatingWebhookServicePath,
+		serverIP,
+		servicePort,
+		webhookServerPort,
+		nil,
+		[]admissionregistrationv1.RuleWithOperations{{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{"kyverno.io"},
+				APIVersions: []string{"v2alpha1"},
+				Resources:   []string{"celpolicyexceptions"},
+			},
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
+				admissionregistrationv1.Update,
+			},
+		}},
+		genericwebhookcontroller.Fail,
+		genericwebhookcontroller.None,
+		configuration,
+		caSecretName,
+		runtime,
+		autoDeleteWebhooks,
+		webhookcontroller.WebhookCleanupSetup(kubeClient, celExceptionControllerFinalizerName),
+		webhookcontroller.WebhookCleanupHandler(kubeClient, celExceptionControllerFinalizerName),
+	)
 	gctxWebhookController := genericwebhookcontroller.NewController(
 		gctxWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
@@ -236,6 +272,7 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
+	leaderControllers = append(leaderControllers, internal.NewController(celExceptionWebhookControllerName, celExceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
 
 	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
@@ -544,6 +581,66 @@ func main() {
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
+		contextProvider, err := celpolicy.NewContextProvider(
+			setup.KubeClient,
+			nil,
+			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+		)
+		if err != nil {
+			setup.Logger.Error(err, "failed to create cel context provider")
+			os.Exit(1)
+		}
+		var celEngine celengine.Engine
+		{
+			// create a controller manager
+			scheme := kruntime.NewScheme()
+			if err := kyvernov2alpha1.Install(scheme); err != nil {
+				setup.Logger.Error(err, "failed to initialize scheme")
+				os.Exit(1)
+			}
+			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
+				Scheme: scheme,
+			})
+			if err != nil {
+				setup.Logger.Error(err, "failed to construct manager")
+				os.Exit(1)
+			}
+			// create compiler
+			compiler := celpolicy.NewCompiler()
+			// create provider
+			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Kyverno().V2alpha1().CELPolicyExceptions().Lister())
+			if err != nil {
+				setup.Logger.Error(err, "failed to create policy provider")
+				os.Exit(1)
+			}
+			// create a cancellable context
+			ctx, cancel := context.WithCancel(signalCtx)
+			// start manager
+			wg.StartWithContext(ctx, func(ctx context.Context) {
+				// cancel context at the end
+				defer cancel()
+				if err := mgr.Start(ctx); err != nil {
+					setup.Logger.Error(err, "failed to start manager")
+					os.Exit(1)
+				}
+			})
+			if !mgr.GetCache().WaitForCacheSync(ctx) {
+				defer cancel()
+				setup.Logger.Error(err, "failed to create policy provider")
+				os.Exit(1)
+			}
+			celEngine = celengine.NewEngine(
+				provider,
+				func(name string) *corev1.Namespace {
+					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					if err != nil {
+						return nil
+					}
+					return ns
+				},
+				matching.NewMatcher(),
+			)
+		}
 		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
 			setup.Logger.Error(err, "failed to start admission reports watcher")
@@ -578,68 +675,41 @@ func main() {
 			setup.ReportingConfiguration,
 			reportsBreaker,
 		)
+		voplHandlers := vpol.New(
+			celEngine,
+			contextProvider,
+			setup.KyvernoClient,
+			reportsBreaker,
+		)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
+		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
+			Enabled:   internal.PolicyExceptionEnabled(),
+			Namespace: internal.ExceptionNamespace(),
+		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
-		var celEngine celengine.Engine
-		{
-			// create a controller manager
-			scheme := kruntime.NewScheme()
-			if err := kyvernov2alpha1.Install(scheme); err != nil {
-				setup.Logger.Error(err, "failed to initialize scheme")
-				os.Exit(1)
-			}
-			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
-				Scheme: scheme,
-			})
-			if err != nil {
-				setup.Logger.Error(err, "failed to construct manager")
-				os.Exit(1)
-			}
-			// create compiler
-			compiler := celpolicy.NewCompiler()
-			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr)
-			if err != nil {
-				setup.Logger.Error(err, "failed to create policy provider")
-				os.Exit(1)
-			}
-			// create a cancellable context
-			ctx, cancel := context.WithCancel(signalCtx)
-			// start manager
-			wg.StartWithContext(ctx, func(ctx context.Context) {
-				// cancel context at the end
-				defer cancel()
-				if err := mgr.Start(ctx); err != nil {
-					setup.Logger.Error(err, "failed to start manager")
-					os.Exit(1)
-				}
-			})
-			if !mgr.GetCache().WaitForCacheSync(ctx) {
-				defer cancel()
-				setup.Logger.Error(err, "failed to create policy provider")
-				os.Exit(1)
-			}
-			celEngine = celengine.NewEngine(
-				provider,
-				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
-					if err != nil {
-						return nil
-					}
-					return ns
-				},
-				matching.NewMatcher(),
-			)
-		}
 		server := webhooks.NewServer(
 			signalCtx,
-			policyHandlers,
-			resourceHandlers,
-			exceptionHandlers,
-			globalContextHandlers,
+			webhooks.PolicyHandlers{
+				Mutation:   webhooks.HandlerFunc(policyHandlers.Mutate),
+				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
+			},
+			webhooks.ResourceHandlers{
+				Mutation:           webhooks.HandlerFunc(resourceHandlers.Mutate),
+				Validation:         webhooks.HandlerFunc(resourceHandlers.Validate),
+				ValidatingPolicies: webhooks.HandlerFunc(voplHandlers.Validate),
+			},
+			webhooks.ExceptionHandlers{
+				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
+			},
+			webhooks.CELExceptionHandlers{
+				Validation: webhooks.HandlerFunc(celExceptionHandlers.Validate),
+			},
+			webhooks.GlobalContextHandlers{
+				Validation: webhooks.HandlerFunc(globalContextHandlers.Validate),
+			},
 			setup.Configuration,
 			setup.MetricsManager,
 			webhooks.DebugModeOptions{
@@ -660,8 +730,6 @@ func main() {
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
 			int32(webhookServerPort), //nolint:gosec
-			celEngine,
-			setup.KyvernoDynamicClient,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers

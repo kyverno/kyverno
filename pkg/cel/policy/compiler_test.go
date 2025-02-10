@@ -62,7 +62,7 @@ func Test_compiler_Compile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := NewCompiler()
-			compiled, errs := c.Compile(tt.policy)
+			compiled, errs := c.Compile(tt.policy, nil)
 			if tt.wantErr {
 				assert.Error(t, errs.ToAggregate())
 			} else {

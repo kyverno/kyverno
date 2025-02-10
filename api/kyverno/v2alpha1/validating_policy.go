@@ -8,13 +8,18 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:path=validatingpolicies,scope="Cluster",shortName=vpol,categories=kyverno
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              ValidatingPolicySpec `json:"spec"`
+	// Status contains policy runtime data.
+	// +optional
+	Status PolicyStatus `json:"status,omitempty"`
 }
 
 func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -32,8 +37,20 @@ func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePol
 	return *s.Spec.FailurePolicy
 }
 
+func (s *ValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+	return s.Spec.WebhookConfiguration
+}
+
 func (s *ValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
+}
+
+func (s *ValidatingPolicy) GetSpec() *ValidatingPolicySpec {
+	return &s.Spec
+}
+
+func (s *ValidatingPolicy) GetStatus() *PolicyStatus {
+	return &s.Status
 }
 
 // +kubebuilder:object:root=true
