@@ -151,6 +151,7 @@ type ImageData struct {
 func (i *ImageData) Descriptor() ocispec.Descriptor {
 	return GCRtoOCISpecDesc(i.desc.Descriptor)
 }
+
 func (i *ImageData) loadReferrers() error {
 	if i.referrersManifest != nil {
 		return nil
