@@ -374,8 +374,8 @@ func Test_Apply(t *testing.T) {
 		{
 			// Same as the above test case but the policy paths are reordered
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/policies/policy-test.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/resource/test-resource.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/apply/type/policy-apply.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/type/resource-apply.yaml"},
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
