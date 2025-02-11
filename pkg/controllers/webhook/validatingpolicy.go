@@ -1,14 +1,14 @@
 package webhook
 
 import (
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server string, servicePort int32, caBundle []byte, vpols []kyvernov2alpha1.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
+func buildWebhookRules(cfg config.Configuration, server string, servicePort int32, caBundle []byte, vpols []policiesv1alpha1.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
 	var (
 		webhookIgnoreList []admissionregistrationv1.ValidatingWebhook
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook
@@ -72,7 +72,7 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 			fineGrainedWebhook = true
 		}
 
-		for _, rule := range autogen.ComputeRules(vpol.(*kyvernov2alpha1.ValidatingPolicy)) {
+		for _, rule := range autogen.ComputeRules(vpol.(*policiesv1alpha1.ValidatingPolicy)) {
 			webhook.MatchConditions = append(webhook.MatchConditions, rule.MatchConditions...)
 			for _, match := range rule.MatchConstraints.ResourceRules {
 				webhook.Rules = append(webhook.Rules, match.RuleWithOperations)

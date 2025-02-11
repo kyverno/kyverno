@@ -11,14 +11,17 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -100,7 +103,7 @@ type controller struct {
 	vwcLister         admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
-	vpolLister        kyvernov2alpha1listers.ValidatingPolicyLister
+	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
@@ -143,7 +146,7 @@ func NewController(
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
-	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
+	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
@@ -382,7 +385,7 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 	}
 }
 
-func (c *controller) recordValidatingPolicyState(validatingpolicies ...kyvernov2alpha1.GenericPolicy) {
+func (c *controller) recordValidatingPolicyState(validatingpolicies ...policiesv1alpha1.GenericPolicy) {
 	c.vpolState = make(map[string]bool)
 	for _, policy := range validatingpolicies {
 		c.vpolState[policy.GetName()] = true
@@ -661,9 +664,9 @@ func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
 		return err
 	}
 
-	updateStatusFunc := func(vpol kyvernov2alpha1.GenericPolicy) error {
+	updateStatusFunc := func(vpol policiesv1alpha1.GenericPolicy) error {
 		status := vpol.GetStatus()
-		status.SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
 		status.Autogen.Rules = nil
 		rules := vpolautogen.ComputeRules(vpol)
 		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
@@ -677,12 +680,12 @@ func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
 		}
 		err := controllerutils.UpdateStatus(
 			ctx,
-			vpol.(*kyvernov2alpha1.ValidatingPolicy),
-			c.kyvernoClient.KyvernoV2alpha1().ValidatingPolicies(),
-			func(vpol *kyvernov2alpha1.ValidatingPolicy) error {
+			vpol.(*policiesv1alpha1.ValidatingPolicy),
+			c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies(),
+			func(vpol *policiesv1alpha1.ValidatingPolicy) error {
 				return updateStatusFunc(vpol)
 			},
-			func(a *kyvernov2alpha1.ValidatingPolicy, b *kyvernov2alpha1.ValidatingPolicy) bool {
+			func(a *policiesv1alpha1.ValidatingPolicy, b *policiesv1alpha1.ValidatingPolicy) bool {
 				return datautils.DeepEqual(a.Status, b.Status)
 			},
 		)
@@ -1136,13 +1139,13 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 	return policies, nil
 }
 
-func (c *controller) getValidatingPolicies() ([]kyvernov2alpha1.GenericPolicy, error) {
+func (c *controller) getValidatingPolicies() ([]policiesv1alpha1.GenericPolicy, error) {
 	validatingpolicies, err := c.vpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	vpols := make([]kyvernov2alpha1.GenericPolicy, 0)
+	vpols := make([]policiesv1alpha1.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
 		vpols = append(vpols, vpol)
 	}

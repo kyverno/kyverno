@@ -6,11 +6,11 @@ import (
 	"slices"
 	"strings"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
-func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*kyvernov2alpha1.AutogenRule, error) {
+func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	// create a resource rule for the cronjob resource
 	matchConstraints := createMatchConstraints(controllers, operations)
@@ -56,7 +56,7 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 		}
 	}
 
-	return &kyvernov2alpha1.AutogenRule{
+	return &policiesv1alpha1.AutogenRule{
 		MatchConstraints: matchConstraints,
 		MatchConditions:  matchConditions,
 		Validations:      validations,
@@ -65,7 +65,7 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 	}, nil
 }
 
-func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*kyvernov2alpha1.AutogenRule, error) {
+func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	// create a resource rule for pod controllers
 	matchConstraints := createMatchConstraints(controllers, operations)
@@ -109,7 +109,7 @@ func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, cont
 		}
 	}
 
-	return &kyvernov2alpha1.AutogenRule{
+	return &policiesv1alpha1.AutogenRule{
 		MatchConstraints: matchConstraints,
 		MatchConditions:  matchConditions,
 		Validations:      validations,
