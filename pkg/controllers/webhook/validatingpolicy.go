@@ -44,20 +44,19 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 		} else {
 			webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 		}
-		// TODO(shuting): exclude?
+
 		for _, match := range vpol.GetMatchConstraints().ResourceRules {
 			webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 		}
 
-		for _, rule := range autogen.ComputeRules(vpol.(*kyvernov2alpha1.ValidatingPolicy)) {
-			for _, match := range rule.MatchConstraints.ResourceRules {
-				webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
-			}
-		}
-
 		fineGrainedWebhook := false
 		if vpol.GetMatchConditions() != nil {
-			webhook.MatchConditions = vpol.GetMatchConditions()
+			for _, m := range vpol.GetMatchConditions() {
+				webhook.MatchConditions = append(webhook.MatchConditions, admissionregistrationv1.MatchCondition{
+					Name:       m.Name,
+					Expression: "(object.Kind == 'Pod') && " + m.Expression,
+				})
+			}
 			fineGrainedWebhook = true
 		}
 		if vpol.GetMatchConstraints().MatchPolicy != nil && *vpol.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
@@ -67,6 +66,13 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 		if vpol.GetWebhookConfiguration() != nil && vpol.GetWebhookConfiguration().TimeoutSeconds != nil {
 			webhook.TimeoutSeconds = vpol.GetWebhookConfiguration().TimeoutSeconds
 			fineGrainedWebhook = true
+		}
+
+		for _, rule := range autogen.ComputeRules(vpol.(*kyvernov2alpha1.ValidatingPolicy)) {
+			webhook.MatchConditions = append(webhook.MatchConditions, rule.MatchConditions...)
+			for _, match := range rule.MatchConstraints.ResourceRules {
+				webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+			}
 		}
 
 		if fineGrainedWebhook {

@@ -16,14 +16,9 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 	matchConstraints := createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions := spec.MatchConditions
-	if bytes, err := json.Marshal(matchConditions); err != nil {
+	matchConditions, err := convertMatchconditions(spec.MatchConditions, cronjobMatchConditionName, cronJobMatchConditionExpression)
+	if err != nil {
 		return nil, err
-	} else {
-		bytes = updateFields(bytes, controllers)
-		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
-			return nil, err
-		}
 	}
 
 	// convert validations
@@ -76,14 +71,9 @@ func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, cont
 	matchConstraints := createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions := spec.MatchConditions
-	if bytes, err := json.Marshal(matchConditions); err != nil {
+	matchConditions, err := convertMatchconditions(spec.MatchConditions, podControllerMatchConditionName, podControllersMatchConditionExpression)
+	if err != nil {
 		return nil, err
-	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
-			return nil, err
-		}
 	}
 
 	// convert validations
@@ -174,6 +164,23 @@ func createMatchConstraints(controllers string, operations []admissionregistrati
 	}
 }
 
+func convertMatchconditions(conditions []admissionregistrationv1.MatchCondition, name, expression string) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
+	for _, m := range conditions {
+		m.Name = name + m.Name
+		m.Expression = expression + m.Expression
+		matchConditions = append(matchConditions, m)
+	}
+	if bytes, err := json.Marshal(matchConditions); err != nil {
+		return nil, err
+	} else {
+		bytes = updateFields(bytes, "pods")
+		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
+			return nil, err
+		}
+	}
+	return matchConditions, nil
+}
+
 var (
 	podReplacementRules [][2][]byte = [][2][]byte{
 		{[]byte("object.spec"), []byte("object.spec.template.spec")},
@@ -187,6 +194,11 @@ var (
 		{[]byte("object.metadata"), []byte("object.spec.jobTemplate.spec.template.metadata")},
 		{[]byte("oldObject.metadata"), []byte("oldObject.spec.jobTemplate.spec.template.metadata")},
 	}
+
+	podControllerMatchConditionName        = "autogen-"
+	podControllersMatchConditionExpression = "(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') && "
+	cronjobMatchConditionName              = "autogen-cronjobs-"
+	cronJobMatchConditionExpression        = "(object.Kind =='CronJob') && "
 )
 
 func updateFields(data []byte, resource string) []byte {
