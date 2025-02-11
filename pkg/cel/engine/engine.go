@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
@@ -79,7 +79,7 @@ type EngineResponse struct {
 
 type PolicyResponse struct {
 	Actions sets.Set[admissionregistrationv1.ValidationAction]
-	Policy  kyvernov2alpha1.ValidatingPolicy
+	Policy  policiesv1alpha1.ValidatingPolicy
 	Rules   []engineapi.RuleResponse
 }
 
