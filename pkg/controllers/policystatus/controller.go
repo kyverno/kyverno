@@ -86,7 +86,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	updateFunc := func(vpol *kyvernov2alpha1.ValidatingPolicy) error {
-		status := vpol.GetStatus().DeepCopy()
+		status := vpol.GetStatus()
 		if status.Ready == nil || *status.Ready != ready {
 			status.Ready = &ready
 		}
