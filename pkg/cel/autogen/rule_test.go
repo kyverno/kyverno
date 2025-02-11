@@ -180,8 +180,8 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				},
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
-						Name:       "only for production",
-						Expression: "has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
+						Name:       "autogen-only for production",
+						Expression: "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
 					},
 				},
 				Validations: []admissionregistrationv1.Validation{
@@ -319,8 +319,8 @@ func TestGenerateCronJobRule(t *testing.T) {
 				},
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
-						Name:       "only for production",
-						Expression: "has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
+						Name:       "autogen-cronjobs-only for production",
+						Expression: "!(object.Kind =='CronJob') || has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
 					},
 				},
 				Validations: []admissionregistrationv1.Validation{
@@ -397,7 +397,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
+	for i, tt := range tests {
 		var spec *kyvernov2alpha1.ValidatingPolicySpec
 		err := json.Unmarshal(tt.policySpec, &spec)
 		assert.NilError(t, err)
@@ -406,7 +406,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 		assert.NilError(t, err)
 
 		if !reflect.DeepEqual(genRule, &tt.generatedRule) {
-			t.Errorf("generateCronJobRule() = %v, want %v", genRule, tt.generatedRule)
+			t.Errorf("%v: generateCronJobRule() = %v, want %v", i, genRule, tt.generatedRule)
 		}
 	}
 }

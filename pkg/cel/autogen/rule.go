@@ -16,7 +16,7 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 	matchConstraints := createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions, err := convertMatchconditions(spec.MatchConditions, cronjobMatchConditionName, cronJobMatchConditionExpression)
+	matchConditions, err := convertMatchconditions(spec.MatchConditions, "cronjobs", cronjobMatchConditionName, cronJobMatchConditionExpression)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, cont
 	matchConstraints := createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions, err := convertMatchconditions(spec.MatchConditions, podControllerMatchConditionName, podControllersMatchConditionExpression)
+	matchConditions, err := convertMatchconditions(spec.MatchConditions, "pods", podControllerMatchConditionName, podControllersMatchConditionExpression)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func createMatchConstraints(controllers string, operations []admissionregistrati
 	}
 }
 
-func convertMatchconditions(conditions []admissionregistrationv1.MatchCondition, name, expression string) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
+func convertMatchconditions(conditions []admissionregistrationv1.MatchCondition, resource, name, expression string) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
 	for _, m := range conditions {
 		m.Name = name + m.Name
 		m.Expression = expression + m.Expression
@@ -173,7 +173,7 @@ func convertMatchconditions(conditions []admissionregistrationv1.MatchCondition,
 	if bytes, err := json.Marshal(matchConditions); err != nil {
 		return nil, err
 	} else {
-		bytes = updateFields(bytes, "pods")
+		bytes = updateFields(bytes, resource)
 		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
 			return nil, err
 		}
@@ -196,9 +196,9 @@ var (
 	}
 
 	podControllerMatchConditionName        = "autogen-"
-	podControllersMatchConditionExpression = "(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') && "
+	podControllersMatchConditionExpression = "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || "
 	cronjobMatchConditionName              = "autogen-cronjobs-"
-	cronJobMatchConditionExpression        = "(object.Kind =='CronJob') && "
+	cronJobMatchConditionExpression        = "!(object.Kind =='CronJob') || "
 )
 
 func updateFields(data []byte, resource string) []byte {
