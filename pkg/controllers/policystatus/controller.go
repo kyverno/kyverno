@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/policy/auth"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
@@ -22,7 +23,6 @@ const (
 	ControllerName string = "status-controller"
 	Workers        int    = 3
 	maxRetries     int    = 3
-	enqueueDelay          = 3 * time.Second
 )
 
 type Controller interface {
@@ -38,22 +38,30 @@ type controller struct {
 	authChecker auth.AuthChecks
 }
 
-func NewController(dclient dclient.Interface, client versioned.Interface, informer kyvernov2alpha1informers.ValidatingPolicyInformer) Controller {
+func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer) Controller {
 	c := &controller{
 		dclient: dclient,
 		client:  client,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName}),
-		vpolLister:  informer.Lister(),
+		vpolLister:  vpolInformer.Lister(),
 		authChecker: auth.NewAuth(dclient, "", logger),
 	}
 
 	enqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(c.queue)))
 	_, err := controllerutils.AddEventHandlers(
-		informer.Informer(),
+		vpolInformer.Informer(),
 		controllerutils.AddFunc(logger, enqueueFunc),
-		controllerutils.UpdateFunc(logger, enqueueFunc),
+		func(old, new interface{}) {
+			oldVpol := old.(*kyvernov2alpha1.ValidatingPolicy)
+			newVpol := new.(*kyvernov2alpha1.ValidatingPolicy)
+			if !datautils.DeepEqual(oldVpol.GetStatus(), newVpol.GetStatus()) {
+				if err := enqueueFunc(new); err != nil {
+					logger.Error(err, "failed to enqueue object", "obj", new)
+				}
+			}
+		},
 		nil,
 	)
 	if err != nil {
@@ -67,7 +75,7 @@ func (c controller) Run(ctx context.Context, workers int) {
 }
 
 func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error {
-	vpol, err := c.vpolLister.Get(name)
+	vpol, err := c.client.KyvernoV2alpha1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.V(4).Info("validating policy not found", "name", name)
