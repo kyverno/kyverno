@@ -49,15 +49,11 @@ func NewController(dclient dclient.Interface, client versioned.Interface, inform
 		authChecker: auth.NewAuth(dclient, "", logger),
 	}
 
-	enqueueFunc := controllerutils.LogError(logger,
-		controllerutils.Parse(controllerutils.MetaNamespaceKey,
-			controllerutils.QueueAfter(c.queue, enqueueDelay),
-		))
-
+	enqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(c.queue)))
 	_, err := controllerutils.AddEventHandlers(
 		informer.Informer(),
-		func(_ interface{}) { controllerutils.AddFunc(logger, enqueueFunc) },
-		func(_, _ interface{}) { controllerutils.UpdateFunc(logger, enqueueFunc) },
+		controllerutils.AddFunc(logger, enqueueFunc),
+		controllerutils.UpdateFunc(logger, enqueueFunc),
 		nil,
 	)
 	if err != nil {
@@ -91,14 +87,23 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 
 	updateFunc := func(vpol *kyvernov2alpha1.ValidatingPolicy) error {
 		status := vpol.GetStatus().DeepCopy()
-		status.Ready = ready
+		if status.Ready == nil || *status.Ready != ready {
+			status.Ready = &ready
+		}
 		return nil
 	}
 
-	controllerutils.UpdateStatus(ctx, vpol, c.client.KyvernoV2alpha1().ValidatingPolicies(), updateFunc,
+	err = controllerutils.UpdateStatus(ctx,
+		vpol,
+		c.client.KyvernoV2alpha1().ValidatingPolicies(),
+		updateFunc,
 		func(current, expect *kyvernov2alpha1.ValidatingPolicy) bool {
+			if current.GetStatus().Ready == nil {
+				return false
+			}
 			return current.GetStatus().Ready == expect.GetStatus().Ready
-		})
-	c.client.KyvernoV2alpha1().ValidatingPolicies().UpdateStatus(ctx, vpol, metav1.UpdateOptions{})
-	return nil
+		},
+	)
+
+	return err
 }

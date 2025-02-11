@@ -18,7 +18,7 @@ type PolicyStatus struct {
 	// The ready of a policy is a high-level summary of where the policy is in its lifecycle.
 	// The conditions array, the reason and message fields contain more detail about the policy's status.
 	// +optional
-	Ready bool `json:"ready,omitempty"`
+	Ready *bool `json:"ready,omitempty"`
 
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
