@@ -273,6 +273,16 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
 
 		// Group=policies.kyverno.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithKind("AutogenRule"):
+		return &policieskyvernoiov1alpha1.AutogenRuleApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("AutogenStatus"):
+		return &policieskyvernoiov1alpha1.AutogenStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("CELPolicyException"):
+		return &policieskyvernoiov1alpha1.CELPolicyExceptionApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("CELPolicyExceptionSpec"):
+		return &policieskyvernoiov1alpha1.CELPolicyExceptionSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PolicyRef"):
+		return &policieskyvernoiov1alpha1.PolicyRefApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("PolicyStatus"):
 		return &policieskyvernoiov1alpha1.PolicyStatusApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"):
