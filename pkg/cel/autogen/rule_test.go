@@ -397,7 +397,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 			},
 		},
 	}
-  
+
 	for i, tt := range tests {
 		var spec *policiesv1alpha1.ValidatingPolicySpec
 		err := json.Unmarshal(tt.policySpec, &spec)
