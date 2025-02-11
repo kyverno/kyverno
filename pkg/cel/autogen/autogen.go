@@ -51,13 +51,13 @@ func generateRules(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers strin
 	isRemoved, controllers := stripCronJob(controllers)
 	// generate rule for pod controllers
 	if genRule, err := generateRuleForControllers(spec, controllers); err == nil {
-		genRules = append(genRules, *genRule)
+		genRules = append(genRules, *genRule.DeepCopy())
 	}
 
 	// generate rule for cronjobs if exist
 	if isRemoved {
 		if genRule, err := generateCronJobRule(spec, "cronjobs"); err == nil {
-			genRules = append(genRules, *genRule)
+			genRules = append(genRules, *genRule.DeepCopy())
 		}
 	}
 	return genRules
