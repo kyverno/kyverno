@@ -35,12 +35,6 @@ annotations:
   artifacthub.io/changes: |
     - kind: fixed
       description: fix validation error in validate.yaml, which made it impossible to disable reports-controller CRDs, with the recently introduced option .reportsController.sanityChecks
-    - kind: fixed
-      description: fix validation error in validate.yaml
-    - kind: fixed
-      description: fixed global image registry config by introducing *.image.defaultRegistry.
-    - kind: added
-      description: added a new option .reportsController.sanityChecks to disable checks for policy reports crds
 dependencies:
   - name: grafana
     version: v0.0.0
