@@ -374,14 +374,33 @@ func Test_Apply(t *testing.T) {
 		{
 			// Same as the above test case but the policy paths are reordered
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/apply/policies/policy-test.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/resource/test-resource.yaml"},
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
-					Pass:  2,
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/policy.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/deployment1.yaml",
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/deployment2.yaml",
+				},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
 					Fail:  1,
 					Skip:  0,
 					Error: 0,
