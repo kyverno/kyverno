@@ -2,18 +2,19 @@ package policystatus
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
-	"github.com/kyverno/kyverno/pkg/policy/auth"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
@@ -30,23 +31,20 @@ type Controller interface {
 }
 
 type controller struct {
-	dclient dclient.Interface
-	client  versioned.Interface
-
-	vpolLister  kyvernov2alpha1listers.ValidatingPolicyLister
+	dclient     dclient.Interface
+	client      versioned.Interface
 	queue       workqueue.TypedRateLimitingInterface[any]
-	authChecker auth.AuthChecks
+	authChecker auth.AuthChecker
 }
 
-func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer) Controller {
+func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer, reportsSA string) Controller {
 	c := &controller{
 		dclient: dclient,
 		client:  client,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName}),
-		vpolLister:  vpolInformer.Lister(),
-		authChecker: auth.NewAuth(dclient, "", logger),
+		authChecker: auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
 	}
 
 	enqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(c.queue)))
@@ -84,6 +82,46 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return err
 	}
 
+	c.reconcileConditions(ctx, vpol)
+	return c.setReady(ctx, vpol)
+}
+
+func (c controller) reconcileConditions(ctx context.Context, vpol *kyvernov2alpha1.ValidatingPolicy) {
+	gvrs := []metav1.GroupVersionResource{}
+	for _, rule := range vpol.GetMatchConstraints().ResourceRules {
+		for _, g := range rule.RuleWithOperations.APIGroups {
+			for _, v := range rule.RuleWithOperations.APIVersions {
+				for _, r := range rule.RuleWithOperations.Resources {
+					gvrs = append(gvrs, metav1.GroupVersionResource{
+						Group:    g,
+						Version:  v,
+						Resource: r,
+					})
+				}
+			}
+		}
+	}
+
+	var errs []error
+	for _, gvr := range gvrs {
+		for _, verb := range []string{"get", "list", "watch"} {
+			result, err := c.authChecker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, "", "", "", verb)
+			if err != nil {
+				errs = append(errs, err)
+			} else if !result.Allowed {
+				errs = append(errs, fmt.Errorf("%s %s: %s", verb, gvr.String(), result.Reason))
+			}
+		}
+	}
+
+	if errs != nil {
+		vpol.GetStatus().SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("missing permissions: %v", multierr.Combine(errs...)))
+	} else {
+		vpol.GetStatus().SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting")
+	}
+}
+
+func (c controller) setReady(ctx context.Context, vpol *kyvernov2alpha1.ValidatingPolicy) error {
 	status := vpol.GetStatus()
 	ready := true
 	for _, condition := range status.Conditions {
@@ -101,17 +139,24 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return nil
 	}
 
-	err = controllerutils.UpdateStatus(ctx,
+	err := controllerutils.UpdateStatus(ctx,
 		vpol,
 		c.client.KyvernoV2alpha1().ValidatingPolicies(),
 		updateFunc,
 		func(current, expect *kyvernov2alpha1.ValidatingPolicy) bool {
-			if current.GetStatus().Ready == nil {
+			if current.GetStatus().Ready == nil || current.GetStatus().Ready == expect.GetStatus().Ready {
 				return false
 			}
-			return current.GetStatus().Ready == expect.GetStatus().Ready
+
+			for _, condition := range current.GetStatus().Conditions {
+				for _, expectCondition := range expect.GetStatus().Conditions {
+					if condition.Type == expectCondition.Type && condition.Status == expectCondition.Status {
+						return false
+					}
+				}
+			}
+			return true
 		},
 	)
-
 	return err
 }

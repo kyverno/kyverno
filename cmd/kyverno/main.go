@@ -117,6 +117,7 @@ func createNonLeaderControllers(
 func createrLeaderControllers(
 	admissionReports bool,
 	serverIP string,
+	reportsServiceAccountName string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
 	autoDeleteWebhooks bool,
@@ -270,7 +271,7 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
-	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Kyverno().V2alpha1().ValidatingPolicies())
+	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Kyverno().V2alpha1().ValidatingPolicies(), reportsServiceAccountName)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
@@ -523,6 +524,7 @@ func main() {
 				leaderControllers, warmup, err := createrLeaderControllers(
 					admissionReports,
 					serverIP,
+					reportsServiceAccountName,
 					webhookTimeout,
 					autoUpdateWebhooks,
 					autoDeleteWebhooks,

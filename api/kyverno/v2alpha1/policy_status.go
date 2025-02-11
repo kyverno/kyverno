@@ -10,7 +10,6 @@ type PolicyConditionType string
 
 const (
 	PolicyConditionTypeWebhookConfigured      PolicyConditionType = "WebhookConfigured"
-	PolicyConditionTypePolicyCached           PolicyConditionType = "PolicyCached"
 	PolicyConditionTypeRBACPermissionsGranted PolicyConditionType = "RBACPermissionsGranted"
 )
 
