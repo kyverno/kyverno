@@ -1,7 +1,5 @@
 # Logging Guideline
 
-**Last Edited: Feb 2025**
-
 Logging in Kyverno follows a structured approach using `logr`, with `zerologr` for structured logging and `klogr` for Kubernetes client logs, ensuring consistency and standardization.
 
 ## **Log Levels**
