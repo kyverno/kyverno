@@ -19,10 +19,10 @@ status:
           - CREATE
           - UPDATE
           resources:
-          - replicasets
           - daemonsets
           - deployments
           - statefulsets
+          - replicasets
         - apiGroups:
           - batch
           apiVersions:
