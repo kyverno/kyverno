@@ -18,16 +18,11 @@ limitations under the License.
 
 package v2alpha1
 
-import (
-	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-)
-
 // CredentialsApplyConfiguration represents an declarative configuration of the Credentials type for use
 // with apply.
 type CredentialsApplyConfiguration struct {
-	AllowInsecureRegistry *bool                               `json:"allowInsecureRegistry,omitempty"`
-	Providers             []v2alpha1.CredentialsProvidersType `json:"providers,omitempty"`
-	Secrets               []string                            `json:"secrets,omitempty"`
+	AllowInsecureRegistry *bool    `json:"allowInsecureRegistry,omitempty"`
+	Secrets               []string `json:"secrets,omitempty"`
 }
 
 // CredentialsApplyConfiguration constructs an declarative configuration of the Credentials type for use with
@@ -41,16 +36,6 @@ func Credentials() *CredentialsApplyConfiguration {
 // If called multiple times, the AllowInsecureRegistry field is set to the value of the last call.
 func (b *CredentialsApplyConfiguration) WithAllowInsecureRegistry(value bool) *CredentialsApplyConfiguration {
 	b.AllowInsecureRegistry = &value
-	return b
-}
-
-// WithProviders adds the given value to the Providers field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the Providers field.
-func (b *CredentialsApplyConfiguration) WithProviders(values ...v2alpha1.CredentialsProvidersType) *CredentialsApplyConfiguration {
-	for i := range values {
-		b.Providers = append(b.Providers, values[i])
-	}
 	return b
 }
 

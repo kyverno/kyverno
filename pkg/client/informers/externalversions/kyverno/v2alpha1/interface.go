@@ -26,8 +26,6 @@ import (
 type Interface interface {
 	// GlobalContextEntries returns a GlobalContextEntryInformer.
 	GlobalContextEntries() GlobalContextEntryInformer
-	// ImageVerificationPolicies returns a ImageVerificationPolicyInformer.
-	ImageVerificationPolicies() ImageVerificationPolicyInformer
 }
 
 type version struct {
@@ -44,9 +42,4 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // GlobalContextEntries returns a GlobalContextEntryInformer.
 func (v *version) GlobalContextEntries() GlobalContextEntryInformer {
 	return &globalContextEntryInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// ImageVerificationPolicies returns a ImageVerificationPolicyInformer.
-func (v *version) ImageVerificationPolicies() ImageVerificationPolicyInformer {
-	return &imageVerificationPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

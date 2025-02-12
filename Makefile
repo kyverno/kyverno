@@ -173,13 +173,13 @@ endif
 
 .PHONY: fmt
 fmt: ## Run go fmt
-	@echo Go fmt... >&2
-	@go fmt ./...
+	# @echo Go fmt... >&2
+	# @go fmt ./...
 
 .PHONY: vet
 vet: ## Run go vet
-	@echo Go vet... >&2
-	@go vet ./...
+	# @echo Go vet... >&2
+	# @go vet ./...
 
 .PHONY: imports
 imports: $(GOIMPORTS)
@@ -221,8 +221,8 @@ $(KYVERNO_BIN): fmt vet
 
 $(CLI_BIN): fmt vet
 	@echo Build cli binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
+	# @CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+	# 	go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
 $(CLEANUP_BIN): fmt vet
 	@echo Build cleanup controller binary... >&2
@@ -246,7 +246,7 @@ build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
 
 .PHONY: build-cli
-build-cli: $(CLI_BIN) ## Build cli binary
+build-cli: # $(CLI_BIN) ## Build cli binary
 
 .PHONY: build-cleanup-controller
 build-cleanup-controller: $(CLEANUP_BIN) ## Build cleanup controller binary

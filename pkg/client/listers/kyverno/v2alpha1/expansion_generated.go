@@ -21,7 +21,3 @@ package v2alpha1
 // GlobalContextEntryListerExpansion allows custom methods to be added to
 // GlobalContextEntryLister.
 type GlobalContextEntryListerExpansion interface{}
-
-// ImageVerificationPolicyListerExpansion allows custom methods to be added to
-// ImageVerificationPolicyLister.
-type ImageVerificationPolicyListerExpansion interface{}

@@ -4,7 +4,6 @@ import (
 	"github.com/go-logr/logr"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	globalcontextentries "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/globalcontextentries"
-	imageverificationpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/imageverificationpolicies"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/client-go/rest"
 )
@@ -34,10 +33,6 @@ func (c *withMetrics) GlobalContextEntries() github_com_kyverno_kyverno_pkg_clie
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "GlobalContextEntry", c.clientType)
 	return globalcontextentries.WithMetrics(c.inner.GlobalContextEntries(), recorder)
 }
-func (c *withMetrics) ImageVerificationPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.ImageVerificationPolicyInterface {
-	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ImageVerificationPolicy", c.clientType)
-	return imageverificationpolicies.WithMetrics(c.inner.ImageVerificationPolicies(), recorder)
-}
 
 type withTracing struct {
 	inner  github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.KyvernoV2alpha1Interface
@@ -50,9 +45,6 @@ func (c *withTracing) RESTClient() rest.Interface {
 func (c *withTracing) GlobalContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.GlobalContextEntryInterface {
 	return globalcontextentries.WithTracing(c.inner.GlobalContextEntries(), c.client, "GlobalContextEntry")
 }
-func (c *withTracing) ImageVerificationPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.ImageVerificationPolicyInterface {
-	return imageverificationpolicies.WithTracing(c.inner.ImageVerificationPolicies(), c.client, "ImageVerificationPolicy")
-}
 
 type withLogging struct {
 	inner  github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.KyvernoV2alpha1Interface
@@ -64,7 +56,4 @@ func (c *withLogging) RESTClient() rest.Interface {
 }
 func (c *withLogging) GlobalContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.GlobalContextEntryInterface {
 	return globalcontextentries.WithLogging(c.inner.GlobalContextEntries(), c.logger.WithValues("resource", "GlobalContextEntries"))
-}
-func (c *withLogging) ImageVerificationPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.ImageVerificationPolicyInterface {
-	return imageverificationpolicies.WithLogging(c.inner.ImageVerificationPolicies(), c.logger.WithValues("resource", "ImageVerificationPolicies"))
 }

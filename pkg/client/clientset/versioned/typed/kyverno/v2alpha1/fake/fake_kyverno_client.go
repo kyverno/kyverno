@@ -32,10 +32,6 @@ func (c *FakeKyvernoV2alpha1) GlobalContextEntries() v2alpha1.GlobalContextEntry
 	return &FakeGlobalContextEntries{c}
 }
 
-func (c *FakeKyvernoV2alpha1) ImageVerificationPolicies() v2alpha1.ImageVerificationPolicyInterface {
-	return &FakeImageVerificationPolicies{c}
-}
-
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeKyvernoV2alpha1) RESTClient() rest.Interface {

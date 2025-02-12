@@ -60,8 +60,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&GlobalContextEntry{},
 		&GlobalContextEntryList{},
-		&ImageVerificationPolicy{},
-		&ImageVerificationPolicyList{},
 	)
 	// AddToGroupVersion allows the serialization of client types like ListOptions.
 	v1.AddToGroupVersion(scheme, SchemeGroupVersion)
