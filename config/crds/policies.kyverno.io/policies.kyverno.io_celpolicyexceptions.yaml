@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: (devel)
-  name: celpolicyexceptions.kyverno.io
+  name: celpolicyexceptions.policies.kyverno.io
 spec:
-  group: kyverno.io
+  group: policies.kyverno.io
   names:
     kind: CELPolicyException
     listKind: CELPolicyExceptionList
@@ -14,7 +14,7 @@ spec:
     singular: celpolicyexception
   scope: Namespaced
   versions:
-  - name: v2alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: PolicyException declares resources to be excluded from specified

@@ -73,6 +73,18 @@ rules:
       - globalcontextentries
       - globalcontextentries/status
       - policyexceptions
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
       - validatingpolicies
       - validatingpolicies/status
       - celpolicyexceptions

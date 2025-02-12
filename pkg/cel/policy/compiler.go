@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	"github.com/kyverno/kyverno/pkg/cel/libs/context"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -23,7 +23,7 @@ const (
 )
 
 type Compiler interface {
-	Compile(*kyvernov2alpha1.ValidatingPolicy, []kyvernov2alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
+	Compile(*policiesv1alpha1.ValidatingPolicy, []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -32,7 +32,7 @@ func NewCompiler() Compiler {
 
 type compiler struct{}
 
-func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy, exceptions []kyvernov2alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
