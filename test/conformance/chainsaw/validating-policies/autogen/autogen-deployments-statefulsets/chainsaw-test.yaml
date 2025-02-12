@@ -10,7 +10,7 @@ spec:
     - create:
         file: policy.yaml
     - sleep:
-        duration: 20s
+        duration: 2s
   - name: check autogen policy
     try:
     - assert:

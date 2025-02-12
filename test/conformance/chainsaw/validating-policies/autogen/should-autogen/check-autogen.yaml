@@ -39,9 +39,9 @@ status:
         message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
           must be set to `false`.
     - matchConditions:
-      - expression: "!(object.Kind =='CronJob') || has(object.spec.jobTemplate.spec.template.spec.template.metadata.labels)
-          && has(object.spec.jobTemplate.spec.template.spec.template.metadata.labels.prod)
-          && object.spec.jobTemplate.spec.template.spec.template.metadata.labels.prod
+      - expression: "!(object.Kind =='CronJob') || has(object.spec.jobTemplate.spec.template.metadata.labels)
+          && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
+          && object.spec.jobTemplate.spec.template.metadata.labels.prod
           == 'true'"
         name: autogen-cronjobs-check-prod-label
       matchConstraints:
