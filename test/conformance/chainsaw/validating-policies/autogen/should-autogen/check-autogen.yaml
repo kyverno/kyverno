@@ -8,7 +8,7 @@ status:
     - matchConditions:
       - expression: "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
           && object.spec.template.metadata.labels.prod == 'true'"
-        name: check-prod-label
+        name: autogen-check-prod-label
       matchConstraints:
         resourceRules:
         - apiGroups:
@@ -43,7 +43,7 @@ status:
           && has(object.spec.jobTemplate.spec.template.spec.template.metadata.labels.prod)
           && object.spec.jobTemplate.spec.template.spec.template.metadata.labels.prod
           == 'true'"
-        name: check-prod-label
+        name: autogen-cronjobs-check-prod-label
       matchConstraints:
         resourceRules:
         - apiGroups:
