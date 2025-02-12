@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: (devel)
-  name: validatingpolicies.kyverno.io
+  name: validatingpolicies.policies.kyverno.io
 spec:
-  group: kyverno.io
+  group: policies.kyverno.io
   names:
     categories:
     - kyverno
@@ -22,7 +22,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    name: v2alpha1
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
