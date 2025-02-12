@@ -1147,7 +1147,9 @@ func (c *controller) getValidatingPolicies() ([]policiesv1alpha1.GenericPolicy, 
 
 	vpols := make([]policiesv1alpha1.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
-		vpols = append(vpols, vpol)
+		if vpol.Spec.AdmissionEnabled() {
+			vpols = append(vpols, vpol)
+		}
 	}
 	return vpols, nil
 }
