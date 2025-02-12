@@ -53,3 +53,4 @@ func OCISpectoGCRDesc(ocidesc ocispec.Descriptor) (*gcrv1.Descriptor, error) {
 	}
 	return gcrDesc, nil
 }
+

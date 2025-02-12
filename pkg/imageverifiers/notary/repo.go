@@ -10,10 +10,10 @@ import (
 )
 
 type repositoryClient struct {
-	image imagedataloader.ImageData
+	image *imagedataloader.ImageData
 }
 
-func NewRepository(image imagedataloader.ImageData) notationregistry.Repository {
+func NewRepository(image *imagedataloader.ImageData) notationregistry.Repository {
 	return &repositoryClient{
 		image: image,
 	}

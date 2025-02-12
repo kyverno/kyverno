@@ -43,7 +43,8 @@ func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, e
 
 func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error) {
 	img := ImageData{
-		Image: image,
+		Image:         image,
+		referrersData: make(map[string]referrerData),
 	}
 
 	var err error
@@ -146,10 +147,21 @@ type ImageData struct {
 	nameRef           name.Reference
 	desc              *remote.Descriptor
 	referrersManifest *gcrv1.IndexManifest
+	referrersData     map[string]referrerData
+	verifiedReferrers []gcrv1.Descriptor
+}
+
+type referrerData struct {
+	layerDescriptor *gcrv1.Descriptor
+	data            []byte
 }
 
 func (i *ImageData) Descriptor() ocispec.Descriptor {
 	return GCRtoOCISpecDesc(i.desc.Descriptor)
+}
+
+func (i *ImageData) WithDigest(digest string) string {
+	return i.nameRef.Context().Digest(digest).String()
 }
 
 func (i *ImageData) loadReferrers() error {
@@ -192,6 +204,10 @@ func (i *ImageData) FetchRefererrs(artifactType string) ([]gcrv1.Descriptor, err
 }
 
 func (i *ImageData) FetchReferrerData(desc gcrv1.Descriptor) ([]byte, *gcrv1.Descriptor, error) {
+	if v, found := i.referrersData[desc.Digest.String()]; found {
+		return v.data, v.layerDescriptor, nil
+	}
+
 	img, err := remote.Image(i.nameRef.Context().Digest(desc.Digest.String()), i.remoteOpts...)
 	if err != nil {
 		return nil, nil, err
@@ -233,5 +249,17 @@ func (i *ImageData) FetchReferrerData(desc gcrv1.Descriptor) ([]byte, *gcrv1.Des
 
 	b, err := io.ReadAll(io.LimitReader(reader, maxPayloadSize))
 
+	i.referrersData[desc.Digest.String()] = referrerData{
+		data:            b,
+		layerDescriptor: layerDesc,
+	}
 	return b, layerDesc, err
+}
+
+func (i *ImageData) AddVerifiedReferrer(desc gcrv1.Descriptor) {
+	if i.verifiedReferrers == nil {
+		i.verifiedReferrers = make([]gcrv1.Descriptor, 0)
+	}
+
+	i.verifiedReferrers = append(i.verifiedReferrers, desc)
 }
