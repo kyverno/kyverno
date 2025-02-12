@@ -23,11 +23,12 @@ import (
 type EvaluationResult struct {
 	Error   error
 	Message string
-	Result  ref.Val
+	Index   int
+	Result  bool
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) ([]EvaluationResult, []policiesv1alpha1.CELPolicyException, error)
+	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
 }
 
 type compiledValidation struct {
@@ -65,7 +66,7 @@ func (p *compiledPolicy) Evaluate(
 	namespace runtime.Object,
 	context contextlib.ContextInterface,
 	autogenIndex int,
-) ([]EvaluationResult, []policiesv1alpha1.CELPolicyException, error) {
+) (*EvaluationResult, error) {
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]policiesv1alpha1.CELPolicyException, 0)
@@ -140,13 +141,16 @@ func (p *compiledPolicy) Evaluate(
 			return nil
 		})
 	}
-	results := make([]EvaluationResult, 0, len(validations))
-	for _, validation := range validations {
+
+	for index, validation := range p.validations {
 		out, _, err := validation.program.ContextEval(ctx, data)
+		if err != nil {
+			return nil, err
+		}
+
 		// evaluate only when rule fails
-		var message string
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
-			message = validation.message
+			message := validation.message
 			if validation.messageExpression != nil {
 				if out, _, err := validation.messageExpression.ContextEval(ctx, data); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
@@ -156,14 +160,19 @@ func (p *compiledPolicy) Evaluate(
 					message = msg
 				}
 			}
+
+			return &EvaluationResult{
+				Result:  outcome,
+				Message: fmt.Sprintf("validation[%d]: %s", index, message),
+				Index:   index,
+				Error:   err,
+			}, nil
+		} else if err != nil {
+			return &EvaluationResult{Error: err}, nil
 		}
-		results = append(results, EvaluationResult{
-			Result:  out,
-			Message: message,
-			Error:   err,
-		})
 	}
-	return results, nil, nil
+
+	return &EvaluationResult{Result: true}, nil
 }
 
 func (p *compiledPolicy) match(
