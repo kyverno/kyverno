@@ -85,6 +85,10 @@ crds:
       validatingpolicies: true
       celpolicyexceptions: true
 
+    policies:
+      validatingpolicies: true
+      celpolicyexceptions: true
+
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
       clusterephemeralreports: true

@@ -12,8 +12,8 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
@@ -33,7 +33,7 @@ var (
 	clusterPolicyV2       = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
 	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	vpV2alpha1            = kyvernov2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	vpV2alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
 	LegacyLoader          = legacyLoader
 	KubectlValidateLoader = kubectlValidateLoader
 	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
@@ -54,7 +54,7 @@ type LoaderResults struct {
 	Policies           []kyvernov1.PolicyInterface
 	VAPs               []admissionregistrationv1.ValidatingAdmissionPolicy
 	VAPBindings        []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	ValidatingPolicies []kyvernov2alpha1.ValidatingPolicy
+	ValidatingPolicies []policiesv1alpha1.ValidatingPolicy
 	NonFatalErrors     []LoaderError
 }
 
@@ -166,7 +166,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.VAPBindings = append(results.VAPBindings, *typed)
 		case vpV2alpha1:
-			typed, err := convert.To[kyvernov2alpha1.ValidatingPolicy](untyped)
+			typed, err := convert.To[policiesv1alpha1.ValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
