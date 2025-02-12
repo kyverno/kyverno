@@ -24,6 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// CELPolicyExceptions returns a CELPolicyExceptionInformer.
+	CELPolicyExceptions() CELPolicyExceptionInformer
 	// GlobalContextEntries returns a GlobalContextEntryInformer.
 	GlobalContextEntries() GlobalContextEntryInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
@@ -39,6 +41,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// CELPolicyExceptions returns a CELPolicyExceptionInformer.
+func (v *version) CELPolicyExceptions() CELPolicyExceptionInformer {
+	return &cELPolicyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // GlobalContextEntries returns a GlobalContextEntryInformer.

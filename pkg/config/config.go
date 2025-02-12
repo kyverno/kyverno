@@ -24,6 +24,8 @@ const (
 	ValidatingWebhookConfigurationName = "kyverno-resource-validating-webhook-cfg"
 	// ExceptionValidatingWebhookConfigurationName ...
 	ExceptionValidatingWebhookConfigurationName = "kyverno-exception-validating-webhook-cfg"
+	// CELExceptionValidatingWebhookConfigurationName ...
+	CELExceptionValidatingWebhookConfigurationName = "kyverno-cel-exception-validating-webhook-cfg"
 	// GlobalContextValidatingWebhookConfigurationName ...
 	GlobalContextValidatingWebhookConfigurationName = "kyverno-global-context-validating-webhook-cfg"
 	// CleanupValidatingWebhookConfigurationName ...
@@ -50,6 +52,8 @@ const (
 	MutatingWebhookName = "mutate.kyverno.svc"
 	// VerifyMutatingWebhookName default verify mutating webhook name
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
+	// ValidatingPolicyWebhookName defines default webhook name for validatingpolicies
+	ValidatingPolicyWebhookName = "vpol.validate.kyverno.svc"
 )
 
 // paths
@@ -58,8 +62,12 @@ const (
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	// ValidatingWebhookServicePath is the path for validation webhook
 	ValidatingWebhookServicePath = "/validate"
+	// ValidatingPolicyServicePath is the path for validating policies execution
+	ValidatingPolicyServicePath = "/vpol"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
+	// CELExceptionValidatingWebhookServicePath is the path for CELPolicyException validation webhook(used to validate CELPolicyException resource)
+	CELExceptionValidatingWebhookServicePath = "/celexception/validate"
 	// GlobalContextValidatingWebhookServicePath is the path for global context validation webhook(used to validate global context entries)
 	GlobalContextValidatingWebhookServicePath = "/globalcontextvalidate"
 	// CleanupValidatingWebhookServicePath is the path for cleanup policy validation webhook(used to validate cleanup policy resource)

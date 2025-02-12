@@ -7,7 +7,6 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -122,50 +121,6 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[s
 		return false, sets.New[string]()
 	}
 	return true, PodControllers
-}
-
-// GetSupportedControllers returns the supported autogen controllers for a given spec.
-func GetSupportedControllers(spec *kyvernov1.Spec) sets.Set[string] {
-	apply, controllers := CanAutoGen(spec)
-	if !apply || (controllers.Len() == 1 && controllers.Has("none")) {
-		return nil
-	}
-	return controllers
-}
-
-// GetRequestedControllers returns the requested autogen controllers based on object annotations.
-func GetRequestedControllers(meta *metav1.ObjectMeta) sets.Set[string] {
-	annotations := meta.GetAnnotations()
-	if annotations == nil {
-		return nil
-	}
-	controllers, ok := annotations[kyverno.AnnotationAutogenControllers]
-	if !ok || controllers == "" {
-		return nil
-	}
-	if controllers == "none" {
-		return sets.New[string]()
-	}
-	return sets.New(splitKinds(controllers, ",")...)
-}
-
-// GetControllers computes the autogen controllers that should be applied to a policy.
-// It returns the requested, supported and effective controllers (intersection of requested and supported ones).
-func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []string, []string) {
-	// compute supported and requested controllers
-	supported, requested := GetSupportedControllers(spec), GetRequestedControllers(meta)
-	// no specific request, we can return supported controllers without further filtering
-	if requested == nil {
-		return requested.UnsortedList(), supported.UnsortedList(), supported.UnsortedList()
-	}
-	// filter supported controllers, keeping only those that have been requested
-	var activated []string
-	for _, controller := range supported.UnsortedList() {
-		if requested.Has(controller) {
-			activated = append(activated, controller)
-		}
-	}
-	return requested.UnsortedList(), supported.UnsortedList(), activated
 }
 
 // podControllersKey annotation could be:

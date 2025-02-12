@@ -61,11 +61,18 @@ type TestResultDeprecated struct {
 	PatchedResource string `json:"patchedResource,omitempty"`
 }
 
-// TestResultBase declares a test result
-type TestResult struct {
-	TestResultBase       `json:",inline,omitempty"`
-	TestResultDeprecated `json:",inline,omitempty"`
+// TestResultData declares a test result data
+type TestResultData struct {
+	// Resources gives us the list of resources on which the policy is going to be applied.
+	Resources []string `json:"resources,omitempty"`
 
 	// Resources gives us the list of resources on which the policy is going to be applied.
-	Resources []any `json:"resources"`
+	ResourceSpecs []TestResourceSpec `json:"resourceSpecs,omitempty"`
+}
+
+// TestResult declares a test result
+type TestResult struct {
+	TestResultBase       `json:",inline"`
+	TestResultDeprecated `json:",inline"`
+	TestResultData       `json:",inline"`
 }

@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/go-logr/logr"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
+	celpolicyexceptions "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/celpolicyexceptions"
 	globalcontextentries "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/globalcontextentries"
 	validatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/validatingpolicies"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -30,6 +31,10 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withMetrics) CELPolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CELPolicyExceptionInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "CELPolicyException", c.clientType)
+	return celpolicyexceptions.WithMetrics(c.inner.CELPolicyExceptions(namespace), recorder)
+}
 func (c *withMetrics) GlobalContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.GlobalContextEntryInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "GlobalContextEntry", c.clientType)
 	return globalcontextentries.WithMetrics(c.inner.GlobalContextEntries(), recorder)
@@ -47,6 +52,9 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withTracing) CELPolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CELPolicyExceptionInterface {
+	return celpolicyexceptions.WithTracing(c.inner.CELPolicyExceptions(namespace), c.client, "CELPolicyException")
+}
 func (c *withTracing) GlobalContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.GlobalContextEntryInterface {
 	return globalcontextentries.WithTracing(c.inner.GlobalContextEntries(), c.client, "GlobalContextEntry")
 }
@@ -61,6 +69,9 @@ type withLogging struct {
 
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
+}
+func (c *withLogging) CELPolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CELPolicyExceptionInterface {
+	return celpolicyexceptions.WithLogging(c.inner.CELPolicyExceptions(namespace), c.logger.WithValues("resource", "CELPolicyExceptions").WithValues("namespace", namespace))
 }
 func (c *withLogging) GlobalContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.GlobalContextEntryInterface {
 	return globalcontextentries.WithLogging(c.inner.GlobalContextEntries(), c.logger.WithValues("resource", "GlobalContextEntries"))

@@ -21,6 +21,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const divider = "----------------------------------------------------------------------"
+
 func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedInvalidPolicies) {
 	if len(skipInvalidPolicies.skipped) > 0 {
 		fmt.Fprintln(out, divider)

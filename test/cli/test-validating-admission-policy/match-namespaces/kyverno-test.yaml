@@ -1,0 +1,20 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: with-namespaceObject-3
+spec:
+  policies:
+    - policy.yaml
+  resources:
+    - resources.yaml
+  results:
+    - isValidatingAdmissionPolicy: true
+      policy: validate-namespace-policy
+      resource: valid-namespace
+      kind: Namespace
+      result: pass
+    - isValidatingAdmissionPolicy: true
+      policy: validate-namespace-policy
+      resource: invalid-namespace
+      kind: Namespace
+      result: fail

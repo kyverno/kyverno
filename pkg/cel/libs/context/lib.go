@@ -6,31 +6,32 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	"k8s.io/client-go/kubernetes"
+	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
-// lib types
-var ConfigMapReferenceType = types.NewObjectType("context.ConfigMapReference")
+const libraryName = "kyverno.context"
 
-type lib struct {
-	client kubernetes.Interface
+type lib struct{}
+
+func Lib() cel.EnvOption {
+	// create the cel lib env option
+	return cel.Lib(&lib{})
 }
 
-func Lib(client kubernetes.Interface) cel.EnvOption {
-	// create the cel lib env option
-	return cel.Lib(&lib{
-		client: client,
-	})
+func Types() []*apiservercel.DeclType {
+	return []*apiservercel.DeclType{
+		configMapType,
+		imageDataType,
+	}
+}
+
+func (*lib) LibraryName() string {
+	return libraryName
 }
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		ext.NativeTypes(
-			// TODO: needs cel lib bump
-			// ext.ParseStructTags(true),
-			reflect.TypeFor[ConfigMapReference](),
-		),
-		// extend environment with function overloads
+		ext.NativeTypes(reflect.TypeFor[Context]()),
 		c.extendEnv,
 	}
 }
@@ -43,13 +44,19 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	// create implementation, recording the envoy types aware adapter
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
-		client:  c.client,
 	}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
-		"context.configMap": {
-			// TODO: add more overloads...
-			cel.Overload("context_get_cm", []*cel.Type{ConfigMapReferenceType}, types.DynType, cel.UnaryBinding(impl.context_get_cm)),
+		"GetConfigMap": {
+			cel.MemberOverload("get_configmap_string_string", []*cel.Type{ContextType, types.StringType, types.StringType}, configMapType.CelType(), cel.FunctionBinding(impl.get_configmap_string_string)),
+		},
+		"GetGlobalReference": {
+			// TODO: should not use DynType in return
+			cel.MemberOverload("get_globalreference_string", []*cel.Type{ContextType, types.StringType}, types.DynType, cel.BinaryBinding(impl.get_globalreference_string)),
+		},
+		"GetImageData": {
+			// TODO: should not use DynType in return
+			cel.MemberOverload("get_imagedata_string", []*cel.Type{ContextType, types.StringType}, imageDataType.CelType(), cel.BinaryBinding(impl.get_imagedata_string)),
 		},
 	}
 	// create env options corresponding to our function overloads

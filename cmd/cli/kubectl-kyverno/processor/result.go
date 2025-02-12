@@ -27,7 +27,7 @@ func (rc *ResultCounts) addEngineResponses(auditWarn bool, responses ...engineap
 func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.EngineResponse) {
 	if !response.IsEmpty() {
 		genericPolicy := response.Policy()
-		if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+		if genericPolicy.AsKyvernoPolicy() == nil {
 			return
 		}
 		policy := genericPolicy.AsKyvernoPolicy()
@@ -65,7 +65,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 
 func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 	genericPolicy := response.Policy()
-	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+	if genericPolicy.AsKyvernoPolicy() == nil {
 		return
 	}
 	policy := genericPolicy.AsKyvernoPolicy()
@@ -85,7 +85,7 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 
 func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) bool {
 	genericPolicy := response.Policy()
-	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
+	if genericPolicy.AsKyvernoPolicy() == nil {
 		return false
 	}
 	policy := genericPolicy.AsKyvernoPolicy()

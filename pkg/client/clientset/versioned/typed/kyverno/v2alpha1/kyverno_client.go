@@ -28,6 +28,7 @@ import (
 
 type KyvernoV2alpha1Interface interface {
 	RESTClient() rest.Interface
+	CELPolicyExceptionsGetter
 	GlobalContextEntriesGetter
 	ValidatingPoliciesGetter
 }
@@ -35,6 +36,10 @@ type KyvernoV2alpha1Interface interface {
 // KyvernoV2alpha1Client is used to interact with features provided by the kyverno.io group.
 type KyvernoV2alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *KyvernoV2alpha1Client) CELPolicyExceptions(namespace string) CELPolicyExceptionInterface {
+	return newCELPolicyExceptions(c, namespace)
 }
 
 func (c *KyvernoV2alpha1Client) GlobalContextEntries() GlobalContextEntryInterface {

@@ -25,7 +25,13 @@ body:
         - 1.12.3
         - 1.12.4
         - 1.12.5
+        - 1.12.6
+        - 1.12.7
         - 1.13.0
+        - 1.13.1
+        - 1.13.2
+        - 1.13.3
+        - 1.13.4
     validations:
       required: true
   - type: dropdown
@@ -38,6 +44,7 @@ body:
         - 1.29.x
         - 1.30.x
         - 1.31.x
+        - 1.32.x
     validations:
       required: true
   - type: dropdown
