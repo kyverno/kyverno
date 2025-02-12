@@ -23,7 +23,6 @@ import (
 	time "time"
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	v2alpha1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
@@ -71,7 +70,7 @@ func NewFilteredValidatingPolicyInformer(client versioned.Interface, resyncPerio
 				return client.KyvernoV2alpha1().ValidatingPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&policiesv1alpha1.ValidatingPolicy{},
+		&kyvernov2alpha1.ValidatingPolicy{},
 		resyncPeriod,
 		indexers,
 	)
