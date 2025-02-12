@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
@@ -154,7 +154,7 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V2alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
@@ -219,8 +219,8 @@ func createrLeaderControllers(
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{"kyverno.io"},
-				APIVersions: []string{"v2alpha1"},
+				APIGroups:   []string{"policies.kyverno.io"},
+				APIVersions: []string{"v1alpha1"},
 				Resources:   []string{"celpolicyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
@@ -594,7 +594,7 @@ func main() {
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
-			if err := kyvernov2alpha1.Install(scheme); err != nil {
+			if err := policiesv1alpha1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
 			}
@@ -608,7 +608,7 @@ func main() {
 			// create compiler
 			compiler := celpolicy.NewCompiler()
 			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Kyverno().V2alpha1().CELPolicyExceptions().Lister())
+			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().CELPolicyExceptions().Lister())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
