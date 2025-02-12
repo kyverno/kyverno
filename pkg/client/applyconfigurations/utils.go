@@ -207,17 +207,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
-<<<<<<< HEAD
-	case v2alpha1.SchemeGroupVersion.WithKind("AutogenRule"):
-		return &kyvernov2alpha1.AutogenRuleApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("AutogenStatus"):
-		return &kyvernov2alpha1.AutogenStatusApplyConfiguration{}
-=======
 	case v2alpha1.SchemeGroupVersion.WithKind("Attestation"):
 		return &kyvernov2alpha1.AttestationApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("Attestor"):
 		return &kyvernov2alpha1.AttestorApplyConfiguration{}
->>>>>>> f14c3e8b3 (fix: codegen)
+	case v2alpha1.SchemeGroupVersion.WithKind("AutogenRule"):
+		return &kyvernov2alpha1.AutogenRuleApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("AutogenStatus"):
+		return &kyvernov2alpha1.AutogenStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyException"):
 		return &kyvernov2alpha1.CELPolicyExceptionApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyExceptionSpec"):
