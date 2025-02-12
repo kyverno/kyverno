@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
@@ -15,7 +15,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		name          string
 		controllers   string
 		policySpec    []byte
-		generatedRule kyvernov2alpha1.AutogenRule
+		generatedRule policiesv1alpha1.AutogenRule
 	}{
 		{
 			name:        "autogen rule for deployments",
@@ -46,7 +46,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: kyvernov2alpha1.AutogenRule{
+			generatedRule: policiesv1alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -100,7 +100,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: kyvernov2alpha1.AutogenRule{
+			generatedRule: policiesv1alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -160,7 +160,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: kyvernov2alpha1.AutogenRule{
+			generatedRule: policiesv1alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -195,7 +195,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var spec *kyvernov2alpha1.ValidatingPolicySpec
+			var spec *policiesv1alpha1.ValidatingPolicySpec
 			err := json.Unmarshal(test.policySpec, &spec)
 			assert.NilError(t, err)
 
@@ -212,7 +212,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 func TestGenerateCronJobRule(t *testing.T) {
 	tests := []struct {
 		policySpec    []byte
-		generatedRule kyvernov2alpha1.AutogenRule
+		generatedRule policiesv1alpha1.AutogenRule
 	}{
 		{
 			policySpec: []byte(`{
@@ -241,7 +241,7 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: kyvernov2alpha1.AutogenRule{
+			generatedRule: policiesv1alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -299,7 +299,7 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: kyvernov2alpha1.AutogenRule{
+			generatedRule: policiesv1alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -364,7 +364,7 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: kyvernov2alpha1.AutogenRule{
+			generatedRule: policiesv1alpha1.AutogenRule{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
@@ -398,7 +398,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		var spec *kyvernov2alpha1.ValidatingPolicySpec
+		var spec *policiesv1alpha1.ValidatingPolicySpec
 		err := json.Unmarshal(tt.policySpec, &spec)
 		assert.NilError(t, err)
 

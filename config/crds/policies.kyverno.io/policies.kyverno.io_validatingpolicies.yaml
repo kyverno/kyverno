@@ -1,18 +1,12 @@
-{{- if .Values.groups.kyverno.validatingpolicies }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    {{- with .Values.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    controller-gen.kubebuilder.io/version: v0.16.1
-  name: validatingpolicies.kyverno.io
+    controller-gen.kubebuilder.io/version: (devel)
+  name: validatingpolicies.policies.kyverno.io
 spec:
-  group: kyverno.io
+  group: policies.kyverno.io
   names:
     categories:
     - kyverno
@@ -28,10 +22,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    - jsonPath: .status.ready
-      name: READY
-      type: string
-    name: v2alpha1
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -1314,4 +1305,3 @@ spec:
     storage: true
     subresources:
       status: {}
-{{- end }}
