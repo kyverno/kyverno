@@ -673,6 +673,22 @@ func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
 		return nil
 	}
 
+	cmpFunc := func(a *policiesv1alpha1.ValidatingPolicy, b *policiesv1alpha1.ValidatingPolicy) bool {
+		var current, expect metav1.Condition
+		for _, c := range a.GetStatus().Conditions {
+			if c.Type == string(policiesv1alpha1.PolicyConditionTypeWebhookConfigured) {
+				current = c
+			}
+		}
+
+		for _, c := range b.GetStatus().Conditions {
+			if c.Type == string(policiesv1alpha1.PolicyConditionTypeWebhookConfigured) {
+				expect = c
+			}
+		}
+		return datautils.DeepEqual(current, expect)
+	}
+
 	var errs []error
 	for _, vpol := range vpols {
 		if !c.vpolState[vpol.GetName()] {
@@ -685,9 +701,7 @@ func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
 			func(vpol *policiesv1alpha1.ValidatingPolicy) error {
 				return updateStatusFunc(vpol)
 			},
-			func(a *policiesv1alpha1.ValidatingPolicy, b *policiesv1alpha1.ValidatingPolicy) bool {
-				return datautils.DeepEqual(a.Status, b.Status)
-			},
+			cmpFunc,
 		)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", vpol.GetName(), err))

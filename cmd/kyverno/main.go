@@ -27,6 +27,7 @@ import (
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
+	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
@@ -116,6 +117,7 @@ func createNonLeaderControllers(
 func createrLeaderControllers(
 	admissionReports bool,
 	serverIP string,
+	reportsServiceAccountName string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
 	autoDeleteWebhooks bool,
@@ -269,11 +271,13 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
+	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(), reportsServiceAccountName)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(celExceptionWebhookControllerName, celExceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
+	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
 	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
 	if generateVAPs {
@@ -520,6 +524,7 @@ func main() {
 				leaderControllers, warmup, err := createrLeaderControllers(
 					admissionReports,
 					serverIP,
+					reportsServiceAccountName,
 					webhookTimeout,
 					autoUpdateWebhooks,
 					autoDeleteWebhooks,
