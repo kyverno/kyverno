@@ -1,7 +1,7 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.3.6
+version: 3.3.7
 appVersion: v1.13.4
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
@@ -37,8 +37,8 @@ annotations:
       description: fix validation error in validate.yaml, which made it impossible to disable reports-controller CRDs, with the recently introduced option .reportsController.sanityChecks
 dependencies:
   - name: grafana
-    version: 3.3.6
+    version: 3.3.7
     condition: grafana.enabled
   - name: crds
-    version: 3.3.6
+    version: 3.3.7
     condition: crds.install
