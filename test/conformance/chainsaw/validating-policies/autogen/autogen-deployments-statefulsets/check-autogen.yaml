@@ -6,8 +6,8 @@ status:
   autogen:
     rules:
     - matchConditions:
-      - expression: has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
-          && object.spec.template.metadata.labels.prod == 'true'
+      - expression: "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
+          && object.spec.template.metadata.labels.prod == 'true'"
         name: check-prod-label
       matchConstraints:
         resourceRules:
@@ -22,8 +22,8 @@ status:
           - deployments
           - statefulsets
       validations:
-      - expression: object.spec.template.spec.containers.all(container, has(container.securityContext)
+      - expression: "!(object.Kind =='CronJob') || object.spec.template.spec.containers.all(container, has(container.securityContext)
           && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation
-          == false)
+          == false)"
         message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
           must be set to `false`.
