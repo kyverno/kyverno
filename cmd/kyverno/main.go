@@ -271,7 +271,7 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
-	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Kyverno().V2alpha1().ValidatingPolicies(), reportsServiceAccountName)
+	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(), reportsServiceAccountName)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))

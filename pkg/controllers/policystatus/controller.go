@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -37,7 +37,7 @@ type controller struct {
 	authChecker auth.AuthChecker
 }
 
-func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer, reportsSA string) Controller {
+func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer, reportsSA string) Controller {
 	c := &controller{
 		dclient: dclient,
 		client:  client,
@@ -52,8 +52,8 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 		vpolInformer.Informer(),
 		controllerutils.AddFunc(logger, enqueueFunc),
 		func(old, new interface{}) {
-			oldVpol := old.(*kyvernov2alpha1.ValidatingPolicy)
-			newVpol := new.(*kyvernov2alpha1.ValidatingPolicy)
+			oldVpol := old.(*policiesv1alpha1.ValidatingPolicy)
+			newVpol := new.(*policiesv1alpha1.ValidatingPolicy)
 			if !datautils.DeepEqual(oldVpol.GetStatus(), newVpol.GetStatus()) {
 				if err := enqueueFunc(new); err != nil {
 					logger.Error(err, "failed to enqueue object", "obj", new)
@@ -73,7 +73,7 @@ func (c controller) Run(ctx context.Context, workers int) {
 }
 
 func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error {
-	vpol, err := c.client.KyvernoV2alpha1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
+	vpol, err := c.client.PoliciesV1alpha1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.V(4).Info("validating policy not found", "name", name)
@@ -86,7 +86,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	return c.setReady(ctx, vpol)
 }
 
-func (c controller) reconcileConditions(ctx context.Context, vpol *kyvernov2alpha1.ValidatingPolicy) {
+func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) {
 	gvrs := []metav1.GroupVersionResource{}
 	for _, rule := range vpol.GetMatchConstraints().ResourceRules {
 		for _, g := range rule.RuleWithOperations.APIGroups {
@@ -115,13 +115,13 @@ func (c controller) reconcileConditions(ctx context.Context, vpol *kyvernov2alph
 	}
 
 	if errs != nil {
-		vpol.GetStatus().SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("missing permissions: %v", multierr.Combine(errs...)))
+		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("missing permissions: %v", multierr.Combine(errs...)))
 	} else {
-		vpol.GetStatus().SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting")
+		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting")
 	}
 }
 
-func (c controller) setReady(ctx context.Context, vpol *kyvernov2alpha1.ValidatingPolicy) error {
+func (c controller) setReady(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) error {
 	status := vpol.GetStatus()
 	ready := true
 	for _, condition := range status.Conditions {
@@ -131,7 +131,7 @@ func (c controller) setReady(ctx context.Context, vpol *kyvernov2alpha1.Validati
 		}
 	}
 
-	updateFunc := func(vpol *kyvernov2alpha1.ValidatingPolicy) error {
+	updateFunc := func(vpol *policiesv1alpha1.ValidatingPolicy) error {
 		status := vpol.GetStatus()
 		if status.Ready == nil || *status.Ready != ready {
 			status.Ready = &ready
@@ -141,9 +141,9 @@ func (c controller) setReady(ctx context.Context, vpol *kyvernov2alpha1.Validati
 
 	err := controllerutils.UpdateStatus(ctx,
 		vpol,
-		c.client.KyvernoV2alpha1().ValidatingPolicies(),
+		c.client.PoliciesV1alpha1().ValidatingPolicies(),
 		updateFunc,
-		func(current, expect *kyvernov2alpha1.ValidatingPolicy) bool {
+		func(current, expect *policiesv1alpha1.ValidatingPolicy) bool {
 			if current.GetStatus().Ready == nil || current.GetStatus().Ready == expect.GetStatus().Ready {
 				return false
 			}
