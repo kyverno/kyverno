@@ -211,14 +211,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.AttestationApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("Attestor"):
 		return &kyvernov2alpha1.AttestorApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("AutogenRule"):
-		return &kyvernov2alpha1.AutogenRuleApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("AutogenStatus"):
-		return &kyvernov2alpha1.AutogenStatusApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyException"):
-		return &kyvernov2alpha1.CELPolicyExceptionApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyExceptionSpec"):
-		return &kyvernov2alpha1.CELPolicyExceptionSpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("Certificate"):
 		return &kyvernov2alpha1.CertificateApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("Cosign"):
@@ -255,10 +247,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.KubernetesResourceApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("Notary"):
 		return &kyvernov2alpha1.NotaryApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("PolicyRef"):
-		return &kyvernov2alpha1.PolicyRefApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("PolicyStatus"):
-		return &kyvernov2alpha1.PolicyStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("Referrer"):
 		return &kyvernov2alpha1.ReferrerApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("Source"):
@@ -267,12 +255,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.TUFApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("TUFRoot"):
 		return &kyvernov2alpha1.TUFRootApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"):
-		return &kyvernov2alpha1.ValidatingPolicyApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicySpec"):
-		return &kyvernov2alpha1.ValidatingPolicySpecApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
-		return &kyvernov2alpha1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2beta1
 	case v2beta1.SchemeGroupVersion.WithKind("AnyAllConditions"):

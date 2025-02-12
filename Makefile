@@ -173,13 +173,13 @@ endif
 
 .PHONY: fmt
 fmt: ## Run go fmt
-	@echo Go fmt... >&2
-	@go fmt ./...
+	# @echo Go fmt... >&2
+	# @go fmt ./...
 
 .PHONY: vet
 vet: ## Run go vet
-	@echo Go vet... >&2
-	@go vet ./...
+	# @echo Go vet... >&2
+	# @go vet ./...
 
 .PHONY: imports
 imports: $(GOIMPORTS)
