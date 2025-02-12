@@ -6,7 +6,7 @@ status:
   autogen:
     rules:
     - matchConditions:
-      - expression: "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') ||has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
+      - expression: "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
           && object.spec.template.metadata.labels.prod == 'true'"
         name: check-prod-label
       matchConstraints:
