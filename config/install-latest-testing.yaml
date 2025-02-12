@@ -51339,6 +51339,7 @@ rules:
       - deletecollection
   - apiGroups:
       - policies.kyverno.io
+      - kyverno.io
     resources:
       - validatingpolicies
       - validatingpolicies/status
@@ -51895,6 +51896,7 @@ rules:
       - deletecollection
   - apiGroups:
       - policies.kyverno.io
+      - kyverno.io
     resources:
       - validatingpolicies
       - validatingpolicies/status
