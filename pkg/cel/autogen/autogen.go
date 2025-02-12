@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -17,7 +17,7 @@ var podControllers = sets.New("daemonsets", "deployments", "jobs", "statefulsets
 //   - Pod is not defined
 //
 // Otherwise it returns all pod controllers
-func canAutoGen(spec *kyvernov2alpha1.ValidatingPolicySpec) (bool, sets.Set[string]) {
+func CanAutoGen(spec *policiesv1alpha1.ValidatingPolicySpec) (bool, sets.Set[string]) {
 	match := spec.MatchConstraints
 	if match.NamespaceSelector != nil {
 		if len(match.NamespaceSelector.MatchLabels) > 0 || len(match.NamespaceSelector.MatchExpressions) > 0 {
@@ -45,8 +45,8 @@ func canAutoGen(spec *kyvernov2alpha1.ValidatingPolicySpec) (bool, sets.Set[stri
 	return true, podControllers
 }
 
-func generateRules(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) []kyvernov2alpha1.AutogenRule {
-	var genRules []kyvernov2alpha1.AutogenRule
+func generateRules(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) []policiesv1alpha1.AutogenRule {
+	var genRules []policiesv1alpha1.AutogenRule
 	// strip cronjobs from controllers if exist
 	isRemoved, controllers := stripCronJob(controllers)
 	// generate rule for pod controllers
@@ -82,10 +82,10 @@ func stripCronJob(controllers string) (bool, string) {
 	return isRemoved, strings.Join(newControllers, ",")
 }
 
-func ComputeRules(policy kyvernov2alpha1.GenericPolicy) []kyvernov2alpha1.AutogenRule {
-	applyAutoGen, desiredControllers := canAutoGen(policy.GetSpec())
+func ComputeRules(policy policiesv1alpha1.GenericPolicy) []policiesv1alpha1.AutogenRule {
+	applyAutoGen, desiredControllers := CanAutoGen(policy.GetSpec())
 	if !applyAutoGen {
-		return []kyvernov2alpha1.AutogenRule{}
+		return []policiesv1alpha1.AutogenRule{}
 	}
 
 	var actualControllers sets.Set[string]
