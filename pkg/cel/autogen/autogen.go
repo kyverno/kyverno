@@ -17,7 +17,7 @@ var podControllers = sets.New("daemonsets", "deployments", "jobs", "statefulsets
 //   - Pod is not defined
 //
 // Otherwise it returns all pod controllers
-func canAutoGen(spec *policiesv1alpha1.ValidatingPolicySpec) (bool, sets.Set[string]) {
+func CanAutoGen(spec *policiesv1alpha1.ValidatingPolicySpec) (bool, sets.Set[string]) {
 	match := spec.MatchConstraints
 	if match.NamespaceSelector != nil {
 		if len(match.NamespaceSelector.MatchLabels) > 0 || len(match.NamespaceSelector.MatchExpressions) > 0 {
@@ -83,7 +83,7 @@ func stripCronJob(controllers string) (bool, string) {
 }
 
 func ComputeRules(policy policiesv1alpha1.GenericPolicy) []policiesv1alpha1.AutogenRule {
-	applyAutoGen, desiredControllers := canAutoGen(policy.GetSpec())
+	applyAutoGen, desiredControllers := CanAutoGen(policy.GetSpec())
 	if !applyAutoGen {
 		return []policiesv1alpha1.AutogenRule{}
 	}
