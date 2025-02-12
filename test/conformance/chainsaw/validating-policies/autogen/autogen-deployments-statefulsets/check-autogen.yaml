@@ -1,0 +1,29 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-privilege-escalation
+status:
+  autogen:
+    rules:
+    - matchConditions:
+      - expression: "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
+          && object.spec.template.metadata.labels.prod == 'true'"
+        name: autogen-check-prod-label
+      matchConstraints:
+        resourceRules:
+        - apiGroups:
+          - apps
+          apiVersions:
+          - v1
+          operations:
+          - CREATE
+          - UPDATE
+          resources:
+          - deployments
+          - statefulsets
+      validations:
+      - expression: object.spec.template.spec.containers.all(container, has(container.securityContext)
+          && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation
+          == false)
+        message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
+          must be set to `false`.

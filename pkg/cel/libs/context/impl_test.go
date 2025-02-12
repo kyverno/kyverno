@@ -127,4 +127,7 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	img := out.Value().(*imagedataloader.ImageData)
 	assert.Equal(t, img.Tag, "latest")
 	assert.True(t, strings.HasPrefix(img.ResolvedImage, "ghcr.io/kyverno/kyverno:latest@sha256:"))
+	assert.True(t, img.ConfigData != nil)
+	assert.True(t, img.Manifest != nil)
+	assert.True(t, img.ImageIndex != nil)
 }

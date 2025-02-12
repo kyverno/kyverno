@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -18,7 +18,7 @@ func GetPolicy(bytes []byte) (
 	policies []kyvernov1.PolicyInterface,
 	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	validatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	validatingPolicies []kyvernov2alpha1.ValidatingPolicy,
+	validatingPolicies []policiesv1alpha1.ValidatingPolicy,
 	err error,
 ) {
 	documents, err := extyaml.SplitDocuments(bytes)
@@ -84,7 +84,7 @@ func parse(obj unstructured.Unstructured) (
 	*admissionregistrationv1.ValidatingAdmissionPolicy,
 	*admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	kyvernov1.PolicyInterface,
-	*kyvernov2alpha1.ValidatingPolicy,
+	*policiesv1alpha1.ValidatingPolicy,
 	error,
 ) {
 	switch obj.GetKind() {
@@ -159,8 +159,8 @@ func parseClusterPolicy(obj unstructured.Unstructured) (*kyvernov1.ClusterPolicy
 	return &out, nil
 }
 
-func parseValidatingPolicy(obj unstructured.Unstructured) (*kyvernov2alpha1.ValidatingPolicy, error) {
-	var out kyvernov2alpha1.ValidatingPolicy
+func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ValidatingPolicy, error) {
+	var out policiesv1alpha1.ValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
 		return nil, fmt.Errorf("failed to decode policy: %v", err)
 	}
