@@ -18,11 +18,11 @@ status:
           operations:
           - CREATE
           - UPDATE
-          (sort(resources)):
+          resources:
           - daemonsets
           - deployments
-          - statefulsets
           - replicasets
+          - statefulsets
         - apiGroups:
           - batch
           apiVersions:
