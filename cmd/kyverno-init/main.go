@@ -171,10 +171,10 @@ func process(client dclient.Interface, kyvernoclient kyvernoclient.Interface, do
 			select {
 			case out <- executeRequest(client, kyvernoclient, req):
 			case <-done:
-				logger.Info("done")
+				logger.V(4).Info("done")
 				return
 			case <-stopCh:
-				logger.Info("shutting down")
+				logger.V(4).Info("shutting down")
 				return
 			}
 		}
@@ -194,10 +194,10 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 			select {
 			case out <- err:
 			case <-done:
-				logger.Info("done")
+				logger.V(4).Info("done")
 				return
 			case <-stopCh:
-				logger.Info("shutting down")
+				logger.V(4).Info("shutting down")
 				return
 			}
 		}
