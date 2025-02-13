@@ -10851,6 +10851,33 @@ WebhookConfiguration
 <p>WebhookConfiguration defines the configuration for the webhook.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Background controls if rules are applied to existing resources during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -11195,6 +11222,33 @@ WebhookConfiguration
 <td>
 <em>(Optional)</em>
 <p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Background controls if rules are applied to existing resources during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
 </td>
 </tr>
 </tbody>
