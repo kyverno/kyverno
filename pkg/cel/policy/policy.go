@@ -26,13 +26,20 @@ type EvaluationResult struct {
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface) ([]EvaluationResult, error)
+	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) ([]EvaluationResult, error)
 }
 
 type compiledValidation struct {
 	message           string
 	messageExpression cel.Program
 	program           cel.Program
+}
+
+type compiledAutogenRule struct {
+	matchConditions []cel.Program
+	validations     []compiledValidation
+	auditAnnotation map[string]cel.Program
+	variables       map[string]cel.Program
 }
 
 type compiledPolicy struct {
@@ -42,6 +49,7 @@ type compiledPolicy struct {
 	validations          []compiledValidation
 	auditAnnotations     map[string]cel.Program
 	polexMatchConditions []cel.Program
+	autogenRules         []compiledAutogenRule
 }
 
 func (p *compiledPolicy) Evaluate(
@@ -50,10 +58,11 @@ func (p *compiledPolicy) Evaluate(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context contextlib.ContextInterface,
+	autogenIndex int,
 ) ([]EvaluationResult, error) {
 	// check if the resource matches an exception
 	if len(p.polexMatchConditions) > 0 {
-		match, err := p.match(ctx, attr, request, namespace, true)
+		match, err := p.match(ctx, attr, request, namespace, p.polexMatchConditions)
 		if err != nil {
 			return nil, err
 		}
@@ -62,7 +71,20 @@ func (p *compiledPolicy) Evaluate(
 		}
 	}
 
-	match, err := p.match(ctx, attr, request, namespace, false)
+	var matchConditions []cel.Program
+	var validations []compiledValidation
+	var variables map[string]cel.Program
+
+	if autogenIndex != -1 {
+		matchConditions = p.autogenRules[autogenIndex].matchConditions
+		validations = p.autogenRules[autogenIndex].validations
+		variables = p.autogenRules[autogenIndex].variables
+	} else {
+		matchConditions = p.matchConditions
+		validations = p.validations
+		variables = p.variables
+	}
+	match, err := p.match(ctx, attr, request, namespace, matchConditions)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +116,7 @@ func (p *compiledPolicy) Evaluate(
 		RequestKey:         requestVal.Object,
 		VariablesKey:       vars,
 	}
-	for name, variable := range p.variables {
+	for name, variable := range variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, data)
 			if out != nil {
@@ -106,8 +128,8 @@ func (p *compiledPolicy) Evaluate(
 			return nil
 		})
 	}
-	results := make([]EvaluationResult, 0, len(p.validations))
-	for _, validation := range p.validations {
+	results := make([]EvaluationResult, 0, len(validations))
+	for _, validation := range validations {
 		out, _, err := validation.program.ContextEval(ctx, data)
 		// evaluate only when rule fails
 		var message string
@@ -137,7 +159,7 @@ func (p *compiledPolicy) match(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	isException bool,
+	matchConditions []cel.Program,
 ) (bool, error) {
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
@@ -162,11 +184,6 @@ func (p *compiledPolicy) match(
 		RequestKey:         requestVal.Object,
 	}
 	var errs []error
-
-	matchConditions := p.matchConditions
-	if isException {
-		matchConditions = p.polexMatchConditions
-	}
 	for _, matchCondition := range matchConditions {
 		// evaluate the condition
 		out, _, err := matchCondition.ContextEval(ctx, data)
