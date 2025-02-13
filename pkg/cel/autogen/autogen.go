@@ -97,7 +97,7 @@ func ComputeRules(policy policiesv1alpha1.GenericPolicy) []policiesv1alpha1.Auto
 		actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
 	}
 
-	resources := strings.Join(actualControllers.UnsortedList(), ",")
+	resources := strings.Join(sets.List(actualControllers), ",")
 	genRules := generateRules(policy.GetSpec().DeepCopy(), resources)
 	return genRules
 }
