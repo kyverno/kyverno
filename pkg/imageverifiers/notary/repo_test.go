@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/imagedataloader"
 	notationregistry "github.com/notaryproject/notation-go/registry"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,7 +28,7 @@ func TestResolve(t *testing.T) {
 }
 
 func TestListSignatures(t *testing.T) {
-	repositoryClient, _ := setuprepo(t)
+	repositoryClient, img := setuprepo(t)
 	sigs := 0
 
 	fn := func(l []ocispec.Descriptor) error {
@@ -35,7 +36,7 @@ func TestListSignatures(t *testing.T) {
 		return nil
 	}
 
-	err := repositoryClient.ListSignatures(ctx, ocispec.Descriptor{}, fn)
+	err := repositoryClient.ListSignatures(ctx, ocispec.Descriptor{Digest: digest.Digest(img.Digest)}, fn)
 	assert.NoError(t, err)
 	assert.Equal(t, sigs, 2)
 }

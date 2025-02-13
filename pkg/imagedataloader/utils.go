@@ -51,6 +51,6 @@ func OCISpectoGCRDesc(ocidesc ocispec.Descriptor) (*gcrv1.Descriptor, error) {
 			OSVersion:    ocidesc.Platform.OSVersion,
 		}
 	}
+
 	return gcrDesc, nil
 }
-
