@@ -21,8 +21,8 @@ status:
           resources:
           - daemonsets
           - deployments
-          - statefulsets
           - replicasets
+          - statefulsets
         - apiGroups:
           - batch
           apiVersions:
