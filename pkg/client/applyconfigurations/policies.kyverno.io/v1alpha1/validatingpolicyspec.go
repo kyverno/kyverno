@@ -28,6 +28,8 @@ type ValidatingPolicySpecApplyConfiguration struct {
 	v1.ValidatingAdmissionPolicySpec `json:",inline"`
 	ValidationAction                 []v1.ValidationAction                   `json:"validationActions,omitempty"`
 	WebhookConfiguration             *WebhookConfigurationApplyConfiguration `json:"webhookConfiguration,omitempty"`
+	Admission                        *bool                                   `json:"admission,omitempty"`
+	Background                       *bool                                   `json:"background,omitempty"`
 }
 
 // ValidatingPolicySpecApplyConfiguration constructs an declarative configuration of the ValidatingPolicySpec type for use with
@@ -115,5 +117,21 @@ func (b *ValidatingPolicySpecApplyConfiguration) WithValidationAction(values ...
 // If called multiple times, the WebhookConfiguration field is set to the value of the last call.
 func (b *ValidatingPolicySpecApplyConfiguration) WithWebhookConfiguration(value *WebhookConfigurationApplyConfiguration) *ValidatingPolicySpecApplyConfiguration {
 	b.WebhookConfiguration = value
+	return b
+}
+
+// WithAdmission sets the Admission field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Admission field is set to the value of the last call.
+func (b *ValidatingPolicySpecApplyConfiguration) WithAdmission(value bool) *ValidatingPolicySpecApplyConfiguration {
+	b.Admission = &value
+	return b
+}
+
+// WithBackground sets the Background field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Background field is set to the value of the last call.
+func (b *ValidatingPolicySpecApplyConfiguration) WithBackground(value bool) *ValidatingPolicySpecApplyConfiguration {
+	b.Background = &value
 	return b
 }
