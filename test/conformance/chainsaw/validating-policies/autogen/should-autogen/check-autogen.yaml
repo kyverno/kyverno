@@ -18,7 +18,7 @@ status:
           operations:
           - CREATE
           - UPDATE
-          resources:
+          (sort(resources)):
           - daemonsets
           - deployments
           - statefulsets
