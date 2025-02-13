@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// CELPolicyExceptions returns a CELPolicyExceptionInformer.
 	CELPolicyExceptions() CELPolicyExceptionInformer
+	// ImageVerificationPolicies returns a ImageVerificationPolicyInformer.
+	ImageVerificationPolicies() ImageVerificationPolicyInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
 	ValidatingPolicies() ValidatingPolicyInformer
 }
@@ -44,6 +46,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // CELPolicyExceptions returns a CELPolicyExceptionInformer.
 func (v *version) CELPolicyExceptions() CELPolicyExceptionInformer {
 	return &cELPolicyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ImageVerificationPolicies returns a ImageVerificationPolicyInformer.
+func (v *version) ImageVerificationPolicies() ImageVerificationPolicyInformer {
+	return &imageVerificationPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // ValidatingPolicies returns a ValidatingPolicyInformer.
