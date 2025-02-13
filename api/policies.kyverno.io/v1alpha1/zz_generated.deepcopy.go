@@ -794,6 +794,16 @@ func (in *ValidatingPolicySpec) DeepCopyInto(out *ValidatingPolicySpec) {
 		*out = new(WebhookConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Admission != nil {
+		in, out := &in.Admission, &out.Admission
+		*out = new(bool)
+		**out = **in
+	}
+	if in.Background != nil {
+		in, out := &in.Background, &out.Background
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
