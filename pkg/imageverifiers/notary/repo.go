@@ -24,8 +24,8 @@ func (c *repositoryClient) Resolve(_ context.Context, img string) (ocispec.Descr
 	return c.image.FetchReference(img)
 }
 
-func (c *repositoryClient) ListSignatures(ctx context.Context, _ ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	gcrDesc, err := c.image.FetchRefererrs(notationregistry.ArtifactTypeNotation)
+func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
+	gcrDesc, err := c.image.FetchRefererrsForDigest(desc.Digest.String(), notationregistry.ArtifactTypeNotation)
 	if err != nil {
 		return err
 	}

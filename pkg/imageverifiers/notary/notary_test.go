@@ -29,8 +29,6 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`
-	imageRef        = "ghcr.io/kyverno/test-verify-image:signed"
-	attestationType = "sbom/cyclone-dx"
 )
 
 func Test_ImageSignatureVerificationStandard(t *testing.T) {
@@ -58,7 +56,7 @@ func Test_ImageAttestationVerificationStandard(t *testing.T) {
 	}
 
 	attestation := Referrer{
-		Type: attestationType,
+		Type: "sbom/cyclone-dx",
 	}
 	v := notaryVerifier{log: logr.Discard()}
 	err = v.VerifyAttestationSignature(ctx, img, attestation, attestor)
@@ -83,7 +81,7 @@ func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
 	assert.ErrorContains(t, err, "attestation verification failed, no attestations found for type: invalid")
 }
 
-func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
+func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 	idf, err := imagedataloader.New(nil)
 	assert.NoError(t, err)
 	img, err := idf.FetchImageData(ctx, image)
@@ -98,5 +96,23 @@ func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
 	}
 	v := notaryVerifier{log: logr.Discard()}
 	err = v.VerifyAttestationSignature(ctx, img, attestation, attestor)
-	assert.NoError(t, err, "attestation verification failed, no attestations found for type: invalid")
+	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, signature is not produced by a trusted signe")
+}
+
+func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
+	idf, err := imagedataloader.New(nil)
+	assert.NoError(t, err)
+	img, err := idf.FetchImageData(ctx, image)
+	assert.NoError(t, err)
+
+	attestor := Notary{
+		Certs: cert,
+	}
+
+	attestation := Referrer{
+		Type: "application/vnd.cncf.notary.signature",
+	}
+	v := notaryVerifier{log: logr.Discard()}
+	err = v.VerifyAttestationSignature(ctx, img, attestation, attestor)
+	assert.ErrorContains(t, err, "make sure the artifact was signed successfully")
 }
