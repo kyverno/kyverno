@@ -190,7 +190,7 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
-	var autogenIndex int
+	autogenIndex := -1
 	if e.matcher != nil {
 		matches, index, err := e.matchPolicy(policy, attr, namespace)
 		if err != nil {
