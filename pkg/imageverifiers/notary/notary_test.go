@@ -29,6 +29,7 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`
+	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 )
 
 func Test_ImageSignatureVerificationStandard(t *testing.T) {
@@ -43,6 +44,20 @@ func Test_ImageSignatureVerificationStandard(t *testing.T) {
 	v := notaryVerifier{log: logr.Discard()}
 	err = v.VerifyImageSignature(ctx, img, attestor)
 	assert.NoError(t, err)
+}
+
+func Test_ImageSignatureVerificationUnsigned(t *testing.T) {
+	idf, err := imagedataloader.New(nil)
+	assert.NoError(t, err)
+	img, err := idf.FetchImageData(ctx, unsignedImage)
+	assert.NoError(t, err)
+
+	attestor := Notary{
+		Certs: cert,
+	}
+	v := notaryVerifier{log: logr.Discard()}
+	err = v.VerifyImageSignature(ctx, img, attestor)
+	assert.ErrorContains(t, err, "make sure the artifact was signed successfully")
 }
 
 func Test_ImageAttestationVerificationStandard(t *testing.T) {
@@ -96,7 +111,7 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 	}
 	v := notaryVerifier{log: logr.Discard()}
 	err = v.VerifyAttestationSignature(ctx, img, attestation, attestor)
-	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, signature is not produced by a trusted signe")
+	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, signature is not produced by a trusted signer")
 }
 
 func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
