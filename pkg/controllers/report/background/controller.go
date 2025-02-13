@@ -176,7 +176,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	logger.Info("background scan", "interval", c.forceDelay.Abs().String())
+	logger.V(2).Info("background scan", "interval", c.forceDelay.Abs().String())
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
