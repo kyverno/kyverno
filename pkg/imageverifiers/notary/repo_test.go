@@ -64,5 +64,5 @@ func setuprepo(t *testing.T) (notationregistry.Repository, *imagedataloader.Imag
 	assert.NoError(t, err)
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
-	return NewRepository(*img), img
+	return NewRepository(img), img
 }

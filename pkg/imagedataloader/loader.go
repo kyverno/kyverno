@@ -156,8 +156,17 @@ type referrerData struct {
 	data            []byte
 }
 
-func (i *ImageData) Descriptor() ocispec.Descriptor {
-	return GCRtoOCISpecDesc(i.desc.Descriptor)
+func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error) {
+	if identifier == i.Digest {
+		return GCRtoOCISpecDesc(i.desc.Descriptor), nil
+	}
+
+	d, err := remote.Head(i.nameRef.Context().Digest(identifier), i.remoteOpts...)
+	if err != nil {
+		return ocispec.Descriptor{}, err
+	}
+
+	return GCRtoOCISpecDesc(*d), nil
 }
 
 func (i *ImageData) WithDigest(digest string) string {

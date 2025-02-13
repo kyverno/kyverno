@@ -2,6 +2,7 @@ package notary
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/imagedataloader"
@@ -9,6 +10,7 @@ import (
 	"github.com/notaryproject/notation-go"
 	notationlog "github.com/notaryproject/notation-go/log"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 func NewVerifier() *notaryVerifier {
@@ -33,7 +35,7 @@ func (v *notaryVerifier) VerifyImageSignature(ctx context.Context, image *imaged
 	}
 
 	opts := notation.VerifyOptions{
-		ArtifactReference:    image.Image,
+		ArtifactReference:    image.WithDigest(image.Digest),
 		MaxSignatureAttempts: 10,
 	}
 	_, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), vInfo.Verifier,
@@ -71,6 +73,7 @@ func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *
 		return err
 	}
 
+	var errs []error
 	for _, r := range referrers {
 		reference := image.WithDigest(r.Digest.String())
 		logger := logger.WithValues("attestation ref", reference)
@@ -84,14 +87,16 @@ func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *
 		_, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), vInfo.Verifier,
 			vInfo.Repo, opts)
 		if err != nil {
-			err := errors.Wrapf(err, "failed to verify attestation %s", image.Image)
+			err := errors.Wrapf(err, "failed to verify attestation %s, digest %s", r.ArtifactType, r.Digest)
 			logger.Error(err, "attestation verification failed")
+			errs = append(errs, err)
 			continue
 		}
 
 		if err := checkVerificationOutcomes(outcomes); err != nil {
 			err := errors.Wrapf(err, "notation failed to verify attesattion signatures")
 			logger.Error(err, "attesatation verification failed")
+			errs = append(errs, err)
 			continue
 		}
 
@@ -99,5 +104,8 @@ func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *
 		return nil
 	}
 
-	return nil
+	if len(errs) == 0 {
+		return fmt.Errorf("attestation verification failed, no attestations found for type: %s", attestation.Type)
+	}
+	return multierr.Combine(errs...)
 }
