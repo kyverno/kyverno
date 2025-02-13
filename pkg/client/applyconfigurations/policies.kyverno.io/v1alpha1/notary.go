@@ -21,7 +21,8 @@ package v1alpha1
 // NotaryApplyConfiguration represents an declarative configuration of the Notary type for use
 // with apply.
 type NotaryApplyConfiguration struct {
-	Certs *string `json:"certs,omitempty"`
+	Certs    *string `json:"certs,omitempty"`
+	TSACerts *string `json:"tsaCerts,omitempty"`
 }
 
 // NotaryApplyConfiguration constructs an declarative configuration of the Notary type for use with
@@ -35,5 +36,13 @@ func Notary() *NotaryApplyConfiguration {
 // If called multiple times, the Certs field is set to the value of the last call.
 func (b *NotaryApplyConfiguration) WithCerts(value string) *NotaryApplyConfiguration {
 	b.Certs = &value
+	return b
+}
+
+// WithTSACerts sets the TSACerts field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the TSACerts field is set to the value of the last call.
+func (b *NotaryApplyConfiguration) WithTSACerts(value string) *NotaryApplyConfiguration {
+	b.TSACerts = &value
 	return b
 }

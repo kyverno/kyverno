@@ -159,6 +159,9 @@ type Cosign struct {
 type Notary struct {
 	// Certs define the cert chain for Notary signature verification
 	Certs string `json:"certs"`
+	// TSACerts define the cert chain for verifying timestamps of notary signature
+	// +optional
+	TSACerts string `json:"tsaCerts"`
 }
 
 // TUF defines the configuration to fetch sigstore root

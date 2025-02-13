@@ -306,6 +306,10 @@ spec:
                           description: Certs define the cert chain for Notary signature
                             verification
                           type: string
+                        tsaCerts:
+                          description: TSACerts define the cert chain for verifying
+                            timestamps of notary signature
+                          type: string
                       required:
                       - certs
                       type: object
