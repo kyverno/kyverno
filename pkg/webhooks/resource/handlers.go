@@ -158,7 +158,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	}
 	wg.Wait()
 	if !ok {
-		logger.Info("admission request denied")
+		logger.V(4).Info("admission request denied")
 		events := webhookutils.GenerateEvents(enforceResponses, true, h.configuration)
 		h.eventGen.Add(events...)
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)

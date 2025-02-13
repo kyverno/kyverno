@@ -84,7 +84,7 @@ func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
 	// log if `forceFailurePolicyIgnore` flag has been set or not
 	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
-		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
+		logger.V(2).Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
 }
 
