@@ -45,7 +45,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			if mutateResp.Status == engineapi.RuleStatusPass {
 				f.resource.unstructured = mutateResp.PatchedResource
 			}
-			f.logger.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
+			f.logger.V(3).Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
 			if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
 				f.logger.Error(err, "failed to update resource in context")
 			}
@@ -104,7 +104,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		}
 
 		if !preconditionsPassed {
-			f.logger.Info("mutate.foreach.preconditions not met", "elementIndex", index, "message", msg)
+			f.logger.V(3).Info("mutate.foreach.preconditions not met", "elementIndex", index, "message", msg)
 			continue
 		}
 

@@ -16,6 +16,36 @@ type ValidatingPolicySpec struct {
 	// WebhookConfiguration defines the configuration for the webhook.
 	// +optional
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
+
+	// Admission controls if rules are applied during admission.
+	// Optional. Default value is "true".
+	// +optional
+	// +kubebuilder:default=true
+	Admission *bool `json:"admission,omitempty"`
+
+	// Background controls if rules are applied to existing resources during a background scan.
+	// Optional. Default value is "true". The value must be set to "false" if the policy rule
+	// uses variables that are only available in the admission review request (e.g. user name).
+	// +optional
+	// +kubebuilder:default=true
+	Background *bool `json:"background,omitempty"`
+}
+
+// AdmissionEnabled checks if admission is set to true
+func (s ValidatingPolicySpec) AdmissionEnabled() bool {
+	if s.Admission == nil {
+		return true
+	}
+
+	return *s.Admission
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s ValidatingPolicySpec) BackgroundEnabled() bool {
+	if s.Background == nil {
+		return true
+	}
+	return *s.Background
 }
 
 type WebhookConfiguration struct {
