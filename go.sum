@@ -532,8 +532,8 @@ github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs
 github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/hashicorp/hcl v1.0.1-vault-5 h1:kI3hhbbyzr4dldA8UdTb7ZlVVlI2DACdCfz31RPDgJM=
 github.com/hashicorp/hcl v1.0.1-vault-5/go.mod h1:XYhtn6ijBSAj6n4YqAaf7RBPS4I06AItNorpy+MoQNM=
-github.com/hashicorp/vault/api v1.15.0 h1:O24FYQCWwhwKnF7CuSqP30S51rTV7vz1iACXE/pj5DA=
-github.com/hashicorp/vault/api v1.15.0/go.mod h1:+5YTO09JGn0u+b6ySD/LLVf8WkJCPLAL2Vkmrn2+CM8=
+github.com/hashicorp/vault/api v1.16.0 h1:nbEYGJiAPGzT9U4oWgaaB0g+Rj8E59QuHKyA5LhwQN4=
+github.com/hashicorp/vault/api v1.16.0/go.mod h1:KhuUhzOD8lDSk29AtzNjgAu2kxRA9jL9NAbkFlqvkBA=
 github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef h1:A9HsByNhogrvm9cWb28sjiS3i7tcKCkflWFEkHfuAgM=
 github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef/go.mod h1:lADxMC39cJJqL93Duh1xhAs4I2Zs8mKS89XWXFGp9cs=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
@@ -790,8 +790,8 @@ github.com/sigstore/fulcio v1.6.3 h1:Mvm/bP6ELHgazqZehL8TANS1maAkRoM23CRAdkM4xQI
 github.com/sigstore/fulcio v1.6.3/go.mod h1:5SDgLn7BOUVLKe1DwOEX3wkWFu5qEmhUlWm+SFf0GH8=
 github.com/sigstore/k8s-manifest-sigstore v0.5.4 h1:XPLs7Dz2OXkRdt4sgAoLxuyNSfkb/n5SwfnYb23YlRk=
 github.com/sigstore/k8s-manifest-sigstore v0.5.4/go.mod h1:VN/nxjuAprSy1LrutFdhc5UsrQjij4DaCYV4Wklu5zo=
-github.com/sigstore/protobuf-specs v0.3.3 h1:RMZQgXTD/pF7KW6b5NaRLYxFYZ/wzx44PQFXN2PEo5g=
-github.com/sigstore/protobuf-specs v0.3.3/go.mod h1:vIhZ6Uor1a38+wvRrKcqL2PtYNlgoIW9lhzYzkyy4EU=
+github.com/sigstore/protobuf-specs v0.4.0 h1:yoZbdh0kZYKOSiVbYyA8J3f2wLh5aUk2SQB7LgAfIdU=
+github.com/sigstore/protobuf-specs v0.4.0/go.mod h1:FKW5NYhnnFQ/Vb9RKtQk91iYd0MKJ9AxyqInEwU6+OI=
 github.com/sigstore/rekor v1.3.9 h1:sUjRpKVh/hhgqGMs0t+TubgYsksArZ6poLEC3MsGAzU=
 github.com/sigstore/rekor v1.3.9/go.mod h1:xThNUhm6eNEmkJ/SiU/FVU7pLY2f380fSDZFsdDWlcM=
 github.com/sigstore/sigstore v1.8.12 h1:S8xMVZbE2z9ZBuQUEG737pxdLjnbOIcFi5v9UFfkJFc=
@@ -804,8 +804,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.12 h1:FPpliDTywSy0woLH
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.12/go.mod h1:NkPiz4XA0JcBSXzJUrjMj7Xi7oSTew1Ip3Zmt56mHlw=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.12 h1:kweBChR6M9FEvmxN3BMEcl7SNnwxTwKF7THYFKLOE5U=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.12/go.mod h1:6+d+A6oYt1W5OgtzgEVb21V7tAZ/C2Ihtzc5MNJbayY=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.12 h1:jvY1B9bjP+tKzdKDyuq5K7O19CG2IKzGJNTy5tuL2Gs=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.12/go.mod h1:2uEeOb8xE2RC6OvzxKux1wkS39Zv8gA27z92m49xUTc=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.14 h1:MMmhPTuZrQGQ69OmL2aym4ULnk1kpvbXatcKaNl9Fgk=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.14/go.mod h1:6olKNL2BGrsZPLbO/7kiJzZPxU74270nDI5G3HSSykw=
 github.com/sigstore/timestamp-authority v1.2.2 h1:X4qyutnCQqJ0apMewFyx+3t7Tws00JQ/JonBiu3QvLE=
 github.com/sigstore/timestamp-authority v1.2.2/go.mod h1:nEah4Eq4wpliDjlY342rXclGSO7Kb9hoRrl9tqLW13A=
 github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
