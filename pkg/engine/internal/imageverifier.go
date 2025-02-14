@@ -282,7 +282,7 @@ func (iv *ImageVerifier) verifyImage(
 		}
 
 		if matchReferences(imageVerify.SkipImageReferences, image) {
-			iv.logger.Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
+			iv.logger.V(3).Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
 			iv.ivm.Add(image, engineapi.ImageVerificationSkip)
 			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties).WithEmitWarning(true), ""
 		}
@@ -538,7 +538,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		opts.Type = attestation.Type
 		opts.IgnoreSCT = true // TODO: Add option to allow SCT when attestors are not provided
 		if attestation.PredicateType != "" && attestation.Type == "" {
-			iv.logger.Info("predicate type has been deprecated, please use type instead", "image", image)
+			iv.logger.V(4).Info("predicate type has been deprecated, please use type instead", "image", image)
 			opts.Type = attestation.PredicateType
 		}
 		opts.FetchAttestations = true
@@ -647,7 +647,7 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 		opts.Type = attestation.Type
 		opts.PredicateType = attestation.PredicateType
 		if attestation.PredicateType != "" && attestation.Type == "" {
-			iv.logger.Info("predicate type has been deprecated, please use type instead", "image", image)
+			iv.logger.V(2).Info("predicate type has been deprecated, please use type instead", "image", image)
 			opts.Type = attestation.PredicateType
 		}
 		opts.FetchAttestations = true
@@ -673,11 +673,11 @@ func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, 
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 	statements = statementsByPredicate[attestation.Type]
 	if statements == nil {
-		iv.logger.Info("no attestations found for predicate", "type", attestation.Type, "predicates", types, "image", imageInfo.String())
+		iv.logger.V(2).Info("no attestations found for predicate", "type", attestation.Type, "predicates", types, "image", imageInfo.String())
 		return fmt.Errorf("attestions not found for predicate type %s", attestation.Type)
 	}
 	for _, s := range statements {
-		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
+		iv.logger.V(3).Info("checking attestation", "predicates", types, "image", imageInfo.String())
 		val, msg, err := iv.checkAttestations(attestation, s)
 		if err != nil {
 			return fmt.Errorf("failed to check attestations: %w", err)

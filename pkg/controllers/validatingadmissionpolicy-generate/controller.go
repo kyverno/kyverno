@@ -115,7 +115,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
-	logger.Info("policy created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	logger.V(2).Info("policy created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueuePolicy(obj)
 }
 
@@ -123,7 +123,7 @@ func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
 		return
 	}
-	logger.Info("policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	logger.V(2).Info("policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueuePolicy(obj)
 }
 
@@ -138,7 +138,7 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 		return
 	}
 
-	logger.Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "name", p.GetName())
+	logger.V(2).Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "name", p.GetName())
 	c.enqueuePolicy(obj)
 }
 
@@ -152,7 +152,7 @@ func (c *controller) enqueuePolicy(obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) addException(obj *kyvernov2.PolicyException) {
-	logger.Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	logger.V(2).Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueException(obj)
 }
 
@@ -160,14 +160,14 @@ func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
-	logger.Info("policy exception updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	logger.V(2).Info("policy exception updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueException(obj)
 }
 
 func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 	polex := kubeutils.GetObjectWithTombstone(obj).(*kyvernov2.PolicyException)
 
-	logger.Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
+	logger.V(2).Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
 	c.enqueueException(obj)
 }
 
@@ -305,14 +305,14 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	// check if the controller has the required permissions to generate validating admission policies.
 	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
-		logger.Info("insufficient permissions to generate ValidatingAdmissionPolicies")
+		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
 		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
 		return nil
 	}
 
 	// check if the controller has the required permissions to generate validating admission policy bindings.
 	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
-		logger.Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
+		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 		return nil
 	}

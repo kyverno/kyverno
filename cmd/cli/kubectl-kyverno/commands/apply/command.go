@@ -440,7 +440,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
 			if c.ContinueOnFail {
-				log.Log.Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
+				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
 				continue
 			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
@@ -449,7 +449,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	}
 	for _, policy := range validPolicies {
 		if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-			log.Log.Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
+			log.Log.V(3).Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
 		}
 	}
 	return &rc, resources, responses, nil

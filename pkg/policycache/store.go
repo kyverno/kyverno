@@ -210,7 +210,7 @@ func (m *policyMap) get(key PolicyType, gvr schema.GroupVersionResource, subreso
 		isNamespacedPolicy := ns != ""
 		policy := m.policies[policyName]
 		if policy == nil {
-			logger.Info("nil policy in the cache, this should not happen")
+			logger.V(4).Info("nil policy in the cache, this should not happen")
 		}
 		if !isNamespacedPolicy && namespace == "" {
 			result = append(result, policy)
