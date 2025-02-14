@@ -55,7 +55,7 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 				if ok, _ := autogen.CanAutoGen(vpol.GetSpec()); ok {
 					webhook.MatchConditions = append(webhook.MatchConditions, admissionregistrationv1.MatchCondition{
 						Name:       m.Name,
-						Expression: "!(object.Kind == 'Pod') || " + m.Expression,
+						Expression: "!(object.kind == 'Pod') || " + m.Expression,
 					})
 				} else {
 					webhook.MatchConditions = vpol.GetMatchConditions()
@@ -84,11 +84,11 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 			webhook.AdmissionReviewVersions = []string{"v1"}
 			if failurePolicyIgnore {
 				webhook.Name = config.ValidatingPolicyWebhookName + "-ignore-finegrained-" + vpol.GetName()
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/validate/ignore"+config.FineGrainedWebhookPath+"/"+vpol.GetName())
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/vpol/ignore"+config.FineGrainedWebhookPath+"/"+vpol.GetName())
 				webhookIgnoreList = append(webhookIgnoreList, webhook)
 			} else {
 				webhook.Name = config.ValidatingPolicyWebhookName + "-fail-finegrained-" + vpol.GetName()
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/validate/fail"+config.FineGrainedWebhookPath+"/"+vpol.GetName())
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/vpol/fail"+config.FineGrainedWebhookPath+"/"+vpol.GetName())
 				webhookFailList = append(webhookFailList, webhook)
 			}
 		} else {

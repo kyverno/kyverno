@@ -14,7 +14,6 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
@@ -131,9 +130,8 @@ type controller struct {
 	lock        sync.Mutex
 	policyState map[string]sets.Set[string]
 
-	// vpolState records validatingpolicies that are configured
-	// successfully in webhook object, non-thread safe
-	vpolState map[string]bool
+	// vpolState records validatingpolicies that are configured successfully in webhook object
+	vpolStateRecorder StateRecorder
 }
 
 func NewController(
@@ -164,6 +162,7 @@ func NewController(
 	caSecretName string,
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
+	vpolStateRecorder StateRecorder,
 ) controllers.Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -201,7 +200,7 @@ func NewController(
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
 		},
-		vpolState: make(map[string]bool),
+		vpolStateRecorder: vpolStateRecorder,
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -386,9 +385,8 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 }
 
 func (c *controller) recordValidatingPolicyState(validatingpolicies ...policiesv1alpha1.GenericPolicy) {
-	c.vpolState = make(map[string]bool)
 	for _, policy := range validatingpolicies {
-		c.vpolState[policy.GetName()] = true
+		c.vpolStateRecorder.Record(policy.GetName())
 	}
 }
 
@@ -658,58 +656,6 @@ func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType strin
 	return nil
 }
 
-func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
-	vpols, err := c.getValidatingPolicies()
-	if err != nil {
-		return err
-	}
-
-	updateStatusFunc := func(vpol policiesv1alpha1.GenericPolicy) error {
-		status := vpol.GetStatus()
-		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
-		status.Autogen.Rules = nil
-		rules := vpolautogen.ComputeRules(vpol)
-		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
-		return nil
-	}
-
-	cmpFunc := func(a *policiesv1alpha1.ValidatingPolicy, b *policiesv1alpha1.ValidatingPolicy) bool {
-		var current, expect metav1.Condition
-		for _, c := range a.GetStatus().Conditions {
-			if c.Type == string(policiesv1alpha1.PolicyConditionTypeWebhookConfigured) {
-				current = c
-			}
-		}
-
-		for _, c := range b.GetStatus().Conditions {
-			if c.Type == string(policiesv1alpha1.PolicyConditionTypeWebhookConfigured) {
-				expect = c
-			}
-		}
-		return datautils.DeepEqual(current, expect)
-	}
-
-	var errs []error
-	for _, vpol := range vpols {
-		if !c.vpolState[vpol.GetName()] {
-			continue
-		}
-		err := controllerutils.UpdateStatus(
-			ctx,
-			vpol.(*policiesv1alpha1.ValidatingPolicy),
-			c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies(),
-			func(vpol *policiesv1alpha1.ValidatingPolicy) error {
-				return updateStatusFunc(vpol)
-			},
-			cmpFunc,
-		)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", vpol.GetName(), err))
-		}
-	}
-	return multierr.Combine(errs...)
-}
-
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	if c.autoDeleteWebhooks && c.runtime.IsGoingDown() {
 		return c.reconcileWebhookDeletion(ctx)
@@ -732,6 +678,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
 			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
+				c.vpolStateRecorder.Reset()
 				return err
 			}
 
@@ -740,9 +687,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				errs = append(errs, fmt.Errorf("failed to update policy statuses: %w", err))
 			}
 
-			if err := c.updateValidatingPolicyStatuses(ctx); err != nil {
-				errs = append(errs, fmt.Errorf("failed to update validating policy statuses: %w", err))
-			}
 			return multierr.Combine(errs...)
 		}
 	case config.PolicyValidatingWebhookConfigurationName:

@@ -196,9 +196,9 @@ var (
 	}
 
 	podControllerMatchConditionName        = "autogen-"
-	podControllersMatchConditionExpression = "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || "
+	podControllersMatchConditionExpression = "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || "
 	cronjobMatchConditionName              = "autogen-cronjobs-"
-	cronJobMatchConditionExpression        = "!(object.Kind =='CronJob') || "
+	cronJobMatchConditionExpression        = "!(object.kind =='CronJob') || "
 )
 
 func updateFields(data []byte, resource string) []byte {

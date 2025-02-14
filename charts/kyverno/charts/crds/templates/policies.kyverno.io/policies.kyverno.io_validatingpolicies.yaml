@@ -28,6 +28,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
+    - jsonPath: .status.ready
+      name: READY
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
