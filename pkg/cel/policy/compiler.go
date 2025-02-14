@@ -107,7 +107,7 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 	}
 
 	// compile autogen rules
-	autogenPath := field.NewPath("status").Child("rules")
+	autogenPath := field.NewPath("status").Child("autogen").Child("rules")
 	autogenRules := vpolautogen.ComputeRules(policy)
 	compiledRules := make([]compiledAutogenRule, 0, len(autogenRules))
 	for i, rule := range autogenRules {
