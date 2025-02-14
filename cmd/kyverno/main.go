@@ -423,7 +423,8 @@ func main() {
 			tlsSecretName,
 		)
 		policyCache := policycache.NewCache()
-		stateRecorder := webhook.NewStateRecorder()
+		notifyChan := make(chan string)
+		stateRecorder := webhook.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),

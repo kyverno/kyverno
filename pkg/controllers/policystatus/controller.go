@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +65,14 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 }
 
 func (c controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
+}
+
+func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
+	notifyChan := c.vpolStateRecorder.(*webhook.Recorder).NotifyChan
+	for key := range notifyChan {
+		c.queue.Add(key)
+	}
 }
 
 func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error {
@@ -77,15 +85,13 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return err
 	}
 
-	c.reconcileConditions(ctx, vpol)
-	refreshAutoGen(vpol)
-	return c.setReady(ctx, vpol)
+	return c.updateStatus(ctx, vpol)
 }
 
 func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) {
-	if c.vpolStateRecorder.Ready(vpol.GetName()) {
+	if ready, ok := c.vpolStateRecorder.Ready(vpol.GetName()); ready {
 		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
-	} else {
+	} else if ok {
 		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
 	}
 
@@ -123,25 +129,23 @@ func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alp
 	}
 }
 
-func refreshAutoGen(vpol *policiesv1alpha1.ValidatingPolicy) {
-	status := vpol.GetStatus()
-	status.Autogen.Rules = nil
-	rules := vpolautogen.ComputeRules(vpol)
-	status.Autogen.Rules = append(status.Autogen.Rules, rules...)
-}
-
-func (c controller) setReady(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) error {
-	status := vpol.GetStatus()
-	ready := true
-	for _, condition := range status.Conditions {
-		if condition.Status != metav1.ConditionTrue {
-			ready = false
-			break
-		}
-	}
-
+func (c controller) updateStatus(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) error {
 	updateFunc := func(vpol *policiesv1alpha1.ValidatingPolicy) error {
+		c.reconcileConditions(ctx, vpol)
+
 		status := vpol.GetStatus()
+		status.Autogen.Rules = nil
+		rules := vpolautogen.ComputeRules(vpol)
+		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
+
+		ready := true
+		for _, condition := range status.Conditions {
+			if condition.Status != metav1.ConditionTrue {
+				ready = false
+				break
+			}
+		}
+
 		if status.Ready == nil || *status.Ready != ready {
 			status.Ready = &ready
 		}
@@ -153,7 +157,11 @@ func (c controller) setReady(ctx context.Context, vpol *policiesv1alpha1.Validat
 		c.client.PoliciesV1alpha1().ValidatingPolicies(),
 		updateFunc,
 		func(current, expect *policiesv1alpha1.ValidatingPolicy) bool {
-			if current.GetStatus().Ready == nil || current.GetStatus().Ready == expect.GetStatus().Ready {
+			if current.GetStatus().Ready == nil || current.GetStatus().IsReady() != expect.GetStatus().IsReady() {
+				return false
+			}
+
+			if len(current.GetStatus().Conditions) != len(expect.GetStatus().Conditions) {
 				return false
 			}
 
@@ -164,7 +172,7 @@ func (c controller) setReady(ctx context.Context, vpol *policiesv1alpha1.Validat
 					}
 				}
 			}
-			return true
+			return datautils.DeepEqual(current.GetStatus().Autogen, expect.GetStatus().Autogen)
 		},
 	)
 	return err

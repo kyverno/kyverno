@@ -385,7 +385,6 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 }
 
 func (c *controller) recordValidatingPolicyState(validatingpolicies ...policiesv1alpha1.GenericPolicy) {
-	c.vpolStateRecorder.Reset()
 	for _, policy := range validatingpolicies {
 		c.vpolStateRecorder.Record(policy.GetName())
 	}
@@ -679,6 +678,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
 			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
+				c.vpolStateRecorder.Reset()
 				return err
 			}
 
