@@ -6,7 +6,7 @@ status:
   autogen:
     rules:
     - matchConditions:
-      - expression: "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
+      - expression: "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
           && object.spec.template.metadata.labels.prod == 'true'"
         name: autogen-check-prod-label
       matchConstraints:
@@ -39,7 +39,7 @@ status:
         message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
           must be set to `false`.
     - matchConditions:
-      - expression: "!(object.Kind =='CronJob') || has(object.spec.jobTemplate.spec.template.metadata.labels)
+      - expression: "!(object.kind =='CronJob') || has(object.spec.jobTemplate.spec.template.metadata.labels)
           && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
           && object.spec.jobTemplate.spec.template.metadata.labels.prod
           == 'true'"
