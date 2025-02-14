@@ -47,7 +47,7 @@ require (
 	github.com/sigstore/cosign/v2 v2.4.1
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
 	github.com/sigstore/rekor v1.3.9
-	github.com/sigstore/sigstore v1.8.12
+	github.com/sigstore/sigstore v1.8.14
 	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.12
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.12
@@ -320,7 +320,7 @@ require (
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sigstore/fulcio v1.6.3 // indirect
-	github.com/sigstore/protobuf-specs v0.3.3 // indirect
+	github.com/sigstore/protobuf-specs v0.4.0 // indirect
 	github.com/sigstore/timestamp-authority v1.2.2 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.3.0 // indirect
