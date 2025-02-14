@@ -31,6 +31,7 @@ type PolicyExceptionSpecApplyConfiguration struct {
 	Conditions  *AnyAllConditionsApplyConfiguration        `json:"conditions,omitempty"`
 	Exceptions  []ExceptionApplyConfiguration              `json:"exceptions,omitempty"`
 	PodSecurity []v1.PodSecurityStandardApplyConfiguration `json:"podSecurity,omitempty"`
+	VerifyImages []ImageVerificationApplyConfiguration      `json:"verifyImages,omitempty"`
 }
 
 // PolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the PolicyExceptionSpec type for use with
@@ -85,6 +86,19 @@ func (b *PolicyExceptionSpecApplyConfiguration) WithPodSecurity(values ...*v1.Po
 			panic("nil value passed to WithPodSecurity")
 		}
 		b.PodSecurity = append(b.PodSecurity, *values[i])
+	}
+	return b
+}
+
+// WithVerifyImages adds the given value to the VerifyImages field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the VerifyImages field.
+func (b *PolicyExceptionSpecApplyConfiguration) WithVerifyImages(values ...*ImageVerificationApplyConfiguration) *PolicyExceptionSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithVerifyImages")
+		}
+		b.VerifyImages = append(b.VerifyImages, *values[i])
 	}
 	return b
 }
