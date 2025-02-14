@@ -28,6 +28,8 @@ type Interface interface {
 	CELPolicyExceptions() CELPolicyExceptionInformer
 	// ImageVerificationPolicies returns a ImageVerificationPolicyInformer.
 	ImageVerificationPolicies() ImageVerificationPolicyInformer
+	// MutatingPolicies returns a MutatingPolicyInformer.
+	MutatingPolicies() MutatingPolicyInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
 	ValidatingPolicies() ValidatingPolicyInformer
 }
@@ -51,6 +53,11 @@ func (v *version) CELPolicyExceptions() CELPolicyExceptionInformer {
 // ImageVerificationPolicies returns a ImageVerificationPolicyInformer.
 func (v *version) ImageVerificationPolicies() ImageVerificationPolicyInformer {
 	return &imageVerificationPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// MutatingPolicies returns a MutatingPolicyInformer.
+func (v *version) MutatingPolicies() MutatingPolicyInformer {
+	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // ValidatingPolicies returns a ValidatingPolicyInformer.
