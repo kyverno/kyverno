@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/notaryproject/notation-go"
@@ -23,11 +24,15 @@ type notaryVerifier struct {
 	log logr.Logger
 }
 
-func (v *notaryVerifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor Notary) error {
-	logger := v.log.WithValues("image", image.Image, "digest", image.Digest)
+func (v *notaryVerifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1alpha1.Attestor) error {
+	if attestor.Notary == nil {
+		return fmt.Errorf("notary verifier only supports notary attestor")
+	}
+
+	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestor", attestor.Name)
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)
 
-	vInfo, err := getVerificationInfo(image, attestor)
+	vInfo, err := getVerificationInfo(image, attestor.Notary)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to setup notation verification data")
 		logger.Error(err, "image verification failed")
@@ -55,18 +60,25 @@ func (v *notaryVerifier) VerifyImageSignature(ctx context.Context, image *imaged
 	return nil
 }
 
-func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation Referrer, attestor Notary) error {
-	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation type", attestation.Type, "attestor", attestor) // TODO: use attestor and attestation names
+func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, attestor *policiesv1alpha1.Attestor) error {
+	if attestation.Referrer == nil {
+		return fmt.Errorf("notary verifier only supports oci 1.1 referrers as attestations")
+	}
+	if attestor.Notary == nil {
+		return fmt.Errorf("notary verifier only supports notary attestor")
+	}
+
+	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name, "attestor", attestor.Name) // TODO: use attestor and attestation names
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)
 
-	vInfo, err := getVerificationInfo(image, attestor)
+	vInfo, err := getVerificationInfo(image, attestor.Notary)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to setup notation verification data")
 		logger.Error(err, "image verification failed")
 		return err
 	}
 
-	referrers, err := image.FetchRefererrs(attestation.Type)
+	referrers, err := image.FetchRefererrs(attestation.Referrer.Type)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to fetch referrers")
 		logger.Error(err, "image attestation verification failed")
@@ -105,7 +117,7 @@ func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *
 	}
 
 	if len(errs) == 0 {
-		return fmt.Errorf("attestation verification failed, no attestations found for type: %s", attestation.Type)
+		return fmt.Errorf("attestation verification failed, no attestations found for type: %s", attestation.Referrer.Type)
 	}
 	return multierr.Combine(errs...)
 }

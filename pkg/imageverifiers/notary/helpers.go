@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imagedataloader"
 	"github.com/notaryproject/notation-go"
 	notationregistry "github.com/notaryproject/notation-go/registry"
@@ -66,19 +67,6 @@ func buildTrustPolicy(tsa []*x509.Certificate) *trustpolicy.Document {
 	}
 }
 
-type Notary struct {
-	// Certs define the cert chain for Notary signature verification
-	Certs string `json:"certs"`
-
-	// Certs define the cert chain for timestamp verification of Notary signature
-	TSACerts string `json:"tsaCerts"`
-}
-
-type Referrer struct {
-	// Type defines the type of attestation attached to the image.
-	Type string `json:"type"`
-}
-
 func checkVerificationOutcomes(outcomes []*notation.VerificationOutcome) error {
 	var errs []error
 	for _, outcome := range outcomes {
@@ -96,7 +84,7 @@ type verificationInfo struct {
 	Repo     notationregistry.Repository
 }
 
-func getVerificationInfo(image *imagedataloader.ImageData, att Notary) (*verificationInfo, error) {
+func getVerificationInfo(image *imagedataloader.ImageData, att *policiesv1alpha1.Notary) (*verificationInfo, error) {
 	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(att.Certs)))
 	if err != nil {
 		return nil, err
