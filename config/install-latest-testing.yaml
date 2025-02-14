@@ -51330,6 +51330,7 @@ rules:
       - rolebindings
       - clusterrolebindings
     verbs:
+      - get
       - list
       - watch
   - apiGroups:
