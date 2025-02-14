@@ -8,10 +8,12 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"go.uber.org/multierr"
@@ -31,35 +33,29 @@ type Controller interface {
 }
 
 type controller struct {
-	dclient     dclient.Interface
-	client      versioned.Interface
-	queue       workqueue.TypedRateLimitingInterface[any]
-	authChecker auth.AuthChecker
+	dclient           dclient.Interface
+	client            versioned.Interface
+	queue             workqueue.TypedRateLimitingInterface[any]
+	authChecker       auth.AuthChecker
+	vpolStateRecorder webhook.StateRecorder
 }
 
-func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer, reportsSA string) Controller {
+func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer, reportsSA string, vpolStateRecorder webhook.StateRecorder) Controller {
 	c := &controller{
 		dclient: dclient,
 		client:  client,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName}),
-		authChecker: auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
+		authChecker:       auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
+		vpolStateRecorder: vpolStateRecorder,
 	}
 
 	enqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(c.queue)))
 	_, err := controllerutils.AddEventHandlers(
 		vpolInformer.Informer(),
 		controllerutils.AddFunc(logger, enqueueFunc),
-		func(old, new interface{}) {
-			oldVpol := old.(*policiesv1alpha1.ValidatingPolicy)
-			newVpol := new.(*policiesv1alpha1.ValidatingPolicy)
-			if !datautils.DeepEqual(oldVpol.GetStatus(), newVpol.GetStatus()) {
-				if err := enqueueFunc(new); err != nil {
-					logger.Error(err, "failed to enqueue object", "obj", new)
-				}
-			}
-		},
+		controllerutils.UpdateFunc(logger, enqueueFunc),
 		nil,
 	)
 	if err != nil {
@@ -69,7 +65,14 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 }
 
 func (c controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
+}
+
+func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
+	notifyChan := c.vpolStateRecorder.(*webhook.Recorder).NotifyChan
+	for key := range notifyChan {
+		c.queue.Add(key)
+	}
 }
 
 func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error {
@@ -82,11 +85,16 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return err
 	}
 
-	c.reconcileConditions(ctx, vpol)
-	return c.setReady(ctx, vpol)
+	return c.updateStatus(ctx, vpol)
 }
 
 func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) {
+	if ready, ok := c.vpolStateRecorder.Ready(vpol.GetName()); ready {
+		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
+	} else if ok {
+		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
+	}
+
 	gvrs := []metav1.GroupVersionResource{}
 	for _, rule := range vpol.GetMatchConstraints().ResourceRules {
 		for _, g := range rule.RuleWithOperations.APIGroups {
@@ -115,24 +123,29 @@ func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alp
 	}
 
 	if errs != nil {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("missing permissions: %v", multierr.Combine(errs...)))
+		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
 	} else {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting")
+		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
 	}
 }
 
-func (c controller) setReady(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) error {
-	status := vpol.GetStatus()
-	ready := true
-	for _, condition := range status.Conditions {
-		if condition.Status != metav1.ConditionTrue {
-			ready = false
-			break
-		}
-	}
-
+func (c controller) updateStatus(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) error {
 	updateFunc := func(vpol *policiesv1alpha1.ValidatingPolicy) error {
+		c.reconcileConditions(ctx, vpol)
+
 		status := vpol.GetStatus()
+		status.Autogen.Rules = nil
+		rules := vpolautogen.ComputeRules(vpol)
+		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
+
+		ready := true
+		for _, condition := range status.Conditions {
+			if condition.Status != metav1.ConditionTrue {
+				ready = false
+				break
+			}
+		}
+
 		if status.Ready == nil || *status.Ready != ready {
 			status.Ready = &ready
 		}
@@ -144,18 +157,22 @@ func (c controller) setReady(ctx context.Context, vpol *policiesv1alpha1.Validat
 		c.client.PoliciesV1alpha1().ValidatingPolicies(),
 		updateFunc,
 		func(current, expect *policiesv1alpha1.ValidatingPolicy) bool {
-			if current.GetStatus().Ready == nil || current.GetStatus().Ready == expect.GetStatus().Ready {
+			if current.GetStatus().Ready == nil || current.GetStatus().IsReady() != expect.GetStatus().IsReady() {
+				return false
+			}
+
+			if len(current.GetStatus().Conditions) != len(expect.GetStatus().Conditions) {
 				return false
 			}
 
 			for _, condition := range current.GetStatus().Conditions {
 				for _, expectCondition := range expect.GetStatus().Conditions {
-					if condition.Type == expectCondition.Type && condition.Status == expectCondition.Status {
+					if condition.Type == expectCondition.Type && condition.Status != expectCondition.Status {
 						return false
 					}
 				}
 			}
-			return true
+			return datautils.DeepEqual(current.GetStatus().Autogen, expect.GetStatus().Autogen)
 		},
 	)
 	return err
