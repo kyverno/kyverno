@@ -25,8 +25,9 @@ import (
 // PolicyStatusApplyConfiguration represents an declarative configuration of the PolicyStatus type for use
 // with apply.
 type PolicyStatusApplyConfiguration struct {
-	Ready      *bool          `json:"ready,omitempty"`
-	Conditions []v1.Condition `json:"conditions,omitempty"`
+	Ready      *bool                            `json:"ready,omitempty"`
+	Conditions []v1.Condition                   `json:"conditions,omitempty"`
+	Autogen    *AutogenStatusApplyConfiguration `json:"autogen,omitempty"`
 }
 
 // PolicyStatusApplyConfiguration constructs an declarative configuration of the PolicyStatus type for use with
@@ -50,5 +51,13 @@ func (b *PolicyStatusApplyConfiguration) WithConditions(values ...v1.Condition) 
 	for i := range values {
 		b.Conditions = append(b.Conditions, values[i])
 	}
+	return b
+}
+
+// WithAutogen sets the Autogen field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Autogen field is set to the value of the last call.
+func (b *PolicyStatusApplyConfiguration) WithAutogen(value *AutogenStatusApplyConfiguration) *PolicyStatusApplyConfiguration {
+	b.Autogen = value
 	return b
 }

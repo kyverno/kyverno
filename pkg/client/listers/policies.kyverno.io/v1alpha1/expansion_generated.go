@@ -18,6 +18,18 @@ limitations under the License.
 
 package v1alpha1
 
+// CELPolicyExceptionListerExpansion allows custom methods to be added to
+// CELPolicyExceptionLister.
+type CELPolicyExceptionListerExpansion interface{}
+
+// CELPolicyExceptionNamespaceListerExpansion allows custom methods to be added to
+// CELPolicyExceptionNamespaceLister.
+type CELPolicyExceptionNamespaceListerExpansion interface{}
+
+// ImageVerificationPolicyListerExpansion allows custom methods to be added to
+// ImageVerificationPolicyLister.
+type ImageVerificationPolicyListerExpansion interface{}
+
 // ValidatingPolicyListerExpansion allows custom methods to be added to
 // ValidatingPolicyLister.
 type ValidatingPolicyListerExpansion interface{}

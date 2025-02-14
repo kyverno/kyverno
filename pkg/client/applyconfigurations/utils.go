@@ -207,14 +207,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
-	case v2alpha1.SchemeGroupVersion.WithKind("AutogenRule"):
-		return &kyvernov2alpha1.AutogenRuleApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("AutogenStatus"):
-		return &kyvernov2alpha1.AutogenStatusApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyException"):
-		return &kyvernov2alpha1.CELPolicyExceptionApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyExceptionSpec"):
-		return &kyvernov2alpha1.CELPolicyExceptionSpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ExternalAPICall"):
 		return &kyvernov2alpha1.ExternalAPICallApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry"):
@@ -225,16 +217,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.GlobalContextEntryStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("KubernetesResource"):
 		return &kyvernov2alpha1.KubernetesResourceApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("PolicyRef"):
-		return &kyvernov2alpha1.PolicyRefApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("PolicyStatus"):
-		return &kyvernov2alpha1.PolicyStatusApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"):
-		return &kyvernov2alpha1.ValidatingPolicyApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicySpec"):
-		return &kyvernov2alpha1.ValidatingPolicySpecApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
-		return &kyvernov2alpha1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2beta1
 	case v2beta1.SchemeGroupVersion.WithKind("AnyAllConditions"):
@@ -273,8 +255,56 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
 
 		// Group=policies.kyverno.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithKind("Attestation"):
+		return &policieskyvernoiov1alpha1.AttestationApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Attestor"):
+		return &policieskyvernoiov1alpha1.AttestorApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("AutogenRule"):
+		return &policieskyvernoiov1alpha1.AutogenRuleApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("AutogenStatus"):
+		return &policieskyvernoiov1alpha1.AutogenStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("CELPolicyException"):
+		return &policieskyvernoiov1alpha1.CELPolicyExceptionApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("CELPolicyExceptionSpec"):
+		return &policieskyvernoiov1alpha1.CELPolicyExceptionSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Certificate"):
+		return &policieskyvernoiov1alpha1.CertificateApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Cosign"):
+		return &policieskyvernoiov1alpha1.CosignApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Credentials"):
+		return &policieskyvernoiov1alpha1.CredentialsApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("CTLog"):
+		return &policieskyvernoiov1alpha1.CTLogApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Identity"):
+		return &policieskyvernoiov1alpha1.IdentityApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Image"):
+		return &policieskyvernoiov1alpha1.ImageApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ImageRule"):
+		return &policieskyvernoiov1alpha1.ImageRuleApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ImageVerificationPolicy"):
+		return &policieskyvernoiov1alpha1.ImageVerificationPolicyApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ImageVerificationPolicySpec"):
+		return &policieskyvernoiov1alpha1.ImageVerificationPolicySpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("InToto"):
+		return &policieskyvernoiov1alpha1.InTotoApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Key"):
+		return &policieskyvernoiov1alpha1.KeyApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Keyless"):
+		return &policieskyvernoiov1alpha1.KeylessApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Notary"):
+		return &policieskyvernoiov1alpha1.NotaryApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PolicyRef"):
+		return &policieskyvernoiov1alpha1.PolicyRefApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("PolicyStatus"):
 		return &policieskyvernoiov1alpha1.PolicyStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Referrer"):
+		return &policieskyvernoiov1alpha1.ReferrerApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("Source"):
+		return &policieskyvernoiov1alpha1.SourceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("TUF"):
+		return &policieskyvernoiov1alpha1.TUFApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("TUFRoot"):
+		return &policieskyvernoiov1alpha1.TUFRootApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"):
 		return &policieskyvernoiov1alpha1.ValidatingPolicyApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicySpec"):

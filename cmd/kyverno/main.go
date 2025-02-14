@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
@@ -27,6 +27,7 @@ import (
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
+	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
@@ -83,7 +84,7 @@ func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
 	// log if `forceFailurePolicyIgnore` flag has been set or not
 	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
-		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
+		logger.V(2).Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
 }
 
@@ -116,6 +117,7 @@ func createNonLeaderControllers(
 func createrLeaderControllers(
 	admissionReports bool,
 	serverIP string,
+	reportsServiceAccountName string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
 	autoDeleteWebhooks bool,
@@ -154,7 +156,7 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V2alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
@@ -219,8 +221,8 @@ func createrLeaderControllers(
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{"kyverno.io"},
-				APIVersions: []string{"v2alpha1"},
+				APIGroups:   []string{"policies.kyverno.io"},
+				APIVersions: []string{"v1alpha1"},
 				Resources:   []string{"celpolicyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
@@ -269,11 +271,13 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
+	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(), reportsServiceAccountName)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(celExceptionWebhookControllerName, celExceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
+	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
 	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
 	if generateVAPs {
@@ -520,6 +524,7 @@ func main() {
 				leaderControllers, warmup, err := createrLeaderControllers(
 					admissionReports,
 					serverIP,
+					reportsServiceAccountName,
 					webhookTimeout,
 					autoUpdateWebhooks,
 					autoDeleteWebhooks,
@@ -594,7 +599,7 @@ func main() {
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
-			if err := kyvernov2alpha1.Install(scheme); err != nil {
+			if err := policiesv1alpha1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
 			}
@@ -608,7 +613,7 @@ func main() {
 			// create compiler
 			compiler := celpolicy.NewCompiler()
 			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Kyverno().V2alpha1().CELPolicyExceptions().Lister())
+			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().CELPolicyExceptions().Lister())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
