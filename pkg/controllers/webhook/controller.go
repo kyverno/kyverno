@@ -433,7 +433,7 @@ func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
 				logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 				return err
 			} else if err == nil {
-				logger.Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+				logger.V(3).Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
 			}
 			if err := c.mwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
 				LabelSelector: kyverno.LabelWebhookManagedBy,
@@ -441,21 +441,21 @@ func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
 				logger.Error(err, "failed to clean up mutating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 				return err
 			} else if err == nil {
-				logger.Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+				logger.V(3).Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
 			}
 
 			if err := c.postWebhookCleanup(ctx, logger); err != nil {
 				logger.Error(err, "failed to clean up temporary rbac")
 				return err
 			} else {
-				logger.Info("successfully deleted temporary rbac")
+				logger.V(3).Info("successfully deleted temporary rbac")
 			}
 		} else {
 			if err := c.webhookCleanupSetup(ctx, logger); err != nil {
 				logger.Error(err, "failed to reconcile webhook cleanup setup")
 				return err
 			}
-			logger.Info("reconciled webhook cleanup setup")
+			logger.V(3).Info("reconciled webhook cleanup setup")
 		}
 	}
 	return nil
@@ -1161,7 +1161,9 @@ func (c *controller) getValidatingPolicies() ([]policiesv1alpha1.GenericPolicy, 
 
 	vpols := make([]policiesv1alpha1.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
-		vpols = append(vpols, vpol)
+		if vpol.Spec.AdmissionEnabled() {
+			vpols = append(vpols, vpol)
+		}
 	}
 	return vpols, nil
 }
