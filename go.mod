@@ -49,7 +49,7 @@ require (
 	github.com/sigstore/rekor v1.3.9
 	github.com/sigstore/sigstore v1.8.14
 	github.com/sigstore/sigstore-go v0.6.2
-	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.12
+	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.14
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.12
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.12
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.14
@@ -158,7 +158,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.29.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.11 // indirect
-	github.com/aws/aws-sdk-go-v2/service/kms v1.37.10 // indirect
+	github.com/aws/aws-sdk-go-v2/service/kms v1.37.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.24.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.11 // indirect

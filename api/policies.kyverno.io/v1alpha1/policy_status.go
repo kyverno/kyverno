@@ -55,3 +55,10 @@ func (status *PolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.
 
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
+
+func (status *PolicyStatus) IsReady() bool {
+	if status.Ready != nil {
+		return *status.Ready
+	}
+	return false
+}
