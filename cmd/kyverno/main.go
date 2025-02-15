@@ -29,6 +29,7 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
+	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -136,6 +137,7 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
+	vpolRecorder webhook.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -174,6 +176,7 @@ func createrLeaderControllers(
 		caSecretName,
 		webhookcontroller.WebhookCleanupSetup(kubeClient, webhookControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, webhookControllerFinalizerName),
+		vpolRecorder,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -271,7 +274,7 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
-	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(), reportsServiceAccountName)
+	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(), reportsServiceAccountName, vpolRecorder)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
@@ -420,6 +423,8 @@ func main() {
 			tlsSecretName,
 		)
 		policyCache := policycache.NewCache()
+		notifyChan := make(chan string)
+		stateRecorder := webhook.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -543,6 +548,7 @@ func main() {
 					int32(webhookServerPort), //nolint:gosec
 					setup.Configuration,
 					eventGenerator,
+					stateRecorder,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")

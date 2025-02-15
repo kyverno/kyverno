@@ -181,7 +181,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "autogen-only for production",
-						Expression: "!(object.Kind =='Deployment' || object.Kind =='ReplicaSet' || object.Kind =='StatefulSet' || object.Kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
+						Expression: "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
 					},
 				},
 				Validations: []admissionregistrationv1.Validation{
@@ -320,7 +320,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "autogen-cronjobs-only for production",
-						Expression: "!(object.Kind =='CronJob') || has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
+						Expression: "!(object.kind =='CronJob') || has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
 					},
 				},
 				Validations: []admissionregistrationv1.Validation{
