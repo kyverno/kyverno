@@ -107,14 +107,14 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 	}
 
-	origin := ""
-	if admissionProcessing := pol.AsKyvernoPolicy().AdmissionProcessingEnabled(); admissionProcessing {
-		origin = "admission review"
+	origin := []string{}
+	if pol.AsKyvernoPolicy().AdmissionProcessingEnabled() {
+		origin = append(origin, "admission review")
 	}
-	if backgroundProcessing := pol.AsKyvernoPolicy().BackgroundProcessingEnabled(); backgroundProcessing {
-		origin = "background scan"
+	if pol.AsKyvernoPolicy().BackgroundProcessingEnabled() {
+		origin = append(origin, "background scan")
 	}
-	addProperty("source", origin, &result)
+	addProperty("source", strings.Join(origin, ","), &result)
 
 	if result.Result == "fail" && !result.Scored {
 		result.Result = "warn"
