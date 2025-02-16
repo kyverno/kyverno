@@ -13,7 +13,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -314,7 +314,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 }
 
 func (c *ApplyCommandConfig) applyValidatingPolicies(
-	vps []kyvernov2alpha1.ValidatingPolicy,
+	vps []policiesv1alpha1.ValidatingPolicy,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
 	_ *processor.ResultCounts,
@@ -437,7 +437,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
 			if c.ContinueOnFail {
-				log.Log.Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
+				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
 				continue
 			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
@@ -446,7 +446,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	}
 	for _, policy := range validPolicies {
 		if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-			log.Log.Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
+			log.Log.V(3).Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
 		}
 	}
 	return &rc, resources, responses, nil
@@ -464,14 +464,14 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]kyvernov1.PolicyInterface,
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	[]kyvernov2alpha1.ValidatingPolicy,
+	[]policiesv1alpha1.ValidatingPolicy,
 	error,
 ) {
 	// load policies
 	var policies []kyvernov1.PolicyInterface
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	var vps []kyvernov2alpha1.ValidatingPolicy
+	var vps []policiesv1alpha1.ValidatingPolicy
 
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)

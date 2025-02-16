@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
@@ -79,7 +80,7 @@ type EngineResponse struct {
 
 type PolicyResponse struct {
 	Actions sets.Set[admissionregistrationv1.ValidationAction]
-	Policy  kyvernov2alpha1.ValidatingPolicy
+	Policy  policiesv1alpha1.ValidatingPolicy
 	Rules   []engineapi.RuleResponse
 }
 
@@ -151,21 +152,56 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	return response, nil
 }
 
+func (e *engine) matchPolicy(policy CompiledPolicy, attr admission.Attributes, namespace runtime.Object) (bool, int, error) {
+	match := func(constraints *admissionregistrationv1.MatchResources) (bool, error) {
+		criteria := matchCriteria{constraints: constraints}
+		matches, err := e.matcher.Match(&criteria, attr, namespace)
+		if err != nil {
+			return false, err
+		}
+		return matches, nil
+	}
+
+	// match against main policy constraints
+	matches, err := match(policy.Policy.Spec.MatchConstraints)
+	if err != nil {
+		return false, -1, err
+	}
+	if matches {
+		return true, -1, nil
+	}
+
+	// match against autogen rules
+	autogenRules := vpolautogen.ComputeRules(&policy.Policy)
+	for i, autogenRule := range autogenRules {
+		matches, err := match(autogenRule.MatchConstraints)
+		if err != nil {
+			return false, -1, err
+		}
+		if matches {
+			return true, i, nil
+		}
+	}
+	return false, -1, nil
+}
+
 func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
 	response := PolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
+	autogenIndex := -1
 	if e.matcher != nil {
-		criteria := matchCriteria{constraints: policy.Policy.Spec.MatchConstraints}
-		if matches, err := e.matcher.Match(&criteria, attr, namespace); err != nil {
+		matches, index, err := e.matchPolicy(policy, attr, namespace)
+		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
 			return response
 		} else if !matches {
 			return response
 		}
+		autogenIndex = index
 	}
-	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
+	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context, autogenIndex)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
