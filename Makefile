@@ -45,7 +45,6 @@ OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
 DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
-APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
 CODE_GEN_VERSION                   ?= v0.28.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
@@ -62,7 +61,7 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.17.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -105,10 +104,6 @@ $(DEEPCOPY_GEN):
 $(DEFAULTER_GEN):
 	@echo Install defaulter-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/defaulter-gen@$(CODE_GEN_VERSION)
-
-$(APPLYCONFIGURATION_GEN):
-	@echo Install applyconfiguration-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/applyconfiguration-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@echo Install gen-crd-api-reference-docs... >&2
@@ -414,7 +409,6 @@ CLIENT_INPUT_DIRS           := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/
 CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
-APPLYCONFIGURATIONS_PACKAGE := $(OUT_PACKAGE)/applyconfigurations
 CRDS_PATH                   := ${PWD}/config/crds
 INSTALL_MANIFEST_PATH       := ${PWD}/config/install-latest-testing.yaml
 KYVERNO_CHART_VERSION       ?= v0.0.0
@@ -489,21 +483,11 @@ codegen-defaulters: $(PACKAGE_SHIM) $(DEFAULTER_GEN) ## Generate defaulters
 	@echo Generate defaulters... >&2
 	@GOPATH=$(GOPATH_SHIM) $(DEFAULTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --input-dirs=$(INPUT_DIRS)
 
-.PHONY: codegen-applyconfigurations
-codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Generate apply configurations
-	@echo Generate applyconfigurations... >&2
-	@rm -rf $(APPLYCONFIGURATIONS_PACKAGE) && mkdir -p $(APPLYCONFIGURATIONS_PACKAGE)
-	@GOPATH=$(GOPATH_SHIM) $(APPLYCONFIGURATION_GEN) \
-		--go-header-file=./scripts/boilerplate.go.txt \
-		--input-dirs=$(INPUT_DIRS) \
-		--output-package $(APPLYCONFIGURATIONS_PACKAGE)
-
 .PHONY: codegen-client-all
 codegen-client-all: ## Generate clientset, listers and informers
 codegen-client-all: codegen-register
 codegen-client-all: codegen-deepcopy
 codegen-client-all: codegen-defaulters
-codegen-client-all: codegen-applyconfigurations
 codegen-client-all: codegen-client-clientset
 codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers

@@ -26,6 +26,23 @@ func Test_compiler_Compile(t *testing.T) {
 			},
 			Spec: policiesv1alpha1.ValidatingPolicySpec{
 				ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"pods"},
+									},
+								},
+							},
+						},
+					},
 					Variables: []admissionregistrationv1.Variable{{
 						Name:       "environment",
 						Expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'",
@@ -48,6 +65,23 @@ func Test_compiler_Compile(t *testing.T) {
 			},
 			Spec: policiesv1alpha1.ValidatingPolicySpec{
 				ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"pods"},
+									},
+								},
+							},
+						},
+					},
 					Variables: []admissionregistrationv1.Variable{{
 						Name:       "cm",
 						Expression: "context.GetConfigMap('foo', 'bar')",
