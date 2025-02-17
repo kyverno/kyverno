@@ -50,7 +50,7 @@ require (
 	github.com/sigstore/sigstore v1.8.14
 	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.14
-	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.12
+	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.14
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.14
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.14
 	github.com/spf13/cobra v1.8.1
@@ -90,9 +90,10 @@ require (
 	sigs.k8s.io/kustomize/api v0.19.0
 	sigs.k8s.io/kustomize/kyaml v0.19.0
 	sigs.k8s.io/release-utils v0.11.0
-	sigs.k8s.io/structured-merge-diff/v4 v4.5.0
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 
 require (
 	cel.dev/expr v0.19.0 // indirect
