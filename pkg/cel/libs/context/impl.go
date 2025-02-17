@@ -72,7 +72,7 @@ func (c *impl) list_resource_string(args ...ref.Val) ref.Val {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to list resource: %v", err)
 		}
-		return c.NativeToValue(list)
+		return c.NativeToValue(list.UnstructuredContent())
 	}
 }
 
@@ -93,6 +93,6 @@ func (c *impl) get_resource_string(args ...ref.Val) ref.Val {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to get resource: %v", err)
 		}
-		return c.NativeToValue(res)
+		return c.NativeToValue(res.UnstructuredContent())
 	}
 }

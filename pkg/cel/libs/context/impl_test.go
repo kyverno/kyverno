@@ -177,9 +177,9 @@ func Test_impl_get_resource_string(t *testing.T) {
 	}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
-	object := out.Value().(*unstructured.Unstructured)
-	assert.Equal(t, object.Object["apiVersion"].(string), "apps/v1")
-	assert.Equal(t, object.Object["kind"].(string), "Deployment")
+	object := out.Value().(map[string]any)
+	assert.Equal(t, object["apiVersion"].(string), "apps/v1")
+	assert.Equal(t, object["kind"].(string), "Deployment")
 }
 
 func Test_impl_list_resource_string(t *testing.T) {
@@ -221,7 +221,7 @@ func Test_impl_list_resource_string(t *testing.T) {
 	}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
-	object := out.Value().(*unstructured.UnstructuredList)
-	assert.Equal(t, object.Items[0].Object["apiVersion"].(string), "apps/v1")
-	assert.Equal(t, object.Items[0].Object["kind"].(string), "Deployment")
+	object := out.Value().(map[string]any)
+	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["apiVersion"].(string), "apps/v1")
+	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["kind"].(string), "Deployment")
 }
