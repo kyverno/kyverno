@@ -21,10 +21,11 @@ import (
 )
 
 type EvaluationResult struct {
-	Error   error
-	Message string
-	Index   int
-	Result  bool
+	Error            error
+	Message          string
+	Index            int
+	Result           bool
+	AuditAnnotations map[string]string
 }
 
 type CompiledPolicy interface {
@@ -142,7 +143,7 @@ func (p *compiledPolicy) Evaluate(
 		})
 	}
 
-	for index, validation := range p.validations {
+	for index, validation := range validations {
 		out, _, err := validation.program.ContextEval(ctx, data)
 		if err != nil {
 			return nil, err
@@ -161,11 +162,26 @@ func (p *compiledPolicy) Evaluate(
 				}
 			}
 
+			auditAnnotations := make(map[string]string, 0)
+			for key, annotation := range p.auditAnnotations {
+				out, _, err := annotation.ContextEval(ctx, data)
+				if err != nil {
+					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
+				}
+				// evaluate only when rule fails
+				if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+					auditAnnotations[key] = outcome
+				} else if err != nil {
+					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
+				}
+			}
+
 			return &EvaluationResult{
-				Result:  outcome,
-				Message: fmt.Sprintf("validation[%d]: %s", index, message),
-				Index:   index,
-				Error:   err,
+				Result:           outcome,
+				Message:          message,
+				Index:            index,
+				Error:            err,
+				AuditAnnotations: auditAnnotations,
 			}, nil
 		} else if err != nil {
 			return &EvaluationResult{Error: err}, nil
