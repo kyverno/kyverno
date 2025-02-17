@@ -593,7 +593,7 @@ func main() {
 			reportsServiceAccountName,
 		)
 		contextProvider, err := celpolicy.NewContextProvider(
-			setup.KubeClient,
+			setup.KyvernoDynamicClient,
 			nil,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		)

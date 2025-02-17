@@ -4,6 +4,7 @@ import (
 	"context"
 
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/imagedataloader"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -16,16 +17,18 @@ type Context = contextlib.ContextInterface
 
 type contextProvider struct {
 	client    kubernetes.Interface
+	dclient   dclient.Interface
 	imagedata imagedataloader.Fetcher
 }
 
-func NewContextProvider(client kubernetes.Interface, imageOpts []imagedataloader.Option) (Context, error) {
-	idl, err := imagedataloader.New(client.CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
+func NewContextProvider(client dclient.Interface, imageOpts []imagedataloader.Option) (Context, error) {
+	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return &contextProvider{
-		client:    client,
+		client:    client.GetKubeClient(),
+		dclient:   client,
 		imagedata: idl,
 	}, nil
 }
@@ -49,4 +52,16 @@ func (cp *contextProvider) GetGlobalReference(string) (any, error) {
 func (cp *contextProvider) GetImageData(image string) (*imagedataloader.ImageData, error) {
 	// TODO: get image credentials from image verification policies?
 	return cp.imagedata.FetchImageData(context.TODO(), image)
+}
+
+func (cp *contextProvider) ListResource(apiVersion, kind, namespace string) (*unstructured.UnstructuredList, error) {
+	return cp.dclient.ListResource(context.TODO(), apiVersion, kind, namespace, nil)
+}
+
+func (cp *contextProvider) GetResource(apiVersion, kind, namespace, name string) (*unstructured.Unstructured, error) {
+	return cp.dclient.GetResource(context.TODO(), apiVersion, kind, namespace, name)
+}
+
+func (cp *contextProvider) APICall(uri string) ([]byte, error) {
+	return cp.dclient.RawAbsPath(context.TODO(), uri, "GET", nil)
 }

@@ -331,7 +331,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	var contextProvider celpolicy.Context
 	if dclient != nil {
 		contextProvider, err = celpolicy.NewContextProvider(
-			dclient.GetKubeClient(),
+			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		)
 		if err != nil {
