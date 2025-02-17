@@ -33,7 +33,7 @@ var (
 	clusterPolicyV2       = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
 	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	vpV2alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	vpV1alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
 	LegacyLoader          = legacyLoader
 	KubectlValidateLoader = kubectlValidateLoader
 	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
@@ -165,7 +165,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.VAPBindings = append(results.VAPBindings, *typed)
-		case vpV2alpha1:
+		case vpV1alpha1:
 			typed, err := convert.To[policiesv1alpha1.ValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
