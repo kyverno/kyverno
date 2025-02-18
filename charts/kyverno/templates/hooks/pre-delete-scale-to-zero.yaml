@@ -24,7 +24,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccount: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
       {{- with .Values.webhooksCleanup.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
