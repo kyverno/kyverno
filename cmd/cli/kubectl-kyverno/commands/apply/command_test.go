@@ -389,6 +389,58 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
+	}
+
+	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
+		assert.Equal(t, actual.Pass, expected.Pass, desc)
+		assert.Equal(t, actual.Fail, expected.Fail, desc)
+		assert.Equal(t, actual.Skip, expected.Skip, desc)
+		assert.Equal(t, actual.Warn, expected.Warn, desc)
+		assert.Equal(t, actual.Error, expected.Error, desc)
+	}
+
+	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(policyreportv1alpha2.PolicyReportSummary, policyreportv1alpha2.PolicyReportSummary, string)) {
+		if tc.stdinFile != "" {
+			oldStdin := os.Stdin
+			input, err := os.OpenFile(tc.stdinFile, os.O_RDONLY, 0)
+			assert.NoError(t, err)
+			os.Stdin = input
+			defer func() {
+				// Restore original Stdin
+				os.Stdin = oldStdin
+				_ = input.Close()
+			}()
+		}
+		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","))
+
+		_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
+		assert.NoError(t, err, desc)
+
+		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
+		assert.Greater(t, len(clustered), 0, "policy reports should not be empty: %s", desc)
+		combined := []policyreportv1alpha2.ClusterPolicyReport{
+			report.MergeClusterReports(clustered),
+		}
+		assert.Equal(t, len(combined), len(tc.expectedPolicyReports))
+		for i, resp := range combined {
+			compareSummary(tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
+		}
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func Test_Apply_ValidatingPolicies(t *testing.T) {
+	type TestCase struct {
+		expectedPolicyReports []policyreportv1alpha2.PolicyReport
+		config                ApplyCommandConfig
+		stdinFile             string
+	}
+	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"},
@@ -399,6 +451,86 @@ func Test_Apply(t *testing.T) {
 				Summary: policyreportv1alpha2.PolicyReportSummary{
 					Pass:  1,
 					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment2.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/deployment1.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/deployment2.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod1.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  1,
 					Skip:  0,
 					Error: 0,
 					Warn:  0,

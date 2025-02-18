@@ -2,60 +2,123 @@ package policy
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
-type (
-	resource  = *unstructured.Unstructured
-	namespace = *unstructured.Unstructured
-)
-
 type EvaluationResult struct {
-	Result ref.Val
-	Error  error
+	Error   error
+	Message string
+	Result  ref.Val
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, resource, namespace) ([]EvaluationResult, error)
+	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) ([]EvaluationResult, error)
+}
+
+type compiledValidation struct {
+	message           string
+	messageExpression cel.Program
+	program           cel.Program
+}
+
+type compiledAutogenRule struct {
+	matchConditions []cel.Program
+	validations     []compiledValidation
+	auditAnnotation map[string]cel.Program
+	variables       map[string]cel.Program
 }
 
 type compiledPolicy struct {
-	failurePolicy    admissionregistrationv1.FailurePolicyType
-	matchConditions  []cel.Program
-	variables        map[string]cel.Program
-	validations      []cel.Program
-	auditAnnotations map[string]cel.Program
+	failurePolicy        admissionregistrationv1.FailurePolicyType
+	matchConditions      []cel.Program
+	variables            map[string]cel.Program
+	validations          []compiledValidation
+	auditAnnotations     map[string]cel.Program
+	polexMatchConditions []cel.Program
+	autogenRules         []compiledAutogenRule
 }
 
-func (p *compiledPolicy) Evaluate(ctx context.Context, resource resource, namespace namespace) ([]EvaluationResult, error) {
-	match, err := p.match(ctx, resource, namespace)
+func (p *compiledPolicy) Evaluate(
+	ctx context.Context,
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	context contextlib.ContextInterface,
+	autogenIndex int,
+) ([]EvaluationResult, error) {
+	// check if the resource matches an exception
+	if len(p.polexMatchConditions) > 0 {
+		match, err := p.match(ctx, attr, request, namespace, p.polexMatchConditions)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			return nil, nil
+		}
+	}
+
+	var matchConditions []cel.Program
+	var validations []compiledValidation
+	var variables map[string]cel.Program
+
+	if autogenIndex != -1 {
+		matchConditions = p.autogenRules[autogenIndex].matchConditions
+		validations = p.autogenRules[autogenIndex].validations
+		variables = p.autogenRules[autogenIndex].variables
+	} else {
+		matchConditions = p.matchConditions
+		validations = p.validations
+		variables = p.variables
+	}
+	match, err := p.match(ctx, attr, request, namespace, matchConditions)
 	if err != nil {
 		return nil, err
 	}
 	if !match {
 		return nil, nil
 	}
-	var nsData map[string]any
-	if namespace != nil {
-		nsData = namespace.UnstructuredContent()
+	namespaceVal, err := objectToResolveVal(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+	}
+	objectVal, err := objectToResolveVal(attr.GetObject())
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+	}
+	oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+	}
+	requestVal, err := convertObjectToUnstructured(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
 	vars := lazy.NewMapValue(VariablesType)
 	data := map[string]any{
-		NamespaceObjectKey: nsData,
-		ObjectKey:          resource.UnstructuredContent(),
+		ContextKey:         contextlib.Context{ContextInterface: context},
+		NamespaceObjectKey: namespaceVal,
+		ObjectKey:          objectVal,
+		OldObjectKey:       oldObjectVal,
+		RequestKey:         requestVal.Object,
 		VariablesKey:       vars,
 	}
-	for name, variable := range p.variables {
+	for name, variable := range variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, _, err := variable.Eval(data)
+			out, _, err := variable.ContextEval(ctx, data)
 			if out != nil {
 				return out
 			}
@@ -65,43 +128,63 @@ func (p *compiledPolicy) Evaluate(ctx context.Context, resource resource, namesp
 			return nil
 		})
 	}
-	results := make([]EvaluationResult, 0, len(p.validations))
-	for _, rule := range p.validations {
-		out, _, err := rule.Eval(data)
+	results := make([]EvaluationResult, 0, len(validations))
+	for _, validation := range validations {
+		out, _, err := validation.program.ContextEval(ctx, data)
+		// evaluate only when rule fails
+		var message string
+		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
+			message = validation.message
+			if validation.messageExpression != nil {
+				if out, _, err := validation.messageExpression.ContextEval(ctx, data); err != nil {
+					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
+				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
+					message = fmt.Sprintf("failed to convert message expression to string: %s", err)
+				} else {
+					message = msg
+				}
+			}
+		}
 		results = append(results, EvaluationResult{
-			Result: out,
-			Error:  err,
+			Result:  out,
+			Message: message,
+			Error:   err,
 		})
-		// // check error
-		// 	if err != nil {
-		// 		results = append(results, EvaluationResult{
-		// 			Error: err,
-		// 		})
-		// 	}
-		// response, err := utils.ConvertToNative[bool](out)
-		// // check error
-		// if err != nil {
-		// 	return false, err
-		// }
-		// // if response is false, return
-		// if !response {
-		// 	return false, nil
-		// }
 	}
 	return results, nil
 }
 
-func (p *compiledPolicy) match(ctx context.Context, resource resource, namespace namespace) (bool, error) {
-	var nsData map[string]any
-	if namespace != nil {
-		nsData = namespace.UnstructuredContent()
+func (p *compiledPolicy) match(
+	ctx context.Context,
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	matchConditions []cel.Program,
+) (bool, error) {
+	namespaceVal, err := objectToResolveVal(namespace)
+	if err != nil {
+		return false, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+	}
+	objectVal, err := objectToResolveVal(attr.GetObject())
+	if err != nil {
+		return false, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+	}
+	oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
+	if err != nil {
+		return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+	}
+	requestVal, err := convertObjectToUnstructured(request)
+	if err != nil {
+		return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
 	data := map[string]any{
-		NamespaceObjectKey: nsData,
-		ObjectKey:          resource.UnstructuredContent(),
+		NamespaceObjectKey: namespaceVal,
+		ObjectKey:          objectVal,
+		OldObjectKey:       oldObjectVal,
+		RequestKey:         requestVal.Object,
 	}
 	var errs []error
-	for _, matchCondition := range p.matchConditions {
+	for _, matchCondition := range matchConditions {
 		// evaluate the condition
 		out, _, err := matchCondition.ContextEval(ctx, data)
 		// check error
@@ -121,5 +204,33 @@ func (p *compiledPolicy) match(ctx context.Context, resource resource, namespace
 			return false, nil
 		}
 	}
-	return true, multierr.Combine(errs...)
+	if err := multierr.Combine(errs...); err == nil {
+		return true, nil
+	} else if p.failurePolicy == admissionregistrationv1.Ignore {
+		return false, nil
+	} else {
+		return false, err
+	}
+}
+
+func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+	if obj == nil || reflect.ValueOf(obj).IsNil() {
+		return &unstructured.Unstructured{Object: nil}, nil
+	}
+	ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &unstructured.Unstructured{Object: ret}, nil
+}
+
+func objectToResolveVal(r runtime.Object) (interface{}, error) {
+	if r == nil || reflect.ValueOf(r).IsNil() {
+		return nil, nil
+	}
+	v, err := convertObjectToUnstructured(r)
+	if err != nil {
+		return nil, err
+	}
+	return v.Object, nil
 }

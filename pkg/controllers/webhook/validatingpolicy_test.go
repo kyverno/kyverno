@@ -3,7 +3,7 @@ package webhook
 import (
 	"testing"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -14,14 +14,14 @@ import (
 func TestBuildWebhookRules(t *testing.T) {
 	tests := []struct {
 		name             string
-		vpols            []*kyvernov2alpha1.ValidatingPolicy
+		vpols            []*policiesv1alpha1.ValidatingPolicy
 		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
 	}{
 		{
 			name: "Single Ignore Policy",
-			vpols: []*kyvernov2alpha1.ValidatingPolicy{
+			vpols: []*policiesv1alpha1.ValidatingPolicy{
 				{
-					Spec: kyvernov2alpha1.ValidatingPolicySpec{
+					Spec: policiesv1alpha1.ValidatingPolicySpec{
 						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
 							FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 							MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -63,9 +63,9 @@ func TestBuildWebhookRules(t *testing.T) {
 		},
 		{
 			name: "Single Fail Policy",
-			vpols: []*kyvernov2alpha1.ValidatingPolicy{
+			vpols: []*policiesv1alpha1.ValidatingPolicy{
 				{
-					Spec: kyvernov2alpha1.ValidatingPolicySpec{
+					Spec: policiesv1alpha1.ValidatingPolicySpec{
 						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
 							FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 							MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -107,13 +107,13 @@ func TestBuildWebhookRules(t *testing.T) {
 		},
 		{
 			name: "Fine-Grained Ignore Policy",
-			vpols: []*kyvernov2alpha1.ValidatingPolicy{
+			vpols: []*policiesv1alpha1.ValidatingPolicy{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-fine-grained-ignore",
 					},
-					Spec: kyvernov2alpha1.ValidatingPolicySpec{
-						WebhookConfiguration: &kyvernov2alpha1.WebhookConfiguration{
+					Spec: policiesv1alpha1.ValidatingPolicySpec{
+						WebhookConfiguration: &policiesv1alpha1.WebhookConfiguration{
 							TimeoutSeconds: ptr.To(int32(30)),
 						},
 						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
@@ -141,7 +141,7 @@ func TestBuildWebhookRules(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-ignore-finegrained-test-fine-grained-ignore",
-					ClientConfig: newClientConfig("", 0, nil, "/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
+					ClientConfig: newClientConfig("", 0, nil, "/vpol/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -161,13 +161,13 @@ func TestBuildWebhookRules(t *testing.T) {
 		},
 		{
 			name: "Fine-Grained Fail Policy",
-			vpols: []*kyvernov2alpha1.ValidatingPolicy{
+			vpols: []*policiesv1alpha1.ValidatingPolicy{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-fine-grained-fail",
 					},
-					Spec: kyvernov2alpha1.ValidatingPolicySpec{
-						WebhookConfiguration: &kyvernov2alpha1.WebhookConfiguration{
+					Spec: policiesv1alpha1.ValidatingPolicySpec{
+						WebhookConfiguration: &policiesv1alpha1.WebhookConfiguration{
 							TimeoutSeconds: ptr.To(int32(20)),
 						},
 						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
@@ -201,7 +201,7 @@ func TestBuildWebhookRules(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-fail-finegrained-test-fine-grained-fail",
-					ClientConfig: newClientConfig("", 0, nil, "/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
+					ClientConfig: newClientConfig("", 0, nil, "/vpol/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -229,24 +229,28 @@ func TestBuildWebhookRules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			webhooks := buildWebhookRules("", 0, nil, tt.vpols)
+			var vpols []policiesv1alpha1.GenericPolicy
+			for _, vpol := range tt.vpols {
+				vpols = append(vpols, vpol)
+			}
+			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", 0, nil, vpols)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
-				assert.Equal(t, webhooks[i].Name, expect.Name)
-				assert.Equal(t, webhooks[i].FailurePolicy, expect.FailurePolicy)
-				assert.Equal(t, len(webhooks[i].Rules), len(expect.Rules))
+				assert.Equal(t, expect.Name, webhooks[i].Name)
+				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
+				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules))
 
 				if expect.MatchConditions != nil {
-					assert.Equal(t, webhooks[i].MatchConditions, expect.MatchConditions)
+					assert.Equal(t, expect.MatchConditions, webhooks[i].MatchConditions)
 				}
 				if expect.MatchPolicy != nil {
-					assert.Equal(t, webhooks[i].MatchPolicy, expect.MatchPolicy)
+					assert.Equal(t, expect.MatchPolicy, webhooks[i].MatchPolicy)
 				}
 				if expect.TimeoutSeconds != nil {
-					assert.Equal(t, webhooks[i].TimeoutSeconds, expect.TimeoutSeconds)
+					assert.Equal(t, expect.TimeoutSeconds, webhooks[i].TimeoutSeconds)
 				}
 				if expect.ClientConfig.Service != nil {
-					assert.Equal(t, webhooks[i].ClientConfig.Service.Path, expect.ClientConfig.Service.Path)
+					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
 				}
 			}
 		})

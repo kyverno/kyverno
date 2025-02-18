@@ -399,7 +399,7 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		resource := string(yamlEncodedResource) + string("\n---")
 		if len(strings.TrimSpace(resource)) > 0 {
 			if !p.Stdin {
-				fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().MetaObject().GetName(), resourcePath)
+				fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().GetName(), resourcePath)
 			}
 			fmt.Fprintf(p.Out, "\n"+resource+"\n") //nolint:govet
 			if len(yamlEncodedTargetResources) > 0 {
@@ -416,7 +416,7 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 	mutateLogPath := filepath.Clean(p.MutateLogPath)
 	filename := p.Resource.GetName() + "-mutated"
 	if isGenerate {
-		filename = response.Policy().MetaObject().GetName() + "-generated"
+		filename = response.Policy().GetName() + "-generated"
 	}
 
 	file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304

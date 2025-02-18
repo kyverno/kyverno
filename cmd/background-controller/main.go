@@ -6,7 +6,6 @@ import (
 	"flag"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
@@ -31,6 +30,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -131,7 +131,7 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	var wg sync.WaitGroup
+	var wg wait.Group
 	func() {
 		// setup
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
@@ -261,7 +261,7 @@ func main() {
 					os.Exit(1)
 				}
 				// start leader controllers
-				var wg sync.WaitGroup
+				var wg wait.Group
 				for _, controller := range leaderControllers {
 					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 				}

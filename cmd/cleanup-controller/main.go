@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -36,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
@@ -114,7 +114,7 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	var wg sync.WaitGroup
+	var wg wait.Group
 	func() {
 		// setup
 		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
@@ -353,7 +353,7 @@ func main() {
 					os.Exit(1)
 				}
 				// start leader controllers
-				var wg sync.WaitGroup
+				var wg wait.Group
 				certController.Run(ctx, logger, &wg)
 				policyValidatingWebhookController.Run(ctx, logger, &wg)
 				ttlWebhookController.Run(ctx, logger, &wg)

@@ -13,7 +13,7 @@ import (
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,8 +35,10 @@ const (
 	//	policy labels
 	LabelDomainClusterPolicy                    = "cpol.kyverno.io"
 	LabelDomainPolicy                           = "pol.kyverno.io"
+	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
+	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
@@ -47,6 +49,7 @@ const (
 func IsPolicyLabel(label string) bool {
 	return strings.HasPrefix(label, LabelPrefixPolicy) ||
 		strings.HasPrefix(label, LabelPrefixClusterPolicy) ||
+		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
@@ -65,12 +68,16 @@ func PolicyNameFromLabel(namespace, label string) (string, error) {
 }
 
 func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
-	if policy.IsNamespaced() {
-		return LabelPrefixPolicy
-	}
-	if policy.GetType() == engineapi.KyvernoPolicyType {
+	if policy.AsKyvernoPolicy() != nil {
+		if policy.IsNamespaced() {
+			return LabelPrefixPolicy
+		}
 		return LabelPrefixClusterPolicy
 	}
+	if policy.AsValidatingPolicy() != nil {
+		return LabelPrefixValidatingPolicy
+	}
+	// TODO: detect potential type not detected
 	return LabelPrefixValidatingAdmissionPolicy
 }
 
@@ -82,14 +89,14 @@ func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
 }
 
 func PolicyLabel(policy engineapi.GenericPolicy) string {
-	return PolicyLabelPrefix(policy) + policy.MetaObject().GetName()
+	return PolicyLabelPrefix(policy) + policy.GetName()
 }
 
 func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
 	return LabelPrefixPolicyException + exception.GetName()
 }
 
-func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) string {
+func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) string {
 	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
 }
 
@@ -167,14 +174,14 @@ func SetResourceVersionLabels(report reportsv1.ReportInterface, resource *unstru
 }
 
 func SetPolicyLabel(report reportsv1.ReportInterface, policy engineapi.GenericPolicy) {
-	controllerutils.SetLabel(report, PolicyLabel(policy), policy.MetaObject().GetResourceVersion())
+	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
 }
 
 func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyvernov2.PolicyException) {
 	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
-func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
 }
 

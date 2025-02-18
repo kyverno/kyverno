@@ -18,13 +18,12 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		action = ResourceBlocked
 	}
 	pol := engineResponse.Policy()
-	polMeta := pol.MetaObject()
 	regarding := corev1.ObjectReference{
 		APIVersion: pol.GetAPIVersion(),
 		Kind:       pol.GetKind(),
-		Name:       polMeta.GetName(),
-		Namespace:  polMeta.GetNamespace(),
-		UID:        pol.MetaObject().GetUID(),
+		Name:       pol.GetName(),
+		Namespace:  pol.GetNamespace(),
+		UID:        pol.GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
 	return Info{
@@ -76,8 +75,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 
 	var action Action
 	policy := engineResponse.Policy()
-	policyMeta := policy.MetaObject()
-	if policy.GetType() == engineapi.KyvernoPolicyType {
+	if policy.AsKyvernoPolicy() != nil {
 		pol := engineResponse.Policy().AsKyvernoPolicy()
 		hasValidate := pol.GetSpec().HasValidate()
 		hasVerifyImages := pol.GetSpec().HasVerifyImages()
@@ -96,9 +94,9 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	regarding := corev1.ObjectReference{
 		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
-		Name:       policyMeta.GetName(),
-		Namespace:  policyMeta.GetNamespace(),
-		UID:        policy.MetaObject().GetUID(),
+		Name:       policy.GetName(),
+		Namespace:  policy.GetNamespace(),
+		UID:        policy.GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
 	return Info{
@@ -122,7 +120,7 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	defer bldr.Reset()
 
 	pol := engineResponse.Policy()
-	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.MetaObject().GetName(),
+	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.GetName(),
 		ruleResp.Name(), ruleResp.Status(), ruleResp.Message())
 	resource := engineResponse.GetResourceSpec()
 	regarding := corev1.ObjectReference{
@@ -349,7 +347,7 @@ func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName
 	vapEvent := Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
-			APIVersion: "admissionregistration.k8s.io/v1beta1",
+			APIVersion: "admissionregistration.k8s.io/v1",
 			Kind:       "ValidatingAdmissionPolicy",
 			Name:       vapName,
 		},
@@ -361,7 +359,7 @@ func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName
 	vapBindingEvent := Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
-			APIVersion: "admissionregistration.k8s.io/v1beta1",
+			APIVersion: "admissionregistration.k8s.io/v1",
 			Kind:       "ValidatingAdmissionPolicyBinding",
 			Name:       vapBindingName,
 		},

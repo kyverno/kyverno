@@ -49,7 +49,7 @@ func printCheckResult(
 		if check.Match.Policy != nil {
 			var filtered []engineapi.EngineResponse
 			for _, response := range matchingEngineResponses {
-				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().MetaObject())
+				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
 				if err != nil {
 					return err
 				}
@@ -105,7 +105,7 @@ func printCheckResult(
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().MetaObject().GetName()),
+							Policy:    color.Policy("", response.Policy().GetName()),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
 							IsFailure: len(errs) != 0,
@@ -136,7 +136,7 @@ func printCheckResult(
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().MetaObject().GetName()),
+							Policy:    color.Policy("", response.Policy().GetName()),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
 							IsFailure: len(errs) != 0,
@@ -240,7 +240,7 @@ func printTestResult(
 			if _, ok := responses.Trigger[resource]; ok {
 				for _, response := range responses.Trigger[resource] {
 					polNameNs := strings.Split(test.Policy, "/")
-					if response.Policy().MetaObject().GetName() != polNameNs[len(polNameNs)-1] {
+					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
 					}
 					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
