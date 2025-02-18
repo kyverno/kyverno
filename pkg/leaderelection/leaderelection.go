@@ -80,23 +80,23 @@ func New(log logr.Logger, name, namespace string, kubeClient kubernetes.Interfac
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				atomic.StoreInt64(&e.isLeader, 1)
-				e.log.Info("started leading")
+				e.log.V(2).Info("started leading")
 				if e.startWork != nil {
 					e.startWork(ctx)
 				}
 			},
 			OnStoppedLeading: func() {
 				atomic.StoreInt64(&e.isLeader, 0)
-				e.log.Info("leadership lost, stopped leading")
+				e.log.V(2).Info("leadership lost, stopped leading")
 				if e.stopWork != nil {
 					e.stopWork()
 				}
 			},
 			OnNewLeader: func(identity string) {
 				if identity == e.lock.Identity() {
-					e.log.Info("still leading")
+					e.log.V(4).Info("still leading")
 				} else {
-					e.log.Info("another instance has been elected as leader", "leader", identity)
+					e.log.V(2).Info("another instance has been elected as leader", "leader", identity)
 				}
 			},
 		},

@@ -14,7 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -119,7 +119,7 @@ func (h validateCELHandler) Process(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	// compile CEL expressions
-	compiler, err := admissionpolicy.NewCompiler(admissionpolicy.ConvertMatchConditionsV1(matchConditions), variables)
+	compiler, err := admissionpolicy.NewCompiler(matchConditions, variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
@@ -218,7 +218,7 @@ func (h validateCELHandler) Process(
 	)
 }
 
-func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1beta1.ParamKind, paramRef *admissionregistrationv1beta1.ParamRef, namespace string) ([]runtime.Object, error) {
+func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
 	var params []runtime.Object
 
 	apiVersion := paramKind.APIVersion
@@ -269,7 +269,7 @@ func collectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 		}
 	}
 
-	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1beta1.DenyAction {
+	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1.DenyAction {
 		return nil, fmt.Errorf("no params found")
 	}
 

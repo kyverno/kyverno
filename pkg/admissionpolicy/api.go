@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -14,23 +14,23 @@ import (
 // Everything someone might need to validate a single ValidatingPolicyDefinition
 // against all of its registered bindings.
 type PolicyData struct {
-	definition admissionregistrationv1beta1.ValidatingAdmissionPolicy
-	bindings   []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+	definition admissionregistrationv1.ValidatingAdmissionPolicy
+	bindings   []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 }
 
-func (p *PolicyData) AddBinding(binding admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func (p *PolicyData) AddBinding(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	p.bindings = append(p.bindings, binding)
 }
 
-func (p *PolicyData) GetDefinition() admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+func (p *PolicyData) GetDefinition() admissionregistrationv1.ValidatingAdmissionPolicy {
 	return p.definition
 }
 
-func (p *PolicyData) GetBindings() []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding {
+func (p *PolicyData) GetBindings() []admissionregistrationv1.ValidatingAdmissionPolicyBinding {
 	return p.bindings
 }
 
-func NewPolicyData(policy admissionregistrationv1beta1.ValidatingAdmissionPolicy) PolicyData {
+func NewPolicyData(policy admissionregistrationv1.ValidatingAdmissionPolicy) PolicyData {
 	return PolicyData{
 		definition: policy,
 	}

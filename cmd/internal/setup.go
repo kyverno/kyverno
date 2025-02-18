@@ -26,7 +26,7 @@ func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFu
 	return func() {
 		for i := range sdowns {
 			if sdowns[i] != nil {
-				logger.Info("shutting down...")
+				logger.V(2).Info("shutting down...")
 				defer sdowns[i]()
 			}
 		}

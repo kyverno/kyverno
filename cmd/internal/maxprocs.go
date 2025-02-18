@@ -9,11 +9,11 @@ import (
 
 func setupMaxProcs(logger logr.Logger) func() {
 	logger = logger.WithName("maxprocs")
-	logger.Info("setup maxprocs...")
+	logger.V(2).Info("setup maxprocs...")
 	undo, err := maxprocs.Set(
 		maxprocs.Logger(
 			func(format string, args ...interface{}) {
-				logger.Info(fmt.Sprintf(format, args...))
+				logger.V(4).Info(fmt.Sprintf(format, args...))
 			},
 		),
 	)

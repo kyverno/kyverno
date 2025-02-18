@@ -11,7 +11,6 @@ import (
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -594,36 +593,36 @@ func (pss *PodSecurityStandard) Validate(path *field.Path) (errs field.ErrorList
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 type CEL struct {
 	// Expressions is a list of CELExpression types.
-	Expressions []admissionregistrationv1beta1.Validation `json:"expressions,omitempty"`
+	Expressions []admissionregistrationv1.Validation `json:"expressions,omitempty"`
 
 	// ParamKind is a tuple of Group Kind and Version.
 	// +optional
-	ParamKind *admissionregistrationv1beta1.ParamKind `json:"paramKind,omitempty"`
+	ParamKind *admissionregistrationv1.ParamKind `json:"paramKind,omitempty"`
 
 	// ParamRef references a parameter resource.
 	// +optional
-	ParamRef *admissionregistrationv1beta1.ParamRef `json:"paramRef,omitempty"`
+	ParamRef *admissionregistrationv1.ParamRef `json:"paramRef,omitempty"`
 
 	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
 	// +optional
-	AuditAnnotations []admissionregistrationv1beta1.AuditAnnotation `json:"auditAnnotations,omitempty"`
+	AuditAnnotations []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
 
 	// Variables contain definitions of variables that can be used in composition of other expressions.
 	// Each variable is defined as a named CEL expression.
 	// The variables defined here will be available under `variables` in other expressions of the policy.
 	// +optional
-	Variables []admissionregistrationv1beta1.Variable `json:"variables,omitempty"`
+	Variables []admissionregistrationv1.Variable `json:"variables,omitempty"`
 }
 
 func (c *CEL) HasParam() bool {
 	return c.ParamKind != nil && c.ParamRef != nil
 }
 
-func (c *CEL) GetParamKind() admissionregistrationv1beta1.ParamKind {
+func (c *CEL) GetParamKind() admissionregistrationv1.ParamKind {
 	return *c.ParamKind
 }
 
-func (c *CEL) GetParamRef() admissionregistrationv1beta1.ParamRef {
+func (c *CEL) GetParamRef() admissionregistrationv1.ParamRef {
 	return *c.ParamRef
 }
 

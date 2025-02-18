@@ -106,7 +106,7 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		}
 	}
 
-	a.logger.Info("executed service APICall", "name", a.name, "len", len(body))
+	a.logger.V(4).Info("executed service APICall", "name", a.name, "len", len(body))
 	return body, nil
 }
 

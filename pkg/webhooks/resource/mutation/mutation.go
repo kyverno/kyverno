@@ -133,7 +133,7 @@ func (v *mutationHandler) applyMutations(
 					patches = append(patches, policyPatches...)
 					rules := engineResponse.GetSuccessRules()
 					if len(rules) != 0 {
-						v.log.Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
+						v.log.V(2).Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
 					}
 				}
 
@@ -182,10 +182,10 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1
 
 	if !engineResponse.IsSuccessful() {
 		if webhookutils.BlockRequest([]engineapi.EngineResponse{engineResponse}, failurePolicy, h.log) {
-			h.log.Info("failed to apply policy, blocking request", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
+			h.log.V(2).Info("failed to apply policy, blocking request", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
 			return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
 		} else {
-			h.log.Info("ignoring unsuccessful engine responses", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
+			h.log.V(4).Info("ignoring unsuccessful engine responses", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
 			return &engineResponse, nil, nil
 		}
 	}

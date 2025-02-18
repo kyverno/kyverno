@@ -2,13 +2,13 @@ package api
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GenericPolicy abstracts the policy type (Kyverno policy vs Validating admission policy)
+// GenericPolicy abstracts the policy type (ClusterPolicy/Policy, ValidatingPolicy, ValidatingAdmissionPolicy and MutatingAdmissionPolicy)
 // It is intended to be used in EngineResponse
 type GenericPolicy interface {
 	metav1.Object
@@ -23,15 +23,17 @@ type GenericPolicy interface {
 	// AsKyvernoPolicy returns the kyverno policy
 	AsKyvernoPolicy() kyvernov1.PolicyInterface
 	// AsValidatingAdmissionPolicy returns the validating admission policy
-	AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy
+	// AsValidatingPolicy returns the validating policy
+	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
 }
 
 type genericPolicy struct {
 	metav1.Object
 	PolicyInterface           kyvernov1.PolicyInterface
-	ValidatingAdmissionPolicy *admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	ValidatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy
 	MutatingAdmissionPolicy   *admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	ValidatingPolicy          *kyvernov2alpha1.ValidatingPolicy
+	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -42,8 +44,12 @@ func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 	return p.PolicyInterface
 }
 
-func (p *genericPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+func (p *genericPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy {
 	return p.ValidatingAdmissionPolicy
+}
+
+func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy {
+	return p.ValidatingPolicy
 }
 
 func (p *genericPolicy) GetAPIVersion() string {
@@ -51,11 +57,11 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.PolicyInterface != nil:
 		return kyvernov1.GroupVersion.String()
 	case p.ValidatingAdmissionPolicy != nil:
-		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
+		return admissionregistrationv1.SchemeGroupVersion.String()
 	case p.MutatingAdmissionPolicy != nil:
 		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
 	case p.ValidatingPolicy != nil:
-		return kyvernov2alpha1.GroupVersion.String()
+		return policiesv1alpha1.GroupVersion.String()
 	}
 	return ""
 }
@@ -89,7 +95,7 @@ func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) GenericPolicy {
 	}
 }
 
-func NewValidatingAdmissionPolicy(pol *admissionregistrationv1beta1.ValidatingAdmissionPolicy) GenericPolicy {
+func NewValidatingAdmissionPolicy(pol *admissionregistrationv1.ValidatingAdmissionPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                    pol,
 		ValidatingAdmissionPolicy: pol,
@@ -103,7 +109,7 @@ func NewMutatingAdmissionPolicy(pol *admissionregistrationv1alpha1.MutatingAdmis
 	}
 }
 
-func NewValidatingPolicy(pol *kyvernov2alpha1.ValidatingPolicy) GenericPolicy {
+func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:           pol,
 		ValidatingPolicy: pol,

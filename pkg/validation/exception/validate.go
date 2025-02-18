@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 )
 
 const (
@@ -19,15 +18,14 @@ type ValidationOptions struct {
 }
 
 // Validate checks policy exception is valid
-func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2.PolicyException, opts ValidationOptions) ([]string, error) {
+func ValidateNamespace(ctx context.Context, logger logr.Logger, polexNs string, opts ValidationOptions) []string {
 	var warnings []string
 	if !opts.Enabled {
 		warnings = append(warnings, disabledPolex)
 	} else if opts.Namespace == "" {
 		warnings = append(warnings, polexNamespaceFlag)
-	} else if opts.Namespace != "*" && opts.Namespace != polex.Namespace {
+	} else if opts.Namespace != "*" && opts.Namespace != polexNs {
 		warnings = append(warnings, namespacesDontMatch)
 	}
-	errs := polex.Validate()
-	return warnings, errs.ToAggregate()
+	return warnings
 }

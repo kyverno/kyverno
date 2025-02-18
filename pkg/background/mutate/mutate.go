@@ -89,7 +89,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
-	logger.Info("processing mutate existing")
+	logger.V(3).Info("processing mutate existing")
 	policy, err := c.getPolicy(ur)
 	if err != nil {
 		logger.Error(err, "failed to get policy")

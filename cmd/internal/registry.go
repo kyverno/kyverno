@@ -15,7 +15,7 @@ import (
 
 func setupRegistryClient(ctx context.Context, logger logr.Logger, client kubernetes.Interface) (registryclient.Client, corev1listers.SecretNamespaceLister) {
 	logger = logger.WithName("registry-client").WithValues("secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
-	logger.Info("setup registry client...")
+	logger.V(2).Info("setup registry client...")
 	factory := kubeinformers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	secretLister := factory.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	// start informers and wait for cache sync

@@ -96,9 +96,9 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to read CA (%w)", err)
 	}
-	now := time.Now()
+	now := time.Now().Add(c.renewBefore)
 	certs = removeExpiredCertificates(now, certs...)
-	if !allCertificatesExpired(now.Add(c.renewBefore), certs...) {
+	if !allCertificatesExpired(now, certs...) {
 		return nil
 	}
 	if !isSecretManagedByKyverno(secret) {

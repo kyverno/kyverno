@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -19,7 +19,7 @@ func Test_CanAutoGen(t *testing.T) {
 		{
 			name: "policy-with-match-name",
 			policy: []byte(`{
-    "apiVersion": "kyverno.io/v2alpha1",
+    "apiVersion": "policies.kyverno.io/v1alpha1",
     "kind": "ValidatingPolicy",
     "metadata": {
         "name": "chech-labels"
@@ -66,7 +66,7 @@ func Test_CanAutoGen(t *testing.T) {
 		{
 			name: "policy-with-match-object-selector",
 			policy: []byte(`{
-    "apiVersion": "kyverno.io/v2alpha1",
+    "apiVersion": "policies.kyverno.io/v1alpha1",
     "kind": "ValidatingPolicy",
     "metadata": {
         "name": "chech-labels"
@@ -115,7 +115,7 @@ func Test_CanAutoGen(t *testing.T) {
 		{
 			name: "policy-with-match-namespace-selector",
 			policy: []byte(`{
-    "apiVersion": "kyverno.io/v2alpha1",
+    "apiVersion": "policies.kyverno.io/v1alpha1",
     "kind": "ValidatingPolicy",
     "metadata": {
         "name": "chech-labels"
@@ -164,7 +164,7 @@ func Test_CanAutoGen(t *testing.T) {
 		{
 			name: "policy-with-match-mixed-kinds-pod-podcontrollers",
 			policy: []byte(`{
-    "apiVersion": "kyverno.io/v2alpha1",
+    "apiVersion": "policies.kyverno.io/v1alpha1",
     "kind": "ValidatingPolicy",
     "metadata": {
         "name": "chech-labels"
@@ -223,7 +223,7 @@ func Test_CanAutoGen(t *testing.T) {
 		{
 			name: "policy-with-match-kinds-pod-only",
 			policy: []byte(`{
-    "apiVersion": "kyverno.io/v2alpha1",
+    "apiVersion": "policies.kyverno.io/v1alpha1",
     "kind": "ValidatingPolicy",
     "metadata": {
         "name": "chech-labels"
@@ -268,11 +268,11 @@ func Test_CanAutoGen(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			var policy *kyvernov2alpha1.ValidatingPolicy
+			var policy *policiesv1alpha1.ValidatingPolicy
 			err := json.Unmarshal(test.policy, &policy)
 			assert.NilError(t, err)
 
-			applyAutoGen, controllers := canAutoGen(&policy.Spec)
+			applyAutoGen, controllers := CanAutoGen(&policy.Spec)
 			if !applyAutoGen {
 				controllers = sets.New("none")
 			}

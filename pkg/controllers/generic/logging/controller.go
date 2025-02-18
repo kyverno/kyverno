@@ -42,7 +42,7 @@ func (c *controller) add(obj metav1.Object) {
 		c.logger.Error(err, "failed to extract name", "object", obj)
 		name = "unknown"
 	}
-	c.logger.Info("resource added", "name", name)
+	c.logger.V(2).Info("resource added", "name", name)
 }
 
 func (c *controller) update(old, obj metav1.Object) {
@@ -56,7 +56,7 @@ func (c *controller) update(old, obj metav1.Object) {
 		c.logger.Error(err, "failed to extract name", "object", obj)
 		name = "unknown"
 	}
-	c.logger.Info("resource updated", "name", name)
+	c.logger.V(2).Info("resource updated", "name", name)
 }
 
 func (c *controller) delete(obj metav1.Object) {
@@ -65,5 +65,5 @@ func (c *controller) delete(obj metav1.Object) {
 		c.logger.Error(err, "failed to extract name", "object", obj)
 		name = "unknown"
 	}
-	c.logger.Info("resource deleted", "name", name)
+	c.logger.V(2).Info("resource deleted", "name", name)
 }

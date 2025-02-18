@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+  labels:
+    prod: "true"
+spec:
+  containers:
+  - name: container01
+    image: dummyimagename
+    securityContext:
+      allowPrivilegeEscalation: false

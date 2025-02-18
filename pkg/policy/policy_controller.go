@@ -181,7 +181,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 func (pc *policyController) addPolicy(obj interface{}) {
 	logger := pc.log
 	p := castPolicy(obj)
-	logger.Info("policy created", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
+	logger.V(2).Info("policy created", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
 
 	if !pc.canBackgroundProcess(p) {
 		return
@@ -230,7 +230,7 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 		return
 	}
 
-	logger.Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
+	logger.V(2).Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
 	err := pc.createURForDownstreamDeletion(p)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
@@ -254,8 +254,8 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 	defer pc.queue.ShutDown()
 
-	logger.Info("starting")
-	defer logger.Info("shutting down")
+	logger.V(2).Info("starting")
+	defer logger.V(2).Info("shutting down")
 
 	if !cache.WaitForNamedCacheSync("PolicyController", ctx.Done(), pc.informersSynced...) {
 		return
@@ -368,7 +368,7 @@ func (pc *policyController) forceReconciliation(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			logger.Info("reconciling generate and mutateExisting policies", "scan interval", pc.reconcilePeriod.String())
+			logger.V(3).Info("reconciling generate and mutateExisting policies", "scan interval", pc.reconcilePeriod.String())
 			pc.requeuePolicies()
 
 		case <-ctx.Done():

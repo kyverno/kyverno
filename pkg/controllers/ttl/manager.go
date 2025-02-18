@@ -127,8 +127,8 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 	if stopFunc, ok := m.resController[gvr]; ok {
 		delete(m.resController, gvr)
 		func() {
-			defer logger.Info("controller stopped")
-			logger.Info("stopping controller...")
+			defer logger.V(2).Info("controller stopped")
+			logger.V(2).Info("stopping controller...")
 			stopFunc()
 		}()
 	}

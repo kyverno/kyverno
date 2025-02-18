@@ -79,7 +79,7 @@ func NewController(
 }
 
 func (c *controller) addGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
-	logger.Info("globalcontextentry created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	logger.V(4).Info("globalcontextentry created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
@@ -87,12 +87,12 @@ func (c *controller) updateGTXEntry(old, obj *kyvernov2alpha1.GlobalContextEntry
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
-	logger.Info("globalcontextentry updated", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	logger.V(4).Info("globalcontextentry updated", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
 func (c *controller) deleteGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
-	logger.Info("globalcontextentry deleted", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	logger.V(4).Info("globalcontextentry deleted", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 

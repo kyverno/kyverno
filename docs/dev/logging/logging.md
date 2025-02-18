@@ -1,40 +1,48 @@
 # Logging Guideline
 
-Logging is done using `logging` package in the codebase. The logger relies on sigs.k8s.io/controller-runtime/pkg/log that provides methods to define logs.
+Logging in Kyverno follows a structured approach using `logr`, with `zerologr` for structured logging and `klogr` for Kubernetes client logs, ensuring consistency and standardization.
 
-Default log level is 2. Can be modified by adding command-line argument `-v=<level_int>`.
+## **Log Levels**
+- **Default log level:** `2`
+- Can be modified via command-line argument: `-v=<level_int>`.
+- Uses **zerologr** for structured logging (verbose logs) and **klogr** for client logs, both implemented through `logr` (Go's built-in logging interface).
 
+> :warning: Initially, call depth applied to the logger does not get set. When `logging.Setup` is called in `main`, `globalLog` is switched to the real logger, meaning all loggers created after `logging.Setup` will work correctly if the underlying sink supports it.
 
+## **Identifiers**
+- `WithName`: `logging.WithName("setup")` → Adds "setup" as a prefix.
+- `WithValues`: `logging.WithValues("key", "value")` → Adds key-value pairs to logs.
+- `ControllerLogger`: `logging.ControllerLogger("name")` → Creates a logger for controllers, setting a log level of 3.
 
-The `globalLog` variable in logging package is a reference to logr.Logger from controller-runtime/pkg/log.
-
-
-> :warning:
-> Initially, call depth applied to the logger do not get set. When logging.Setup is called in main, globalLog is switched to the real logger, in turn, all loggers created after logging.Setup won't be subject to the call depth limitation and will work if the underlying sink supports it.
-
-
-### Identifiers:
+## **Error Logging (L0)**
+```bash
+logging.Error(err, "failed due to this error", "key", "value")
+logging.Info("failed due to this error", err)
 
 ```
-WithName: logging.WithName("setup") : adds "setup" as prefix.
+- Prints a **stack trace** where the error was defined for deeper debugging.
+- **Fatal logs** do not exist; the caller must use `os.Exit()` explicitly.
 
-WithValues: logging.WithValues("key","value") : adds key-value pairs.
-
-ControllerLogger: logging.ControllerLogger("name") : creates a logger to be used by controllers. it sets a log level of 3. 
+## **Startup Info & Policy Application Results (L2)**
+```bash
+logging.V(2).Info("starting controller", "workers", c.workers)
+logging.V(2).Info("setup metrics", "otel", otel, "port", metricsPort)
 ```
+- Logs providing information about startup processes or policy application results.
 
-
-### Error:
+## **Variable Evaluation Logs (L3)**
+```bash
+logging.V(3).Info("evaluating variable", "value", someVariable)
+logging.V(3).Info("failed to fetch UR, falling back", "reason", err.Error())
 ```
-logging.Error(err,"failed due to this error","key","value")
+- Logs related to dynamic evaluations, variable processing, or intermediate policy decisions.
+
+## **Debugging Logs (L4 & Above)**
+```bash
+logging.V(4).Info("fetching downstream resource", "APIVersion", generatePattern.GetAPIVersion())
+logging.V(4).Info("ForceFailurePolicyIgnore is enabled, all policies with failures will be set to Ignore")
 ```
+- Detailed logs useful for debugging execution paths.
+- Shutdown messages should also be **logged at L4**.
 
-Prints the stack trace where the error was defined for more details. There are no methods for fatal, os.Exit() needs to be called by the caller.
-
-Info:
-```
-logging.Info("information message","key","value")
-
-logging.V(4).Info("level log4","log_level","4") : prints the log information based on the defined verbosity.
-```
-
+---

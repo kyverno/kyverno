@@ -27,7 +27,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
@@ -91,7 +90,7 @@ func NewHandlers(
 	maxAuditCapacity int,
 	reportingConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
-) webhooks.ResourceHandlers {
+) *resourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
 		client:                       client,
@@ -159,7 +158,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	}
 	wg.Wait()
 	if !ok {
-		logger.Info("admission request denied")
+		logger.V(4).Info("admission request denied")
 		events := webhookutils.GenerateEvents(enforceResponses, true, h.configuration)
 		h.eventGen.Add(events...)
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)

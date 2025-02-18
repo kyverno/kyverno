@@ -94,9 +94,7 @@ func initMetricsFlags() {
 }
 
 func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst int) {
-	if f := flag.CommandLine.Lookup("kubeconfig"); f != nil {
-		kubeconfig = f.Value.String()
-	} else {
+	if f := flag.Lookup("kubeconfig"); f == nil {
 		flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	}
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
@@ -148,6 +146,12 @@ func initCleanupFlags() {
 
 func initReportingFlags() {
 	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+}
+
+func lookupKubeconfigFlag() {
+	if f := flag.Lookup("kubeconfig"); f != nil {
+		kubeconfig = f.Value.String()
+	}
 }
 
 type options struct {
@@ -251,6 +255,7 @@ func showWarnings(config Configuration, logger logr.Logger) {
 func ParseFlags(config Configuration, opts ...Option) {
 	initFlags(config, opts...)
 	flag.Parse()
+	lookupKubeconfigFlag()
 }
 
 func ExceptionNamespace() string {
