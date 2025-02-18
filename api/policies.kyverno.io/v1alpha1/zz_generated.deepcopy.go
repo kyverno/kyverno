@@ -565,11 +565,6 @@ func (in *Keyless) DeepCopyInto(out *Keyless) {
 		*out = make([]Identity, len(*in))
 		copy(*out, *in)
 	}
-	if in.CACert != nil {
-		in, out := &in.CACert, &out.CACert
-		*out = new(Key)
-		(*in).DeepCopyInto(*out)
-	}
 	return
 }
 

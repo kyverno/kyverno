@@ -11569,8 +11569,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.Cosign">Cosign</a>, 
-<a href="#policies.kyverno.io/v1alpha1.Keyless">Keyless</a>)
+<a href="#policies.kyverno.io/v1alpha1.Cosign">Cosign</a>)
 </p>
 <p>
 <p>This references a public verification key stored in
@@ -11648,8 +11647,7 @@ sha224, sha256, sha384 and sha512. Defaults to sha256.</p>
 </p>
 <p>
 <p>Keyless contains location of the validating certificate and the identities
-against which to verify. KeylessRef will contain either the URL to the verifying
-certificate, or it will contain the certificate data inline or in a secret.</p>
+against which to verify.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11661,18 +11659,6 @@ certificate, or it will contain the certificate data inline or in a secret.</p>
 <tbody>
 <tr>
 <td>
-<code>url</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>URL defines a url to the keyless instance.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>identities</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.Identity">
@@ -11682,20 +11668,6 @@ string
 </td>
 <td>
 <p>Identities sets a list of identities.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>ca-cert</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.Key">
-Key
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>CACert sets a reference to CA certificate</p>
 </td>
 </tr>
 </tbody>

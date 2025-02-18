@@ -167,37 +167,6 @@ spec:
                           description: Keyless sets the configuration to verify the
                             authority against a Fulcio instance.
                           properties:
-                            ca-cert:
-                              description: CACert sets a reference to CA certificate
-                              properties:
-                                data:
-                                  description: Data contains the inline public key
-                                  type: string
-                                hashAlgorithm:
-                                  description: |-
-                                    HashAlgorithm specifues signature algorithm for public keys. Supported values are
-                                    sha224, sha256, sha384 and sha512. Defaults to sha256.
-                                  type: string
-                                kms:
-                                  description: |-
-                                    KMS contains the KMS url of the public key
-                                    Supported formats differ based on the KMS system used.
-                                  type: string
-                                secretRef:
-                                  description: SecretRef sets a reference to a secret
-                                    with the key.
-                                  properties:
-                                    name:
-                                      description: name is unique within a namespace
-                                        to reference a secret resource.
-                                      type: string
-                                    namespace:
-                                      description: namespace defines the space within
-                                        which the secret name must be unique.
-                                      type: string
-                                  type: object
-                                  x-kubernetes-map-type: atomic
-                              type: object
                             identities:
                               description: Identities sets a list of identities.
                               items:
@@ -225,9 +194,6 @@ spec:
                                     type: string
                                 type: object
                               type: array
-                            url:
-                              description: URL defines a url to the keyless instance.
-                              type: string
                           required:
                           - identities
                           type: object
