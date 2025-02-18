@@ -317,7 +317,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
-	_ *processor.ResultCounts,
+	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
 	ctx := context.TODO()
@@ -372,6 +372,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 				},
 			}
 			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+			rc.AddValidatingPolicyResponse(engineResponse)
 			responses = append(responses, engineResponse)
 		}
 	}
@@ -399,7 +400,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
+		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)

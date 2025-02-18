@@ -10,16 +10,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -107,7 +104,6 @@ type controller struct {
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
 	clusterroleLister rbacv1listers.ClusterRoleLister
-	gctxentryLister   kyvernov2alpha1listers.GlobalContextEntryLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -149,7 +145,6 @@ func NewController(
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
 	clusterroleInformer rbacv1informers.ClusterRoleInformer,
-	gctxentryInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
 	server string,
 	defaultTimeout int32,
 	servicePort int32,
@@ -183,7 +178,6 @@ func NewController(
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
 		clusterroleLister:   clusterroleInformer.Lister(),
-		gctxentryLister:     gctxentryInformer.Lister(),
 		queue:               queue,
 		server:              server,
 		defaultTimeout:      defaultTimeout,
@@ -519,23 +513,10 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	return err
 }
 
-func (c *controller) isGlobalContextEntryReady(name string, gctxentries []*kyvernov2alpha1.GlobalContextEntry) bool {
-	for _, gctxentry := range gctxentries {
-		if gctxentry.Name == name {
-			return gctxentry.Status.IsReady()
-		}
-	}
-	return false
-}
-
 func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
-	if err != nil {
-		return err
-	}
-	gctxentries, err := c.gctxentryLister.List(labels.Everything())
 	if err != nil {
 		return err
 	}
@@ -549,22 +530,6 @@ func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType strin
 			if set, ok := c.policyState[webhookType]; ok {
 				if !set.Has(policyKey) {
 					ready, message = false, "Not Ready"
-				}
-			}
-		}
-		// If there are global context entries under , check if they are ready
-		if ready {
-			for _, rule := range policy.GetSpec().Rules {
-				if rule.Context == nil {
-					continue
-				}
-				for _, ctxEntry := range rule.Context {
-					if ctxEntry.GlobalReference != nil {
-						if !c.isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-							ready, message = false, "global context entry not ready"
-							break
-						}
-					}
 				}
 			}
 		}
