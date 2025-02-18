@@ -33,7 +33,10 @@ func (b *policyContextBuilder) Build(request admissionv1.AdmissionRequest, roles
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		DryRun:            *request.DryRun,
+	}
+
+	if request.DryRun != nil {
+		userRequestInfo.DryRun = *request.DryRun
 	}
 	return engine.NewPolicyContextFromAdmissionRequest(b.jp, request, userRequestInfo, gvk, b.configuration)
 }
