@@ -1085,6 +1085,7 @@ jobs:
       - autogen
       - background-only
       - cleanup
+      - cel-policy-exceptions
       - deferred
       - events
       - exceptions
@@ -1123,6 +1124,7 @@ jobs:
       - autogen
       - background-only
       - cleanup
+      - cel-policy-exceptions
       - deferred
       - events
       - exceptions
