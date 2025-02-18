@@ -317,7 +317,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
-	_ *processor.ResultCounts,
+	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
 	ctx := context.TODO()
@@ -372,6 +372,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 				},
 			}
 			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+			rc.AddValidatingPolicyResponse(engineResponse)
 			responses = append(responses, engineResponse)
 		}
 	}
