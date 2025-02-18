@@ -367,7 +367,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 					prefix = string(old[0])
 				}
 
-				if shallowSubstitution {
+				if shallowSubstitution && substitutedVar != nil {
 					substitutedVar = strings.ReplaceAll(substitutedVar.(string), "{{", "\\{{")
 				}
 
