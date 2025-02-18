@@ -534,7 +534,12 @@ codegen-crds-cli: $(CONTROLLER_GEN)
 	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
-codegen-crds-all: codegen-crds-kyverno codegen-crds-policyreport codegen-crds-reports codegen-crds-policies codegen-cli-crds ## Generate all CRDs
+codegen-crds-all: ## Generate all CRDs
+codegen-crds-all: codegen-crds-kyverno
+codegen-crds-all: codegen-crds-policyreport
+codegen-crds-all: codegen-crds-reports
+codegen-crds-all: codegen-crds-policies
+codegen-crds-all: codegen-cli-crds
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs

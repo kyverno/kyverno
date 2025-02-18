@@ -127,10 +127,10 @@ type Attestor struct {
 	Name string `json:"name"`
 	// Cosign defines attestor configuration for Cosign based signatures
 	// +optional
-	Cosign Cosign `json:"cosign,omitempty"`
+	Cosign *Cosign `json:"cosign,omitempty"`
 	// Notary defines attestor configuration for Notary based signatures
 	// +optional
-	Notary Notary `json:"notary,omitempty"`
+	Notary *Notary `json:"notary,omitempty"`
 }
 
 // Cosign defines attestor configuration for Cosign based signatures
@@ -294,11 +294,11 @@ type Attestation struct {
 
 	// InToto defines the details of attestation attached using intoto format
 	// +optional
-	InToto InToto `json:"intoto,omitempty"`
+	InToto *InToto `json:"intoto,omitempty"`
 
 	// Referrer defines the details of attestation attached using OCI 1.1 format
 	// +optional
-	Referrer Referrer `json:"referrer,omitempty"`
+	Referrer *Referrer `json:"referrer,omitempty"`
 }
 
 type InToto struct {
