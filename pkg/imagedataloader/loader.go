@@ -19,8 +19,6 @@ var (
 )
 
 type imagedatafetcher struct {
-	// TODO: Add caching and prefetching
-
 	lister         k8scorev1.SecretInterface
 	defaultOptions []remote.Option
 }
@@ -43,7 +41,8 @@ func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, e
 
 func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error) {
 	img := ImageData{
-		Image: image,
+		Image:         image,
+		referrersData: make(map[string]referrerData),
 	}
 
 	var err error
@@ -146,10 +145,30 @@ type ImageData struct {
 	nameRef           name.Reference
 	desc              *remote.Descriptor
 	referrersManifest *gcrv1.IndexManifest
+	referrersData     map[string]referrerData
+	verifiedReferrers []gcrv1.Descriptor
 }
 
-func (i *ImageData) Descriptor() ocispec.Descriptor {
-	return GCRtoOCISpecDesc(i.desc.Descriptor)
+type referrerData struct {
+	layerDescriptor *gcrv1.Descriptor
+	data            []byte
+}
+
+func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error) {
+	if identifier == i.Digest {
+		return GCRtoOCISpecDesc(i.desc.Descriptor), nil
+	}
+
+	d, err := remote.Head(i.nameRef.Context().Digest(identifier), i.remoteOpts...)
+	if err != nil {
+		return ocispec.Descriptor{}, err
+	}
+
+	return GCRtoOCISpecDesc(*d), nil
+}
+
+func (i *ImageData) WithDigest(digest string) string {
+	return i.nameRef.Context().Digest(digest).String()
 }
 
 func (i *ImageData) loadReferrers() error {
@@ -157,23 +176,54 @@ func (i *ImageData) loadReferrers() error {
 		return nil
 	}
 
-	referrers, err := remote.Referrers(i.nameRef.Context().Digest(i.Digest), i.remoteOpts...)
+	referrersDescs, err := i.fetchReferrersFromRemote(i.Digest)
 	if err != nil {
 		return err
-	}
-
-	referrersDescs, err := referrers.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
-	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	i.referrersManifest = referrersDescs
 	return nil
+}
+
+func (i *ImageData) fetchReferrersFromRemote(digest string) (*gcrv1.IndexManifest, error) {
+	referrers, err := remote.Referrers(i.nameRef.Context().Digest(digest), i.remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	referrersDescs, err := referrers.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+	}
+
+	return referrersDescs, nil
+}
+
+func (i *ImageData) FetchRefererrsForDigest(digest string, artifactType string) ([]gcrv1.Descriptor, error) {
+	// If the call is for image referrers, return prefetched referrers
+	if digest == i.Digest {
+		return i.FetchRefererrs(artifactType)
+	}
+
+	// this is most likely a call to fetch notary signatures for an attesatation
+	idx, err := i.fetchReferrersFromRemote(digest)
+	if err != nil {
+		return nil, err
+	}
+
+	refList := make([]gcrv1.Descriptor, 0)
+	for _, ref := range idx.Manifests {
+		if ref.ArtifactType == artifactType {
+			refList = append(refList, ref)
+		}
+	}
+
+	return refList, nil
 }
 
 func (i *ImageData) FetchRefererrs(artifactType string) ([]gcrv1.Descriptor, error) {
@@ -192,6 +242,10 @@ func (i *ImageData) FetchRefererrs(artifactType string) ([]gcrv1.Descriptor, err
 }
 
 func (i *ImageData) FetchReferrerData(desc gcrv1.Descriptor) ([]byte, *gcrv1.Descriptor, error) {
+	if v, found := i.referrersData[desc.Digest.String()]; found {
+		return v.data, v.layerDescriptor, nil
+	}
+
 	img, err := remote.Image(i.nameRef.Context().Digest(desc.Digest.String()), i.remoteOpts...)
 	if err != nil {
 		return nil, nil, err
@@ -233,5 +287,17 @@ func (i *ImageData) FetchReferrerData(desc gcrv1.Descriptor) ([]byte, *gcrv1.Des
 
 	b, err := io.ReadAll(io.LimitReader(reader, maxPayloadSize))
 
+	i.referrersData[desc.Digest.String()] = referrerData{
+		data:            b,
+		layerDescriptor: layerDesc,
+	}
 	return b, layerDesc, err
+}
+
+func (i *ImageData) AddVerifiedReferrer(desc gcrv1.Descriptor) {
+	if i.verifiedReferrers == nil {
+		i.verifiedReferrers = make([]gcrv1.Descriptor, 0)
+	}
+
+	i.verifiedReferrers = append(i.verifiedReferrers, desc)
 }
