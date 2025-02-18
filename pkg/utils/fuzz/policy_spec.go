@@ -6,7 +6,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyvernov1.Spec, error) {
@@ -200,7 +200,7 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyvernov1.Rule, error) {
 		return rule, err
 	}
 	if setCELPreconditions {
-		celp := make([]admissionregistrationv1beta1.MatchCondition, 0)
+		celp := make([]admissionregistrationv1.MatchCondition, 0)
 		err = f.CreateSlice(&celp)
 		if err != nil {
 			return rule, err

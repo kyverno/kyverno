@@ -13,7 +13,6 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,10 +27,8 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func GetKinds(policy admissionregistrationv1beta1.ValidatingAdmissionPolicy) []string {
+func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
 	var kindList []string
-
-	matchResources := policy.Spec.MatchConstraints
 	for _, rule := range matchResources.ResourceRules {
 		group := rule.APIGroups[0]
 		version := rule.APIVersions[0]
@@ -119,9 +116,6 @@ func Validate(
 		nsLister := NewCustomNamespaceLister(client)
 		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 
-		// convert policy from v1beta1 to v1
-		v1policy := ConvertValidatingAdmissionPolicy(policy)
-
 		// construct admission attributes
 		gvr, err := client.Discovery().GetGVRFromGVK(gvk)
 		if err != nil {
@@ -131,7 +125,7 @@ func Validate(
 
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(&v1policy))
+		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(&policy))
 		if err != nil {
 			return engineResponse, err
 		}
@@ -147,9 +141,7 @@ func Validate(
 		}
 
 		for i, binding := range bindings {
-			// convert policy binding from v1alpha1 to v1
-			v1binding := ConvertValidatingAdmissionPolicyBinding(binding)
-			isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&v1binding))
+			isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&binding))
 			if err != nil {
 				return engineResponse, err
 			}
@@ -178,8 +170,8 @@ func Validate(
 }
 
 func validateResource(
-	policy admissionregistrationv1beta1.ValidatingAdmissionPolicy,
-	binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
+	policy admissionregistrationv1.ValidatingAdmissionPolicy,
+	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
 	namespace *corev1.Namespace,
 	a admission.Attributes,
@@ -191,8 +183,7 @@ func validateResource(
 	var ruleResp *engineapi.RuleResponse
 
 	// compile CEL expressions
-	matchConditions := ConvertMatchConditionsV1(policy.Spec.MatchConditions)
-	compiler, err := NewCompiler(matchConditions, policy.Spec.Variables)
+	compiler, err := NewCompiler(policy.Spec.MatchConditions, policy.Spec.Variables)
 	if err != nil {
 		return engineResponse, err
 	}
@@ -203,27 +194,20 @@ func validateResource(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	compiler.CompileVariables(optionalVars)
 
-	var failPolicy admissionregistrationv1.FailurePolicyType
-	if policy.Spec.FailurePolicy == nil {
-		failPolicy = admissionregistrationv1.Fail
-	} else {
-		failPolicy = admissionregistrationv1.FailurePolicyType(*policy.Spec.FailurePolicy)
-	}
-
-	var matchPolicy admissionregistrationv1beta1.MatchPolicyType
+	var matchPolicy admissionregistrationv1.MatchPolicyType
 	if policy.Spec.MatchConstraints.MatchPolicy == nil {
-		matchPolicy = admissionregistrationv1beta1.Equivalent
+		matchPolicy = admissionregistrationv1.Equivalent
 	} else {
 		matchPolicy = *policy.Spec.MatchConstraints.MatchPolicy
 	}
 
-	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchConditions(optionalVars), &failPolicy, "", string(matchPolicy), "")
+	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchConditions(optionalVars), policy.Spec.FailurePolicy, "", string(matchPolicy), "")
 	validator := validating.NewValidator(
 		compiler.CompileValidations(optionalVars),
 		newMatcher,
 		compiler.CompileAuditAnnotationsExpressions(optionalVars),
 		compiler.CompileMessageExpressions(optionalVars),
-		&failPolicy,
+		policy.Spec.FailurePolicy,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
 	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil)

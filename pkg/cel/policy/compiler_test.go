@@ -3,7 +3,7 @@ package policy
 import (
 	"testing"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,20 +12,37 @@ import (
 func Test_compiler_Compile(t *testing.T) {
 	tests := []struct {
 		name    string
-		policy  *kyvernov2alpha1.ValidatingPolicy
+		policy  *policiesv1alpha1.ValidatingPolicy
 		wantErr bool
 	}{{
 		name: "simple",
-		policy: &kyvernov2alpha1.ValidatingPolicy{
+		policy: &policiesv1alpha1.ValidatingPolicy{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: kyvernov2alpha1.GroupVersion.String(),
+				APIVersion: policiesv1alpha1.GroupVersion.String(),
 				Kind:       "ValidatingPolicy",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: kyvernov2alpha1.ValidatingPolicySpec{
+			Spec: policiesv1alpha1.ValidatingPolicySpec{
 				ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"pods"},
+									},
+								},
+							},
+						},
+					},
 					Variables: []admissionregistrationv1.Variable{{
 						Name:       "environment",
 						Expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'",
@@ -38,16 +55,33 @@ func Test_compiler_Compile(t *testing.T) {
 		},
 	}, {
 		name: "with configmap",
-		policy: &kyvernov2alpha1.ValidatingPolicy{
+		policy: &policiesv1alpha1.ValidatingPolicy{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: kyvernov2alpha1.GroupVersion.String(),
+				APIVersion: policiesv1alpha1.GroupVersion.String(),
 				Kind:       "ValidatingPolicy",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: kyvernov2alpha1.ValidatingPolicySpec{
+			Spec: policiesv1alpha1.ValidatingPolicySpec{
 				ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"pods"},
+									},
+								},
+							},
+						},
+					},
 					Variables: []admissionregistrationv1.Variable{{
 						Name:       "cm",
 						Expression: "context.GetConfigMap('foo', 'bar')",
@@ -62,7 +96,7 @@ func Test_compiler_Compile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := NewCompiler()
-			compiled, errs := c.Compile(tt.policy)
+			compiled, errs := c.Compile(tt.policy, nil)
 			if tt.wantErr {
 				assert.Error(t, errs.ToAggregate())
 			} else {

@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 )
 
@@ -656,8 +657,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 	_, mutatePolicies, generatePolicies, _, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
 	assert.NilError(t, err)
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	var wg wait.Group
 	resourceHandlers.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, time.Now(), &wg)
 	wg.Wait()
 
