@@ -1,11 +1,10 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: not-ready
+  name: projections
 spec:
   steps:
-  - name: setup
-    try:
+  - try:
     - apply:
         file: namespace.yaml
     - apply:
@@ -27,17 +26,10 @@ spec:
       with:
         bindings:
         - name: name
-          value: cpol-not-ready
+          value: cpol-projections
   - try:
-    - delete:
-        ref:
-          apiVersion: kyverno.io/v2alpha1
-          kind: GlobalContextEntry
-          name: gctx-not-ready
     - sleep:
         duration: 3s
-    - assert:
-        file: policy-failed.yaml
     - apply:
         file: new-deployment.yaml
     - assert:
