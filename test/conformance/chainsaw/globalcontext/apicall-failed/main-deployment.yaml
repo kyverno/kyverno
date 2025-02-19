@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: main-deployment
+  namespace: test-globalcontext-apicall-failed
+  labels:
+    app: main-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: main-deployment
+  template:
+    metadata:
+      labels:
+        app: main-deployment
+    spec:
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:latest
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+            limits:
+              cpu: 10m
+              memory: 10Mi
+      terminationGracePeriodSeconds: 0

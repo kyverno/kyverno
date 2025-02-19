@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
@@ -20,13 +21,16 @@ import (
 )
 
 type EvaluationResult struct {
-	Error   error
-	Message string
-	Result  ref.Val
+	Error            error
+	Message          string
+	Index            int
+	Result           bool
+	AuditAnnotations map[string]string
+	Exceptions       []policiesv1alpha1.CELPolicyException
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) ([]EvaluationResult, error)
+	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
 }
 
 type compiledValidation struct {
@@ -42,14 +46,19 @@ type compiledAutogenRule struct {
 	variables       map[string]cel.Program
 }
 
+type compiledException struct {
+	exception       policiesv1alpha1.CELPolicyException
+	matchConditions []cel.Program
+}
+
 type compiledPolicy struct {
-	failurePolicy        admissionregistrationv1.FailurePolicyType
-	matchConditions      []cel.Program
-	variables            map[string]cel.Program
-	validations          []compiledValidation
-	auditAnnotations     map[string]cel.Program
-	polexMatchConditions []cel.Program
-	autogenRules         []compiledAutogenRule
+	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConditions  []cel.Program
+	variables        map[string]cel.Program
+	validations      []compiledValidation
+	auditAnnotations map[string]cel.Program
+	autogenRules     []compiledAutogenRule
+	exceptions       []compiledException
 }
 
 func (p *compiledPolicy) Evaluate(
@@ -59,15 +68,21 @@ func (p *compiledPolicy) Evaluate(
 	namespace runtime.Object,
 	context contextlib.ContextInterface,
 	autogenIndex int,
-) ([]EvaluationResult, error) {
+) (*EvaluationResult, error) {
 	// check if the resource matches an exception
-	if len(p.polexMatchConditions) > 0 {
-		match, err := p.match(ctx, attr, request, namespace, p.polexMatchConditions)
-		if err != nil {
-			return nil, err
+	if len(p.exceptions) > 0 {
+		matchedExceptions := make([]policiesv1alpha1.CELPolicyException, 0)
+		for _, polex := range p.exceptions {
+			match, err := p.match(ctx, attr, request, namespace, polex.matchConditions)
+			if err != nil {
+				return nil, err
+			}
+			if match {
+				matchedExceptions = append(matchedExceptions, polex.exception)
+			}
 		}
-		if match {
-			return nil, nil
+		if len(matchedExceptions) > 0 {
+			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
 
@@ -128,13 +143,16 @@ func (p *compiledPolicy) Evaluate(
 			return nil
 		})
 	}
-	results := make([]EvaluationResult, 0, len(validations))
-	for _, validation := range validations {
+
+	for index, validation := range validations {
 		out, _, err := validation.program.ContextEval(ctx, data)
+		if err != nil {
+			return nil, err
+		}
+
 		// evaluate only when rule fails
-		var message string
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
-			message = validation.message
+			message := validation.message
 			if validation.messageExpression != nil {
 				if out, _, err := validation.messageExpression.ContextEval(ctx, data); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
@@ -144,14 +162,34 @@ func (p *compiledPolicy) Evaluate(
 					message = msg
 				}
 			}
+
+			auditAnnotations := make(map[string]string, 0)
+			for key, annotation := range p.auditAnnotations {
+				out, _, err := annotation.ContextEval(ctx, data)
+				if err != nil {
+					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
+				}
+				// evaluate only when rule fails
+				if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+					auditAnnotations[key] = outcome
+				} else if err != nil {
+					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
+				}
+			}
+
+			return &EvaluationResult{
+				Result:           outcome,
+				Message:          message,
+				Index:            index,
+				Error:            err,
+				AuditAnnotations: auditAnnotations,
+			}, nil
+		} else if err != nil {
+			return &EvaluationResult{Error: err}, nil
 		}
-		results = append(results, EvaluationResult{
-			Result:  out,
-			Message: message,
-			Error:   err,
-		})
 	}
-	return results, nil
+
+	return &EvaluationResult{Result: true}, nil
 }
 
 func (p *compiledPolicy) match(

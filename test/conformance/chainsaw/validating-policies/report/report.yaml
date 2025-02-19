@@ -15,7 +15,6 @@ results:
 - message: success
   policy: check-deployment-labels
   result: pass
-  rule: rule-0
   scored: true
   source: KyvernoValidatingPolicy
 summary:
