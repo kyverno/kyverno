@@ -21,13 +21,16 @@ import (
 )
 
 type EvaluationResult struct {
-	Error   error
-	Message string
-	Result  ref.Val
+	Error            error
+	Message          string
+	Index            int
+	Result           bool
+	AuditAnnotations map[string]string
+	Exceptions       []policiesv1alpha1.CELPolicyException
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) ([]EvaluationResult, []policiesv1alpha1.CELPolicyException, error)
+	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
 }
 
 type compiledValidation struct {
@@ -65,21 +68,21 @@ func (p *compiledPolicy) Evaluate(
 	namespace runtime.Object,
 	context contextlib.ContextInterface,
 	autogenIndex int,
-) ([]EvaluationResult, []policiesv1alpha1.CELPolicyException, error) {
+) (*EvaluationResult, error) {
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]policiesv1alpha1.CELPolicyException, 0)
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, attr, request, namespace, polex.matchConditions)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.exception)
 			}
 		}
 		if len(matchedExceptions) > 0 {
-			return nil, matchedExceptions, nil
+			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
 
@@ -98,26 +101,26 @@ func (p *compiledPolicy) Evaluate(
 	}
 	match, err := p.match(ctx, attr, request, namespace, matchConditions)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if !match {
-		return nil, nil, nil
+		return nil, nil
 	}
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
 	}
 	objectVal, err := objectToResolveVal(attr.GetObject())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
 	}
 	oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
 	requestVal, err := convertObjectToUnstructured(request)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
 	vars := lazy.NewMapValue(VariablesType)
 	data := map[string]any{
@@ -140,13 +143,16 @@ func (p *compiledPolicy) Evaluate(
 			return nil
 		})
 	}
-	results := make([]EvaluationResult, 0, len(validations))
-	for _, validation := range validations {
+
+	for index, validation := range validations {
 		out, _, err := validation.program.ContextEval(ctx, data)
+		if err != nil {
+			return nil, err
+		}
+
 		// evaluate only when rule fails
-		var message string
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
-			message = validation.message
+			message := validation.message
 			if validation.messageExpression != nil {
 				if out, _, err := validation.messageExpression.ContextEval(ctx, data); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
@@ -156,14 +162,34 @@ func (p *compiledPolicy) Evaluate(
 					message = msg
 				}
 			}
+
+			auditAnnotations := make(map[string]string, 0)
+			for key, annotation := range p.auditAnnotations {
+				out, _, err := annotation.ContextEval(ctx, data)
+				if err != nil {
+					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
+				}
+				// evaluate only when rule fails
+				if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+					auditAnnotations[key] = outcome
+				} else if err != nil {
+					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
+				}
+			}
+
+			return &EvaluationResult{
+				Result:           outcome,
+				Message:          message,
+				Index:            index,
+				Error:            err,
+				AuditAnnotations: auditAnnotations,
+			}, nil
+		} else if err != nil {
+			return &EvaluationResult{Error: err}, nil
 		}
-		results = append(results, EvaluationResult{
-			Result:  out,
-			Message: message,
-			Error:   err,
-		})
 	}
-	return results, nil, nil
+
+	return &EvaluationResult{Result: true}, nil
 }
 
 func (p *compiledPolicy) match(
