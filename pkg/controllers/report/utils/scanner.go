@@ -154,7 +154,7 @@ func (s *scanner) ScanResource(
 			)
 			// create context provider
 			context, err := celpolicy.NewContextProvider(
-				s.client.GetKubeClient(),
+				s.client,
 				nil,
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
