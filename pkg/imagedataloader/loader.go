@@ -142,12 +142,11 @@ type ImageData struct {
 	Manifest      *gcrv1.Manifest   `json:"manifest,omitempty"`
 	ConfigData    *gcrv1.ConfigFile `json:"config,omitempty"`
 
-	NameRef           name.Reference
-	desc              *remote.Descriptor
-	referrersManifest *gcrv1.IndexManifest
-	referrersData     map[string]referrerData
-	verifiedReferrers []gcrv1.Descriptor
-
+	NameRef                name.Reference
+	desc                   *remote.Descriptor
+	referrersManifest      *gcrv1.IndexManifest
+	referrersData          map[string]referrerData
+	verifiedReferrers      []gcrv1.Descriptor
 	verifiedIntotoPayloads map[string][]byte
 }
 

@@ -68,7 +68,7 @@ func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *
 		return fmt.Errorf("notary verifier only supports notary attestor")
 	}
 
-	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name, "attestor", attestor.Name)
+	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name, "attestor", attestor.Name) // TODO: use attestor and attestation names
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)
 
 	vInfo, err := getVerificationInfo(image, attestor.Notary)
