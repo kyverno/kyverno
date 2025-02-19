@@ -594,6 +594,7 @@ func main() {
 		contextProvider, err := celpolicy.NewContextProvider(
 			setup.KubeClient,
 			nil,
+			gcstore,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		)
 		if err != nil {

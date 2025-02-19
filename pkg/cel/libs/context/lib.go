@@ -52,7 +52,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 		},
 		"GetGlobalReference": {
 			// TODO: should not use DynType in return
-			cel.MemberOverload("get_globalreference_string", []*cel.Type{ContextType, types.StringType}, types.DynType, cel.BinaryBinding(impl.get_globalreference_string)),
+			cel.MemberOverload("get_globalreference_string", []*cel.Type{ContextType, types.StringType, types.StringType}, types.DynType, cel.FunctionBinding(impl.get_globalreference_string)),
 		},
 		"GetImageData": {
 			// TODO: should not use DynType in return
