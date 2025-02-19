@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
@@ -26,7 +27,7 @@ type EvaluationResult struct {
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) ([]EvaluationResult, error)
+	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) ([]EvaluationResult, []policiesv1alpha1.CELPolicyException, error)
 }
 
 type compiledValidation struct {
@@ -42,14 +43,19 @@ type compiledAutogenRule struct {
 	variables       map[string]cel.Program
 }
 
+type compiledException struct {
+	exception       policiesv1alpha1.CELPolicyException
+	matchConditions []cel.Program
+}
+
 type compiledPolicy struct {
-	failurePolicy        admissionregistrationv1.FailurePolicyType
-	matchConditions      []cel.Program
-	variables            map[string]cel.Program
-	validations          []compiledValidation
-	auditAnnotations     map[string]cel.Program
-	polexMatchConditions []cel.Program
-	autogenRules         []compiledAutogenRule
+	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConditions  []cel.Program
+	variables        map[string]cel.Program
+	validations      []compiledValidation
+	auditAnnotations map[string]cel.Program
+	autogenRules     []compiledAutogenRule
+	exceptions       []compiledException
 }
 
 func (p *compiledPolicy) Evaluate(
@@ -59,15 +65,21 @@ func (p *compiledPolicy) Evaluate(
 	namespace runtime.Object,
 	context contextlib.ContextInterface,
 	autogenIndex int,
-) ([]EvaluationResult, error) {
+) ([]EvaluationResult, []policiesv1alpha1.CELPolicyException, error) {
 	// check if the resource matches an exception
-	if len(p.polexMatchConditions) > 0 {
-		match, err := p.match(ctx, attr, request, namespace, p.polexMatchConditions)
-		if err != nil {
-			return nil, err
+	if len(p.exceptions) > 0 {
+		matchedExceptions := make([]policiesv1alpha1.CELPolicyException, 0)
+		for _, polex := range p.exceptions {
+			match, err := p.match(ctx, attr, request, namespace, polex.matchConditions)
+			if err != nil {
+				return nil, nil, err
+			}
+			if match {
+				matchedExceptions = append(matchedExceptions, polex.exception)
+			}
 		}
-		if match {
-			return nil, nil
+		if len(matchedExceptions) > 0 {
+			return nil, matchedExceptions, nil
 		}
 	}
 
@@ -86,26 +98,26 @@ func (p *compiledPolicy) Evaluate(
 	}
 	match, err := p.match(ctx, attr, request, namespace, matchConditions)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !match {
-		return nil, nil
+		return nil, nil, nil
 	}
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+		return nil, nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
 	}
 	objectVal, err := objectToResolveVal(attr.GetObject())
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+		return nil, nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
 	}
 	oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		return nil, nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
 	requestVal, err := convertObjectToUnstructured(request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		return nil, nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
 	vars := lazy.NewMapValue(VariablesType)
 	data := map[string]any{
@@ -151,7 +163,7 @@ func (p *compiledPolicy) Evaluate(
 			Error:   err,
 		})
 	}
-	return results, nil
+	return results, nil, nil
 }
 
 func (p *compiledPolicy) match(

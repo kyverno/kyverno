@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -201,10 +203,21 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 		}
 		autogenIndex = index
 	}
-	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context, autogenIndex)
+	results, matchedExceptions, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context, autogenIndex)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
+	} else if len(matchedExceptions) > 0 {
+		var keys []string
+		for i := range matchedExceptions {
+			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
+			if err != nil {
+				response.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil))
+				return response
+			}
+			keys = append(keys, key)
+		}
+		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithCELExceptions(matchedExceptions))
 	} else {
 		for index, validationResult := range results {
 			ruleName := fmt.Sprintf("rule-%d", index)
