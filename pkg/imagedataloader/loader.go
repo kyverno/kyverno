@@ -46,18 +46,18 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 	}
 
 	var err error
-	img.remoteOpts, err = i.remoteOptions(ctx, i.lister, options...)
+	img.RemoteOpts, err = i.remoteOptions(ctx, i.lister, options...)
 	if err != nil {
 		return nil, err
 	}
 
-	img.nameOpts = nameOptions(options...)
-	ref, err := name.ParseReference(image, img.nameOpts...)
+	img.NameOpts = nameOptions(options...)
+	ref, err := name.ParseReference(image, img.NameOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	img.nameRef = ref
+	img.NameRef = ref
 	img.Registry = ref.Context().RegistryStr()
 	img.Repository = ref.Context().RepositoryStr()
 
@@ -67,7 +67,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		img.Digest = ref.Identifier()
 	}
 
-	remoteImg, err := remote.Image(ref, img.remoteOpts...)
+	remoteImg, err := remote.Image(ref, img.RemoteOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		return nil, err
 	}
 
-	desc, err := remote.Get(ref, img.remoteOpts...)
+	desc, err := remote.Get(ref, img.RemoteOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +129,8 @@ func (i *imagedatafetcher) remoteOptions(ctx context.Context, lister k8scorev1.S
 }
 
 type ImageData struct {
-	remoteOpts []remote.Option
-	nameOpts   []name.Option
+	RemoteOpts []remote.Option
+	NameOpts   []name.Option
 
 	Image         string            `json:"image,omitempty"`
 	ResolvedImage string            `json:"resolvedImage,omitempty"`
@@ -142,11 +142,12 @@ type ImageData struct {
 	Manifest      *gcrv1.Manifest   `json:"manifest,omitempty"`
 	ConfigData    *gcrv1.ConfigFile `json:"config,omitempty"`
 
-	nameRef           name.Reference
-	desc              *remote.Descriptor
-	referrersManifest *gcrv1.IndexManifest
-	referrersData     map[string]referrerData
-	verifiedReferrers []gcrv1.Descriptor
+	NameRef                name.Reference
+	desc                   *remote.Descriptor
+	referrersManifest      *gcrv1.IndexManifest
+	referrersData          map[string]referrerData
+	verifiedReferrers      []gcrv1.Descriptor
+	verifiedIntotoPayloads map[string][]byte
 }
 
 type referrerData struct {
@@ -159,7 +160,7 @@ func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error
 		return GCRtoOCISpecDesc(i.desc.Descriptor), nil
 	}
 
-	d, err := remote.Head(i.nameRef.Context().Digest(identifier), i.remoteOpts...)
+	d, err := remote.Head(i.NameRef.Context().Digest(identifier), i.RemoteOpts...)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -168,7 +169,7 @@ func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error
 }
 
 func (i *ImageData) WithDigest(digest string) string {
-	return i.nameRef.Context().Digest(digest).String()
+	return i.NameRef.Context().Digest(digest).String()
 }
 
 func (i *ImageData) loadReferrers() error {
@@ -186,7 +187,7 @@ func (i *ImageData) loadReferrers() error {
 }
 
 func (i *ImageData) fetchReferrersFromRemote(digest string) (*gcrv1.IndexManifest, error) {
-	referrers, err := remote.Referrers(i.nameRef.Context().Digest(digest), i.remoteOpts...)
+	referrers, err := remote.Referrers(i.NameRef.Context().Digest(digest), i.RemoteOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +247,7 @@ func (i *ImageData) FetchReferrerData(desc gcrv1.Descriptor) ([]byte, *gcrv1.Des
 		return v.data, v.layerDescriptor, nil
 	}
 
-	img, err := remote.Image(i.nameRef.Context().Digest(desc.Digest.String()), i.remoteOpts...)
+	img, err := remote.Image(i.NameRef.Context().Digest(desc.Digest.String()), i.RemoteOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -300,4 +301,12 @@ func (i *ImageData) AddVerifiedReferrer(desc gcrv1.Descriptor) {
 	}
 
 	i.verifiedReferrers = append(i.verifiedReferrers, desc)
+}
+
+func (i *ImageData) AddVerifiedIntotoPayloads(predicateType string, data []byte) {
+	if i.verifiedIntotoPayloads == nil {
+		i.verifiedIntotoPayloads = make(map[string][]byte, 0)
+	}
+
+	i.verifiedIntotoPayloads[predicateType] = data
 }
