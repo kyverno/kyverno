@@ -65,9 +65,9 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response ce
 			for _, rule := range policy.Rules {
 				switch rule.Status() {
 				case engineapi.RuleStatusFail:
-					errs = append(errs, fmt.Errorf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+					errs = append(errs, fmt.Errorf("Policy %s failed: %s", policy.Policy.GetName(), rule.Message()))
 				case engineapi.RuleStatusError:
-					errs = append(errs, fmt.Errorf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+					errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), rule.Message()))
 				}
 			}
 		}
@@ -75,9 +75,9 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response ce
 			for _, rule := range policy.Rules {
 				switch rule.Status() {
 				case engineapi.RuleStatusFail:
-					warnings = append(warnings, fmt.Sprintf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+					warnings = append(warnings, fmt.Sprintf("Policy %s failed: %s", policy.Policy.GetName(), rule.Message()))
 				case engineapi.RuleStatusError:
-					warnings = append(warnings, fmt.Sprintf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+					warnings = append(warnings, fmt.Sprintf("Policy %s error: %s", policy.Policy.GetName(), rule.Message()))
 				}
 			}
 		}
