@@ -2,14 +2,12 @@ package engine
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -203,33 +201,30 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 		}
 		autogenIndex = index
 	}
-	results, matchedExceptions, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context, autogenIndex)
+	result, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context, autogenIndex)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
-	} else if len(matchedExceptions) > 0 {
+	} else if len(result.Exceptions) > 0 {
 		var keys []string
-		for i := range matchedExceptions {
-			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
+		for i := range result.Exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
 			if err != nil {
 				response.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil))
 				return response
 			}
 			keys = append(keys, key)
 		}
-		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithCELExceptions(matchedExceptions))
+		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithCELExceptions(result.Exceptions))
 	} else {
-		for index, validationResult := range results {
-			ruleName := fmt.Sprintf("rule-%d", index)
-			if validationResult.Error != nil {
-				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
-			} else if result, err := utils.ConvertToNative[bool](validationResult.Result); err != nil {
-				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "conversion error", err, nil))
-			} else if result {
-				response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
-			} else {
-				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, validationResult.Message, nil))
-			}
+		// TODO: do we want to set a rule name?
+		ruleName := ""
+		if result.Error != nil {
+			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
+		} else if result.Result {
+			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
+		} else {
+			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, result.AuditAnnotations))
 		}
 	}
 	return response
