@@ -22,7 +22,7 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func checkOptions(ctx context.Context, att v1alpha1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister k8scorev1.SecretInterface) (*cosign.CheckOpts, error) {
+func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister k8scorev1.SecretInterface) (*cosign.CheckOpts, error) {
 	if err := initializeTuf(ctx, att.TUF); err != nil {
 		return nil, err
 	}

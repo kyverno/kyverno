@@ -11090,6 +11090,20 @@ string
 </tr>
 <tr>
 <td>
+<code>tsaCertChain</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+may contain the leaf TSA certificate if not present in the timestamurce.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>insecureIgnoreTlog</code><br/>
 <em>
 bool
@@ -11226,7 +11240,7 @@ Certificate
 <code>source</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.Source">
-[]Source
+Source
 </a>
 </em>
 </td>
@@ -11842,6 +11856,18 @@ against which to verify.</p>
 </td>
 <td>
 <p>Identities sets a list of identities.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>roots</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
 </td>
 </tr>
 </tbody>

@@ -9,6 +9,7 @@ import (
 
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/sigstore/sigstore/pkg/signature/payload"
 )
 
 var signatureAlgorithmMap = map[string]crypto.Hash{
@@ -80,4 +81,16 @@ func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, 
 	}
 
 	return signature.LoadVerifier(pubKey, signatureAlgorithm)
+}
+
+func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
+	for _, p := range payload {
+		for key, val := range annotations {
+			if val != p.Optional[key] {
+				return fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
+					p.Optional[key], val, key)
+			}
+		}
+	}
+	return nil
 }

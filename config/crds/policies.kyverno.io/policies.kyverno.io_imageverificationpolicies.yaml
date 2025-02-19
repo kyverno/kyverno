@@ -126,6 +126,12 @@ spec:
                                 RekorPubKey is an optional PEM-encoded public key to use for a custom Rekor.
                                 If set, this will be used to validate transparency log signatures from a custom Rekor.
                               type: string
+                            tsaCertChain:
+                              description: |-
+                                TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+                                contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+                                may contain the leaf TSA certificate if not present in the timestamurce.
+                              type: string
                             url:
                               description: URL sets the url to the rekor instance
                                 (by default the public rekor.sigstore.dev)
@@ -194,50 +200,51 @@ spec:
                                     type: string
                                 type: object
                               type: array
+                            roots:
+                              description: |-
+                                Roots is an optional set of PEM encoded trusted root certificates.
+                                If not provided, the system roots are used.
+                              type: string
                           required:
                           - identities
                           type: object
                         source:
                           description: Sources sets the configuration to specify the
                             sources from where to consume the signature and attestations.
-                          items:
-                            description: Source specifies the location of the signature
-                              / attestations.
-                            properties:
-                              PullSecrets:
+                          properties:
+                            PullSecrets:
+                              description: |-
+                                SignaturePullSecrets is an optional list of references to secrets in the
+                                same namespace as the deploying resource for pulling any of the signatures
+                                used by this Source.
+                              items:
                                 description: |-
-                                  SignaturePullSecrets is an optional list of references to secrets in the
-                                  same namespace as the deploying resource for pulling any of the signatures
-                                  used by this Source.
-                                items:
-                                  description: |-
-                                    LocalObjectReference contains enough information to let you locate the
-                                    referenced object inside the same namespace.
-                                  properties:
-                                    name:
-                                      default: ""
-                                      description: |-
-                                        Name of the referent.
-                                        This field is effectively required, but due to backwards compatibility is
-                                        allowed to be empty. Instances of this type with an empty value here are
-                                        almost certainly wrong.
-                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      type: string
-                                  type: object
-                                  x-kubernetes-map-type: atomic
-                                type: array
-                              repository:
-                                description: Repository defines the location from
-                                  where to pull the signature / attestations.
-                                type: string
-                              tagPrefix:
-                                description: |-
-                                  TagPrefix is an optional prefix that signature and attestations have.
-                                  This is the 'tag based discovery' and in the future once references are
-                                  fully supported that should likely be the preferred way to handle these.
-                                type: string
-                            type: object
-                          type: array
+                                  LocalObjectReference contains enough information to let you locate the
+                                  referenced object inside the same namespace.
+                                properties:
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              type: array
+                            repository:
+                              description: Repository defines the location from where
+                                to pull the signature / attestations.
+                              type: string
+                            tagPrefix:
+                              description: |-
+                                TagPrefix is an optional prefix that signature and attestations have.
+                                This is the 'tag based discovery' and in the future once references are
+                                fully supported that should likely be the preferred way to handle these.
+                              type: string
+                          type: object
                         tuf:
                           description: TUF defines the configuration to fetch sigstore
                             root
