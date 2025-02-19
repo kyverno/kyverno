@@ -266,7 +266,7 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
@@ -292,6 +292,7 @@ func main() {
 				eventGenerator,
 				maxAPICallResponseLength,
 				false,
+				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
 		)

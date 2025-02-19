@@ -12,6 +12,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
@@ -176,7 +177,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	logger.Info("background scan", "interval", c.forceDelay.Abs().String())
+	logger.V(2).Info("background scan", "interval", c.forceDelay.Abs().String())
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
@@ -558,7 +559,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if err != nil {
 			return err
 		}
-		for _, vpol := range vpols {
+		for _, vpol := range policy.RemoveNoneBackgroundPolicies(vpols) {
 			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
 		}
 	}
