@@ -4,9 +4,43 @@ metadata:
   name: apicall-failed
 spec:
   steps:
-  - name: scenario
-    try:
-    - apply:
-        file: gctxentry.yaml
-    - assert:
-        file: gctxentry-not-ready.yaml
+    - name: setup
+      try:
+        - apply:
+            file: namespace.yaml
+        - apply:
+            file: main-deployment.yaml
+        - apply:
+            file: gctxentry.yaml
+        - sleep:
+            duration: 3s
+    - name: create policy
+      use:
+        template: ../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+            - name: file
+              value: clusterpolicy.yaml
+    - name: wait policy ready
+      use:
+        template: ../../_step-templates/cluster-policy-ready.yaml
+        with:
+          bindings:
+            - name: name
+              value: cpol-apicall-failed
+    - name: create new deployment
+      try:
+        - script:
+            content: kubectl apply -f new-deployment.yaml
+            check:
+              ($error != null): true
+              # This check ensures the contents of stderr are exactly as shown.
+              (trim_space($stderr)): |-
+                Error from server: error when creating "new-deployment.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+        
+                resource Deployment/test-globalcontext-apicall-failed/new-deployment was blocked due to the following policies 
+                
+                cpol-apicall-failed:
+                  autogen-main-deployment-exists: |-
+                    failed to check deny conditions: failed to substitute variables in condition key: failed to resolve deploymentCount at path : failed to marshal APICall data for context entry deploymentCount: failed to GET resource with raw url
+                    : /apis/apps/v1/namespaces/default/unknown: unknown

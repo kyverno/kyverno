@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/libs/context"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -70,38 +71,18 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		for i, matchCondition := range policy.Spec.MatchConditions {
-			path := path.Index(i).Child("expression")
-			ast, issues := env.Compile(matchCondition.Expression)
-			if err := issues.Err(); err != nil {
-				return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
-			}
-			if !ast.OutputType().IsExactType(types.BoolType) {
-				msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
-				return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
-			}
-			prog, err := env.Program(ast)
-			if err != nil {
-				return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
-			}
-			matchConditions = append(matchConditions, prog)
+		programs, errs := compileMatchConditions(path, policy.Spec.MatchConditions, env)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
 		}
+		matchConditions = append(matchConditions, programs...)
 	}
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		for i, variable := range policy.Spec.Variables {
-			path := path.Index(i).Child("expression")
-			ast, issues := env.Compile(variable.Expression)
-			if err := issues.Err(); err != nil {
-				return nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
-			}
-			variablesProvider.RegisterField(variable.Name, ast.OutputType())
-			prog, err := env.Program(ast)
-			if err != nil {
-				return nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
-			}
-			variables[variable.Name] = prog
+		errs := compileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
 		}
 	}
 	validations := make([]compiledValidation, 0, len(policy.Spec.Validations))
@@ -119,56 +100,135 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 	auditAnnotations := map[string]cel.Program{}
 	{
 		path := path.Child("auditAnnotations")
-		for i, auditAnnotation := range policy.Spec.AuditAnnotations {
-			path := path.Index(i).Child("valueExpression")
-			ast, issues := env.Compile(auditAnnotation.ValueExpression)
-			if err := issues.Err(); err != nil {
-				return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
-			}
-			if !ast.OutputType().IsExactType(types.StringType) && !ast.OutputType().IsExactType(types.NullType) {
-				msg := fmt.Sprintf("output is expected to be either of type %s or %s", types.StringType.TypeName(), types.NullType.TypeName())
-				return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
-			}
-			prog, err := env.Program(ast)
-			if err != nil {
-				return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
-			}
-			auditAnnotations[auditAnnotation.Key] = prog
+		errs := compileAuditAnnotations(path, policy.Spec.AuditAnnotations, env, auditAnnotations)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
 		}
+	}
+
+	// compile autogen rules
+	autogenPath := field.NewPath("status").Child("autogen").Child("rules")
+	autogenRules := vpolautogen.ComputeRules(policy)
+	compiledRules := make([]compiledAutogenRule, 0, len(autogenRules))
+	for i, rule := range autogenRules {
+		// compile match conditions
+		matchConditions, errs := compileMatchConditions(autogenPath.Index(i).Child("matchConditions"), rule.MatchConditions, env)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		// compile variables
+		variables := map[string]cel.Program{}
+		errs = compileVariables(autogenPath.Index(i).Child("variables"), rule.Variables, variablesProvider, env, variables)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		// compile validations
+		validations := make([]compiledValidation, 0, len(rule.Validations))
+		for j, rule := range rule.Validations {
+			path := autogenPath.Index(j).Child("validations")
+			program, errs := compileValidation(path, rule, env)
+			if errs != nil {
+				return nil, append(allErrs, errs...)
+			}
+			validations = append(validations, program)
+		}
+		// compile audit annotations
+		auditAnnotations := map[string]cel.Program{}
+		errs = compileAuditAnnotations(autogenPath.Index(i).Child("auditAnnotations"), rule.AuditAnnotation, env, auditAnnotations)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		compiledRules = append(compiledRules, compiledAutogenRule{
+			matchConditions: matchConditions,
+			variables:       variables,
+			validations:     validations,
+			auditAnnotation: auditAnnotations,
+		})
 	}
 
 	// exceptions' match conditions
-	var polexMatchConditions []cel.Program
-	if len(exceptions) > 0 {
-		for _, polex := range exceptions {
-			path := field.NewPath("spec").Child("matchConditions")
-			for i, matchCondition := range polex.Spec.MatchConditions {
-				path := path.Index(i).Child("expression")
-				ast, issues := env.Compile(matchCondition.Expression)
-				if err := issues.Err(); err != nil {
-					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
-				}
-				if !ast.OutputType().IsExactType(types.BoolType) {
-					msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
-					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
-				}
-				prog, err := env.Program(ast)
-				if err != nil {
-					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
-				}
-				polexMatchConditions = append(polexMatchConditions, prog)
-			}
+	compiledExceptions := make([]compiledException, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polexMatchConditions, errs := compileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
 		}
+		compiledExceptions = append(compiledExceptions, compiledException{
+			exception:       polex,
+			matchConditions: polexMatchConditions,
+		})
 	}
 
 	return &compiledPolicy{
-		failurePolicy:        policy.GetFailurePolicy(),
-		matchConditions:      matchConditions,
-		variables:            variables,
-		validations:          validations,
-		auditAnnotations:     auditAnnotations,
-		polexMatchConditions: polexMatchConditions,
+		failurePolicy:    policy.GetFailurePolicy(),
+		matchConditions:  matchConditions,
+		variables:        variables,
+		validations:      validations,
+		auditAnnotations: auditAnnotations,
+		autogenRules:     compiledRules,
+		exceptions:       compiledExceptions,
 	}, nil
+}
+
+func compileMatchConditions(path *field.Path, matchConditions []admissionregistrationv1.MatchCondition, env *cel.Env) ([]cel.Program, field.ErrorList) {
+	var allErrs field.ErrorList
+	result := make([]cel.Program, 0, len(matchConditions))
+	for i, matchCondition := range matchConditions {
+		path := path.Index(i).Child("expression")
+		ast, issues := env.Compile(matchCondition.Expression)
+		if err := issues.Err(); err != nil {
+			return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
+		}
+		if !ast.OutputType().IsExactType(types.BoolType) {
+			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
+			return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
+		}
+		prog, err := env.Program(ast)
+		if err != nil {
+			return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
+		}
+		result = append(result, prog)
+	}
+	return result, nil
+}
+
+func compileVariables(path *field.Path, variables []admissionregistrationv1.Variable, variablesProvider *variablesProvider, env *cel.Env, result map[string]cel.Program) field.ErrorList {
+	var allErrs field.ErrorList
+	for i, variable := range variables {
+		path := path.Index(i).Child("expression")
+		ast, issues := env.Compile(variable.Expression)
+		if err := issues.Err(); err != nil {
+			return append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
+		}
+		variablesProvider.RegisterField(variable.Name, ast.OutputType())
+		prog, err := env.Program(ast)
+		if err != nil {
+			return append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
+		}
+		result[variable.Name] = prog
+	}
+	return nil
+}
+
+func compileAuditAnnotations(path *field.Path, auditAnnotations []admissionregistrationv1.AuditAnnotation, env *cel.Env, result map[string]cel.Program) field.ErrorList {
+	var allErrs field.ErrorList
+	for i, auditAnnotation := range auditAnnotations {
+		path := path.Index(i).Child("valueExpression")
+		ast, issues := env.Compile(auditAnnotation.ValueExpression)
+		if err := issues.Err(); err != nil {
+			return append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
+		}
+		if !ast.OutputType().IsExactType(types.StringType) && !ast.OutputType().IsExactType(types.NullType) {
+			msg := fmt.Sprintf("output is expected to be either of type %s or %s", types.StringType.TypeName(), types.NullType.TypeName())
+			return append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
+		}
+		prog, err := env.Program(ast)
+		if err != nil {
+			return append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
+		}
+		result[auditAnnotation.Key] = prog
+	}
+	return nil
 }
 
 func compileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (compiledValidation, field.ErrorList) {

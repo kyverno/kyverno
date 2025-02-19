@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: good-statefulset-1
+  labels:
+    prod: "true"
+    app: nginx
+spec:
+  serviceName: headless-service
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: nginx
+    spec:
+      containers:
+      - name: my-app-container
+        image: nginx
+        securityContext:
+          allowPrivilegeEscalation: false
+        
