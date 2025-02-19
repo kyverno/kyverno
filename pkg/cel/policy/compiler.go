@@ -147,37 +147,26 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 	}
 
 	// exceptions' match conditions
-	var polexMatchConditions []cel.Program
-	if len(exceptions) > 0 {
-		for _, polex := range exceptions {
-			path := field.NewPath("spec").Child("matchConditions")
-			for i, matchCondition := range polex.Spec.MatchConditions {
-				path := path.Index(i).Child("expression")
-				ast, issues := env.Compile(matchCondition.Expression)
-				if err := issues.Err(); err != nil {
-					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
-				}
-				if !ast.OutputType().IsExactType(types.BoolType) {
-					msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
-					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
-				}
-				prog, err := env.Program(ast)
-				if err != nil {
-					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
-				}
-				polexMatchConditions = append(polexMatchConditions, prog)
-			}
+	compiledExceptions := make([]compiledException, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polexMatchConditions, errs := compileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
 		}
+		compiledExceptions = append(compiledExceptions, compiledException{
+			exception:       polex,
+			matchConditions: polexMatchConditions,
+		})
 	}
 
 	return &compiledPolicy{
-		failurePolicy:        policy.GetFailurePolicy(),
-		matchConditions:      matchConditions,
-		variables:            variables,
-		validations:          validations,
-		auditAnnotations:     auditAnnotations,
-		polexMatchConditions: polexMatchConditions,
-		autogenRules:         compiledRules,
+		failurePolicy:    policy.GetFailurePolicy(),
+		matchConditions:  matchConditions,
+		variables:        variables,
+		validations:      validations,
+		auditAnnotations: auditAnnotations,
+		autogenRules:     compiledRules,
+		exceptions:       compiledExceptions,
 	}, nil
 }
 

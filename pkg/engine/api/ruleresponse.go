@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +46,8 @@ type RuleResponse struct {
 	podSecurityChecks *PodSecurityChecks
 	// exceptions are the exceptions applied (if any)
 	exceptions []kyvernov2.PolicyException
+	// celexceptions are the cel exceptions applied (if any)
+	celExceptions []policiesv1alpha1.CELPolicyException
 	// binding is the validatingadmissionpolicybinding (if any)
 	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
@@ -96,6 +99,11 @@ func (r RuleResponse) WithExceptions(exceptions []kyvernov2.PolicyException) *Ru
 	return &r
 }
 
+func (r RuleResponse) WithCELExceptions(celExceptions []policiesv1alpha1.CELPolicyException) *RuleResponse {
+	r.celExceptions = celExceptions
+	return &r
+}
+
 func (r RuleResponse) WithBinding(binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) *RuleResponse {
 	r.binding = binding
 	return &r
@@ -139,6 +147,10 @@ func (r *RuleResponse) Stats() ExecutionStats {
 
 func (r *RuleResponse) Exceptions() []kyvernov2.PolicyException {
 	return r.exceptions
+}
+
+func (r *RuleResponse) CELExceptions() []policiesv1alpha1.CELPolicyException {
+	return r.celExceptions
 }
 
 func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *admissionregistrationv1.ValidatingAdmissionPolicyBinding {

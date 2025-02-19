@@ -3,7 +3,7 @@ module github.com/kyverno/kyverno/hack/controller-gen
 go 1.22.4
 
 require (
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	k8s.io/apiextensions-apiserver v0.31.4
 	sigs.k8s.io/controller-tools v0.16.5
 )
@@ -19,7 +19,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.34.0 // indirect

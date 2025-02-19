@@ -220,12 +220,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	var exceptions []*kyvernov2.PolicyException
+	var celexceptions []*policiesv1alpha1.CELPolicyException
 	if c.inlineExceptions {
 		exceptions = exception.SelectFrom(resources)
 	} else {
-		exceptions, err = exception.Load(c.Exception...)
+		results, err := exception.Load(c.Exception...)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+		}
+		if results != nil {
+			exceptions = results.Exceptions
+			celexceptions = results.CELExceptions
 		}
 	}
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
@@ -237,8 +242,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(vaps)
 		// account for vps
 		policyRulesCount += len(vps)
-		if len(exceptions) > 0 {
-			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, len(resources), len(exceptions))
+		exceptionsCount := len(exceptions)
+		exceptionsCount += len(celexceptions)
+		if exceptionsCount > 0 {
+			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, len(resources), exceptionsCount)
 		} else {
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 		}
@@ -262,7 +269,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses3, err := c.applyValidatingPolicies(vps, resources1, variables.Namespace, rc, dClient)
+	responses3, err := c.applyValidatingPolicies(vps, celexceptions, resources1, variables.Namespace, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -315,6 +322,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
+	exceptions []*policiesv1alpha1.CELPolicyException,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
 	rc *processor.ResultCounts,
@@ -322,7 +330,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 ) ([]engineapi.EngineResponse, error) {
 	ctx := context.TODO()
 	compiler := celpolicy.NewCompiler()
-	provider, err := engine.NewProvider(compiler, vps...)
+	provider, err := engine.NewProvider(compiler, vps, exceptions)
 	if err != nil {
 		return nil, err
 	}
