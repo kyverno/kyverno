@@ -179,6 +179,7 @@ func main() {
 				eventGenerator,
 				maxAPICallResponseLength,
 				false,
+				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
 		) // this controller only subscribe to events, nothing is returned...
