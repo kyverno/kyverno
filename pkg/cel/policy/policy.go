@@ -26,6 +26,7 @@ type EvaluationResult struct {
 	Index            int
 	Result           bool
 	AuditAnnotations map[string]string
+	Exceptions       []policiesv1alpha1.CELPolicyException
 }
 
 type CompiledPolicy interface {
@@ -74,14 +75,14 @@ func (p *compiledPolicy) Evaluate(
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, attr, request, namespace, polex.matchConditions)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.exception)
 			}
 		}
 		if len(matchedExceptions) > 0 {
-			return nil, matchedExceptions, nil
+			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
 
@@ -100,26 +101,26 @@ func (p *compiledPolicy) Evaluate(
 	}
 	match, err := p.match(ctx, attr, request, namespace, matchConditions)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if !match {
-		return nil, nil, nil
+		return nil, nil
 	}
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
 	}
 	objectVal, err := objectToResolveVal(attr.GetObject())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
 	}
 	oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
 	requestVal, err := convertObjectToUnstructured(request)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
 	vars := lazy.NewMapValue(VariablesType)
 	data := map[string]any{
