@@ -41,6 +41,7 @@ spec:
     spec:
       {{- with .Values.admissionController.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
+       - name: {{ default (printf "%s-registry-secret" .Release.Name) .Values.privateRegistry.registrySecret }}
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.admissionController.podSecurityContext }}
