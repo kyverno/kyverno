@@ -10,15 +10,14 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -100,12 +99,11 @@ type controller struct {
 	vwcLister         admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
-	vpolLister        kyvernov2alpha1listers.ValidatingPolicyLister
+	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
 	clusterroleLister rbacv1listers.ClusterRoleLister
-	gctxentryLister   kyvernov2alpha1listers.GlobalContextEntryLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -128,9 +126,8 @@ type controller struct {
 	lock        sync.Mutex
 	policyState map[string]sets.Set[string]
 
-	// vpolState records validatingpolicies that are configured
-	// successfully in webhook object, non-thread safe
-	vpolState map[string]bool
+	// vpolState records validatingpolicies that are configured successfully in webhook object
+	vpolStateRecorder StateRecorder
 }
 
 func NewController(
@@ -143,12 +140,11 @@ func NewController(
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
-	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
+	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
 	clusterroleInformer rbacv1informers.ClusterRoleInformer,
-	gctxentryInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
 	server string,
 	defaultTimeout int32,
 	servicePort int32,
@@ -161,6 +157,7 @@ func NewController(
 	caSecretName string,
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
+	vpolStateRecorder StateRecorder,
 ) controllers.Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -181,7 +178,6 @@ func NewController(
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
 		clusterroleLister:   clusterroleInformer.Lister(),
-		gctxentryLister:     gctxentryInformer.Lister(),
 		queue:               queue,
 		server:              server,
 		defaultTimeout:      defaultTimeout,
@@ -198,7 +194,7 @@ func NewController(
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
 		},
-		vpolState: make(map[string]bool),
+		vpolStateRecorder: vpolStateRecorder,
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -382,10 +378,9 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 	}
 }
 
-func (c *controller) recordValidatingPolicyState(validatingpolicies ...kyvernov2alpha1.GenericPolicy) {
-	c.vpolState = make(map[string]bool)
+func (c *controller) recordValidatingPolicyState(validatingpolicies ...policiesv1alpha1.GenericPolicy) {
 	for _, policy := range validatingpolicies {
-		c.vpolState[policy.GetName()] = true
+		c.vpolStateRecorder.Record(policy.GetName())
 	}
 }
 
@@ -430,7 +425,7 @@ func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
 				logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 				return err
 			} else if err == nil {
-				logger.Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+				logger.V(3).Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
 			}
 			if err := c.mwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
 				LabelSelector: kyverno.LabelWebhookManagedBy,
@@ -438,21 +433,21 @@ func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
 				logger.Error(err, "failed to clean up mutating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 				return err
 			} else if err == nil {
-				logger.Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+				logger.V(3).Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
 			}
 
 			if err := c.postWebhookCleanup(ctx, logger); err != nil {
 				logger.Error(err, "failed to clean up temporary rbac")
 				return err
 			} else {
-				logger.Info("successfully deleted temporary rbac")
+				logger.V(3).Info("successfully deleted temporary rbac")
 			}
 		} else {
 			if err := c.webhookCleanupSetup(ctx, logger); err != nil {
 				logger.Error(err, "failed to reconcile webhook cleanup setup")
 				return err
 			}
-			logger.Info("reconciled webhook cleanup setup")
+			logger.V(3).Info("reconciled webhook cleanup setup")
 		}
 	}
 	return nil
@@ -518,23 +513,10 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	return err
 }
 
-func (c *controller) isGlobalContextEntryReady(name string, gctxentries []*kyvernov2alpha1.GlobalContextEntry) bool {
-	for _, gctxentry := range gctxentries {
-		if gctxentry.Name == name {
-			return gctxentry.Status.IsReady()
-		}
-	}
-	return false
-}
-
 func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
-	if err != nil {
-		return err
-	}
-	gctxentries, err := c.gctxentryLister.List(labels.Everything())
 	if err != nil {
 		return err
 	}
@@ -548,22 +530,6 @@ func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType strin
 			if set, ok := c.policyState[webhookType]; ok {
 				if !set.Has(policyKey) {
 					ready, message = false, "Not Ready"
-				}
-			}
-		}
-		// If there are global context entries under , check if they are ready
-		if ready {
-			for _, rule := range policy.GetSpec().Rules {
-				if rule.Context == nil {
-					continue
-				}
-				for _, ctxEntry := range rule.Context {
-					if ctxEntry.GlobalReference != nil {
-						if !c.isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-							ready, message = false, "global context entry not ready"
-							break
-						}
-					}
 				}
 			}
 		}
@@ -655,44 +621,6 @@ func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType strin
 	return nil
 }
 
-func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
-	vpols, err := c.getValidatingPolicies()
-	if err != nil {
-		return err
-	}
-
-	updateStatusFunc := func(vpol kyvernov2alpha1.GenericPolicy) error {
-		status := vpol.GetStatus()
-		status.SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
-		status.Autogen.Rules = nil
-		rules := vpolautogen.ComputeRules(vpol)
-		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
-		return nil
-	}
-
-	var errs []error
-	for _, vpol := range vpols {
-		if !c.vpolState[vpol.GetName()] {
-			continue
-		}
-		err := controllerutils.UpdateStatus(
-			ctx,
-			vpol.(*kyvernov2alpha1.ValidatingPolicy),
-			c.kyvernoClient.KyvernoV2alpha1().ValidatingPolicies(),
-			func(vpol *kyvernov2alpha1.ValidatingPolicy) error {
-				return updateStatusFunc(vpol)
-			},
-			func(a *kyvernov2alpha1.ValidatingPolicy, b *kyvernov2alpha1.ValidatingPolicy) bool {
-				return datautils.DeepEqual(a.Status, b.Status)
-			},
-		)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", vpol.GetName(), err))
-		}
-	}
-	return multierr.Combine(errs...)
-}
-
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	if c.autoDeleteWebhooks && c.runtime.IsGoingDown() {
 		return c.reconcileWebhookDeletion(ctx)
@@ -715,6 +643,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
 			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
+				c.vpolStateRecorder.Reset()
 				return err
 			}
 
@@ -723,9 +652,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				errs = append(errs, fmt.Errorf("failed to update policy statuses: %w", err))
 			}
 
-			if err := c.updateValidatingPolicyStatuses(ctx); err != nil {
-				errs = append(errs, fmt.Errorf("failed to update validating policy statuses: %w", err))
-			}
 			return multierr.Combine(errs...)
 		}
 	case config.PolicyValidatingWebhookConfigurationName:
@@ -1136,15 +1062,17 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 	return policies, nil
 }
 
-func (c *controller) getValidatingPolicies() ([]kyvernov2alpha1.GenericPolicy, error) {
+func (c *controller) getValidatingPolicies() ([]policiesv1alpha1.GenericPolicy, error) {
 	validatingpolicies, err := c.vpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	vpols := make([]kyvernov2alpha1.GenericPolicy, 0)
+	vpols := make([]policiesv1alpha1.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
-		vpols = append(vpols, vpol)
+		if vpol.Spec.AdmissionEnabled() {
+			vpols = append(vpols, vpol)
+		}
 	}
 	return vpols, nil
 }

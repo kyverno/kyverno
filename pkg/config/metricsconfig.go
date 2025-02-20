@@ -165,7 +165,7 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 	// load metricsRefreshInterval
 	metricsRefreshInterval, ok := data["metricsRefreshInterval"]
 	if !ok {
-		logger.Info("metricsRefreshInterval not set")
+		logger.V(4).Info("metricsRefreshInterval not set")
 	} else {
 		logger := logger.WithValues("metricsRefreshInterval", metricsRefreshInterval)
 		metricsRefreshInterval, err := time.ParseDuration(metricsRefreshInterval)
@@ -173,13 +173,13 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 			logger.Error(err, "failed to parse metricsRefreshInterval")
 		} else {
 			cd.metricsRefreshInterval = metricsRefreshInterval
-			logger.Info("metricsRefreshInterval configured")
+			logger.V(4).Info("metricsRefreshInterval configured")
 		}
 	}
 	// load namespaces
 	namespaces, ok := data["namespaces"]
 	if !ok {
-		logger.Info("namespaces not set")
+		logger.V(4).Info("namespaces not set")
 	} else {
 		logger := logger.WithValues("namespaces", namespaces)
 		namespaces, err := parseIncludeExcludeNamespacesFromNamespacesConfig(namespaces)
@@ -187,13 +187,13 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 			logger.Error(err, "failed to parse namespaces")
 		} else {
 			cd.namespaces = namespaces
-			logger.Info("namespaces configured")
+			logger.V(4).Info("namespaces configured")
 		}
 	}
 	// load bucket boundaries
 	bucketBoundariesString, ok := data["bucketBoundaries"]
 	if !ok {
-		logger.Info("bucketBoundaries not set")
+		logger.V(4).Info("bucketBoundaries not set")
 	} else {
 		logger := logger.WithValues("bucketBoundaries", bucketBoundariesString)
 		bucketBoundaries, err := parseBucketBoundariesConfig(bucketBoundariesString)
@@ -201,13 +201,13 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 			logger.Error(err, "failed to parse bucketBoundariesString")
 		} else {
 			cd.bucketBoundaries = bucketBoundaries
-			logger.Info("bucketBoundaries configured")
+			logger.V(4).Info("bucketBoundaries configured")
 		}
 	}
 	// load include resource details
 	metricsExposureString, ok := data["metricsExposure"]
 	if !ok {
-		logger.Info("metricsExposure not set")
+		logger.V(4).Info("metricsExposure not set")
 	} else {
 		logger := logger.WithValues("metricsExposure", metricsExposureString)
 		metricsExposure, err := parseMetricExposureConfig(metricsExposureString, cd.bucketBoundaries)
@@ -215,7 +215,7 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 			logger.Error(err, "failed to parse metricsExposure")
 		} else {
 			cd.metricsExposure = metricsExposure
-			logger.Info("metricsExposure configured")
+			logger.V(4).Info("metricsExposure configured")
 		}
 	}
 }

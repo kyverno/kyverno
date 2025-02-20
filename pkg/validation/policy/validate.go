@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,11 +16,9 @@ import (
 	"github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -129,7 +126,7 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -455,31 +452,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
 	}
 
-	// global context entry validation
-	if kyvernoClient != nil {
-		gctxentries, err := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		for _, rule := range rules {
-			if rule.Context == nil {
-				continue
-			}
-			for _, ctxEntry := range rule.Context {
-				if ctxEntry.GlobalReference != nil {
-					if ctxEntry.GlobalReference.Name == "" {
-						warnings = append(warnings, "Global context entry name is not provided")
-						return warnings, nil
-					}
-					if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-						warnings = append(warnings, fmt.Sprintf("Global context entry %s does not exist or is not ready", ctxEntry.GlobalReference.Name))
-						return warnings, nil
-					}
-				}
-			}
-		}
-	}
-
 	// check for CEL expression warnings in case of CEL subrules
 	if ok, _ := admissionpolicy.CanGenerateVAP(spec, nil); ok && client != nil {
 		resolver := &resolver.ClientDiscoveryResolver{
@@ -527,15 +499,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 	return warnings, nil
-}
-
-func isGlobalContextEntryReady(name string, gctxentries *kyvernov2alpha1.GlobalContextEntryList) bool {
-	for _, gctxentry := range gctxentries.Items {
-		if gctxentry.Name == name {
-			return gctxentry.Status.IsReady()
-		}
-	}
-	return false
 }
 
 func ValidateCustomWebhookMatchConditions(wc []admissionregistrationv1.MatchCondition) error {

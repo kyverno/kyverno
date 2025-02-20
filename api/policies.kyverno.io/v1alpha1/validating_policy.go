@@ -11,6 +11,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=validatingpolicies,scope="Cluster",shortName=vpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ValidatingPolicy struct {
@@ -43,6 +44,10 @@ func (s *ValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
 
 func (s *ValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
+}
+
+func (s *ValidatingPolicy) GetSpec() *ValidatingPolicySpec {
+	return &s.Spec
 }
 
 func (s *ValidatingPolicy) GetStatus() *PolicyStatus {

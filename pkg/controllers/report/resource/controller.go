@@ -10,9 +10,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
@@ -81,7 +81,7 @@ type controller struct {
 	// listers
 	polLister  kyvernov1listers.PolicyLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
-	vpolLister kyvernov2alpha1listers.ValidatingPolicyLister
+	vpolLister policiesv1alpha1listers.ValidatingPolicyLister
 	vapLister  admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 
 	// queue
@@ -96,7 +96,7 @@ func NewController(
 	client dclient.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
+	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
@@ -196,9 +196,9 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			c.notify(Added, uid, gvk, hashes[uid])
 		}
 		logger := logger.WithValues("resourceVersion", resourceVersion)
-		logger.Info("start watcher ...")
+		logger.V(2).Info("start watcher ...")
 		watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-			logger.Info("creating watcher...")
+			logger.V(3).Info("creating watcher...")
 			watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
 			if err != nil {
 				logger.Error(err, "failed to watch")
@@ -216,7 +216,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 				hashes:  hashes,
 			}
 			go func(gvr schema.GroupVersionResource) {
-				defer logger.Info("watcher stopped")
+				defer logger.V(2).Info("watcher stopped")
 				for event := range watchInterface.ResultChan() {
 					switch event.Type {
 					case watch.Added:
@@ -317,12 +317,12 @@ func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string
 			if gvrs.SubResource == "" {
 				gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: kind}
 				if !reportutils.IsGvkSupported(gvk) {
-					logger.Info("kind is not supported", "gvk", gvk)
+					logger.V(2).Info("kind is not supported", "gvk", gvk)
 				} else {
 					if slices.Contains(api.Verbs, "list") && slices.Contains(api.Verbs, "watch") {
 						gvrMap[gvk] = gvrs.GroupVersionResource()
 					} else {
-						logger.Info("list/watch not supported for kind", "kind", kind)
+						logger.V(2).Info("list/watch not supported for kind", "kind", kind)
 					}
 				}
 			}

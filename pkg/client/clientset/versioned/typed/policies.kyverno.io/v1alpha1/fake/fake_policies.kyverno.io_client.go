@@ -28,6 +28,18 @@ type FakePoliciesV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakePoliciesV1alpha1) CELPolicyExceptions(namespace string) v1alpha1.CELPolicyExceptionInterface {
+	return &FakeCELPolicyExceptions{c, namespace}
+}
+
+func (c *FakePoliciesV1alpha1) ImageVerificationPolicies() v1alpha1.ImageVerificationPolicyInterface {
+	return &FakeImageVerificationPolicies{c}
+}
+
+func (c *FakePoliciesV1alpha1) MutatingPolicies() v1alpha1.MutatingPolicyInterface {
+	return &FakeMutatingPolicies{c}
+}
+
 func (c *FakePoliciesV1alpha1) ValidatingPolicies() v1alpha1.ValidatingPolicyInterface {
 	return &FakeValidatingPolicies{c}
 }

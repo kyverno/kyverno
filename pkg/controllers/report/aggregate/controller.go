@@ -12,9 +12,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -52,7 +52,7 @@ type controller struct {
 	// listers
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
-	vpolLister  kyvernov2alpha1listers.ValidatingPolicyLister
+	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
@@ -73,7 +73,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
+	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
@@ -401,7 +401,7 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 	if adopted, forbidden := c.adopt(ctx, reportMeta); adopted {
 		return nil
 	} else if forbidden {
-		logger.Info("deleting because insufficient permission to fetch resource")
+		logger.V(3).Info("deleting because insufficient permission to fetch resource")
 		return c.deleteEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
 	}
 	// if not found and too old, forget about it

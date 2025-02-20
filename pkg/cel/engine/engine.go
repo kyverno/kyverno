@@ -2,12 +2,12 @@ package engine
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -79,7 +80,7 @@ type EngineResponse struct {
 
 type PolicyResponse struct {
 	Actions sets.Set[admissionregistrationv1.ValidationAction]
-	Policy  kyvernov2alpha1.ValidatingPolicy
+	Policy  policiesv1alpha1.ValidatingPolicy
 	Rules   []engineapi.RuleResponse
 }
 
@@ -151,36 +152,79 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	return response, nil
 }
 
+func (e *engine) matchPolicy(policy CompiledPolicy, attr admission.Attributes, namespace runtime.Object) (bool, int, error) {
+	match := func(constraints *admissionregistrationv1.MatchResources) (bool, error) {
+		criteria := matchCriteria{constraints: constraints}
+		matches, err := e.matcher.Match(&criteria, attr, namespace)
+		if err != nil {
+			return false, err
+		}
+		return matches, nil
+	}
+
+	// match against main policy constraints
+	matches, err := match(policy.Policy.Spec.MatchConstraints)
+	if err != nil {
+		return false, -1, err
+	}
+	if matches {
+		return true, -1, nil
+	}
+
+	// match against autogen rules
+	autogenRules := vpolautogen.ComputeRules(&policy.Policy)
+	for i, autogenRule := range autogenRules {
+		matches, err := match(autogenRule.MatchConstraints)
+		if err != nil {
+			return false, -1, err
+		}
+		if matches {
+			return true, i, nil
+		}
+	}
+	return false, -1, nil
+}
+
 func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
 	response := PolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
+	autogenIndex := -1
 	if e.matcher != nil {
-		criteria := matchCriteria{constraints: policy.Policy.Spec.MatchConstraints}
-		if matches, err := e.matcher.Match(&criteria, attr, namespace); err != nil {
+		matches, index, err := e.matchPolicy(policy, attr, namespace)
+		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
 			return response
 		} else if !matches {
 			return response
 		}
+		autogenIndex = index
 	}
-	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
+	result, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context, autogenIndex)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
-	} else {
-		for index, validationResult := range results {
-			ruleName := fmt.Sprintf("rule-%d", index)
-			if validationResult.Error != nil {
-				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
-			} else if result, err := utils.ConvertToNative[bool](validationResult.Result); err != nil {
-				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "conversion error", err, nil))
-			} else if result {
-				response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
-			} else {
-				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, validationResult.Message, nil))
+	} else if len(result.Exceptions) > 0 {
+		var keys []string
+		for i := range result.Exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
+			if err != nil {
+				response.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil))
+				return response
 			}
+			keys = append(keys, key)
+		}
+		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithCELExceptions(result.Exceptions))
+	} else {
+		// TODO: do we want to set a rule name?
+		ruleName := ""
+		if result.Error != nil {
+			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
+		} else if result.Result {
+			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
+		} else {
+			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, result.AuditAnnotations))
 		}
 	}
 	return response

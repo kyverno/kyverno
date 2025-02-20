@@ -6,24 +6,19 @@ import (
 	"slices"
 	"strings"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
-func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*kyvernov2alpha1.AutogenRule, error) {
+func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	// create a resource rule for the cronjob resource
 	matchConstraints := createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions := spec.MatchConditions
-	if bytes, err := json.Marshal(matchConditions); err != nil {
+	matchConditions, err := convertMatchconditions(spec.MatchConditions, "cronjobs", cronjobMatchConditionName, cronJobMatchConditionExpression)
+	if err != nil {
 		return nil, err
-	} else {
-		bytes = updateFields(bytes, controllers)
-		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
-			return nil, err
-		}
 	}
 
 	// convert validations
@@ -61,7 +56,7 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 		}
 	}
 
-	return &kyvernov2alpha1.AutogenRule{
+	return &policiesv1alpha1.AutogenRule{
 		MatchConstraints: matchConstraints,
 		MatchConditions:  matchConditions,
 		Validations:      validations,
@@ -70,20 +65,15 @@ func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers
 	}, nil
 }
 
-func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*kyvernov2alpha1.AutogenRule, error) {
+func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	// create a resource rule for pod controllers
 	matchConstraints := createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions := spec.MatchConditions
-	if bytes, err := json.Marshal(matchConditions); err != nil {
+	matchConditions, err := convertMatchconditions(spec.MatchConditions, "pods", podControllerMatchConditionName, podControllersMatchConditionExpression)
+	if err != nil {
 		return nil, err
-	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
-			return nil, err
-		}
 	}
 
 	// convert validations
@@ -119,7 +109,7 @@ func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, cont
 		}
 	}
 
-	return &kyvernov2alpha1.AutogenRule{
+	return &policiesv1alpha1.AutogenRule{
 		MatchConstraints: matchConstraints,
 		MatchConditions:  matchConditions,
 		Validations:      validations,
@@ -174,6 +164,23 @@ func createMatchConstraints(controllers string, operations []admissionregistrati
 	}
 }
 
+func convertMatchconditions(conditions []admissionregistrationv1.MatchCondition, resource, name, expression string) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
+	for _, m := range conditions {
+		m.Name = name + m.Name
+		m.Expression = expression + m.Expression
+		matchConditions = append(matchConditions, m)
+	}
+	if bytes, err := json.Marshal(matchConditions); err != nil {
+		return nil, err
+	} else {
+		bytes = updateFields(bytes, resource)
+		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
+			return nil, err
+		}
+	}
+	return matchConditions, nil
+}
+
 var (
 	podReplacementRules [][2][]byte = [][2][]byte{
 		{[]byte("object.spec"), []byte("object.spec.template.spec")},
@@ -187,6 +194,11 @@ var (
 		{[]byte("object.metadata"), []byte("object.spec.jobTemplate.spec.template.metadata")},
 		{[]byte("oldObject.metadata"), []byte("oldObject.spec.jobTemplate.spec.template.metadata")},
 	}
+
+	podControllerMatchConditionName        = "autogen-"
+	podControllersMatchConditionExpression = "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || "
+	cronjobMatchConditionName              = "autogen-cronjobs-"
+	cronJobMatchConditionExpression        = "!(object.kind =='CronJob') || "
 )
 
 func updateFields(data []byte, resource string) []byte {

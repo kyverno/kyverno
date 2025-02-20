@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,7 +23,7 @@ import (
 
 type CompiledPolicy struct {
 	Actions        sets.Set[admissionregistrationv1.ValidationAction]
-	Policy         kyvernov2alpha1.ValidatingPolicy
+	Policy         policiesv1alpha1.ValidatingPolicy
 	CompiledPolicy policy.CompiledPolicy
 }
 
@@ -37,10 +37,18 @@ func (f ProviderFunc) CompiledPolicies(ctx context.Context) ([]CompiledPolicy, e
 	return f(ctx)
 }
 
-func NewProvider(compiler policy.Compiler, policies ...kyvernov2alpha1.ValidatingPolicy) (ProviderFunc, error) {
+func NewProvider(compiler policy.Compiler, policies []policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (ProviderFunc, error) {
 	compiled := make([]CompiledPolicy, 0, len(policies))
 	for _, vp := range policies {
-		policy, err := compiler.Compile(&vp, nil)
+		var matchedExceptions []policiesv1alpha1.CELPolicyException
+		for _, polex := range exceptions {
+			for _, ref := range polex.Spec.PolicyRefs {
+				if ref.Name == vp.GetName() {
+					matchedExceptions = append(matchedExceptions, *polex)
+				}
+			}
+		}
+		policy, err := compiler.Compile(&vp, matchedExceptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
 		}
@@ -63,18 +71,18 @@ func NewProvider(compiler policy.Compiler, policies ...kyvernov2alpha1.Validatin
 func NewKubeProvider(
 	compiler policy.Compiler,
 	mgr ctrl.Manager,
-	polexLister kyvernov2alpha1listers.CELPolicyExceptionLister,
+	polexLister policiesv1alpha1listers.CELPolicyExceptionLister,
 ) (Provider, error) {
 	r := newPolicyReconciler(compiler, mgr.GetClient(), polexLister)
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&kyvernov2alpha1.ValidatingPolicy{}).
-		Watches(&kyvernov2alpha1.CELPolicyException{}, &handler.Funcs{
+		For(&policiesv1alpha1.ValidatingPolicy{}).
+		Watches(&policiesv1alpha1.CELPolicyException{}, &handler.Funcs{
 			CreateFunc: func(
 				ctx context.Context,
 				tce event.TypedCreateEvent[client.Object],
 				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 			) {
-				polex := tce.Object.(*kyvernov2alpha1.CELPolicyException)
+				polex := tce.Object.(*policiesv1alpha1.CELPolicyException)
 				for _, ref := range polex.Spec.PolicyRefs {
 					trli.Add(reconcile.Request{
 						NamespacedName: client.ObjectKey{
@@ -88,7 +96,7 @@ func NewKubeProvider(
 				tue event.TypedUpdateEvent[client.Object],
 				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 			) {
-				polex := tue.ObjectNew.(*kyvernov2alpha1.CELPolicyException)
+				polex := tue.ObjectNew.(*policiesv1alpha1.CELPolicyException)
 				for _, ref := range polex.Spec.PolicyRefs {
 					trli.Add(reconcile.Request{
 						NamespacedName: client.ObjectKey{
@@ -102,7 +110,7 @@ func NewKubeProvider(
 				tde event.TypedDeleteEvent[client.Object],
 				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 			) {
-				polex := tde.Object.(*kyvernov2alpha1.CELPolicyException)
+				polex := tde.Object.(*policiesv1alpha1.CELPolicyException)
 				for _, ref := range polex.Spec.PolicyRefs {
 					trli.Add(reconcile.Request{
 						NamespacedName: client.ObjectKey{
@@ -124,13 +132,13 @@ type policyReconciler struct {
 	compiler    policy.Compiler
 	lock        *sync.RWMutex
 	policies    map[string]CompiledPolicy
-	polexLister kyvernov2alpha1listers.CELPolicyExceptionLister
+	polexLister policiesv1alpha1listers.CELPolicyExceptionLister
 }
 
 func newPolicyReconciler(
 	compiler policy.Compiler,
 	client client.Client,
-	polexLister kyvernov2alpha1listers.CELPolicyExceptionLister,
+	polexLister policiesv1alpha1listers.CELPolicyExceptionLister,
 ) *policyReconciler {
 	return &policyReconciler{
 		client:      client,
@@ -142,7 +150,7 @@ func newPolicyReconciler(
 }
 
 func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var policy kyvernov2alpha1.ValidatingPolicy
+	var policy policiesv1alpha1.ValidatingPolicy
 	err := r.client.Get(ctx, req.NamespacedName, &policy)
 	if errors.IsNotFound(err) {
 		r.lock.Lock()
@@ -184,12 +192,12 @@ func (r *policyReconciler) CompiledPolicies(ctx context.Context) ([]CompiledPoli
 	return maps.Values(r.policies), nil
 }
 
-func (r *policyReconciler) ListExceptions(policyName string) ([]kyvernov2alpha1.CELPolicyException, error) {
+func (r *policyReconciler) ListExceptions(policyName string) ([]policiesv1alpha1.CELPolicyException, error) {
 	polexList, err := r.polexLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	var exceptions []kyvernov2alpha1.CELPolicyException
+	var exceptions []policiesv1alpha1.CELPolicyException
 	for _, polex := range polexList {
 		for _, ref := range polex.Spec.PolicyRefs {
 			if ref.Name == policyName {

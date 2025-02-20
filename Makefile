@@ -45,7 +45,6 @@ OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
 DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
-APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
 CODE_GEN_VERSION                   ?= v0.28.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
@@ -62,7 +61,7 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.17.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -105,10 +104,6 @@ $(DEEPCOPY_GEN):
 $(DEFAULTER_GEN):
 	@echo Install defaulter-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/defaulter-gen@$(CODE_GEN_VERSION)
-
-$(APPLYCONFIGURATION_GEN):
-	@echo Install applyconfiguration-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/applyconfiguration-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@echo Install gen-crd-api-reference-docs... >&2
@@ -414,7 +409,6 @@ CLIENT_INPUT_DIRS           := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/
 CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
-APPLYCONFIGURATIONS_PACKAGE := $(OUT_PACKAGE)/applyconfigurations
 CRDS_PATH                   := ${PWD}/config/crds
 INSTALL_MANIFEST_PATH       := ${PWD}/config/install-latest-testing.yaml
 KYVERNO_CHART_VERSION       ?= v0.0.0
@@ -489,21 +483,11 @@ codegen-defaulters: $(PACKAGE_SHIM) $(DEFAULTER_GEN) ## Generate defaulters
 	@echo Generate defaulters... >&2
 	@GOPATH=$(GOPATH_SHIM) $(DEFAULTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --input-dirs=$(INPUT_DIRS)
 
-.PHONY: codegen-applyconfigurations
-codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Generate apply configurations
-	@echo Generate applyconfigurations... >&2
-	@rm -rf $(APPLYCONFIGURATIONS_PACKAGE) && mkdir -p $(APPLYCONFIGURATIONS_PACKAGE)
-	@GOPATH=$(GOPATH_SHIM) $(APPLYCONFIGURATION_GEN) \
-		--go-header-file=./scripts/boilerplate.go.txt \
-		--input-dirs=$(INPUT_DIRS) \
-		--output-package $(APPLYCONFIGURATIONS_PACKAGE)
-
 .PHONY: codegen-client-all
 codegen-client-all: ## Generate clientset, listers and informers
 codegen-client-all: codegen-register
 codegen-client-all: codegen-deepcopy
 codegen-client-all: codegen-defaulters
-codegen-client-all: codegen-applyconfigurations
 codegen-client-all: codegen-client-clientset
 codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
@@ -516,6 +500,14 @@ codegen-crds-kyverno: $(CONTROLLER_GEN)
 	@echo Generate kyverno crds... >&2
 	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
 	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/kyverno/v1/... paths=./api/kyverno/v1beta1/... paths=./api/kyverno/v2/... paths=./api/kyverno/v2alpha1/... paths=./api/kyverno/v2beta1/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/kyverno
+
+.PHONY: codegen-crds-policies
+codegen-crds-policies: ## Generate policies CRDs
+codegen-crds-policies: $(PACKAGE_SHIM)
+codegen-crds-policies: $(CONTROLLER_GEN)
+	@echo Generate policies crds... >&2
+	@rm -rf $(CRDS_PATH)/policies.kyverno.io && mkdir -p $(CRDS_PATH)/policies.kyverno.io
+	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/policies.kyverno.io/v1alpha1/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/policies.kyverno.io
 
 .PHONY: codegen-crds-policyreport
 codegen-crds-policyreport: ## Generate policy reports CRDs
@@ -542,7 +534,12 @@ codegen-crds-cli: $(CONTROLLER_GEN)
 	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
-codegen-crds-all: codegen-crds-kyverno codegen-crds-policyreport codegen-crds-reports codegen-cli-crds ## Generate all CRDs
+codegen-crds-all: ## Generate all CRDs
+codegen-crds-all: codegen-crds-kyverno
+codegen-crds-all: codegen-crds-policyreport
+codegen-crds-all: codegen-crds-reports
+codegen-crds-all: codegen-crds-policies
+codegen-crds-all: codegen-cli-crds
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -586,14 +583,15 @@ codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 .PHONY: codegen-cli-crds
 codegen-cli-crds: ## Copy generated CRDs to embed in the CLI
 codegen-cli-crds: codegen-crds-kyverno
+codegen-cli-crds: codegen-crds-policies
 codegen-cli-crds: codegen-crds-cli
 	@echo Copy generated CRDs to embed in the CLI... >&2
 	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_celpolicyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_celpolicyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
@@ -631,15 +629,16 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
+	@rm -rf ./charts/kyverno/charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/policies.kyverno.io
 	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
 	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
 	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
 	$(call generate_crd,kyverno.io_globalcontextentries.yaml,kyverno,kyverno.io,kyverno,globalcontextentries)
 	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
 	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
-	$(call generate_crd,kyverno.io_celpolicyexceptions.yaml,kyverno,kyverno.io,kyverno,celpolicyexceptions)
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
-	$(call generate_crd,kyverno.io_validatingpolicies.yaml,kyverno,kyverno.io,kyverno,validatingpolicies)
+	$(call generate_crd,policies.kyverno.io_celpolicyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,celpolicyexceptions)
+	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports)
