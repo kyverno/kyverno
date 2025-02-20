@@ -92,7 +92,8 @@ func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.
 					Issuer:        id.Issuer,
 					Subject:       id.Subject,
 					IssuerRegExp:  id.IssuerRegExp,
-					SubjectRegExp: id.SubjectRegExp})
+					SubjectRegExp: id.SubjectRegExp,
+				})
 		}
 		fulcioRoots, fulcioIntermediates, err := getFulcio(ctx)
 		if err != nil {
