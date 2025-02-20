@@ -10,8 +10,19 @@ spec:
     - create:
         file: policy.yaml
     - sleep:
-        duration: 2s
+        duration: 10s
   - name: check autogen policy
     try:
     - assert:
         file: check-autogen.yaml
+  - name: create good deployment
+    try:
+    - create:
+        file: good-deployment.yaml
+  - name: create bad deployment
+    try:
+    - create:
+        file: bad-deployment.yaml
+        expect:
+          - check:
+              ($error != null): true
