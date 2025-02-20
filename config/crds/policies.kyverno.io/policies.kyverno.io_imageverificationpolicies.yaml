@@ -89,6 +89,14 @@ spec:
                       description: Cosign defines attestor configuration for Cosign
                         based signatures
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            Annotations are used for image verification.
+                            Every specified key-value pair must exist and match in the verified payload.
+                            The payload may contain other key-value pairs.
+                          type: object
                         certificate:
                           description: Certificate defines the configuration for local
                             signature verification

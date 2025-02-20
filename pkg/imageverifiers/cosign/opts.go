@@ -230,21 +230,25 @@ func getRekor(ctx context.Context, ctlog *v1alpha1.CTLog) (*client.Rekor, *cosig
 	var rekorPubKey *cosign.TrustedTransparencyLogPubKeys
 	var ctlogPubKey *cosign.TrustedTransparencyLogPubKeys
 	if ctlog.RekorPubKey == "" {
-		rekorPubKey, err = cosign.GetRekorPubs(ctx)
+		if rekorPubKey, err = cosign.GetRekorPubs(ctx); err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to get rekor public keys: %w", err)
+		}
 	} else {
 		key := cosign.NewTrustedTransparencyLogPubKeys()
 		if err := key.AddTransparencyLogPubKey([]byte(ctlog.RekorPubKey), tuf.Active); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get rekor public keys: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to parse rekor public keys: %w", err)
 		}
 		rekorPubKey = &key
 	}
 
 	if ctlog.CTLogPubKey == "" {
-		ctlogPubKey, err = cosign.GetCTLogPubs(ctx)
+		if ctlogPubKey, err = cosign.GetCTLogPubs(ctx); err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to get ctlog public keys: %w", err)
+		}
 	} else {
 		key := cosign.NewTrustedTransparencyLogPubKeys()
 		if err := key.AddTransparencyLogPubKey([]byte(ctlog.CTLogPubKey), tuf.Active); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get ctlog public keys: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to parse ctlog public keys: %w", err)
 		}
 		ctlogPubKey = &key
 	}

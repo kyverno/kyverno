@@ -153,6 +153,11 @@ type Cosign struct {
 	// TUF defines the configuration to fetch sigstore root
 	// +optional
 	TUF *TUF `json:"tuf,omitempty"`
+	// Annotations are used for image verification.
+	// Every specified key-value pair must exist and match in the verified payload.
+	// The payload may contain other key-value pairs.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // Notary defines attestor configuration for Notary based signatures

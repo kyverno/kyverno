@@ -42,7 +42,7 @@ func (v *cosignVerifier) VerifyImageSignature(ctx context.Context, image *imaged
 	}
 	cOpts.ClaimVerifier = cosign.SimpleClaimVerifier
 
-	_, verified, err := cosign.VerifyImageSignatures(ctx, image.NameRef, cOpts)
+	sigs, verified, err := cosign.VerifyImageSignatures(ctx, image.NameRef, cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
@@ -55,7 +55,14 @@ func (v *cosignVerifier) VerifyImageSignature(ctx context.Context, image *imaged
 
 	// TODO: Check keyless data?
 
-	// TODO: Check Annotations
+	if len(attestor.Cosign.Annotations) != 0 {
+		for _, sig := range sigs {
+			if err := checkSignatureAnnotations(sig, attestor.Cosign.Annotations); err != nil {
+				logger.Error(err, "image verification failed")
+				return err
+			}
+		}
+	}
 
 	return nil
 }
@@ -101,6 +108,12 @@ func (v *cosignVerifier) VerifyAttestationSignature(ctx context.Context, image *
 			// This is not the predicate type we're looking for.
 			continue
 		}
+
+		if err := checkSignatureAnnotations(s, attestor.Cosign.Annotations); err != nil {
+			logger.Error(err, "image verification failed")
+			return err
+		}
+
 		found = true
 		image.AddVerifiedIntotoPayloads(gotType, payload)
 	}

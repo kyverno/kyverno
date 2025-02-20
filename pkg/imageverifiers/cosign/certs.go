@@ -7,9 +7,9 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/sigstore/cosign/v2/pkg/oci"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
-	"github.com/sigstore/sigstore/pkg/signature/payload"
 )
 
 var signatureAlgorithmMap = map[string]crypto.Hash{
@@ -83,13 +83,15 @@ func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, 
 	return signature.LoadVerifier(pubKey, signatureAlgorithm)
 }
 
-func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
-	for _, p := range payload {
-		for key, val := range annotations {
-			if val != p.Optional[key] {
-				return fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
-					p.Optional[key], val, key)
-			}
+func checkSignatureAnnotations(sig oci.Signature, annotations map[string]string) error {
+	sigAnnotations, err := sig.Annotations()
+	if err != nil {
+		return fmt.Errorf("failed to fetch annotation from signature")
+	}
+	for key, val := range annotations {
+		if val != sigAnnotations[key] {
+			return fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
+				sigAnnotations[key], val, key)
 		}
 	}
 	return nil
