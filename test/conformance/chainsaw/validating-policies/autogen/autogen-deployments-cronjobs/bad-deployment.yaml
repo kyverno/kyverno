@@ -1,20 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: skipped-deployment
+  name: bad-deployment-1
   labels:
-    app: nginx
-    env: testing
+    prod: "true"
+    app: bad-nginx
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nginx
+      prod: "true"
+      app: bad-nginx
   template:
     metadata:
       labels:
-        app: nginx
+        prod: "true"
+        app: bad-nginx
     spec:
       containers:
       - name: nginx
         image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: true
