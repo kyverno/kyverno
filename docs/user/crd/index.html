@@ -11090,6 +11090,20 @@ string
 </tr>
 <tr>
 <td>
+<code>tsaCertChain</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+may contain the leaf TSA certificate if not present in the timestamurce.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>insecureIgnoreTlog</code><br/>
 <em>
 bool
@@ -11226,7 +11240,7 @@ Certificate
 <code>source</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.Source">
-[]Source
+Source
 </a>
 </em>
 </td>
@@ -11261,6 +11275,20 @@ TUF
 <td>
 <em>(Optional)</em>
 <p>TUF defines the configuration to fetch sigstore root</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Annotations are used for image verification.
+Every specified key-value pair must exist and match in the verified payload.
+The payload may contain other key-value pairs.</p>
 </td>
 </tr>
 </tbody>
@@ -11743,8 +11771,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.Cosign">Cosign</a>, 
-<a href="#policies.kyverno.io/v1alpha1.Keyless">Keyless</a>)
+<a href="#policies.kyverno.io/v1alpha1.Cosign">Cosign</a>)
 </p>
 <p>
 <p>This references a public verification key stored in
@@ -11822,8 +11849,7 @@ sha224, sha256, sha384 and sha512. Defaults to sha256.</p>
 </p>
 <p>
 <p>Keyless contains location of the validating certificate and the identities
-against which to verify. KeylessRef will contain either the URL to the verifying
-certificate, or it will contain the certificate data inline or in a secret.</p>
+against which to verify.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11833,18 +11859,6 @@ certificate, or it will contain the certificate data inline or in a secret.</p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>url</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>URL defines a url to the keyless instance.</p>
-</td>
-</tr>
 <tr>
 <td>
 <code>identities</code><br/>
@@ -11860,16 +11874,14 @@ string
 </tr>
 <tr>
 <td>
-<code>ca-cert</code><br/>
+<code>roots</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.Key">
-Key
-</a>
+string
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>CACert sets a reference to CA certificate</p>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
 </td>
 </tr>
 </tbody>

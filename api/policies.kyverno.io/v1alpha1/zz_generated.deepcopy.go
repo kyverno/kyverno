@@ -282,12 +282,10 @@ func (in *Cosign) DeepCopyInto(out *Cosign) {
 		*out = new(Certificate)
 		**out = **in
 	}
-	if in.Sources != nil {
-		in, out := &in.Sources, &out.Sources
-		*out = make([]Source, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+	if in.Source != nil {
+		in, out := &in.Source, &out.Source
+		*out = new(Source)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.CTLog != nil {
 		in, out := &in.CTLog, &out.CTLog
@@ -298,6 +296,13 @@ func (in *Cosign) DeepCopyInto(out *Cosign) {
 		in, out := &in.TUF, &out.TUF
 		*out = new(TUF)
 		**out = **in
+	}
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 	return
 }
@@ -583,11 +588,6 @@ func (in *Keyless) DeepCopyInto(out *Keyless) {
 		*out = make([]Identity, len(*in))
 		copy(*out, *in)
 	}
-	if in.CACert != nil {
-		in, out := &in.CACert, &out.CACert
-		*out = new(Key)
-		(*in).DeepCopyInto(*out)
-	}
 	return
 }
 
@@ -768,11 +768,6 @@ func (in *Source) DeepCopyInto(out *Source) {
 		in, out := &in.SignaturePullSecrets, &out.SignaturePullSecrets
 		*out = make([]corev1.LocalObjectReference, len(*in))
 		copy(*out, *in)
-	}
-	if in.TagPrefix != nil {
-		in, out := &in.TagPrefix, &out.TagPrefix
-		*out = new(string)
-		**out = **in
 	}
 	return
 }
