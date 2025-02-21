@@ -48,12 +48,16 @@ func (v *cosignVerifier) VerifyImageSignature(ctx context.Context, image *imaged
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
-		err := fmt.Errorf("cosign bundle verification failed")
+		if !(attestor.Cosign.CTLog.InsecureIgnoreTlog || attestor.Cosign.CTLog.InsecureIgnoreSCT) {
+			err := fmt.Errorf("transparency log or timestamp verification failed")
+			logger.Error(err, "image verification failed")
+			return err
+		}
+	} else if len(sigs) == 0 {
+		err := fmt.Errorf("signatures not found")
 		logger.Error(err, "image verification failed")
 		return err
 	}
-
-	// TODO: Check keyless data?
 
 	if len(attestor.Cosign.Annotations) != 0 {
 		for _, sig := range sigs {
