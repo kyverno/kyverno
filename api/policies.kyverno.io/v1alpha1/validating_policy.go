@@ -54,6 +54,10 @@ func (s *ValidatingPolicy) GetStatus() *PolicyStatus {
 	return &s.Status
 }
 
+func (s *ValidatingPolicy) GetKind() string {
+	return s.Kind
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
