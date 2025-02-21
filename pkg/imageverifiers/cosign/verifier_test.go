@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_ImageSignatureVerificationStandard(t *testing.T) {
+func Test_ImageSignatureVerificationKeyless(t *testing.T) {
 	image := "ghcr.io/jimbugwadia/pause2"
 	idf, err := imagedataloader.New(nil)
 	assert.NoError(t, err)
@@ -68,4 +68,32 @@ func Test_ImageSignatureVerificationFail(t *testing.T) {
 	v := cosignVerifier{log: logr.Discard()}
 	err = v.VerifyImageSignature(context.TODO(), img, attestor)
 	assert.ErrorContains(t, err, "no matching signatures: none of the expected identities matched what was in the certificate")
+}
+
+func Test_ImageSignatureVerificationKeyed(t *testing.T) {
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	idf, err := imagedataloader.New(nil)
+	assert.NoError(t, err)
+	img, err := idf.FetchImageData(context.TODO(), image)
+	assert.NoError(t, err)
+
+	attestor := &v1alpha1.Attestor{
+		Name: "test",
+		Cosign: &v1alpha1.Cosign{
+			Key: &v1alpha1.Key{
+				Data: `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+-----END PUBLIC KEY-----`,
+			},
+			CTLog: &v1alpha1.CTLog{
+				URL:                "https://rekor.sigstore.dev",
+				InsecureIgnoreTlog: true,
+			},
+		},
+	}
+
+	v := cosignVerifier{log: logr.Discard()}
+	err = v.VerifyImageSignature(context.TODO(), img, attestor)
+	assert.NoError(t, err)
 }
