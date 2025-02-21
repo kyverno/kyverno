@@ -799,8 +799,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.15 h1:g/hPoaemFv/6ZJIRyb
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.15/go.mod h1:n2yKi/b29+JB54PyONruHvvha4zugC7jzr+A16cNLvw=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.15 h1:K2GstKWXftcpmg/wHfcJFYKWuj+YRSoTgwxm3ox2FjE=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.15/go.mod h1:tOSdKYXCkplk54FSR/58UYQm1S/GlQK4Y1GgMhiq40U=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.14 h1:5DyoHfLrxntPOZymPUQoUMjqnmKVoyhrnresZnktQ2s=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.14/go.mod h1:x+4wvq6tzIQRZaSdMS6/VT9nuCoepypozfzP4Tqwnqw=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.15 h1:ThpZMfR2TecI6Ji7s/nFlcCIkwXYhZUYziJdZs3pOaw=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.15/go.mod h1:x+4wvq6tzIQRZaSdMS6/VT9nuCoepypozfzP4Tqwnqw=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.15 h1:mR+VaOSx2sUpaE8lXarinHcT8UXi+fKE4ESNBzDRAtQ=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.15/go.mod h1:6olKNL2BGrsZPLbO/7kiJzZPxU74270nDI5G3HSSykw=
 github.com/sigstore/timestamp-authority v1.2.2 h1:X4qyutnCQqJ0apMewFyx+3t7Tws00JQ/JonBiu3QvLE=
