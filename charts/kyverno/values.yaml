@@ -688,6 +688,8 @@ features:
   globalContext:
     # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
     maxApiCallResponseLength: 2000000
+    # -- Maximum number of background reports before we stop creating new ones
+    maxBackgroundReports: 10000
   logging:
     # -- Logging format
     format: text

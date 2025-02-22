@@ -54,6 +54,7 @@
 {{- end -}}
 {{- with .globalContext -}}
   {{- $flags = append $flags (print "--maxAPICallResponseLength=" (int .maxApiCallResponseLength)) -}}
+  {{- $flags = append $flags (print "--maxBackgroundReports=" (int .maxBackgroundReports)) -}}
 {{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}
