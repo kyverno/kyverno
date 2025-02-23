@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 )
 
