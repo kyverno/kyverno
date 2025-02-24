@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
