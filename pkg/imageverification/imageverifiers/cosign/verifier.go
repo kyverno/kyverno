@@ -14,19 +14,19 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-type cosignVerifier struct {
+type Verifier struct {
 	secretInterface k8scorev1.SecretInterface
 	log             logr.Logger
 }
 
-func NewVerifier(secretInterface k8scorev1.SecretInterface) *cosignVerifier {
-	return &cosignVerifier{
+func NewVerifier(secretInterface k8scorev1.SecretInterface) *Verifier {
+	return &Verifier{
 		log:             logging.WithName("Notary"),
 		secretInterface: secretInterface,
 	}
 }
 
-func (v *cosignVerifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1alpha1.Attestor) error {
+func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1alpha1.Attestor) error {
 	if attestor.Cosign == nil {
 		return fmt.Errorf("cosign verifier only supports cosign attestor")
 	}
@@ -71,7 +71,7 @@ func (v *cosignVerifier) VerifyImageSignature(ctx context.Context, image *imaged
 	return nil
 }
 
-func (v *cosignVerifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, attestor *policiesv1alpha1.Attestor) error {
+func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, attestor *policiesv1alpha1.Attestor) error {
 	if attestation.InToto == nil {
 		return fmt.Errorf("cosgin verifier only supports intoto referrers as attestations")
 	}

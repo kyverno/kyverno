@@ -14,17 +14,17 @@ import (
 	"go.uber.org/multierr"
 )
 
-func NewVerifier() *notaryVerifier {
-	return &notaryVerifier{
+func NewVerifier() *Verifier {
+	return &Verifier{
 		log: logging.WithName("Notary"),
 	}
 }
 
-type notaryVerifier struct {
+type Verifier struct {
 	log logr.Logger
 }
 
-func (v *notaryVerifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1alpha1.Attestor) error {
+func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1alpha1.Attestor) error {
 	if attestor.Notary == nil {
 		return fmt.Errorf("notary verifier only supports notary attestor")
 	}
@@ -60,7 +60,7 @@ func (v *notaryVerifier) VerifyImageSignature(ctx context.Context, image *imaged
 	return nil
 }
 
-func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, attestor *policiesv1alpha1.Attestor) error {
+func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, attestor *policiesv1alpha1.Attestor) error {
 	if attestation.Referrer == nil {
 		return fmt.Errorf("notary verifier only supports oci 1.1 referrers as attestations")
 	}
