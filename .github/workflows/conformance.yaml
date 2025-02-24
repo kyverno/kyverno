@@ -7,10 +7,10 @@ permissions: {}
 on:
   pull_request:
     branches:
-      - "main"
-      - "release*"
+    - "main"
+    - "release*"
   schedule:
-    - cron: "43 0 * * 0"
+  - cron: "43 0 * * 0"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,75 +20,78 @@ jobs:
   define-matrix:
     runs-on: ubuntu-latest
     outputs:
+      versions: ${{ steps.upgrades.outputs.versions }}
       upgrades: ${{ steps.upgrades.outputs.upgrades }}
     steps:
-      - name: Set Upgarde Scenarios
-        id: upgrades
-        run: |
-          set -e
-          if [[ ${{ github.event_name }} == 'schedule' ]]; then
-            echo 'upgrades=["latest","minor","patch"]' >> $GITHUB_OUTPUT
-          else
-            echo 'upgrades=["none"]' >> $GITHUB_OUTPUT
-          fi
+    - name: Set Upgarde Scenarios
+      id: upgrades
+      run: |
+        set -e
+        if [[ ${{ github.event_name }} == 'schedule' ]]; then
+          echo 'upgrades=["latest","minor","patch"]' >> $GITHUB_OUTPUT
+          echo 'versions=["v1.28.13","v1.29.8","v1.30.4","v1.31.0"]' >> $GITHUB_OUTPUT
+        else
+          echo 'upgrades=["none"]' >> $GITHUB_OUTPUT
+          echo 'versions=["v1.31.0"]' >> $GITHUB_OUTPUT
+        fi
 
   prepare-images:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          build-cache-key: build-images
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          free-disk-space: false
-      - name: ko build
-        shell: bash
-        run: |
-          set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
-      - name: upload images archive
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
-        with:
-          name: kyverno.tar
-          path: kyverno.tar
-          retention-days: 1
-          if-no-files-found: error
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Setup caches
+      uses: ./.github/actions/setup-caches
+      timeout-minutes: 5
+      continue-on-error: true
+      with:
+        build-cache-key: build-images
+    - name: Setup build env
+      uses: ./.github/actions/setup-build-env
+      timeout-minutes: 10
+      with:
+        free-disk-space: false
+    - name: ko build
+      shell: bash
+      run: |
+        set -e
+        VERSION=${{ github.ref_name }} make docker-save-image-all
+    - name: upload images archive
+      uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+      with:
+        name: kyverno.tar
+        path: kyverno.tar
+        retention-days: 1
+        if-no-files-found: error
 
   prepare-cli:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          build-cache-key: build-cli
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          free-disk-space: false
-      - name: Build CLI
-        shell: bash
-        run: |
-          set -e
-          VERSION=${{ github.ref_name }} make build-cli
-      - name: upload images archive
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
-        with:
-          name: kubectl-kyverno
-          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
-          retention-days: 1
-          if-no-files-found: error
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Setup caches
+      uses: ./.github/actions/setup-caches
+      timeout-minutes: 5
+      continue-on-error: true
+      with:
+        build-cache-key: build-cli
+    - name: Setup build env
+      uses: ./.github/actions/setup-build-env
+      timeout-minutes: 10
+      with:
+        free-disk-space: false
+    - name: Build CLI
+      shell: bash
+      run: |
+        set -e
+        VERSION=${{ github.ref_name }} make build-cli
+    - name: upload images archive
+      uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+      with:
+        name: kubectl-kyverno
+        path: cmd/cli/kubectl-kyverno/kubectl-kyverno
+        retention-days: 1
+        if-no-files-found: error
 
   assert:
     runs-on: ubuntu-latest
@@ -97,18 +100,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: assert
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: assert
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   autogen:
     runs-on: ubuntu-latest
@@ -117,18 +120,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: autogen
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: autogen
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   background-only:
     runs-on: ubuntu-latest
@@ -137,19 +140,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: background-only
-          upgrade-scenario: ${{ matrix.upgrade }}
-  
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: background-only
+        upgrade-scenario: ${{ matrix.upgrade }}
+
   cel-policy-exceptions:
     runs-on: ubuntu-latest
     permissions:
@@ -157,19 +160,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: cel-policy-exceptions
-          upgrade-scenario: ${{ matrix.upgrade }}
-  
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: cel-policy-exceptions
+        upgrade-scenario: ${{ matrix.upgrade }}
+
   cleanup:
     runs-on: ubuntu-latest
     permissions:
@@ -177,18 +180,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: cleanup
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: cleanup
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   deferred:
     runs-on: ubuntu-latest
@@ -197,18 +200,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: deferred
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: deferred
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   events:
     runs-on: ubuntu-latest
@@ -217,18 +220,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: events
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: events
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   exceptions:
     runs-on: ubuntu-latest
@@ -237,21 +240,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-        shard-index: [0,1]
+        shard-index: [ 0, 1 ]
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: exceptions
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 2
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: exceptions
+        shard-index: ${{ matrix.shard-index }}
+        shard-count: 2
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   filter:
     runs-on: ubuntu-latest
@@ -260,18 +263,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: filter
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: filter
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
@@ -280,18 +283,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,force-failure-policy-ignore
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: force-failure-policy-ignore
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard,force-failure-policy-ignore
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: force-failure-policy-ignore
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   generate:
     runs-on: ubuntu-latest
@@ -300,21 +303,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-        shard-index: [0,1,2,3,4,5,6,7]
+        shard-index: [ 0, 1, 2, 3, 4, 5, 6, 7 ]
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: generate
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 8
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: generate
+        shard-index: ${{ matrix.shard-index }}
+        shard-count: 8
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   generate-validating-admission-policy:
     runs-on: ubuntu-latest
@@ -323,19 +326,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,generate-validating-admission-policy
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: generate-validating-admission-policy
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+        kyverno-configs: standard,generate-validating-admission-policy
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: generate-validating-admission-policy
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   globalcontext:
     runs-on: ubuntu-latest
@@ -344,18 +347,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: globalcontext
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: globalcontext
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   lease:
     runs-on: ubuntu-latest
@@ -364,18 +367,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: lease
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: lease
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   mutate:
     runs-on: ubuntu-latest
@@ -384,21 +387,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-        shard-index: [0,1,2]
+        shard-index: [ 0, 1, 2 ]
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: mutate
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 3
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: mutate
+        shard-index: ${{ matrix.shard-index }}
+        shard-count: 3
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   policy-validation:
     runs-on: ubuntu-latest
@@ -407,18 +410,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: policy-validation
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: policy-validation
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   rangeoperators:
     runs-on: ubuntu-latest
@@ -427,18 +430,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: rangeoperators
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: rangeoperators
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   rbac:
     runs-on: ubuntu-latest
@@ -448,18 +451,18 @@ jobs:
       fail-fast: false
       matrix:
         kyverno-configs: [ standard, default, 'standard,force-failure-policy-ignore' ]
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: ${{ matrix.kyverno-configs }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: rbac
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: ${{ matrix.kyverno-configs }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: rbac
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   reports:
     runs-on: ubuntu-latest
@@ -468,21 +471,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-        shard-index: [0,1]
+        shard-index: [ 0, 1 ]
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: reports
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 2
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: reports
+        shard-index: ${{ matrix.shard-index }}
+        shard-count: 2
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   ttl:
     runs-on: ubuntu-latest
@@ -491,18 +494,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,ttl
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: ttl
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard,ttl
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: ttl
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   validate:
     runs-on: ubuntu-latest
@@ -511,21 +514,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-        shard-index: [0,1,2,3,4,5]
+        shard-index: [ 0, 1, 2, 3, 4, 5 ]
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: validate
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 6
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: validate
+        shard-index: ${{ matrix.shard-index }}
+        shard-count: 6
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   validating-admission-policy-reports:
     runs-on: ubuntu-latest
@@ -534,19 +537,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,validating-admission-policy-reports
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: validating-admission-policy-reports
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+        kyverno-configs: standard,validating-admission-policy-reports
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: validating-admission-policy-reports
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   validating-policies:
     runs-on: ubuntu-latest
@@ -555,18 +558,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: validating-policies
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: validating-policies
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   verify-manifests:
     runs-on: ubuntu-latest
@@ -575,18 +578,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: verify-manifests
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: verify-manifests
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   verifyImages:
     runs-on: ubuntu-latest
@@ -595,21 +598,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-        shard-index: [0,1]
+        shard-index: [ 0, 1 ]
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: verifyImages
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 2
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: verifyImages
+        shard-index: ${{ matrix.shard-index }}
+        shard-count: 2
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   webhook-configurations:
     runs-on: ubuntu-latest
@@ -618,18 +621,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: webhook-configurations
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: webhook-configurations
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   webhooks:
     runs-on: ubuntu-latest
@@ -638,18 +641,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: webhooks
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kyverno-configs: standard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: webhooks
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   sigstore-custom-tuf:
     runs-on: ubuntu-latest
@@ -658,19 +661,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8s) }}
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,sigstore-custom-tuf
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: sigstore-custom-tuf
-          upgrade-scenario: ${{ matrix.upgrade }}
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: ./.github/actions/run-tests
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+        kyverno-configs: standard,sigstore-custom-tuf
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tests-path: sigstore-custom-tuf
+        upgrade-scenario: ${{ matrix.upgrade }}
 
   custom-sigstore:
     runs-on: ubuntu-latest
@@ -680,81 +683,81 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version:
-          - v1.28.x
-          - v1.29.x
-          - v1.30.x
+        - v1.28.x
+        - v1.29.x
+        - v1.30.x
         tests:
-          - custom-sigstore
+        - custom-sigstore
     needs: prepare-images
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      # install tools
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-      - name: Install crane
-        uses: imjasonh/setup-crane@31b88efe9de28ae0ffa220711af4b60be9435f6e # v0.4
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
-        with:
-          verify: true
-      # create cluster
-      - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@7dd406abbfb07599b10ad048a397a4904d3e40cc
-        with:
-          version: main
-          k8s-version: ${{ matrix.k8s-version }}
-          knative-version: "1.10.0"
-      - name: Create TUF values config map
-        run: |
-          set -e
-          kubectl create namespace kyverno
-          kubectl -n kyverno create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL --from-literal=ISSUER_URL=$ISSUER_URL
-          kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
-      # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=standard,custom-sigstore
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      # prepare test image
-      - name: Create test image
-        shell: bash
-        run: |
-          DIGEST=$(crane digest cgr.dev/chainguard/static)
-          IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
-          TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
-          crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
-          cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
-          COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL $TEST_IMAGE_URL --identity-token $OIDC_TOKEN -y
-          echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
-      # run tests
-      - name: Test with Chainsaw
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd ./test/conformance/chainsaw && chainsaw test ${{ matrix.tests }} --config ../../../.chainsaw.yaml
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    # install tools
+    - name: Install helm
+      id: helm
+      uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+    - name: Install crane
+      uses: imjasonh/setup-crane@31b88efe9de28ae0ffa220711af4b60be9435f6e # v0.4
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+    - name: Install chainsaw
+      uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
+      with:
+        verify: true
+    # create cluster
+    - name: Create kind cluster and setup Sigstore Scaffolding
+      uses: sigstore/scaffolding/actions/setup@7dd406abbfb07599b10ad048a397a4904d3e40cc
+      with:
+        version: main
+        k8s-version: ${{ matrix.k8s-version }}
+        knative-version: "1.10.0"
+    - name: Create TUF values config map
+      run: |
+        set -e
+        kubectl create namespace kyverno
+        kubectl -n kyverno create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL --from-literal=ISSUER_URL=$ISSUER_URL
+        kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
+    # deploy kyverno
+    - name: Download kyverno images archive
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: kyverno.tar
+    - name: Load kyverno images archive in kind cluster
+      shell: bash
+      run: |
+        set -e
+        kind load image-archive kyverno.tar --name kind
+    - name: Install kyverno
+      shell: bash
+      run: |
+        set -e
+        export HELM=${{ steps.helm.outputs.helm-path }}
+        export USE_CONFIG=standard,custom-sigstore
+        make kind-install-kyverno
+    - name: Wait for kyverno ready
+      uses: ./.github/actions/kyverno-wait-ready
+    # prepare test image
+    - name: Create test image
+      shell: bash
+      run: |
+        DIGEST=$(crane digest cgr.dev/chainguard/static)
+        IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
+        TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
+        crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
+        cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
+        COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL $TEST_IMAGE_URL --identity-token $OIDC_TOKEN -y
+        echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
+    # run tests
+    - name: Test with Chainsaw
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -e
+        cd ./test/conformance/chainsaw && chainsaw test ${{ matrix.tests }} --config ../../../.chainsaw.yaml
+    - name: Debug failure
+      if: failure()
+      uses: ./.github/actions/kyverno-logs
 
   policy-library:
     runs-on: ubuntu-latest
@@ -762,87 +765,87 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version:
-          - v1.28.13
-          - v1.29.8
-          - v1.30.4
-          - v1.31.0
-        shard-index: [0,1,2,3,4,5,6,7,8,9,10,11]
+        - v1.28.13
+        - v1.29.8
+        - v1.30.4
+        - v1.31.0
+        shard-index: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
     needs:
-      - prepare-images
-      - prepare-cli
+    - prepare-images
+    - prepare-cli
     steps:
-      - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Checkout kyverno/policies
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: kyverno/policies
-          path: policies
-      # install tools
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
-        with:
-          verify: true
-      - name: Download kyverno CLI archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: kubectl-kyverno
-      - name: Install Kyverno CLI
-        shell: bash
-        run: |
-          set -e
-          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
-          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
-      # create cluster
-      - name: Create kind cluster
-        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
-        with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
-          cluster_name: kind
-          config: ./scripts/config/kind/default.yaml
-      # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=standard
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      # run tests
-      - name: Install CRDs
-        run: |
-          set -e
-          kubectl apply -f ./policies/.chainsaw/crds
-      - name: Test with Chainsaw
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd policies
-          chainsaw test . \
-            --shard-index ${{ matrix.shard-index }} \
-            --shard-count 12 \
-            --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
-            --no-color=false
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
+    - name: Checkout kyverno/kyverno
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Checkout kyverno/policies
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        repository: kyverno/policies
+        path: policies
+    # install tools
+    - name: Install helm
+      id: helm
+      uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+    - name: Install chainsaw
+      uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
+      with:
+        verify: true
+    - name: Download kyverno CLI archive
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: kubectl-kyverno
+    - name: Install Kyverno CLI
+      shell: bash
+      run: |
+        set -e
+        chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+        echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+    # create cluster
+    - name: Create kind cluster
+      uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
+      with:
+        node_image: kindest/node:${{ matrix.k8s-version }}
+        cluster_name: kind
+        config: ./scripts/config/kind/default.yaml
+    # deploy kyverno
+    - name: Download kyverno images archive
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: kyverno.tar
+    - name: Load kyverno images archive in kind cluster
+      shell: bash
+      run: |
+        set -e
+        kind load image-archive kyverno.tar --name kind
+    - name: Install kyverno
+      shell: bash
+      run: |
+        set -e
+        export HELM=${{ steps.helm.outputs.helm-path }}
+        export USE_CONFIG=standard
+        make kind-install-kyverno
+    - name: Wait for kyverno ready
+      uses: ./.github/actions/kyverno-wait-ready
+    # run tests
+    - name: Install CRDs
+      run: |
+        set -e
+        kubectl apply -f ./policies/.chainsaw/crds
+    - name: Test with Chainsaw
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -e
+        cd policies
+        chainsaw test . \
+          --shard-index ${{ matrix.shard-index }} \
+          --shard-count 12 \
+          --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
+          --no-color=false
+    - name: Debug failure
+      if: failure()
+      uses: ./.github/actions/kyverno-logs
 
   monitor-helm-secret-size:
     runs-on: ubuntu-latest
@@ -850,50 +853,50 @@ jobs:
       packages: read
     needs: prepare-images
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          build-cache-key: run-conformance
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-      - name: Create kind cluster
-        shell: bash
-        run: |
-          set -e
-          make kind-create-cluster
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          make kind-load-image-archive
-      - name: Install kyverno
-        shell: bash
-        run: |
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      - name: Check secret size
-        shell: bash
-        run: |
-          set -e
-          set -u
-          SIZE=$(kubectl get secrets -n kyverno sh.helm.release.v1.kyverno.v1 -o jsonpath='{.data.release}' | base64 -d | wc -c | awk '{print $1}')
-          MAX_ALLOWED=1030000
-          if [ "$SIZE" -gt "$MAX_ALLOWED" ]; then
-            echo "Helm secret size ($SIZE bytes) is above the max allowed ($MAX_ALLOWED bytes)"
-            exit 1
-          else
-            echo "Helm secret size ($SIZE bytes) is below the max allowed ($MAX_ALLOWED bytes)"
-          fi
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Setup caches
+      uses: ./.github/actions/setup-caches
+      timeout-minutes: 5
+      continue-on-error: true
+      with:
+        build-cache-key: run-conformance
+    - name: Setup build env
+      uses: ./.github/actions/setup-build-env
+      timeout-minutes: 10
+    - name: Create kind cluster
+      shell: bash
+      run: |
+        set -e
+        make kind-create-cluster
+    - name: Download kyverno images archive
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: kyverno.tar
+    - name: Load kyverno images archive in kind cluster
+      shell: bash
+      run: |
+        set -e
+        make kind-load-image-archive
+    - name: Install kyverno
+      shell: bash
+      run: |
+        make kind-install-kyverno
+    - name: Wait for kyverno ready
+      uses: ./.github/actions/kyverno-wait-ready
+    - name: Check secret size
+      shell: bash
+      run: |
+        set -e
+        set -u
+        SIZE=$(kubectl get secrets -n kyverno sh.helm.release.v1.kyverno.v1 -o jsonpath='{.data.release}' | base64 -d | wc -c | awk '{print $1}')
+        MAX_ALLOWED=1030000
+        if [ "$SIZE" -gt "$MAX_ALLOWED" ]; then
+          echo "Helm secret size ($SIZE bytes) is above the max allowed ($MAX_ALLOWED bytes)"
+          exit 1
+        else
+          echo "Helm secret size ($SIZE bytes) is below the max allowed ($MAX_ALLOWED bytes)"
+        fi
 
   check-tests:
     runs-on: ubuntu-latest
@@ -903,50 +906,50 @@ jobs:
       fail-fast: false
       matrix:
         tests:
-          - ^cli$
+        - ^cli$
     needs:
     - prepare-cli
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      # install tools
-      - name: Download kyverno CLI archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: kubectl-kyverno
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
-        with:
-          verify: true
-      # create cluster
-      - name: Create kind cluster
-        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
-        with:
-          node_image: kindest/node:v1.30.0
-          cluster_name: kind
-          config: ./scripts/config/kind/default.yaml
-      - name: Install Kyverno CLI
-        shell: bash
-        run: |
-          set -e
-          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
-          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
-      # run tests
-      - name: Test with Chainsaw
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
-      - name: Fix test files
-        shell: bash
-        run: |
-          set -e
-          KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
-          make verify-cli-tests
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    # install tools
+    - name: Download kyverno CLI archive
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: kubectl-kyverno
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+    - name: Install chainsaw
+      uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
+      with:
+        verify: true
+    # create cluster
+    - name: Create kind cluster
+      uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
+      with:
+        node_image: kindest/node:v1.30.0
+        cluster_name: kind
+        config: ./scripts/config/kind/default.yaml
+    - name: Install Kyverno CLI
+      shell: bash
+      run: |
+        set -e
+        chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+        echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+    # run tests
+    - name: Test with Chainsaw
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -e
+        cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
+    - name: Fix test files
+      shell: bash
+      run: |
+        set -e
+        KYVERNO_EXPERIMENTAL=true kyverno fix test ./test/cli --save --compress
+        make verify-cli-tests
 
   cleanup-test:
     runs-on: ubuntu-latest
@@ -956,72 +959,72 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version:
-          - name: v1.31
-            version: v1.31.0
+        - name: v1.31
+          version: v1.31.0
         kyverno-config:
-          - name: cleanup
-            values:
-              - kyverno-cleanup
+        - name: cleanup
+          values:
+          - kyverno-cleanup
     needs:
-      - prepare-images
+    - prepare-images
     name: ${{ matrix.k8s-version.name }} - kyverno uninstall
     steps:
-      - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-      - name: Install Kubectl
-        run: |
-          set -e
-          curl -LO "https://dl.k8s.io/release/${{ matrix.k8s-version.version }}/bin/linux/amd64/kubectl"
-          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-      - name: Create kind cluster
-        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
-        with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
-          cluster_name: kind
-          config: ./scripts/config/kind/default.yaml
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.kyverno-config.values, ',') }}
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      - name: Log finalizers from deployments
-        shell: bash
-        run: |
-          set -e
-          kubectl get deploy kyverno-admission-controller -n kyverno --template='{{.metadata.finalizers}}'
-          kubectl get deploy kyverno-cleanup-controller -n kyverno --template='{{.metadata.finalizers}}'
-      - name: Uninstall kyverno
-        shell: bash
-        run: |
-          set -e
-          helm uninstall kyverno -n kyverno --wait --no-hooks
-      - name: Check validating webhook count
-        shell: bash
-        run: |
-          set -e
-          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ] 
-          then
-          exit 1
-          fi
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
+    - name: Checkout kyverno/kyverno
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Install helm
+      id: helm
+      uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+    - name: Install Kubectl
+      run: |
+        set -e
+        curl -LO "https://dl.k8s.io/release/${{ matrix.k8s-version.version }}/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    - name: Create kind cluster
+      uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
+      with:
+        node_image: kindest/node:${{ matrix.k8s-version.version }}
+        cluster_name: kind
+        config: ./scripts/config/kind/default.yaml
+    - name: Download kyverno images archive
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: kyverno.tar
+    - name: Load kyverno images archive in kind cluster
+      shell: bash
+      run: |
+        set -e
+        kind load image-archive kyverno.tar --name kind
+    - name: Install kyverno
+      shell: bash
+      run: |
+        set -e
+        export HELM=${{ steps.helm.outputs.helm-path }}
+        export USE_CONFIG=${{ join(matrix.kyverno-config.values, ',') }}
+        make kind-install-kyverno
+    - name: Wait for kyverno ready
+      uses: ./.github/actions/kyverno-wait-ready
+    - name: Log finalizers from deployments
+      shell: bash
+      run: |
+        set -e
+        kubectl get deploy kyverno-admission-controller -n kyverno --template='{{.metadata.finalizers}}'
+        kubectl get deploy kyverno-cleanup-controller -n kyverno --template='{{.metadata.finalizers}}'
+    - name: Uninstall kyverno
+      shell: bash
+      run: |
+        set -e
+        helm uninstall kyverno -n kyverno --wait --no-hooks
+    - name: Check validating webhook count
+      shell: bash
+      run: |
+        set -e
+        if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ] 
+        then
+        exit 1
+        fi
+    - name: Debug failure
+      if: failure()
+      uses: ./.github/actions/kyverno-logs
 
   helm-upgrade:
     runs-on: ubuntu-latest
@@ -1030,7 +1033,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.versions) }}
         kyverno-version: [ '3.2' ]
     needs: [ prepare-images ]
     steps:
@@ -1080,75 +1083,75 @@ jobs:
   conformance-required-success:
     name: conformance-required
     needs:
-      - assert
-      - autogen
-      - background-only
-      - cleanup
-      - deferred
-      - events
-      - exceptions
-      - filter
-      - force-failure-policy-ignore
-      - generate
-      - generate-validating-admission-policy
-      - globalcontext
-      - lease
-      - mutate
-      - policy-validation
-      - rangeoperators
-      - rbac
-      - reports
-      - ttl
-      - validate
-      - validating-admission-policy-reports
-      - validating-policies
-      - verify-manifests
-      - verifyImages
-      - webhook-configurations
-      - webhooks
-      - custom-sigstore
-      - monitor-helm-secret-size
-      - check-tests
-      - helm-upgrade
+    - assert
+    - autogen
+    - background-only
+    - cleanup
+    - deferred
+    - events
+    - exceptions
+    - filter
+    - force-failure-policy-ignore
+    - generate
+    - generate-validating-admission-policy
+    - globalcontext
+    - lease
+    - mutate
+    - policy-validation
+    - rangeoperators
+    - rbac
+    - reports
+    - ttl
+    - validate
+    - validating-admission-policy-reports
+    - validating-policies
+    - verify-manifests
+    - verifyImages
+    - webhook-configurations
+    - webhooks
+    - custom-sigstore
+    - monitor-helm-secret-size
+    - check-tests
+    - helm-upgrade
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
-      - run: ${{ true }}
+    - run: ${{ true }}
 
   conformance-required-failure:
     name: conformance-required
     needs:
-      - assert
-      - autogen
-      - background-only
-      - cleanup
-      - deferred
-      - events
-      - exceptions
-      - filter
-      - force-failure-policy-ignore
-      - generate
-      - generate-validating-admission-policy
-      - globalcontext
-      - lease
-      - mutate
-      - policy-validation
-      - rangeoperators
-      - rbac
-      - reports
-      - ttl
-      - validate
-      - validating-admission-policy-reports
-      - validating-policies
-      - verify-manifests
-      - verifyImages
-      - webhook-configurations
-      - webhooks
-      - custom-sigstore
-      - monitor-helm-secret-size
-      - check-tests
-      - helm-upgrade
+    - assert
+    - autogen
+    - background-only
+    - cleanup
+    - deferred
+    - events
+    - exceptions
+    - filter
+    - force-failure-policy-ignore
+    - generate
+    - generate-validating-admission-policy
+    - globalcontext
+    - lease
+    - mutate
+    - policy-validation
+    - rangeoperators
+    - rbac
+    - reports
+    - ttl
+    - validate
+    - validating-admission-policy-reports
+    - validating-policies
+    - verify-manifests
+    - verifyImages
+    - webhook-configurations
+    - webhooks
+    - custom-sigstore
+    - monitor-helm-secret-size
+    - check-tests
+    - helm-upgrade
     runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:
-      - run: ${{ false }}
+    - run: ${{ false }}
