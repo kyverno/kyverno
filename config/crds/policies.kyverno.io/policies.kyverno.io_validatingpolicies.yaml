@@ -1322,11 +1322,22 @@ spec:
                   - type
                   type: object
                 type: array
+              generated:
+                description: Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+                  is generated from the policy or not
+                type: boolean
+              message:
+                description: |-
+                  Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+                  It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.
+                type: string
               ready:
                 description: |-
                   The ready of a policy is a high-level summary of where the policy is in its lifecycle.
                   The conditions array, the reason and message fields contain more detail about the policy's status.
                 type: boolean
+            required:
+            - message
             type: object
         required:
         - spec
