@@ -97,7 +97,6 @@ func BuildValidatingAdmissionPolicy(
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		matchResources = *vpol.Spec.MatchConstraints
 		matchConditions = vpol.Spec.MatchConditions
-		paramKind = vpol.Spec.ParamKind
 		validations = vpol.Spec.Validations
 		auditAnnotations = vpol.Spec.AuditAnnotations
 		variables = vpol.Spec.Variables
