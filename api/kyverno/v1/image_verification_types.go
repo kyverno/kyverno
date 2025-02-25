@@ -15,7 +15,6 @@ import (
 type ImageVerificationType string
 
 // ImageRegistryCredentialsProvidersType provides the list of credential providers required.
-// +kubebuilder:validation:Enum=default;amazon;azure;google;github
 type ImageRegistryCredentialsProvidersType v1alpha1.CredentialsProvidersType
 
 const (

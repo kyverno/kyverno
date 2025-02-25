@@ -57,7 +57,7 @@ func CompileMatches(matches []v1alpha1.ImageRule) ([]*CompiledMatch, error) {
 	}
 
 	for _, m := range matches {
-		var c *CompiledMatch
+		c := &CompiledMatch{}
 		if m.Glob != "" {
 			g, err := glob.Compile(m.Glob)
 			if err != nil {
