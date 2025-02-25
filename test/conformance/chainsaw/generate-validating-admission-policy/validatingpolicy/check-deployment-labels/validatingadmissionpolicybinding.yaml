@@ -3,13 +3,12 @@ kind: ValidatingAdmissionPolicyBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: cpol-disallow-host-path-t13-binding
+  name: vpol-check-deployment-labels-binding
   ownerReferences:
-  - apiVersion: kyverno.io/v1
-    kind: ClusterPolicy
-    name: disallow-host-path-t13
+  - apiVersion: policies.kyverno.io/v1alpha1
+    kind: ValidatingPolicy
+    name: check-deployment-labels
 spec:
-  policyName: cpol-disallow-host-path-t13
+  policyName: vpol-check-deployment-labels
   validationActions:
   - Audit
-  - Warn
