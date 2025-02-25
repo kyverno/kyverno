@@ -3,6 +3,7 @@ package imageverifierfunctions
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -27,7 +28,7 @@ type ivfuncs struct {
 	notaryVerifier  *notary.Verifier
 }
 
-func ImageVerifyCELFuncs(ctx context.Context, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister k8scorev1.SecretInterface, adapter types.Adapter) *ivfuncs {
+func ImageVerifyCELFuncs(ctx context.Context, logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister k8scorev1.SecretInterface, adapter types.Adapter) *ivfuncs {
 	return &ivfuncs{
 		Adapter:         adapter,
 		ctx:             ctx,
@@ -36,8 +37,8 @@ func ImageVerifyCELFuncs(ctx context.Context, imgCtx imagedataloader.ImageContex
 		attestorList:    attestorMap(ivpol),
 		attestationList: attestationMap(ivpol),
 		lister:          lister,
-		cosignVerifier:  cosign.NewVerifier(lister),
-		notaryVerifier:  notary.NewVerifier(),
+		cosignVerifier:  cosign.NewVerifier(lister, logger),
+		notaryVerifier:  notary.NewVerifier(logger),
 	}
 }
 
@@ -149,7 +150,7 @@ func (f *ivfuncs) payload_string_string(_image ref.Val, _attestation ref.Val) re
 	}
 }
 
-func (f *ivfuncs) get_image_data_string(ctx ref.Val, _image ref.Val) ref.Val {
+func (f *ivfuncs) get_image_data_string(_image ref.Val) ref.Val {
 	if image, err := utils.ConvertToNative[string](_image); err != nil {
 		return types.WrapErr(err)
 	} else {

@@ -81,6 +81,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 	if err != nil {
 		return nil, err
 	}
+	img.NameRef = ref
 
 	remoteImg, err := remote.Image(ref, img.RemoteOpts...)
 	if err != nil {

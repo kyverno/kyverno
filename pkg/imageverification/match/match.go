@@ -10,12 +10,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 )
 
-type compiledMatch struct {
+type CompiledMatch struct {
 	g glob.Glob
 	e cel.Program
 }
 
-func (c *compiledMatch) Match(image string) (bool, error) {
+func (c *CompiledMatch) Match(image string) (bool, error) {
 	if c.g != nil {
 		return c.g.Match(image), nil
 	} else if c.e != nil {
@@ -36,7 +36,7 @@ func (c *compiledMatch) Match(image string) (bool, error) {
 	}
 }
 
-func Match(c []compiledMatch, image string) (bool, error) {
+func Match(c []*CompiledMatch, image string) (bool, error) {
 	for _, v := range c {
 		if matched, err := v.Match(image); err != nil {
 			return false, err
@@ -47,8 +47,8 @@ func Match(c []compiledMatch, image string) (bool, error) {
 	return false, nil
 }
 
-func CompiledMatches(matches []v1alpha1.ImageRule) ([]compiledMatch, error) {
-	compiledMatches := make([]compiledMatch, 0, len(matches))
+func CompileMatches(matches []v1alpha1.ImageRule) ([]*CompiledMatch, error) {
+	compiledMatches := make([]*CompiledMatch, 0, len(matches))
 	e, err := cel.NewEnv(
 		cel.Variable("ref", cel.StringType),
 	)
@@ -57,7 +57,7 @@ func CompiledMatches(matches []v1alpha1.ImageRule) ([]compiledMatch, error) {
 	}
 
 	for _, m := range matches {
-		var c compiledMatch
+		var c *CompiledMatch
 		if m.Glob != "" {
 			g, err := glob.Compile(m.Glob)
 			if err != nil {

@@ -19,7 +19,7 @@ type Verifier struct {
 	log             logr.Logger
 }
 
-func NewVerifier(secretInterface k8scorev1.SecretInterface) *Verifier {
+func NewVerifier(secretInterface k8scorev1.SecretInterface, logger logr.Logger) *Verifier {
 	return &Verifier{
 		log:             logging.WithName("Notary"),
 		secretInterface: secretInterface,

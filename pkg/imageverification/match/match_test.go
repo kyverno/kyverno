@@ -71,7 +71,7 @@ func Test_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := CompiledMatches(tt.imageRules)
+			c, err := CompileMatches(tt.imageRules)
 			assert.NoError(t, err)
 			matched, err := Match(c, tt.image)
 			if tt.wantErr {

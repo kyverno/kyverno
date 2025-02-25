@@ -7,16 +7,15 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/notaryproject/notation-go"
 	notationlog "github.com/notaryproject/notation-go/log"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
-func NewVerifier() *Verifier {
+func NewVerifier(logger logr.Logger) *Verifier {
 	return &Verifier{
-		log: logging.WithName("Notary"),
+		log: logger.WithName("Notary"),
 	}
 }
 
