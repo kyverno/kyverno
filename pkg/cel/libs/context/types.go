@@ -2,7 +2,7 @@ package context
 
 import (
 	"github.com/google/cel-go/common/types"
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )

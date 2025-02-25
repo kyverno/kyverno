@@ -89,6 +89,14 @@ spec:
                       description: Cosign defines attestor configuration for Cosign
                         based signatures
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            Annotations are used for image verification.
+                            Every specified key-value pair must exist and match in the verified payload.
+                            The payload may contain other key-value pairs.
+                          type: object
                         certificate:
                           description: Certificate defines the configuration for local
                             signature verification
@@ -125,6 +133,12 @@ spec:
                               description: |-
                                 RekorPubKey is an optional PEM-encoded public key to use for a custom Rekor.
                                 If set, this will be used to validate transparency log signatures from a custom Rekor.
+                              type: string
+                            tsaCertChain:
+                              description: |-
+                                TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+                                contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+                                may contain the leaf TSA certificate if not present in the timestamurce.
                               type: string
                             url:
                               description: URL sets the url to the rekor instance
@@ -167,37 +181,6 @@ spec:
                           description: Keyless sets the configuration to verify the
                             authority against a Fulcio instance.
                           properties:
-                            ca-cert:
-                              description: CACert sets a reference to CA certificate
-                              properties:
-                                data:
-                                  description: Data contains the inline public key
-                                  type: string
-                                hashAlgorithm:
-                                  description: |-
-                                    HashAlgorithm specifues signature algorithm for public keys. Supported values are
-                                    sha224, sha256, sha384 and sha512. Defaults to sha256.
-                                  type: string
-                                kms:
-                                  description: |-
-                                    KMS contains the KMS url of the public key
-                                    Supported formats differ based on the KMS system used.
-                                  type: string
-                                secretRef:
-                                  description: SecretRef sets a reference to a secret
-                                    with the key.
-                                  properties:
-                                    name:
-                                      description: name is unique within a namespace
-                                        to reference a secret resource.
-                                      type: string
-                                    namespace:
-                                      description: namespace defines the space within
-                                        which the secret name must be unique.
-                                      type: string
-                                  type: object
-                                  x-kubernetes-map-type: atomic
-                              type: object
                             identities:
                               description: Identities sets a list of identities.
                               items:
@@ -225,8 +208,10 @@ spec:
                                     type: string
                                 type: object
                               type: array
-                            url:
-                              description: URL defines a url to the keyless instance.
+                            roots:
+                              description: |-
+                                Roots is an optional set of PEM encoded trusted root certificates.
+                                If not provided, the system roots are used.
                               type: string
                           required:
                           - identities
@@ -234,44 +219,40 @@ spec:
                         source:
                           description: Sources sets the configuration to specify the
                             sources from where to consume the signature and attestations.
-                          items:
-                            description: Source specifies the location of the signature
-                              / attestations.
-                            properties:
-                              PullSecrets:
+                          properties:
+                            PullSecrets:
+                              description: |-
+                                SignaturePullSecrets is an optional list of references to secrets in the
+                                same namespace as the deploying resource for pulling any of the signatures
+                                used by this Source.
+                              items:
                                 description: |-
-                                  SignaturePullSecrets is an optional list of references to secrets in the
-                                  same namespace as the deploying resource for pulling any of the signatures
-                                  used by this Source.
-                                items:
-                                  description: |-
-                                    LocalObjectReference contains enough information to let you locate the
-                                    referenced object inside the same namespace.
-                                  properties:
-                                    name:
-                                      default: ""
-                                      description: |-
-                                        Name of the referent.
-                                        This field is effectively required, but due to backwards compatibility is
-                                        allowed to be empty. Instances of this type with an empty value here are
-                                        almost certainly wrong.
-                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      type: string
-                                  type: object
-                                  x-kubernetes-map-type: atomic
-                                type: array
-                              repository:
-                                description: Repository defines the location from
-                                  where to pull the signature / attestations.
-                                type: string
-                              tagPrefix:
-                                description: |-
-                                  TagPrefix is an optional prefix that signature and attestations have.
-                                  This is the 'tag based discovery' and in the future once references are
-                                  fully supported that should likely be the preferred way to handle these.
-                                type: string
-                            type: object
-                          type: array
+                                  LocalObjectReference contains enough information to let you locate the
+                                  referenced object inside the same namespace.
+                                properties:
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              type: array
+                            repository:
+                              description: Repository defines the location from where
+                                to pull the signature / attestations.
+                              type: string
+                            tagPrefix:
+                              description: |-
+                                TagPrefix is an optional prefix that signature and attestations have.
+                                This is the 'tag based discovery' and in the future once references are
+                                fully supported that should likely be the preferred way to handle these.
+                              type: string
+                          type: object
                         tuf:
                           description: TUF defines the configuration to fetch sigstore
                             root
