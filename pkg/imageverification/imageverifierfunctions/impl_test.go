@@ -1,7 +1,6 @@
 package imageverifierfunctions
 
 import (
-	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -58,7 +57,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	imgCtx, err := imagedataloader.NewImageContext(nil)
 	assert.NoError(t, err)
-	opts := Lib(context.TODO(), logr.Discard(), imgCtx, ivpol, nil)
+	opts := Lib(logr.Discard(), imgCtx, ivpol, nil)
 	env, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -80,7 +79,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T) {
 	imgCtx, err := imagedataloader.NewImageContext(nil)
 	assert.NoError(t, err)
-	opts := Lib(context.TODO(), logr.Discard(), imgCtx, ivpol, nil)
+	opts := Lib(logr.Discard(), imgCtx, ivpol, nil)
 	env, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)

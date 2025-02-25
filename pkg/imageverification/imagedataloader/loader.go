@@ -341,7 +341,6 @@ func (i *ImageData) GetPayload(a v1alpha1.Attestation) (interface{}, error) {
 			return nil, fmt.Errorf("intoto attestation payload cannot be fetch before verifying intoto attestation")
 		}
 	} else if a.IsReferrer() {
-		var b []byte
 		var err error
 		if i.verifiedReferrers != nil {
 			desc, ok := i.verifiedReferrers[a.Referrer.Type]

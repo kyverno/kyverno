@@ -15,17 +15,15 @@ import (
 const libraryName = "kyverno.imageverify"
 
 type lib struct {
-	ctx    context.Context
 	logger logr.Logger
 	imgCtx imagedataloader.ImageContext
 	ivpol  *v1alpha1.ImageVerificationPolicy
 	lister v1.SecretInterface
 }
 
-func Lib(ctx context.Context, logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister v1.SecretInterface) cel.EnvOption {
+func Lib(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister v1.SecretInterface) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
-		ctx:    ctx,
 		imgCtx: imgCtx,
 		ivpol:  ivpol,
 		lister: lister,
@@ -52,23 +50,23 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	// create implementation, recording the envoy types aware adapter
-	impl := ImageVerifyCELFuncs(c.ctx, c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
+	impl := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"verifyImageSignatures": {
-			cel.Overload("verify_image_signature_string_stringarray", []*cel.Type{types.StringType, types.NewListType(types.StringType)}, types.IntType, cel.BinaryBinding(impl.verify_image_signature_string_stringarray)),
+			cel.Overload("verify_image_signature_string_stringarray", []*cel.Type{types.StringType, types.NewListType(types.StringType)}, types.IntType, cel.BinaryBinding(impl.verify_image_signature_string_stringarray(context.TODO()))),
 		},
 		"verifyAttestationSignatures": {
 			// TODO: should not use DynType in return
-			cel.Overload("verify_image_attestations_string_string_stringarray", []*cel.Type{types.StringType, types.StringType, types.NewListType(types.StringType)}, types.IntType, cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray)),
+			cel.Overload("verify_image_attestations_string_string_stringarray", []*cel.Type{types.StringType, types.StringType, types.NewListType(types.StringType)}, types.IntType, cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray(context.TODO()))),
 		},
 		"getImageData": {
 			// TODO: should not use DynType in return
-			cel.Overload("get_image_data_string", []*cel.Type{types.StringType}, types.DynType, cel.UnaryBinding(impl.get_image_data_string)),
+			cel.Overload("get_image_data_string", []*cel.Type{types.StringType}, types.DynType, cel.UnaryBinding(impl.get_image_data_string(context.TODO()))),
 		},
 		"payload": {
 			// TODO: should not use DynType in return
-			cel.Overload("payload_string_string", []*cel.Type{types.StringType, types.StringType}, types.DynType, cel.BinaryBinding(impl.payload_string_string)),
+			cel.Overload("payload_string_string", []*cel.Type{types.StringType, types.StringType}, types.DynType, cel.BinaryBinding(impl.payload_string_string(context.TODO()))),
 		},
 	}
 	// create env options corresponding to our function overloads
