@@ -24,6 +24,9 @@ type ValidatingPolicy struct {
 }
 
 func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
 	return *s.Spec.MatchConstraints
 }
 
@@ -55,7 +58,7 @@ func (s *ValidatingPolicy) GetStatus() *PolicyStatus {
 }
 
 func (s *ValidatingPolicy) GetKind() string {
-	return s.Kind
+	return "ValidatingPolicy"
 }
 
 // +kubebuilder:object:root=true
