@@ -335,10 +335,10 @@ func NewCleanupPolicyEvent(policy kyvernov2.CleanupPolicyInterface, resource uns
 	}
 }
 
-func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName, vapBindingName string) []Info {
+func NewValidatingAdmissionPolicyEvent(policy engineapi.GenericPolicy, vapName, vapBindingName string) []Info {
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),

@@ -25,6 +25,14 @@ type PolicyStatus struct {
 
 	// +optional
 	Autogen AutogenStatus `json:"autogen"`
+
+	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
+	// +optional
+	Generated bool `json:"generated"`
+
+	// Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+	// It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.
+	Message string `json:"message"`
 }
 
 // AutogenStatus contains autogen status information.
