@@ -206,6 +206,7 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
 	} else if len(result.Exceptions) > 0 {
+		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
 		var keys []string
 		for i := range result.Exceptions {
 			key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
@@ -214,8 +215,9 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 				return response
 			}
 			keys = append(keys, key)
+			exceptions = append(exceptions, engineapi.NewCELPolicyException(&result.Exceptions[i]))
 		}
-		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithCELExceptions(result.Exceptions))
+		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions))
 	} else {
 		// TODO: do we want to set a rule name?
 		ruleName := ""
