@@ -5,7 +5,7 @@
   (include "kyverno.labels.common" .)
   (include "kyverno.rbac.matchLabels" .)
 -}}
-{{- if .Values.rbac.userFacingRoles.admin -}}
+{{- if .Values.rbac.aggregate.admin -}}
 {{- $labels = append $labels "rbac.authorization.k8s.io/aggregate-to-admin: 'true'" -}}
 {{- end -}}
 {{- template "kyverno.labels.merge" $labels -}}
@@ -17,7 +17,7 @@
   (include "kyverno.labels.common" .)
   (include "kyverno.rbac.matchLabels" .)
 -}}
-{{- if .Values.rbac.userFacingRoles.view -}}
+{{- if .Values.rbac.aggregate.view -}}
 {{- $labels = append $labels "rbac.authorization.k8s.io/aggregate-to-view: 'true'" -}}
 {{- end -}}
 {{- template "kyverno.labels.merge" $labels -}}
