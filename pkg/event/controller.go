@@ -101,8 +101,8 @@ func (gen *controller) Add(infos ...Info) {
 // Run begins generator
 func (gen *controller) Run(ctx context.Context, workers int) {
 	logger := gen.logger
-	logger.Info("start")
-	defer logger.Info("terminated")
+	logger.V(2).Info("start")
+	defer logger.V(2).Info("terminated")
 	defer utilruntime.HandleCrash()
 	var waitGroup wait.Group
 	for i := 0; i < workers; i++ {

@@ -11,6 +11,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/notary"
 	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
@@ -69,7 +70,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		MaxSignatureAttempts: 10,
 	}
 
-	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, notary.NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify %s", ref)
 	}

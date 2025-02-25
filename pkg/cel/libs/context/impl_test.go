@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

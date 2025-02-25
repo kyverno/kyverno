@@ -68,7 +68,7 @@ func (c *runtime) IsRollingUpdate() bool {
 	}
 	nonTerminatedReplicas := deployment.Status.Replicas
 	if nonTerminatedReplicas > replicas {
-		c.logger.Info("detect Kyverno is in rolling update, won't trigger the update again")
+		c.logger.V(2).Info("detect Kyverno is in rolling update, won't trigger the update again")
 		return true
 	}
 	return false

@@ -22,6 +22,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
+    - jsonPath: .status.ready
+      name: READY
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -47,6 +50,12 @@ spec:
             description: ValidatingPolicySpec is the specification of the desired
               behavior of the ValidatingPolicy.
             properties:
+              admission:
+                default: true
+                description: |-
+                  Admission controls if rules are applied during admission.
+                  Optional. Default value is "true".
+                type: boolean
               auditAnnotations:
                 description: |-
                   auditAnnotations contains CEL expressions which are used to produce audit
@@ -99,6 +108,13 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
+              background:
+                default: true
+                description: |-
+                  Background controls if rules are applied to existing resources during a background scan.
+                  Optional. Default value is "true". The value must be set to "false" if the policy rule
+                  uses variables that are only available in the admission review request (e.g. user name).
+                type: boolean
               failurePolicy:
                 description: |-
                   failurePolicy defines how to handle failures for the admission policy. Failures can

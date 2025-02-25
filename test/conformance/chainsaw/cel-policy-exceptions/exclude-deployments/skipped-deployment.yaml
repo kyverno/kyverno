@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: skipped-deployment
-  namespace: test-ns
   labels:
     app: nginx
     env: testing
