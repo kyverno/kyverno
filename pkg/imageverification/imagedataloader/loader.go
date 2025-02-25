@@ -39,6 +39,7 @@ func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, e
 		defaultOptions: remoteOpts,
 	}, nil
 }
+
 func (i *imagedatafetcher) ParseImageReference(image string, options ...Option) (ImageReference, error) {
 	var img ImageReference
 	nameOpts := nameOptions(options...)
