@@ -22,19 +22,17 @@ func TestBuildWebhookRules(t *testing.T) {
 			vpols: []*policiesv1alpha1.ValidatingPolicy{
 				{
 					Spec: policiesv1alpha1.ValidatingPolicySpec{
-						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-							FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
-							MatchConstraints: &admissionregistrationv1.MatchResources{
-								ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-									{
-										RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-											Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-											Rule: admissionregistrationv1.Rule{
-												APIGroups:   []string{"*"},
-												APIVersions: []string{"*"},
-												Resources:   []string{"*"},
-												Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-											},
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"*"},
+											APIVersions: []string{"*"},
+											Resources:   []string{"*"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
 										},
 									},
 								},
@@ -66,19 +64,17 @@ func TestBuildWebhookRules(t *testing.T) {
 			vpols: []*policiesv1alpha1.ValidatingPolicy{
 				{
 					Spec: policiesv1alpha1.ValidatingPolicySpec{
-						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-							FailurePolicy: ptr.To(admissionregistrationv1.Fail),
-							MatchConstraints: &admissionregistrationv1.MatchResources{
-								ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-									{
-										RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-											Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-											Rule: admissionregistrationv1.Rule{
-												APIGroups:   []string{"*"},
-												APIVersions: []string{"*"},
-												Resources:   []string{"*"},
-												Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-											},
+						FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"*"},
+											APIVersions: []string{"*"},
+											Resources:   []string{"*"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
 										},
 									},
 								},
@@ -116,20 +112,18 @@ func TestBuildWebhookRules(t *testing.T) {
 						WebhookConfiguration: &policiesv1alpha1.WebhookConfiguration{
 							TimeoutSeconds: ptr.To(int32(30)),
 						},
-						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-							FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
-							MatchConstraints: &admissionregistrationv1.MatchResources{
-								MatchPolicy: ptr.To(admissionregistrationv1.Exact),
-								ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-									{
-										RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-											Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-											Rule: admissionregistrationv1.Rule{
-												APIGroups:   []string{"*"},
-												APIVersions: []string{"*"},
-												Resources:   []string{"*"},
-												Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-											},
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							MatchPolicy: ptr.To(admissionregistrationv1.Exact),
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"*"},
+											APIVersions: []string{"*"},
+											Resources:   []string{"*"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
 										},
 									},
 								},
@@ -170,29 +164,27 @@ func TestBuildWebhookRules(t *testing.T) {
 						WebhookConfiguration: &policiesv1alpha1.WebhookConfiguration{
 							TimeoutSeconds: ptr.To(int32(20)),
 						},
-						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-							FailurePolicy: ptr.To(admissionregistrationv1.Fail),
-							MatchConstraints: &admissionregistrationv1.MatchResources{
-								MatchPolicy: ptr.To(admissionregistrationv1.Exact),
-								ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-									{
-										RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-											Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-											Rule: admissionregistrationv1.Rule{
-												APIGroups:   []string{"*"},
-												APIVersions: []string{"*"},
-												Resources:   []string{"*"},
-												Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-											},
+						FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							MatchPolicy: ptr.To(admissionregistrationv1.Exact),
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"*"},
+											APIVersions: []string{"*"},
+											Resources:   []string{"*"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
 										},
 									},
 								},
 							},
-							MatchConditions: []admissionregistrationv1.MatchCondition{
-								{
-									Name:       "exclude-leases",
-									Expression: "!(request.resource.group == 'coordination.k8s.io' && request.resource.resource == 'leases')",
-								},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{
+							{
+								Name:       "exclude-leases",
+								Expression: "!(request.resource.group == 'coordination.k8s.io' && request.resource.resource == 'leases')",
 							},
 						},
 					},
