@@ -17,7 +17,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: PolicyException declares resources to be excluded from specified
+        description: CELPolicyException declares resources to be excluded from specified
           policies.
         properties:
           apiVersion:
