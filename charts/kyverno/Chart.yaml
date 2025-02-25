@@ -34,7 +34,7 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
-      description: Add value for enable/disable aggregate Cluster Roles creation
+      description: Add toggle for enabeling/disabling aggregating the user-facing roles with the kyverno rbac.
 dependencies:
   - name: grafana
     version: v0.0.0
