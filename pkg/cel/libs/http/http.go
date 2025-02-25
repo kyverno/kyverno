@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -32,7 +33,7 @@ type HttpProvider struct {
 }
 
 func (r *HttpProvider) Get(url string, headers map[string]string) (map[string]any, error) {
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -48,7 +49,7 @@ func (r *HttpProvider) Post(url string, data map[string]any, headers map[string]
 		return nil, fmt.Errorf("failed to encode request data: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", url, body)
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", url, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -107,8 +108,4 @@ func buildRequestData(data map[string]any) (io.Reader, error) {
 	}
 
 	return buffer, nil
-}
-
-func newRequestProvider() *HttpProvider {
-	return &HttpProvider{http.DefaultClient}
 }
