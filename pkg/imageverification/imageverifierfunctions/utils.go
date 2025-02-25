@@ -47,8 +47,8 @@ func getRemoteOptsFromPolicy(creds *v1alpha1.Credentials) []imagedataloader.Opti
 
 	if len(creds.Providers) != 0 {
 		providers := make([]string, 0, len(creds.Providers))
-		for _, v := range providers {
-			providers = append(providers, v)
+		for _, v := range creds.Providers {
+			providers = append(providers, string(v))
 		}
 		opts = append(opts, imagedataloader.WithCredentialProviders(providers...))
 	}
