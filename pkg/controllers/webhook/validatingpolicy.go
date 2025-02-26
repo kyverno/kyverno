@@ -8,7 +8,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server string, servicePort int32, caBundle []byte, vpols []policiesv1alpha1.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
+func buildWebhookRules(cfg config.Configuration, server string, servicePort int32, caBundle []byte, vpols []policiesv1alpha1.ValidatingPolicyInterface) (webhooks []admissionregistrationv1.ValidatingWebhook) {
 	var (
 		webhookIgnoreList []admissionregistrationv1.ValidatingWebhook
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook

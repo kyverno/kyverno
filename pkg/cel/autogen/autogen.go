@@ -82,7 +82,7 @@ func stripCronJob(controllers string) (bool, string) {
 	return isRemoved, strings.Join(newControllers, ",")
 }
 
-func ComputeRules(policy policiesv1alpha1.GenericPolicy) []policiesv1alpha1.AutogenRule {
+func ComputeRules(policy policiesv1alpha1.ValidatingPolicyInterface) []policiesv1alpha1.AutogenRule {
 	applyAutoGen, desiredControllers := CanAutoGen(policy.GetSpec())
 	if !applyAutoGen {
 		return []policiesv1alpha1.AutogenRule{}

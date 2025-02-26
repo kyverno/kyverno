@@ -378,7 +378,7 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 	}
 }
 
-func (c *controller) recordValidatingPolicyState(validatingpolicies ...policiesv1alpha1.GenericPolicy) {
+func (c *controller) recordValidatingPolicyState(validatingpolicies ...policiesv1alpha1.ValidatingPolicyInterface) {
 	for _, policy := range validatingpolicies {
 		c.vpolStateRecorder.Record(policy.GetName())
 	}
@@ -1062,13 +1062,13 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 	return policies, nil
 }
 
-func (c *controller) getValidatingPolicies() ([]policiesv1alpha1.GenericPolicy, error) {
+func (c *controller) getValidatingPolicies() ([]policiesv1alpha1.ValidatingPolicyInterface, error) {
 	validatingpolicies, err := c.vpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	vpols := make([]policiesv1alpha1.GenericPolicy, 0)
+	vpols := make([]policiesv1alpha1.ValidatingPolicyInterface, 0)
 	for _, vpol := range validatingpolicies {
 		if vpol.Spec.AdmissionEnabled() {
 			vpols = append(vpols, vpol)

@@ -61,6 +61,18 @@ func (s *ValidatingPolicy) GetKind() string {
 	return "ValidatingPolicy"
 }
 
+func (s *ValidatingPolicy) GetAuditAnnotations() []admissionregistrationv1.AuditAnnotation {
+	return s.Spec.AuditAnnotations
+}
+
+func (s *ValidatingPolicy) GetValidations() []admissionregistrationv1.Validation {
+	return s.Spec.Validations
+}
+
+func (s *ValidatingPolicy) GetValidationActions() []admissionregistrationv1.ValidationAction {
+	return s.Spec.ValidationAction
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

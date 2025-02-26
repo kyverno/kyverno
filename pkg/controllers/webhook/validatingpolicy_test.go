@@ -221,7 +221,7 @@ func TestBuildWebhookRules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var vpols []policiesv1alpha1.GenericPolicy
+			var vpols []policiesv1alpha1.ValidatingPolicyInterface
 			for _, vpol := range tt.vpols {
 				vpols = append(vpols, vpol)
 			}

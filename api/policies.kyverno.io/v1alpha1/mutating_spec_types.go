@@ -7,6 +7,12 @@ import (
 
 // MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.
 type MutatingPolicySpec struct {
+	// paramKind specifies the kind of resources used to parameterize this policy.
+	// If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
+	// If paramKind refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.
+	// If paramKind is specified but paramRef is unset in MutatingAdmissionPolicyBinding, the params variable will be null.
+	// +optional
+	ParamKind *admissionregistrationv1.ParamKind `json:"paramKind,omitempty" protobuf:"bytes,1,rep,name=paramKind"`
 
 	// matchConstraints specifies what resources this policy is designed to validate.
 	// The MutatingAdmissionPolicy cares about a request if it matches _all_ Constraints.
