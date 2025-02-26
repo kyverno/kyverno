@@ -105,7 +105,8 @@ func (c *compiler) CompileMutating(policy *policiesv1alpha1.MutatingPolicy, exce
 		for i := range matchConditions {
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
-		matcher = matchconditions.NewMatcher(compiler.CompileCondition(matchExpressionAccessors, opts, environment.StoredExpressions), toV1FailurePolicy(policy.Spec.FailurePolicy), "policy", "mutate", policy.Name)
+		failurePolicy := policy.GetFailurePolicy()
+		matcher = matchconditions.NewMatcher(compiler.CompileCondition(matchExpressionAccessors, opts, environment.StoredExpressions), &failurePolicy, "policy", "mutate", policy.Name)
 	}
 
 	var patchers []patch.Patcher
@@ -132,18 +133,10 @@ func (c *compiler) CompileMutating(policy *policiesv1alpha1.MutatingPolicy, exce
 	}, nil
 }
 
-func convertv1alpha1Variables(variables []admissionregistrationv1alpha1.Variable) []plugincel.NamedExpressionAccessor {
+func convertv1alpha1Variables(variables []admissionregistrationv1.Variable) []plugincel.NamedExpressionAccessor {
 	namedExpressions := make([]plugincel.NamedExpressionAccessor, len(variables))
 	for i, variable := range variables {
 		namedExpressions[i] = &mutating.Variable{Name: variable.Name, Expression: variable.Expression}
 	}
 	return namedExpressions
-}
-
-func toV1FailurePolicy(failurePolicy *admissionregistrationv1alpha1.FailurePolicyType) *admissionregistrationv1.FailurePolicyType {
-	if failurePolicy == nil {
-		return nil
-	}
-	fp := admissionregistrationv1.FailurePolicyType(*failurePolicy)
-	return &fp
 }

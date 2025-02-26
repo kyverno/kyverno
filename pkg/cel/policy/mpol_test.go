@@ -7,6 +7,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,35 +37,33 @@ func TestCompiledMpol_Evaluate(t *testing.T) {
 					Name: "foo",
 				},
 				Spec: policiesv1alpha1.MutatingPolicySpec{
-					MutatingAdmissionPolicySpec: admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
-						MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-							ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
-								{
-									RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
-										Operations: []admissionregistrationv1alpha1.OperationType{admissionregistrationv1alpha1.Create},
-										Rule: admissionregistrationv1alpha1.Rule{
-											APIGroups:   []string{""},
-											APIVersions: []string{"v1"},
-											Resources:   []string{"pods"},
-										},
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{admissionregistrationv1alpha1.Create},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"pods"},
 									},
 								},
 							},
 						},
-						MatchConditions: []admissionregistrationv1alpha1.MatchCondition{
-							{
-								Name:       "test-match-condition",
-								Expression: `has(object.metadata.labels)`,
-							},
+					},
+					MatchConditions: []admissionregistrationv1.MatchCondition{
+						{
+							Name:       "test-match-condition",
+							Expression: `has(object.metadata.labels)`,
 						},
-						Mutations: []admissionregistrationv1alpha1.Mutation{
-							{
-								PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
-								JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
-									Expression: `[
+					},
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+								Expression: `[
 										JSONPatch{op: "copy", from: "/metadata/labels/x", path: "/metadata/labels/y"}, 
 									]`,
-								},
 							},
 						},
 					},
