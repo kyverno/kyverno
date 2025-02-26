@@ -339,8 +339,8 @@ func (c *controller) enqueueVAPbinding(vb *admissionregistrationv1.ValidatingAdm
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	var policy engineapi.GenericPolicy
-	var genericExceptions []engineapi.GenericException
 	var vapName string
+	genericExceptions := make([]engineapi.GenericException, 0)
 
 	polType := strings.Split(key, "/")[0]
 	if polType == "ClusterPolicy" {
