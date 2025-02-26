@@ -157,6 +157,12 @@ spec:
 
                   Allowed values are Ignore or Fail. Defaults to Fail.
                 type: string
+              generate:
+                default: false
+                description: |-
+                  Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+                  Optional. Defaults to "false" if not specified.
+                type: boolean
               matchConditions:
                 description: |-
                   MatchConditions is a list of conditions that must be met for a request to be validated.

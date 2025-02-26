@@ -130,6 +130,11 @@ func checkRuleType(rule kyvernov1.Rule) (bool, string) {
 	if !rule.HasValidateCEL() {
 		msg = "skip generating ValidatingAdmissionPolicy for non CEL rules."
 		return false, msg
+	} else {
+		if !rule.Validation.CEL.GenerateVAP() {
+			msg = "skip generating ValidatingAdmissionPolicy: validate.cel.generate is not set to true."
+			return false, msg
+		}
 	}
 	return true, msg
 }
