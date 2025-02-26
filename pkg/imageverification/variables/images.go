@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 var (
@@ -47,7 +48,8 @@ func (c *CompiledImageExtractor) GetImages(request interface{}) (string, []strin
 	return c.key, result, nil
 }
 
-func CompileImageExtractors(imageExtractors []v1alpha1.Image, isPod bool) ([]*CompiledImageExtractor, error) {
+func CompileImageExtractors(path *field.Path, imageExtractors []v1alpha1.Image, isPod bool) ([]*CompiledImageExtractor, field.ErrorList) {
+	var allErrs field.ErrorList
 	if isPod {
 		imageExtractors = append(imageExtractors, podImageExtractors...)
 	}
@@ -58,20 +60,21 @@ func CompileImageExtractors(imageExtractors []v1alpha1.Image, isPod bool) ([]*Co
 		cel.Variable(policy.RequestKey, types.DynType),
 	)
 	if err != nil {
-		return nil, err
+		return nil, append(allErrs, field.Invalid(path, imageExtractors, err.Error()))
 	}
 
-	for _, m := range imageExtractors {
+	for i, m := range imageExtractors {
+		path := path.Index(i).Child("expression")
 		c := &CompiledImageExtractor{
 			key: m.Name,
 		}
 		ast, iss := e.Compile(m.Expression)
 		if iss.Err() != nil {
-			return nil, iss.Err()
+			return nil, append(allErrs, field.Invalid(path, m.Expression, iss.Err().Error()))
 		}
 		prg, err := e.Program(ast)
 		if err != nil {
-			return nil, err
+			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
 		}
 		c.e = prg
 		compiledMatches = append(compiledMatches, c)

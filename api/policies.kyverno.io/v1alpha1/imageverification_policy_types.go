@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -14,6 +15,13 @@ type ImageVerificationPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              ImageVerificationPolicySpec `json:"spec"`
+}
+
+func (s *ImageVerificationPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if s.Spec.FailurePolicy == nil {
+		return admissionregistrationv1.Fail
+	}
+	return *s.Spec.FailurePolicy
 }
 
 // +kubebuilder:object:root=true

@@ -40,14 +40,14 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	var declTypes []*apiservercel.DeclType
-	declTypes = append(declTypes, namespaceType, requestType)
+	declTypes = append(declTypes, NamespaceType, RequestType)
 	declTypes = append(declTypes, context.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(ContextKey, context.ContextType),
-		cel.Variable(NamespaceObjectKey, namespaceType.CelType()),
+		cel.Variable(NamespaceObjectKey, NamespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
-		cel.Variable(RequestKey, requestType.CelType()),
+		cel.Variable(RequestKey, RequestType.CelType()),
 		cel.Variable(VariablesKey, VariablesType),
 	}
 	for _, declType := range declTypes {
@@ -71,7 +71,7 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compileMatchConditions(path, policy.Spec.MatchConditions, env)
+		programs, errs := CompileMatchConditions(path, policy.Spec.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -85,12 +85,12 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 			return nil, append(allErrs, errs...)
 		}
 	}
-	validations := make([]compiledValidation, 0, len(policy.Spec.Validations))
+	validations := make([]CompiledValidation, 0, len(policy.Spec.Validations))
 	{
 		path := path.Child("validations")
 		for i, rule := range policy.Spec.Validations {
 			path := path.Index(i)
-			program, errs := compileValidation(path, rule, env)
+			program, errs := CompileValidation(path, rule, env)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -112,7 +112,7 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 	compiledRules := make([]compiledAutogenRule, 0, len(autogenRules))
 	for i, rule := range autogenRules {
 		// compile match conditions
-		matchConditions, errs := compileMatchConditions(autogenPath.Index(i).Child("matchConditions"), rule.MatchConditions, env)
+		matchConditions, errs := CompileMatchConditions(autogenPath.Index(i).Child("matchConditions"), rule.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -123,10 +123,10 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 			return nil, append(allErrs, errs...)
 		}
 		// compile validations
-		validations := make([]compiledValidation, 0, len(rule.Validations))
+		validations := make([]CompiledValidation, 0, len(rule.Validations))
 		for j, rule := range rule.Validations {
 			path := autogenPath.Index(j).Child("validations")
-			program, errs := compileValidation(path, rule, env)
+			program, errs := CompileValidation(path, rule, env)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -149,7 +149,7 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 	// exceptions' match conditions
 	compiledExceptions := make([]compiledException, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
+		polexMatchConditions, errs := CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -170,7 +170,7 @@ func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions
 	}, nil
 }
 
-func compileMatchConditions(path *field.Path, matchConditions []admissionregistrationv1.MatchCondition, env *cel.Env) ([]cel.Program, field.ErrorList) {
+func CompileMatchConditions(path *field.Path, matchConditions []admissionregistrationv1.MatchCondition, env *cel.Env) ([]cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
 	result := make([]cel.Program, 0, len(matchConditions))
 	for i, matchCondition := range matchConditions {
@@ -231,24 +231,24 @@ func compileAuditAnnotations(path *field.Path, auditAnnotations []admissionregis
 	return nil
 }
 
-func compileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (compiledValidation, field.ErrorList) {
+func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (CompiledValidation, field.ErrorList) {
 	var allErrs field.ErrorList
-	compiled := compiledValidation{
+	compiled := CompiledValidation{
 		message: rule.Message,
 	}
 	{
 		path = path.Child("expression")
 		ast, issues := env.Compile(rule.Expression)
 		if err := issues.Err(); err != nil {
-			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
+			return CompiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
-			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
+			return CompiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
 		}
 		program, err := env.Program(ast)
 		if err != nil {
-			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
+			return CompiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
 		compiled.program = program
 	}
@@ -256,15 +256,15 @@ func compileValidation(path *field.Path, rule admissionregistrationv1.Validation
 		path = path.Child("messageExpression")
 		ast, issues := env.Compile(rule.MessageExpression)
 		if err := issues.Err(); err != nil {
-			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
+			return CompiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.StringType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.StringType.TypeName())
-			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, msg))
+			return CompiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, msg))
 		}
 		program, err := env.Program(ast)
 		if err != nil {
-			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
+			return CompiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
 		compiled.messageExpression = program
 	}

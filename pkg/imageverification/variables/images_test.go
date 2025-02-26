@@ -7,6 +7,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func Test_Match(t *testing.T) {
@@ -122,8 +123,8 @@ func Test_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := CompileImageExtractors(tt.imageExtractor, tt.isPod)
-			assert.NoError(t, err)
+			c, errList := CompileImageExtractors(field.NewPath("spec", "images"), tt.imageExtractor, tt.isPod)
+			assert.Nil(t, errList)
 			images, err := ExtractImages(c, tt.request)
 			if tt.wantErr {
 				assert.Error(t, err)

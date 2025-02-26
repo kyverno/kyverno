@@ -34,9 +34,9 @@ func arrToMap[T ARR_TYPE](arr []T) map[string]T {
 	return m
 }
 
-func getRemoteOptsFromPolicy(creds *v1alpha1.Credentials) []imagedataloader.Option {
+func GetRemoteOptsFromPolicy(creds *v1alpha1.Credentials) []imagedataloader.Option {
 	if creds == nil {
-		return nil
+		return []imagedataloader.Option{}
 	}
 
 	opts := make([]imagedataloader.Option, 0)
