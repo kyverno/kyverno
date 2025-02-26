@@ -2,13 +2,19 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: check-deployment-labels
+  name: with-cel-exception
 spec:
   steps:
   - name: create policy
     try:
     - create:
         file: policy.yaml
+    - sleep:
+        duration: 10s
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
     - sleep:
         duration: 10s
   - name: check validatingadmissionpolicy
