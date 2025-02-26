@@ -234,7 +234,7 @@ func compileAuditAnnotations(path *field.Path, auditAnnotations []admissionregis
 func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (CompiledValidation, field.ErrorList) {
 	var allErrs field.ErrorList
 	compiled := CompiledValidation{
-		message: rule.Message,
+		Message: rule.Message,
 	}
 	{
 		path = path.Child("expression")
@@ -250,7 +250,7 @@ func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation
 		if err != nil {
 			return CompiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
-		compiled.program = program
+		compiled.Program = program
 	}
 	if rule.MessageExpression != "" {
 		path = path.Child("messageExpression")
@@ -266,7 +266,7 @@ func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation
 		if err != nil {
 			return CompiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
-		compiled.messageExpression = program
+		compiled.MessageExpression = program
 	}
 	return compiled, nil
 }
