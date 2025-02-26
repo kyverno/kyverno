@@ -4,7 +4,7 @@ metadata:
   name: check-deployment-labels
 spec:
   validationActions:
-    - Audit
+    - Deny
   matchConstraints:
     resourceRules:
     - apiGroups:   [apps]

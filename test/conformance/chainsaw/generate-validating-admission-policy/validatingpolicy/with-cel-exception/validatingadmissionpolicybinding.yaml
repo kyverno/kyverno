@@ -11,4 +11,4 @@ metadata:
 spec:
   policyName: vpol-check-deployment-labels
   validationActions:
-  - Audit
+  - Deny

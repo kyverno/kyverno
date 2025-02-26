@@ -25,3 +25,16 @@ spec:
     try:
     - assert:
         file: validatingadmissionpolicybinding.yaml
+  - name: create a skipped deployment
+    try:
+    - apply:
+        file: skipped-deployment.yaml
+  - name: create a bad deployment
+    try:
+    - script:
+        content: kubectl apply -f bad-deployment.yaml
+        check:  
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          (trim_space($stderr)): |-
+            The deployments "bad-deployment" is invalid: : ValidatingAdmissionPolicy 'vpol-check-deployment-labels' with binding 'vpol-check-deployment-labels-binding' denied request: Deployment labels must be env=prod
