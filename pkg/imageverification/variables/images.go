@@ -9,23 +9,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-var (
-	podImageExtractors = []v1alpha1.Image{
-		{
-			Name:       "containers",
-			Expression: "request.object.spec.containers.map(e, e.image)",
-		},
-		{
-			Name:       "initContainers",
-			Expression: "request.object.spec.initContainers.map(e, e.image)",
-		},
-		{
-			Name:       "ephemeralContainers",
-			Expression: "request.object.spec.ephemeralContainers.map(e, e.image)",
-		},
-		// TODO: add one for all
-	}
-)
+var podImageExtractors = []v1alpha1.Image{
+	{
+		Name:       "containers",
+		Expression: "request.object.spec.containers.map(e, e.image)",
+	},
+	{
+		Name:       "initContainers",
+		Expression: "request.object.spec.initContainers.map(e, e.image)",
+	},
+	{
+		Name:       "ephemeralContainers",
+		Expression: "request.object.spec.ephemeralContainers.map(e, e.image)",
+	},
+	// TODO: add one for all
+}
 
 type CompiledImageExtractor struct {
 	key string

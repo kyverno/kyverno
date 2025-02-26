@@ -43,7 +43,6 @@ func Test_Match(t *testing.T) {
 			wantErr: false,
 		},
 		{
-
 			name: "pod image extraction",
 			imageExtractor: []v1alpha1.Image{
 				{

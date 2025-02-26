@@ -65,7 +65,6 @@ func CompileMatches(path *field.Path, matches []v1alpha1.ImageRule) ([]*Compiled
 			g, err := glob.Compile(m.Glob)
 			if err != nil {
 				return nil, append(allErrs, field.Invalid(path, m.Glob, err.Error()))
-
 			}
 			c.g = g
 		} else if m.CELExpression != "" {
