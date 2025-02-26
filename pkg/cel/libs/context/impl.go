@@ -60,14 +60,16 @@ func (c *impl) get_imagedata_string(ctx ref.Val, image ref.Val) ref.Val {
 func (c *impl) list_resource_string(args ...ref.Val) ref.Val {
 	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
-	} else if apiVersion, err := utils.ConvertToNative[string](args[1]); err != nil {
+	} else if group, err := utils.ConvertToNative[string](args[1]); err != nil {
 		return types.WrapErr(err)
-	} else if kind, err := utils.ConvertToNative[string](args[2]); err != nil {
+	} else if version, err := utils.ConvertToNative[string](args[2]); err != nil {
 		return types.WrapErr(err)
-	} else if namespace, err := utils.ConvertToNative[string](args[3]); err != nil {
+	} else if resource, err := utils.ConvertToNative[string](args[3]); err != nil {
+		return types.WrapErr(err)
+	} else if namespace, err := utils.ConvertToNative[string](args[4]); err != nil {
 		return types.WrapErr(err)
 	} else {
-		list, err := self.ListResource(apiVersion, kind, namespace)
+		list, err := self.ListResource(group, version, resource, namespace)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to list resource: %v", err)
@@ -79,16 +81,18 @@ func (c *impl) list_resource_string(args ...ref.Val) ref.Val {
 func (c *impl) get_resource_string(args ...ref.Val) ref.Val {
 	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
-	} else if apiVersion, err := utils.ConvertToNative[string](args[1]); err != nil {
+	} else if group, err := utils.ConvertToNative[string](args[1]); err != nil {
 		return types.WrapErr(err)
-	} else if kind, err := utils.ConvertToNative[string](args[2]); err != nil {
+	} else if version, err := utils.ConvertToNative[string](args[2]); err != nil {
 		return types.WrapErr(err)
-	} else if namespace, err := utils.ConvertToNative[string](args[3]); err != nil {
+	} else if resource, err := utils.ConvertToNative[string](args[3]); err != nil {
 		return types.WrapErr(err)
-	} else if name, err := utils.ConvertToNative[string](args[4]); err != nil {
+	} else if namespace, err := utils.ConvertToNative[string](args[4]); err != nil {
+		return types.WrapErr(err)
+	} else if name, err := utils.ConvertToNative[string](args[5]); err != nil {
 		return types.WrapErr(err)
 	} else {
-		res, err := self.GetResource(apiVersion, kind, namespace, name)
+		res, err := self.GetResource(group, version, resource, namespace, name)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to get resource: %v", err)

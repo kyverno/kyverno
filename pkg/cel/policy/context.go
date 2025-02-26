@@ -10,6 +10,8 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -17,7 +19,7 @@ type Context = contextlib.ContextInterface
 
 type contextProvider struct {
 	client    kubernetes.Interface
-	dclient   dclient.Interface
+	dclient   dynamic.Interface
 	imagedata imagedataloader.Fetcher
 }
 
@@ -28,7 +30,7 @@ func NewContextProvider(client dclient.Interface, imageOpts []imagedataloader.Op
 	}
 	return &contextProvider{
 		client:    client.GetKubeClient(),
-		dclient:   client,
+		dclient:   client.GetDynamicInterface(),
 		imagedata: idl,
 	}, nil
 }
@@ -54,14 +56,28 @@ func (cp *contextProvider) GetImageData(image string) (*imagedataloader.ImageDat
 	return cp.imagedata.FetchImageData(context.TODO(), image)
 }
 
-func (cp *contextProvider) ListResource(apiVersion, kind, namespace string) (*unstructured.UnstructuredList, error) {
-	return cp.dclient.ListResource(context.TODO(), apiVersion, kind, namespace, nil)
+func (cp *contextProvider) ListResource(group, version, resource, namespace string) (*unstructured.UnstructuredList, error) {
+	var resourceInteface dynamic.ResourceInterface
+
+	client := cp.dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
+	if namespace != "" {
+		resourceInteface = client.Namespace(namespace)
+	} else {
+		resourceInteface = resourceInteface
+	}
+
+	return resourceInteface.List(context.TODO(), metav1.ListOptions{})
 }
 
-func (cp *contextProvider) GetResource(apiVersion, kind, namespace, name string) (*unstructured.Unstructured, error) {
-	return cp.dclient.GetResource(context.TODO(), apiVersion, kind, namespace, name)
-}
+func (cp *contextProvider) GetResource(group, version, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	var resourceInteface dynamic.ResourceInterface
 
-func (cp *contextProvider) APICall(uri string) ([]byte, error) {
-	return cp.dclient.RawAbsPath(context.TODO(), uri, "GET", nil)
+	client := cp.dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
+	if namespace != "" {
+		resourceInteface = client.Namespace(namespace)
+	} else {
+		resourceInteface = resourceInteface
+	}
+
+	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
 }
