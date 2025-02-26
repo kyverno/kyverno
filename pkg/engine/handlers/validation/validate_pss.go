@@ -79,7 +79,7 @@ func (h validatePssHandler) validate(
 				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err, rule.ReportProperties)
 			}
 			logger.V(3).Info("policy rule is skipped due to policy exception", "exception", key)
-			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]kyvernov2.PolicyException{polex})
+			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]engineapi.GenericException{engineapi.NewPolicyException(&polex)})
 		}
 	}
 
@@ -111,6 +111,7 @@ func (h validatePssHandler) validate(
 		return resource, engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
 	} else {
 		// apply pod security exceptions if exist
+		genericExceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var excludes []kyvernov1.PodSecurityStandard
 		var keys []string
 		for i, exception := range matchedExceptions {
@@ -121,13 +122,14 @@ func (h validatePssHandler) validate(
 			}
 			keys = append(keys, key)
 			excludes = append(excludes, exception.Spec.PodSecurity...)
+			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
 		}
 
 		pssChecks, err = pss.ApplyPodSecurityExclusion(levelVersion, excludes, pssChecks, pod)
 		if len(pssChecks) == 0 && err == nil {
 			podSecurityChecks.Checks = pssChecks
 			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
-			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
+			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(genericExceptions).WithPodSecurityChecks(podSecurityChecks)
 		}
 		pssChecks = convertChecks(pssChecks, resource.GetKind())
 		pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())

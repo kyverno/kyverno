@@ -10160,7 +10160,7 @@ Resource Types:
 <h3 id="policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException
 </h3>
 <p>
-<p>PolicyException declares resources to be excluded from specified policies.</p>
+<p>CELPolicyException declares resources to be excluded from specified policies.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -10696,17 +10696,118 @@ ValidatingPolicySpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>ValidatingAdmissionPolicySpec</code><br/>
+<code>matchConstraints</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validatingadmissionpolicyspec-v1-admissionregistration">
-Kubernetes admissionregistration/v1.ValidatingAdmissionPolicySpec
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)
-</p>
+<p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
+ValidatingAdmissionPolicy cannot match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Validation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Validations contain CEL expressions which is used to apply the validation.
+Validations and AuditAnnotations may not both be empty; a minimum of one Validations or AuditAnnotations is
+required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#failurepolicytype-v1-admissionregistration">
+Kubernetes admissionregistration/v1.FailurePolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>A policy is invalid if spec.paramKind refers to a non-existent Kind.
+A binding is invalid if spec.paramRef.name refers to a non-existent resource.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding validationActions
+define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+3. If any matchCondition evaluates to an error (but none are FALSE):
+- If failurePolicy=Fail, reject the request
+- If failurePolicy=Ignore, the policy is skipped</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </td>
 </tr>
 <tr>
@@ -12134,6 +12235,30 @@ AutogenStatus
 <em>(Optional)</em>
 </td>
 </tr>
+<tr>
+<td>
+<code>generated</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -12338,17 +12463,118 @@ string
 <tbody>
 <tr>
 <td>
-<code>ValidatingAdmissionPolicySpec</code><br/>
+<code>matchConstraints</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validatingadmissionpolicyspec-v1-admissionregistration">
-Kubernetes admissionregistration/v1.ValidatingAdmissionPolicySpec
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)
-</p>
+<p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
+ValidatingAdmissionPolicy cannot match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Validation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Validations contain CEL expressions which is used to apply the validation.
+Validations and AuditAnnotations may not both be empty; a minimum of one Validations or AuditAnnotations is
+required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#failurepolicytype-v1-admissionregistration">
+Kubernetes admissionregistration/v1.FailurePolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>A policy is invalid if spec.paramKind refers to a non-existent Kind.
+A binding is invalid if spec.paramRef.name refers to a non-existent resource.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding validationActions
+define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+3. If any matchCondition evaluates to an error (but none are FALSE):
+- If failurePolicy=Fail, reject the request
+- If failurePolicy=Ignore, the policy is skipped</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </td>
 </tr>
 <tr>
