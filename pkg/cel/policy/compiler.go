@@ -23,17 +23,7 @@ const (
 	VariablesKey       = "variables"
 )
 
-type Compiler interface {
-	Compile(*policiesv1alpha1.ValidatingPolicy, []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
-}
-
-func NewCompiler() Compiler {
-	return &compiler{}
-}
-
-type compiler struct{}
-
-func (c *compiler) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
