@@ -646,7 +646,7 @@ spec:
                   Thus, variables must be sorted by the order of first appearance and acyclic.
                 items:
                   description: Variable is the definition of a variable that is used
-                    for composition.
+                    for composition. A variable is defined as a named expression.
                   properties:
                     expression:
                       description: |-
@@ -663,6 +663,7 @@ spec:
                   - expression
                   - name
                   type: object
+                  x-kubernetes-map-type: atomic
                 type: array
                 x-kubernetes-list-type: atomic
               webhookConfiguration:
