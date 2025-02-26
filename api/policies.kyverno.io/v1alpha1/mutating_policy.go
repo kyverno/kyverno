@@ -21,6 +21,10 @@ type MutatingPolicy struct {
 	Status PolicyStatus `json:"status,omitempty"`
 }
 
+func (s *MutatingPolicy) GetSpec() *MutatingPolicySpec {
+	return &s.Spec
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
