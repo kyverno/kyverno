@@ -85,10 +85,12 @@ func (c *compiledMpol) Evaluate(
 }
 
 func (c *compiler) CompileMutating(policy *policiesv1alpha1.MutatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+	var allErrs field.ErrorList
+
 	opts := plugincel.OptionalVariableDeclarations{HasParams: policy.Spec.ParamKind != nil, StrictCost: true, HasAuthorizer: true}
 	compiler, err := plugincel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), true))
 	if err != nil {
-
+		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
 	patchOptions := opts
