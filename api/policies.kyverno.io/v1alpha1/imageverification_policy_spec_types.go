@@ -133,6 +133,18 @@ type Attestor struct {
 	Notary *Notary `json:"notary,omitempty"`
 }
 
+func (a Attestor) GetKey() string {
+	return a.Name
+}
+
+func (a Attestor) IsCosign() bool {
+	return a.Cosign != nil
+}
+
+func (a Attestor) IsNotary() bool {
+	return a.Notary != nil
+}
+
 // Cosign defines attestor configuration for Cosign based signatures
 type Cosign struct {
 	// Key defines the type of key to validate the image.
@@ -306,6 +318,18 @@ type Attestation struct {
 	// Referrer defines the details of attestation attached using OCI 1.1 format
 	// +optional
 	Referrer *Referrer `json:"referrer,omitempty"`
+}
+
+func (a Attestation) GetKey() string {
+	return a.Name
+}
+
+func (a Attestation) IsInToto() bool {
+	return a.InToto != nil
+}
+
+func (a Attestation) IsReferrer() bool {
+	return a.Referrer != nil
 }
 
 type InToto struct {

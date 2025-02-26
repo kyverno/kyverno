@@ -544,26 +544,6 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
                 x-kubernetes-map-type: atomic
-              paramKind:
-                description: |-
-                  ParamKind specifies the kind of resources used to parameterize this policy.
-                  If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
-                  If ParamKind refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.
-                  If paramKind is specified but paramRef is unset in ValidatingAdmissionPolicyBinding, the params variable will be null.
-                properties:
-                  apiVersion:
-                    description: |-
-                      APIVersion is the API group version the resources belong to.
-                      In format of "group/version".
-                      Required.
-                    type: string
-                  kind:
-                    description: |-
-                      Kind is the API kind the resources belong to.
-                      Required.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
               validationActions:
                 description: |-
                   ValidationAction specifies the action to be taken when the matched resource violates the policy.
