@@ -27,6 +27,7 @@ type EvaluationResult struct {
 	Result           bool
 	AuditAnnotations map[string]string
 	Exceptions       []policiesv1alpha1.CELPolicyException
+	PatchedResource  unstructured.Unstructured
 }
 
 type CompiledPolicy interface {
