@@ -827,6 +827,7 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
         },
         "validate": {
           "cel": {
+            "generate": true,
             "expressions": [
               {
                 "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
@@ -840,6 +841,66 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 }
 `),
 			expected: true,
+		},
+		{
+			name: "policy-with-generate-set-to-false",
+			policy: []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "disallow-host-path"
+  },
+  "spec": {
+    "validationFailureAction": "Enforce",
+    "rules": [
+      {
+        "name": "host-path",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ],
+                "operations": [
+                  "CREATE",
+                  "UPDATE"
+                ],
+                "selector": {
+                  "matchLabels": {
+                    "app": "mongodb"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "tier",
+                      "operator": "In",
+                      "values": [
+                        "database"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "validate": {
+          "cel": {
+            "generate": false,
+            "expressions": [
+              {
+                "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+`),
+			expected: false,
 		},
 		{
 			name: "policy-with-no-rules",
@@ -863,7 +924,7 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 			policies, _, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
-			out, _ := CanGenerateVAP(policies[0].GetSpec(), nil)
+			out, _ := CanGenerateVAP(policies[0].GetSpec(), nil, false)
 			assert.Equal(t, out, test.expected)
 		})
 	}

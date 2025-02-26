@@ -20,7 +20,7 @@ spec:
           value: disallow-host-path-t9
   - name: step-02
     try:
-    - assert:
+    - error:
         file: validatingadmissionpolicy.yaml
-    - assert:
+    - error:
         file: validatingadmissionpolicybinding.yaml
