@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: main-deployment
-  namespace: test-globalcontext-apicall-correct-projections
+  namespace: test-globalcontext-resource-correct-projections
   labels:
     app: main-deployment
 spec:
