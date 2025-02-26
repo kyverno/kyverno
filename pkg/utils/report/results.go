@@ -118,7 +118,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	if len(exceptions) > 0 {
 		var names []string
 		for _, exception := range exceptions {
-			names = append(names, exception.Name)
+			names = append(names, exception.GetName())
 		}
 		addProperty("exceptions", strings.Join(names, ","), &result)
 	}

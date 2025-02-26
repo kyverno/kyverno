@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: check-label-app4
+  name: cpol-check-label-app4
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
