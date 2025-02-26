@@ -38,6 +38,9 @@ func (c *CompiledMatch) Match(image string) (bool, error) {
 }
 
 func Match(c []*CompiledMatch, image string) (bool, error) {
+	if len(c) == 0 {
+		return true, nil
+	}
 	for _, v := range c {
 		if matched, err := v.Match(image); err != nil {
 			return false, err
@@ -45,7 +48,7 @@ func Match(c []*CompiledMatch, image string) (bool, error) {
 			return true, nil
 		}
 	}
-	return true, nil
+	return false, nil
 }
 
 func CompileMatches(path *field.Path, matches []v1alpha1.ImageRule) ([]*CompiledMatch, field.ErrorList) {
