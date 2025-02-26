@@ -63,7 +63,7 @@ func (cp *contextProvider) ListResource(group, version, resource, namespace stri
 	if namespace != "" {
 		resourceInteface = client.Namespace(namespace)
 	} else {
-		resourceInteface = resourceInteface
+		resourceInteface = client
 	}
 
 	return resourceInteface.List(context.TODO(), metav1.ListOptions{})
@@ -76,7 +76,7 @@ func (cp *contextProvider) GetResource(group, version, resource, namespace, name
 	if namespace != "" {
 		resourceInteface = client.Namespace(namespace)
 	} else {
-		resourceInteface = resourceInteface
+		resourceInteface = client
 	}
 
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
