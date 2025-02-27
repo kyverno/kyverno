@@ -10840,29 +10840,16 @@ WebhookConfiguration
 </tr>
 <tr>
 <td>
-<code>admission</code><br/>
+<code>evaluationConfiguration</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Admission controls if rules are applied during admission.
-Optional. Default value is &ldquo;true&rdquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>background</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
-uses variables that are only available in the admission review request (e.g. user name).</p>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
 </table>
@@ -10880,6 +10867,38 @@ PolicyStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AdmissionConfiguration">AdmissionConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
 </td>
 </tr>
 </tbody>
@@ -11110,6 +11129,39 @@ Kubernetes admissionregistration/v1.MatchResources
 </td>
 <td>
 <p>Rules is a list of Rule instances. It contains auto generated rules added for pod controllers</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.BackgroundConfiguration">BackgroundConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls if rules are applied to existing resources during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
 </td>
 </tr>
 </tbody>
@@ -11490,6 +11542,53 @@ Secrets must live in the Kyverno namespace.</p>
 <p>
 <p>CredentialsProvidersType provides the list of credential providers required.</p>
 </p>
+<h3 id="policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AdmissionConfiguration">
+AdmissionConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls policy evaluation during admission.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.BackgroundConfiguration">
+BackgroundConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Background  controls policy evaluation during background scan.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.GenericPolicy">GenericPolicy
 </h3>
 <p>
@@ -12607,29 +12706,16 @@ WebhookConfiguration
 </tr>
 <tr>
 <td>
-<code>admission</code><br/>
+<code>evaluationConfiguration</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Admission controls if rules are applied during admission.
-Optional. Default value is &ldquo;true&rdquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>background</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
-uses variables that are only available in the admission review request (e.g. user name).</p>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
 </tbody>

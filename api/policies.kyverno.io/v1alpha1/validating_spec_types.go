@@ -89,35 +89,25 @@ type ValidatingPolicySpec struct {
 	// +optional
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
 
-	// Admission controls if rules are applied during admission.
-	// Optional. Default value is "true".
+	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
-	// +kubebuilder:default=true
-	Admission *bool `json:"admission,omitempty"`
-
-	// Background controls if rules are applied to existing resources during a background scan.
-	// Optional. Default value is "true". The value must be set to "false" if the policy rule
-	// uses variables that are only available in the admission review request (e.g. user name).
-	// +optional
-	// +kubebuilder:default=true
-	Background *bool `json:"background,omitempty"`
+	EvaluationConfiguration *EvaluationConfiguration `json:"evaluationConfiguration,omitempty"`
 }
 
 // AdmissionEnabled checks if admission is set to true
 func (s ValidatingPolicySpec) AdmissionEnabled() bool {
-	if s.Admission == nil {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
 		return true
 	}
-
-	return *s.Admission
+	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
 // BackgroundEnabled checks if background is set to true
 func (s ValidatingPolicySpec) BackgroundEnabled() bool {
-	if s.Background == nil {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
 		return true
 	}
-	return *s.Background
+	return *s.EvaluationConfiguration.Background.Enabled
 }
 
 type WebhookConfiguration struct {
@@ -125,4 +115,31 @@ type WebhookConfiguration struct {
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
+}
+
+type EvaluationConfiguration struct {
+	// Admission controls policy evaluation during admission.
+	// +optional
+	Admission *AdmissionConfiguration `json:"admission,omitempty"`
+
+	// Background  controls policy evaluation during background scan.
+	// +optional
+	Background *BackgroundConfiguration `json:"background,omitempty"`
+}
+
+type AdmissionConfiguration struct {
+	// Enabled controls if rules are applied during admission.
+	// Optional. Default value is "true".
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type BackgroundConfiguration struct {
+	// Enabled controls if rules are applied to existing resources during a background scan.
+	// Optional. Default value is "true". The value must be set to "false" if the policy rule
+	// uses variables that are only available in the admission review request (e.g. user name).
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
 }
