@@ -1,7 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: cpol-all-match-resource
+  name: disable-generate
 spec:
   steps:
   - name: create policy
@@ -17,7 +17,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: disallow-host-path-t9
+          value: disable-generate
   - name: step-02
     try:
     - error:

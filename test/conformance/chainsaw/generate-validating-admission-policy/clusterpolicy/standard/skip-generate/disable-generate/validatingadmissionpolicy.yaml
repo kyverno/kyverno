@@ -3,5 +3,5 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: cpol-disallow-host-path-t9
+  name: cpol-disable-generate
 spec: {}
