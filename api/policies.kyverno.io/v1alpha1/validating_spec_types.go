@@ -91,7 +91,7 @@ type ValidatingPolicySpec struct {
 
 	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
-	EvaluationConfiguration *EvaluationConfiguration `json:"evaluationConfiguration,omitempty"`
+	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
 }
 
 // AdmissionEnabled checks if admission is set to true
@@ -110,6 +110,14 @@ func (s ValidatingPolicySpec) BackgroundEnabled() bool {
 	return *s.EvaluationConfiguration.Background.Enabled
 }
 
+// EvaluationMode returns the evaluation mode of the policy.
+func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
+		return EvaluationModeKubernetes
+	}
+	return s.EvaluationConfiguration.Mode
+}
+
 type WebhookConfiguration struct {
 	// TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
@@ -118,6 +126,12 @@ type WebhookConfiguration struct {
 }
 
 type EvaluationConfiguration struct {
+	// Mode is the mode of policy evaluation.
+	// Allowed values are "Kubernetes" or "JSON".
+	// Optional. Default value is "Kubernetes".
+	// +optional
+	Mode EvaluationMode `json:"mode,omitempty"`
+
 	// Admission controls policy evaluation during admission.
 	// +optional
 	Admission *AdmissionConfiguration `json:"admission,omitempty"`
@@ -143,3 +157,10 @@ type BackgroundConfiguration struct {
 	// +kubebuilder:default=true
 	Enabled *bool `json:"enabled,omitempty"`
 }
+
+type EvaluationMode string
+
+const (
+	EvaluationModeKubernetes EvaluationMode = "Kubernetes"
+	EvaluationModeJSON       EvaluationMode = "JSON"
+)
