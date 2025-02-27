@@ -108,7 +108,7 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
-              evaluationConfiguration:
+              evaluation:
                 description: EvaluationConfiguration defines the configuration for
                   the policy evaluation.
                 properties:
@@ -134,6 +134,12 @@ spec:
                           uses variables that are only available in the admission review request (e.g. user name).
                         type: boolean
                     type: object
+                  mode:
+                    description: |-
+                      Mode is the mode of policy evaluation.
+                      Allowed values are "Kubernetes" or "JSON".
+                      Optional. Default value is "Kubernetes".
+                    type: string
                 type: object
               failurePolicy:
                 description: |-
