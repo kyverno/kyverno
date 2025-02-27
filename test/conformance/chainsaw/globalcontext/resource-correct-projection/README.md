@@ -7,3 +7,4 @@ This test verifies that Global Context Entries are evaluated correctly.
 `new-deployment` will be blocked.
 
 ## Reference Issues
+https://github.com/kyverno/kyverno/issues/12225
