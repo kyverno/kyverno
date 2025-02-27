@@ -108,10 +108,12 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	}
 
 	source := ""
-	if pol.AsKyvernoPolicy().BackgroundProcessingEnabled() {
-		source = "background scan"
-	} else if pol.AsKyvernoPolicy().AdmissionProcessingEnabled() {
-		source = "admission review"
+	if kyvernoPolicy := pol.AsKyvernoPolicy(); kyvernoPolicy != nil {
+		if kyvernoPolicy.BackgroundProcessingEnabled() {
+			source = "background scan"
+		} else if kyvernoPolicy.AdmissionProcessingEnabled() {
+			source = "admission review"
+		}
 	}
 	addProperty("source", source, &result)
 
