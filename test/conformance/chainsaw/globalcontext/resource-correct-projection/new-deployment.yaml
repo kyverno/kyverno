@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: main-deployment
-  namespace: test-globalcontext-apicall-correct-projections
+  name: new-deployment
+  namespace: test-globalcontext-resource-correct-projections
   labels:
-    app: main-deployment
+    app: new-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: main-deployment
+      app: new-deployment
   template:
     metadata:
       labels:
-        app: main-deployment
+        app: new-deployment
     spec:
       containers:
         - name: pause
