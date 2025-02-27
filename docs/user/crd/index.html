@@ -10706,7 +10706,7 @@ WebhookConfiguration
 </tr>
 <tr>
 <td>
-<code>evaluationConfiguration</code><br/>
+<code>evaluation</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
 EvaluationConfiguration
@@ -11426,6 +11426,22 @@ Secrets must live in the Kyverno namespace.</p>
 <tbody>
 <tr>
 <td>
+<code>mode</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationMode">
+EvaluationMode
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Mode is the mode of policy evaluation.
+Allowed values are &ldquo;Kubernetes&rdquo; or &ldquo;JSON&rdquo;.
+Optional. Default value is &ldquo;Kubernetes&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>admission</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.AdmissionConfiguration">
@@ -11455,6 +11471,14 @@ BackgroundConfiguration
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.EvaluationMode">EvaluationMode
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>)
+</p>
+<p>
+</p>
 <h3 id="policies.kyverno.io/v1alpha1.GenericPolicy">GenericPolicy
 </h3>
 <p>
@@ -12495,7 +12519,7 @@ WebhookConfiguration
 </tr>
 <tr>
 <td>
-<code>evaluationConfiguration</code><br/>
+<code>evaluation</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
 EvaluationConfiguration
