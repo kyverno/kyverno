@@ -4,7 +4,6 @@ import (
 	"context"
 
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -58,10 +57,14 @@ func (cp *contextProvider) GetImageData(image string) (*imagedataloader.ImageDat
 }
 
 func (cp *contextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	group, version := utils.SplitAPIVersion(apiVersion)
+	groupVersion, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	var resourceInteface dynamic.ResourceInterface
 
-	client := cp.dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
+	client := cp.dclient.Resource(groupVersion.WithResource(resource))
 	if namespace != "" {
 		resourceInteface = client.Namespace(namespace)
 	} else {
@@ -72,10 +75,14 @@ func (cp *contextProvider) ListResource(apiVersion, resource, namespace string) 
 }
 
 func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	group, version := utils.SplitAPIVersion(apiVersion)
+	groupVersion, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	var resourceInteface dynamic.ResourceInterface
 
-	client := cp.dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
+	client := cp.dclient.Resource(groupVersion.WithResource(resource))
 	if namespace != "" {
 		resourceInteface = client.Namespace(namespace)
 	} else {

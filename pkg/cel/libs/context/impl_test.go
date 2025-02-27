@@ -31,12 +31,12 @@ func (mock *ctx) GetImageData(n string) (*imagedataloader.ImageData, error) {
 	return mock.GetImageDataFunc(n)
 }
 
-func (mock *ctx) ListResource(groupVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return mock.ListResourcesFunc(groupVersion, resource, namespace)
+func (mock *ctx) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+	return mock.ListResourcesFunc(apiVersion, resource, namespace)
 }
 
-func (mock *ctx) GetResource(groupVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return mock.GetResourcesFunc(groupVersion, resource, namespace, name)
+func (mock *ctx) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	return mock.GetResourcesFunc(apiVersion, resource, namespace, name)
 }
 
 func Test_impl_get_configmap_string_string(t *testing.T) {
@@ -161,10 +161,10 @@ func Test_impl_get_resource_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	data := map[string]any{
 		"context": Context{&ctx{
-			GetResourcesFunc: func(groupVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+			GetResourcesFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
-						"apiVersion": groupVersion,
+						"apiVersion": apiVersion,
 						"kind":       resource,
 						"metadata": map[string]any{
 							"name":      name,
