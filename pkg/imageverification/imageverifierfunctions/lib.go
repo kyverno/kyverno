@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const libraryName = "kyverno.imageverify"
@@ -18,10 +18,10 @@ type lib struct {
 	logger logr.Logger
 	imgCtx imagedataloader.ImageContext
 	ivpol  *v1alpha1.ImageVerificationPolicy
-	lister v1.SecretInterface
+	lister k8scorev1.SecretInterface
 }
 
-func Lib(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister v1.SecretInterface) cel.EnvOption {
+func Lib(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister k8scorev1.SecretInterface) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
 		imgCtx: imgCtx,
@@ -50,7 +50,10 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	// create implementation, recording the envoy types aware adapter
-	impl := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
+	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
+	if err != nil {
+		return nil, err
+	}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"verifyImageSignatures": {
