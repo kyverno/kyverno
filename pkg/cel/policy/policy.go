@@ -34,15 +34,15 @@ type CompiledPolicy interface {
 	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
 }
 
-type compiledValidation struct {
-	message           string
-	messageExpression cel.Program
-	program           cel.Program
+type CompiledValidation struct {
+	Message           string
+	MessageExpression cel.Program
+	Program           cel.Program
 }
 
 type compiledAutogenRule struct {
 	matchConditions []cel.Program
-	validations     []compiledValidation
+	validations     []CompiledValidation
 	auditAnnotation map[string]cel.Program
 	variables       map[string]cel.Program
 }
@@ -56,7 +56,7 @@ type compiledPolicy struct {
 	failurePolicy    admissionregistrationv1.FailurePolicyType
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
-	validations      []compiledValidation
+	validations      []CompiledValidation
 	auditAnnotations map[string]cel.Program
 	autogenRules     []compiledAutogenRule
 	exceptions       []compiledException
@@ -88,7 +88,7 @@ func (p *compiledPolicy) Evaluate(
 	}
 
 	var matchConditions []cel.Program
-	var validations []compiledValidation
+	var validations []CompiledValidation
 	var variables map[string]cel.Program
 
 	if autogenIndex != -1 {
@@ -146,16 +146,16 @@ func (p *compiledPolicy) Evaluate(
 	}
 
 	for index, validation := range validations {
-		out, _, err := validation.program.ContextEval(ctx, data)
+		out, _, err := validation.Program.ContextEval(ctx, data)
 		if err != nil {
 			return nil, err
 		}
 
 		// evaluate only when rule fails
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
-			message := validation.message
-			if validation.messageExpression != nil {
-				if out, _, err := validation.messageExpression.ContextEval(ctx, data); err != nil {
+			message := validation.Message
+			if validation.MessageExpression != nil {
+				if out, _, err := validation.MessageExpression.ContextEval(ctx, data); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
 				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
 					message = fmt.Sprintf("failed to convert message expression to string: %s", err)
