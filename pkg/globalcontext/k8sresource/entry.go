@@ -2,6 +2,7 @@ package k8sresource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -142,8 +143,32 @@ func (e *entry) handleAdd(obj interface{}) {
 		return
 	}
 
+	jsonData, err := json.Marshal(obj)
+	if err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, fmt.Errorf("failed to marshal object: %w", err)))
+		return
+	}
+
+	var data any
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, fmt.Errorf("failed to unmarshal object: %w", err)))
+		return
+	}
+
 	e.objectsMu.Lock()
-	e.objects[key] = obj
+	e.objects[key] = data
 	e.objectsMu.Unlock()
 
 	e.recomputeProjections()
@@ -162,8 +187,32 @@ func (e *entry) handleUpdate(obj interface{}) {
 		return
 	}
 
+	jsonData, err := json.Marshal(obj)
+	if err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, fmt.Errorf("failed to marshal object: %w", err)))
+		return
+	}
+
+	var data any
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, fmt.Errorf("failed to unmarshal object: %w", err)))
+		return
+	}
+
 	e.objectsMu.Lock()
-	e.objects[key] = obj
+	e.objects[key] = data
 	e.objectsMu.Unlock()
 
 	e.recomputeProjections()
