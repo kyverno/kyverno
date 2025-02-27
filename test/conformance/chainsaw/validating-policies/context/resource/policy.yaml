@@ -12,7 +12,7 @@ spec:
   variables:
     - name: pod
       expression: >-
-        context.GetResource("", "v1", "pods", object.metadata.namespace, "policy-pod")
+        context.GetResource("v1", "pods", object.metadata.namespace, "policy-pod")
     - name: environment
       expression: >-
         has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == variables.pod.metadata.labels.env

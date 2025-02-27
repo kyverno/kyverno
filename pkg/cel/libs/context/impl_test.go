@@ -2,7 +2,6 @@ package context
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -16,8 +15,8 @@ type ctx struct {
 	GetConfigMapFunc       func(string, string) (unstructured.Unstructured, error)
 	GetGlobalReferenceFunc func(string) (any, error)
 	GetImageDataFunc       func(string) (*imagedataloader.ImageData, error)
-	ListResourcesFunc      func(string, string, string, string) (*unstructured.UnstructuredList, error)
-	GetResourcesFunc       func(string, string, string, string, string) (*unstructured.Unstructured, error)
+	ListResourcesFunc      func(string, string, string) (*unstructured.UnstructuredList, error)
+	GetResourcesFunc       func(string, string, string, string) (*unstructured.Unstructured, error)
 }
 
 func (mock *ctx) GetConfigMap(ns string, n string) (unstructured.Unstructured, error) {
@@ -32,12 +31,12 @@ func (mock *ctx) GetImageData(n string) (*imagedataloader.ImageData, error) {
 	return mock.GetImageDataFunc(n)
 }
 
-func (mock *ctx) ListResource(group, version, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return mock.ListResourcesFunc(group, version, resource, namespace)
+func (mock *ctx) ListResource(groupVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+	return mock.ListResourcesFunc(groupVersion, resource, namespace)
 }
 
-func (mock *ctx) GetResource(group, version, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return mock.GetResourcesFunc(group, version, resource, namespace, name)
+func (mock *ctx) GetResource(groupVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	return mock.GetResourcesFunc(groupVersion, resource, namespace, name)
 }
 
 func Test_impl_get_configmap_string_string(t *testing.T) {
@@ -154,7 +153,7 @@ func Test_impl_get_resource_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetResource("apps", "v1", "Deployment", "default", "nginx")`)
+	ast, issues := env.Compile(`context.GetResource("apps/v1", "Deployment", "default", "nginx")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -162,10 +161,10 @@ func Test_impl_get_resource_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	data := map[string]any{
 		"context": Context{&ctx{
-			GetResourcesFunc: func(group, version, resource, namespace, name string) (*unstructured.Unstructured, error) {
+			GetResourcesFunc: func(groupVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
-						"apiVersion": strings.TrimLeft(fmt.Sprintf("%s/%s", group, version), "/"),
+						"apiVersion": groupVersion,
 						"kind":       resource,
 						"metadata": map[string]any{
 							"name":      name,
@@ -194,7 +193,7 @@ func Test_impl_list_resource_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.ListResource("apps", "v1", "Deployment", "default")`)
+	ast, issues := env.Compile(`context.ListResource("apps/v1", "Deployment", "default")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -202,12 +201,12 @@ func Test_impl_list_resource_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	data := map[string]any{
 		"context": Context{&ctx{
-			ListResourcesFunc: func(group, version, resource, namespace string) (*unstructured.UnstructuredList, error) {
+			ListResourcesFunc: func(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{
 					Items: []unstructured.Unstructured{
 						{
 							Object: map[string]any{
-								"apiVersion": strings.TrimLeft(fmt.Sprintf("%s/%s", group, version), "/"),
+								"apiVersion": apiVersion,
 								"kind":       resource,
 								"metadata": map[string]any{
 									"name":      "nginx",

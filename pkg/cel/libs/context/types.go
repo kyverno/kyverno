@@ -17,8 +17,8 @@ type ContextInterface interface {
 	GetConfigMap(string, string) (unstructured.Unstructured, error)
 	GetGlobalReference(string) (any, error)
 	GetImageData(string) (*imagedataloader.ImageData, error)
-	ListResource(group, version, resource, namespace string) (*unstructured.UnstructuredList, error)
-	GetResource(group, version, resource, namespace, name string) (*unstructured.Unstructured, error)
+	ListResource(groupVersion, resource, namespace string) (*unstructured.UnstructuredList, error)
+	GetResource(groupVersion, resource, namespace, name string) (*unstructured.Unstructured, error)
 }
 
 type Context struct {

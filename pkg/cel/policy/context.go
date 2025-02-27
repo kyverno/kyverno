@@ -4,6 +4,7 @@ import (
 	"context"
 
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -56,7 +57,8 @@ func (cp *contextProvider) GetImageData(image string) (*imagedataloader.ImageDat
 	return cp.imagedata.FetchImageData(context.TODO(), image)
 }
 
-func (cp *contextProvider) ListResource(group, version, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (cp *contextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+	group, version := utils.SplitAPIVersion(apiVersion)
 	var resourceInteface dynamic.ResourceInterface
 
 	client := cp.dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
@@ -69,7 +71,8 @@ func (cp *contextProvider) ListResource(group, version, resource, namespace stri
 	return resourceInteface.List(context.TODO(), metav1.ListOptions{})
 }
 
-func (cp *contextProvider) GetResource(group, version, resource, namespace, name string) (*unstructured.Unstructured, error) {
+func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	group, version := utils.SplitAPIVersion(apiVersion)
 	var resourceInteface dynamic.ResourceInterface
 
 	client := cp.dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
