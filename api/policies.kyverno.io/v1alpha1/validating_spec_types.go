@@ -80,6 +80,12 @@ type ValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
+	// Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+	// Optional. Defaults to "false" if not specified.
+	// +optional
+	// +kubebuilder:default=false
+	Generate *bool `json:"generate,omitempty"`
+
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
 	// +listType=set

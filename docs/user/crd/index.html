@@ -1050,6 +1050,19 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <tbody>
 <tr>
 <td>
+<code>generate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>expressions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
@@ -10813,6 +10826,19 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
+<code>generate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>validationActions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validationaction-v1-admissionregistration">
@@ -12701,6 +12727,19 @@ The variables defined here will be available under <code>variables</code> in oth
 except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
 <p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
 Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
