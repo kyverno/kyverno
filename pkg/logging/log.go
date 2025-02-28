@@ -23,6 +23,8 @@ const (
 	// TextFormat represents text logging mode.
 	// Default logging mode is TextFormat.
 	TextFormat = "text"
+	// EcsFormat represents ecs logging mode.
+	EcsFormat = "ecs"
 	// LogLevelController is the log level to use for controllers plumbing.
 	LogLevelController = 1
 	// LogLevelClient is the log level to use for clients.
@@ -60,13 +62,24 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	var logger zerolog.Logger
 	switch logFormat {
 	case TextFormat:
-		output := zerolog.ConsoleWriter{Out: os.Stderr}
+		output := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: true}
 		output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
 		logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 	case JSONFormat:
 		logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	case EcsFormat:
+		output := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: true}
+		output.TimeFormat = time.RFC3339
+		logger = zerolog.New(output).
+			With().
+			Timestamp().
+			Str("event.dataset", "kyverno").
+			Str("service.name", "kyverno").
+			Str("log.level", zerolog.LevelFieldName).
+			Caller().
+			Logger()
 	default:
-		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
+		return errors.New("log format not recognized, pass `text`, `json` or `ecs`")
 	}
 
 	globalLog = zerologr.New(&logger)
@@ -126,12 +139,20 @@ func V(level int) logr.Logger {
 
 // Info logs a non-error message with the given key/value pairs.
 func Info(msg string, keysAndValues ...interface{}) {
-	GlobalLogger().WithCallDepth(1).Info(msg, keysAndValues...)
+	GlobalLogger().WithValues(
+		"event.action", "log",
+		"log.level", "info",
+		"service.name", "kyverno",
+	).Info(msg, keysAndValues...)
 }
 
 // Error logs an error, with the given message and key/value pairs.
 func Error(err error, msg string, keysAndValues ...interface{}) {
-	GlobalLogger().WithCallDepth(1).Error(err, msg, keysAndValues...)
+	GlobalLogger().WithValues(
+		"event.action", "error",
+		"log.level", "error",
+		"service.name", "kyverno",
+	).Error(err, msg, keysAndValues...)
 }
 
 // FromContext returns a logger with predefined values from a context.Context.
