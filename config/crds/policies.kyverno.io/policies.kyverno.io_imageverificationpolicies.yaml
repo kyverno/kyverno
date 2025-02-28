@@ -351,8 +351,6 @@ spec:
                     glob:
                       description: Glob defines a globbing pattern for matching images
                       type: string
-                  required:
-                  - cel
                   type: object
                 type: array
               images:
@@ -895,7 +893,6 @@ spec:
                 type: boolean
             required:
             - attestors
-            - matchConstraints
             - verifications
             type: object
         required:
