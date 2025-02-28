@@ -25,32 +25,30 @@ func Test_compiler_Compile(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: policiesv1alpha1.ValidatingPolicySpec{
-				ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-					MatchConstraints: &admissionregistrationv1.MatchResources{
-						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-							{
-								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-									Operations: []admissionregistrationv1.OperationType{
-										admissionregistrationv1.Create,
-										admissionregistrationv1.Update,
-									},
-									Rule: admissionregistrationv1.Rule{
-										APIGroups:   []string{""},
-										APIVersions: []string{"v1"},
-										Resources:   []string{"pods"},
-									},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Create,
+									admissionregistrationv1.Update,
+								},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
 								},
 							},
 						},
 					},
-					Variables: []admissionregistrationv1.Variable{{
-						Name:       "environment",
-						Expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'",
-					}},
-					Validations: []admissionregistrationv1.Validation{{
-						Expression: "variables.environment == true",
-					}},
 				},
+				Variables: []admissionregistrationv1.Variable{{
+					Name:       "environment",
+					Expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'",
+				}},
+				Validations: []admissionregistrationv1.Validation{{
+					Expression: "variables.environment == true",
+				}},
 			},
 		},
 	}, {
@@ -64,39 +62,37 @@ func Test_compiler_Compile(t *testing.T) {
 				Name: "foo",
 			},
 			Spec: policiesv1alpha1.ValidatingPolicySpec{
-				ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-					MatchConstraints: &admissionregistrationv1.MatchResources{
-						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-							{
-								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-									Operations: []admissionregistrationv1.OperationType{
-										admissionregistrationv1.Create,
-										admissionregistrationv1.Update,
-									},
-									Rule: admissionregistrationv1.Rule{
-										APIGroups:   []string{""},
-										APIVersions: []string{"v1"},
-										Resources:   []string{"pods"},
-									},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Create,
+									admissionregistrationv1.Update,
+								},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
 								},
 							},
 						},
 					},
-					Variables: []admissionregistrationv1.Variable{{
-						Name:       "cm",
-						Expression: "context.GetConfigMap('foo', 'bar')",
-					}},
-					Validations: []admissionregistrationv1.Validation{{
-						Expression: "variables.cm != null",
-					}},
 				},
+				Variables: []admissionregistrationv1.Variable{{
+					Name:       "cm",
+					Expression: "context.GetConfigMap('foo', 'bar')",
+				}},
+				Validations: []admissionregistrationv1.Validation{{
+					Expression: "variables.cm != null",
+				}},
 			},
 		},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := NewCompiler()
-			compiled, errs := c.Compile(tt.policy, nil)
+			compiled, errs := c.CompileValidating(tt.policy, nil)
 			if tt.wantErr {
 				assert.Error(t, errs.ToAggregate())
 			} else {

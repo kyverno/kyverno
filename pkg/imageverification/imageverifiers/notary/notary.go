@@ -7,24 +7,23 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/notaryproject/notation-go"
 	notationlog "github.com/notaryproject/notation-go/log"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
-func NewVerifier() *notaryVerifier {
-	return &notaryVerifier{
-		log: logging.WithName("Notary"),
+func NewVerifier(logger logr.Logger) *Verifier {
+	return &Verifier{
+		log: logger.WithName("Notary"),
 	}
 }
 
-type notaryVerifier struct {
+type Verifier struct {
 	log logr.Logger
 }
 
-func (v *notaryVerifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1alpha1.Attestor) error {
+func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1alpha1.Attestor) error {
 	if attestor.Notary == nil {
 		return fmt.Errorf("notary verifier only supports notary attestor")
 	}
@@ -60,7 +59,7 @@ func (v *notaryVerifier) VerifyImageSignature(ctx context.Context, image *imaged
 	return nil
 }
 
-func (v *notaryVerifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, attestor *policiesv1alpha1.Attestor) error {
+func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, attestor *policiesv1alpha1.Attestor) error {
 	if attestation.Referrer == nil {
 		return fmt.Errorf("notary verifier only supports oci 1.1 referrers as attestations")
 	}

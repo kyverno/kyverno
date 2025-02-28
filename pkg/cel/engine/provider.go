@@ -48,7 +48,7 @@ func NewProvider(compiler policy.Compiler, policies []policiesv1alpha1.Validatin
 				}
 			}
 		}
-		policy, err := compiler.Compile(&vp, matchedExceptions)
+		policy, err := compiler.CompileValidating(&vp, matchedExceptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
 		}
@@ -166,7 +166,7 @@ func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	compiled, errs := r.compiler.Compile(&policy, exceptions)
+	compiled, errs := r.compiler.CompileValidating(&policy, exceptions)
 	if len(errs) > 0 {
 		fmt.Println(errs)
 		// No need to retry it
