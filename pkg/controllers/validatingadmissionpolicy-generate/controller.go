@@ -397,7 +397,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 
-		if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions); !ok {
+		if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions, false); !ok {
 			// delete the ValidatingAdmissionPolicy if exist
 			if vapErr == nil {
 				err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})

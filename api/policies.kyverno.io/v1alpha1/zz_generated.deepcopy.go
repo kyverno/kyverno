@@ -989,6 +989,11 @@ func (in *ValidatingPolicySpec) DeepCopyInto(out *ValidatingPolicySpec) {
 		*out = make([]v1.Variable, len(*in))
 		copy(*out, *in)
 	}
+	if in.Generate != nil {
+		in, out := &in.Generate, &out.Generate
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ValidationAction != nil {
 		in, out := &in.ValidationAction, &out.ValidationAction
 		*out = make([]v1.ValidationAction, len(*in))
