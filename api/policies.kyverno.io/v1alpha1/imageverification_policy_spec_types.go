@@ -20,6 +20,7 @@ const (
 // ImageVerificationPolicySpec is the specification of the desired behavior of the ImageVerificationPolicy.
 type ImageVerificationPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to validate.
+	// +optional
 	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints"`
 
 	// FailurePolicy defines how to handle failures for the admission policy. Failures can
@@ -94,6 +95,7 @@ type ImageRule struct {
 	// +optional
 	Glob string `json:"glob"`
 	// Cel defines CEL Expressions for matching images
+	// +optional
 	CELExpression string `json:"cel"`
 }
 
