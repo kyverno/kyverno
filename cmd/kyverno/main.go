@@ -291,6 +291,7 @@ func createrLeaderControllers(
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
+			kyvernoInformer.Policies().V1alpha1().CELPolicyExceptions(),
 			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
@@ -593,7 +594,7 @@ func main() {
 			reportsServiceAccountName,
 		)
 		contextProvider, err := celpolicy.NewContextProvider(
-			setup.KubeClient,
+			setup.KyvernoDynamicClient,
 			nil,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		)

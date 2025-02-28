@@ -90,3 +90,31 @@ func TestValidatingPolicySpec_BackgroundEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestValidatingPolicySpec_EvaluationMode(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *ValidatingPolicy
+		want   EvaluationMode
+	}{{
+		name:   "nil",
+		policy: &ValidatingPolicy{},
+		want:   EvaluationModeKubernetes,
+	}, {
+		name: "json",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Mode: EvaluationModeJSON,
+				},
+			},
+		},
+		want: EvaluationModeJSON,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.Spec.EvaluationMode()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
