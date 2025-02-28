@@ -30,7 +30,7 @@ func Evaluate(ctx context.Context, logger logr.Logger, ivpols []*v1alpha1.ImageV
 	for _, ivpol := range ivpols {
 		p, errList := c.Compile(logger, ivpol)
 		if errList != nil {
-			return nil, fmt.Errorf("failed to compile policy %v", err)
+			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
 		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace)

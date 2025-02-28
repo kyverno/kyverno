@@ -57,7 +57,7 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
-		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
 	}
 	for _, declType := range declTypes {
