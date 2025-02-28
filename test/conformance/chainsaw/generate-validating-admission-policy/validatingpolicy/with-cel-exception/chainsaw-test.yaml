@@ -21,10 +21,14 @@ spec:
     try:
     - assert:
         file: validatingadmissionpolicy.yaml
+    - sleep:
+        duration: 10s
   - name: check validatingadmissionpolicybinding
     try:
     - assert:
         file: validatingadmissionpolicybinding.yaml
+    - sleep:
+        duration: 10s
   - name: create a skipped deployment
     try:
     - apply:
