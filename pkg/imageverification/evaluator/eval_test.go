@@ -24,6 +24,9 @@ var (
 
 	ivpol = &policiesv1alpha1.ImageVerificationPolicy{
 		Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{
+				Mode: policiesv1alpha1.EvaluationModeJSON,
+			},
 			ImageRules: []policiesv1alpha1.ImageRule{
 				{
 					Glob: "ghcr.io/*",

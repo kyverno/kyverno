@@ -10512,6 +10512,20 @@ Credentials
 <p>Verifications contain CEL expressions which is used to apply the image verification checks.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>evaluation</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -11439,6 +11453,7 @@ Secrets must live in the Kyverno namespace.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
 </p>
 <p>
@@ -11878,6 +11893,20 @@ Credentials
 </td>
 <td>
 <p>Verifications contain CEL expressions which is used to apply the image verification checks.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>evaluation</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
 </tbody>

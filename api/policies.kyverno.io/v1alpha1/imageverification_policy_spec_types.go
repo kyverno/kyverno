@@ -87,6 +87,10 @@ type ImageVerificationPolicySpec struct {
 	// Verifications contain CEL expressions which is used to apply the image verification checks.
 	// +listType=atomic
 	Verifications []admissionregistrationv1.Validation `json:"verifications"`
+
+	// EvaluationConfiguration defines the configuration for the policy evaluation.
+	// +optional
+	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
 }
 
 // ImageRule defines a Glob or a CEL expression for matching images
@@ -342,4 +346,12 @@ type InToto struct {
 type Referrer struct {
 	// Type defines the type of attestation attached to the image.
 	Type string `json:"type"`
+}
+
+// EvaluationMode returns the evaluation mode of the policy.
+func (s ImageVerificationPolicySpec) EvaluationMode() EvaluationMode {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
+		return EvaluationModeKubernetes
+	}
+	return s.EvaluationConfiguration.Mode
 }
