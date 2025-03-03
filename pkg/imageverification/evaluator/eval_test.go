@@ -79,6 +79,10 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					Expression: "images.bar.map(image, verifyAttestationSignatures(image, attestations.sbom ,[attestors.notary])).all(e, e > 0)",
 					Message:    "failed to verify attestation with notary cert",
 				},
+				{
+					Expression: "images.bar.map(image, payload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
+					Message:    "sbom is not a cyclone dx sbom",
+				},
 			},
 		},
 	}
