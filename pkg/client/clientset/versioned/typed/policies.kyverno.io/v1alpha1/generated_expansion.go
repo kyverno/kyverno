@@ -22,6 +22,4 @@ type CELPolicyExceptionExpansion interface{}
 
 type ImageVerificationPolicyExpansion interface{}
 
-type MutatingPolicyExpansion interface{}
-
 type ValidatingPolicyExpansion interface{}

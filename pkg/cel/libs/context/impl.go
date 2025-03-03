@@ -56,3 +56,43 @@ func (c *impl) get_imagedata_string(ctx ref.Val, image ref.Val) ref.Val {
 		return c.NativeToValue(globalRef)
 	}
 }
+
+func (c *impl) list_resource_string(args ...ref.Val) ref.Val {
+	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
+		return types.WrapErr(err)
+	} else if apiVersion, err := utils.ConvertToNative[string](args[1]); err != nil {
+		return types.WrapErr(err)
+	} else if resource, err := utils.ConvertToNative[string](args[2]); err != nil {
+		return types.WrapErr(err)
+	} else if namespace, err := utils.ConvertToNative[string](args[3]); err != nil {
+		return types.WrapErr(err)
+	} else {
+		list, err := self.ListResource(apiVersion, resource, namespace)
+		if err != nil {
+			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			return types.NewErr("failed to list resource: %v", err)
+		}
+		return c.NativeToValue(list.UnstructuredContent())
+	}
+}
+
+func (c *impl) get_resource_string(args ...ref.Val) ref.Val {
+	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
+		return types.WrapErr(err)
+	} else if apiVersion, err := utils.ConvertToNative[string](args[1]); err != nil {
+		return types.WrapErr(err)
+	} else if resource, err := utils.ConvertToNative[string](args[2]); err != nil {
+		return types.WrapErr(err)
+	} else if namespace, err := utils.ConvertToNative[string](args[3]); err != nil {
+		return types.WrapErr(err)
+	} else if name, err := utils.ConvertToNative[string](args[4]); err != nil {
+		return types.WrapErr(err)
+	} else {
+		res, err := self.GetResource(apiVersion, resource, namespace, name)
+		if err != nil {
+			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			return types.NewErr("failed to get resource: %v", err)
+		}
+		return c.NativeToValue(res.UnstructuredContent())
+	}
+}

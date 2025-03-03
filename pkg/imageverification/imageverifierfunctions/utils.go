@@ -34,28 +34,17 @@ func arrToMap[T ARR_TYPE](arr []T) map[string]T {
 	return m
 }
 
-func getRemoteOptsFromPolicy(creds *v1alpha1.Credentials) []imagedataloader.Option {
+func GetRemoteOptsFromPolicy(creds *v1alpha1.Credentials) []imagedataloader.Option {
 	if creds == nil {
-		return nil
+		return []imagedataloader.Option{}
 	}
 
-	opts := make([]imagedataloader.Option, 0)
-
-	if creds.AllowInsecureRegistry {
-		opts = append(opts, imagedataloader.WithInsecure(creds.AllowInsecureRegistry))
-	}
-
+	providers := make([]string, 0, len(creds.Providers))
 	if len(creds.Providers) != 0 {
-		providers := make([]string, 0, len(creds.Providers))
 		for _, v := range creds.Providers {
 			providers = append(providers, string(v))
 		}
-		opts = append(opts, imagedataloader.WithCredentialProviders(providers...))
 	}
 
-	if len(creds.Secrets) != 0 {
-		opts = append(opts, imagedataloader.WithPullSecret(creds.Secrets))
-	}
-
-	return opts
+	return imagedataloader.BuildRemoteOpts(creds.Secrets, providers, creds.AllowInsecureRegistry)
 }

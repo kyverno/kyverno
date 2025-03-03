@@ -3184,6 +3184,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -8301,6 +8307,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.
@@ -13122,6 +13134,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -18296,6 +18314,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.
