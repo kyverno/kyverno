@@ -76,23 +76,6 @@ func New(
 		return nil, err
 	}
 
-	group.StartWithContext(ctx, func(ctx context.Context) {
-		informer.Informer().Run(ctx.Done())
-	})
-
-	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
-		stop()
-		err := fmt.Errorf("failed to sync cache for %s", gvr)
-		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
-			APIVersion: gce.APIVersion,
-			Kind:       gce.Kind,
-			Name:       gce.Name,
-			Namespace:  gce.Namespace,
-			UID:        gce.UID,
-		}, err))
-		return nil, err
-	}
-
 	var projections []store.Projection
 	if len(gce.Spec.Projections) > 0 {
 		for _, p := range gce.Spec.Projections {
@@ -124,6 +107,23 @@ func New(
 		DeleteFunc: e.handleDelete,
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	group.StartWithContext(ctx, func(ctx context.Context) {
+		informer.Informer().Run(ctx.Done())
+	})
+
+	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
+		stop()
+		err := fmt.Errorf("failed to sync cache for %s", gvr)
+		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: gce.APIVersion,
+			Kind:       gce.Kind,
+			Name:       gce.Name,
+			Namespace:  gce.Namespace,
+			UID:        gce.UID,
+		}, err))
 		return nil, err
 	}
 
