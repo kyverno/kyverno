@@ -1050,6 +1050,19 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <tbody>
 <tr>
 <td>
+<code>generate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>expressions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
@@ -10152,8 +10165,6 @@ Resource Types:
 </li><li>
 <a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicy">ImageVerificationPolicy</a>
 </li><li>
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>
-</li><li>
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>
 </li></ul>
 <hr />
@@ -10507,138 +10518,6 @@ Credentials
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy
-</h3>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-policies.kyverno.io/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>MutatingPolicy</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">
-MutatingPolicySpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>MutatingAdmissionPolicySpec</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutatingadmissionpolicyspec-v1alpha1-admissionregistration">
-Kubernetes admissionregistration/v1alpha1.MutatingAdmissionPolicySpec
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>MutatingAdmissionPolicySpec</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>webhookConfiguration</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
-WebhookConfiguration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>WebhookConfiguration defines the configuration for the webhook.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>admission</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Admission controls if rules are applied during admission.
-Optional. Default value is &ldquo;true&rdquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>background</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
-uses variables that are only available in the admission review request (e.g. user name).</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyStatus">
-PolicyStatus
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Status contains policy runtime data.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy
 </h3>
 <p>
@@ -10809,6 +10688,19 @@ The variables defined here will be available under <code>variables</code> in oth
 except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
 <p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
 Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -12141,82 +12033,6 @@ If not provided, the system roots are used.</p>
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>)
-</p>
-<p>
-<p>MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>MutatingAdmissionPolicySpec</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutatingadmissionpolicyspec-v1alpha1-admissionregistration">
-Kubernetes admissionregistration/v1alpha1.MutatingAdmissionPolicySpec
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>MutatingAdmissionPolicySpec</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>webhookConfiguration</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
-WebhookConfiguration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>WebhookConfiguration defines the configuration for the webhook.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>admission</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Admission controls if rules are applied during admission.
-Optional. Default value is &ldquo;true&rdquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>background</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
-uses variables that are only available in the admission review request (e.g. user name).</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1alpha1.Notary">Notary
 </h3>
 <p>
@@ -12309,7 +12125,6 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>)
 </p>
 <p>
@@ -12705,6 +12520,19 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
+<code>generate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>validationActions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validationaction-v1-admissionregistration">
@@ -12752,7 +12580,6 @@ EvaluationConfiguration
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
 </p>
 <p>
