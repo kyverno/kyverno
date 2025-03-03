@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
 	"go.uber.org/multierr"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,7 +28,7 @@ type EvaluationResult struct {
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object) (*EvaluationResult, error)
+	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool) (*EvaluationResult, error)
 }
 
 type compiledPolicy struct {
@@ -43,7 +42,7 @@ type compiledPolicy struct {
 	creds           *v1alpha1.Credentials
 }
 
-func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object) (*EvaluationResult, error) {
+func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool) (*EvaluationResult, error) {
 	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -52,7 +51,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return nil, nil
 	}
 	data := map[string]any{}
-	if isK8s(request) {
+	if isK8s {
 		namespaceVal, err := objectToResolveVal(namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
@@ -183,11 +182,6 @@ func (p *compiledPolicy) match(
 	} else {
 		return false, err
 	}
-}
-
-func isK8s(request interface{}) bool {
-	_, ok := request.(*admissionv1.AdmissionRequest)
-	return ok
 }
 
 func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {

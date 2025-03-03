@@ -25,19 +25,44 @@ func Evaluate(ctx context.Context, logger logr.Logger, ivpols []*v1alpha1.ImageV
 		isPod = true
 	}
 
+	isAdmissionRequest := isK8s(request)
+	policies := filterPolicies(ivpols, isAdmissionRequest)
+
 	c := NewCompiler(ictx, lister, isPod)
 	results := make([]*EvaluationResult, 0)
-	for _, ivpol := range ivpols {
+	for _, ivpol := range policies {
 		p, errList := c.Compile(logger, ivpol)
 		if errList != nil {
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
-		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace)
+		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace, isAdmissionRequest)
 		if err != nil {
 			return nil, err
 		}
 		results = append(results, result)
 	}
 	return results, nil
+}
+
+func isK8s(request interface{}) bool {
+	_, ok := request.(*admissionv1.AdmissionRequest)
+	return ok
+}
+
+func filterPolicies(ivpols []*v1alpha1.ImageVerificationPolicy, isK8s bool) []*v1alpha1.ImageVerificationPolicy {
+	filteredPolicies := make([]*v1alpha1.ImageVerificationPolicy, 0)
+
+	for _, v := range ivpols {
+		if v == nil {
+			continue
+		}
+
+		if isK8s && v.Spec.EvaluationMode() == v1alpha1.EvaluationModeKubernetes {
+			filteredPolicies = append(filteredPolicies, v)
+		} else if !isK8s && v.Spec.EvaluationMode() == v1alpha1.EvaluationModeJSON {
+			filteredPolicies = append(filteredPolicies, v)
+		}
+	}
+	return filteredPolicies
 }
