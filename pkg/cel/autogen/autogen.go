@@ -5,6 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -17,8 +18,7 @@ var podControllers = sets.New("daemonsets", "deployments", "jobs", "statefulsets
 //   - Pod is not defined
 //
 // Otherwise it returns all pod controllers
-func CanAutoGen(spec *policiesv1alpha1.ValidatingPolicySpec) (bool, sets.Set[string]) {
-	match := spec.MatchConstraints
+func CanAutoGen(match *admissionregistrationv1.MatchResources) (bool, sets.Set[string]) {
 	if match.NamespaceSelector != nil {
 		if len(match.NamespaceSelector.MatchLabels) > 0 || len(match.NamespaceSelector.MatchExpressions) > 0 {
 			return false, sets.New[string]()
@@ -50,7 +50,7 @@ func generateRules(spec *policiesv1alpha1.ValidatingPolicySpec, controllers stri
 	// strip cronjobs from controllers if exist
 	isRemoved, controllers := stripCronJob(controllers)
 	// generate rule for pod controllers
-	if genRule, err := generateRuleForControllers(spec, controllers); err == nil {
+	if genRule, err := generatePodControllerRule(spec, controllers); err == nil {
 		genRules = append(genRules, *genRule.DeepCopy())
 	}
 
@@ -83,7 +83,7 @@ func stripCronJob(controllers string) (bool, string) {
 }
 
 func ComputeRules(policy policiesv1alpha1.GenericPolicy) []policiesv1alpha1.AutogenRule {
-	applyAutoGen, desiredControllers := CanAutoGen(policy.GetSpec())
+	applyAutoGen, desiredControllers := CanAutoGen(policy.GetSpec().MatchConstraints)
 	if !applyAutoGen {
 		return []policiesv1alpha1.AutogenRule{}
 	}
