@@ -6,24 +6,54 @@ import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-var podImageExtractors = []v1alpha1.Image{
-	{
-		Name:       "containers",
-		Expression: "request.object.spec.containers.map(e, e.image)",
-	},
-	{
-		Name:       "initContainers",
-		Expression: "request.object.spec.initContainers.map(e, e.image)",
-	},
-	{
-		Name:       "ephemeralContainers",
-		Expression: "request.object.spec.ephemeralContainers.map(e, e.image)",
-	},
-	// TODO: add one for all
-}
+var (
+	podImageExtractors = []v1alpha1.Image{
+		{
+			Name:       "containers",
+			Expression: "request.object.spec.containers.map(e, e.image)",
+		},
+		{
+			Name:       "initContainers",
+			Expression: "request.object.spec.initContainers.map(e, e.image)",
+		},
+		{
+			Name:       "ephemeralContainers",
+			Expression: "request.object.spec.ephemeralContainers.map(e, e.image)",
+		},
+	}
+	podControllerImageExtractors = []v1alpha1.Image{
+		{
+			Name:       "containers",
+			Expression: "request.object.spec.template.spec.containers.map(e, e.image)",
+		},
+		{
+			Name:       "initContainers",
+			Expression: "request.object.spec.template.spec.initContainers.map(e, e.image)",
+		},
+		{
+			Name:       "ephemeralContainers",
+			Expression: "request.object.spec.template.spec.ephemeralContainers.map(e, e.image)",
+		},
+	}
+	cronJobImageExtractors = []v1alpha1.Image{
+		{
+			Name:       "containers",
+			Expression: "request.object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image)",
+		},
+		{
+			Name:       "initContainers",
+			Expression: "request.object.spec.jobTemplate.spec.template.spec.initContainers.map(e, e.image)",
+		},
+		{
+			Name:       "ephemeralContainers",
+			Expression: "request.object.spec.jobTemplate.spec.template.spec.ephemeralContainers.map(e, e.image)",
+		},
+	}
+)
 
 type CompiledImageExtractor struct {
 	key string
@@ -46,10 +76,10 @@ func (c *CompiledImageExtractor) GetImages(request interface{}) (string, []strin
 	return c.key, result, nil
 }
 
-func CompileImageExtractors(path *field.Path, imageExtractors []v1alpha1.Image, isPod bool) ([]*CompiledImageExtractor, field.ErrorList) {
+func CompileImageExtractors(path *field.Path, imageExtractors []v1alpha1.Image, gvr *metav1.GroupVersionResource) ([]*CompiledImageExtractor, field.ErrorList) {
 	var allErrs field.ErrorList
-	if isPod {
-		imageExtractors = append(imageExtractors, podImageExtractors...)
+	if gvr != nil {
+		imageExtractors = append(imageExtractors, getExtractorForGVR(gvr)...)
 	}
 
 	compiledMatches := make([]*CompiledImageExtractor, 0, len(imageExtractors))
@@ -91,4 +121,31 @@ func ExtractImages(c []*CompiledImageExtractor, request interface{}) (map[string
 		}
 	}
 	return result, nil
+}
+
+func getExtractorForGVR(gvr *metav1.GroupVersionResource) []v1alpha1.Image {
+	if gvr == nil {
+		return []v1alpha1.Image{}
+	}
+
+	if gvr.Group == "batch" && gvr.Version == "v1" {
+		if gvr.Resource == "jobs" {
+			return podControllerImageExtractors
+		} else if gvr.Resource == "cronjobs" {
+			return cronJobImageExtractors
+		}
+	}
+
+	if gvr.Group == "apps" && gvr.Version == "v1" {
+		r := gvr.Resource
+		if r == "deployments" || r == "statefulsets" || r == "daemonsets" || r == "replicasets" {
+			return podControllerImageExtractors
+		}
+	}
+
+	if gvr.Group == "" && gvr.Version == "v1" && gvr.Resource == "pods" {
+		return podImageExtractors
+	}
+
+	return []v1alpha1.Image{}
 }

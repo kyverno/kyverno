@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifierfunctions"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -29,18 +30,18 @@ type Compiler interface {
 	Compile(logr.Logger, *policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList)
 }
 
-func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, isPod bool) Compiler {
+func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
 	return &compiler{
 		ictx:   ictx,
 		lister: lister,
-		isPod:  isPod,
+		reqGVR: reqGVR,
 	}
 }
 
 type compiler struct {
 	ictx   imagedataloader.ImageContext
 	lister k8scorev1.SecretInterface
-	isPod  bool
+	reqGVR *metav1.GroupVersionResource
 }
 
 func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList) {
@@ -52,14 +53,20 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 	var declTypes []*apiservercel.DeclType
 	declTypes = append(declTypes, imageverifierfunctions.Types()...)
 	options := []cel.EnvOption{
-		cel.Variable(RequestKey, policy.RequestType.CelType()),
-		cel.Variable(NamespaceObjectKey, policy.NamespaceType.CelType()),
-		cel.Variable(ObjectKey, cel.DynType),
-		cel.Variable(OldObjectKey, cel.DynType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
 	}
+
+	if ivpolicy.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
+		options = append(options, cel.Variable(RequestKey, policy.RequestType.CelType()))
+		options = append(options, cel.Variable(NamespaceObjectKey, policy.NamespaceType.CelType()))
+		options = append(options, cel.Variable(ObjectKey, cel.DynType))
+		options = append(options, cel.Variable(OldObjectKey, cel.DynType))
+	} else {
+		options = append(options, cel.Variable(RequestKey, cel.DynType))
+	}
+
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
@@ -83,12 +90,12 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 		matchConditions = append(matchConditions, programs...)
 	}
 	imageRules, errs := match.CompileMatches(path.Child("imageRules"), ivpolicy.Spec.ImageRules)
-	if err != nil {
+	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
-	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), ivpolicy.Spec.Images, c.isPod)
-	if err != nil {
+	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), ivpolicy.Spec.Images, c.reqGVR)
+	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 

@@ -88,6 +88,10 @@ type ImageVerificationPolicySpec struct {
 	// +listType=atomic
 	Verifications []admissionregistrationv1.Validation `json:"verifications"`
 
+	// WebhookConfiguration defines the configuration for the webhook.
+	// +optional
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
+
 	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`

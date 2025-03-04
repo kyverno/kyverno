@@ -465,6 +465,7 @@ func (in *ImageVerificationPolicy) DeepCopyInto(out *ImageVerificationPolicy) {
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.Spec.DeepCopyInto(&out.Spec)
+	in.Status.DeepCopyInto(&out.Status)
 	return
 }
 
@@ -597,6 +598,11 @@ func (in *ImageVerificationPolicySpec) DeepCopyInto(out *ImageVerificationPolicy
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.WebhookConfiguration != nil {
+		in, out := &in.WebhookConfiguration, &out.WebhookConfiguration
+		*out = new(WebhookConfiguration)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.EvaluationConfiguration != nil {
 		in, out := &in.EvaluationConfiguration, &out.EvaluationConfiguration
