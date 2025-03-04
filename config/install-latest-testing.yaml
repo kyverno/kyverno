@@ -52005,6 +52005,15 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - celpolicyexceptions
+      - celpolicyexceptions/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports
