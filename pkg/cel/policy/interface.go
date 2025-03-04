@@ -13,5 +13,4 @@ func NewCompiler() Compiler {
 	return &compiler{}
 }
 
-type compiler struct {
-}
+type compiler struct{}
