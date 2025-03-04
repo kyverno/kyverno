@@ -242,5 +242,5 @@ func Test_evaluateJson(t *testing.T) {
 		assert.NilError(t, err)
 	}
 
-	t.Log(result)
+	assert.Assert(t, result.Result)
 }
