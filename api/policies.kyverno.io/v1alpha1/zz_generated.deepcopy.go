@@ -598,6 +598,11 @@ func (in *ImageVerificationPolicySpec) DeepCopyInto(out *ImageVerificationPolicy
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.EvaluationConfiguration != nil {
+		in, out := &in.EvaluationConfiguration, &out.EvaluationConfiguration
+		*out = new(EvaluationConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
