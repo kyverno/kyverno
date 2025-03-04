@@ -19,6 +19,9 @@ var podControllers = sets.New("daemonsets", "deployments", "jobs", "statefulsets
 //
 // Otherwise it returns all pod controllers
 func CanAutoGen(match *admissionregistrationv1.MatchResources) (bool, sets.Set[string]) {
+	if match == nil {
+		return false, sets.New[string]()
+	}
 	if match.NamespaceSelector != nil {
 		if len(match.NamespaceSelector.MatchLabels) > 0 || len(match.NamespaceSelector.MatchExpressions) > 0 {
 			return false, sets.New[string]()
