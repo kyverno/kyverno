@@ -59,6 +59,7 @@ func requestGVR(request *admissionv1.AdmissionRequest) *metav1.GroupVersionResou
 
 	return request.RequestResource
 }
+
 func filterPolicies(ivpols []*v1alpha1.ImageVerificationPolicy, isK8s bool) []*v1alpha1.ImageVerificationPolicy {
 	filteredPolicies := make([]*v1alpha1.ImageVerificationPolicy, 0)
 
