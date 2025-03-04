@@ -52,7 +52,7 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 		fineGrainedWebhook := false
 		if vpol.GetMatchConditions() != nil {
 			for _, m := range vpol.GetMatchConditions() {
-				if ok, _ := autogen.CanAutoGen(vpol.GetSpec()); ok {
+				if ok, _ := autogen.CanAutoGen(vpol.GetSpec().MatchConstraints); ok {
 					webhook.MatchConditions = append(webhook.MatchConditions, admissionregistrationv1.MatchCondition{
 						Name:       m.Name,
 						Expression: "!(object.kind == 'Pod') || " + m.Expression,
