@@ -74,6 +74,10 @@ func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controller
 	return generateRuleForControllers(spec, controllers, CRONJOBS)
 }
 
+func generatePodControllerRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
+	return generateRuleForControllers(spec, controllers, PODS)
+}
+
 func createMatchConstraints(controllers string, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
 	resources := strings.Split(controllers, ",")
 

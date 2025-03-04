@@ -199,11 +199,11 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			err := json.Unmarshal(test.policySpec, &spec)
 			assert.NilError(t, err)
 
-			genRule, err := generateRuleForControllers(spec, test.controllers, PODS)
+			genRule, err := generatePodControllerRule(spec, test.controllers)
 			assert.NilError(t, err)
 
 			if !reflect.DeepEqual(genRule, &test.generatedRule) {
-				t.Errorf("generateRuleForControllers() = %v, want %v", genRule, test.generatedRule)
+				t.Errorf("generatePodControllerRule() = %v, want %v", genRule, test.generatedRule)
 			}
 		})
 	}

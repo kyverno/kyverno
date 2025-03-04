@@ -50,7 +50,7 @@ func generateRules(spec *policiesv1alpha1.ValidatingPolicySpec, controllers stri
 	// strip cronjobs from controllers if exist
 	isRemoved, controllers := stripCronJob(controllers)
 	// generate rule for pod controllers
-	if genRule, err := generateRuleForControllers(spec, controllers, PODS); err == nil {
+	if genRule, err := generatePodControllerRule(spec, controllers); err == nil {
 		genRules = append(genRules, *genRule.DeepCopy())
 	}
 
