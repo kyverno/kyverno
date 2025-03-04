@@ -19,6 +19,9 @@ var podControllers = sets.New("daemonsets", "deployments", "jobs", "statefulsets
 // Otherwise it returns all pod controllers
 func CanAutoGen(spec *policiesv1alpha1.ValidatingPolicySpec) (bool, sets.Set[string]) {
 	match := spec.MatchConstraints
+	if match == nil {
+		return false, sets.New[string]()
+	}
 	if match.NamespaceSelector != nil {
 		if len(match.NamespaceSelector.MatchLabels) > 0 || len(match.NamespaceSelector.MatchExpressions) > 0 {
 			return false, sets.New[string]()

@@ -201,7 +201,7 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 		}
 		autogenIndex = index
 	}
-	result, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context, autogenIndex)
+	result, err := policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context, autogenIndex)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
