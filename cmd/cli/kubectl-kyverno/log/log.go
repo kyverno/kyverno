@@ -28,18 +28,8 @@ func configure(args ...string) error {
 		return err
 	}
 
-	logFormat := logging.TextFormat
-
-	for i, arg := range args {
-		if arg == "--logFormat" && i+1 < len(args) {
-			logFormat = args[i+1]
-		} else if strings.HasPrefix(arg, "--logFormat=") {
-			logFormat = strings.TrimPrefix(arg, "--logFormat=")
-		}
-	}
-
 	if isVerboseBool {
-		return logging.Setup(logFormat, logging.DefaultTime, level)
+		return logging.Setup(logging.TextFormat, logging.DefaultTime, level)
 	} else {
 		log.SetLogger(logr.Discard())
 	}

@@ -57,7 +57,6 @@ func InitFlags(flags *flag.FlagSet) {
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string, loggingTimestampFormat string, level int) error {
-	zerolog.SetGlobalLevel(zerolog.Level(level))
 	zerologr.SetMaxV(level)
 
 	var logger zerolog.Logger
