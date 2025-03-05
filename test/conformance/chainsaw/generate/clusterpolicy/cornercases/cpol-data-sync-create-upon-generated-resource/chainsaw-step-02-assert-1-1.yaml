@@ -7,6 +7,7 @@ metadata:
     generate.kyverno.io/rule-name: generate-otel-secret-config
     generate.kyverno.io/trigger-group: ""
     generate.kyverno.io/trigger-kind: Secret
+    generate.kyverno.io/trigger-name: otel-collector-signalfx-token
     generate.kyverno.io/trigger-namespace: cpol-data-sync-create-upon-generated-resource-ns
     generate.kyverno.io/trigger-version: v1
   name: otel-collector-signalfx-secret
@@ -22,6 +23,7 @@ metadata:
     generate.kyverno.io/rule-name: generate-otel-sa
     generate.kyverno.io/trigger-group: ""
     generate.kyverno.io/trigger-kind: Secret
+    generate.kyverno.io/trigger-name: otel-collector-signalfx-secret
     generate.kyverno.io/trigger-namespace: cpol-data-sync-create-upon-generated-resource-ns
     generate.kyverno.io/trigger-version: v1
   name: otel-collector-signalfx-sa

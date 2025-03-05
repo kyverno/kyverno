@@ -74,6 +74,7 @@ func TriggerInfo(labels map[string]string, obj unstructured.Unstructured) {
 	labels[GenerateTriggerVersionLabel] = obj.GroupVersionKind().Version
 	labels[GenerateTriggerGroupLabel] = obj.GroupVersionKind().Group
 	labels[GenerateTriggerKindLabel] = obj.GetKind()
+	labels[GenerateTriggerNameLabel] = obj.GetName()
 	labels[GenerateTriggerNSLabel] = obj.GetNamespace()
 	labels[GenerateTriggerUIDLabel] = string(obj.GetUID())
 }
