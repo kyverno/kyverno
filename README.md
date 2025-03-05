@@ -1,4 +1,4 @@
-# Kyverno [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Cloud%20Native%20Policy%20Management.%20No%20new%20language%20required%21&url=https://github.com/kyverno/kyverno/&hashtags=kubernetes,devops)
+# Kyverno [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Cloud%20Native%20Policy%20Management.%20No%20new%20language%20required%1&url=https://github.com/kyverno/kyverno/&hashtags=kubernetes,devops)
 
 **Cloud Native Policy Management 🎉**
 
@@ -37,6 +37,36 @@ Kyverno installation and reference documents are available at [kyverno.io](https
 👉 **[Installation](https://kyverno.io/docs/installation/)**
 
 👉 **[Sample Policies](https://kyverno.io/policies/)**
+
+## 🎯 Popular Use Cases
+
+Kyverno helps platform teams enforce best practices and security policies. Here are some common use cases:
+
+1. **Security & Compliance**
+   - Enforce pod security standards
+   - Require specific security contexts
+   - Validate image sources and signatures
+   - Ensure resource limits and requests
+
+2. **Operational Excellence**
+   - Automatically add labels and annotations
+   - Enforce naming conventions
+   - Generate default network policies
+   - Validate resource configurations
+
+3. **Cost Optimization**
+   - Enforce resource quotas
+   - Require cost allocation labels
+   - Clean up unused resources
+   - Validate instance types
+
+4. **Developer Guardrails**
+   - Enforce ingress/egress rules
+   - Require liveness/readiness probes
+   - Validate container images
+   - Auto-mount configuration
+
+Each use case includes ready-to-use policies in our [policy library](https://kyverno.io/policies/).
 
 ## 🙋‍♂️ Getting Help
 
