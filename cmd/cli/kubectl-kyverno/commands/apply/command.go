@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -39,6 +40,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -320,6 +322,15 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 	return responses, nil
 }
 
+type RESTMapper interface {
+	// RESTMapping identifies a preferred resource mapping for the provided group kind.
+	RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error)
+	// RESTMappings returns all resource mappings for the provided group kind if no
+	// version search is provided. Otherwise identifies a preferred resource mapping for
+	// the provided version(s).
+	RESTMappings(gk schema.GroupKind, versions ...string) ([]*meta.RESTMapping, error)
+}
+
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
 	exceptions []*policiesv1alpha1.CELPolicyException,
@@ -334,7 +345,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	eng := engine.NewEngine(provider, namespaceProvider, nil)
+	eng := engine.NewEngine(provider, namespaceProvider, matching.NewMatcher())
 	// TODO: mock when no cluster provided
 	var contextProvider celpolicy.Context
 	if dclient != nil {
@@ -346,17 +357,38 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			return nil, err
 		}
 	}
+	var restMapper *meta.DefaultRESTMapper
+	restMapper = meta.NewDefaultRESTMapper(nil)
+	restMapper.AddSpecific(
+		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployment"},
+		meta.RESTScopeNamespace,
+	)
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
+		// get gvk from resource
+		gvk := resource.GroupVersionKind()
+		// map gvk to gvr
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+		}
+		gvr := mapping.Resource
+		// create engine request
 		request := engine.Request(
 			contextProvider,
-			resource.GroupVersionKind(),
-			// TODO
-			schema.GroupVersionResource{},
+			gvk,
+			gvr,
 			// TODO
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
+			// TODO
 			admissionv1.Create,
 			resource,
 			nil,
