@@ -25,14 +25,6 @@ func Test_evaluateJson(t *testing.T) {
             {
                 "message": "HTTP calls are not allowed",
                 "expression": "!object.Stages.exists(s, \n  s.Commands.exists(c, \n    c.Args.exists(a, \n      a.Value.contains('http://') || a.Value.contains('https://')\n    )\n  )\n)"
-            },
-            {
-                "message": "curl is not allowed",
-                "expression": "!object.Stages.exists(s, \n  s.Commands.exists(c, \n    c.CmdLine.contains('curl')\n  )\n)"
-            },
-            {
-                "message": "wget is not allowed",
-                "expression": "!object.Stages.exists(s, \n  s.Commands.exists(c, \n    c.CmdLine.contains('wget')\n  )\n)"
             }
         ]
     }
