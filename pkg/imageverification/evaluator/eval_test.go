@@ -35,7 +35,7 @@ var (
 			Images: []policiesv1alpha1.Image{
 				{
 					Name:       "bar",
-					Expression: "[request.foo.bar]",
+					Expression: "[object.foo.bar]",
 				},
 			},
 			Attestors: []policiesv1alpha1.Attestor{
