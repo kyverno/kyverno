@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	stdlog "log"
 	"os"
@@ -74,6 +75,7 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 			Str("event.dataset", "kyverno.logs").
 			Str("service.name", "kyverno").
 			Str("log.level", zerolog.GlobalLevel().String()).
+			Str("log.logger", "zerolog").
 			Caller().
 			Logger()
 	default:
@@ -139,7 +141,7 @@ func V(level int) logr.Logger {
 func Info(msg string, keysAndValues ...interface{}) {
 	GlobalLogger().WithValues(
 		"event.action", "log",
-		"log.level", "info",
+		"log.level", strings.ToLower("info"),
 		"service.name", "kyverno",
 	).Info(msg, keysAndValues...)
 }
@@ -150,6 +152,8 @@ func Error(err error, msg string, keysAndValues ...interface{}) {
 		"event.action", "error",
 		"log.level", "error",
 		"service.name", "kyverno",
+		"error.message", err.Error(),
+		"error.stack_trace", fmt.Sprintf("%v", err),
 	).Error(err, msg, keysAndValues...)
 }
 
