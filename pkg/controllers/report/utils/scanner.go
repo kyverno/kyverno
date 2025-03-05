@@ -47,6 +47,7 @@ type Scanner interface {
 		string,
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+		[]*policiesv1alpha1.CELPolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
 }
@@ -76,6 +77,7 @@ func (s *scanner) ScanResource(
 	subResource string,
 	ns *corev1.Namespace,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+	exceptions []*policiesv1alpha1.CELPolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
 	var kpols, vpols, vaps []engineapi.GenericPolicy

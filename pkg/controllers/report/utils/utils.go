@@ -162,3 +162,12 @@ func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicy
 	}
 	return policies, nil
 }
+
+func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.CELPolicyExceptionLister, namespace string) ([]*policiesv1alpha1.CELPolicyException, error) {
+	exceptions, err := celexLister.CELPolicyExceptions(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	return exceptions, nil
+}
