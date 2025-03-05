@@ -10,27 +10,32 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
-func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
+type autogencontroller string
+
+var (
+	PODS     autogencontroller = "pods"
+	CRONJOBS autogencontroller = "cronjobs"
+)
+
+func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string, resource autogencontroller) (*policiesv1alpha1.AutogenRule, error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
-	// create a resource rule for the cronjob resource
+	// create a resource rule for pod controllers
 	matchConstraints := createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions, err := convertMatchconditions(spec.MatchConditions, "cronjobs", cronjobMatchConditionName, cronJobMatchConditionExpression)
+	matchConditions, err := convertMatchconditions(spec.MatchConditions, resource)
 	if err != nil {
 		return nil, err
 	}
 
 	// convert validations
 	validations := spec.Validations
-	for i := range validations {
-		if bytes, err := json.Marshal(validations[i]); err != nil {
+	if bytes, err := json.Marshal(validations); err != nil {
+		return nil, err
+	} else {
+		bytes = updateFields(bytes, resource)
+		if err := json.Unmarshal(bytes, &validations); err != nil {
 			return nil, err
-		} else {
-			bytes = updateFields(bytes, controllers)
-			if err := json.Unmarshal(bytes, &validations[i]); err != nil {
-				return nil, err
-			}
 		}
 	}
 
@@ -39,7 +44,7 @@ func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controller
 	if bytes, err := json.Marshal(auditAnnotations); err != nil {
 		return nil, err
 	} else {
-		bytes = updateFields(bytes, controllers)
+		bytes = updateFields(bytes, resource)
 		if err := json.Unmarshal(bytes, &auditAnnotations); err != nil {
 			return nil, err
 		}
@@ -50,7 +55,7 @@ func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controller
 	if bytes, err := json.Marshal(variables); err != nil {
 		return nil, err
 	} else {
-		bytes = updateFields(bytes, controllers)
+		bytes = updateFields(bytes, resource)
 		if err := json.Unmarshal(bytes, &variables); err != nil {
 			return nil, err
 		}
@@ -65,57 +70,12 @@ func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controller
 	}, nil
 }
 
-func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
-	operations := spec.MatchConstraints.ResourceRules[0].Operations
-	// create a resource rule for pod controllers
-	matchConstraints := createMatchConstraints(controllers, operations)
+func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
+	return generateRuleForControllers(spec, controllers, CRONJOBS)
+}
 
-	// convert match conditions
-	matchConditions, err := convertMatchconditions(spec.MatchConditions, "pods", podControllerMatchConditionName, podControllersMatchConditionExpression)
-	if err != nil {
-		return nil, err
-	}
-
-	// convert validations
-	validations := spec.Validations
-	if bytes, err := json.Marshal(validations); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &validations); err != nil {
-			return nil, err
-		}
-	}
-
-	// convert audit annotations
-	auditAnnotations := spec.AuditAnnotations
-	if bytes, err := json.Marshal(auditAnnotations); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &auditAnnotations); err != nil {
-			return nil, err
-		}
-	}
-
-	// convert variables
-	variables := spec.Variables
-	if bytes, err := json.Marshal(variables); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &variables); err != nil {
-			return nil, err
-		}
-	}
-
-	return &policiesv1alpha1.AutogenRule{
-		MatchConstraints: matchConstraints,
-		MatchConditions:  matchConditions,
-		Validations:      validations,
-		AuditAnnotation:  auditAnnotations,
-		Variables:        variables,
-	}, nil
+func generatePodControllerRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
+	return generateRuleForControllers(spec, controllers, PODS)
 }
 
 func createMatchConstraints(controllers string, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
@@ -164,7 +124,17 @@ func createMatchConstraints(controllers string, operations []admissionregistrati
 	}
 }
 
-func convertMatchconditions(conditions []admissionregistrationv1.MatchCondition, resource, name, expression string) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
+func convertMatchconditions(conditions []admissionregistrationv1.MatchCondition, resource autogencontroller) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
+	var name, expression string
+	switch resource {
+	case PODS:
+		name = podControllerMatchConditionName
+		expression = podControllersMatchConditionExpression
+	case CRONJOBS:
+		name = cronjobMatchConditionName
+		expression = cronJobMatchConditionExpression
+	}
+
 	for _, m := range conditions {
 		m.Name = name + m.Name
 		m.Expression = expression + m.Expression
@@ -201,13 +171,13 @@ var (
 	cronJobMatchConditionExpression        = "!(object.kind =='CronJob') || "
 )
 
-func updateFields(data []byte, resource string) []byte {
+func updateFields(data []byte, resource autogencontroller) []byte {
 	switch resource {
-	case "pods":
+	case PODS:
 		for _, replacement := range podReplacementRules {
 			data = bytes.ReplaceAll(data, replacement[0], replacement[1])
 		}
-	case "cronjobs":
+	case CRONJOBS:
 		for _, replacement := range cronJobReplacementRules {
 			data = bytes.ReplaceAll(data, replacement[0], replacement[1])
 		}

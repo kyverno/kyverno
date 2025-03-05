@@ -130,3 +130,17 @@ func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.
 		}
 	}
 }
+
+func (rc *ResultCounts) AddValidatingPolicyResponse(engineResponse engineapi.EngineResponse) {
+	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
+		if ruleResp.Status() == engineapi.RuleStatusPass {
+			rc.Pass++
+		} else if ruleResp.Status() == engineapi.RuleStatusFail {
+			rc.Fail++
+		} else if ruleResp.Status() == engineapi.RuleStatusError {
+			rc.Error++
+		} else if ruleResp.Status() == engineapi.RuleStatusSkip {
+			rc.Skip++
+		}
+	}
+}

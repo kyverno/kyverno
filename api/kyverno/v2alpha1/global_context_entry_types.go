@@ -18,6 +18,7 @@ package v2alpha1
 import (
 	"time"
 
+	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -29,7 +30,6 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=gctxentry,categories=kyverno,scope="Cluster"
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="REFRESH INTERVAL",type="string",JSONPath=".spec.apiCall.refreshInterval"
 // +kubebuilder:printcolumn:name="LAST REFRESH",type="date",JSONPath=".status.lastRefreshTime"
@@ -49,7 +49,7 @@ type GlobalContextEntry struct {
 
 // Validate implements programmatic validation
 func (c *GlobalContextEntry) Validate() (errs field.ErrorList) {
-	errs = append(errs, c.Spec.Validate(field.NewPath("spec"))...)
+	errs = append(errs, c.Spec.Validate(field.NewPath("spec"), c.Name)...)
 	return errs
 }
 
@@ -70,6 +70,10 @@ type GlobalContextEntrySpec struct {
 	// 2. Finer-grained control is needed. Example: To restrict the number of resources cached.
 	// +kubebuilder:validation:Optional
 	APICall *ExternalAPICall `json:"apiCall,omitempty"`
+
+	// Projections defines the list of JMESPath expressions to extract values from the cached resource.
+	// +kubebuilder:validation:Optional
+	Projections []GlobalContextEntryProjection `json:"projections,omitempty"`
 }
 
 func (c *GlobalContextEntrySpec) IsAPICall() bool {
@@ -81,7 +85,7 @@ func (c *GlobalContextEntrySpec) IsResource() bool {
 }
 
 // Validate implements programmatic validation
-func (c *GlobalContextEntrySpec) Validate(path *field.Path) (errs field.ErrorList) {
+func (c *GlobalContextEntrySpec) Validate(path *field.Path, gctxName string) (errs field.ErrorList) {
 	if c.IsResource() && c.IsAPICall() {
 		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
 	}
@@ -93,6 +97,9 @@ func (c *GlobalContextEntrySpec) Validate(path *field.Path) (errs field.ErrorLis
 	}
 	if c.IsAPICall() {
 		errs = append(errs, c.APICall.Validate(path.Child("apiCall"))...)
+	}
+	for i, p := range c.Projections {
+		errs = append(errs, p.Validate(path.Child("projections").Index(i), gctxName)...)
 	}
 	return errs
 }
@@ -167,6 +174,33 @@ func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
 	}
 	if e.Data != nil && e.Method != "POST" {
 		errs = append(errs, field.Forbidden(path.Child("method"), "An External API call with data should have method as POST"))
+	}
+	return errs
+}
+
+type GlobalContextEntryProjection struct {
+	// Name is the name to use for the extracted value in the context.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+	// JMESPath is the JMESPath expression to extract the value from the cached resource.
+	// +kubebuilder:validation:Required
+	JMESPath string `json:"jmesPath"`
+}
+
+// Validate implements programmatic validation
+func (p *GlobalContextEntryProjection) Validate(path *field.Path, gctxName string) (errs field.ErrorList) {
+	if p.Name == "" {
+		errs = append(errs, field.Required(path.Child("name"), "A projection entry requires a name"))
+	}
+	if p.Name == gctxName {
+		errs = append(errs, field.Required(path.Child("name"), "A projection entry requires a name different from the global context entry name"))
+	}
+	if p.JMESPath == "" {
+		errs = append(errs, field.Required(path.Child("jmesPath"), "A projection entry requires a JMESPath"))
+	}
+	_, err := gojmespath.Compile(p.JMESPath)
+	if err != nil {
+		errs = append(errs, field.Invalid(path.Child("jmesPath"), p.JMESPath, err.Error()))
 	}
 	return errs
 }

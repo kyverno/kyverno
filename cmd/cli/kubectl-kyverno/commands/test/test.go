@@ -104,12 +104,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
 	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
-	exceptions, err := exception.Load(exceptionFullPath...)
+	polexLoader, err := exception.Load(exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
 	}
 	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
-	if len(results.VAPs) > 0 && len(exceptions) > 0 {
+	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")
 	}
 	// init store
@@ -124,9 +124,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	policyPlural := pluralize.Pluralize(len(results.Policies)+len(results.VAPs), "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
-	if len(exceptions) > 0 {
-		exceptionCount := len(exceptions)
-		exceptionsPlural := pluralize.Pluralize(len(exceptions), "exception", "exceptions")
+	if polexLoader != nil {
+		exceptionCount := len(polexLoader.Exceptions)
+		exceptionCount += len(polexLoader.CELExceptions)
+		exceptionsPlural := pluralize.Pluralize(exceptionCount, "exception", "exceptions")
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "with", exceptionCount, exceptionsPlural, "...")
 	} else {
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "...")
@@ -180,7 +181,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
+		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
@@ -200,7 +201,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
-			PolicyExceptions:          exceptions,
+			PolicyExceptions:          polexLoader.Exceptions,
 			MutateLogPath:             "",
 			Variables:                 vars,
 			UserInfo:                  userInfo,

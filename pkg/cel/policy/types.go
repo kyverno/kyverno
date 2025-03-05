@@ -5,6 +5,6 @@ import (
 )
 
 var (
-	namespaceType = apiservercel.BuildNamespaceType()
-	requestType   = apiservercel.BuildRequestType()
+	NamespaceType = apiservercel.BuildNamespaceType()
+	RequestType   = apiservercel.BuildRequestType()
 )

@@ -2,7 +2,7 @@ package context
 
 import (
 	"github.com/google/cel-go/common/types"
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
@@ -17,6 +17,8 @@ type ContextInterface interface {
 	GetConfigMap(string, string) (unstructured.Unstructured, error)
 	GetGlobalReference(string) (any, error)
 	GetImageData(string) (*imagedataloader.ImageData, error)
+	ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error)
+	GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error)
 }
 
 type Context struct {

@@ -163,7 +163,6 @@ func createrLeaderControllers(
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
-		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 		serverIP,
 		int32(webhookTimeout), //nolint:gosec
 		servicePort,
@@ -290,7 +289,9 @@ func createrLeaderControllers(
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+			kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
+			kyvernoInformer.Policies().V1alpha1().CELPolicyExceptions(),
 			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
@@ -442,6 +443,7 @@ func main() {
 				eventGenerator,
 				maxAPICallResponseLength,
 				true,
+				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
 		)
@@ -588,12 +590,11 @@ func main() {
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,
-			setup.KyvernoClient,
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
 		contextProvider, err := celpolicy.NewContextProvider(
-			setup.KubeClient,
+			setup.KyvernoDynamicClient,
 			nil,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		)

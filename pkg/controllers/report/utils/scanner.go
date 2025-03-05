@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -139,7 +140,7 @@ func (s *scanner) ScanResource(
 			// create compiler
 			compiler := celpolicy.NewCompiler()
 			// create provider
-			provider, err := celengine.NewProvider(compiler, *pol)
+			provider, err := celengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, nil)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
@@ -153,7 +154,7 @@ func (s *scanner) ScanResource(
 			)
 			// create context provider
 			context, err := celpolicy.NewContextProvider(
-				s.client.GetKubeClient(),
+				s.client,
 				nil,
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},

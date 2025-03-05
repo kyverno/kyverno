@@ -37,10 +37,18 @@ func (f ProviderFunc) CompiledPolicies(ctx context.Context) ([]CompiledPolicy, e
 	return f(ctx)
 }
 
-func NewProvider(compiler policy.Compiler, policies ...policiesv1alpha1.ValidatingPolicy) (ProviderFunc, error) {
+func NewProvider(compiler policy.Compiler, policies []policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (ProviderFunc, error) {
 	compiled := make([]CompiledPolicy, 0, len(policies))
 	for _, vp := range policies {
-		policy, err := compiler.Compile(&vp, nil)
+		var matchedExceptions []policiesv1alpha1.CELPolicyException
+		for _, polex := range exceptions {
+			for _, ref := range polex.Spec.PolicyRefs {
+				if ref.Name == vp.GetName() {
+					matchedExceptions = append(matchedExceptions, *polex)
+				}
+			}
+		}
+		policy, err := compiler.CompileValidating(&vp, matchedExceptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
 		}
@@ -158,7 +166,7 @@ func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	compiled, errs := r.compiler.Compile(&policy, exceptions)
+	compiled, errs := r.compiler.CompileValidating(&policy, exceptions)
 	if len(errs) > 0 {
 		fmt.Println(errs)
 		// No need to retry it

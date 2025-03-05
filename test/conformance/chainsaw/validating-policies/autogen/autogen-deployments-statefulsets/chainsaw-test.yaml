@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: autogen-deployments-statefulsets
+  name: autogen-statefulsets-statefulsets
 spec:
   steps:
   - name: create policy
@@ -10,8 +10,19 @@ spec:
     - create:
         file: policy.yaml
     - sleep:
-        duration: 2s
+        duration: 10s
   - name: check autogen policy
     try:
     - assert:
         file: check-autogen.yaml
+  - name: create good statefulset
+    try:
+    - create:
+        file: good-statefulset.yaml
+  - name: create bad statefulset
+    try:
+    - create:
+        file: bad-statefulset.yaml
+        expect:
+          - check:
+              ($error != null): true

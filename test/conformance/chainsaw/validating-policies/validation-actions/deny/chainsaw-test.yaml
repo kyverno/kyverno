@@ -18,4 +18,4 @@ spec:
         expect:
           - check:
               ($error): >-
-                admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy check-deployment-labels rule rule-0 failed: Deployment labels must be env=prod
+                admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy check-deployment-labels failed: Deployment labels must be env=prod

@@ -106,6 +106,17 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Category: annotations[kyverno.AnnotationPolicyCategory],
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 	}
+
+	source := ""
+	if kyvernoPolicy := pol.AsKyvernoPolicy(); kyvernoPolicy != nil {
+		if kyvernoPolicy.BackgroundProcessingEnabled() {
+			source = "background scan"
+		} else if kyvernoPolicy.AdmissionProcessingEnabled() {
+			source = "admission review"
+		}
+	}
+	addProperty("source", source, &result)
+
 	if result.Result == "fail" && !result.Scored {
 		result.Result = "warn"
 	}
@@ -118,7 +129,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	if len(exceptions) > 0 {
 		var names []string
 		for _, exception := range exceptions {
-			names = append(names, exception.Name)
+			names = append(names, exception.GetName())
 		}
 		addProperty("exceptions", strings.Join(names, ","), &result)
 	}

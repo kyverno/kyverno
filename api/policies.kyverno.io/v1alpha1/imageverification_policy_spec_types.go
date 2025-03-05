@@ -20,6 +20,7 @@ const (
 // ImageVerificationPolicySpec is the specification of the desired behavior of the ImageVerificationPolicy.
 type ImageVerificationPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to validate.
+	// +optional
 	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints"`
 
 	// FailurePolicy defines how to handle failures for the admission policy. Failures can
@@ -86,6 +87,14 @@ type ImageVerificationPolicySpec struct {
 	// Verifications contain CEL expressions which is used to apply the image verification checks.
 	// +listType=atomic
 	Verifications []admissionregistrationv1.Validation `json:"verifications"`
+
+	// WebhookConfiguration defines the configuration for the webhook.
+	// +optional
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
+
+	// EvaluationConfiguration defines the configuration for the policy evaluation.
+	// +optional
+	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
 }
 
 // ImageRule defines a Glob or a CEL expression for matching images
@@ -94,6 +103,7 @@ type ImageRule struct {
 	// +optional
 	Glob string `json:"glob"`
 	// Cel defines CEL Expressions for matching images
+	// +optional
 	CELExpression string `json:"cel"`
 }
 
@@ -133,6 +143,18 @@ type Attestor struct {
 	Notary *Notary `json:"notary,omitempty"`
 }
 
+func (a Attestor) GetKey() string {
+	return a.Name
+}
+
+func (a Attestor) IsCosign() bool {
+	return a.Cosign != nil
+}
+
+func (a Attestor) IsNotary() bool {
+	return a.Notary != nil
+}
+
 // Cosign defines attestor configuration for Cosign based signatures
 type Cosign struct {
 	// Key defines the type of key to validate the image.
@@ -146,13 +168,18 @@ type Cosign struct {
 	Certificate *Certificate `json:"certificate,omitempty"`
 	// Sources sets the configuration to specify the sources from where to consume the signature and attestations.
 	// +optional
-	Sources []Source `json:"source,omitempty"`
+	Source *Source `json:"source,omitempty"`
 	// CTLog sets the configuration to verify the authority against a Rekor instance.
 	// +optional
 	CTLog *CTLog `json:"ctlog,omitempty"`
 	// TUF defines the configuration to fetch sigstore root
 	// +optional
 	TUF *TUF `json:"tuf,omitempty"`
+	// Annotations are used for image verification.
+	// Every specified key-value pair must exist and match in the verified payload.
+	// The payload may contain other key-value pairs.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // Notary defines attestor configuration for Notary based signatures
@@ -198,7 +225,7 @@ type Source struct {
 	// This is the 'tag based discovery' and in the future once references are
 	// fully supported that should likely be the preferred way to handle these.
 	// +optional
-	TagPrefix *string `json:"tagPrefix,omitempty"`
+	TagPrefix string `json:"tagPrefix,omitempty"`
 }
 
 // CTLog sets the configuration to verify the authority against a Rekor instance.
@@ -213,6 +240,11 @@ type CTLog struct {
 	// CTLogPubKey, if set, is used to validate SCTs against a custom source.
 	// +optional
 	CTLogPubKey string `json:"ctLogPubKey,omitempty"`
+	// TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+	// contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+	// may contain the leaf TSA certificate if not present in the timestamurce.
+	// +optional
+	TSACertChain string `json:"tsaCertChain,omitempty"`
 	// InsecureIgnoreTlog skips transparency log verification.
 	// +optional
 	InsecureIgnoreTlog bool `json:"insecureIgnoreTlog,omitempty"`
@@ -243,17 +275,14 @@ type Key struct {
 }
 
 // Keyless contains location of the validating certificate and the identities
-// against which to verify. KeylessRef will contain either the URL to the verifying
-// certificate, or it will contain the certificate data inline or in a secret.
+// against which to verify.
 type Keyless struct {
-	// URL defines a url to the keyless instance.
-	// +optional
-	URL string `json:"url,omitempty"`
 	// Identities sets a list of identities.
 	Identities []Identity `json:"identities"`
-	// CACert sets a reference to CA certificate
-	// +optional
-	CACert *Key `json:"ca-cert,omitempty"`
+	// Roots is an optional set of PEM encoded trusted root certificates.
+	// If not provided, the system roots are used.
+	// +kubebuilder:validation:Optional
+	Roots string `json:"roots,omitempty"`
 }
 
 // Certificate defines the configuration for local signature verification
@@ -301,6 +330,18 @@ type Attestation struct {
 	Referrer *Referrer `json:"referrer,omitempty"`
 }
 
+func (a Attestation) GetKey() string {
+	return a.Name
+}
+
+func (a Attestation) IsInToto() bool {
+	return a.InToto != nil
+}
+
+func (a Attestation) IsReferrer() bool {
+	return a.Referrer != nil
+}
+
 type InToto struct {
 	// Type defines the type of attestation contained within the statement.
 	Type string `json:"type"`
@@ -309,4 +350,12 @@ type InToto struct {
 type Referrer struct {
 	// Type defines the type of attestation attached to the image.
 	Type string `json:"type"`
+}
+
+// EvaluationMode returns the evaluation mode of the policy.
+func (s ImageVerificationPolicySpec) EvaluationMode() EvaluationMode {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
+		return EvaluationModeKubernetes
+	}
+	return s.EvaluationConfiguration.Mode
 }
