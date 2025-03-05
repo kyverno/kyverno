@@ -15,6 +15,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -40,12 +41,12 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 )
 
 type SkippedInvalidPolicies struct {
@@ -322,15 +323,6 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 	return responses, nil
 }
 
-type RESTMapper interface {
-	// RESTMapping identifies a preferred resource mapping for the provided group kind.
-	RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error)
-	// RESTMappings returns all resource mappings for the provided group kind if no
-	// version search is provided. Otherwise identifies a preferred resource mapping for
-	// the provided version(s).
-	RESTMappings(gk schema.GroupKind, versions ...string) ([]*meta.RESTMapping, error)
-}
-
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
 	exceptions []*policiesv1alpha1.CELPolicyException,
@@ -357,14 +349,11 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			return nil, err
 		}
 	}
-	var restMapper *meta.DefaultRESTMapper
-	restMapper = meta.NewDefaultRESTMapper(nil)
-	restMapper.AddSpecific(
-		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
-		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployment"},
-		meta.RESTScopeNamespace,
-	)
+	apiGroupResources, err := data.APIGroupResources()
+	if err != nil {
+		return nil, err
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		// get gvk from resource
