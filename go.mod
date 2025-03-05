@@ -71,7 +71,7 @@ require (
 	golang.org/x/crypto v0.35.0
 	golang.org/x/text v0.22.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/grpc v1.70.0
+	google.golang.org/grpc v1.71.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -94,7 +94,7 @@ require (
 )
 
 require (
-	cel.dev/expr v0.19.0 // indirect
+	cel.dev/expr v0.19.1 // indirect
 	cloud.google.com/go v0.118.0 // indirect
 	cloud.google.com/go/auth v0.14.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
