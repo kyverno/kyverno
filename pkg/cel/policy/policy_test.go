@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"gotest.tools/assert"
 )
@@ -243,4 +244,75 @@ func Test_evaluateJson(t *testing.T) {
 	}
 
 	t.Log(result)
+}
+
+func TestCompiledPolicy_EvaluateWithData_ServiceAccount(t *testing.T) {
+	tests := []struct {
+		name       string
+		policy     *compiledPolicy
+		data       evaluationData
+		wantResult bool
+		wantErr    bool
+	}{
+		{
+			name: "service account values are correctly accessible",
+			policy: &compiledPolicy{
+				validations: []CompiledValidation{
+					{
+						Program: mustCompileCEL(t, `serviceAccountName == 'test-sa' && serviceAccountNamespace == 'test-ns'`),
+					},
+				},
+			},
+			data: evaluationData{
+				ServiceAccountName:      "test-sa",
+				ServiceAccountNamespace: "test-ns",
+				Object:                  map[string]interface{}{},
+			},
+			wantResult: true,
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.policy.evaluateWithData(context.Background(), tt.data, -1)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("evaluateWithData() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if result == nil {
+				t.Fatal("expected result, got nil")
+			}
+
+			if result.Result != tt.wantResult {
+				t.Errorf("evaluateWithData() got result = %v, want %v", result.Result, tt.wantResult)
+			}
+		})
+	}
+}
+
+func mustCompileCEL(t *testing.T, expr string) cel.Program {
+	t.Helper()
+	env, err := cel.NewEnv(
+		cel.Variable("serviceAccountName", cel.StringType),
+		cel.Variable("serviceAccountNamespace", cel.StringType),
+		// Add other necessary variable declarations
+	)
+	if err != nil {
+		t.Fatalf("failed to create env: %v", err)
+	}
+
+	ast, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		t.Fatalf("failed to compile expression: %v", iss.Err())
+	}
+
+	program, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("failed to create program: %v", err)
+	}
+
+	return program
 }

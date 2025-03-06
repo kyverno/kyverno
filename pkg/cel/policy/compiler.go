@@ -15,12 +15,14 @@ import (
 )
 
 const (
-	ContextKey         = "context"
-	NamespaceObjectKey = "namespaceObject"
-	ObjectKey          = "object"
-	OldObjectKey       = "oldObject"
-	RequestKey         = "request"
-	VariablesKey       = "variables"
+	ContextKey                 = "context"
+	NamespaceObjectKey         = "namespaceObject"
+	ObjectKey                  = "object"
+	OldObjectKey               = "oldObject"
+	RequestKey                 = "request"
+	VariablesKey               = "variables"
+	ServiceAccountNameKey      = "serviceAccountName"
+	ServiceAccountNamespaceKey = "serviceAccountNamespace"
 )
 
 func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
@@ -113,6 +115,8 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		cel.Variable(OldObjectKey, cel.DynType),
 		cel.Variable(RequestKey, RequestType.CelType()),
 		cel.Variable(VariablesKey, VariablesType),
+		cel.Variable(ServiceAccountNameKey, cel.StringType),
+		cel.Variable(ServiceAccountNamespaceKey, cel.StringType),
 	}
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
@@ -120,7 +124,6 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	variablesProvider := NewVariablesProvider(base.CELTypeProvider())
 	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
-	variablesProvider.inner.NewValue(VariablesType.DeclaredTypeName(), )//trying to registering the variables value
 	if err != nil {
 		// TODO: proper error handling
 		panic(err)
