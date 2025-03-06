@@ -129,3 +129,21 @@ Made with [contributors-img](https://contrib.rocks).
 Copyright 2024, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
 
 Kyverno is a [Cloud Native Computing Foundation (CNCF) Incubating project](https://www.cncf.io/projects/) and was contributed by [Nirmata](https://nirmata.com/?utm_source=github&utm_medium=repository).
+
+## 🛠 Troubleshooting
+
+Encountering issues with Kyverno? Here are some common problems and their solutions:
+
+1. **Kyverno Pod Fails to Start**
+   - **Solution**: Check the pod logs using `kubectl logs <kyverno-pod-name>`. Ensure that the necessary permissions are set and that the Kubernetes API server is reachable.
+
+2. **Policies Not Being Applied**
+   - **Solution**: Verify that the policies are correctly defined and applied to the correct namespaces. Use `kubectl get policies` to list all policies and check their status.
+
+3. **Image Verification Fails**
+   - **Solution**: Ensure that the image signatures are correctly configured and that the public keys are available to Kyverno. Check the policy logs for detailed error messages.
+
+4. **Resource Quotas Not Enforced**
+   - **Solution**: Confirm that the resource quota policies are correctly defined and that the namespace has the necessary annotations. Use `kubectl describe quota` to inspect the quotas.
+
+For more detailed troubleshooting steps, visit our [troubleshooting guide](https://kyverno.io/docs/troubleshooting/).
