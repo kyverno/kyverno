@@ -181,12 +181,14 @@ func (e *engine) matchPolicy(policy CompiledPolicy, attr admission.Attributes, n
 	}
 
 	// match against main policy constraints
-	matches, err := match(policy.Policy.Spec.MatchConstraints)
-	if err != nil {
-		return false, -1, err
-	}
-	if matches {
-		return true, -1, nil
+	if policy.Policy.GetSpec().MatchConstraints != nil {
+		matches, err := match(policy.Policy.Spec.MatchConstraints)
+		if err != nil {
+			return false, -1, err
+		}
+		if matches {
+			return true, -1, nil
+		}
 	}
 
 	// match against autogen rules
