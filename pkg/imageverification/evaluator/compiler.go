@@ -64,15 +64,11 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 		options = append(options, cel.Variable(OldObjectKey, cel.DynType))
 	} else {
-		options = append(options, cel.Variable(RequestKey, cel.DynType))
+		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 	}
 
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
-	}
-	if err != nil {
-		// TODO: proper error handling
-		panic(err)
 	}
 	options = append(options, imageverifierfunctions.Lib(logger, c.ictx, ivpolicy, c.lister))
 	env, err := base.Extend(options...)
@@ -94,7 +90,7 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 		return nil, append(allErrs, errs...)
 	}
 
-	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), ivpolicy.Spec.Images, c.reqGVR)
+	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), ivpolicy.Spec.Images, c.reqGVR, options)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
