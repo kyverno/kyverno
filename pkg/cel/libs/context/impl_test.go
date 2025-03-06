@@ -2,10 +2,12 @@ package context
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -13,7 +15,7 @@ import (
 
 type ctx struct {
 	GetConfigMapFunc       func(string, string) (unstructured.Unstructured, error)
-	GetGlobalReferenceFunc func(string) (any, error)
+	GetGlobalReferenceFunc func(string, string) (any, error)
 	GetImageDataFunc       func(string) (*imagedataloader.ImageData, error)
 	ListResourcesFunc      func(string, string, string) (*unstructured.UnstructuredList, error)
 	GetResourcesFunc       func(string, string, string, string) (*unstructured.Unstructured, error)
@@ -23,8 +25,8 @@ func (mock *ctx) GetConfigMap(ns string, n string) (unstructured.Unstructured, e
 	return mock.GetConfigMapFunc(ns, n)
 }
 
-func (mock *ctx) GetGlobalReference(n string) (any, error) {
-	return mock.GetGlobalReferenceFunc(n)
+func (mock *ctx) GetGlobalReference(n, p string) (any, error) {
+	return mock.GetGlobalReferenceFunc(n, p)
 }
 
 func (mock *ctx) GetImageData(n string) (*imagedataloader.ImageData, error) {
@@ -71,6 +73,33 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	assert.True(t, called)
 }
 
+type mockGctxStore struct {
+	data map[string]store.Entry
+}
+
+func (m *mockGctxStore) Get(name string) (store.Entry, bool) {
+	entry, ok := m.data[name]
+	return entry, ok
+}
+
+func (m *mockGctxStore) Set(name string, data store.Entry) {
+	if m.data == nil {
+		m.data = make(map[string]store.Entry)
+	}
+	m.data[name] = data
+}
+
+type mockEntry struct {
+	data any
+	err  error
+}
+
+func (m *mockEntry) Get(_ string) (any, error) {
+	return m.data, m.err
+}
+
+func (m *mockEntry) Stop() {}
+
 func Test_impl_get_globalreference_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
@@ -82,28 +111,83 @@ func Test_impl_get_globalreference_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetGlobalReference("foo")`)
+	ast, issues := env.Compile(`context.GetGlobalReference("foo", "bar")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	called := false
-	data := map[string]any{
-		"context": Context{&ctx{
-			GetGlobalReferenceFunc: func(string) (any, error) {
-				type foo struct {
-					s string
-				}
-				called = true
-				return foo{"bar"}, nil
+
+	tests := []struct {
+		name          string
+		gctxStoreData map[string]store.Entry
+		expectedValue any
+		expectedError string
+	}{
+		{
+			name:          "global context entry not found",
+			gctxStoreData: map[string]store.Entry{},
+			expectedError: "global context entry not found",
+		},
+		{
+			name: "global context entry returns error",
+			gctxStoreData: map[string]store.Entry{
+				"foo": &mockEntry{err: errors.New("get entry error")},
 			},
-		}},
+			expectedError: "get entry error",
+		},
+		{
+			name: "global context entry returns string",
+			gctxStoreData: map[string]store.Entry{
+				"foo": &mockEntry{data: "stringValue"},
+			},
+			expectedValue: "stringValue",
+		},
+		{
+			name: "global context entry returns map",
+			gctxStoreData: map[string]store.Entry{
+				"foo": &mockEntry{data: map[string]interface{}{"key": "value"}},
+			},
+			expectedValue: map[string]interface{}{"key": "value"},
+		},
 	}
-	out, _, err := prog.Eval(data)
-	assert.NoError(t, err)
-	assert.NotNil(t, out)
-	assert.True(t, called)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockStore := &mockGctxStore{data: tt.gctxStoreData}
+			data := map[string]any{
+				"context": Context{&ctx{
+					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
+						ent, ok := mockStore.Get(name)
+						if !ok {
+							return nil, errors.New("global context entry not found")
+						}
+						return ent.Get(path)
+					},
+				}},
+			}
+			out, _, err := prog.Eval(data)
+
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				assert.NoError(t, err)
+				if tt.expectedValue == nil {
+					assert.Nil(t, out.Value())
+				} else {
+					assert.NotNil(t, out)
+					if expectedUnstructured, ok := tt.expectedValue.(unstructured.Unstructured); ok {
+						actualUnstructured, ok := out.Value().(unstructured.Unstructured)
+						assert.True(t, ok, "Expected unstructured.Unstructured, got %T", out.Value())
+						assert.Equal(t, expectedUnstructured, actualUnstructured)
+					} else {
+						assert.Equal(t, tt.expectedValue, out.Value())
+					}
+				}
+			}
+		})
+	}
 }
 
 func Test_impl_get_imagedata_string(t *testing.T) {

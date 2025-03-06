@@ -35,6 +35,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -348,11 +349,13 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	}
 	eng := engine.NewEngine(provider, namespaceProvider, matching.NewMatcher())
 	// TODO: mock when no cluster provided
+	gctxStore := gctxstore.New()
 	var contextProvider celpolicy.Context
 	if dclient != nil {
 		contextProvider, err = celpolicy.NewContextProvider(
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			gctxStore,
 		)
 		if err != nil {
 			return nil, err
