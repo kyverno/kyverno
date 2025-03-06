@@ -15,6 +15,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -28,12 +29,13 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
@@ -45,6 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 )
 
 type SkippedInvalidPolicies struct {
@@ -335,13 +338,13 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	eng := engine.NewEngine(provider, namespaceProvider, nil)
+	eng := engine.NewEngine(provider, namespaceProvider, matching.NewMatcher())
 	// TODO: mock when no cluster provided
 	gctxStore := gctxstore.New()
 	var contextProvider celpolicy.Context
 	if dclient != nil {
 		contextProvider, err = celpolicy.NewContextProvider(
-			dclient.GetKubeClient(),
+			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			gctxStore,
 		)
@@ -349,17 +352,35 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			return nil, err
 		}
 	}
+	apiGroupResources, err := data.APIGroupResources()
+	if err != nil {
+		return nil, err
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
+		// get gvk from resource
+		gvk := resource.GroupVersionKind()
+		// map gvk to gvr
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+		}
+		gvr := mapping.Resource
+		// create engine request
 		request := engine.Request(
 			contextProvider,
-			resource.GroupVersionKind(),
-			// TODO
-			schema.GroupVersionResource{},
+			gvk,
+			gvr,
 			// TODO
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
+			// TODO
 			admissionv1.Create,
 			resource,
 			nil,

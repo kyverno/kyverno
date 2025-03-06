@@ -6,13 +6,16 @@ import (
 	"errors"
 
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -20,21 +23,23 @@ type Context = contextlib.ContextInterface
 
 type contextProvider struct {
 	client    kubernetes.Interface
+	dclient   dynamic.Interface
 	imagedata imagedataloader.Fetcher
 	gctxStore gctxstore.Store
 }
 
 func NewContextProvider(
-	client kubernetes.Interface,
+	client dclient.Interface,
 	imageOpts []imagedataloader.Option,
 	gctxStore gctxstore.Store,
 ) (Context, error) {
-	idl, err := imagedataloader.New(client.CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
+	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return &contextProvider{
-		client:    client,
+		client:    client.GetKubeClient(),
+		dclient:   client.GetDynamicInterface(),
 		imagedata: idl,
 		gctxStore: gctxStore,
 	}, nil
@@ -52,12 +57,12 @@ func (cp *contextProvider) GetConfigMap(namespace string, name string) (unstruct
 	return *out, nil
 }
 
-func (cp *contextProvider) GetGlobalReference(name, _ string) (any, error) {
+func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
 	ent, ok := cp.gctxStore.Get(name)
 	if !ok {
 		return nil, errors.New("global context entry not found")
 	}
-	data, err := ent.Get()
+	data, err := ent.Get(projection)
 	if err != nil {
 		return nil, err
 	}
@@ -107,4 +112,40 @@ func isLikelyKubernetesObject(data any) bool {
 	}
 
 	return false
+}
+
+func (cp *contextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+	groupVersion, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	var resourceInteface dynamic.ResourceInterface
+
+	client := cp.dclient.Resource(groupVersion.WithResource(resource))
+	if namespace != "" {
+		resourceInteface = client.Namespace(namespace)
+	} else {
+		resourceInteface = client
+	}
+
+	return resourceInteface.List(context.TODO(), metav1.ListOptions{})
+}
+
+func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	groupVersion, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	var resourceInteface dynamic.ResourceInterface
+
+	client := cp.dclient.Resource(groupVersion.WithResource(resource))
+	if namespace != "" {
+		resourceInteface = client.Namespace(namespace)
+	} else {
+		resourceInteface = client
+	}
+
+	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
 }

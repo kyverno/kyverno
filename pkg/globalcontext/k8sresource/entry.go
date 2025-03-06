@@ -2,6 +2,7 @@ package k8sresource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -75,23 +76,6 @@ func New(
 		return nil, err
 	}
 
-	group.StartWithContext(ctx, func(ctx context.Context) {
-		informer.Informer().Run(ctx.Done())
-	})
-
-	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
-		stop()
-		err := fmt.Errorf("failed to sync cache for %s", gvr)
-		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
-			APIVersion: gce.APIVersion,
-			Kind:       gce.Kind,
-			Name:       gce.Name,
-			Namespace:  gce.Namespace,
-			UID:        gce.UID,
-		}, err))
-		return nil, err
-	}
-
 	var projections []store.Projection
 	if len(gce.Spec.Projections) > 0 {
 		for _, p := range gce.Spec.Projections {
@@ -126,6 +110,23 @@ func New(
 		return nil, err
 	}
 
+	group.StartWithContext(ctx, func(ctx context.Context) {
+		informer.Informer().Run(ctx.Done())
+	})
+
+	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
+		stop()
+		err := fmt.Errorf("failed to sync cache for %s", gvr)
+		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: gce.APIVersion,
+			Kind:       gce.Kind,
+			Name:       gce.Name,
+			Namespace:  gce.Namespace,
+			UID:        gce.UID,
+		}, err))
+		return nil, err
+	}
+
 	return e, nil
 }
 
@@ -142,8 +143,32 @@ func (e *entry) handleAdd(obj interface{}) {
 		return
 	}
 
+	jsonData, err := json.Marshal(obj)
+	if err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, fmt.Errorf("failed to marshal object: %w", err)))
+		return
+	}
+
+	var data any
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, fmt.Errorf("failed to unmarshal object: %w", err)))
+		return
+	}
+
 	e.objectsMu.Lock()
-	e.objects[key] = obj
+	e.objects[key] = data
 	e.objectsMu.Unlock()
 
 	e.recomputeProjections()
@@ -162,8 +187,32 @@ func (e *entry) handleUpdate(obj interface{}) {
 		return
 	}
 
+	jsonData, err := json.Marshal(obj)
+	if err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, fmt.Errorf("failed to marshal object: %w", err)))
+		return
+	}
+
+	var data any
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, fmt.Errorf("failed to unmarshal object: %w", err)))
+		return
+	}
+
 	e.objectsMu.Lock()
-	e.objects[key] = obj
+	e.objects[key] = data
 	e.objectsMu.Unlock()
 
 	e.recomputeProjections()

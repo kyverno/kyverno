@@ -8602,6 +8602,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -13718,6 +13724,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.
@@ -18538,6 +18550,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -23712,6 +23730,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.
@@ -29176,6 +29200,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -34293,6 +34323,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.
@@ -39114,6 +39150,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -44288,6 +44330,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.
@@ -48452,7 +48500,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: PolicyException declares resources to be excluded from specified
+        description: CELPolicyException declares resources to be excluded from specified
           policies.
         properties:
           apiVersion:
@@ -48598,12 +48646,6 @@ spec:
             description: ValidatingPolicySpec is the specification of the desired
               behavior of the ValidatingPolicy.
             properties:
-              admission:
-                default: true
-                description: |-
-                  Admission controls if rules are applied during admission.
-                  Optional. Default value is "true".
-                type: boolean
               auditAnnotations:
                 description: |-
                   auditAnnotations contains CEL expressions which are used to produce audit
@@ -48656,13 +48698,39 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
-              background:
-                default: true
-                description: |-
-                  Background controls if rules are applied to existing resources during a background scan.
-                  Optional. Default value is "true". The value must be set to "false" if the policy rule
-                  uses variables that are only available in the admission review request (e.g. user name).
-                type: boolean
+              evaluation:
+                description: EvaluationConfiguration defines the configuration for
+                  the policy evaluation.
+                properties:
+                  admission:
+                    description: Admission controls policy evaluation during admission.
+                    properties:
+                      enabled:
+                        default: true
+                        description: |-
+                          Enabled controls if rules are applied during admission.
+                          Optional. Default value is "true".
+                        type: boolean
+                    type: object
+                  background:
+                    description: Background  controls policy evaluation during background
+                      scan.
+                    properties:
+                      enabled:
+                        default: true
+                        description: |-
+                          Enabled controls if rules are applied to existing resources during a background scan.
+                          Optional. Default value is "true". The value must be set to "false" if the policy rule
+                          uses variables that are only available in the admission review request (e.g. user name).
+                        type: boolean
+                    type: object
+                  mode:
+                    description: |-
+                      Mode is the mode of policy evaluation.
+                      Allowed values are "Kubernetes" or "JSON".
+                      Optional. Default value is "Kubernetes".
+                    type: string
+                type: object
               failurePolicy:
                 description: |-
                   failurePolicy defines how to handle failures for the admission policy. Failures can
@@ -48679,6 +48747,12 @@ spec:
 
                   Allowed values are Ignore or Fail. Defaults to Fail.
                 type: string
+              generate:
+                default: false
+                description: |-
+                  Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+                  Optional. Defaults to "false" if not specified.
+                type: boolean
               matchConditions:
                 description: |-
                   MatchConditions is a list of conditions that must be met for a request to be validated.
@@ -49070,26 +49144,6 @@ spec:
                       x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-type: atomic
-                type: object
-                x-kubernetes-map-type: atomic
-              paramKind:
-                description: |-
-                  ParamKind specifies the kind of resources used to parameterize this policy.
-                  If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
-                  If ParamKind refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.
-                  If paramKind is specified but paramRef is unset in ValidatingAdmissionPolicyBinding, the params variable will be null.
-                properties:
-                  apiVersion:
-                    description: |-
-                      APIVersion is the API group version the resources belong to.
-                      In format of "group/version".
-                      Required.
-                    type: string
-                  kind:
-                    description: |-
-                      Kind is the API kind the resources belong to.
-                      Required.
-                    type: string
                 type: object
                 x-kubernetes-map-type: atomic
               validationActions:
@@ -49856,11 +49910,22 @@ spec:
                   - type
                   type: object
                 type: array
+              generated:
+                description: Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+                  is generated from the policy or not
+                type: boolean
+              message:
+                description: |-
+                  Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+                  It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.
+                type: string
               ready:
                 description: |-
                   The ready of a policy is a high-level summary of where the policy is in its lifecycle.
                   The conditions array, the reason and message fields contain more detail about the policy's status.
                 type: boolean
+            required:
+            - message
             type: object
         required:
         - spec
@@ -51939,6 +52004,15 @@ rules:
       - update
       - watch
       - deletecollection
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - celpolicyexceptions
+      - celpolicyexceptions/status
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - reports.kyverno.io
     resources:

@@ -534,7 +534,7 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 }
 
 func matchSignatures(signatures []oci.Signature, subject, subjectRegExp, issuer, issuerRegExp string, extensions map[string]string) error {
-	if subject == "" && issuer == "" && len(extensions) == 0 {
+	if subject == "" && issuer == "" && subjectRegExp == "" && issuerRegExp == "" && len(extensions) == 0 {
 		return nil
 	}
 
