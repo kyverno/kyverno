@@ -30,3 +30,12 @@ func ConvertObjectToUnstructured(obj any) (*unstructured.Unstructured, error) {
 	}
 	return &unstructured.Unstructured{Object: ret}, nil
 }
+
+func ConvertBytesToUnstructuredList(b []byte) (*unstructured.UnstructuredList, error) {
+	list := &unstructured.UnstructuredList{}
+	err := list.UnmarshalJSON(b)
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}

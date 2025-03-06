@@ -135,19 +135,19 @@ func (e *entry) setData(data any, err error) {
 	if err != nil {
 		e.err = err
 	} else {
-		if len(e.projections) > 0 {
-			var jsonData any
-			if bytes, ok := data.([]byte); ok {
-				err = json.Unmarshal(bytes, &jsonData)
-				if err != nil {
-					e.err = err
-					return
-				}
-			} else {
-				e.err = fmt.Errorf("data is not a byte array")
+		var jsonData any
+		if bytes, ok := data.([]byte); ok {
+			err = json.Unmarshal(bytes, &jsonData)
+			if err != nil {
+				e.err = err
 				return
 			}
-
+		} else {
+			e.err = fmt.Errorf("data is not a byte array")
+			return
+		}
+		e.dataMap[""] = jsonData
+		if len(e.projections) > 0 {
 			for _, projection := range e.projections {
 				result, err := projection.JP.Search(jsonData)
 				if err != nil {
@@ -157,8 +157,6 @@ func (e *entry) setData(data any, err error) {
 				e.dataMap[projection.Name] = result
 			}
 			e.err = nil
-		} else {
-			e.dataMap[""] = data
 		}
 	}
 }

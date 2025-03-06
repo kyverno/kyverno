@@ -18,4 +18,4 @@ spec:
   - name: check validatingadmissionpolicybinding
     try:
     - assert:
-        file: validatingadmissionpolicy.yaml
+        file: validatingadmissionpolicybinding.yaml

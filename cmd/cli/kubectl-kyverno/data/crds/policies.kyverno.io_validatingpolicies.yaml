@@ -102,7 +102,7 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
-              evaluationConfiguration:
+              evaluation:
                 description: EvaluationConfiguration defines the configuration for
                   the policy evaluation.
                 properties:
@@ -128,6 +128,12 @@ spec:
                           uses variables that are only available in the admission review request (e.g. user name).
                         type: boolean
                     type: object
+                  mode:
+                    description: |-
+                      Mode is the mode of policy evaluation.
+                      Allowed values are "Kubernetes" or "JSON".
+                      Optional. Default value is "Kubernetes".
+                    type: string
                 type: object
               failurePolicy:
                 description: |-
@@ -145,6 +151,12 @@ spec:
 
                   Allowed values are Ignore or Fail. Defaults to Fail.
                 type: string
+              generate:
+                default: false
+                description: |-
+                  Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+                  Optional. Defaults to "false" if not specified.
+                type: boolean
               matchConditions:
                 description: |-
                   MatchConditions is a list of conditions that must be met for a request to be validated.

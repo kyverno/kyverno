@@ -31,7 +31,7 @@ type EvaluationResult struct {
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
+	Evaluate(context.Context, interface{}, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
 }
 
 type CompiledValidation struct {
@@ -53,6 +53,7 @@ type compiledException struct {
 }
 
 type compiledPolicy struct {
+	mode             policiesv1alpha1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
@@ -62,7 +63,44 @@ type compiledPolicy struct {
 	exceptions       []compiledException
 }
 
+type evaluationData struct {
+	Namespace interface{}
+	Object    interface{}
+	OldObject interface{}
+	Request   interface{}
+	Context   contextlib.ContextInterface
+	Variables *lazy.MapValue
+}
+
 func (p *compiledPolicy) Evaluate(
+	ctx context.Context,
+	json interface{},
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	context contextlib.ContextInterface,
+	autogenIndex int,
+) (*EvaluationResult, error) {
+	switch p.mode {
+	case policiesv1alpha1.EvaluationModeJSON:
+		return p.evaluateJson(ctx, json)
+	default:
+		return p.evaluateKubernetes(ctx, attr, request, namespace, context, autogenIndex)
+	}
+}
+
+func (p *compiledPolicy) evaluateJson(
+	ctx context.Context,
+	json interface{},
+) (*EvaluationResult, error) {
+	data := evaluationData{
+		Object:    json,
+		Variables: lazy.NewMapValue(VariablesType),
+	}
+	return p.evaluateWithData(ctx, data, -1)
+}
+
+func (p *compiledPolicy) evaluateKubernetes(
 	ctx context.Context,
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
@@ -70,11 +108,23 @@ func (p *compiledPolicy) Evaluate(
 	context contextlib.ContextInterface,
 	autogenIndex int,
 ) (*EvaluationResult, error) {
+	data, err := p.prepareK8sData(attr, request, namespace, context)
+	if err != nil {
+		return nil, err
+	}
+	return p.evaluateWithData(ctx, data, autogenIndex)
+}
+
+func (p *compiledPolicy) evaluateWithData(
+	ctx context.Context,
+	data evaluationData,
+	autogenIndex int,
+) (*EvaluationResult, error) {
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]policiesv1alpha1.CELPolicyException, 0)
 		for _, polex := range p.exceptions {
-			match, err := p.match(ctx, attr, request, namespace, polex.matchConditions)
+			match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, polex.matchConditions)
 			if err != nil {
 				return nil, err
 			}
@@ -100,41 +150,27 @@ func (p *compiledPolicy) Evaluate(
 		validations = p.validations
 		variables = p.variables
 	}
-	match, err := p.match(ctx, attr, request, namespace, matchConditions)
+
+	match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, matchConditions)
 	if err != nil {
 		return nil, err
 	}
 	if !match {
 		return nil, nil
 	}
-	namespaceVal, err := objectToResolveVal(namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-	}
-	objectVal, err := objectToResolveVal(attr.GetObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-	requestVal, err := convertObjectToUnstructured(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-	}
+
 	vars := lazy.NewMapValue(VariablesType)
-	data := map[string]any{
-		ContextKey:         contextlib.Context{ContextInterface: context},
-		NamespaceObjectKey: namespaceVal,
-		ObjectKey:          objectVal,
-		OldObjectKey:       oldObjectVal,
-		RequestKey:         requestVal.Object,
+	dataNew := map[string]any{
+		ContextKey:         contextlib.Context{ContextInterface: data.Context},
+		NamespaceObjectKey: data.Namespace,
+		ObjectKey:          data.Object,
+		OldObjectKey:       data.OldObject,
+		RequestKey:         data.Request,
 		VariablesKey:       vars,
 	}
 	for name, variable := range variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, _, err := variable.ContextEval(ctx, data)
+			out, _, err := variable.ContextEval(ctx, dataNew)
 			if out != nil {
 				return out
 			}
@@ -146,7 +182,7 @@ func (p *compiledPolicy) Evaluate(
 	}
 
 	for index, validation := range validations {
-		out, _, err := validation.Program.ContextEval(ctx, data)
+		out, _, err := validation.Program.ContextEval(ctx, dataNew)
 		if err != nil {
 			return nil, err
 		}
@@ -193,34 +229,50 @@ func (p *compiledPolicy) Evaluate(
 	return &EvaluationResult{Result: true}, nil
 }
 
-func (p *compiledPolicy) match(
-	ctx context.Context,
+func (p *compiledPolicy) prepareK8sData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	matchConditions []cel.Program,
-) (bool, error) {
+	context contextlib.ContextInterface,
+) (evaluationData, error) {
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
-		return false, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+		return evaluationData{}, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
 	}
 	objectVal, err := objectToResolveVal(attr.GetObject())
 	if err != nil {
-		return false, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+		return evaluationData{}, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
 	}
 	oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
 	if err != nil {
-		return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		return evaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
 	requestVal, err := convertObjectToUnstructured(request)
 	if err != nil {
-		return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
+	return evaluationData{
+		Namespace: namespaceVal,
+		Object:    objectVal,
+		OldObject: oldObjectVal,
+		Request:   requestVal.Object,
+		Context:   context,
+	}, nil
+}
+
+func (p *compiledPolicy) match(
+	ctx context.Context,
+	namespaceVal interface{},
+	objectVal interface{},
+	oldObjectVal interface{},
+	requestVal interface{},
+	matchConditions []cel.Program,
+) (bool, error) {
 	data := map[string]any{
 		NamespaceObjectKey: namespaceVal,
 		ObjectKey:          objectVal,
 		OldObjectKey:       oldObjectVal,
-		RequestKey:         requestVal.Object,
+		RequestKey:         requestVal,
 	}
 	var errs []error
 	for _, matchCondition := range matchConditions {

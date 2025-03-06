@@ -59,6 +59,23 @@ func (c *controller) getExceptions(policyName, rule string) ([]kyvernov2.PolicyE
 	return exceptions, nil
 }
 
+// getCELExceptions get CELPolicyExceptions that match the ValidatingPolicy.
+func (c *controller) getCELExceptions(policyName string) ([]policiesv1alpha1.CELPolicyException, error) {
+	var exceptions []policiesv1alpha1.CELPolicyException
+	polexs, err := c.celpolexLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	for _, polex := range polexs {
+		for _, policy := range polex.Spec.PolicyRefs {
+			if policy.Name == policyName {
+				exceptions = append(exceptions, *polex)
+			}
+		}
+	}
+	return exceptions, nil
+}
+
 func constructVapBindingName(vapName string) string {
 	return vapName + "-binding"
 }

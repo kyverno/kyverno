@@ -272,7 +272,7 @@ func Test_CanAutoGen(t *testing.T) {
 			err := json.Unmarshal(test.policy, &policy)
 			assert.NilError(t, err)
 
-			applyAutoGen, controllers := CanAutoGen(&policy.Spec)
+			applyAutoGen, controllers := CanAutoGen(policy.Spec.MatchConstraints)
 			if !applyAutoGen {
 				controllers = sets.New("none")
 			}

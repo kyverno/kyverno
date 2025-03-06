@@ -66,6 +66,7 @@ type controller struct {
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
+	celpolexListener policiesv1alpha1listers.CELPolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	bgscanrLister    cache.GenericLister
@@ -96,6 +97,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	celpolexlInformer policiesv1alpha1informers.CELPolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
@@ -138,6 +140,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if celpolexlInformer != nil {
+		c.celpolexListener = celpolexlInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(celpolexlInformer.Informer(), c.addCELException, c.updateCELException, c.deleteCELPolicy); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -200,6 +208,20 @@ func (c *controller) addException(obj *kyvernov2.PolicyException) {
 }
 
 func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteCELPolicy(obj *policiesv1alpha1.CELPolicyException) {
+	c.enqueueResources()
+}
+
+func (c *controller) addCELException(obj *policiesv1alpha1.CELPolicyException) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateCELException(old, obj *policiesv1alpha1.CELPolicyException) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
@@ -342,6 +364,7 @@ func (c *controller) reconcileReport(
 	gvr schema.GroupVersionResource,
 	resource resource.Resource,
 	exceptions []kyvernov2.PolicyException,
+	celexceptions []*policiesv1alpha1.CELPolicyException,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) error {
@@ -448,7 +471,7 @@ func (c *controller) reconcileReport(
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
 			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig)
-			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, bindings, policy) {
+			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, bindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
 				} else if result.EngineResponse != nil {
@@ -586,6 +609,11 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	if err != nil {
 		return err
 	}
+	// load celexceptions with background process enabled
+	celexceptions, err := utils.FetchCELPolicyExceptions(c.celpolexListener, namespace)
+	if err != nil {
+		return err
+	}
 	// we have the resource, check if we need to reconcile
 	if needsReconcile, full, err := c.needsReconcile(namespace, name, resource.Hash, exceptions, vapBindings, policies...); err != nil {
 		return err
@@ -594,7 +622,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			c.queue.AddAfter(key, c.forceDelay)
 		}()
 		if needsReconcile {
-			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, resource, exceptions, vapBindings, policies...)
+			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, resource, exceptions, celexceptions, vapBindings, policies...)
 		}
 	}
 	return nil

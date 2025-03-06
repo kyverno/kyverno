@@ -49,6 +49,7 @@ kyverno apply [flags]
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
   -h, --help                               help for apply
+      --json strings                       Path to JSON payload files
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
   -o, --output string                      Prints the mutated/generated resources in provided file/directory

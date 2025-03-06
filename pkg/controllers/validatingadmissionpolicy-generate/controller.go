@@ -53,6 +53,7 @@ type controller struct {
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
+	celpolexLister   policiesv1alpha1listers.CELPolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 
@@ -70,6 +71,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
+	celpolexInformer policiesv1alpha1informers.CELPolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
@@ -86,6 +88,7 @@ func NewController(
 		cpolLister:       cpolInformer.Lister(),
 		vpolLister:       vpolInformer.Lister(),
 		polexLister:      polexInformer.Lister(),
+		celpolexLister:   celpolexInformer.Lister(),
 		vapLister:        vapInformer.Lister(),
 		vapbindingLister: vapbindingInformer.Lister(),
 		queue:            queue,
@@ -105,6 +108,11 @@ func NewController(
 
 	// Set up an event handler for when policy exceptions change
 	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+
+	// Set up an event handler for when cel policy exceptions change
+	if _, err := controllerutils.AddEventHandlersT(celpolexInformer.Informer(), c.addCELException, c.updateCELException, c.deleteCELException); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 
@@ -152,6 +160,38 @@ func (c *controller) enqueueVP(obj *policiesv1alpha1.ValidatingPolicy) {
 		return
 	}
 	c.queue.Add("ValidatingPolicy/" + key)
+}
+
+func (c *controller) addCELException(obj *policiesv1alpha1.CELPolicyException) {
+	logger.V(2).Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	c.enqueueCELException(obj)
+}
+
+func (c *controller) updateCELException(old, obj *policiesv1alpha1.CELPolicyException) {
+	if datautils.DeepEqual(old.Spec, obj.Spec) {
+		return
+	}
+	logger.V(2).Info("policy exception updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	c.enqueueCELException(obj)
+}
+
+func (c *controller) deleteCELException(obj *policiesv1alpha1.CELPolicyException) {
+	polex := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.CELPolicyException)
+
+	logger.V(2).Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
+	c.enqueueCELException(obj)
+}
+
+func (c *controller) enqueueCELException(obj *policiesv1alpha1.CELPolicyException) {
+	for _, policy := range obj.Spec.PolicyRefs {
+		if policy.Kind == "ValidatingPolicy" {
+			vpol, err := c.getValidatingPolicy(policy.Name)
+			if err != nil {
+				return
+			}
+			c.enqueueVP(vpol)
+		}
+	}
 }
 
 func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
@@ -299,9 +339,8 @@ func (c *controller) enqueueVAPbinding(vb *admissionregistrationv1.ValidatingAdm
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	var policy engineapi.GenericPolicy
-	var exceptions []kyvernov2.PolicyException
-	var err error
 	var vapName string
+	genericExceptions := make([]engineapi.GenericException, 0)
 
 	polType := strings.Split(key, "/")[0]
 	if polType == "ClusterPolicy" {
@@ -353,12 +392,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	// in case of clusterpolicies, check if we can generate a VAP from it.
 	if polType == "ClusterPolicy" {
 		spec := policy.AsKyvernoPolicy().GetSpec()
-		exceptions, err = c.getExceptions(name, spec.Rules[0].Name)
+		exceptions, err := c.getExceptions(name, spec.Rules[0].Name)
 		if err != nil {
 			return err
 		}
 
-		if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions); !ok {
+		if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions, false); !ok {
 			// delete the ValidatingAdmissionPolicy if exist
 			if vapErr == nil {
 				err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
@@ -379,6 +418,9 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			}
 			c.updatePolicyStatus(ctx, policy, false, msg)
 			return nil
+		}
+		for _, exception := range exceptions {
+			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
 		}
 	}
 
@@ -405,8 +447,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 	}
 
+	celexceptions, err := c.getCELExceptions(name)
+	if err != nil {
+		return err
+	}
+	for _, exception := range celexceptions {
+		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
+	}
+
 	if observedVAP.ResourceVersion == "" {
-		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, exceptions)
+		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, genericExceptions)
 		if err != nil {
 			c.updatePolicyStatus(ctx, policy, false, err.Error())
 			return err
@@ -422,7 +472,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			observedVAP,
 			c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1.ValidatingAdmissionPolicy) error {
-				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, exceptions)
+				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, genericExceptions)
 			})
 		if err != nil {
 			c.updatePolicyStatus(ctx, policy, false, err.Error())

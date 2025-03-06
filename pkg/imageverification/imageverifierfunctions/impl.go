@@ -20,6 +20,7 @@ import (
 type ivfuncs struct {
 	types.Adapter
 
+	logger          logr.Logger
 	imgCtx          imagedataloader.ImageContext
 	creds           *v1alpha1.Credentials
 	imgRules        []*match.CompiledMatch
@@ -81,13 +82,13 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(ctx context.Context)
 
 				if attestor.IsCosign() {
 					if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
-						return types.NewErr("failed to get imagedata: %v", err)
+						f.logger.Info("failed to verify image cosign: %v", err)
 					} else {
 						count += 1
 					}
 				} else if attestor.IsNotary() {
 					if err := f.notaryVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
-						return types.NewErr("failed to get imagedata: %v", err)
+						f.logger.Info("failed to verify image notary: %v", err)
 					} else {
 						count += 1
 					}
@@ -136,13 +137,13 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 
 				if attestor.IsCosign() {
 					if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
-						return types.NewErr("failed to get imagedata: %v", err)
+						f.logger.Info("failed to verify attestation cosign: %v", err)
 					} else {
 						count += 1
 					}
 				} else if attestor.IsNotary() {
 					if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
-						return types.NewErr("failed to get imagedata: %v", err)
+						f.logger.Info("failed to verify attestation notary: %v", err)
 					} else {
 						count += 1
 					}

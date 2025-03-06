@@ -5,7 +5,6 @@ import (
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1alpha1"
 	celpolicyexceptions "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/celpolicyexceptions"
 	imageverificationpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/imageverificationpolicies"
-	mutatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/mutatingpolicies"
 	validatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/validatingpolicies"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/client-go/rest"
@@ -40,10 +39,6 @@ func (c *withMetrics) ImageVerificationPolicies() github_com_kyverno_kyverno_pkg
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ImageVerificationPolicy", c.clientType)
 	return imageverificationpolicies.WithMetrics(c.inner.ImageVerificationPolicies(), recorder)
 }
-func (c *withMetrics) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.MutatingPolicyInterface {
-	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingPolicy", c.clientType)
-	return mutatingpolicies.WithMetrics(c.inner.MutatingPolicies(), recorder)
-}
 func (c *withMetrics) ValidatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.ValidatingPolicyInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingPolicy", c.clientType)
 	return validatingpolicies.WithMetrics(c.inner.ValidatingPolicies(), recorder)
@@ -63,9 +58,6 @@ func (c *withTracing) CELPolicyExceptions(namespace string) github_com_kyverno_k
 func (c *withTracing) ImageVerificationPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.ImageVerificationPolicyInterface {
 	return imageverificationpolicies.WithTracing(c.inner.ImageVerificationPolicies(), c.client, "ImageVerificationPolicy")
 }
-func (c *withTracing) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.MutatingPolicyInterface {
-	return mutatingpolicies.WithTracing(c.inner.MutatingPolicies(), c.client, "MutatingPolicy")
-}
 func (c *withTracing) ValidatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.ValidatingPolicyInterface {
 	return validatingpolicies.WithTracing(c.inner.ValidatingPolicies(), c.client, "ValidatingPolicy")
 }
@@ -83,9 +75,6 @@ func (c *withLogging) CELPolicyExceptions(namespace string) github_com_kyverno_k
 }
 func (c *withLogging) ImageVerificationPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.ImageVerificationPolicyInterface {
 	return imageverificationpolicies.WithLogging(c.inner.ImageVerificationPolicies(), c.logger.WithValues("resource", "ImageVerificationPolicies"))
-}
-func (c *withLogging) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.MutatingPolicyInterface {
-	return mutatingpolicies.WithLogging(c.inner.MutatingPolicies(), c.logger.WithValues("resource", "MutatingPolicies"))
 }
 func (c *withLogging) ValidatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.ValidatingPolicyInterface {
 	return validatingpolicies.WithLogging(c.inner.ValidatingPolicies(), c.logger.WithValues("resource", "ValidatingPolicies"))

@@ -17,5 +17,6 @@ spec:
       validate:
         failureAction: Audit
         cel:
+          generate: true
           expressions:
             - expression: "'app' in object.metadata.labels"

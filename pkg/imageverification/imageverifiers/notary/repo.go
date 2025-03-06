@@ -20,7 +20,6 @@ func NewRepository(image *imagedataloader.ImageData) notationregistry.Repository
 }
 
 func (c *repositoryClient) Resolve(_ context.Context, img string) (ocispec.Descriptor, error) {
-	fmt.Println(img)
 	return c.image.FetchReference(img)
 }
 

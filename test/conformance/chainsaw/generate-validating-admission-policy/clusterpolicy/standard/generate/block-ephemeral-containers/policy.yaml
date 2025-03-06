@@ -17,6 +17,7 @@ spec:
     validate:
       failureAction: Enforce
       cel:
+        generate: true
         expressions:
           - expression: "!has(object.spec.ephemeralContainers)"
             message: "Ephemeral (debug) containers are not permitted."

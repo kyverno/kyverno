@@ -592,6 +592,12 @@ func (pss *PodSecurityStandard) Validate(path *field.Path) (errs field.ErrorList
 
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 type CEL struct {
+	// Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+	// Optional. Defaults to "false" if not specified.
+	// +optional
+	// +kubebuilder:default=false
+	Generate *bool `json:"generate,omitempty"`
+
 	// Expressions is a list of CELExpression types.
 	Expressions []admissionregistrationv1.Validation `json:"expressions,omitempty"`
 
@@ -612,6 +618,10 @@ type CEL struct {
 	// The variables defined here will be available under `variables` in other expressions of the policy.
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty"`
+}
+
+func (c *CEL) GenerateVAP() bool {
+	return c.Generate != nil && *c.Generate
 }
 
 func (c *CEL) HasParam() bool {

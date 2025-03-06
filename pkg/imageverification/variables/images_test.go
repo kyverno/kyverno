@@ -5,8 +5,12 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -14,8 +18,8 @@ func Test_Match(t *testing.T) {
 	tests := []struct {
 		name           string
 		imageExtractor []v1alpha1.Image
-		request        any
-		isPod          bool
+		request        map[string]any
+		gvr            *metav1.GroupVersionResource
 		wantResult     map[string][]string
 		wantErr        bool
 	}{
@@ -27,10 +31,12 @@ func Test_Match(t *testing.T) {
 					Expression: "request.images",
 				},
 			},
-			request: map[string][]string{
-				"images": {
-					"nginx:latest",
-					"alpine:latest",
+			request: map[string]any{
+				"request": map[string][]string{
+					"images": {
+						"nginx:latest",
+						"alpine:latest",
+					},
 				},
 			},
 			wantResult: map[string][]string{
@@ -39,7 +45,7 @@ func Test_Match(t *testing.T) {
 					"alpine:latest",
 				},
 			},
-			isPod:   false,
+			gvr:     nil,
 			wantErr: false,
 		},
 		{
@@ -51,34 +57,36 @@ func Test_Match(t *testing.T) {
 				},
 			},
 			request: map[string]any{
-				"images": []string{
-					"nginx:latest",
-					"alpine:latest",
-				},
-				"object": map[string]any{
-					"spec": map[string]any{
-						"containers": []map[string]string{
-							{
-								"image": "kyverno/image-one",
+				"request": map[string]any{
+					"images": []string{
+						"nginx:latest",
+						"alpine:latest",
+					},
+					"object": map[string]any{
+						"spec": map[string]any{
+							"containers": []map[string]string{
+								{
+									"image": "kyverno/image-one",
+								},
+								{
+									"image": "kyverno/image-two",
+								},
 							},
-							{
-								"image": "kyverno/image-two",
+							"initContainers": []map[string]string{
+								{
+									"image": "kyverno/init-image-one",
+								},
+								{
+									"image": "kyverno/init-image-two",
+								},
 							},
-						},
-						"initContainers": []map[string]string{
-							{
-								"image": "kyverno/init-image-one",
-							},
-							{
-								"image": "kyverno/init-image-two",
-							},
-						},
-						"ephemeralContainers": []map[string]string{
-							{
-								"image": "kyverno/ephr-image-one",
-							},
-							{
-								"image": "kyverno/ephr-image-two",
+							"ephemeralContainers": []map[string]string{
+								{
+									"image": "kyverno/ephr-image-one",
+								},
+								{
+									"image": "kyverno/ephr-image-two",
+								},
 							},
 						},
 					},
@@ -102,7 +110,7 @@ func Test_Match(t *testing.T) {
 					"kyverno/ephr-image-two",
 				},
 			},
-			isPod:   true,
+			gvr:     &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			wantErr: false,
 		},
 		{
@@ -113,16 +121,18 @@ func Test_Match(t *testing.T) {
 					Expression: "request.images",
 				},
 			},
-			request: map[string][]int{
-				"images": {0, 1},
+			request: map[string]any{
+				"request": map[string][]int{
+					"images": {0, 1},
+				},
 			},
-			isPod:   false,
+			gvr:     nil,
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, errList := CompileImageExtractors(field.NewPath("spec", "images"), tt.imageExtractor, tt.isPod)
+			c, errList := CompileImageExtractors(field.NewPath("spec", "images"), tt.imageExtractor, tt.gvr, []cel.EnvOption{cel.Variable(policy.RequestKey, types.DynType)})
 			assert.Nil(t, errList)
 			images, err := ExtractImages(c, tt.request)
 			if tt.wantErr {

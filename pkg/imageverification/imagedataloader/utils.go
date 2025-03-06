@@ -54,3 +54,21 @@ func OCISpectoGCRDesc(ocidesc ocispec.Descriptor) (*gcrv1.Descriptor, error) {
 
 	return gcrDesc, nil
 }
+
+func BuildRemoteOpts(secrets []string, providers []string, insecure bool) []Option {
+	opts := make([]Option, 0)
+
+	if insecure {
+		opts = append(opts, WithInsecure(insecure))
+	}
+
+	if len(providers) != 0 {
+		opts = append(opts, WithCredentialProviders(providers...))
+	}
+
+	if len(secrets) != 0 {
+		opts = append(opts, WithPullSecret(secrets))
+	}
+
+	return opts
+}

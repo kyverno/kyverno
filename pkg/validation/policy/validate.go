@@ -454,7 +454,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 
 	// check for CEL expression warnings in case of CEL subrules
-	if ok, _ := admissionpolicy.CanGenerateVAP(spec, nil); ok && client != nil {
+	if ok, _ := admissionpolicy.CanGenerateVAP(spec, nil, true); ok && client != nil {
 		resolver := &resolver.ClientDiscoveryResolver{
 			Discovery: client.GetKubeClient().Discovery(),
 		}

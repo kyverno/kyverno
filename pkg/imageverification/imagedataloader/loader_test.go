@@ -27,7 +27,7 @@ func Test_ImageDataLoader(t *testing.T) {
 	assert.Equal(t, img.Digest, "sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
 	assert.Equal(t, img.ResolvedImage, "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
 
-	img, err = idf.FetchImageData(context.TODO(), "nginx")
+	img, err = idf.FetchImageData(context.TODO(), "ghcr.io/kyverno/kyverno:latest")
 	assert.NoError(t, err)
 	indexMediaType := img.ImageIndex.(map[string]interface{})["mediaType"].(string)
 	assert.Equal(t, indexMediaType, string(types.OCIImageIndex))

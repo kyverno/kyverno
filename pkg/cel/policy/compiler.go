@@ -24,6 +24,80 @@ const (
 )
 
 func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+	switch policy.GetSpec().EvaluationMode() {
+	case policiesv1alpha1.EvaluationModeJSON:
+		return c.compileForJSON(policy, exceptions)
+	default:
+		return c.compileForKubernetes(policy, exceptions)
+	}
+}
+
+func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+	var allErrs field.ErrorList
+	base, err := engine.NewEnv()
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	variablesProvider := NewVariablesProvider(base.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider()
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	options := []cel.EnvOption{
+		cel.Variable(ObjectKey, cel.DynType),
+	}
+
+	options = append(options, declOptions...)
+	options = append(options, context.Lib())
+	env, err := base.Extend(options...)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	path := field.NewPath("spec")
+	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
+	{
+		path := path.Child("matchConditions")
+		programs, errs := CompileMatchConditions(path, policy.Spec.MatchConditions, env)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		matchConditions = append(matchConditions, programs...)
+	}
+	variables := map[string]cel.Program{}
+	{
+		path := path.Child("variables")
+		errs := compileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+	}
+	validations := make([]CompiledValidation, 0, len(policy.Spec.Validations))
+	{
+		path := path.Child("validations")
+		for i, rule := range policy.Spec.Validations {
+			path := path.Index(i)
+			program, errs := CompileValidation(path, rule, env)
+			if errs != nil {
+				return nil, append(allErrs, errs...)
+			}
+			validations = append(validations, program)
+		}
+	}
+
+	return &compiledPolicy{
+		mode:            policiesv1alpha1.EvaluationModeJSON,
+		failurePolicy:   policy.GetFailurePolicy(),
+		matchConditions: matchConditions,
+		variables:       variables,
+		validations:     validations,
+	}, nil
+}
+
+func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -150,6 +224,7 @@ func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, 
 	}
 
 	return &compiledPolicy{
+		mode:             policiesv1alpha1.EvaluationModeKubernetes,
 		failurePolicy:    policy.GetFailurePolicy(),
 		matchConditions:  matchConditions,
 		variables:        variables,

@@ -179,6 +179,12 @@ type referrerData struct {
 func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error) {
 	if identifier == i.Digest {
 		return GCRtoOCISpecDesc(i.desc.Descriptor), nil
+	} else if i.referrersManifest != nil {
+		for _, m := range i.referrersManifest.Manifests {
+			if identifier == m.Digest.String() {
+				return GCRtoOCISpecDesc(m), nil
+			}
+		}
 	}
 
 	d, err := remote.Head(i.NameRef.Context().Digest(identifier), i.RemoteOpts...)

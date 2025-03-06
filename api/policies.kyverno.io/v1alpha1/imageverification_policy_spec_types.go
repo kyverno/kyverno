@@ -20,6 +20,7 @@ const (
 // ImageVerificationPolicySpec is the specification of the desired behavior of the ImageVerificationPolicy.
 type ImageVerificationPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to validate.
+	// +optional
 	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints"`
 
 	// FailurePolicy defines how to handle failures for the admission policy. Failures can
@@ -86,6 +87,14 @@ type ImageVerificationPolicySpec struct {
 	// Verifications contain CEL expressions which is used to apply the image verification checks.
 	// +listType=atomic
 	Verifications []admissionregistrationv1.Validation `json:"verifications"`
+
+	// WebhookConfiguration defines the configuration for the webhook.
+	// +optional
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
+
+	// EvaluationConfiguration defines the configuration for the policy evaluation.
+	// +optional
+	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
 }
 
 // ImageRule defines a Glob or a CEL expression for matching images
@@ -94,6 +103,7 @@ type ImageRule struct {
 	// +optional
 	Glob string `json:"glob"`
 	// Cel defines CEL Expressions for matching images
+	// +optional
 	CELExpression string `json:"cel"`
 }
 
@@ -340,4 +350,12 @@ type InToto struct {
 type Referrer struct {
 	// Type defines the type of attestation attached to the image.
 	Type string `json:"type"`
+}
+
+// EvaluationMode returns the evaluation mode of the policy.
+func (s ImageVerificationPolicySpec) EvaluationMode() EvaluationMode {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
+		return EvaluationModeKubernetes
+	}
+	return s.EvaluationConfiguration.Mode
 }

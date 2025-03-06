@@ -95,6 +95,17 @@ func (c *FakeImageVerificationPolicies) Update(ctx context.Context, imageVerific
 	return obj.(*v1alpha1.ImageVerificationPolicy), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeImageVerificationPolicies) UpdateStatus(ctx context.Context, imageVerificationPolicy *v1alpha1.ImageVerificationPolicy, opts v1.UpdateOptions) (*v1alpha1.ImageVerificationPolicy, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewRootUpdateSubresourceAction(imageverificationpoliciesResource, "status", imageVerificationPolicy), &v1alpha1.ImageVerificationPolicy{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.ImageVerificationPolicy), err
+}
+
 // Delete takes name of the imageVerificationPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeImageVerificationPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
