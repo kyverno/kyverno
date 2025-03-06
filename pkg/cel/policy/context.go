@@ -91,3 +91,7 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
 }
+
+func (cp *contextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
+	return cp.imagedata.ParseImageReference(image)
+}

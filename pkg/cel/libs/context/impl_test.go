@@ -12,11 +12,12 @@ import (
 )
 
 type ctx struct {
-	GetConfigMapFunc       func(string, string) (unstructured.Unstructured, error)
-	GetGlobalReferenceFunc func(string) (any, error)
-	GetImageDataFunc       func(string) (*imagedataloader.ImageData, error)
-	ListResourcesFunc      func(string, string, string) (*unstructured.UnstructuredList, error)
-	GetResourcesFunc       func(string, string, string, string) (*unstructured.Unstructured, error)
+	GetConfigMapFunc        func(string, string) (unstructured.Unstructured, error)
+	GetGlobalReferenceFunc  func(string) (any, error)
+	GetImageDataFunc        func(string) (*imagedataloader.ImageData, error)
+	ParseImageReferenceFunc func(string) (imagedataloader.ImageReference, error)
+	ListResourcesFunc       func(string, string, string) (*unstructured.UnstructuredList, error)
+	GetResourcesFunc        func(string, string, string, string) (*unstructured.Unstructured, error)
 }
 
 func (mock *ctx) GetConfigMap(ns string, n string) (unstructured.Unstructured, error) {
@@ -29,6 +30,10 @@ func (mock *ctx) GetGlobalReference(n string) (any, error) {
 
 func (mock *ctx) GetImageData(n string) (*imagedataloader.ImageData, error) {
 	return mock.GetImageDataFunc(n)
+}
+
+func (mock *ctx) ParseImageReference(n string) (imagedataloader.ImageReference, error) {
+	return mock.ParseImageReferenceFunc(n)
 }
 
 func (mock *ctx) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
@@ -140,6 +145,40 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.True(t, img.ConfigData != nil)
 	assert.True(t, img.Manifest != nil)
 	assert.True(t, img.ImageIndex != nil)
+}
+
+func Test_impl_parse_image_ref_string(t *testing.T) {
+	opts := Lib()
+	base, err := cel.NewEnv(opts)
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	options := []cel.EnvOption{
+		cel.Variable("context", ContextType),
+	}
+	env, err := base.Extend(options...)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+	ast, issues := env.Compile(`context.ParseImageReference("ghcr.io/kyverno/kyverno:latest")`)
+	assert.Nil(t, issues)
+	assert.NotNil(t, ast)
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+	assert.NotNil(t, prog)
+	data := map[string]any{
+		"context": Context{&ctx{
+			ParseImageReferenceFunc: func(image string) (imagedataloader.ImageReference, error) {
+				idl, err := imagedataloader.New(nil)
+				assert.NoError(t, err)
+				return idl.ParseImageReference(image)
+			},
+		}},
+	}
+	out, _, err := prog.Eval(data)
+	assert.NoError(t, err)
+	img := out.Value().(imagedataloader.ImageReference)
+	assert.Equal(t, img.Tag, "latest")
+	assert.Equal(t, img.Identifier, "latest")
+	assert.Equal(t, img.Image, "ghcr.io/kyverno/kyverno:latest")
 }
 
 func Test_impl_get_resource_string(t *testing.T) {
