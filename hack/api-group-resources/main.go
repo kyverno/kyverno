@@ -21,13 +21,11 @@ func main() {
 		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
 	flag.Parse()
-
 	// use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
-
 	client := kubernetes.NewForConfigOrDie(config)
 	groupResources, err := restmapper.GetAPIGroupResources(client.Discovery())
 	if err != nil {
