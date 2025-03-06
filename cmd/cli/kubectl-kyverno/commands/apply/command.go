@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -34,6 +35,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -79,6 +81,7 @@ type ApplyCommandConfig struct {
 	inlineExceptions      bool
 	GenerateExceptions    bool
 	GeneratedExceptionTTL time.Duration
+	JSONPaths             []string
 }
 
 func Command() *cobra.Command {
@@ -110,6 +113,9 @@ func Command() *cobra.Command {
 				for _, response := range responses {
 					var failedRules []engineapi.RuleResponse
 					resPath := fmt.Sprintf("%s/%s/%s", response.Resource.GetNamespace(), response.Resource.GetKind(), response.Resource.GetName())
+					if resPath == "//" {
+						resPath = "JSON payload"
+					}
 					for _, rule := range response.PolicyResponse.Rules {
 						if rule.Status() == engineapi.RuleStatusFail {
 							failedRules = append(failedRules, rule)
@@ -143,6 +149,8 @@ func Command() *cobra.Command {
 			return exit(out, rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
 		},
 	}
+
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.JSONPaths, "json", "", []string{}, "Path to JSON payload files")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resources", "", []string{}, "Path to resource files")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resource", "", []string{}, "Path to individual files containing target resources files for policies that have mutate existing")
@@ -209,7 +217,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var targetResources []*unstructured.Unstructured
 	if len(c.TargetResourcePaths) > 0 {
-		targetResources, err = c.loadResources(out, c.TargetResourcePaths, policies, vaps, nil)
+		targetResources, _, err = c.loadResources(out, c.TargetResourcePaths, policies, vaps, nil)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, err
 		}
@@ -218,7 +226,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	resources, err := c.loadResources(out, c.ResourcePaths, policies, vaps, dClient)
+	resources, jsonPayloads, err := c.loadResources(out, c.ResourcePaths, policies, vaps, dClient)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -247,10 +255,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(vps)
 		exceptionsCount := len(exceptions)
 		exceptionsCount += len(celexceptions)
+		resourceCount := len(resources) + len(jsonPayloads)
 		if exceptionsCount > 0 {
-			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, len(resources), exceptionsCount)
+			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, resourceCount, exceptionsCount)
 		} else {
-			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
+			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, resourceCount)
 		}
 	}
 	rc, resources1, responses1, err := c.applyPolicies(
@@ -272,7 +281,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses3, err := c.applyValidatingPolicies(vps, celexceptions, resources1, variables.Namespace, rc, dClient)
+	responses3, err := c.applyValidatingPolicies(vps, jsonPayloads, celexceptions, resources1, variables.Namespace, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -325,6 +334,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
+	jsonPayloads []*unstructured.Unstructured,
 	exceptions []*policiesv1alpha1.CELPolicyException,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
@@ -339,11 +349,13 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	}
 	eng := engine.NewEngine(provider, namespaceProvider, matching.NewMatcher())
 	// TODO: mock when no cluster provided
+	gctxStore := gctxstore.New()
 	var contextProvider celpolicy.Context
 	if dclient != nil {
 		contextProvider, err = celpolicy.NewContextProvider(
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			gctxStore,
 		)
 		if err != nil {
 			return nil, err
@@ -355,6 +367,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	}
 	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	responses := make([]engineapi.EngineResponse, 0)
+	responsesTemp := make([]engine.EngineResponse, 0)
 	for _, resource := range resources {
 		// get gvk from resource
 		gvk := resource.GroupVersionKind()
@@ -384,7 +397,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			false,
 			nil,
 		)
-		response, err := eng.Handle(ctx, request)
+		reps, err := eng.Handle(ctx, request)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -392,7 +405,25 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			}
 			return responses, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 		}
-		// transform response into legacy engine responses
+		responsesTemp = append(responsesTemp, reps)
+	}
+
+	for _, json := range jsonPayloads {
+		eng = engine.NewEngine(provider, nil, nil)
+		request := engine.RequestFromJSON(contextProvider, json)
+		reps, err := eng.Handle(ctx, request)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to apply validating policies on JSON payloads (%v)\n", err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply validating policies on JSON payloads (%w)", err)
+		}
+		responsesTemp = append(responsesTemp, reps)
+	}
+
+	// transform response into legacy engine responses
+	for _, response := range responsesTemp {
 		for _, r := range response.Policies {
 			engineResponse := engineapi.EngineResponse{
 				Resource: *response.Resource,
@@ -482,12 +513,24 @@ func (c *ApplyCommandConfig) applyPolicies(
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
+func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
-		return resources, fmt.Errorf("failed to load resources (%w)", err)
+		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
-	return resources, nil
+
+	var jsonPayloads []*unstructured.Unstructured
+	if len(c.JSONPaths) > 0 {
+		for _, path := range c.JSONPaths {
+			payload, err := payload.Load(path)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to load JSON payload (%w)", err)
+			}
+
+			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: payload.(map[string]interface{})})
+		}
+	}
+	return resources, jsonPayloads, nil
 }
 
 func (c *ApplyCommandConfig) loadPolicies() (
@@ -632,7 +675,7 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
-	if len(c.ResourcePaths) == 0 && !c.Cluster {
+	if len(c.ResourcePaths) == 0 && !c.Cluster && len(c.JSONPaths) == 0 {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
 	return nil
