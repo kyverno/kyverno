@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -17,10 +19,12 @@ type variablesProvider struct {
 }
 
 func NewVariablesProvider(inner types.Provider) *variablesProvider {
-	return &variablesProvider{
+	p := &variablesProvider{
 		inner:  inner,
 		fields: make(map[string]*types.Type),
 	}
+	p.RegisterField("serviceAccountName", types.StringType)
+	return p
 }
 
 func (p *variablesProvider) RegisterField(name string, t *types.Type) {
@@ -63,5 +67,12 @@ func (p *variablesProvider) FindStructFieldType(structType, fieldName string) (*
 }
 
 func (p *variablesProvider) NewValue(structType string, fields map[string]ref.Val) ref.Val {
+	
+	if structType == VariablesType.DeclaredTypeName() {
+		// ✅ Ensure the variable is set with a hardcoded value testing
+		fmt.Println("NewValue called for", structType) // Debug log
+
+		fields["serviceAccountnName"] = types.String("my-hardcoded-serviceaccount")
+	}
 	return p.inner.NewValue(structType, fields)
 }

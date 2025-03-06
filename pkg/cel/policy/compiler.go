@@ -120,6 +120,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	variablesProvider := NewVariablesProvider(base.CELTypeProvider())
 	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	variablesProvider.inner.NewValue(VariablesType.DeclaredTypeName(), )//trying to registering the variables value
 	if err != nil {
 		// TODO: proper error handling
 		panic(err)

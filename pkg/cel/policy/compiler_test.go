@@ -52,6 +52,41 @@ func Test_compiler_Compile(t *testing.T) {
 			},
 		},
 	}, {
+		name: "with serviceaccount and namespace",
+		policy: &policiesv1alpha1.ValidatingPolicy{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: policiesv1alpha1.GroupVersion.String(),
+				Kind:       "ValidatingPolicy",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "check-sa-ns",
+			},
+			Spec: policiesv1alpha1.ValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Create,
+									admissionregistrationv1.Update,
+								},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+				Validations: []admissionregistrationv1.Validation{
+					{
+						Expression: "variables.serviceaccountname == 'defaut' ",
+					},
+				},
+			},
+		},
+	}, {
 		name: "with configmap",
 		policy: &policiesv1alpha1.ValidatingPolicy{
 			TypeMeta: metav1.TypeMeta{
