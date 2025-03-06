@@ -642,7 +642,7 @@ func main() {
 				os.Exit(1)
 			}
 			celEngine = celengine.NewEngine(
-				provider,
+				provider.CompiledValidationPolicies,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {
