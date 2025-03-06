@@ -406,6 +406,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	}
 
 	for _, json := range jsonPayloads {
+		eng = engine.NewEngine(provider, nil, nil)
 		request := engine.RequestFromJSON(contextProvider, json)
 		reps, err := eng.Handle(ctx, request)
 		if err != nil {
