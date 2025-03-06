@@ -593,9 +593,11 @@ func main() {
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
+
 		contextProvider, err := celpolicy.NewContextProvider(
 			setup.KyvernoDynamicClient,
 			nil,
+			gcstore,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		)
 		if err != nil {
