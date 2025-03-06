@@ -1,4 +1,4 @@
-apiVersion: kyverno.io/v2alpha1
+apiVersion: policies.kyverno.io/v1alpha1
 kind: ValidatingPolicy
 metadata:
   name: cpol-apicall-correct
