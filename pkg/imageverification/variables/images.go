@@ -2,9 +2,7 @@ package variables
 
 import (
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -60,10 +58,8 @@ type CompiledImageExtractor struct {
 	e   cel.Program
 }
 
-func (c *CompiledImageExtractor) GetImages(request interface{}) (string, []string, error) {
-	out, _, err := c.e.Eval(map[string]any{
-		policy.RequestKey: request,
-	})
+func (c *CompiledImageExtractor) GetImages(data map[string]any) (string, []string, error) {
+	out, _, err := c.e.Eval(data)
 	if err != nil {
 		return "", nil, err
 	}
@@ -76,17 +72,14 @@ func (c *CompiledImageExtractor) GetImages(request interface{}) (string, []strin
 	return c.key, result, nil
 }
 
-func CompileImageExtractors(path *field.Path, imageExtractors []v1alpha1.Image, gvr *metav1.GroupVersionResource) ([]*CompiledImageExtractor, field.ErrorList) {
+func CompileImageExtractors(path *field.Path, imageExtractors []v1alpha1.Image, gvr *metav1.GroupVersionResource, envOpts []cel.EnvOption) ([]*CompiledImageExtractor, field.ErrorList) {
 	var allErrs field.ErrorList
 	if gvr != nil {
 		imageExtractors = append(imageExtractors, getExtractorForGVR(gvr)...)
 	}
 
 	compiledMatches := make([]*CompiledImageExtractor, 0, len(imageExtractors))
-	e, err := cel.NewEnv(
-		// this uses dyn type to allow unstructured data
-		cel.Variable(policy.RequestKey, types.DynType),
-	)
+	e, err := cel.NewEnv(envOpts...)
 	if err != nil {
 		return nil, append(allErrs, field.Invalid(path, imageExtractors, err.Error()))
 	}
@@ -111,10 +104,10 @@ func CompileImageExtractors(path *field.Path, imageExtractors []v1alpha1.Image, 
 	return compiledMatches, nil
 }
 
-func ExtractImages(c []*CompiledImageExtractor, request interface{}) (map[string][]string, error) {
+func ExtractImages(c []*CompiledImageExtractor, data map[string]any) (map[string][]string, error) {
 	result := make(map[string][]string)
 	for _, v := range c {
-		if key, images, err := v.GetImages(request); err != nil {
+		if key, images, err := v.GetImages(data); err != nil {
 			return nil, err
 		} else {
 			result[key] = images
