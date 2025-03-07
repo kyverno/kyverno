@@ -29,8 +29,6 @@ type ImageVerificationOutcome struct {
 	Properties map[string]string `json:"properties,omitempty"`
 }
 
-type ivoutcomes map[string]ImageVerificationOutcome
-
 type ImageVerifyEngineResponse struct {
 	Resource *unstructured.Unstructured
 	Policies []ImageVerifyPolicyResponse

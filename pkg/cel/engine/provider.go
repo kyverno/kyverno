@@ -147,7 +147,7 @@ func NewKubeProvider(
 
 	ivpolr := newivPolicyReconciler(mgr.GetClient(), polexLister)
 	err = ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1alpha1.ValidatingPolicy{}).
+		For(&policiesv1alpha1.ImageVerificationPolicy{}).
 		Watches(&policiesv1alpha1.CELPolicyException{}, exceptionHandlerFuncs).
 		Complete(ivpolr)
 	if err != nil {

@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"golang.org/x/exp/maps"
-	"gomodules.xyz/jsonpatch/v2"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
@@ -17,6 +14,8 @@ import (
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"golang.org/x/exp/maps"
+	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

@@ -27,6 +27,7 @@ func (mock *MockCtx) GetGlobalReference(n, p string) (any, error) {
 func (mock *MockCtx) GetImageData(n string) (*imagedataloader.ImageData, error) {
 	return mock.GetImageDataFunc(n)
 }
+
 func (mock *MockCtx) ParseImageReference(n string) (imagedataloader.ImageReference, error) {
 	return mock.ParseImageReferenceFunc(n)
 }
