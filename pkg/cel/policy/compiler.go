@@ -9,6 +9,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -110,6 +111,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	declTypes = append(declTypes, context.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(ContextKey, context.ContextType),
+		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(NamespaceObjectKey, NamespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
@@ -129,7 +131,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		panic(err)
 	}
 	options = append(options, declOptions...)
-	options = append(options, context.Lib())
+	options = append(options, context.Lib(), http.Lib())
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {

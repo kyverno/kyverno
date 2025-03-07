@@ -8,15 +8,17 @@ import (
 )
 
 var (
-	ContextType   = types.NewOpaqueType("context.Context")
-	configMapType = BuildConfigMapType()
-	imageDataType = BuildImageDataType()
+	ContextType        = types.NewOpaqueType("context.Context")
+	configMapType      = BuildConfigMapType()
+	imageDataType      = BuildImageDataType()
+	imageReferenceType = BuildImageReferenceType()
 )
 
 type ContextInterface interface {
 	GetConfigMap(string, string) (unstructured.Unstructured, error)
-	GetGlobalReference(string) (any, error)
+	GetGlobalReference(string, string) (any, error)
 	GetImageData(string) (*imagedataloader.ImageData, error)
+	ParseImageReference(string) (imagedataloader.ImageReference, error)
 	ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error)
 	GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error)
 }
@@ -71,12 +73,26 @@ func BuildImageDataType() *apiservercel.DeclType {
 		field("registry", apiservercel.StringType, true),
 		field("repository", apiservercel.StringType, true),
 		field("tag", apiservercel.StringType, false),
-		field("digest", apiservercel.StringType, true),
+		field("digest", apiservercel.StringType, false),
 		field("imageIndex", apiservercel.DynType, false),
 		field("manifest", apiservercel.DynType, true),
 		field("config", apiservercel.DynType, true),
 	)
 	return apiservercel.NewObjectType("imageData", fields(f...))
+}
+
+func BuildImageReferenceType() *apiservercel.DeclType {
+	f := make([]*apiservercel.DeclField, 0)
+	f = append(f,
+		field("image", apiservercel.StringType, true),
+		field("resolvedImage", apiservercel.StringType, true),
+		field("registry", apiservercel.StringType, true),
+		field("repository", apiservercel.StringType, true),
+		field("tag", apiservercel.StringType, false),
+		field("digest", apiservercel.StringType, false),
+		field("identifier", apiservercel.StringType, true),
+	)
+	return apiservercel.NewObjectType("imageReference", fields(f...))
 }
 
 func field(name string, declType *apiservercel.DeclType, required bool) *apiservercel.DeclField {

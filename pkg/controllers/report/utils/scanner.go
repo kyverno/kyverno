@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -47,6 +48,7 @@ type Scanner interface {
 		string,
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+		[]*policiesv1alpha1.CELPolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
 }
@@ -76,6 +78,7 @@ func (s *scanner) ScanResource(
 	subResource string,
 	ns *corev1.Namespace,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+	exceptions []*policiesv1alpha1.CELPolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
 	var kpols, vpols, vaps []engineapi.GenericPolicy
@@ -152,12 +155,14 @@ func (s *scanner) ScanResource(
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 			)
+			gctxStore := gctxstore.New()
 			// create context provider
 			context, err := celpolicy.NewContextProvider(
 				s.client,
 				nil,
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+				gctxStore,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")

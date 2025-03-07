@@ -73,10 +73,10 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[ObjectKey] = objectVal
 		data[OldObjectKey] = oldObjectVal
 	} else {
-		data[RequestKey] = request
+		data[ObjectKey] = request
 	}
 
-	images, err := variables.ExtractImages(c.imageExtractors, request)
+	images, err := variables.ExtractImages(c.imageExtractors, data)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (p *compiledPolicy) match(
 		data[NamespaceObjectKey] = namespaceVal
 		data[RequestKey] = requestVal.Object
 	} else {
-		data[RequestKey] = request
+		data[ObjectKey] = request
 	}
 
 	var errs []error

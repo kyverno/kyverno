@@ -8,6 +8,7 @@ import (
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -25,14 +26,22 @@ import (
 )
 
 type EngineRequest struct {
-	request admissionv1.AdmissionRequest
-	context contextlib.ContextInterface
+	jsonPayload *unstructured.Unstructured
+	request     admissionv1.AdmissionRequest
+	context     contextlib.ContextInterface
 }
 
 func RequestFromAdmission(context contextlib.ContextInterface, request admissionv1.AdmissionRequest) EngineRequest {
 	return EngineRequest{
 		request: request,
 		context: context,
+	}
+}
+
+func RequestFromJSON(context contextlib.ContextInterface, jsonPayload *unstructured.Unstructured) EngineRequest {
+	return EngineRequest{
+		jsonPayload: jsonPayload,
+		context:     context,
 	}
 }
 
@@ -111,6 +120,15 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	if err != nil {
 		return response, err
 	}
+
+	if request.jsonPayload != nil {
+		response.Resource = request.jsonPayload
+		for _, policy := range policies {
+			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.jsonPayload.Object, nil, nil, nil, request.context))
+		}
+		return response, nil
+	}
+
 	// load objects
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.request)
 	if err != nil {
@@ -147,7 +165,7 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	}
 	// evaluate policies
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, &request.request, namespace, request.context))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, nil, attr, &request.request, namespace, request.context))
 	}
 	return response, nil
 }
@@ -163,12 +181,14 @@ func (e *engine) matchPolicy(policy CompiledPolicy, attr admission.Attributes, n
 	}
 
 	// match against main policy constraints
-	matches, err := match(policy.Policy.Spec.MatchConstraints)
-	if err != nil {
-		return false, -1, err
-	}
-	if matches {
-		return true, -1, nil
+	if policy.Policy.GetSpec().MatchConstraints != nil {
+		matches, err := match(policy.Policy.Spec.MatchConstraints)
+		if err != nil {
+			return false, -1, err
+		}
+		if matches {
+			return true, -1, nil
+		}
 	}
 
 	// match against autogen rules
@@ -185,7 +205,7 @@ func (e *engine) matchPolicy(policy CompiledPolicy, attr admission.Attributes, n
 	return false, -1, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, jsonPayload interface{}, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
 	response := PolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
@@ -201,7 +221,15 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 		}
 		autogenIndex = index
 	}
-	result, err := policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context, autogenIndex)
+
+	var result *celpolicy.EvaluationResult
+	var err error
+	if jsonPayload != nil {
+		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context, -1)
+	} else {
+		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context, autogenIndex)
+	}
+
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
