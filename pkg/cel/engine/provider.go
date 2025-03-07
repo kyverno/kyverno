@@ -191,6 +191,13 @@ func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	if policy.GetStatus().Generated {
+		r.lock.Lock()
+		defer r.lock.Unlock()
+		delete(r.policies, req.NamespacedName.String())
+		return ctrl.Result{}, nil
+	}
 	// get exceptions that match the policy
 	exceptions, err := listExceptions(r.polexLister, policy.GetName())
 	if err != nil {

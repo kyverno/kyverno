@@ -453,6 +453,10 @@ func (c *controller) reconcileReport(
 	}
 	// calculate necessary results
 	for _, policy := range policies {
+		if vpol := policy.AsValidatingPolicy(); vpol != nil && vpol.Status.Generated {
+			continue
+		}
+
 		reevaluate := false
 		if policy.AsKyvernoPolicy() != nil {
 			for _, polex := range exceptions {
