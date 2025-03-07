@@ -11,34 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type ctx struct {
-	GetConfigMapFunc       func(string, string) (unstructured.Unstructured, error)
-	GetGlobalReferenceFunc func(string) (any, error)
-	GetImageDataFunc       func(string) (*imagedataloader.ImageData, error)
-	ListResourcesFunc      func(string, string, string) (*unstructured.UnstructuredList, error)
-	GetResourcesFunc       func(string, string, string, string) (*unstructured.Unstructured, error)
-}
-
-func (mock *ctx) GetConfigMap(ns string, n string) (unstructured.Unstructured, error) {
-	return mock.GetConfigMapFunc(ns, n)
-}
-
-func (mock *ctx) GetGlobalReference(n string) (any, error) {
-	return mock.GetGlobalReferenceFunc(n)
-}
-
-func (mock *ctx) GetImageData(n string) (*imagedataloader.ImageData, error) {
-	return mock.GetImageDataFunc(n)
-}
-
-func (mock *ctx) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return mock.ListResourcesFunc(apiVersion, resource, namespace)
-}
-
-func (mock *ctx) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return mock.GetResourcesFunc(apiVersion, resource, namespace, name)
-}
-
 func Test_impl_get_configmap_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
@@ -58,7 +30,7 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	called := false
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			GetConfigMapFunc: func(string, string) (unstructured.Unstructured, error) {
 				called = true
 				return unstructured.Unstructured{}, nil
@@ -90,7 +62,7 @@ func Test_impl_get_globalreference_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	called := false
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			GetGlobalReferenceFunc: func(string) (any, error) {
 				type foo struct {
 					s string
@@ -124,7 +96,7 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			GetImageDataFunc: func(image string) (*imagedataloader.ImageData, error) {
 				idl, err := imagedataloader.New(nil)
 				assert.NoError(t, err)
@@ -160,7 +132,7 @@ func Test_impl_get_resource_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			GetResourcesFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
@@ -200,7 +172,7 @@ func Test_impl_list_resource_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			ListResourcesFunc: func(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{
 					Items: []unstructured.Unstructured{

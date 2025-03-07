@@ -174,7 +174,7 @@ func (e *ivengine) matchPolicy(policy CompiledImageVerificationPolicy, attr admi
 }
 
 func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageVerificationPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) ([]eval.ImageVerifyPolicyResponse, []jsonpatch.JsonPatchOperation, error) {
-	responses := make(map[string]eval.ImageVerifyPolicyResponse)
+	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
 	filteredPolicies := make([]CompiledImageVerificationPolicy, 0)
 	if e.matcher != nil {
 		for _, pol := range policies {
@@ -185,9 +185,9 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 			}
 			if err != nil {
 				response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
-				responses[pol.Policy.GetName()] = response
+				results[pol.Policy.GetName()] = response
 			} else if !matches {
-				responses[pol.Policy.GetName()] = response
+				results[pol.Policy.GetName()] = response
 			}
 			response.Result.Message()
 
@@ -201,7 +201,6 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 	}
 
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
-	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
 	for _, ivpol := range filteredPolicies {
 		response := eval.ImageVerifyPolicyResponse{
 			Policy:  ivpol.Policy,
@@ -232,12 +231,12 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 	if err != nil {
 		return nil, nil, err
 	}
-	patches, err := eval.MakeImageVerifyOutcomePatch(len(ann) != 0, e.logger, responses)
+	patches, err := eval.MakeImageVerifyOutcomePatch(len(ann) != 0, e.logger, results)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return maps.Values(responses), patches, nil
+	return maps.Values(results), patches, nil
 }
 
 func objectAnnotations(attr admission.Attributes) (map[string]string, error) {

@@ -60,7 +60,7 @@ func outcomeFromPolicyResponse(responses map[string]ImageVerifyPolicyResponse) m
 func MakeImageVerifyOutcomePatch(hasAnnotations bool, log logr.Logger, responses map[string]ImageVerifyPolicyResponse) ([]jsonpatch.JsonPatchOperation, error) {
 	patches := make([]jsonpatch.JsonPatchOperation, 0)
 	annotationKey := "/metadata/annotations/" + strings.ReplaceAll(kyverno.AnnotationImageVerifyOutcomes, "/", "~1")
-	if hasAnnotations {
+	if !hasAnnotations {
 		patch := jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/metadata/annotations",
