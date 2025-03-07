@@ -792,8 +792,8 @@ github.com/sigstore/protobuf-specs v0.4.0 h1:yoZbdh0kZYKOSiVbYyA8J3f2wLh5aUk2SQB
 github.com/sigstore/protobuf-specs v0.4.0/go.mod h1:FKW5NYhnnFQ/Vb9RKtQk91iYd0MKJ9AxyqInEwU6+OI=
 github.com/sigstore/rekor v1.3.9 h1:sUjRpKVh/hhgqGMs0t+TubgYsksArZ6poLEC3MsGAzU=
 github.com/sigstore/rekor v1.3.9/go.mod h1:xThNUhm6eNEmkJ/SiU/FVU7pLY2f380fSDZFsdDWlcM=
-github.com/sigstore/sigstore v1.8.15 h1:9HHnZmxjPQSTPXTCZc25HDxxSTWwsGMh/ZhWZZ39maU=
-github.com/sigstore/sigstore v1.8.15/go.mod h1:+Wa5mrG6A+Gss516YC9owy10q3IazqIRe0y1EoQRHHM=
+github.com/sigstore/sigstore v1.9.0 h1:zUfcKbp8RiJ4wEmA4nvcnEySQAqzF1NtV+v6rVzLwNY=
+github.com/sigstore/sigstore v1.9.0/go.mod h1:zUoATYzR1J3rLNp3jmp4fzIJtWdhC3ZM6MnpcBtnsE4=
 github.com/sigstore/sigstore-go v0.6.2 h1:8uiywjt73vzfrGfWYVwVsiB1E1Qmwmpgr1kVpl4fs6A=
 github.com/sigstore/sigstore-go v0.6.2/go.mod h1:pOIUH7Jx+ctwMICo+2zNrViOJJN5sGaQgwX4yAVJkA0=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.0 h1:6YqoqYkpgCkWTnuAZXI/C/BR7ideMko887zqrnoYXkc=
