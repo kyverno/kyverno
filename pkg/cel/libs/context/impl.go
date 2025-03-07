@@ -87,7 +87,7 @@ func (c *impl) list_resources_string_string_string(args ...ref.Val) ref.Val {
 	} else if namespace, err := utils.ConvertToNative[string](args[3]); err != nil {
 		return types.WrapErr(err)
 	} else {
-		list, err := self.ListResource(apiVersion, resource, namespace)
+		list, err := self.ListResources(apiVersion, resource, namespace)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to list resource: %v", err)

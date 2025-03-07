@@ -38,7 +38,7 @@ func (mock *ctx) ParseImageReference(n string) (imagedataloader.ImageReference, 
 	return mock.ParseImageReferenceFunc(n)
 }
 
-func (mock *ctx) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (mock *ctx) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 	return mock.ListResourcesFunc(apiVersion, resource, namespace)
 }
 
@@ -105,7 +105,7 @@ func (m *mockEntry) Get(_ string) (any, error) {
 
 func (m *mockEntry) Stop() {}
 
-func Test_impl_get_globalreference_string(t *testing.T) {
+func Test_impl_get_globalreference_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -265,7 +265,7 @@ func Test_impl_parse_image_ref_string(t *testing.T) {
 	assert.Equal(t, img.Image, "ghcr.io/kyverno/kyverno:latest")
 }
 
-func Test_impl_get_resource_string(t *testing.T) {
+func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -276,7 +276,7 @@ func Test_impl_get_resource_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetResource("apps/v1", "Deployment", "default", "nginx")`)
+	ast, issues := env.Compile(`context.GetResource("apps/v1", "deployments", "default", "nginx")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -305,7 +305,7 @@ func Test_impl_get_resource_string(t *testing.T) {
 	assert.Equal(t, object["kind"].(string), "Deployment")
 }
 
-func Test_impl_list_resource_string(t *testing.T) {
+func Test_impl_list_resources_string_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -316,7 +316,7 @@ func Test_impl_list_resource_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.ListResource("apps/v1", "Deployment", "default")`)
+	ast, issues := env.Compile(`context.ListResources("apps/v1", "deployments", "default")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
