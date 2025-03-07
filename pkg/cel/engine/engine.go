@@ -22,7 +22,6 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
-	"k8s.io/api/authentication/v1"
 )
 
 type EngineRequest struct {
@@ -45,7 +44,7 @@ func Request(
 	name string,
 	namespace string,
 	operation admissionv1.Operation,
-	userInfo v1.UserInfo,
+	// userInfo v1.UserInfo,
 	object runtime.Object,
 	oldObject runtime.Object,
 	dryRun bool,
@@ -61,7 +60,7 @@ func Request(
 		Name:               name,
 		Namespace:          namespace,
 		Operation:          operation,
-		UserInfo: userInfo,
+		// UserInfo: userInfo,
 		Object:    runtime.RawExtension{Object: object},
 		OldObject: runtime.RawExtension{Object: oldObject},
 		DryRun:    &dryRun,
