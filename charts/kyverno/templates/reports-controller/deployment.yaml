@@ -183,7 +183,7 @@ spec:
             {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data .Values.reportsController.caCertificates.volume .Values.global.caCertificates.volume }}
             - name: ca-certificates
               mountPath: /etc/ssl/certs/ca-certificates.crt
-              {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data }}
+              {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data .Values.reportsController.caCertificates.useSubPathWithVolume .Values.global.caCertificates.useSubPathWithVolume }}
               subPath: ca-certificates.crt
               {{- end }}
             {{- end }}
