@@ -29,9 +29,9 @@ func (s *ImageVerificationPolicy) GetName() string {
 	if s.Annotations == nil {
 		if _, found := s.Annotations[kyverno.AnnotationAutogenControllers]; found {
 			if strings.HasPrefix(name, "autogen-cronjobs-") {
-				return strings.Trim(name, "autogen-cronjobs-")
+				return strings.TrimPrefix(name, "autogen-cronjobs-")
 			} else if strings.HasPrefix(name, "autogen-") {
-				return strings.Trim(name, "autogen-")
+				return strings.TrimPrefix(name, "autogen-")
 			}
 		}
 	}
