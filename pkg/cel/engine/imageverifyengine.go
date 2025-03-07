@@ -2,11 +2,15 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"reflect"
 
 	"golang.org/x/exp/maps"
+	"gomodules.xyz/jsonpatch/v2"
 
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -22,18 +26,9 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-type ImageVerifyEngineResponse struct {
-	Resource *unstructured.Unstructured
-	Policies []ImageVerifyPolicyResponse
-}
-
-type ImageVerifyPolicyResponse struct {
-	Policy *policiesv1alpha1.ImageVerificationPolicy
-	Result engineapi.RuleResponse
-}
-
 type ImageVerifyEngine interface {
-	HandleMutating(context.Context, EngineRequest) (ImageVerifyEngineResponse, error)
+	HandleMutating(context.Context, EngineRequest) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error)
+	HandleValidating(ctx context.Context, request EngineRequest) (eval.ImageVerifyEngineResponse, error)
 }
 
 type ivengine struct {
@@ -56,8 +51,8 @@ func NewImageVerifyEngine(logger logr.Logger, provider ImageVerifyPolProviderFun
 	}
 }
 
-func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (ImageVerifyEngineResponse, error) {
-	var response ImageVerifyEngineResponse
+func (e *ivengine) HandleValidating(ctx context.Context, request EngineRequest) (eval.ImageVerifyEngineResponse, error) {
+	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.ImageVerificationPolicies(ctx)
 	if err != nil {
@@ -98,12 +93,62 @@ func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (I
 		namespace = e.nsResolver(ns)
 	}
 	// evaluate policies
-	responses, err := e.handlePolicy(ctx, policies, attr, &request.request, namespace, request.context)
+	responses, err := e.handleValidation(policies, attr, namespace)
 	if err != nil {
 		return response, err
 	}
 	response.Policies = append(response.Policies, responses...)
 	return response, nil
+}
+
+func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
+	var response eval.ImageVerifyEngineResponse
+	// fetch compiled policies
+	policies, err := e.provider.ImageVerificationPolicies(ctx)
+	if err != nil {
+		return response, nil, err
+	}
+	// load objects
+	object, oldObject, err := admissionutils.ExtractResources(nil, request.request)
+	if err != nil {
+		return response, nil, err
+	}
+	response.Resource = &object
+	if response.Resource.Object == nil {
+		response.Resource = &oldObject
+	}
+	// default dry run
+	dryRun := false
+	if request.request.DryRun != nil {
+		dryRun = *request.request.DryRun
+	}
+	// create admission attributes
+	attr := admission.NewAttributesRecord(
+		&object,
+		&oldObject,
+		schema.GroupVersionKind(request.request.Kind),
+		request.request.Namespace,
+		request.request.Name,
+		schema.GroupVersionResource(request.request.Resource),
+		request.request.SubResource,
+		admission.Operation(request.request.Operation),
+		nil,
+		dryRun,
+		// TODO
+		nil,
+	)
+	// resolve namespace
+	var namespace runtime.Object
+	if ns := request.request.Namespace; ns != "" {
+		namespace = e.nsResolver(ns)
+	}
+	// evaluate policies
+	responses, patches, err := e.handleMutation(ctx, policies, attr, &request.request, namespace, request.context)
+	if err != nil {
+		return response, nil, err
+	}
+	response.Policies = append(response.Policies, responses...)
+	return response, patches, nil
 }
 
 func (e *ivengine) matchPolicy(policy CompiledImageVerificationPolicy, attr admission.Attributes, namespace runtime.Object) (bool, error) {
@@ -128,13 +173,15 @@ func (e *ivengine) matchPolicy(policy CompiledImageVerificationPolicy, attr admi
 	return false, nil
 }
 
-func (e *ivengine) handlePolicy(ctx context.Context, policies []CompiledImageVerificationPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) ([]ImageVerifyPolicyResponse, error) {
-	responses := make(map[string]ImageVerifyPolicyResponse)
+func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageVerificationPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) ([]eval.ImageVerifyPolicyResponse, []jsonpatch.JsonPatchOperation, error) {
+	responses := make(map[string]eval.ImageVerifyPolicyResponse)
+	filteredPolicies := make([]CompiledImageVerificationPolicy, 0)
 	if e.matcher != nil {
 		for _, pol := range policies {
 			matches, err := e.matchPolicy(pol, attr, namespace)
-			response := ImageVerifyPolicyResponse{
-				Policy: pol.Policy,
+			response := eval.ImageVerifyPolicyResponse{
+				Policy:  pol.Policy,
+				Actions: pol.Actions,
 			}
 			if err != nil {
 				response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
@@ -142,19 +189,23 @@ func (e *ivengine) handlePolicy(ctx context.Context, policies []CompiledImageVer
 			} else if !matches {
 				responses[pol.Policy.GetName()] = response
 			}
+			response.Result.Message()
+
+			filteredPolicies = append(filteredPolicies, pol)
 		}
 	}
 
 	ictx, err := imagedataloader.NewImageContext(e.lister, e.registryOpts...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
-	results := make(map[string]ImageVerifyPolicyResponse, len(policies))
-	for _, ivpol := range policies {
-		response := ImageVerifyPolicyResponse{
-			Policy: ivpol.Policy,
+	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
+	for _, ivpol := range filteredPolicies {
+		response := eval.ImageVerifyPolicyResponse{
+			Policy:  ivpol.Policy,
+			Actions: ivpol.Actions,
 		}
 
 		if p, errList := c.Compile(e.logger, ivpol.Policy); errList != nil {
@@ -177,5 +228,82 @@ func (e *ivengine) handlePolicy(ctx context.Context, policies []CompiledImageVer
 		results[ivpol.Policy.GetName()] = response
 	}
 
+	ann, err := objectAnnotations(attr)
+	if err != nil {
+		return nil, nil, err
+	}
+	patches, err := eval.MakeImageVerifyOutcomePatch(len(ann) != 0, e.logger, responses)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return maps.Values(responses), patches, nil
+}
+
+func objectAnnotations(attr admission.Attributes) (map[string]string, error) {
+	obj := attr.GetObject()
+	if obj == nil || reflect.ValueOf(obj).IsNil() {
+		return nil, nil
+	}
+
+	ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	u := &unstructured.Unstructured{Object: ret}
+	return u.GetAnnotations(), nil
+}
+
+func (e *ivengine) handleValidation(policies []CompiledImageVerificationPolicy, attr admission.Attributes, namespace runtime.Object) ([]eval.ImageVerifyPolicyResponse, error) {
+	responses := make(map[string]eval.ImageVerifyPolicyResponse)
+	annotations, err := objectAnnotations(attr)
+	if err != nil {
+		return nil, err
+	}
+	if len(annotations) == 0 {
+		return nil, fmt.Errorf("annotations not present on object, image verification failed")
+	}
+
+	filteredPolicies := make([]CompiledImageVerificationPolicy, 0)
+	if e.matcher != nil {
+		for _, pol := range policies {
+			matches, err := e.matchPolicy(pol, attr, namespace)
+			response := eval.ImageVerifyPolicyResponse{
+				Policy:  pol.Policy,
+				Actions: pol.Actions,
+			}
+			if err != nil {
+				response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
+				responses[pol.Policy.GetName()] = response
+			} else if !matches {
+				responses[pol.Policy.GetName()] = response
+			}
+			response.Result.Message()
+
+			filteredPolicies = append(filteredPolicies, pol)
+		}
+	}
+
+	if data, found := annotations[kyverno.AnnotationImageVerifyOutcomes]; !found {
+		return nil, fmt.Errorf("%s annotation not present", kyverno.AnnotationImageVerifyOutcomes)
+	} else {
+		var outcomes map[string]eval.ImageVerificationOutcome
+		if err := json.Unmarshal([]byte(data), &outcomes); err != nil {
+			return nil, err
+		}
+
+		for _, pol := range filteredPolicies {
+			resp := eval.ImageVerifyPolicyResponse{
+				Policy:  pol.Policy,
+				Actions: pol.Actions,
+			}
+			if o, found := outcomes[pol.Policy.GetName()]; !found {
+				resp.Result = *engineapi.RuleFail(pol.Policy.GetName(), engineapi.ImageVerify, "policy not evaluated", nil)
+			} else {
+				resp.Result = *engineapi.NewRuleResponse(o.Name, engineapi.ImageVerify, o.Message, o.Status, o.Properties)
+			}
+		}
+	}
 	return maps.Values(responses), nil
 }

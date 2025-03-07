@@ -44,7 +44,7 @@ var (
 			Images: []policiesv1alpha1.Image{
 				{
 					Name:       "containers",
-					Expression: "request.object.spec.containers.map(e, e.image)",
+					Expression: "object.spec.containers.map(e, e.image)",
 				},
 			},
 			Attestors: []policiesv1alpha1.Attestor{
@@ -109,14 +109,14 @@ func Test_AutogenImageVerify(t *testing.T) {
 	cronimg := []policiesv1alpha1.Image{
 		{
 			Name:       "containers",
-			Expression: "request.object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image)",
+			Expression: "object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image)",
 		},
 	}
 
 	podctrlimg := []policiesv1alpha1.Image{
 		{
 			Name:       "containers",
-			Expression: "request.object.spec.template.spec.containers.map(e, e.image)",
+			Expression: "object.spec.template.spec.containers.map(e, e.image)",
 		},
 	}
 
