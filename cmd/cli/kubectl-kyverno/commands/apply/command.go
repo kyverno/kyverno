@@ -43,6 +43,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -350,6 +351,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	eng := engine.NewEngine(provider, namespaceProvider, matching.NewMatcher())
 	// TODO: mock when no cluster provided
 	gctxStore := gctxstore.New()
+	var restMapper meta.RESTMapper
 	var contextProvider celpolicy.Context
 	if dclient != nil {
 		contextProvider, err = celpolicy.NewContextProvider(
@@ -360,12 +362,18 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		if err != nil {
 			return nil, err
 		}
+		apiGroupResources, err := restmapper.GetAPIGroupResources(dclient.GetKubeClient().Discovery())
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	} else {
+		apiGroupResources, err := data.APIGroupResources()
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	}
-	apiGroupResources, err := data.APIGroupResources()
-	if err != nil {
-		return nil, err
-	}
-	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	responses := make([]engineapi.EngineResponse, 0)
 	responsesTemp := make([]engine.EngineResponse, 0)
 	for _, resource := range resources {
@@ -386,7 +394,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			contextProvider,
 			gvk,
 			gvr,
-			// TODO
+			// TODO: how to manage subresource ?
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
