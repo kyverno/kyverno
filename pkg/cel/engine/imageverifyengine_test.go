@@ -164,7 +164,7 @@ func Test_ImageVerifyEngine(t *testing.T) {
 
 	response := resp.Policies[0]
 	assert.Equal(t, response.Result.Name(), "ivpol-notary")
-	assert.Equal(t, response.Result.Status(), engineapi.RulePass)
+	assert.Equal(t, response.Result.Status(), engineapi.RuleStatusPass)
 
 	assert.Equal(t, len(patches), 2)
 	outcomePatch := patches[1]
@@ -177,5 +177,5 @@ func Test_ImageVerifyEngine(t *testing.T) {
 
 	v, ok := outcomes["ivpol-notary"]
 	assert.True(t, ok)
-	assert.Equal(t, v.Status, engineapi.RulePass)
+	assert.Equal(t, v.Status, engineapi.RuleStatusPass)
 }
