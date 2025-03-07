@@ -26,6 +26,7 @@ type imagedatafetcher struct {
 
 type Fetcher interface {
 	FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error)
+	ParseImageReference(image string, options ...Option) (ImageReference, error)
 }
 
 func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, error) {
@@ -51,6 +52,7 @@ func (i *imagedatafetcher) ParseImageReference(image string, options ...Option) 
 	img.Image = image
 	img.Registry = ref.Context().RegistryStr()
 	img.Repository = ref.Context().RepositoryStr()
+	img.Identifier = ref.Identifier()
 
 	if _, ok := ref.(name.Tag); ok {
 		img.Tag = ref.Identifier()
@@ -150,6 +152,7 @@ type ImageReference struct {
 	ResolvedImage string `json:"resolvedImage,omitempty"`
 	Registry      string `json:"registry,omitempty"`
 	Repository    string `json:"repository,omitempty"`
+	Identifier    string `json:"identifier,omitempty"`
 	Tag           string `json:"tag,omitempty"`
 	Digest        string `json:"digest,omitempty"`
 }
