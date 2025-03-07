@@ -519,14 +519,21 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		latest.Status.ValidatingAdmissionPolicy.Generated = generated
 		latest.Status.ValidatingAdmissionPolicy.Message = msg
 
-		new, _ := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			logging.Error(err, "failed to update cluster policy status", cpol.GetName(), "status", new.Status)
+		}
 		logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "status", new.Status)
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		latest := vpol.DeepCopy()
 		latest.Status.Generated = generated
 		latest.Status.Message = msg
 
-		new, _ := c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			logging.Error(err, "failed to update validating policy status", vpol.GetName(), "status", new.Status)
+		}
+
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
 	}
 }

@@ -71,6 +71,14 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				cel.BinaryBinding(impl.get_imagedata_string),
 			),
 		},
+		"ParseImageReference": {
+			cel.MemberOverload(
+				"parse_image_reference_string",
+				[]*cel.Type{ContextType, types.StringType},
+				imageReferenceType.CelType(),
+				cel.BinaryBinding(impl.parse_imagereference_string),
+			),
+		},
 		"ListResources": {
 			// TODO: should not use DynType in return
 			cel.MemberOverload(

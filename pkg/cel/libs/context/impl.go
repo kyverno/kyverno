@@ -62,6 +62,21 @@ func (c *impl) get_imagedata_string(ctx ref.Val, image ref.Val) ref.Val {
 	}
 }
 
+func (c *impl) parse_imagereference_string(ctx ref.Val, image ref.Val) ref.Val {
+	if self, err := utils.ConvertToNative[Context](ctx); err != nil {
+		return types.WrapErr(err)
+	} else if image, err := utils.ConvertToNative[string](image); err != nil {
+		return types.WrapErr(err)
+	} else {
+		parsedRef, err := self.ParseImageReference(image)
+		if err != nil {
+			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			return types.NewErr("failed to parse image data: %v", err)
+		}
+		return c.NativeToValue(parsedRef)
+	}
+}
+
 func (c *impl) list_resources_string_string_string(args ...ref.Val) ref.Val {
 	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
