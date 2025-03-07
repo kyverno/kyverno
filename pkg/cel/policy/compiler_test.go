@@ -52,7 +52,7 @@ func Test_compiler_Compile(t *testing.T) {
 			},
 		},
 	}, {
-		name: "with serviceaccount and namespace",
+		name: "with serviceAccountName and serviceAccountNamespace",
 		policy: &policiesv1alpha1.ValidatingPolicy{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: policiesv1alpha1.GroupVersion.String(),
@@ -81,7 +81,7 @@ func Test_compiler_Compile(t *testing.T) {
 				},
 				Validations: []admissionregistrationv1.Validation{
 					{
-						Expression: "variables.serviceaccountname == 'defaut' ",
+						Expression: "serviceAccountName == 'stringType' && serviceAccountNamespace == 'stringType'",
 					},
 				},
 			},
