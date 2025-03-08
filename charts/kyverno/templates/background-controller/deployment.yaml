@@ -169,7 +169,7 @@ spec:
           volumeMounts:
             - name: ca-certificates
               mountPath: /etc/ssl/certs/ca-certificates.crt
-              {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data }}
+              {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.useSubPathWithVolume .Values.global.caCertificates.useSubPathWithVolume }}
               subPath: ca-certificates.crt
               {{- end }}
           {{- end }}
