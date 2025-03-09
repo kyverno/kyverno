@@ -56,21 +56,21 @@ func (cp *FakeContextProvider) GetConfigMap(ns, n string) (unstructured.Unstruct
 }
 
 func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
-	panic("")
+	panic("not implemented")
 }
 
 func (cp *FakeContextProvider) GetImageData(string) (*imagedataloader.ImageData, error) {
-	panic("")
+	panic("not implemented")
 }
 
 func (cp *FakeContextProvider) ParseImageReference(string) (imagedataloader.ImageReference, error) {
-	panic("")
+	panic("not implemented")
 }
 
-func (cp *FakeContextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	panic("")
+func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+	panic("not implemented")
 }
 
 func (cp *FakeContextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	panic("")
+	panic("not implemented")
 }
