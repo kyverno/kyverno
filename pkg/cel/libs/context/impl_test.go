@@ -287,8 +287,8 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 			GetResourcesFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
-						"apiVersion": apiVersion,
-						"kind":       resource,
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
 						"metadata": map[string]any{
 							"name":      name,
 							"namespace": namespace,
@@ -329,8 +329,8 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 					Items: []unstructured.Unstructured{
 						{
 							Object: map[string]any{
-								"apiVersion": apiVersion,
-								"kind":       resource,
+								"apiVersion": "apps/v1",
+								"kind":       "Deployment",
 								"metadata": map[string]any{
 									"name":      "nginx",
 									"namespace": namespace,
