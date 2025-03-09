@@ -11,6 +11,7 @@ metadata:
     generate.kyverno.io/rule-name: k-kafka-address
     generate.kyverno.io/trigger-group: ""
     generate.kyverno.io/trigger-kind: PodExecOptions
+    generate.kyverno.io/trigger-name: ""
     generate.kyverno.io/trigger-namespace: test-generate-exec
     generate.kyverno.io/trigger-version: v1
     somekey: somevalue
