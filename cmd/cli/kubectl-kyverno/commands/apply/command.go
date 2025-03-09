@@ -43,7 +43,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -335,73 +334,6 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 	return responses, nil
 }
 
-type fakeContextProvider struct {
-	resources map[string]map[string]map[string]*unstructured.Unstructured
-}
-
-func newFakeContextProvider() *fakeContextProvider {
-	return &fakeContextProvider{
-		resources: map[string]map[string]map[string]*unstructured.Unstructured{},
-	}
-}
-
-func (cp *fakeContextProvider) addResource(gvr schema.GroupVersionResource, obj runtime.Object) error {
-	object, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return err
-	}
-	resource := &unstructured.Unstructured{Object: object}
-	resources := cp.resources[gvr.String()]
-	if resources == nil {
-		resources = map[string]map[string]*unstructured.Unstructured{}
-		cp.resources[gvr.String()] = resources
-	}
-	namespace := resources[resource.GetNamespace()]
-	if namespace == nil {
-		namespace = map[string]*unstructured.Unstructured{}
-		resources[resource.GetNamespace()] = namespace
-	}
-	namespace[resource.GetName()] = resource
-	return nil
-}
-
-func (cp *fakeContextProvider) GetConfigMap(ns, n string) (unstructured.Unstructured, error) {
-	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
-	configmaps := cp.resources[gvr.String()]
-	if configmaps == nil {
-		return unstructured.Unstructured{}, kerrors.NewNotFound(gvr.GroupResource(), n)
-	}
-	namespace := configmaps[ns]
-	if namespace == nil {
-		return unstructured.Unstructured{}, kerrors.NewNotFound(gvr.GroupResource(), n)
-	}
-	resource := namespace[n]
-	if resource == nil {
-		return unstructured.Unstructured{}, kerrors.NewNotFound(gvr.GroupResource(), n)
-	}
-	return *resource, nil
-}
-
-func (cp *fakeContextProvider) GetGlobalReference(string, string) (any, error) {
-	panic("")
-}
-
-func (cp *fakeContextProvider) GetImageData(string) (*imagedataloader.ImageData, error) {
-	panic("")
-}
-
-func (cp *fakeContextProvider) ParseImageReference(string) (imagedataloader.ImageReference, error) {
-	panic("")
-}
-
-func (cp *fakeContextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	panic("")
-}
-
-func (cp *fakeContextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	panic("")
-}
-
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
@@ -437,8 +369,8 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		}
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	} else {
-		fakeContextProvider := newFakeContextProvider()
-		if err := fakeContextProvider.addResource(
+		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		if err := fakeContextProvider.AddResource(
 			schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
 			&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
