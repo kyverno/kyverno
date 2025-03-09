@@ -44,6 +44,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -368,6 +369,20 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		}
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	} else {
+		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		if err := fakeContextProvider.AddResource(
+			schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+			&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "policy-cm",
+				},
+				Data: map[string]string{},
+			},
+		); err != nil {
+			return nil, err
+		}
+		contextProvider = fakeContextProvider
 		apiGroupResources, err := data.APIGroupResources()
 		if err != nil {
 			return nil, err
@@ -398,7 +413,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			// TODO
+			// TODO: how to manage other operations ?
 			admissionv1.Create,
 			resource,
 			nil,
