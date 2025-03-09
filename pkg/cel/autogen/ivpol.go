@@ -47,6 +47,11 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSe
 		}
 		var err error
 		policy := ivpol.DeepCopy()
+		if controllers == "cronjobs" {
+			policy.Name = "autogen-cronjobs-" + policy.Name
+		} else {
+			policy.Name = "autogen-" + policy.Name
+		}
 		operations := ivpol.Spec.MatchConstraints.ResourceRules[0].Operations
 		// create a resource rule for pod controllers
 		policy.Spec.MatchConstraints = createMatchConstraints(controllers, operations)

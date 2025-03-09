@@ -84,10 +84,10 @@ func (r *EngineRequest) AdmissionRequest() admissionv1.AdmissionRequest {
 
 type EngineResponse struct {
 	Resource *unstructured.Unstructured
-	Policies []PolicyResponse
+	Policies []ValidatingPolicyResponse
 }
 
-type PolicyResponse struct {
+type ValidatingPolicyResponse struct {
 	Actions sets.Set[admissionregistrationv1.ValidationAction]
 	Policy  policiesv1alpha1.ValidatingPolicy
 	Rules   []engineapi.RuleResponse
@@ -100,12 +100,12 @@ type Engine interface {
 type NamespaceResolver = func(string) *corev1.Namespace
 
 type engine struct {
-	provider   Provider
+	provider   VPolProviderFunc
 	nsResolver NamespaceResolver
 	matcher    matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver NamespaceResolver, matcher matching.Matcher) Engine {
+func NewEngine(provider VPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher) Engine {
 	return &engine{
 		provider:   provider,
 		nsResolver: nsResolver,
@@ -116,7 +116,7 @@ func NewEngine(provider Provider, nsResolver NamespaceResolver, matcher matching
 func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineResponse, error) {
 	var response EngineResponse
 	// fetch compiled policies
-	policies, err := e.provider.CompiledPolicies(ctx)
+	policies, err := e.provider.CompiledValidationPolicies(ctx)
 	if err != nil {
 		return response, err
 	}
@@ -170,7 +170,7 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	return response, nil
 }
 
-func (e *engine) matchPolicy(policy CompiledPolicy, attr admission.Attributes, namespace runtime.Object) (bool, int, error) {
+func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Attributes, namespace runtime.Object) (bool, int, error) {
 	match := func(constraints *admissionregistrationv1.MatchResources) (bool, error) {
 		criteria := matchCriteria{constraints: constraints}
 		matches, err := e.matcher.Match(&criteria, attr, namespace)
@@ -205,8 +205,8 @@ func (e *engine) matchPolicy(policy CompiledPolicy, attr admission.Attributes, n
 	return false, -1, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, jsonPayload interface{}, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
-	response := PolicyResponse{
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPolicy, jsonPayload interface{}, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) ValidatingPolicyResponse {
+	response := ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
