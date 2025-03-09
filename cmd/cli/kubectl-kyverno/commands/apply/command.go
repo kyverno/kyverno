@@ -333,6 +333,32 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 	return responses, nil
 }
 
+type fakeContextProvider struct{}
+
+func (cp *fakeContextProvider) GetConfigMap(string, string) (unstructured.Unstructured, error) {
+	panic("")
+}
+
+func (cp *fakeContextProvider) GetGlobalReference(string, string) (any, error) {
+	panic("")
+}
+
+func (cp *fakeContextProvider) GetImageData(string) (*imagedataloader.ImageData, error) {
+	panic("")
+}
+
+func (cp *fakeContextProvider) ParseImageReference(string) (imagedataloader.ImageReference, error) {
+	panic("")
+}
+
+func (cp *fakeContextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+	panic("")
+}
+
+func (cp *fakeContextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	panic("")
+}
+
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
@@ -368,6 +394,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		}
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	} else {
+		contextProvider = &fakeContextProvider{}
 		apiGroupResources, err := data.APIGroupResources()
 		if err != nil {
 			return nil, err
@@ -398,7 +425,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			// TODO
+			// TODO: how to manage other operations ?
 			admissionv1.Create,
 			resource,
 			nil,
