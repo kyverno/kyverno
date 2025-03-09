@@ -52,7 +52,7 @@ require (
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.0
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.0
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.9.0
-	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.15
+	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.9.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
@@ -68,8 +68,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/multierr v1.11.0
-	golang.org/x/crypto v0.35.0
-	golang.org/x/text v0.22.0
+	golang.org/x/crypto v0.36.0
+	golang.org/x/text v0.23.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/grpc v1.71.0
 	gopkg.in/inf.v0 v0.9.1
@@ -364,9 +364,9 @@ require (
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sync v0.11.0
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/term v0.29.0 // indirect
+	golang.org/x/sync v0.12.0
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/time v0.10.0 // indirect
 	google.golang.org/api v0.223.0 // indirect
 	google.golang.org/genproto v0.0.0-20250122153221-138b5a5a4fd4 // indirect

@@ -114,7 +114,7 @@ func isLikelyKubernetesObject(data any) bool {
 	return false
 }
 
-func (cp *contextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (cp *contextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
@@ -148,4 +148,8 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	}
 
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
+}
+
+func (cp *contextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
+	return cp.imagedata.ParseImageReference(image)
 }
