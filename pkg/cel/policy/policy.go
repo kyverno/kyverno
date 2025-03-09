@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -64,12 +65,14 @@ type compiledPolicy struct {
 }
 
 type evaluationData struct {
-	Namespace interface{}
-	Object    interface{}
-	OldObject interface{}
-	Request   interface{}
-	Context   contextlib.ContextInterface
-	Variables *lazy.MapValue
+	ServiceAccountName      string
+	ServiceAccountNamespace string
+	Namespace               interface{}
+	Object                  interface{}
+	OldObject               interface{}
+	Request                 interface{}
+	Context                 contextlib.ContextInterface
+	Variables               *lazy.MapValue
 }
 
 func (p *compiledPolicy) Evaluate(
@@ -161,12 +164,14 @@ func (p *compiledPolicy) evaluateWithData(
 
 	vars := lazy.NewMapValue(VariablesType)
 	dataNew := map[string]any{
-		ContextKey:         contextlib.Context{ContextInterface: data.Context},
-		NamespaceObjectKey: data.Namespace,
-		ObjectKey:          data.Object,
-		OldObjectKey:       data.OldObject,
-		RequestKey:         data.Request,
-		VariablesKey:       vars,
+		ContextKey:                 contextlib.Context{ContextInterface: data.Context},
+		NamespaceObjectKey:         data.Namespace,
+		ObjectKey:                  data.Object,
+		OldObjectKey:               data.OldObject,
+		RequestKey:                 data.Request,
+		VariablesKey:               vars,
+		ServiceAccountNameKey:      data.ServiceAccountName,
+		ServiceAccountNamespaceKey: data.ServiceAccountNamespace,
 	}
 	for name, variable := range variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
@@ -251,12 +256,16 @@ func (p *compiledPolicy) prepareK8sData(
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
+
+	name, ns := parseServiceAccount(request.UserInfo.Username)
 	return evaluationData{
-		Namespace: namespaceVal,
-		Object:    objectVal,
-		OldObject: oldObjectVal,
-		Request:   requestVal.Object,
-		Context:   context,
+		ServiceAccountName:      name,
+		ServiceAccountNamespace: ns,
+		Namespace:               namespaceVal,
+		Object:                  objectVal,
+		OldObject:               oldObjectVal,
+		Request:                 requestVal.Object,
+		Context:                 context,
 	}, nil
 }
 
@@ -324,4 +333,23 @@ func objectToResolveVal(r runtime.Object) (interface{}, error) {
 		return nil, err
 	}
 	return v.Object, nil
+}
+
+func parseServiceAccount(userName string) (string, string) {
+	saPrefix := "system:serviceaccount:"
+	var sa string
+	saName := ""
+	saNamespace := ""
+	if len(userName) <= len(saPrefix) {
+		sa = ""
+	} else {
+		sa = userName[len(saPrefix):]
+	}
+	// filter namespace
+	groups := strings.Split(sa, ":")
+	if len(groups) >= 2 {
+		saName = groups[1]
+		saNamespace = groups[0]
+	}
+	return saName, saNamespace
 }
