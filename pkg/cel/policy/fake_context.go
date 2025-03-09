@@ -67,7 +67,7 @@ func (cp *FakeContextProvider) ParseImageReference(string) (imagedataloader.Imag
 	panic("")
 }
 
-func (cp *FakeContextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 	panic("")
 }
 

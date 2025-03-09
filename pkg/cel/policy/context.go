@@ -114,7 +114,7 @@ func isLikelyKubernetesObject(data any) bool {
 	return false
 }
 
-func (cp *contextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (cp *contextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
