@@ -14,13 +14,12 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func Evaluate(ctx context.Context, logger logr.Logger, ivpols []*v1alpha1.ImageVerificationPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) ([]*EvaluationResult, error) {
+func Evaluate(ctx context.Context, logger logr.Logger, ivpols []*v1alpha1.ImageVerificationPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
 	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: use environmentconfig, add support for other controllers (autogen)
 	isAdmissionRequest := false
 	var gvr *metav1.GroupVersionResource
 	if r, ok := request.(*admissionv1.AdmissionRequest); ok {
@@ -31,7 +30,7 @@ func Evaluate(ctx context.Context, logger logr.Logger, ivpols []*v1alpha1.ImageV
 	policies := filterPolicies(ivpols, isAdmissionRequest)
 
 	c := NewCompiler(ictx, lister, gvr)
-	results := make([]*EvaluationResult, 0)
+	results := make(map[string]*EvaluationResult, len(policies))
 	for _, ivpol := range policies {
 		p, errList := c.Compile(logger, ivpol)
 		if errList != nil {
@@ -42,7 +41,7 @@ func Evaluate(ctx context.Context, logger logr.Logger, ivpols []*v1alpha1.ImageV
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, result)
+		results[ivpol.Name] = result
 	}
 	return results, nil
 }

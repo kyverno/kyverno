@@ -11,6 +11,7 @@ const (
 	// Well known annotations
 	AnnotationAutogenControllers       = "pod-policies.kyverno.io/autogen-controllers"
 	AnnotationImageVerify              = "kyverno.io/verify-images"
+	AnnotationImageVerifyOutcomes      = "kyverno.io/image-verification-outcomes"
 	AnnotationPolicyCategory           = "policies.kyverno.io/category"
 	AnnotationPolicyScored             = "policies.kyverno.io/scored"
 	AnnotationPolicySeverity           = "policies.kyverno.io/severity"
