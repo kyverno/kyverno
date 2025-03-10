@@ -792,8 +792,8 @@ github.com/sigstore/protobuf-specs v0.4.0 h1:yoZbdh0kZYKOSiVbYyA8J3f2wLh5aUk2SQB
 github.com/sigstore/protobuf-specs v0.4.0/go.mod h1:FKW5NYhnnFQ/Vb9RKtQk91iYd0MKJ9AxyqInEwU6+OI=
 github.com/sigstore/rekor v1.3.9 h1:sUjRpKVh/hhgqGMs0t+TubgYsksArZ6poLEC3MsGAzU=
 github.com/sigstore/rekor v1.3.9/go.mod h1:xThNUhm6eNEmkJ/SiU/FVU7pLY2f380fSDZFsdDWlcM=
-github.com/sigstore/sigstore v1.8.15 h1:9HHnZmxjPQSTPXTCZc25HDxxSTWwsGMh/ZhWZZ39maU=
-github.com/sigstore/sigstore v1.8.15/go.mod h1:+Wa5mrG6A+Gss516YC9owy10q3IazqIRe0y1EoQRHHM=
+github.com/sigstore/sigstore v1.9.0 h1:zUfcKbp8RiJ4wEmA4nvcnEySQAqzF1NtV+v6rVzLwNY=
+github.com/sigstore/sigstore v1.9.0/go.mod h1:zUoATYzR1J3rLNp3jmp4fzIJtWdhC3ZM6MnpcBtnsE4=
 github.com/sigstore/sigstore-go v0.6.2 h1:8uiywjt73vzfrGfWYVwVsiB1E1Qmwmpgr1kVpl4fs6A=
 github.com/sigstore/sigstore-go v0.6.2/go.mod h1:pOIUH7Jx+ctwMICo+2zNrViOJJN5sGaQgwX4yAVJkA0=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.0 h1:6YqoqYkpgCkWTnuAZXI/C/BR7ideMko887zqrnoYXkc=
@@ -802,8 +802,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.0 h1:0dBSpmPEh4AS8lNX+
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.0/go.mod h1:ODx67hE403LbtKCtxvz8XU2xuq5CpT+4gwtBtYGMp/Y=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.9.0 h1:URd8dp5nRj7p5xx84Hkf1UPmscJbn09iMBiNlcLM8ws=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.9.0/go.mod h1:hRPwdUWX0DsubUepQrdcUcoA7aafb+nm857PKyCFlnE=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.15 h1:mR+VaOSx2sUpaE8lXarinHcT8UXi+fKE4ESNBzDRAtQ=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.15/go.mod h1:6olKNL2BGrsZPLbO/7kiJzZPxU74270nDI5G3HSSykw=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.9.0 h1:Wo4kZ5d771AmIC24+wyM0eyfmSKXhG0jexpYvvMn8dA=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.9.0/go.mod h1:3pNf99GnK9eu3XUa5ebHzgEQSVYf9hqAoPFwbwD6O6M=
 github.com/sigstore/timestamp-authority v1.2.2 h1:X4qyutnCQqJ0apMewFyx+3t7Tws00JQ/JonBiu3QvLE=
 github.com/sigstore/timestamp-authority v1.2.2/go.mod h1:nEah4Eq4wpliDjlY342rXclGSO7Kb9hoRrl9tqLW13A=
 github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=

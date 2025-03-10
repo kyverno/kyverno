@@ -45,7 +45,34 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	assert.True(t, called)
 }
 
-func Test_impl_get_globalreference_string(t *testing.T) {
+// type mockGctxStore struct {
+// 	data map[string]store.Entry
+// }
+
+// func (m *mockGctxStore) Get(name string) (store.Entry, bool) {
+// 	entry, ok := m.data[name]
+// 	return entry, ok
+// }
+
+// func (m *mockGctxStore) Set(name string, data store.Entry) {
+// 	if m.data == nil {
+// 		m.data = make(map[string]store.Entry)
+// 	}
+// 	m.data[name] = data
+// }
+
+// type mockEntry struct {
+// 	data any
+// 	err  error
+// }
+
+// func (m *mockEntry) Get(_ string) (any, error) {
+// 	return m.data, m.err
+// }
+
+// func (m *mockEntry) Stop() {}
+
+func Test_impl_get_globalreference_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -206,7 +233,7 @@ func Test_impl_parse_image_ref_string(t *testing.T) {
 	assert.Equal(t, img.Image, "ghcr.io/kyverno/kyverno:latest")
 }
 
-func Test_impl_get_resource_string(t *testing.T) {
+func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -217,7 +244,7 @@ func Test_impl_get_resource_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetResource("apps/v1", "Deployment", "default", "nginx")`)
+	ast, issues := env.Compile(`context.GetResource("apps/v1", "deployments", "default", "nginx")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -228,8 +255,8 @@ func Test_impl_get_resource_string(t *testing.T) {
 			GetResourcesFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
-						"apiVersion": apiVersion,
-						"kind":       resource,
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
 						"metadata": map[string]any{
 							"name":      name,
 							"namespace": namespace,
@@ -247,7 +274,7 @@ func Test_impl_get_resource_string(t *testing.T) {
 	assert.Equal(t, object["kind"].(string), "Deployment")
 }
 
-func Test_impl_list_resource_string(t *testing.T) {
+func Test_impl_list_resources_string_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -258,7 +285,7 @@ func Test_impl_list_resource_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.ListResource("apps/v1", "Deployment", "default")`)
+	ast, issues := env.Compile(`context.ListResources("apps/v1", "deployments", "default")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -271,8 +298,8 @@ func Test_impl_list_resource_string(t *testing.T) {
 					Items: []unstructured.Unstructured{
 						{
 							Object: map[string]any{
-								"apiVersion": apiVersion,
-								"kind":       resource,
+								"apiVersion": "apps/v1",
+								"kind":       "Deployment",
 								"metadata": map[string]any{
 									"name":      "nginx",
 									"namespace": namespace,
