@@ -15,7 +15,7 @@ var (
 )
 
 type ContextInterface interface {
-	GetConfigMap(string, string) (unstructured.Unstructured, error)
+	GetConfigMap(string, string) (*unstructured.Unstructured, error)
 	GetGlobalReference(string, string) (any, error)
 	GetImageData(string) (*imagedataloader.ImageData, error)
 	ParseImageReference(string) (imagedataloader.ImageReference, error)
