@@ -243,6 +243,8 @@ config:
     - '[ReplicaSet/*,*,*]'
     - '[EphemeralReport,*,*]'
     - '[ClusterEphemeralReport,*,*]'
+    - '[PolicyReport,*,*]'
+    - '[ClusterPolicyReport,*,*]'
     # exclude resources from the chart
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}]'
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:core]'
