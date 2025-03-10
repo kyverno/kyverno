@@ -32,7 +32,7 @@ func (mock *MockCtx) ParseImageReference(n string) (imagedataloader.ImageReferen
 	return mock.ParseImageReferenceFunc(n)
 }
 
-func (mock *MockCtx) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (mock *MockCtx) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 	return mock.ListResourcesFunc(apiVersion, resource, namespace)
 }
 
