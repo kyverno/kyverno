@@ -38,12 +38,8 @@ func (cp *FakeContextProvider) AddResource(gvr schema.GroupVersionResource, obj 
 	return nil
 }
 
-func (cp *FakeContextProvider) GetConfigMap(ns, n string) (unstructured.Unstructured, error) {
-	cm, err := cp.GetResource("v1", "configmaps", ns, n)
-	if err != nil {
-		return unstructured.Unstructured{}, err
-	}
-	return *cm, nil
+func (cp *FakeContextProvider) GetConfigMap(ns, n string) (*unstructured.Unstructured, error) {
+	return cp.GetResource("v1", "configmaps", ns, n)
 }
 
 func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
