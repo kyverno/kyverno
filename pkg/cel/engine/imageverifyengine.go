@@ -185,12 +185,9 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 			if err != nil {
 				response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
 				results[pol.Policy.GetName()] = response
-			} else if !matches {
-				results[pol.Policy.GetName()] = response
+			} else if matches {
+				filteredPolicies = append(filteredPolicies, pol)
 			}
-			response.Result.Message()
-
-			filteredPolicies = append(filteredPolicies, pol)
 		}
 	}
 
@@ -274,12 +271,9 @@ func (e *ivengine) handleValidation(policies []CompiledImageVerificationPolicy, 
 			if err != nil {
 				response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
 				responses[pol.Policy.GetName()] = response
-			} else if !matches {
-				responses[pol.Policy.GetName()] = response
+			} else if matches {
+				filteredPolicies = append(filteredPolicies, pol)
 			}
-			response.Result.Message()
-
-			filteredPolicies = append(filteredPolicies, pol)
 		}
 	}
 
