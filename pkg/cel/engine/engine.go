@@ -53,7 +53,7 @@ func Request(
 	name string,
 	namespace string,
 	operation admissionv1.Operation,
-	// userInfo authenticationv1.UserInfo,
+	// userInfo v1.UserInfo,
 	object runtime.Object,
 	oldObject runtime.Object,
 	dryRun bool,
