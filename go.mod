@@ -70,7 +70,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	golang.org/x/crypto v0.36.0
 	golang.org/x/text v0.23.0
-	gomodules.xyz/jsonpatch/v2 v2.4.0
+	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/grpc v1.71.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -85,7 +85,7 @@ require (
 	k8s.io/kube-aggregator v0.32.2
 	k8s.io/pod-security-admission v0.31.0
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/controller-runtime v0.20.3
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5
 	sigs.k8s.io/kustomize/api v0.19.0
 	sigs.k8s.io/kustomize/kyaml v0.19.0
