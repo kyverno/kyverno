@@ -39,20 +39,11 @@ func (cp *FakeContextProvider) AddResource(gvr schema.GroupVersionResource, obj 
 }
 
 func (cp *FakeContextProvider) GetConfigMap(ns, n string) (unstructured.Unstructured, error) {
-	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
-	configmaps := cp.resources[gvr.String()]
-	if configmaps == nil {
-		return unstructured.Unstructured{}, kerrors.NewNotFound(gvr.GroupResource(), n)
+	cm, err := cp.GetResource("v1", "configmaps", ns, n)
+	if err != nil {
+		return unstructured.Unstructured{}, err
 	}
-	namespace := configmaps[ns]
-	if namespace == nil {
-		return unstructured.Unstructured{}, kerrors.NewNotFound(gvr.GroupResource(), n)
-	}
-	resource := namespace[n]
-	if resource == nil {
-		return unstructured.Unstructured{}, kerrors.NewNotFound(gvr.GroupResource(), n)
-	}
-	return *resource, nil
+	return *cm, nil
 }
 
 func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
@@ -72,5 +63,22 @@ func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace str
 }
 
 func (cp *FakeContextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	panic("not implemented")
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+	gvr := gv.WithResource(resource)
+	resources := cp.resources[gvr.String()]
+	if resources == nil {
+		return nil, kerrors.NewNotFound(gvr.GroupResource(), name)
+	}
+	namespaced := resources[namespace]
+	if namespaced == nil {
+		return nil, kerrors.NewNotFound(gvr.GroupResource(), name)
+	}
+	resourced := namespaced[name]
+	if resourced == nil {
+		return nil, kerrors.NewNotFound(gvr.GroupResource(), name)
+	}
+	return resourced, nil
 }
