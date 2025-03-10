@@ -45,33 +45,6 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	assert.True(t, called)
 }
 
-// type mockGctxStore struct {
-// 	data map[string]store.Entry
-// }
-
-// func (m *mockGctxStore) Get(name string) (store.Entry, bool) {
-// 	entry, ok := m.data[name]
-// 	return entry, ok
-// }
-
-// func (m *mockGctxStore) Set(name string, data store.Entry) {
-// 	if m.data == nil {
-// 		m.data = make(map[string]store.Entry)
-// 	}
-// 	m.data[name] = data
-// }
-
-// type mockEntry struct {
-// 	data any
-// 	err  error
-// }
-
-// func (m *mockEntry) Get(_ string) (any, error) {
-// 	return m.data, m.err
-// }
-
-// func (m *mockEntry) Stop() {}
-
 func Test_impl_get_globalreference_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
