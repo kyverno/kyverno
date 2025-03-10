@@ -14,7 +14,7 @@ import (
 )
 
 type ctx struct {
-	GetConfigMapFunc        func(string, string) (unstructured.Unstructured, error)
+	GetConfigMapFunc        func(string, string) (*unstructured.Unstructured, error)
 	GetGlobalReferenceFunc  func(string, string) (any, error)
 	GetImageDataFunc        func(string) (*imagedataloader.ImageData, error)
 	ParseImageReferenceFunc func(string) (imagedataloader.ImageReference, error)
@@ -22,7 +22,7 @@ type ctx struct {
 	GetResourcesFunc        func(string, string, string, string) (*unstructured.Unstructured, error)
 }
 
-func (mock *ctx) GetConfigMap(ns string, n string) (unstructured.Unstructured, error) {
+func (mock *ctx) GetConfigMap(ns string, n string) (*unstructured.Unstructured, error) {
 	return mock.GetConfigMapFunc(ns, n)
 }
 
@@ -66,9 +66,9 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	called := false
 	data := map[string]any{
 		"context": Context{&ctx{
-			GetConfigMapFunc: func(string, string) (unstructured.Unstructured, error) {
+			GetConfigMapFunc: func(string, string) (*unstructured.Unstructured, error) {
 				called = true
-				return unstructured.Unstructured{}, nil
+				return &unstructured.Unstructured{}, nil
 			},
 		}},
 	}
