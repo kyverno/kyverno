@@ -16,6 +16,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -65,6 +66,7 @@ type ApplyCommandConfig struct {
 	Variables             []string
 	ValuesFile            string
 	UserInfoPath          string
+	ContextPath           string
 	Cluster               bool
 	PolicyReport          bool
 	OutputFormat          string
@@ -162,6 +164,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
+	cmd.Flags().StringVarP(&applyCommandConfig.ContextPath, "context-file", "", "", "File containing context data for CEL policies")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
 	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Specifies the policy report format (json or yaml). Default: yaml.")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
@@ -373,6 +376,24 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			return nil, err
 		}
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		if c.ContextPath != "" {
+			ctx, err := clicontext.Load(nil, c.ContextPath)
+			if err != nil {
+				return nil, err
+			}
+			for _, resource := range ctx.ContextSpec.Resources {
+				gvk := resource.GroupVersionKind()
+				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+				if err != nil {
+					return nil, err
+				}
+				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+					return nil, err
+				}
+			}
+		}
+		contextProvider = fakeContextProvider
 	}
 	responses := make([]engineapi.EngineResponse, 0)
 	responsesTemp := make([]engine.EngineResponse, 0)
@@ -398,7 +419,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			// TODO
+			// TODO: how to manage other operations ?
 			admissionv1.Create,
 			resource,
 			nil,
