@@ -10,6 +10,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -162,6 +163,7 @@ func (p *compiledPolicy) evaluateWithData(
 	vars := lazy.NewMapValue(VariablesType)
 	dataNew := map[string]any{
 		ContextKey:         contextlib.Context{ContextInterface: data.Context},
+		HttpKey:            http.NewHTTP(),
 		NamespaceObjectKey: data.Namespace,
 		ObjectKey:          data.Object,
 		OldObjectKey:       data.OldObject,

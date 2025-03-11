@@ -109,3 +109,11 @@ func buildRequestData(data map[string]any) (io.Reader, error) {
 
 	return buffer, nil
 }
+
+func NewHTTP() HTTP {
+	return HTTP{
+		HttpInterface: &HttpProvider{
+			client: http.DefaultClient,
+		},
+	}
+}
