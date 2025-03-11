@@ -45,16 +45,16 @@ func NewContextProvider(
 	}, nil
 }
 
-func (cp *contextProvider) GetConfigMap(namespace string, name string) (unstructured.Unstructured, error) {
+func (cp *contextProvider) GetConfigMap(namespace string, name string) (*unstructured.Unstructured, error) {
 	cm, err := cp.client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		return unstructured.Unstructured{}, err
+		return nil, err
 	}
 	out, err := kubeutils.ObjToUnstructured(cm)
 	if err != nil {
-		return unstructured.Unstructured{}, err
+		return nil, err
 	}
-	return *out, nil
+	return out, nil
 }
 
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
@@ -114,7 +114,7 @@ func isLikelyKubernetesObject(data any) bool {
 	return false
 }
 
-func (cp *contextProvider) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (cp *contextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err

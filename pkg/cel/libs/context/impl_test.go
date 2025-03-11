@@ -13,39 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type ctx struct {
-	GetConfigMapFunc        func(string, string) (unstructured.Unstructured, error)
-	GetGlobalReferenceFunc  func(string, string) (any, error)
-	GetImageDataFunc        func(string) (*imagedataloader.ImageData, error)
-	ParseImageReferenceFunc func(string) (imagedataloader.ImageReference, error)
-	ListResourcesFunc       func(string, string, string) (*unstructured.UnstructuredList, error)
-	GetResourcesFunc        func(string, string, string, string) (*unstructured.Unstructured, error)
-}
-
-func (mock *ctx) GetConfigMap(ns string, n string) (unstructured.Unstructured, error) {
-	return mock.GetConfigMapFunc(ns, n)
-}
-
-func (mock *ctx) GetGlobalReference(n, p string) (any, error) {
-	return mock.GetGlobalReferenceFunc(n, p)
-}
-
-func (mock *ctx) GetImageData(n string) (*imagedataloader.ImageData, error) {
-	return mock.GetImageDataFunc(n)
-}
-
-func (mock *ctx) ParseImageReference(n string) (imagedataloader.ImageReference, error) {
-	return mock.ParseImageReferenceFunc(n)
-}
-
-func (mock *ctx) ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return mock.ListResourcesFunc(apiVersion, resource, namespace)
-}
-
-func (mock *ctx) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return mock.GetResourcesFunc(apiVersion, resource, namespace, name)
-}
-
 func Test_impl_get_configmap_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
@@ -65,47 +32,20 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	called := false
 	data := map[string]any{
-		"context": Context{&ctx{
-			GetConfigMapFunc: func(string, string) (unstructured.Unstructured, error) {
+		"context": Context{&MockCtx{
+			GetConfigMapFunc: func(string, string) (*unstructured.Unstructured, error) {
 				called = true
-				return unstructured.Unstructured{}, nil
+				return &unstructured.Unstructured{}, nil
 			},
-		}},
-	}
+		},
+		}}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	assert.NotNil(t, out)
 	assert.True(t, called)
 }
 
-type mockGctxStore struct {
-	data map[string]store.Entry
-}
-
-func (m *mockGctxStore) Get(name string) (store.Entry, bool) {
-	entry, ok := m.data[name]
-	return entry, ok
-}
-
-func (m *mockGctxStore) Set(name string, data store.Entry) {
-	if m.data == nil {
-		m.data = make(map[string]store.Entry)
-	}
-	m.data[name] = data
-}
-
-type mockEntry struct {
-	data any
-	err  error
-}
-
-func (m *mockEntry) Get(_ string) (any, error) {
-	return m.data, m.err
-}
-
-func (m *mockEntry) Stop() {}
-
-func Test_impl_get_globalreference_string(t *testing.T) {
+func Test_impl_get_globalreference_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -161,7 +101,7 @@ func Test_impl_get_globalreference_string(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockStore := &mockGctxStore{data: tt.gctxStoreData}
 			data := map[string]any{
-				"context": Context{&ctx{
+				"context": Context{&MockCtx{
 					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
 						ent, ok := mockStore.Get(name)
 						if !ok {
@@ -213,14 +153,14 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			GetImageDataFunc: func(image string) (*imagedataloader.ImageData, error) {
 				idl, err := imagedataloader.New(nil)
 				assert.NoError(t, err)
 				return idl.FetchImageData(context.TODO(), image)
 			},
-		}},
-	}
+		},
+		}}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	img := out.Value().(*imagedataloader.ImageData)
@@ -249,13 +189,14 @@ func Test_impl_parse_image_ref_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			ParseImageReferenceFunc: func(image string) (imagedataloader.ImageReference, error) {
 				idl, err := imagedataloader.New(nil)
 				assert.NoError(t, err)
 				return idl.ParseImageReference(image)
 			},
-		}},
+		},
+		},
 	}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
@@ -265,7 +206,7 @@ func Test_impl_parse_image_ref_string(t *testing.T) {
 	assert.Equal(t, img.Image, "ghcr.io/kyverno/kyverno:latest")
 }
 
-func Test_impl_get_resource_string(t *testing.T) {
+func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -276,19 +217,19 @@ func Test_impl_get_resource_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetResource("apps/v1", "Deployment", "default", "nginx")`)
+	ast, issues := env.Compile(`context.GetResource("apps/v1", "deployments", "default", "nginx")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			GetResourcesFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
-						"apiVersion": apiVersion,
-						"kind":       resource,
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
 						"metadata": map[string]any{
 							"name":      name,
 							"namespace": namespace,
@@ -296,7 +237,8 @@ func Test_impl_get_resource_string(t *testing.T) {
 					},
 				}, nil
 			},
-		}},
+		},
+		},
 	}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
@@ -305,7 +247,7 @@ func Test_impl_get_resource_string(t *testing.T) {
 	assert.Equal(t, object["kind"].(string), "Deployment")
 }
 
-func Test_impl_list_resource_string(t *testing.T) {
+func Test_impl_list_resources_string_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -316,21 +258,21 @@ func Test_impl_list_resource_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.ListResource("apps/v1", "Deployment", "default")`)
+	ast, issues := env.Compile(`context.ListResources("apps/v1", "deployments", "default")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&ctx{
+		"context": Context{&MockCtx{
 			ListResourcesFunc: func(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{
 					Items: []unstructured.Unstructured{
 						{
 							Object: map[string]any{
-								"apiVersion": apiVersion,
-								"kind":       resource,
+								"apiVersion": "apps/v1",
+								"kind":       "Deployment",
 								"metadata": map[string]any{
 									"name":      "nginx",
 									"namespace": namespace,
@@ -340,8 +282,8 @@ func Test_impl_list_resource_string(t *testing.T) {
 					},
 				}, nil
 			},
-		}},
-	}
+		},
+		}}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	object := out.Value().(map[string]any)
