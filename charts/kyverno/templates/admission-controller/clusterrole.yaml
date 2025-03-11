@@ -89,6 +89,8 @@ rules:
       - validatingpolicies
       - validatingpolicies/status
       - celpolicyexceptions
+      - imageverificationpolicies
+      - imageverificationpolicies/status
     verbs:
       - create
       - delete

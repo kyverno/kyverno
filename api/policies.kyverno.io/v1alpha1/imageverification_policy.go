@@ -1,6 +1,9 @@
 package v1alpha1
 
 import (
+	"strings"
+
+	"github.com/kyverno/kyverno/api/kyverno"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +22,20 @@ type ImageVerificationPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status PolicyStatus `json:"status,omitempty"`
+}
+
+func (s *ImageVerificationPolicy) GetName() string {
+	name := s.Name
+	if s.Annotations == nil {
+		if _, found := s.Annotations[kyverno.AnnotationAutogenControllers]; found {
+			if strings.HasPrefix(name, "autogen-cronjobs-") {
+				return strings.TrimPrefix(name, "autogen-cronjobs-")
+			} else if strings.HasPrefix(name, "autogen-") {
+				return strings.TrimPrefix(name, "autogen-")
+			}
+		}
+	}
+	return name
 }
 
 func (s *ImageVerificationPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
