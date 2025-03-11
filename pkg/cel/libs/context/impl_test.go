@@ -33,9 +33,9 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	called := false
 	data := map[string]any{
 		"context": Context{&MockCtx{
-			GetConfigMapFunc: func(string, string) (unstructured.Unstructured, error) {
+			GetConfigMapFunc: func(string, string) (*unstructured.Unstructured, error) {
 				called = true
-				return unstructured.Unstructured{}, nil
+				return &unstructured.Unstructured{}, nil
 			},
 		},
 		}}
