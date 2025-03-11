@@ -42,6 +42,7 @@ spec:
                 items:
                   properties:
                     config:
+                      description: Any can be any type.
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                     digest:
@@ -49,9 +50,11 @@ spec:
                     image:
                       type: string
                     imageIndex:
+                      description: Any can be any type.
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                     manifest:
+                      description: Any can be any type.
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                     registry:
@@ -63,9 +66,7 @@ spec:
                     tag:
                       type: string
                   required:
-                  - config
                   - image
-                  - manifest
                   - registry
                   - repository
                   - resolvedImage
