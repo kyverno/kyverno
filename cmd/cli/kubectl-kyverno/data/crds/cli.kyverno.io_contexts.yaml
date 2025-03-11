@@ -38,6 +38,39 @@ spec:
             type: object
           spec:
             properties:
+              images:
+                items:
+                  properties:
+                    config:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    digest:
+                      type: string
+                    image:
+                      type: string
+                    imageIndex:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    manifest:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    registry:
+                      type: string
+                    repository:
+                      type: string
+                    resolvedImage:
+                      type: string
+                    tag:
+                      type: string
+                  required:
+                  - config
+                  - image
+                  - manifest
+                  - registry
+                  - repository
+                  - resolvedImage
+                  type: object
+                type: array
               resources:
                 items:
                   type: object

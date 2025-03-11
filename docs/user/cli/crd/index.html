@@ -103,6 +103,18 @@ ContextSpec
 <td>
 </td>
 </tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.ImageData">
+[]ImageData
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -525,6 +537,133 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#unstructured-unstructured-v1">
 []Kubernetes meta/v1/unstructured.Unstructured
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.ImageData">
+[]ImageData
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.ImageData">ImageData
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.ContextSpec">ContextSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>image</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resolvedImage</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>registry</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>repository</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>tag</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>digest</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>imageIndex</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#rawextension-runtime-pkg">
+k8s.io/apimachinery/pkg/runtime.RawExtension
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>manifest</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#rawextension-runtime-pkg">
+k8s.io/apimachinery/pkg/runtime.RawExtension
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>config</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#rawextension-runtime-pkg">
+k8s.io/apimachinery/pkg/runtime.RawExtension
 </a>
 </em>
 </td>
