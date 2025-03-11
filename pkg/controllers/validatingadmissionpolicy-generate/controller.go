@@ -2,6 +2,7 @@ package validatingadmissionpolicygenerate
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -426,8 +427,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	if vapErr != nil {
 		if !apierrors.IsNotFound(vapErr) {
-			c.updatePolicyStatus(ctx, policy, false, vapErr.Error())
-			return vapErr
+			return fmt.Errorf("failed to get validatingadmissionpolicy %s: %v", vapName, vapErr)
 		}
 		observedVAP = &admissionregistrationv1.ValidatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -437,8 +437,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	if vapBindingErr != nil {
 		if !apierrors.IsNotFound(vapBindingErr) {
-			c.updatePolicyStatus(ctx, policy, false, vapBindingErr.Error())
-			return vapBindingErr
+			return fmt.Errorf("failed to get validatingadmissionpolicybinding %s: %v", vapBindingName, vapBindingErr)
+
 		}
 		observedVAPbinding = &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -449,7 +449,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	celexceptions, err := c.getCELExceptions(name)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get celexceptions by name %s: %v", name, err)
 	}
 	for _, exception := range celexceptions {
 		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
@@ -458,13 +458,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if observedVAP.ResourceVersion == "" {
 		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, genericExceptions)
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to build validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
 		_, err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{})
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to create validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
 	} else {
 		_, err := controllerutils.Update(
@@ -475,21 +473,18 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, genericExceptions)
 			})
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to update validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
 	}
 
 	if observedVAPbinding.ResourceVersion == "" {
 		err := admissionpolicy.BuildValidatingAdmissionPolicyBinding(observedVAPbinding, policy)
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to build validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
 		_, err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(ctx, observedVAPbinding, metav1.CreateOptions{})
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to create validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
 	} else {
 		_, err := controllerutils.Update(
@@ -500,8 +495,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				return admissionpolicy.BuildValidatingAdmissionPolicyBinding(observed, policy)
 			})
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to update validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
 	}
 
