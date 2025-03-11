@@ -151,5 +151,5 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 }
 
 func (cp *contextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
-	return cp.imagedata.ParseImageReference(image)
+	return imagedataloader.ParseImageReference(image)
 }
