@@ -19,7 +19,7 @@ type ctx struct {
 	GetImageDataFunc        func(string) (*imagedataloader.ImageData, error)
 	ParseImageReferenceFunc func(string) (imagedataloader.ImageReference, error)
 	ListResourcesFunc       func(string, string, string) (*unstructured.UnstructuredList, error)
-	GetResourcesFunc        func(string, string, string, string) (*unstructured.Unstructured, error)
+	GetResourceFunc         func(string, string, string, string) (*unstructured.Unstructured, error)
 }
 
 func (mock *ctx) GetConfigMap(ns string, n string) (*unstructured.Unstructured, error) {
@@ -43,7 +43,7 @@ func (mock *ctx) ListResources(apiVersion, resource, namespace string) (*unstruc
 }
 
 func (mock *ctx) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return mock.GetResourcesFunc(apiVersion, resource, namespace, name)
+	return mock.GetResourceFunc(apiVersion, resource, namespace, name)
 }
 
 func Test_impl_get_configmap_string_string(t *testing.T) {
@@ -251,9 +251,7 @@ func Test_impl_parse_image_ref_string(t *testing.T) {
 	data := map[string]any{
 		"context": Context{&ctx{
 			ParseImageReferenceFunc: func(image string) (imagedataloader.ImageReference, error) {
-				idl, err := imagedataloader.New(nil)
-				assert.NoError(t, err)
-				return idl.ParseImageReference(image)
+				return imagedataloader.ParseImageReference(image)
 			},
 		}},
 	}
@@ -284,7 +282,7 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	data := map[string]any{
 		"context": Context{&ctx{
-			GetResourcesFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+			GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
 						"apiVersion": "apps/v1",
