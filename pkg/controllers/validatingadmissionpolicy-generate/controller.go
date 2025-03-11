@@ -438,7 +438,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if vapBindingErr != nil {
 		if !apierrors.IsNotFound(vapBindingErr) {
 			return fmt.Errorf("failed to get validatingadmissionpolicybinding %s: %v", vapBindingName, vapBindingErr)
-
 		}
 		observedVAPbinding = &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{
