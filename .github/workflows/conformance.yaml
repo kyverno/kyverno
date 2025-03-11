@@ -840,7 +840,7 @@ jobs:
             --shard-index ${{ matrix.shard-index }} \
             --shard-count 12 \
             --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
-            --no-color=true
+            --no-color=false
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
