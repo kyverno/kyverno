@@ -229,7 +229,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			return rule
 		}
 		if rule.HasValidateAssert() {
-			rule.Validation.Assert = createAutogenAssertion(*rule.Validation.Assert.DeepCopy(), tplKey)
+			rule.Validation.Assert = createAutogenAssertion(rule.Validation.Assert.DeepCopy(), tplKey)
 			return rule
 		}
 	}
