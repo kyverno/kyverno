@@ -14,81 +14,117 @@ func Test_compiler_Compile(t *testing.T) {
 		name    string
 		policy  *policiesv1alpha1.ValidatingPolicy
 		wantErr bool
-	}{{
-		name: "simple",
-		policy: &policiesv1alpha1.ValidatingPolicy{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: policiesv1alpha1.GroupVersion.String(),
-				Kind:       "ValidatingPolicy",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "foo",
-			},
-			Spec: policiesv1alpha1.ValidatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{
-									admissionregistrationv1.Create,
-									admissionregistrationv1.Update,
-								},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{""},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"pods"},
+	}{
+		{
+			name: "simple",
+			policy: &policiesv1alpha1.ValidatingPolicy{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: policiesv1alpha1.GroupVersion.String(),
+					Kind:       "ValidatingPolicy",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-serviceaccount-vars",
+				},
+				Spec: policiesv1alpha1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"pods"},
+									},
 								},
 							},
 						},
 					},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression:        "serviceAccountName != 'default'",
+						MessageExpression: "'Service account details: ' + serviceAccountName + '/' + serviceAccountNamespace",
+					}},
 				},
-				Variables: []admissionregistrationv1.Variable{{
-					Name:       "environment",
-					Expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'",
-				}},
-				Validations: []admissionregistrationv1.Validation{{
-					Expression: "variables.environment == true",
-				}},
 			},
 		},
-	}, {
-		name: "with configmap",
-		policy: &policiesv1alpha1.ValidatingPolicy{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: policiesv1alpha1.GroupVersion.String(),
-				Kind:       "ValidatingPolicy",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "foo",
-			},
-			Spec: policiesv1alpha1.ValidatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{
-									admissionregistrationv1.Create,
-									admissionregistrationv1.Update,
-								},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{""},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"pods"},
+		{
+			name: "simple",
+			policy: &policiesv1alpha1.ValidatingPolicy{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: policiesv1alpha1.GroupVersion.String(),
+					Kind:       "ValidatingPolicy",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+				Spec: policiesv1alpha1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"pods"},
+									},
 								},
 							},
 						},
 					},
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "environment",
+						Expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'",
+					}},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "variables.environment == true",
+					}},
 				},
-				Variables: []admissionregistrationv1.Variable{{
-					Name:       "cm",
-					Expression: "context.GetConfigMap('foo', 'bar')",
-				}},
-				Validations: []admissionregistrationv1.Validation{{
-					Expression: "variables.cm != null",
-				}},
 			},
-		},
-	}}
+		}, {
+			name: "with configmap",
+			policy: &policiesv1alpha1.ValidatingPolicy{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: policiesv1alpha1.GroupVersion.String(),
+					Kind:       "ValidatingPolicy",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+				Spec: policiesv1alpha1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"pods"},
+									},
+								},
+							},
+						},
+					},
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "cm",
+						Expression: "context.GetConfigMap('foo', 'bar')",
+					}},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "variables.cm != null",
+					}},
+				},
+			},
+		}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := NewCompiler()

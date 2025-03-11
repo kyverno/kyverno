@@ -2,6 +2,7 @@ package validatingadmissionpolicygenerate
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -134,6 +135,9 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) addVP(obj *policiesv1alpha1.ValidatingPolicy) {
+	if obj.Spec.Generate == nil || *obj.Spec.Generate == false {
+		return
+	}
 	logger.V(2).Info("validating policy created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueVP(obj)
 }
@@ -142,13 +146,18 @@ func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
 	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
 		return
 	}
+	if obj.Spec.Generate == nil || *obj.Spec.Generate == false {
+		return
+	}
 	logger.V(2).Info("validating policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueVP(obj)
 }
 
 func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
 	vpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.ValidatingPolicy)
-
+	if vpol.Spec.Generate == nil || *vpol.Spec.Generate == false {
+		return
+	}
 	logger.V(2).Info("validating policy deleted", "uid", vpol.GetUID(), "kind", vpol.GetKind(), "name", vpol.GetName())
 	c.enqueueVP(obj)
 }
@@ -426,7 +435,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	if vapErr != nil {
 		if !apierrors.IsNotFound(vapErr) {
-			c.updatePolicyStatus(ctx, policy, false, vapErr.Error())
+			c.updatePolicyStatus(ctx, policy, false, fmt.Sprintf("failed to get VAP '%s': %v", vapName, vapErr.Error()))
 			return vapErr
 		}
 		observedVAP = &admissionregistrationv1.ValidatingAdmissionPolicy{
@@ -436,6 +445,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 	}
 	if vapBindingErr != nil {
+		c.updatePolicyStatus(ctx, policy, false, fmt.Sprintf("failed to get VAP binding '%s': %v", vapBindingName, vapBindingErr.Error()))
 		if !apierrors.IsNotFound(vapBindingErr) {
 			c.updatePolicyStatus(ctx, policy, false, vapBindingErr.Error())
 			return vapBindingErr
@@ -449,6 +459,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	celexceptions, err := c.getCELExceptions(name)
 	if err != nil {
+		c.updatePolicyStatus(ctx, policy, false, fmt.Sprintf("failed to get VAP '%s': %v", vapName, vapErr.Error()))
 		return err
 	}
 	for _, exception := range celexceptions {
