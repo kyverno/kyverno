@@ -133,7 +133,7 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 }
 
 func (cp *contextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
-	return cp.imagedata.ParseImageReference(image)
+	return imagedataloader.ParseImageReference(image)
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {

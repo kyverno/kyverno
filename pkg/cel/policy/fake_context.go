@@ -52,8 +52,8 @@ func (cp *FakeContextProvider) GetImageData(string) (*imagedataloader.ImageData,
 	panic("not implemented")
 }
 
-func (cp *FakeContextProvider) ParseImageReference(string) (imagedataloader.ImageReference, error) {
-	panic("not implemented")
+func (cp *FakeContextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
+	return imagedataloader.ParseImageReference(image)
 }
 
 func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
