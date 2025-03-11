@@ -135,7 +135,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) addVP(obj *policiesv1alpha1.ValidatingPolicy) {
-	if obj.Spec.Generate == nil || *obj.Spec.Generate == false {
+	if obj.Spec.Generate == nil || !*obj.Spec.Generate {
 		return
 	}
 	logger.V(2).Info("validating policy created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
@@ -146,7 +146,7 @@ func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
 	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
 		return
 	}
-	if obj.Spec.Generate == nil || *obj.Spec.Generate == false {
+	if obj.Spec.Generate == nil || !*obj.Spec.Generate {
 		return
 	}
 	logger.V(2).Info("validating policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
@@ -155,7 +155,7 @@ func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
 
 func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
 	vpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.ValidatingPolicy)
-	if vpol.Spec.Generate == nil || *vpol.Spec.Generate == false {
+	if vpol.Spec.Generate == nil || !*vpol.Spec.Generate {
 		return
 	}
 	logger.V(2).Info("validating policy deleted", "uid", vpol.GetUID(), "kind", vpol.GetKind(), "name", vpol.GetName())
