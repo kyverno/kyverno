@@ -13,7 +13,7 @@ type MockCtx struct {
 	GetImageDataFunc        func(string) (*imagedataloader.ImageData, error)
 	ParseImageReferenceFunc func(string) (imagedataloader.ImageReference, error)
 	ListResourcesFunc       func(string, string, string) (*unstructured.UnstructuredList, error)
-	GetResourcesFunc        func(string, string, string, string) (*unstructured.Unstructured, error)
+	GetResourceFunc         func(string, string, string, string) (*unstructured.Unstructured, error)
 }
 
 func (mock *MockCtx) GetConfigMap(ns string, n string) (*unstructured.Unstructured, error) {
@@ -37,7 +37,7 @@ func (mock *MockCtx) ListResources(apiVersion, resource, namespace string) (*uns
 }
 
 func (mock *MockCtx) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return mock.GetResourcesFunc(apiVersion, resource, namespace, name)
+	return mock.GetResourceFunc(apiVersion, resource, namespace, name)
 }
 
 type mockGctxStore struct {

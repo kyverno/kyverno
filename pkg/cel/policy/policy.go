@@ -10,6 +10,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -162,6 +163,7 @@ func (p *compiledPolicy) evaluateWithData(
 	vars := lazy.NewMapValue(VariablesType)
 	dataNew := map[string]any{
 		ContextKey:         contextlib.Context{ContextInterface: data.Context},
+		HttpKey:            http.NewHTTP(),
 		NamespaceObjectKey: data.Namespace,
 		ObjectKey:          data.Object,
 		OldObjectKey:       data.OldObject,
@@ -191,7 +193,7 @@ func (p *compiledPolicy) evaluateWithData(
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := validation.Message
 			if validation.MessageExpression != nil {
-				if out, _, err := validation.MessageExpression.ContextEval(ctx, data); err != nil {
+				if out, _, err := validation.MessageExpression.ContextEval(ctx, dataNew); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
 				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
 					message = fmt.Sprintf("failed to convert message expression to string: %s", err)

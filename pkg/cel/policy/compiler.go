@@ -53,7 +53,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, context.Lib())
+	options = append(options, context.Lib(), http.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))

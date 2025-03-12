@@ -26,7 +26,6 @@ type imagedatafetcher struct {
 
 type Fetcher interface {
 	FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error)
-	ParseImageReference(image string, options ...Option) (ImageReference, error)
 }
 
 func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, error) {
@@ -41,7 +40,7 @@ func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, e
 	}, nil
 }
 
-func (i *imagedatafetcher) ParseImageReference(image string, options ...Option) (ImageReference, error) {
+func ParseImageReference(image string, options ...Option) (ImageReference, error) {
 	var img ImageReference
 	nameOpts := nameOptions(options...)
 	ref, err := name.ParseReference(image, nameOpts...)
@@ -74,7 +73,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		return nil, err
 	}
 
-	img.ImageReference, err = i.ParseImageReference(image, options...)
+	img.ImageReference, err = ParseImageReference(image, options...)
 	if err != nil {
 		return nil, err
 	}

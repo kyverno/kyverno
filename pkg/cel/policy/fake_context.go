@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -50,12 +52,25 @@ func (cp *FakeContextProvider) GetImageData(string) (*imagedataloader.ImageData,
 	panic("not implemented")
 }
 
-func (cp *FakeContextProvider) ParseImageReference(string) (imagedataloader.ImageReference, error) {
-	panic("not implemented")
+func (cp *FakeContextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
+	return imagedataloader.ParseImageReference(image)
 }
 
 func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	panic("not implemented")
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+	gvr := gv.WithResource(resource)
+	resources := cp.resources[gvr.String()]
+	if resources == nil {
+		return nil, kerrors.NewBadRequest(fmt.Sprintf("%s resource not found", gvr.GroupResource()))
+	}
+	var out unstructured.UnstructuredList
+	for _, obj := range resources[namespace] {
+		out.Items = append(out.Items, *obj)
+	}
+	return &out, nil
 }
 
 func (cp *FakeContextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
