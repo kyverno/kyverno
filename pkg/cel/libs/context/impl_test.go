@@ -191,9 +191,7 @@ func Test_impl_parse_image_ref_string(t *testing.T) {
 	data := map[string]any{
 		"context": Context{&MockCtx{
 			ParseImageReferenceFunc: func(image string) (imagedataloader.ImageReference, error) {
-				idl, err := imagedataloader.New(nil)
-				assert.NoError(t, err)
-				return idl.ParseImageReference(image)
+				return imagedataloader.ParseImageReference(image)
 			},
 		},
 		},
@@ -225,7 +223,7 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	data := map[string]any{
 		"context": Context{&MockCtx{
-			GetResourcesFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+			GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
 						"apiVersion": "apps/v1",

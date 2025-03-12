@@ -119,16 +119,7 @@ func (cp *contextProvider) ListResources(apiVersion, resource, namespace string)
 	if err != nil {
 		return nil, err
 	}
-
-	var resourceInteface dynamic.ResourceInterface
-
-	client := cp.dclient.Resource(groupVersion.WithResource(resource))
-	if namespace != "" {
-		resourceInteface = client.Namespace(namespace)
-	} else {
-		resourceInteface = client
-	}
-
+	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.List(context.TODO(), metav1.ListOptions{})
 }
 
@@ -137,19 +128,19 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	if err != nil {
 		return nil, err
 	}
-
-	var resourceInteface dynamic.ResourceInterface
-
-	client := cp.dclient.Resource(groupVersion.WithResource(resource))
-	if namespace != "" {
-		resourceInteface = client.Namespace(namespace)
-	} else {
-		resourceInteface = client
-	}
-
+	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
 }
 
 func (cp *contextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
-	return cp.imagedata.ParseImageReference(image)
+	return imagedataloader.ParseImageReference(image)
+}
+
+func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {
+	client := cp.dclient.Resource(groupVersion.WithResource(resource))
+	if namespace != "" {
+		return client.Namespace(namespace)
+	} else {
+		return client
+	}
 }
