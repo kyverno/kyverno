@@ -55,6 +55,10 @@ type AutogenRule struct {
 }
 
 func (status *PolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
+	if status.ConditionStatus == nil {
+		status.ConditionStatus = &ConditionStatus{}
+	}
+
 	reason := "Succeeded"
 	if s != metav1.ConditionTrue {
 		reason = "Failed"
