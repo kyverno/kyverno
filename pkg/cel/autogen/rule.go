@@ -159,31 +159,31 @@ var (
 )
 
 func updateFields(data []byte, resource autogencontroller) []byte {
-    // Define the target prefixes based on resource type
-    var specPrefix, metadataPrefix []byte
-    switch resource {
-    case PODS:
-        specPrefix = []byte("object.spec.template.spec")
-        metadataPrefix = []byte("object.spec.template.metadata")
-    case CRONJOBS:
-        specPrefix = []byte("object.spec.jobTemplate.spec.template.spec")
-        metadataPrefix = []byte("object.spec.jobTemplate.spec.template.metadata")
-    }
+	// Define the target prefixes based on resource type
+	var specPrefix, metadataPrefix []byte
+	switch resource {
+	case PODS:
+		specPrefix = []byte("object.spec.template.spec")
+		metadataPrefix = []byte("object.spec.template.metadata")
+	case CRONJOBS:
+		specPrefix = []byte("object.spec.jobTemplate.spec.template.spec")
+		metadataPrefix = []byte("object.spec.jobTemplate.spec.template.metadata")
+	}
 
-    // Replace object.spec and oldObject.spec with the correct prefix
-    data = bytes.ReplaceAll(data, []byte("object.spec"), specPrefix)
-    data = bytes.ReplaceAll(data, []byte("oldObject.spec"), append([]byte("oldObject"), specPrefix[6:]...)) // Adjust for oldObject
-    data = bytes.ReplaceAll(data, []byte("object.metadata"), metadataPrefix)
-    data = bytes.ReplaceAll(data, []byte("oldObject.metadata"), append([]byte("oldObject"), metadataPrefix[6:]...))
+	// Replace object.spec and oldObject.spec with the correct prefix
+	data = bytes.ReplaceAll(data, []byte("object.spec"), specPrefix)
+	data = bytes.ReplaceAll(data, []byte("oldObject.spec"), append([]byte("oldObject"), specPrefix[6:]...)) // Adjust for oldObject
+	data = bytes.ReplaceAll(data, []byte("object.metadata"), metadataPrefix)
+	data = bytes.ReplaceAll(data, []byte("oldObject.metadata"), append([]byte("oldObject"), metadataPrefix[6:]...))
 
-    // Normalize any over-nested paths remove extra .template.spec
-    if resource == CRONJOBS {
-        data = bytes.ReplaceAll(data, []byte("object.spec.jobTemplate.spec.template.spec.template.spec"), specPrefix)
-        data = bytes.ReplaceAll(data, []byte("oldObject.spec.jobTemplate.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
-    } else if resource == PODS {
-        data = bytes.ReplaceAll(data, []byte("object.spec.template.spec.template.spec"), specPrefix)
-        data = bytes.ReplaceAll(data, []byte("oldObject.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
-    }
+	// Normalize any over-nested paths remove extra .template.spec
+	if resource == CRONJOBS {
+		data = bytes.ReplaceAll(data, []byte("object.spec.jobTemplate.spec.template.spec.template.spec"), specPrefix)
+		data = bytes.ReplaceAll(data, []byte("oldObject.spec.jobTemplate.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
+	} else if resource == PODS {
+		data = bytes.ReplaceAll(data, []byte("object.spec.template.spec.template.spec"), specPrefix)
+		data = bytes.ReplaceAll(data, []byte("oldObject.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
+	}
 
-    return data
+	return data
 }
