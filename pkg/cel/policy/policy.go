@@ -204,7 +204,7 @@ func (p *compiledPolicy) evaluateWithData(
 
 			auditAnnotations := make(map[string]string, 0)
 			for key, annotation := range p.auditAnnotations {
-				out, _, err := annotation.ContextEval(ctx, data)
+				out, _, err := annotation.ContextEval(ctx, dataNew)
 				if err != nil {
 					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
 				}
