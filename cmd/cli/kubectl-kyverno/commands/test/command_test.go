@@ -22,6 +22,46 @@ func TestCommandWithInvalidArg(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
+func TestCommandNoTests(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetErr(errBuffer)
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetArgs([]string{"."})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+	out, err := io.ReadAll(outBuffer)
+	assert.NoError(t, err)
+	expected := `No test yamls available`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+	errOut, err := io.ReadAll(errBuffer)
+	assert.NoError(t, err)
+	expected = ``
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
+}
+
+func TestCommandRequireTests(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetErr(errBuffer)
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetArgs([]string{".", "--require-tests"})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	out, err := io.ReadAll(outBuffer)
+	assert.NoError(t, err)
+	expected := `No test yamls available`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+	errOut, err := io.ReadAll(errBuffer)
+	assert.NoError(t, err)
+	expected = `Error: no tests found`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
+}
+
 func TestCommandWithInvalidFlag(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
