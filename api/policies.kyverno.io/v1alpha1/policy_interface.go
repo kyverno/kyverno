@@ -14,5 +14,4 @@ type GenericPolicy interface {
 	GetWebhookConfiguration() *WebhookConfiguration
 	GetVariables() []admissionregistrationv1.Variable
 	GetSpec() *ValidatingPolicySpec
-	GetStatus() *PolicyStatus
 }

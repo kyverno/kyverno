@@ -21,7 +21,7 @@ type ImageVerificationPolicy struct {
 	Spec              ImageVerificationPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
-	Status PolicyStatus `json:"status,omitempty"`
+	Status ConditionStatus `json:"status,omitempty"`
 }
 
 func (s *ImageVerificationPolicy) GetName() string {
@@ -68,7 +68,7 @@ func (s *ImageVerificationPolicy) GetSpec() *ImageVerificationPolicySpec {
 	return &s.Spec
 }
 
-func (s *ImageVerificationPolicy) GetStatus() *PolicyStatus {
+func (s *ImageVerificationPolicy) GetStatus() *ConditionStatus {
 	return &s.Status
 }
 

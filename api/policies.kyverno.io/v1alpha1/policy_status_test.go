@@ -21,19 +21,23 @@ func TestPolicyStatus_IsReady(t *testing.T) {
 	}, {
 		name: "true",
 		status: PolicyStatus{
-			Ready: ptr.To(true),
+			ConditionStatus: &ConditionStatus{
+				Ready: ptr.To(true),
+			},
 		},
 		want: true,
 	}, {
 		name: "false",
 		status: PolicyStatus{
-			Ready: ptr.To(false),
+			ConditionStatus: &ConditionStatus{
+				Ready: ptr.To(false),
+			},
 		},
 		want: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.status.IsReady()
+			got := tt.status.GetConditionStatus().IsReady()
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -42,7 +46,7 @@ func TestPolicyStatus_IsReady(t *testing.T) {
 func TestPolicyStatus_SetReadyByCondition_True(t *testing.T) {
 	var status PolicyStatus
 	status.SetReadyByCondition(PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "dummy")
-	got := meta.FindStatusCondition(status.Conditions, string(PolicyConditionTypeWebhookConfigured))
+	got := meta.FindStatusCondition(status.ConditionStatus.Conditions, string(PolicyConditionTypeWebhookConfigured))
 	assert.NotNil(t, got)
 	assert.Equal(t, string(PolicyConditionTypeWebhookConfigured), got.Type)
 	assert.Equal(t, metav1.ConditionTrue, got.Status)
@@ -53,7 +57,7 @@ func TestPolicyStatus_SetReadyByCondition_True(t *testing.T) {
 func TestPolicyStatus_SetReadyByCondition_False(t *testing.T) {
 	var status PolicyStatus
 	status.SetReadyByCondition(PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "dummy")
-	got := meta.FindStatusCondition(status.Conditions, string(PolicyConditionTypeWebhookConfigured))
+	got := meta.FindStatusCondition(status.ConditionStatus.Conditions, string(PolicyConditionTypeWebhookConfigured))
 	assert.NotNil(t, got)
 	assert.Equal(t, string(PolicyConditionTypeWebhookConfigured), got.Type)
 	assert.Equal(t, metav1.ConditionFalse, got.Status)

@@ -139,15 +139,15 @@ func (c controller) updateStatus(ctx context.Context, vpol *policiesv1alpha1.Val
 		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
 
 		ready := true
-		for _, condition := range status.Conditions {
+		for _, condition := range status.GetConditionStatus().Conditions {
 			if condition.Status != metav1.ConditionTrue {
 				ready = false
 				break
 			}
 		}
 
-		if status.Ready == nil || *status.Ready != ready {
-			status.Ready = &ready
+		if status.GetConditionStatus().Ready == nil || status.GetConditionStatus().IsReady() != ready {
+			status.ConditionStatus.Ready = &ready
 		}
 		return nil
 	}
@@ -157,16 +157,16 @@ func (c controller) updateStatus(ctx context.Context, vpol *policiesv1alpha1.Val
 		c.client.PoliciesV1alpha1().ValidatingPolicies(),
 		updateFunc,
 		func(current, expect *policiesv1alpha1.ValidatingPolicy) bool {
-			if current.GetStatus().Ready == nil || current.GetStatus().IsReady() != expect.GetStatus().IsReady() {
+			if current.GetStatus().GetConditionStatus().Ready == nil || current.GetStatus().GetConditionStatus().IsReady() != expect.GetStatus().GetConditionStatus().IsReady() {
 				return false
 			}
 
-			if len(current.GetStatus().Conditions) != len(expect.GetStatus().Conditions) {
+			if len(current.GetStatus().GetConditionStatus().Conditions) != len(expect.GetStatus().GetConditionStatus().Conditions) {
 				return false
 			}
 
-			for _, condition := range current.GetStatus().Conditions {
-				for _, expectCondition := range expect.GetStatus().Conditions {
+			for _, condition := range current.GetStatus().GetConditionStatus().Conditions {
+				for _, expectCondition := range expect.GetStatus().GetConditionStatus().Conditions {
 					if condition.Type == expectCondition.Type && condition.Status != expectCondition.Status {
 						return false
 					}
