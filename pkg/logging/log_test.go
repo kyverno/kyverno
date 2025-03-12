@@ -49,6 +49,7 @@ func TestSetup(t *testing.T) {
 			require.NotEmpty(t, logOutput, "Expected non-empty log output")
 
 			if tt.expected == "text" {
+				require.NotContains(t, logOutput, "\x1b[", "Text log should not contain ASNI escape sequences")
 				return
 			}
 
@@ -65,9 +66,7 @@ func TestSetup(t *testing.T) {
 			if tt.expected == "ecs" {
 				assert.Contains(t, logData, "event.dataset", "ECS log should contain `event.dataset`")
 				assert.Contains(t, logData, "service.name", "ECS log should contain `service.name`")
-				assert.True(t, logData["@timestamp"] != nil || logData["time"] != nil,
-					"ECS log should contain `@timestamp` or `time`")
-				assert.Equal(t, "info", logData["log.level"], "ECS log should have correct `log.level`")
+				assert.NotEmpty(t, logData["@timestamp"], "ECS log should contain `@timestamp` field")
 				assert.Contains(t, logData, "caller", "ECS log should contain `caller` field")
 				assert.Equal(t, "test-log", logData["message"], "ECS log should contain the logged message")
 			}

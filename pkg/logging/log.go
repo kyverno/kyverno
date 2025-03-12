@@ -71,7 +71,7 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	case EcsFormat:
 		logger = zerolog.New(os.Stderr).
 			With().
-			Timestamp().
+			Str("@timestamp", time.Now().Format(time.RFC3339Nano)).
 			Str("event.dataset", "kyverno.logs").
 			Str("service.name", "kyverno").
 			Caller().
