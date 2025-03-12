@@ -37,6 +37,7 @@ type ConditionStatus struct {
 
 	// Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
 	// It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.
+	// +optional
 	Message string `json:"message"`
 }
 

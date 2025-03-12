@@ -1009,8 +1009,6 @@ spec:
                   The ready of a policy is a high-level summary of where the policy is in its lifecycle.
                   The conditions array, the reason and message fields contain more detail about the policy's status.
                 type: boolean
-            required:
-            - message
             type: object
         required:
         - spec
