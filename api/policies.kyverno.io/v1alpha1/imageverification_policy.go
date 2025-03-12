@@ -76,6 +76,22 @@ func (s *ImageVerificationPolicy) GetKind() string {
 	return "ImageVerificationPolicy"
 }
 
+// AdmissionEnabled checks if admission is set to true
+func (s ImageVerificationPolicySpec) AdmissionEnabled() bool {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
+		return true
+	}
+	return *s.EvaluationConfiguration.Admission.Enabled
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s ImageVerificationPolicySpec) BackgroundEnabled() bool {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
+		return true
+	}
+	return *s.EvaluationConfiguration.Background.Enabled
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
