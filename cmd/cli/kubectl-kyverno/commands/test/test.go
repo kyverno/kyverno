@@ -259,78 +259,79 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		resourceKey := generateResourceKey(resource)
 		testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], ers...)
 	}
-
-	ctx := context.TODO()
-	compiler := celpolicy.NewCompiler()
-	provider, err := engine.NewProvider(compiler, results.ValidatingPolicies, polexLoader.CELExceptions)
-	if err != nil {
-		return nil, err
-	}
-	eng := engine.NewEngine(provider, vars.Namespace, matching.NewMatcher())
-	var restMapper meta.RESTMapper
-	var contextProvider celpolicy.Context
-	apiGroupResources, err := data.APIGroupResources()
-	if err != nil {
-		return nil, err
-	}
-	restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-	fakeContextProvider := celpolicy.NewFakeContextProvider()
-	if testCase.Test.Context != "" {
-		ctx, err := clicontext.Load(nil, testCase.Test.Context)
+	if len(results.ValidatingPolicies) != 0 {
+		ctx := context.TODO()
+		compiler := celpolicy.NewCompiler()
+		provider, err := engine.NewProvider(compiler, results.ValidatingPolicies, polexLoader.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
-		for _, resource := range ctx.ContextSpec.Resources {
-			gvk := resource.GroupVersionKind()
-			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		eng := engine.NewEngine(provider, vars.Namespace, matching.NewMatcher())
+		var restMapper meta.RESTMapper
+		var contextProvider celpolicy.Context
+		apiGroupResources, err := data.APIGroupResources()
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		if testCase.Test.Context != "" {
+			ctx, err := clicontext.Load(nil, testCase.Test.Context)
 			if err != nil {
 				return nil, err
 			}
-			if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
-				return nil, err
+			for _, resource := range ctx.ContextSpec.Resources {
+				gvk := resource.GroupVersionKind()
+				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+				if err != nil {
+					return nil, err
+				}
+				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+					return nil, err
+				}
 			}
 		}
-	}
-	contextProvider = fakeContextProvider
-	for _, resource := range uniques {
-		// get gvk from resource
-		gvk := resource.GroupVersionKind()
-		// map gvk to gvr
-		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
-		}
-		gvr := mapping.Resource
-		// create engine request
-		request := engine.Request(
-			contextProvider,
-			gvk,
-			gvr,
-			// TODO: how to manage subresource ?
-			"",
-			resource.GetName(),
-			resource.GetNamespace(),
-			// TODO: how to manage other operations ?
-			admissionv1.Create,
-			resource,
-			nil,
-			false,
-			nil,
-		)
-		reps, err := eng.Handle(ctx, request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
-		}
-		resourceKey := generateResourceKey(resource)
-		for _, r := range reps.Policies {
-			engineResponse := engineapi.EngineResponse{
-				Resource: *reps.Resource,
-				PolicyResponse: engineapi.PolicyResponse{
-					Rules: r.Rules,
-				},
+		contextProvider = fakeContextProvider
+		for _, resource := range uniques {
+			// get gvk from resource
+			gvk := resource.GroupVersionKind()
+			// map gvk to gvr
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 			}
-			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-			testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], engineResponse)
+			gvr := mapping.Resource
+			// create engine request
+			request := engine.Request(
+				contextProvider,
+				gvk,
+				gvr,
+				// TODO: how to manage subresource ?
+				"",
+				resource.GetName(),
+				resource.GetNamespace(),
+				// TODO: how to manage other operations ?
+				admissionv1.Create,
+				resource,
+				nil,
+				false,
+				nil,
+			)
+			reps, err := eng.Handle(ctx, request)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+			}
+			resourceKey := generateResourceKey(resource)
+			for _, r := range reps.Policies {
+				engineResponse := engineapi.EngineResponse{
+					Resource: *reps.Resource,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], engineResponse)
+			}
 		}
 	}
 	// this is an array of responses of all policies, generated by all of their rules
