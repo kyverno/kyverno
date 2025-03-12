@@ -193,7 +193,7 @@ func (p *compiledPolicy) evaluateWithData(
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := validation.Message
 			if validation.MessageExpression != nil {
-				if out, _, err := validation.MessageExpression.ContextEval(ctx, data); err != nil {
+				if out, _, err := validation.MessageExpression.ContextEval(ctx, dataNew); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
 				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
 					message = fmt.Sprintf("failed to convert message expression to string: %s", err)
@@ -204,7 +204,7 @@ func (p *compiledPolicy) evaluateWithData(
 
 			auditAnnotations := make(map[string]string, 0)
 			for key, annotation := range p.auditAnnotations {
-				out, _, err := annotation.ContextEval(ctx, data)
+				out, _, err := annotation.ContextEval(ctx, dataNew)
 				if err != nil {
 					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
 				}
