@@ -7,6 +7,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -29,8 +30,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -151,6 +150,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
+				if res.IsValidatingPolicy {
+					continue
+				}
 				// TODO: what if two policies have a rule with the same name ?
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
@@ -265,50 +267,31 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		return nil, err
 	}
 	eng := engine.NewEngine(provider, vars.Namespace, matching.NewMatcher())
-	gctxStore := gctxstore.New()
 	var restMapper meta.RESTMapper
 	var contextProvider celpolicy.Context
-	if dClient != nil {
-		contextProvider, err = celpolicy.NewContextProvider(
-			dClient,
-			// TODO
-			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(false)},
-			gctxStore,
-		)
-		if err != nil {
-			return nil, err
-		}
-		apiGroupResources, err := restmapper.GetAPIGroupResources(dClient.GetKubeClient().Discovery())
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-	} else {
-		apiGroupResources, err := data.APIGroupResources()
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-		fakeContextProvider := celpolicy.NewFakeContextProvider()
-		// TODO
-		// if c.ContextPath != "" {
-		// 	ctx, err := clicontext.Load(nil, c.ContextPath)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	for _, resource := range ctx.ContextSpec.Resources {
-		// 		gvk := resource.GroupVersionKind()
-		// 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		// 		if err != nil {
-		// 			return nil, err
-		// 		}
-		// 		if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
-		// 			return nil, err
-		// 		}
-		// 	}
-		// }
-		contextProvider = fakeContextProvider
+	apiGroupResources, err := data.APIGroupResources()
+	if err != nil {
+		return nil, err
 	}
+	restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	fakeContextProvider := celpolicy.NewFakeContextProvider()
+	if testCase.Test.Context != "" {
+		ctx, err := clicontext.Load(nil, testCase.Test.Context)
+		if err != nil {
+			return nil, err
+		}
+		for _, resource := range ctx.ContextSpec.Resources {
+			gvk := resource.GroupVersionKind()
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return nil, err
+			}
+			if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+				return nil, err
+			}
+		}
+	}
+	contextProvider = fakeContextProvider
 	for _, resource := range uniques {
 		// get gvk from resource
 		gvk := resource.GroupVersionKind()
