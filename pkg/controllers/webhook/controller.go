@@ -10,7 +10,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -21,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -100,6 +100,7 @@ type controller struct {
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister       policiesv1alpha1listers.ImageVerificationPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
@@ -141,6 +142,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageVerificationPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
@@ -174,6 +176,7 @@ func NewController(
 		cpolLister:          cpolInformer.Lister(),
 		polLister:           polInformer.Lister(),
 		vpolLister:          vpolInformer.Lister(),
+		ivpolLister:         ivpolInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
@@ -251,6 +254,22 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		polInformer.Informer(),
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
+		vpolInformer.Informer(),
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
+		ivpolInformer.Informer(),
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
@@ -378,7 +397,7 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 	}
 }
 
-func (c *controller) recordValidatingPolicyState(validatingpolicies ...policiesv1alpha1.GenericPolicy) {
+func (c *controller) recordValidatingPolicyState(validatingpolicies ...engineapi.GenericPolicy) {
 	for _, policy := range validatingpolicies {
 		c.vpolStateRecorder.Record(policy.GetName())
 	}
@@ -949,14 +968,22 @@ func (c *controller) buildForValidatingPolicies(cfg config.Configuration, caBund
 		return nil
 	}
 
-	vpols, err := c.getValidatingPolicies()
+	var policies []engineapi.GenericPolicy
+	pols, err := c.getValidatingPolicies()
 	if err != nil {
 		return err
 	}
+	policies = append(policies, pols...)
 
-	webhooks := buildWebhookRules(cfg, c.server, c.servicePort, caBundle, vpols)
+	ivpols, err := c.getImageVerificationPolicy()
+	if err != nil {
+		return err
+	}
+	policies = append(policies, ivpols...)
+
+	webhooks := buildWebhookRules(cfg, c.server, c.servicePort, caBundle, policies)
 	result.Webhooks = append(result.Webhooks, webhooks...)
-	c.recordValidatingPolicyState(vpols...)
+	c.recordValidatingPolicyState(policies...)
 	return nil
 }
 
@@ -1062,19 +1089,34 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 	return policies, nil
 }
 
-func (c *controller) getValidatingPolicies() ([]policiesv1alpha1.GenericPolicy, error) {
+func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) {
 	validatingpolicies, err := c.vpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	vpols := make([]policiesv1alpha1.GenericPolicy, 0)
+	vpols := make([]engineapi.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
 		if vpol.Spec.AdmissionEnabled() {
-			vpols = append(vpols, vpol)
+			vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 		}
 	}
 	return vpols, nil
+}
+
+func (c *controller) getImageVerificationPolicy() ([]engineapi.GenericPolicy, error) {
+	policies, err := c.ivpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	ivpols := make([]engineapi.GenericPolicy, 0)
+	for _, ivpol := range policies {
+		if ivpol.Spec.AdmissionEnabled() {
+			ivpols = append(ivpols, engineapi.NewImageVerificationPolicy(ivpol))
+		}
+	}
+	return ivpols, nil
 }
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {
