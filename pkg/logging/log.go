@@ -74,8 +74,6 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 			Timestamp().
 			Str("event.dataset", "kyverno.logs").
 			Str("service.name", "kyverno").
-			Str("log.level", zerolog.GlobalLevel().String()).
-			Str("log.logger", "zerolog").
 			Caller().
 			Logger()
 	default:
@@ -140,20 +138,26 @@ func V(level int) logr.Logger {
 // Info logs a non-error message with the given key/value pairs.
 func Info(msg string, keysAndValues ...interface{}) {
 	GlobalLogger().WithValues(
-		"event.action", "log",
-		"log.level", strings.ToLower("info"),
+		"event.action", "logged",
+		"log.level", "info",
 		"service.name", "kyverno",
+		"message", msg,
 	).Info(msg, keysAndValues...)
 }
 
 // Error logs an error, with the given message and key/value pairs.
 func Error(err error, msg string, keysAndValues ...interface{}) {
+	stackTrace := ""
+	if err != nil {
+		stackTrace = fmt.Sprintf("%+v", err)
+	}
 	GlobalLogger().WithValues(
-		"event.action", "error",
+		"event.action", "error_logged",
 		"log.level", "error",
 		"service.name", "kyverno",
 		"error.message", err.Error(),
-		"error.stack_trace", fmt.Sprintf("%v", err),
+		"error.stack_trace", stackTrace,
+		"message", msg,
 	).Error(err, msg, keysAndValues...)
 }
 
