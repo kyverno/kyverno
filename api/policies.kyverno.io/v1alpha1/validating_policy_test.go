@@ -220,10 +220,10 @@ func TestValidatingPolicy_GetStatus(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ValidatingPolicy
-		want   *PolicyStatus
+		want   *VpolStatus
 	}{{
 		policy: &ValidatingPolicy{},
-		want:   &PolicyStatus{},
+		want:   &VpolStatus{},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

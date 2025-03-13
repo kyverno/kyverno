@@ -20,7 +20,32 @@ type ValidatingPolicy struct {
 	Spec              ValidatingPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
-	Status PolicyStatus `json:"status,omitempty"`
+	Status VpolStatus `json:"status,omitempty"`
+}
+
+type VpolStatus struct {
+	ConditionStatus *ConditionStatus `json:",inline"`
+
+	// +optional
+	Autogen AutogenStatus `json:"autogen"`
+
+	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
+	// +optional
+	Generated bool `json:"generated"`
+}
+
+// AutogenStatus contains autogen status information.
+type AutogenStatus struct {
+	// Rules is a list of Rule instances. It contains auto generated rules added for pod controllers
+	Rules []AutogenRule `json:"rules,omitempty"`
+}
+
+type AutogenRule struct {
+	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
+	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
+	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
+	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
+	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
 }
 
 func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -53,12 +78,19 @@ func (s *ValidatingPolicy) GetSpec() *ValidatingPolicySpec {
 	return &s.Spec
 }
 
-func (s *ValidatingPolicy) GetStatus() *PolicyStatus {
+func (s *ValidatingPolicy) GetStatus() *VpolStatus {
 	return &s.Status
 }
 
 func (s *ValidatingPolicy) GetKind() string {
 	return "ValidatingPolicy"
+}
+
+func (status *VpolStatus) GetConditionStatus() *ConditionStatus {
+	if status.ConditionStatus != nil {
+		return status.ConditionStatus
+	}
+	return &ConditionStatus{}
 }
 
 // +kubebuilder:object:root=true

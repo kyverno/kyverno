@@ -380,7 +380,7 @@ func (c *controller) enqueueVerifyWebhook() {
 	c.queue.Add(config.VerifyMutatingWebhookConfigurationName)
 }
 
-func (c *controller) recordPolicyState(webhookConfigurationName string, policies ...kyvernov1.PolicyInterface) {
+func (c *controller) recordKyvernoPolicyState(webhookConfigurationName string, policies ...kyvernov1.PolicyInterface) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if _, ok := c.policyState[webhookConfigurationName]; !ok {
@@ -397,9 +397,11 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 	}
 }
 
-func (c *controller) recordValidatingPolicyState(validatingpolicies ...engineapi.GenericPolicy) {
-	for _, policy := range validatingpolicies {
-		c.vpolStateRecorder.Record(policy.GetName())
+func (c *controller) recordPolicyState(policies ...engineapi.GenericPolicy) {
+	for _, policy := range policies {
+		if key := BuildPolicyKey(policy.GetKind(), policy.GetName()); key != "" {
+			c.vpolStateRecorder.Record(key)
+		}
 	}
 }
 
@@ -822,7 +824,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 			return nil, err
 		}
 		var fineGrainedIgnoreList, fineGrainedFailList []*webhook
-		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
+		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName, policies...)
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
@@ -852,7 +854,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		webhooks = append(webhooks, fineGrainedFailList...)
 		result.Webhooks = c.buildResourceMutatingWebhookRules(caBundle, webhookCfg, &noneOnDryRun, webhooks)
 	} else {
-		c.recordPolicyState(config.MutatingWebhookConfigurationName)
+		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName)
 	}
 	return &result, nil
 }
@@ -983,7 +985,7 @@ func (c *controller) buildForValidatingPolicies(cfg config.Configuration, caBund
 
 	webhooks := buildWebhookRules(cfg, c.server, c.servicePort, caBundle, policies)
 	result.Webhooks = append(result.Webhooks, webhooks...)
-	c.recordValidatingPolicyState(policies...)
+	c.recordPolicyState(policies...)
 	return nil
 }
 
@@ -998,7 +1000,7 @@ func (c *controller) buildForPolicies(ctx context.Context, cfg config.Configurat
 		}
 
 		var fineGrainedIgnoreList, fineGrainedFailList []*webhook
-		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
+		c.recordKyvernoPolicyState(config.ValidatingWebhookConfigurationName, policies...)
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
@@ -1032,7 +1034,7 @@ func (c *controller) buildForPolicies(ctx context.Context, cfg config.Configurat
 		webhooks = append(webhooks, fineGrainedFailList...)
 		result.Webhooks = c.buildResourceValidatingWebhookRules(caBundle, webhookCfg, sideEffects, webhooks)
 	} else {
-		c.recordPolicyState(config.ValidatingWebhookConfigurationName)
+		c.recordKyvernoPolicyState(config.ValidatingWebhookConfigurationName)
 	}
 	return nil
 }

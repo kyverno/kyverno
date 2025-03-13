@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -13,17 +12,6 @@ const (
 	PolicyConditionTypePolicyCached           PolicyConditionType = "PolicyCached"
 	PolicyConditionTypeRBACPermissionsGranted PolicyConditionType = "RBACPermissionsGranted"
 )
-
-type PolicyStatus struct {
-	ConditionStatus *ConditionStatus `json:",inline"`
-
-	// +optional
-	Autogen AutogenStatus `json:"autogen"`
-
-	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
-	// +optional
-	Generated bool `json:"generated"`
-}
 
 // ConditionStatus is the shared status across all policy types
 type ConditionStatus struct {
@@ -41,25 +29,7 @@ type ConditionStatus struct {
 	Message string `json:"message"`
 }
 
-// AutogenStatus contains autogen status information.
-type AutogenStatus struct {
-	// Rules is a list of Rule instances. It contains auto generated rules added for pod controllers
-	Rules []AutogenRule `json:"rules,omitempty"`
-}
-
-type AutogenRule struct {
-	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
-	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
-	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
-	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
-	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
-}
-
-func (status *PolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
-	if status.ConditionStatus == nil {
-		status.ConditionStatus = &ConditionStatus{}
-	}
-
+func (status *ConditionStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
 	reason := "Succeeded"
 	if s != metav1.ConditionTrue {
 		reason = "Failed"
@@ -71,7 +41,7 @@ func (status *PolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.
 		Message: message,
 	}
 
-	meta.SetStatusCondition(&status.ConditionStatus.Conditions, newCondition)
+	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
 
 func (status *ConditionStatus) IsReady() bool {
@@ -79,11 +49,4 @@ func (status *ConditionStatus) IsReady() bool {
 		return *status.Ready
 	}
 	return false
-}
-
-func (status *PolicyStatus) GetConditionStatus() *ConditionStatus {
-	if status.ConditionStatus != nil {
-		return status.ConditionStatus
-	}
-	return &ConditionStatus{}
 }

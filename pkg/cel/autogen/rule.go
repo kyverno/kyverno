@@ -23,7 +23,7 @@ func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, con
 	matchConstraints := createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions, err := convertMatchconditions(spec.MatchConditions, resource)
+	matchConditions, err := convertMatchConditions(spec.MatchConditions, resource)
 	if err != nil {
 		return nil, err
 	}
@@ -124,15 +124,15 @@ func createMatchConstraints(controllers string, operations []admissionregistrati
 	}
 }
 
-func convertMatchconditions(conditions []admissionregistrationv1.MatchCondition, resource autogencontroller) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
+func convertMatchConditions(conditions []admissionregistrationv1.MatchCondition, resource autogencontroller) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
 	var name, expression string
 	switch resource {
 	case PODS:
 		name = podControllerMatchConditionName
-		expression = podControllersMatchConditionExpression
+		expression = PodControllersMatchConditionExpression
 	case CRONJOBS:
 		name = cronjobMatchConditionName
-		expression = cronJobMatchConditionExpression
+		expression = CronJobMatchConditionExpression
 	}
 
 	for _, m := range conditions {
@@ -166,9 +166,9 @@ var (
 	}
 
 	podControllerMatchConditionName        = "autogen-"
-	podControllersMatchConditionExpression = "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || "
+	PodControllersMatchConditionExpression = "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || "
 	cronjobMatchConditionName              = "autogen-cronjobs-"
-	cronJobMatchConditionExpression        = "!(object.kind =='CronJob') || "
+	CronJobMatchConditionExpression        = "!(object.kind =='CronJob') || "
 )
 
 func updateFields(data []byte, resource autogencontroller) []byte {

@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,7 +22,18 @@ type ImageVerificationPolicy struct {
 	Spec              ImageVerificationPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
-	Status ConditionStatus `json:"status,omitempty"`
+	Status IvpolStatus `json:"status,omitempty"`
+}
+
+type IvpolStatus struct {
+	ConditionStatus *ConditionStatus `json:",inline"`
+
+	// +optional
+	Autogen IvpolAutogenStatus `json:"autogen,omitempty"`
+}
+
+type IvpolAutogenStatus struct {
+	Rules []*ImageVerificationPolicy `json:"rules,omitempty"`
 }
 
 func (s *ImageVerificationPolicy) GetName() string {
@@ -68,7 +80,7 @@ func (s *ImageVerificationPolicy) GetSpec() *ImageVerificationPolicySpec {
 	return &s.Spec
 }
 
-func (s *ImageVerificationPolicy) GetStatus() *ConditionStatus {
+func (s *ImageVerificationPolicy) GetStatus() *IvpolStatus {
 	return &s.Status
 }
 
@@ -90,6 +102,32 @@ func (s ImageVerificationPolicySpec) BackgroundEnabled() bool {
 		return true
 	}
 	return *s.EvaluationConfiguration.Background.Enabled
+}
+
+func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
+	if status.ConditionStatus == nil {
+		status.ConditionStatus = &ConditionStatus{}
+	}
+
+	reason := "Succeeded"
+	if s != metav1.ConditionTrue {
+		reason = "Failed"
+	}
+	newCondition := metav1.Condition{
+		Type:    string(c),
+		Reason:  reason,
+		Status:  s,
+		Message: message,
+	}
+
+	meta.SetStatusCondition(&status.ConditionStatus.Conditions, newCondition)
+}
+
+func (status *IvpolStatus) GetConditionStatus() *ConditionStatus {
+	if status.ConditionStatus != nil {
+		return status.ConditionStatus
+	}
+	return &ConditionStatus{}
 }
 
 // +kubebuilder:object:root=true
