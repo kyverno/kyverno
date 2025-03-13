@@ -204,7 +204,7 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 		}
 
 		if p, errList := c.Compile(e.logger, ivpol.Policy); errList != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", err, nil)
+			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 		} else {
 			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true)
 			if err != nil {

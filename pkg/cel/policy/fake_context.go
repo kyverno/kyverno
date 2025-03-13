@@ -3,7 +3,6 @@ package policy
 import (
 	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,12 +47,8 @@ func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
 	panic("not implemented")
 }
 
-func (cp *FakeContextProvider) GetImageData(string) (*imagedataloader.ImageData, error) {
+func (cp *FakeContextProvider) GetImageData(string) (map[string]interface{}, error) {
 	panic("not implemented")
-}
-
-func (cp *FakeContextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
-	return imagedataloader.ParseImageReference(image)
 }
 
 func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
