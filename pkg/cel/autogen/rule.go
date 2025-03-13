@@ -17,56 +17,36 @@ var (
 	CRONJOBS autogencontroller = "cronjobs"
 )
 
-func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string, resource autogencontroller) (*policiesv1alpha1.AutogenRule, error) {
+func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string, resource autogencontroller) (autogenRule *policiesv1alpha1.AutogenRule, err error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
+	newSpec := &policiesv1alpha1.ValidatingPolicySpec{}
 	// create a resource rule for pod controllers
-	matchConstraints := createMatchConstraints(controllers, operations)
+	newSpec.MatchConstraints = createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions, err := convertMatchConditions(spec.MatchConditions, resource)
+	newSpec.MatchConditions, err = convertMatchConditions(spec.MatchConditions, resource)
 	if err != nil {
 		return nil, err
 	}
 
-	// convert validations
-	validations := spec.Validations
-	if bytes, err := json.Marshal(validations); err != nil {
+	newSpec.Validations = spec.Validations
+	newSpec.AuditAnnotations = spec.AuditAnnotations
+	newSpec.Variables = spec.Variables
+	if bytes, err := json.Marshal(newSpec); err != nil {
 		return nil, err
 	} else {
 		bytes = updateFields(bytes, resource)
-		if err := json.Unmarshal(bytes, &validations); err != nil {
-			return nil, err
-		}
-	}
-
-	// convert audit annotations
-	auditAnnotations := spec.AuditAnnotations
-	if bytes, err := json.Marshal(auditAnnotations); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, resource)
-		if err := json.Unmarshal(bytes, &auditAnnotations); err != nil {
-			return nil, err
-		}
-	}
-
-	// convert variables
-	variables := spec.Variables
-	if bytes, err := json.Marshal(variables); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, resource)
-		if err := json.Unmarshal(bytes, &variables); err != nil {
+		if err := json.Unmarshal(bytes, &newSpec); err != nil {
 			return nil, err
 		}
 	}
 
 	return &policiesv1alpha1.AutogenRule{
-		MatchConstraints: matchConstraints,
-		MatchConditions:  matchConditions,
-		Validations:      validations,
-		AuditAnnotation:  auditAnnotations,
-		Variables:        variables,
+		MatchConstraints: newSpec.MatchConstraints,
+		MatchConditions:  newSpec.MatchConditions,
+		Validations:      newSpec.Validations,
+		AuditAnnotation:  newSpec.AuditAnnotations,
+		Variables:        newSpec.Variables,
 	}, nil
 }
 
@@ -140,14 +120,14 @@ func convertMatchConditions(conditions []admissionregistrationv1.MatchCondition,
 		m.Expression = expression + m.Expression
 		matchConditions = append(matchConditions, m)
 	}
-	if bytes, err := json.Marshal(matchConditions); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, resource)
-		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
-			return nil, err
-		}
-	}
+	// if bytes, err := json.Marshal(matchConditions); err != nil {
+	// 	return nil, err
+	// } else {
+	// 	bytes = updateFields(bytes, resource)
+	// 	if err := json.Unmarshal(bytes, &matchConditions); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 	return matchConditions, nil
 }
 

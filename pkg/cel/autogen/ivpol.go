@@ -57,7 +57,7 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSe
 		policy.Spec.MatchConstraints = createMatchConstraints(controllers, operations)
 
 		// convert match conditions
-		policy.Spec.MatchConditions, err = convertMatchConditions(ivpol.Spec.MatchConditions, resource)
+		policy.Spec.MatchConditions, err = convertMatchConditions(policy.Spec.MatchConditions, resource)
 		if err != nil {
 			return nil, err
 		}
