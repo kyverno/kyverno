@@ -382,10 +382,10 @@ func TestImageVerificationPolicy_GetStatus(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageVerificationPolicy
-		want   *ConditionStatus
+		want   *IvpolStatus
 	}{{
 		policy: &ImageVerificationPolicy{},
-		want:   &ConditionStatus{},
+		want:   &IvpolStatus{},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
