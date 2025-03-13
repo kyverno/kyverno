@@ -147,10 +147,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, policy := range results.Policies {
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
-				if res.IsValidatingAdmissionPolicy {
-					continue
-				}
-				if res.IsValidatingPolicy {
+				if res.IsValidatingAdmissionPolicy || res.IsValidatingPolicy {
 					continue
 				}
 				// TODO: what if two policies have a rule with the same name ?
