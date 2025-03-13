@@ -160,10 +160,7 @@ type ImageData struct {
 	RemoteOpts []remote.Option
 	NameOpts   []name.Option
 
-	ImageReference `json:",inline"`
-	ImageIndex     interface{}       `json:"imageIndex,omitempty"`
-	Manifest       *gcrv1.Manifest   `json:"manifest,omitempty"`
-	ConfigData     *gcrv1.ConfigFile `json:"config,omitempty"`
+	ImageDescriptor `json:",inline"`
 
 	NameRef                name.Reference
 	desc                   *remote.Descriptor
@@ -171,6 +168,13 @@ type ImageData struct {
 	referrersData          map[string]referrerData
 	verifiedReferrers      map[string]gcrv1.Descriptor
 	verifiedIntotoPayloads map[string][]byte
+}
+
+type ImageDescriptor struct {
+	ImageReference `json:",inline"`
+	ImageIndex     interface{}       `json:"imageIndex,omitempty"`
+	Manifest       *gcrv1.Manifest   `json:"manifest,omitempty"`
+	ConfigData     *gcrv1.ConfigFile `json:"config,omitempty"`
 }
 
 type referrerData struct {
@@ -199,6 +203,10 @@ func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error
 
 func (i *ImageData) WithDigest(digest string) string {
 	return i.NameRef.Context().Digest(digest).String()
+}
+
+func (i *ImageData) Data() ImageDescriptor {
+	return i.ImageDescriptor
 }
 
 func (i *ImageData) loadReferrers() error {
