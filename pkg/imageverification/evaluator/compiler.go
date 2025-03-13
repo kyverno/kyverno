@@ -26,6 +26,8 @@ const (
 	ImagesKey          = "images"
 	AttestorKey        = "attestors"
 	AttestationKey     = "attestations"
+	ContextKey         = "context"
+	HttpKey            = "http"
 )
 
 type Compiler interface {
@@ -55,6 +57,8 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 	var declTypes []*apiservercel.DeclType
 	declTypes = append(declTypes, imageverifierfunctions.Types()...)
 	options := []cel.EnvOption{
+		cel.Variable(ContextKey, context.ContextType),
+		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),

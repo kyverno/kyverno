@@ -2,18 +2,16 @@ package context
 
 import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // MOCK FOR TESTING
 type MockCtx struct {
-	GetConfigMapFunc        func(string, string) (*unstructured.Unstructured, error)
-	GetGlobalReferenceFunc  func(string, string) (any, error)
-	GetImageDataFunc        func(string) (*imagedataloader.ImageData, error)
-	ParseImageReferenceFunc func(string) (imagedataloader.ImageReference, error)
-	ListResourcesFunc       func(string, string, string) (*unstructured.UnstructuredList, error)
-	GetResourceFunc         func(string, string, string, string) (*unstructured.Unstructured, error)
+	GetConfigMapFunc       func(string, string) (*unstructured.Unstructured, error)
+	GetGlobalReferenceFunc func(string, string) (any, error)
+	GetImageDataFunc       func(string) (map[string]interface{}, error)
+	ListResourcesFunc      func(string, string, string) (*unstructured.UnstructuredList, error)
+	GetResourceFunc        func(string, string, string, string) (*unstructured.Unstructured, error)
 }
 
 func (mock *MockCtx) GetConfigMap(ns string, n string) (*unstructured.Unstructured, error) {
@@ -24,12 +22,8 @@ func (mock *MockCtx) GetGlobalReference(n, p string) (any, error) {
 	return mock.GetGlobalReferenceFunc(n, p)
 }
 
-func (mock *MockCtx) GetImageData(n string) (*imagedataloader.ImageData, error) {
+func (mock *MockCtx) GetImageData(n string) (map[string]interface{}, error) {
 	return mock.GetImageDataFunc(n)
-}
-
-func (mock *MockCtx) ParseImageReference(n string) (imagedataloader.ImageReference, error) {
-	return mock.ParseImageReferenceFunc(n)
 }
 
 func (mock *MockCtx) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
