@@ -9,9 +9,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-var (
-	ImageType = cel.ObjectType("kyverno.image")
-)
+var ImageType = cel.ObjectType("kyverno.image")
 
 type ImageReference struct {
 	Image      string `json:"image,omitempty"`
