@@ -33,6 +33,7 @@ type IvpolStatus struct {
 }
 
 type IvpolAutogenStatus struct {
+	// +optional
 	Rules []*ImageVerificationPolicy `json:"rules,omitempty"`
 }
 

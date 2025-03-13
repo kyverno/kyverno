@@ -79,7 +79,6 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	polType, polName := webhook.ParsePolicyKey(key)
 	if polType == webhook.ValidatingPolicyType {
 		vpol, err := c.client.PoliciesV1alpha1().ValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
-
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("validating policy not found", "name", polName)
