@@ -92,6 +92,10 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 			},
 			Verifications: []admissionregistrationv1.Validation{
 				{
+					Expression: "images.containers.map(i, image(i).registry() == \"ghcr.io\" ).all(e, e)",
+					Message:    "images are not from ghcr registry",
+				},
+				{
 					Expression: "images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
 					Message:    "failed to verify image with notary cert",
 				},

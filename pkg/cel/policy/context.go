@@ -91,9 +91,13 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	}
 }
 
-func (cp *contextProvider) GetImageData(image string) (*imagedataloader.ImageData, error) {
+func (cp *contextProvider) GetImageData(image string) (map[string]interface{}, error) {
 	// TODO: get image credentials from image verification policies?
-	return cp.imagedata.FetchImageData(context.TODO(), image)
+	data, err := cp.imagedata.FetchImageData(context.TODO(), image)
+	if err != nil {
+		return nil, err
+	}
+	return getValue(data.Data())
 }
 
 func isLikelyKubernetesObject(data any) bool {
@@ -130,10 +134,6 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	}
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
-}
-
-func (cp *contextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
-	return imagedataloader.ParseImageReference(image)
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {
