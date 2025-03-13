@@ -2,6 +2,7 @@ package context
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -146,7 +147,7 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetImageData("ghcr.io/kyverno/kyverno:latest")`)
+	ast, issues := env.Compile(`context.GetImageData("ghcr.io/kyverno/kyverno:latest").resolvedImage`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -154,54 +155,30 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	data := map[string]any{
 		"context": Context{&MockCtx{
-			GetImageDataFunc: func(image string) (*imagedataloader.ImageData, error) {
+			GetImageDataFunc: func(image string) (map[string]interface{}, error) {
 				idl, err := imagedataloader.New(nil)
 				assert.NoError(t, err)
-				return idl.FetchImageData(context.TODO(), image)
+				data, err := idl.FetchImageData(context.TODO(), image)
+				if err != nil {
+					return nil, err
+				}
+				raw, err := json.Marshal(data.Data())
+				if err != nil {
+					return nil, err
+				}
+				apiData := map[string]interface{}{}
+				err = json.Unmarshal(raw, &apiData)
+				if err != nil {
+					return nil, err
+				}
+				return apiData, nil
 			},
 		},
 		}}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
-	img := out.Value().(*imagedataloader.ImageData)
-	assert.Equal(t, img.Tag, "latest")
-	assert.True(t, strings.HasPrefix(img.ResolvedImage, "ghcr.io/kyverno/kyverno:latest@sha256:"))
-	assert.True(t, img.ConfigData != nil)
-	assert.True(t, img.Manifest != nil)
-	assert.True(t, img.ImageIndex != nil)
-}
-
-func Test_impl_parse_image_ref_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
-	assert.NoError(t, err)
-	assert.NotNil(t, base)
-	options := []cel.EnvOption{
-		cel.Variable("context", ContextType),
-	}
-	env, err := base.Extend(options...)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.ParseImageReference("ghcr.io/kyverno/kyverno:latest")`)
-	assert.Nil(t, issues)
-	assert.NotNil(t, ast)
-	prog, err := env.Program(ast)
-	assert.NoError(t, err)
-	assert.NotNil(t, prog)
-	data := map[string]any{
-		"context": Context{&MockCtx{
-			ParseImageReferenceFunc: func(image string) (imagedataloader.ImageReference, error) {
-				return imagedataloader.ParseImageReference(image)
-			},
-		},
-		},
-	}
-	out, _, err := prog.Eval(data)
-	assert.NoError(t, err)
-	img := out.Value().(imagedataloader.ImageReference)
-	assert.Equal(t, img.Tag, "latest")
-	assert.Equal(t, img.Identifier, "latest")
-	assert.Equal(t, img.Image, "ghcr.io/kyverno/kyverno:latest")
+	resolvedImg := out.Value().(string)
+	assert.True(t, strings.HasPrefix(resolvedImg, "ghcr.io/kyverno/kyverno:latest@sha256:"))
 }
 
 func Test_impl_get_resource_string_string_string_string(t *testing.T) {
