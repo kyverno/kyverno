@@ -38,12 +38,10 @@ data:
   {{- with .Values.config.updateRequestThreshold }}
   updateRequestThreshold: {{ . | quote }}
   {{- end -}}
-  {{- if and .Values.config.webhooks .Values.config.excludeKyvernoNamespace }}
+  {{- if .Values.config.webhooks }}
   webhooks: {{ include "kyverno.config.webhooks" . | quote }}
-  {{- else if .Values.config.webhooks }}
-  webhooks: {{ .Values.config.webhooks | toJson | quote }}
   {{- else if .Values.config.excludeKyvernoNamespace }}
-  webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
+  webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}","kube-system"]}]}}]'
   {{- end -}}
   {{- with .Values.config.webhookAnnotations }}
   webhookAnnotations: {{ toJson . | quote }}
