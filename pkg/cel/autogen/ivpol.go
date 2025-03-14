@@ -87,7 +87,8 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSe
 		}
 	}
 
-	p, err := genPolicy(PODS, strings.Join(sets.List(controllerSet.Delete("cronjobs")), ","))
+	controllerSetCopied := controllerSet.Clone()
+	p, err := genPolicy(PODS, strings.Join(sets.List(controllerSetCopied.Delete("cronjobs")), ","))
 	if err != nil {
 		return nil, err
 	}
