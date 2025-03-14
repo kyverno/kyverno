@@ -48,7 +48,16 @@ $ helm install kyverno --namespace kyverno kyverno/kyverno
 The command deploys Kyverno on the Kubernetes cluster with default configuration. The [installation](https://kyverno.io/docs/installation/) guide lists the parameters that can be configured during installation.
 
 The Kyverno ClusterRole/ClusterRoleBinding that manages webhook configurations must have the suffix `:webhook`. Ex., `*:webhook` or `kyverno:webhook`.
-Other ClusterRole/ClusterRoleBinding names are configurable.
+
+## Operational Safety: Namespace Exclusions
+
+By default, both the Kyverno namespace and kube-system namespace are excluded from webhook validations. This is done for operational safety to ensure that:
+
+1. Critical system components in kube-system namespace are not accidentally blocked
+2. Kyverno can be safely upgraded without webhook conflicts
+3. In case of Kyverno service disruption, the Kubernetes API server operations remain unaffected for these critical namespaces
+
+This configuration can be customized using the `config.webhooks.namespaceSelector` and `config.excludeKyvernoNamespace` settings if needed, but excluding these namespaces is generally recommended for production environments to prevent potential cluster disruptions.
 
 **Notes on using ArgoCD:**
 
