@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	stdlog "log"
 	"os"
@@ -23,6 +24,8 @@ const (
 	// TextFormat represents text logging mode.
 	// Default logging mode is TextFormat.
 	TextFormat = "text"
+	// EcsFormat represents ecs logging mode.
+	EcsFormat = "ecs"
 	// LogLevelController is the log level to use for controllers plumbing.
 	LogLevelController = 1
 	// LogLevelClient is the log level to use for clients.
@@ -52,6 +55,8 @@ func InitFlags(flags *flag.FlagSet) {
 	klog.InitFlags(flags)
 }
 
+var isEcsEnabled = false
+
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string, loggingTimestampFormat string, level int) error {
@@ -60,13 +65,22 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	var logger zerolog.Logger
 	switch logFormat {
 	case TextFormat:
-		output := zerolog.ConsoleWriter{Out: os.Stderr}
+		output := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: true}
 		output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
 		logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 	case JSONFormat:
 		logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	case EcsFormat:
+		isEcsEnabled = true
+		logger = zerolog.New(os.Stderr).
+			With().
+			Str("@timestamp", time.Now().Format(time.RFC3339Nano)).
+			Str("event.dataset", "kyverno.logs").
+			Str("service.name", "kyverno").
+			Caller().
+			Logger()
 	default:
-		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
+		return errors.New("log format not recognized, pass `text`, `json` or `ecs`")
 	}
 
 	globalLog = zerologr.New(&logger)
@@ -124,14 +138,43 @@ func V(level int) logr.Logger {
 	return GlobalLogger().V(level)
 }
 
-// Info logs a non-error message with the given key/value pairs.
+// Info logs a non-error message with key/value pairs.
 func Info(msg string, keysAndValues ...interface{}) {
-	GlobalLogger().WithCallDepth(1).Info(msg, keysAndValues...)
+	if !isEcsEnabled {
+		GlobalLogger().WithCallDepth(1).Info(msg, keysAndValues...)
+		return
+	}
+	logFields := []interface{}{
+		"@timestamp", time.Now().Format(time.RFC3339Nano),
+		"event.dataset", "kyverno.logs",
+		"event.action", "logged",
+		"log.level", "info",
+		"service.name", "kyverno",
+		"message", msg,
+	}
+	GlobalLogger().WithValues(logFields...).Info(msg, keysAndValues...)
 }
 
-// Error logs an error, with the given message and key/value pairs.
+// Error logs an error with a message and key/value pairs.
 func Error(err error, msg string, keysAndValues ...interface{}) {
-	GlobalLogger().WithCallDepth(1).Error(err, msg, keysAndValues...)
+	if !isEcsEnabled {
+		GlobalLogger().Error(err, msg, keysAndValues...)
+		return
+	}
+
+	errorFields := []interface{}{
+		"@timestamp", time.Now().Format(time.RFC3339Nano),
+		"event.dataset", "kyverno.logs",
+		"event.action", "error_logged",
+		"log.level", "error",
+		"service.name", "kyverno",
+		"message", msg,
+	}
+	if err != nil {
+		errorFields = append(errorFields, "error.message", err.Error(), "error.stack_trace", fmt.Sprintf("%+v", err))
+	}
+
+	GlobalLogger().WithValues(errorFields...).Error(err, msg, keysAndValues...)
 }
 
 // FromContext returns a logger with predefined values from a context.Context.
