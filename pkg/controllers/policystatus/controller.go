@@ -98,7 +98,6 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			}
 			return err
 		}
-
 		return c.updateIvpolStatus(ctx, ivpol)
 	}
 	return nil

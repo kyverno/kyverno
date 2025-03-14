@@ -445,8 +445,6 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 							if mExpect.Name != mActual.Name {
 								continue
 							}
-							fmt.Println("====expect: ", expect.MatchConditions[m])
-							fmt.Println("====actual: ", webhooks[i].MatchConditions[n])
 							assert.Equal(t, expect.MatchConditions[m], webhooks[i].MatchConditions[n])
 						}
 					}

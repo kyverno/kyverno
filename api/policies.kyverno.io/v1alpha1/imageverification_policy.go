@@ -13,7 +13,10 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:path=imageverificationpolicies,scope="Cluster",shortName=ivpol,categories=kyverno
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ImageVerificationPolicy struct {
@@ -34,7 +37,12 @@ type IvpolStatus struct {
 
 type IvpolAutogenStatus struct {
 	// +optional
-	Rules []*ImageVerificationPolicy `json:"rules,omitempty"`
+	Rules []*IvpolAutogen `json:"rules,omitempty"`
+}
+
+type IvpolAutogen struct {
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ImageVerificationPolicySpec `json:"spec"`
 }
 
 func (s *ImageVerificationPolicy) GetName() string {

@@ -304,7 +304,10 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			Name:      p.Name,
 		}
 		r.policies[namespacedName.String()] = CompiledImageVerificationPolicy{
-			Policy:  p,
+			Policy: &policiesv1alpha1.ImageVerificationPolicy{
+				ObjectMeta: p.ObjectMeta,
+				Spec:       p.Spec,
+			},
 			Actions: actions,
 		}
 	}
