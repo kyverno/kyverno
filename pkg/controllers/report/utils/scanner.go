@@ -21,6 +21,7 @@ import (
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -177,6 +178,7 @@ func (s *scanner) ScanResource(
 				resource.GetName(),
 				resource.GetNamespace(),
 				admissionv1.Create,
+				authenticationv1.UserInfo{},
 				&resource,
 				nil,
 				false,
