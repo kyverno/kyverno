@@ -54,6 +54,8 @@ const (
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// ValidatingPolicyWebhookName defines default webhook name for validatingpolicies
 	ValidatingPolicyWebhookName = "vpol.validate.kyverno.svc"
+	// ImageVerificationPolicyWebhookName defines default webhook name for imageverificationpolicies
+	ImageVerificationPolicyWebhookName = "ivpol.validate.kyverno.svc"
 )
 
 // paths
@@ -62,8 +64,12 @@ const (
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	// ValidatingWebhookServicePath is the path for validation webhook
 	ValidatingWebhookServicePath = "/validate"
-	// ValidatingPolicyServicePath is the path for validating policies execution
-	ValidatingPolicyServicePath = "/policies"
+	// PolicyServicePath is the prefix path for policies execution
+	PolicyServicePath = "/policies"
+	// ValidatingPolicyServicePath is the sub path for validatingpolicies execution
+	ValidatingPolicyServicePath = "/vpol"
+	// ImageVerificationPolicyServicePath is the sub path for imageverificationpolicies execution
+	ImageVerificationPolicyServicePath = "/ivpol"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CELExceptionValidatingWebhookServicePath is the path for CELPolicyException validation webhook(used to validate CELPolicyException resource)

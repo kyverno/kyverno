@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -14,7 +13,7 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func Evaluate(ctx context.Context, logger logr.Logger, ivpols []*v1alpha1.ImageVerificationPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
+func Evaluate(ctx context.Context, ivpols []*v1alpha1.ImageVerificationPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
 	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
 	if err != nil {
 		return nil, err
@@ -32,7 +31,7 @@ func Evaluate(ctx context.Context, logger logr.Logger, ivpols []*v1alpha1.ImageV
 	c := NewCompiler(ictx, lister, gvr)
 	results := make(map[string]*EvaluationResult, len(policies))
 	for _, ivpol := range policies {
-		p, errList := c.Compile(logger, ivpol)
+		p, errList := c.Compile(ivpol)
 		if errList != nil {
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}

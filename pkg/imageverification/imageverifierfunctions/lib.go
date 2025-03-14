@@ -21,7 +21,7 @@ type lib struct {
 	lister k8scorev1.SecretInterface
 }
 
-func Lib(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister k8scorev1.SecretInterface) cel.EnvOption {
+func Lib(imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister k8scorev1.SecretInterface) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
 		imgCtx: imgCtx,

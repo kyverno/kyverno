@@ -8,15 +8,15 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
-	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/webhook"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"go.uber.org/multierr"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
@@ -76,27 +76,54 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 }
 
 func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error {
-	vpol, err := c.client.PoliciesV1alpha1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.V(4).Info("validating policy not found", "name", name)
-			return nil
+	polType, polName := webhook.ParsePolicyKey(key)
+	if polType == webhook.ValidatingPolicyType {
+		vpol, err := c.client.PoliciesV1alpha1().ValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("validating policy not found", "name", polName)
+				return nil
+			}
+			return err
 		}
-		return err
-	}
 
-	return c.updateStatus(ctx, vpol)
+		return c.updateVpolStatus(ctx, vpol)
+	}
+	if polType == webhook.ImageVerificationPolicy {
+		ivpol, err := c.client.PoliciesV1alpha1().ImageVerificationPolicies().Get(ctx, polName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("imageVerification policy not found", "name", polName)
+				return nil
+			}
+			return err
+		}
+		return c.updateIvpolStatus(ctx, ivpol)
+	}
+	return nil
 }
 
-func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) {
-	if ready, ok := c.vpolStateRecorder.Ready(vpol.GetName()); ready {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
+func (c controller) reconcileConditions(ctx context.Context, policy engineapi.GenericPolicy) {
+	var key string
+	var matchConstraints admissionregistrationv1.MatchResources
+	status := &policiesv1alpha1.ConditionStatus{}
+	switch policy.GetKind() {
+	case webhook.ValidatingPolicyType:
+		key = webhook.BuildPolicyKey(webhook.ValidatingPolicyType, policy.GetName())
+		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
+	case webhook.ImageVerificationPolicy:
+		key = webhook.BuildPolicyKey(webhook.ImageVerificationPolicy, policy.GetName())
+		matchConstraints = policy.AsImageVerificationPolicy().GetMatchConstraints()
+	}
+
+	if ready, ok := c.vpolStateRecorder.Ready(key); ready {
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
 	} else if ok {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
 	}
 
 	gvrs := []metav1.GroupVersionResource{}
-	for _, rule := range vpol.GetMatchConstraints().ResourceRules {
+	for _, rule := range matchConstraints.ResourceRules {
 		for _, g := range rule.RuleWithOperations.APIGroups {
 			for _, v := range rule.RuleWithOperations.APIVersions {
 				for _, r := range rule.RuleWithOperations.Resources {
@@ -123,57 +150,8 @@ func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alp
 	}
 
 	if errs != nil {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
 	} else {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
 	}
-}
-
-func (c controller) updateStatus(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) error {
-	updateFunc := func(vpol *policiesv1alpha1.ValidatingPolicy) error {
-		c.reconcileConditions(ctx, vpol)
-
-		status := vpol.GetStatus()
-		status.Autogen.Rules = nil
-		rules := vpolautogen.ComputeRules(vpol)
-		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
-
-		ready := true
-		for _, condition := range status.Conditions {
-			if condition.Status != metav1.ConditionTrue {
-				ready = false
-				break
-			}
-		}
-
-		if status.Ready == nil || *status.Ready != ready {
-			status.Ready = &ready
-		}
-		return nil
-	}
-
-	err := controllerutils.UpdateStatus(ctx,
-		vpol,
-		c.client.PoliciesV1alpha1().ValidatingPolicies(),
-		updateFunc,
-		func(current, expect *policiesv1alpha1.ValidatingPolicy) bool {
-			if current.GetStatus().Ready == nil || current.GetStatus().IsReady() != expect.GetStatus().IsReady() {
-				return false
-			}
-
-			if len(current.GetStatus().Conditions) != len(expect.GetStatus().Conditions) {
-				return false
-			}
-
-			for _, condition := range current.GetStatus().Conditions {
-				for _, expectCondition := range expect.GetStatus().Conditions {
-					if condition.Type == expectCondition.Type && condition.Status != expectCondition.Status {
-						return false
-					}
-				}
-			}
-			return datautils.DeepEqual(current.GetStatus().Autogen, expect.GetStatus().Autogen)
-		},
-	)
-	return err
 }
