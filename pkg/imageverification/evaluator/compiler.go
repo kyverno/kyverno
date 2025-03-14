@@ -77,8 +77,9 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 		options = append(options, cel.Types(declType.CelType()))
 	}
 	httpLib := http.Lib()
+	contextLib := context.Lib()
 
-	options = append(options, imageverifierfunctions.Lib(logger, c.ictx, ivpolicy, c.lister), context.Lib(), cel.Lib(httpLib))
+	options = append(options, imageverifierfunctions.Lib(logger, c.ictx, ivpolicy, c.lister), cel.Lib(contextLib), cel.Lib(httpLib))
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))

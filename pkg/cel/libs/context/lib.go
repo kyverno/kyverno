@@ -6,6 +6,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
@@ -13,9 +14,15 @@ const libraryName = "kyverno.context"
 
 type lib struct{}
 
-func Lib() cel.EnvOption {
+func Lib() libs.Library {
 	// create the cel lib env option
-	return cel.Lib(&lib{})
+	return &lib{}
+}
+
+func (*lib) NativeTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[Context](),
+	}
 }
 
 func Types() []*apiservercel.DeclType {

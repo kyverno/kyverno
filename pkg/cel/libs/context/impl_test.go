@@ -15,8 +15,8 @@ import (
 )
 
 func Test_impl_get_configmap_string_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
@@ -47,8 +47,8 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 }
 
 func Test_impl_get_globalreference_string_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
@@ -137,8 +137,8 @@ func Test_impl_get_globalreference_string_string(t *testing.T) {
 }
 
 func Test_impl_get_imagedata_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
@@ -182,8 +182,8 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 }
 
 func Test_impl_get_resource_string_string_string_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
@@ -223,8 +223,8 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 }
 
 func Test_impl_list_resources_string_string_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{

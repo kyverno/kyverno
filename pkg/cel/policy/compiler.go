@@ -52,8 +52,9 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 		cel.Variable(ObjectKey, cel.DynType),
 	}
 	httpLib := http.Lib()
+	contextLib := context.Lib()
 	options = append(options, declOptions...)
-	options = append(options, context.Lib(), cel.Lib(httpLib))
+	options = append(options, cel.Lib(contextLib), cel.Lib(httpLib))
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -128,8 +129,9 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		panic(err)
 	}
 	httpLib := http.Lib()
+	contextLib := context.Lib()
 	options = append(options, declOptions...)
-	options = append(options, context.Lib(), cel.Lib(httpLib))
+	options = append(options, cel.Lib(contextLib), cel.Lib(httpLib))
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {

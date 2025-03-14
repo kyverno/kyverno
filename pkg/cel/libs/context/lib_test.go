@@ -8,8 +8,8 @@ import (
 )
 
 func TestLib(t *testing.T) {
-	opts := Lib()
-	env, err := cel.NewEnv(opts)
+	lib := Lib()
+	env, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
 }
