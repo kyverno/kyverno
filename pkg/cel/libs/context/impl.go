@@ -27,13 +27,18 @@ func (c *impl) get_configmap_string_string(args ...ref.Val) ref.Val {
 	}
 }
 
-func (c *impl) get_globalreference_string(ctx ref.Val, name ref.Val) ref.Val {
-	if self, err := utils.ConvertToNative[Context](ctx); err != nil {
+func (c *impl) get_globalreference_string_string(args ...ref.Val) ref.Val {
+	if len(args) != 3 {
+		return types.NewErr("expected 3 arguments, got %d", len(args))
+	}
+	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
-	} else if name, err := utils.ConvertToNative[string](name); err != nil {
+	} else if name, err := utils.ConvertToNative[string](args[1]); err != nil {
+		return types.WrapErr(err)
+	} else if projection, err := utils.ConvertToNative[string](args[2]); err != nil {
 		return types.WrapErr(err)
 	} else {
-		globalRef, err := self.GetGlobalReference(name)
+		globalRef, err := self.GetGlobalReference(name, projection)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to get global reference: %v", err)
@@ -57,7 +62,7 @@ func (c *impl) get_imagedata_string(ctx ref.Val, image ref.Val) ref.Val {
 	}
 }
 
-func (c *impl) list_resource_string(args ...ref.Val) ref.Val {
+func (c *impl) list_resources_string_string_string(args ...ref.Val) ref.Val {
 	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
 	} else if apiVersion, err := utils.ConvertToNative[string](args[1]); err != nil {
@@ -67,7 +72,7 @@ func (c *impl) list_resource_string(args ...ref.Val) ref.Val {
 	} else if namespace, err := utils.ConvertToNative[string](args[3]); err != nil {
 		return types.WrapErr(err)
 	} else {
-		list, err := self.ListResource(apiVersion, resource, namespace)
+		list, err := self.ListResources(apiVersion, resource, namespace)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to list resource: %v", err)
@@ -76,7 +81,7 @@ func (c *impl) list_resource_string(args ...ref.Val) ref.Val {
 	}
 }
 
-func (c *impl) get_resource_string(args ...ref.Val) ref.Val {
+func (c *impl) get_resource_string_string_string_string(args ...ref.Val) ref.Val {
 	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
 	} else if apiVersion, err := utils.ConvertToNative[string](args[1]); err != nil {

@@ -145,24 +145,6 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
-		// {
-		// 	// TODO
-		// 	config: ApplyCommandConfig{
-		// 		PolicyPaths:   []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
-		// 		ResourcePaths: []string{"../../../../../test/openshift/team-validate-ns-name.yaml"},
-		// 		GitBranch:     "main",
-		// 		PolicyReport:  true,
-		// 	},
-		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
-		// 			Pass:  2,
-		// 			Fail:  0,
-		// 			Skip:  0,
-		// 			Error: 0,
-		// 			Warn:  0,
-		// 		},
-		// 	}},
-		// },
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/apply/policies-set"},
@@ -539,6 +521,22 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
+				PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
+				JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/policy.yaml"},
 				ResourcePaths: []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/skipped-deployment.yaml"},
 				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
@@ -588,6 +586,40 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod1.yaml"},
+				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod2.yaml"},
+				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
@@ -610,7 +642,7 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				_ = input.Close()
 			}()
 		}
-		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","))
+		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s], JSON payload: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","), strings.Join(tc.config.JSONPaths, ","))
 
 		_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
 		assert.NoError(t, err, desc)

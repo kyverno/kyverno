@@ -95,6 +95,7 @@ crds:
     policies:
       validatingpolicies: true
       celpolicyexceptions: true
+      imageverificationpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:

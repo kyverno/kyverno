@@ -16,10 +16,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -154,12 +156,14 @@ func (s *scanner) ScanResource(
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 			)
+			gctxStore := gctxstore.New()
 			// create context provider
 			context, err := celpolicy.NewContextProvider(
 				s.client,
 				nil,
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+				gctxStore,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
@@ -174,6 +178,7 @@ func (s *scanner) ScanResource(
 				resource.GetName(),
 				resource.GetNamespace(),
 				admissionv1.Create,
+				authenticationv1.UserInfo{},
 				&resource,
 				nil,
 				false,

@@ -48,23 +48,46 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"GetConfigMap": {
-			cel.MemberOverload("get_configmap_string_string", []*cel.Type{ContextType, types.StringType, types.StringType}, configMapType.CelType(), cel.FunctionBinding(impl.get_configmap_string_string)),
+			cel.MemberOverload(
+				"get_configmap_string_string",
+				[]*cel.Type{ContextType, types.StringType, types.StringType},
+				configMapType.CelType(),
+				cel.FunctionBinding(impl.get_configmap_string_string),
+			),
 		},
 		"GetGlobalReference": {
-			// TODO: should not use DynType in return
-			cel.MemberOverload("get_globalreference_string", []*cel.Type{ContextType, types.StringType}, types.DynType, cel.BinaryBinding(impl.get_globalreference_string)),
+			cel.MemberOverload(
+				"get_globalreference_string_string",
+				[]*cel.Type{ContextType, types.StringType, types.StringType},
+				types.DynType,
+				cel.FunctionBinding(impl.get_globalreference_string_string),
+			),
 		},
 		"GetImageData": {
-			// TODO: should not use DynType in return
-			cel.MemberOverload("get_imagedata_string", []*cel.Type{ContextType, types.StringType}, imageDataType.CelType(), cel.BinaryBinding(impl.get_imagedata_string)),
+			cel.MemberOverload(
+				"get_imagedata_string",
+				[]*cel.Type{ContextType, types.StringType},
+				types.DynType,
+				cel.BinaryBinding(impl.get_imagedata_string),
+			),
 		},
-		"ListResource": {
+		"ListResources": {
 			// TODO: should not use DynType in return
-			cel.MemberOverload("list_resource_string", []*cel.Type{ContextType, types.StringType, types.StringType, types.StringType}, types.DynType, cel.FunctionBinding(impl.list_resource_string)),
+			cel.MemberOverload(
+				"list_resources_string_string_string",
+				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType},
+				types.DynType,
+				cel.FunctionBinding(impl.list_resources_string_string_string),
+			),
 		},
 		"GetResource": {
 			// TODO: should not use DynType in return
-			cel.MemberOverload("get_resource_string", []*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType}, types.DynType, cel.FunctionBinding(impl.get_resource_string)),
+			cel.MemberOverload(
+				"get_resource_string_string_string_string",
+				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType},
+				types.DynType,
+				cel.FunctionBinding(impl.get_resource_string_string_string_string),
+			),
 		},
 	}
 	// create env options corresponding to our function overloads

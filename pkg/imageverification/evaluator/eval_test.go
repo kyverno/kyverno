@@ -35,7 +35,7 @@ var (
 			Images: []policiesv1alpha1.Image{
 				{
 					Name:       "bar",
-					Expression: "[request.foo.bar]",
+					Expression: "[object.foo.bar]",
 				},
 			},
 			Attestors: []policiesv1alpha1.Attestor{
@@ -95,11 +95,11 @@ func Test_Eval(t *testing.T) {
 	result, err := Evaluate(context.Background(), logr.Discard(), []*policiesv1alpha1.ImageVerificationPolicy{ivpol}, obj(signedImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
-	assert.True(t, result[0].Result)
+	assert.True(t, result[ivpol.Name].Result)
 
 	result, err = Evaluate(context.Background(), logr.Discard(), []*policiesv1alpha1.ImageVerificationPolicy{ivpol}, obj(unsignedImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
-	assert.False(t, result[0].Result)
-	assert.Equal(t, result[0].Message, "failed to verify image with notary cert")
+	assert.False(t, result[ivpol.Name].Result)
+	assert.Equal(t, result[ivpol.Name].Message, "failed to verify image with notary cert")
 }

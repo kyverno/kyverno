@@ -26,6 +26,8 @@ type GenericPolicy interface {
 	AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy
 	// AsValidatingPolicy returns the validating policy
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
+	// AsImageVerificationPolicy returns the imageverificationpolicy
+	AsImageVerificationPolicy() *policiesv1alpha1.ImageVerificationPolicy
 }
 
 type genericPolicy struct {
@@ -34,6 +36,7 @@ type genericPolicy struct {
 	ValidatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy
 	MutatingAdmissionPolicy   *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
+	ImageVerificationPolicy   *policiesv1alpha1.ImageVerificationPolicy
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -52,6 +55,10 @@ func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy 
 	return p.ValidatingPolicy
 }
 
+func (p *genericPolicy) AsImageVerificationPolicy() *policiesv1alpha1.ImageVerificationPolicy {
+	return p.ImageVerificationPolicy
+}
+
 func (p *genericPolicy) GetAPIVersion() string {
 	switch {
 	case p.PolicyInterface != nil:
@@ -61,6 +68,8 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.MutatingAdmissionPolicy != nil:
 		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
 	case p.ValidatingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.ImageVerificationPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	}
 	return ""
@@ -76,6 +85,8 @@ func (p *genericPolicy) GetKind() string {
 		return "MutatingAdmissionPolicy"
 	case p.ValidatingPolicy != nil:
 		return "ValidatingPolicy"
+	case p.ImageVerificationPolicy != nil:
+		return "ImageVerificationPolicy"
 	}
 	return ""
 }
@@ -113,5 +124,12 @@ func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:           pol,
 		ValidatingPolicy: pol,
+	}
+}
+
+func NewImageVerificationPolicy(pol *policiesv1alpha1.ImageVerificationPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:                  pol,
+		ImageVerificationPolicy: pol,
 	}
 }

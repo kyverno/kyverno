@@ -159,6 +159,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().ImageVerificationPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
@@ -593,9 +594,11 @@ func main() {
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
+
 		contextProvider, err := celpolicy.NewContextProvider(
 			setup.KyvernoDynamicClient,
 			nil,
+			gcstore,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		)
 		if err != nil {
@@ -642,7 +645,7 @@ func main() {
 				os.Exit(1)
 			}
 			celEngine = celengine.NewEngine(
-				provider,
+				provider.CompiledValidationPolicies,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {

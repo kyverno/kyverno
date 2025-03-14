@@ -2,7 +2,6 @@ package context
 
 import (
 	"github.com/google/cel-go/common/types"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
@@ -14,10 +13,10 @@ var (
 )
 
 type ContextInterface interface {
-	GetConfigMap(string, string) (unstructured.Unstructured, error)
-	GetGlobalReference(string) (any, error)
-	GetImageData(string) (*imagedataloader.ImageData, error)
-	ListResource(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error)
+	GetConfigMap(string, string) (*unstructured.Unstructured, error)
+	GetGlobalReference(string, string) (any, error)
+	GetImageData(string) (map[string]interface{}, error)
+	ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error)
 	GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error)
 }
 
@@ -71,7 +70,7 @@ func BuildImageDataType() *apiservercel.DeclType {
 		field("registry", apiservercel.StringType, true),
 		field("repository", apiservercel.StringType, true),
 		field("tag", apiservercel.StringType, false),
-		field("digest", apiservercel.StringType, true),
+		field("digest", apiservercel.StringType, false),
 		field("imageIndex", apiservercel.DynType, false),
 		field("manifest", apiservercel.DynType, true),
 		field("config", apiservercel.DynType, true),

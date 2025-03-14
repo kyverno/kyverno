@@ -5,6 +5,8 @@ import (
 	"github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
+	"github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifierfunctions"
@@ -24,6 +26,8 @@ const (
 	ImagesKey          = "images"
 	AttestorKey        = "attestors"
 	AttestationKey     = "attestations"
+	ContextKey         = "context"
+	HttpKey            = "http"
 )
 
 type Compiler interface {
@@ -53,6 +57,8 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 	var declTypes []*apiservercel.DeclType
 	declTypes = append(declTypes, imageverifierfunctions.Types()...)
 	options := []cel.EnvOption{
+		cel.Variable(ContextKey, context.ContextType),
+		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
@@ -64,17 +70,13 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 		options = append(options, cel.Variable(OldObjectKey, cel.DynType))
 	} else {
-		options = append(options, cel.Variable(RequestKey, cel.DynType))
+		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 	}
 
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
-	if err != nil {
-		// TODO: proper error handling
-		panic(err)
-	}
-	options = append(options, imageverifierfunctions.Lib(logger, c.ictx, ivpolicy, c.lister))
+	options = append(options, imageverifierfunctions.Lib(logger, c.ictx, ivpolicy, c.lister), context.Lib(), http.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -94,7 +96,7 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 		return nil, append(allErrs, errs...)
 	}
 
-	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), ivpolicy.Spec.Images, c.reqGVR)
+	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), ivpolicy.Spec.Images, c.reqGVR, options)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}

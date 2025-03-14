@@ -63,7 +63,7 @@ const (
 	// ValidatingWebhookServicePath is the path for validation webhook
 	ValidatingWebhookServicePath = "/validate"
 	// ValidatingPolicyServicePath is the path for validating policies execution
-	ValidatingPolicyServicePath = "/vpol"
+	ValidatingPolicyServicePath = "/policies"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CELExceptionValidatingWebhookServicePath is the path for CELPolicyException validation webhook(used to validate CELPolicyException resource)

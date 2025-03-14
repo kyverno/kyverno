@@ -5,6 +5,7 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,7 +136,7 @@ func TestBuildWebhookRules(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-ignore-finegrained-test-fine-grained-ignore",
-					ClientConfig: newClientConfig("", 0, nil, "/vpol/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
+					ClientConfig: newClientConfig("", 0, nil, "/policies/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -193,7 +194,7 @@ func TestBuildWebhookRules(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-fail-finegrained-test-fine-grained-fail",
-					ClientConfig: newClientConfig("", 0, nil, "/vpol/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
+					ClientConfig: newClientConfig("", 0, nil, "/policies/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -221,9 +222,9 @@ func TestBuildWebhookRules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var vpols []policiesv1alpha1.GenericPolicy
+			var vpols []engineapi.GenericPolicy
 			for _, vpol := range tt.vpols {
-				vpols = append(vpols, vpol)
+				vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 			}
 			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", 0, nil, vpols)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))

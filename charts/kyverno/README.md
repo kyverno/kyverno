@@ -269,6 +269,7 @@ The chart values are organised per component.
 | crds.groups.kyverno | object | `{"celpolicyexceptions":true,"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true,"validatingpolicies":true}` | Install CRDs in group `kyverno.io` |
 | crds.groups.policies.validatingpolicies | bool | `true` |  |
 | crds.groups.policies.celpolicyexceptions | bool | `true` |  |
+| crds.groups.policies.imageverificationpolicies | bool | `true` |  |
 | crds.groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
 | crds.groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
