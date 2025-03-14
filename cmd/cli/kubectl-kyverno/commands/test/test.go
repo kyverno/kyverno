@@ -32,6 +32,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -298,6 +299,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 			}
 			gvr := mapping.Resource
+			var user authenticationv1.UserInfo
+			if userInfo != nil {
+				user = userInfo.AdmissionUserInfo
+			}
 			// create engine request
 			request := engine.Request(
 				contextProvider,
@@ -309,6 +314,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				resource.GetNamespace(),
 				// TODO: how to manage other operations ?
 				admissionv1.Create,
+				user,
 				resource,
 				nil,
 				false,

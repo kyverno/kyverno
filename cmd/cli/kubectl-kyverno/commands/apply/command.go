@@ -43,6 +43,7 @@ import (
 	"github.com/spf13/cobra"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -285,7 +286,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses3, err := c.applyValidatingPolicies(vps, jsonPayloads, celexceptions, resources1, variables.Namespace, rc, dClient)
+	responses3, err := c.applyValidatingPolicies(vps, jsonPayloads, celexceptions, resources1, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -416,6 +417,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	exceptions []*policiesv1alpha1.CELPolicyException,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
+	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
@@ -484,6 +486,10 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		}
 		gvr := mapping.Resource
+		var user authenticationv1.UserInfo
+		if userInfo != nil {
+			user = userInfo.AdmissionUserInfo
+		}
 		// create engine request
 		request := engine.Request(
 			contextProvider,
@@ -495,6 +501,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			resource.GetNamespace(),
 			// TODO: how to manage other operations ?
 			admissionv1.Create,
+			user,
 			resource,
 			nil,
 			false,
