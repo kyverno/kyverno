@@ -6,15 +6,15 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 )
 
 const libraryName = "kyverno.user"
 
 type lib struct{}
 
-func Lib() cel.EnvOption {
-	// create the cel lib env option
-	return cel.Lib(&lib{})
+func Lib() libs.Library {
+	return &lib{}
 }
 
 func (*lib) NativeTypes() []reflect.Type {

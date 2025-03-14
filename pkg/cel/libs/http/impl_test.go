@@ -37,8 +37,8 @@ func (t testClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func Test_impl_get_request(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
@@ -72,8 +72,8 @@ func Test_impl_get_request(t *testing.T) {
 }
 
 func Test_impl_get_request_with_headers(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
@@ -108,8 +108,8 @@ func Test_impl_get_request_with_headers(t *testing.T) {
 }
 
 func Test_impl_post_request(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
@@ -147,8 +147,8 @@ func Test_impl_post_request(t *testing.T) {
 }
 
 func Test_impl_post_request_with_headers(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
@@ -187,8 +187,8 @@ func Test_impl_post_request_with_headers(t *testing.T) {
 }
 
 func Test_impl_http_client_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	lib := Lib()
+	base, err := cel.NewEnv(cel.Lib(lib))
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{

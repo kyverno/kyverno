@@ -29,8 +29,8 @@ func Test_impl_parse_service_account_string(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := Lib()
-			env, err := cel.NewEnv(opts)
+			lib := Lib()
+			env, err := cel.NewEnv(cel.Lib(lib))
 			assert.NoError(t, err)
 			assert.NotNil(t, env)
 			ast, issues := env.Compile(fmt.Sprintf(`user.ParseServiceAccount("%s")`, tt.user))
