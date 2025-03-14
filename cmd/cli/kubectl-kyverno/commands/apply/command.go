@@ -304,6 +304,80 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
 	return mutateLogPathIsDir, nil
 }
 
+func (c *ApplyCommandConfig) applyPolicies(
+	out io.Writer,
+	store *store.Store,
+	vars *variables.Variables,
+	policies []kyvernov1.PolicyInterface,
+	resources []*unstructured.Unstructured,
+	exceptions []*kyvernov2.PolicyException,
+	skipInvalidPolicies *SkippedInvalidPolicies,
+	dClient dclient.Interface,
+	userInfo *kyvernov2.RequestInfo,
+	mutateLogPathIsDir bool,
+) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
+	if vars != nil {
+		vars.SetInStore(store)
+	}
+	var rc processor.ResultCounts
+	// validate policies
+	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
+	for _, pol := range policies {
+		// TODO we should return this info to the caller
+		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
+		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		if err != nil {
+			log.Log.Error(err, "policy validation error")
+			rc.IncrementError(1)
+			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
+			} else {
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
+			}
+			continue
+		}
+		validPolicies = append(validPolicies, pol)
+	}
+	var responses []engineapi.EngineResponse
+	for _, resource := range resources {
+		processor := processor.PolicyProcessor{
+			Store:                store,
+			Policies:             validPolicies,
+			Resource:             *resource,
+			PolicyExceptions:     exceptions,
+			MutateLogPath:        c.MutateLogPath,
+			MutateLogPathIsDir:   mutateLogPathIsDir,
+			Variables:            vars,
+			UserInfo:             userInfo,
+			PolicyReport:         c.PolicyReport,
+			NamespaceSelectorMap: vars.NamespaceSelectors(),
+			Stdin:                c.Stdin,
+			Rc:                   &rc,
+			PrintPatchResource:   true,
+			Cluster:              c.Cluster,
+			Client:               dClient,
+			AuditWarn:            c.AuditWarn,
+			Subresources:         vars.Subresources(),
+			Out:                  out,
+		}
+		ers, err := processor.ApplyPoliciesOnResource()
+		if err != nil {
+			if c.ContinueOnFail {
+				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
+				continue
+			}
+			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
+		}
+		responses = append(responses, ers...)
+	}
+	for _, policy := range validPolicies {
+		if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
+			log.Log.V(3).Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
+		}
+	}
+	return &rc, resources, responses, nil
+}
+
 func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
@@ -450,7 +524,6 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		}
 		responsesTemp = append(responsesTemp, reps)
 	}
-
 	// transform response into legacy engine responses
 	for _, response := range responsesTemp {
 		for _, r := range response.Policies {
@@ -466,80 +539,6 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		}
 	}
 	return responses, nil
-}
-
-func (c *ApplyCommandConfig) applyPolicies(
-	out io.Writer,
-	store *store.Store,
-	vars *variables.Variables,
-	policies []kyvernov1.PolicyInterface,
-	resources []*unstructured.Unstructured,
-	exceptions []*kyvernov2.PolicyException,
-	skipInvalidPolicies *SkippedInvalidPolicies,
-	dClient dclient.Interface,
-	userInfo *kyvernov2.RequestInfo,
-	mutateLogPathIsDir bool,
-) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
-	if vars != nil {
-		vars.SetInStore(store)
-	}
-	var rc processor.ResultCounts
-	// validate policies
-	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
-	for _, pol := range policies {
-		// TODO we should return this info to the caller
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
-		if err != nil {
-			log.Log.Error(err, "policy validation error")
-			rc.IncrementError(1)
-			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
-			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
-			}
-			continue
-		}
-		validPolicies = append(validPolicies, pol)
-	}
-	var responses []engineapi.EngineResponse
-	for _, resource := range resources {
-		processor := processor.PolicyProcessor{
-			Store:                store,
-			Policies:             validPolicies,
-			Resource:             *resource,
-			PolicyExceptions:     exceptions,
-			MutateLogPath:        c.MutateLogPath,
-			MutateLogPathIsDir:   mutateLogPathIsDir,
-			Variables:            vars,
-			UserInfo:             userInfo,
-			PolicyReport:         c.PolicyReport,
-			NamespaceSelectorMap: vars.NamespaceSelectors(),
-			Stdin:                c.Stdin,
-			Rc:                   &rc,
-			PrintPatchResource:   true,
-			Cluster:              c.Cluster,
-			Client:               dClient,
-			AuditWarn:            c.AuditWarn,
-			Subresources:         vars.Subresources(),
-			Out:                  out,
-		}
-		ers, err := processor.ApplyPoliciesOnResource()
-		if err != nil {
-			if c.ContinueOnFail {
-				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
-				continue
-			}
-			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		responses = append(responses, ers...)
-	}
-	for _, policy := range validPolicies {
-		if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-			log.Log.V(3).Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
-		}
-	}
-	return &rc, resources, responses, nil
 }
 
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
