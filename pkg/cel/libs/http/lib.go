@@ -17,7 +17,6 @@ var HTTPType = types.DynType
 type lib struct{}
 
 func Lib() libs.Library {
-	// create the cel lib env option
 	return &lib{}
 }
 

@@ -131,8 +131,9 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	}
 	httpLib := http.Lib()
 	contextLib := context.Lib()
+	userLib := user.Lib()
 	options = append(options, declOptions...)
-	options = append(options, cel.Lib(contextLib), cel.Lib(httpLib), user.Lib())
+	options = append(options, cel.Lib(contextLib), cel.Lib(httpLib), cel.Lib(userLib))
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {
