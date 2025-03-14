@@ -48,6 +48,7 @@ $ helm install kyverno --namespace kyverno kyverno/kyverno
 The command deploys Kyverno on the Kubernetes cluster with default configuration. The [installation](https://kyverno.io/docs/installation/) guide lists the parameters that can be configured during installation.
 
 The Kyverno ClusterRole/ClusterRoleBinding that manages webhook configurations must have the suffix `:webhook`. Ex., `*:webhook` or `kyverno:webhook`.
+Other ClusterRole/ClusterRoleBinding names are configurable.
 
 ## Operational Safety: Namespace Exclusions
 
