@@ -7,6 +7,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	"github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifierfunctions"
@@ -78,8 +79,7 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 	}
 	httpLib := http.Lib()
 	contextLib := context.Lib()
-
-	options = append(options, imageverifierfunctions.Lib(logger, c.ictx, ivpolicy, c.lister), cel.Lib(contextLib), cel.Lib(httpLib))
+	options = append(options, imageverifierfunctions.Lib(logger, c.ictx, ivpolicy, c.lister), cel.Lib(contextLib), cel.Lib(httpLib), user.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
