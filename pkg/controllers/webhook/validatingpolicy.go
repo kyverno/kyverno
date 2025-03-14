@@ -9,20 +9,20 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
+func buildWebhookRules(cfg config.Configuration, server, name, path string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
 	var (
 		webhookIgnoreList []admissionregistrationv1.ValidatingWebhook
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook
 		webhookIgnore     = admissionregistrationv1.ValidatingWebhook{
-			Name:                    config.ValidatingPolicyWebhookName + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/ignore"),
+			Name:                    name + "-ignore",
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/ignore"),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 		webhookFail = admissionregistrationv1.ValidatingWebhook{
-			Name:                    config.ValidatingPolicyWebhookName + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/fail"),
+			Name:                    name + "-fail",
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/fail"),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
@@ -109,12 +109,12 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 			webhook.SideEffects = &noneOnDryRun
 			webhook.AdmissionReviewVersions = []string{"v1"}
 			if failurePolicyIgnore {
-				webhook.Name = config.ValidatingPolicyWebhookName + "-ignore-finegrained-" + p.GetName()
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/ignore"+config.FineGrainedWebhookPath+"/"+p.GetName())
+				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path+"/ignore"+config.FineGrainedWebhookPath+"/"+p.GetName())
 				webhookIgnoreList = append(webhookIgnoreList, webhook)
 			} else {
-				webhook.Name = config.ValidatingPolicyWebhookName + "-fail-finegrained-" + p.GetName()
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/fail"+config.FineGrainedWebhookPath+"/"+p.GetName())
+				webhook.Name = name + "-fail-finegrained-" + p.GetName()
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path+"/fail"+config.FineGrainedWebhookPath+"/"+p.GetName())
 				webhookFailList = append(webhookFailList, webhook)
 			}
 		} else {

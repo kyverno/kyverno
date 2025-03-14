@@ -139,7 +139,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-ignore-finegrained-test-fine-grained-ignore",
-					ClientConfig: newClientConfig("", 0, nil, "/policies/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
+					ClientConfig: newClientConfig("", 0, nil, "/policies/vpol/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -197,7 +197,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-fail-finegrained-test-fine-grained-fail",
-					ClientConfig: newClientConfig("", 0, nil, "/policies/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
+					ClientConfig: newClientConfig("", 0, nil, "/policies/vpol/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -229,7 +229,8 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			for _, vpol := range tt.vpols {
 				vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 			}
-			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", 0, nil, vpols)
+			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", config.ValidatingPolicyWebhookName,
+				config.PolicyServicePath+config.ValidatingPolicyServicePath, 0, nil, vpols)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -285,7 +286,7 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name: config.ValidatingPolicyWebhookName + "-ignore",
+					Name: config.ImageVerificationPolicyWebhookName + "-ignore",
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -366,8 +367,8 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name:         config.ValidatingPolicyWebhookName + "-ignore-finegrained-ivpol-sample",
-					ClientConfig: newClientConfig("", 0, nil, "/policies/ignore"+config.FineGrainedWebhookPath+"/ivpol-sample"),
+					Name:         config.ImageVerificationPolicyWebhookName + "-ignore-finegrained-ivpol-sample",
+					ClientConfig: newClientConfig("", 0, nil, "/policies/ivpol/ignore"+config.FineGrainedWebhookPath+"/ivpol-sample"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -432,7 +433,8 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 			for _, ivpol := range tt.ivpols {
 				ivpols = append(ivpols, engineapi.NewImageVerificationPolicy(ivpol))
 			}
-			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", 0, nil, ivpols)
+			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", config.ImageVerificationPolicyWebhookName,
+				config.PolicyServicePath+config.ImageVerificationPolicyServicePath, 0, nil, ivpols)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)

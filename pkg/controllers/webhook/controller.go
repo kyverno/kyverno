@@ -970,22 +970,31 @@ func (c *controller) buildForValidatingPolicies(cfg config.Configuration, caBund
 		return nil
 	}
 
-	var policies []engineapi.GenericPolicy
 	pols, err := c.getValidatingPolicies()
 	if err != nil {
 		return err
 	}
-	policies = append(policies, pols...)
+	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+		c.server,
+		config.ValidatingPolicyWebhookName,
+		config.PolicyServicePath+config.ValidatingPolicyServicePath,
+		c.servicePort,
+		caBundle,
+		pols)...)
 
 	ivpols, err := c.getImageVerificationPolicy()
 	if err != nil {
 		return err
 	}
-	policies = append(policies, ivpols...)
+	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+		c.server,
+		config.ImageVerificationPolicyWebhookName,
+		config.PolicyServicePath+config.ImageVerificationPolicyServicePath,
+		c.servicePort,
+		caBundle,
+		ivpols)...)
 
-	webhooks := buildWebhookRules(cfg, c.server, c.servicePort, caBundle, policies)
-	result.Webhooks = append(result.Webhooks, webhooks...)
-	c.recordPolicyState(policies...)
+	c.recordPolicyState(append(pols, ivpols...)...)
 	return nil
 }
 
