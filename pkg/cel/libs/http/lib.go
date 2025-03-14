@@ -7,7 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	apiservercel "k8s.io/apiserver/pkg/cel"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 )
 
 const libraryName = "kyverno.http"
@@ -16,13 +16,15 @@ var HTTPType = types.DynType
 
 type lib struct{}
 
-func Lib() cel.EnvOption {
+func Lib() libs.Library {
 	// create the cel lib env option
-	return cel.Lib(&lib{})
+	return &lib{}
 }
 
-func Types() []*apiservercel.DeclType {
-	return []*apiservercel.DeclType{}
+func (*lib) NativeTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[http.Request](),
+	}
 }
 
 func (*lib) LibraryName() string {

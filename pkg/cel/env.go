@@ -31,6 +31,7 @@ func NewEnv() (*cel.Env, error) {
 		library.Lists(),
 		library.Regex(),
 		library.URLs(),
+		// register kyverno libs
 		image.ImageLib(),
 	)
 }
