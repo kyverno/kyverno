@@ -61,8 +61,11 @@ spec:
               - error
               type: object
             type: array
+          context:
+            description: Context file containing context data for CEL policies
+            type: string
           exceptions:
-            description: Policy Exceptions are the policy exceptions to be used in
+            description: PolicyExceptions are the policy exceptions to be used in
               the test
             items:
               type: string
@@ -110,7 +113,12 @@ spec:
                 isValidatingAdmissionPolicy:
                   description: |-
                     IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
-                    It's required in case policy is a validating admission policy.
+                    It's required in case the policy is a validating admission policy.
+                  type: boolean
+                isValidatingPolicy:
+                  description: |-
+                    IsValidatingPolicy indicates if the policy is a validating policy.
+                    It's required in case the policy is a validating policy.
                   type: boolean
                 kind:
                   description: Kind mentions the kind of the resource on which the
