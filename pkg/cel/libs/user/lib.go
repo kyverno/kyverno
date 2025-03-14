@@ -1,13 +1,11 @@
 package user
 
 import (
-	"net/http"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
 const libraryName = "kyverno.user"
@@ -19,8 +17,10 @@ func Lib() cel.EnvOption {
 	return cel.Lib(&lib{})
 }
 
-func Types() []*apiservercel.DeclType {
-	return []*apiservercel.DeclType{}
+func (*lib) NativeTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[ServiceAccount](),
+	}
 }
 
 func (*lib) LibraryName() string {
@@ -29,7 +29,7 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		ext.NativeTypes(reflect.TypeFor[http.Request]()),
+		ext.NativeTypes(reflect.TypeFor[ServiceAccount]()),
 		c.extendEnv,
 	}
 }
