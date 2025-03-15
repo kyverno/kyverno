@@ -1455,7 +1455,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 	return nil
 }
 
-// validateResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
+// validateMatchedResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
 // field type is checked through openapi
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []

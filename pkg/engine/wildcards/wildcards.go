@@ -17,7 +17,7 @@ func ReplaceInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[s
 	return labelSelector
 }
 
-// replaceWildcardsInMap will expand  the "key" and "value" and will replace wildcard characters
+// replaceWildcardsInMapKeyValues will expand  the "key" and "value" and will replace wildcard characters
 // It also does not handle anchors as these are not expected in selectors
 func replaceWildcardsInMapKeyValues(patternMap map[string]string, resourceMap map[string]string) map[string]string {
 	result := map[string]string{}
