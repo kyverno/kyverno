@@ -25,7 +25,7 @@ func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
 		Kind:       labels[common.GenerateTriggerKindLabel],
 		Namespace:  labels[common.GenerateTriggerNSLabel],
 		Name:       labels[common.GenerateTriggerNameLabel],
-		UID:        types.UID(labels[common.GenerateTriggerUIDLabel]),
+		UID:        types.UID(labels[common.GenerateSourceUIDLabel]),
 		APIVersion: apiVersion.String(),
 	}
 }
