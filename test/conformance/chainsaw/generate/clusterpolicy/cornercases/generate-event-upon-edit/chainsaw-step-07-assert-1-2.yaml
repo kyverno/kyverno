@@ -13,6 +13,7 @@ metadata:
     generate.kyverno.io/rule-name: generate-event-on-edit
     generate.kyverno.io/trigger-group: ""
     generate.kyverno.io/trigger-kind: ConfigMap
+    generate.kyverno.io/trigger-name: generate-event-on-edit-configmap
     generate.kyverno.io/trigger-namespace: generate-event-on-edit-ns
     generate.kyverno.io/trigger-version: v1
   namespace: generate-event-on-edit-ns
