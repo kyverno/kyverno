@@ -1,12 +1,12 @@
 package eval
 
 import (
-	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	"github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifierfunctions"
@@ -31,7 +31,7 @@ const (
 )
 
 type Compiler interface {
-	Compile(logr.Logger, *policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList)
+	Compile(*policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
@@ -48,7 +48,7 @@ type compiler struct {
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -76,7 +76,7 @@ func (c *compiler) Compile(logger logr.Logger, ivpolicy *policiesv1alpha1.ImageV
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
-	options = append(options, imageverifierfunctions.Lib(logger, c.ictx, ivpolicy, c.lister), context.Lib(), http.Lib())
+	options = append(options, imageverifierfunctions.Lib(c.ictx, ivpolicy, c.lister), context.Lib(), http.Lib(), user.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))

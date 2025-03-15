@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -92,12 +91,12 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_Eval(t *testing.T) {
-	result, err := Evaluate(context.Background(), logr.Discard(), []*policiesv1alpha1.ImageVerificationPolicy{ivpol}, obj(signedImage), nil, nil, nil)
+	result, err := Evaluate(context.Background(), []*policiesv1alpha1.ImageVerificationPolicy{ivpol}, obj(signedImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
 	assert.True(t, result[ivpol.Name].Result)
 
-	result, err = Evaluate(context.Background(), logr.Discard(), []*policiesv1alpha1.ImageVerificationPolicy{ivpol}, obj(unsignedImage), nil, nil, nil)
+	result, err = Evaluate(context.Background(), []*policiesv1alpha1.ImageVerificationPolicy{ivpol}, obj(unsignedImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
 	assert.False(t, result[ivpol.Name].Result)
