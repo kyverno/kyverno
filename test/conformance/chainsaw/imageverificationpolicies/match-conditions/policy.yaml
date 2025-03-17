@@ -1,13 +1,13 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: ImageVerificationPolicy
 metadata:
-  name: ivol-sample
+  name: ivpol-sample
 spec:
   webhookConfiguration:
     timeoutSeconds: 20
   failurePolicy: Ignore
   validationActions:
-  - deny
+  - Deny
   matchConstraints:
     resourceRules:
       - apiGroups: [""]

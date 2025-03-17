@@ -11,11 +11,19 @@ spec:
         file: policy.yaml
     - sleep:
         duration: 10s
-  - name: create pod
+  - name: create bad pod
     try:
     - create:
-        file: pod.yaml
+        file: bad-pod.yaml
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "ivpol.validate.kyverno.svc-ignore-finegrained-ivpol-sample" denied the request: Policy ivpol-sample failed: failed to verify image with notary cert
+  - name: create good pod
+    try:
+    - create:
+        file: good-pod.yaml
     - sleep:
         duration: 10s
     - assert:
-        file: pod.yaml
+        file: good-pod.yaml
