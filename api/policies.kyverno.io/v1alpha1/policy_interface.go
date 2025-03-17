@@ -13,5 +13,4 @@ type GenericPolicy interface {
 	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
 	GetWebhookConfiguration() *WebhookConfiguration
 	GetVariables() []admissionregistrationv1.Variable
-	GetStatus() *PolicyStatus
 }

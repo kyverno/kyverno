@@ -14,6 +14,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -53,7 +54,7 @@ func Request(
 	name string,
 	namespace string,
 	operation admissionv1.Operation,
-	// userInfo authenticationv1.UserInfo,
+	userInfo authenticationv1.UserInfo,
 	object runtime.Object,
 	oldObject runtime.Object,
 	dryRun bool,
@@ -69,11 +70,11 @@ func Request(
 		Name:               name,
 		Namespace:          namespace,
 		Operation:          operation,
-		// UserInfo: userInfo,
-		Object:    runtime.RawExtension{Object: object},
-		OldObject: runtime.RawExtension{Object: oldObject},
-		DryRun:    &dryRun,
-		Options:   runtime.RawExtension{Object: options},
+		UserInfo:           userInfo,
+		Object:             runtime.RawExtension{Object: object},
+		OldObject:          runtime.RawExtension{Object: oldObject},
+		DryRun:             &dryRun,
+		Options:            runtime.RawExtension{Object: options},
 	}
 	return RequestFromAdmission(context, request)
 }

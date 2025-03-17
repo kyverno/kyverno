@@ -43,6 +43,7 @@ import (
 	"github.com/spf13/cobra"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -285,7 +286,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses3, err := c.applyValidatingPolicies(vps, jsonPayloads, celexceptions, resources1, variables.Namespace, rc, dClient)
+	responses3, err := c.applyValidatingPolicies(vps, jsonPayloads, celexceptions, resources1, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -302,170 +303,6 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
 		return false, fmt.Errorf("failed to create file/folder (%w)", err)
 	}
 	return mutateLogPathIsDir, nil
-}
-
-func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
-	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
-	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	resources []*unstructured.Unstructured,
-	namespaceSelectorMap map[string]map[string]string,
-	rc *processor.ResultCounts,
-	dClient dclient.Interface,
-) ([]engineapi.EngineResponse, error) {
-	var responses []engineapi.EngineResponse
-	for _, resource := range resources {
-		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:             vaps,
-			Bindings:             vapBindings,
-			Resource:             resource,
-			NamespaceSelectorMap: namespaceSelectorMap,
-			PolicyReport:         c.PolicyReport,
-			Rc:                   rc,
-			Client:               dClient,
-		}
-		ers, err := processor.ApplyPolicyOnResource()
-		if err != nil {
-			if c.ContinueOnFail {
-				fmt.Printf("failed to apply policies on resource %s (%v)\n", resource.GetName(), err)
-				continue
-			}
-			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		responses = append(responses, ers...)
-	}
-	return responses, nil
-}
-
-func (c *ApplyCommandConfig) applyValidatingPolicies(
-	vps []policiesv1alpha1.ValidatingPolicy,
-	jsonPayloads []*unstructured.Unstructured,
-	exceptions []*policiesv1alpha1.CELPolicyException,
-	resources []*unstructured.Unstructured,
-	namespaceProvider func(string) *corev1.Namespace,
-	rc *processor.ResultCounts,
-	dclient dclient.Interface,
-) ([]engineapi.EngineResponse, error) {
-	ctx := context.TODO()
-	compiler := celpolicy.NewCompiler()
-	provider, err := engine.NewProvider(compiler, vps, exceptions)
-	if err != nil {
-		return nil, err
-	}
-	eng := engine.NewEngine(provider, namespaceProvider, matching.NewMatcher())
-	// TODO: mock when no cluster provided
-	gctxStore := gctxstore.New()
-	var restMapper meta.RESTMapper
-	var contextProvider celpolicy.Context
-	if dclient != nil {
-		contextProvider, err = celpolicy.NewContextProvider(
-			dclient,
-			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
-			gctxStore,
-		)
-		if err != nil {
-			return nil, err
-		}
-		apiGroupResources, err := restmapper.GetAPIGroupResources(dclient.GetKubeClient().Discovery())
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-	} else {
-		apiGroupResources, err := data.APIGroupResources()
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-		fakeContextProvider := celpolicy.NewFakeContextProvider()
-		if c.ContextPath != "" {
-			ctx, err := clicontext.Load(nil, c.ContextPath)
-			if err != nil {
-				return nil, err
-			}
-			for _, resource := range ctx.ContextSpec.Resources {
-				gvk := resource.GroupVersionKind()
-				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-				if err != nil {
-					return nil, err
-				}
-				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
-					return nil, err
-				}
-			}
-		}
-		contextProvider = fakeContextProvider
-	}
-	responses := make([]engineapi.EngineResponse, 0)
-	responsesTemp := make([]engine.EngineResponse, 0)
-	for _, resource := range resources {
-		// get gvk from resource
-		gvk := resource.GroupVersionKind()
-		// map gvk to gvr
-		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			if c.ContinueOnFail {
-				fmt.Printf("failed to map gvk to gvr %s (%v)\n", gvk, err)
-				continue
-			}
-			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
-		}
-		gvr := mapping.Resource
-		// create engine request
-		request := engine.Request(
-			contextProvider,
-			gvk,
-			gvr,
-			// TODO: how to manage subresource ?
-			"",
-			resource.GetName(),
-			resource.GetNamespace(),
-			// TODO: how to manage other operations ?
-			admissionv1.Create,
-			resource,
-			nil,
-			false,
-			nil,
-		)
-		reps, err := eng.Handle(ctx, request)
-		if err != nil {
-			if c.ContinueOnFail {
-				fmt.Printf("failed to apply validating policies on resource %s (%v)\n", resource.GetName(), err)
-				continue
-			}
-			return responses, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
-		}
-		responsesTemp = append(responsesTemp, reps)
-	}
-
-	for _, json := range jsonPayloads {
-		eng = engine.NewEngine(provider, nil, nil)
-		request := engine.RequestFromJSON(contextProvider, json)
-		reps, err := eng.Handle(ctx, request)
-		if err != nil {
-			if c.ContinueOnFail {
-				fmt.Printf("failed to apply validating policies on JSON payloads (%v)\n", err)
-				continue
-			}
-			return responses, fmt.Errorf("failed to apply validating policies on JSON payloads (%w)", err)
-		}
-		responsesTemp = append(responsesTemp, reps)
-	}
-
-	// transform response into legacy engine responses
-	for _, response := range responsesTemp {
-		for _, r := range response.Policies {
-			engineResponse := engineapi.EngineResponse{
-				Resource: *response.Resource,
-				PolicyResponse: engineapi.PolicyResponse{
-					Rules: r.Rules,
-				},
-			}
-			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-			rc.AddValidatingPolicyResponse(engineResponse)
-			responses = append(responses, engineResponse)
-		}
-	}
-	return responses, nil
 }
 
 func (c *ApplyCommandConfig) applyPolicies(
@@ -540,6 +377,175 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 	}
 	return &rc, resources, responses, nil
+}
+
+func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
+	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
+	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+	resources []*unstructured.Unstructured,
+	namespaceSelectorMap map[string]map[string]string,
+	rc *processor.ResultCounts,
+	dClient dclient.Interface,
+) ([]engineapi.EngineResponse, error) {
+	var responses []engineapi.EngineResponse
+	for _, resource := range resources {
+		processor := processor.ValidatingAdmissionPolicyProcessor{
+			Policies:             vaps,
+			Bindings:             vapBindings,
+			Resource:             resource,
+			NamespaceSelectorMap: namespaceSelectorMap,
+			PolicyReport:         c.PolicyReport,
+			Rc:                   rc,
+			Client:               dClient,
+		}
+		ers, err := processor.ApplyPolicyOnResource()
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to apply policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
+		}
+		responses = append(responses, ers...)
+	}
+	return responses, nil
+}
+
+func (c *ApplyCommandConfig) applyValidatingPolicies(
+	vps []policiesv1alpha1.ValidatingPolicy,
+	jsonPayloads []*unstructured.Unstructured,
+	exceptions []*policiesv1alpha1.CELPolicyException,
+	resources []*unstructured.Unstructured,
+	namespaceProvider func(string) *corev1.Namespace,
+	userInfo *kyvernov2.RequestInfo,
+	rc *processor.ResultCounts,
+	dclient dclient.Interface,
+) ([]engineapi.EngineResponse, error) {
+	ctx := context.TODO()
+	compiler := celpolicy.NewCompiler()
+	provider, err := engine.NewProvider(compiler, vps, exceptions)
+	if err != nil {
+		return nil, err
+	}
+	eng := engine.NewEngine(provider, namespaceProvider, matching.NewMatcher())
+	// TODO: mock when no cluster provided
+	gctxStore := gctxstore.New()
+	var restMapper meta.RESTMapper
+	var contextProvider celpolicy.Context
+	if dclient != nil {
+		contextProvider, err = celpolicy.NewContextProvider(
+			dclient,
+			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			gctxStore,
+		)
+		if err != nil {
+			return nil, err
+		}
+		apiGroupResources, err := restmapper.GetAPIGroupResources(dclient.GetKubeClient().Discovery())
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	} else {
+		apiGroupResources, err := data.APIGroupResources()
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		if c.ContextPath != "" {
+			ctx, err := clicontext.Load(nil, c.ContextPath)
+			if err != nil {
+				return nil, err
+			}
+			for _, resource := range ctx.ContextSpec.Resources {
+				gvk := resource.GroupVersionKind()
+				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+				if err != nil {
+					return nil, err
+				}
+				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+					return nil, err
+				}
+			}
+		}
+		contextProvider = fakeContextProvider
+	}
+	responses := make([]engineapi.EngineResponse, 0)
+	responsesTemp := make([]engine.EngineResponse, 0)
+	for _, resource := range resources {
+		// get gvk from resource
+		gvk := resource.GroupVersionKind()
+		// map gvk to gvr
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+		}
+		gvr := mapping.Resource
+		var user authenticationv1.UserInfo
+		if userInfo != nil {
+			user = userInfo.AdmissionUserInfo
+		}
+		// create engine request
+		request := engine.Request(
+			contextProvider,
+			gvk,
+			gvr,
+			// TODO: how to manage subresource ?
+			"",
+			resource.GetName(),
+			resource.GetNamespace(),
+			// TODO: how to manage other operations ?
+			admissionv1.Create,
+			user,
+			resource,
+			nil,
+			false,
+			nil,
+		)
+		reps, err := eng.Handle(ctx, request)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to apply validating policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+		}
+		responsesTemp = append(responsesTemp, reps)
+	}
+
+	for _, json := range jsonPayloads {
+		eng = engine.NewEngine(provider, nil, nil)
+		request := engine.RequestFromJSON(contextProvider, json)
+		reps, err := eng.Handle(ctx, request)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to apply validating policies on JSON payloads (%v)\n", err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply validating policies on JSON payloads (%w)", err)
+		}
+		responsesTemp = append(responsesTemp, reps)
+	}
+	// transform response into legacy engine responses
+	for _, response := range responsesTemp {
+		for _, r := range response.Policies {
+			engineResponse := engineapi.EngineResponse{
+				Resource: *response.Resource,
+				PolicyResponse: engineapi.PolicyResponse{
+					Rules: r.Rules,
+				},
+			}
+			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+			rc.AddValidatingPolicyResponse(engineResponse)
+			responses = append(responses, engineResponse)
+		}
+	}
+	return responses, nil
 }
 
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {

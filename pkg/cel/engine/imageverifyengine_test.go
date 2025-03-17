@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -148,7 +147,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_ImageVerifyEngine(t *testing.T) {
-	engine := NewImageVerifyEngine(logr.Discard(), ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
+	engine := NewImageVerifyEngine(ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
 	engineRequest := EngineRequest{
 		request: v1.AdmissionRequest{
 			Operation: v1.Create,

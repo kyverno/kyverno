@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageVerificationPolicy) ([]*policiesv1alpha1.ImageVerificationPolicy, error) {
+func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageVerificationPolicy) ([]*policiesv1alpha1.IvpolAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
@@ -27,7 +27,6 @@ func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageVerificationPolicy
 	} else {
 		actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
 	}
-
 	genRules, err := autogenIvPols(policy, actualControllers)
 	if err != nil {
 		return nil, err
@@ -36,8 +35,8 @@ func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageVerificationPolicy
 	return genRules, nil
 }
 
-func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSet sets.Set[string]) ([]*policiesv1alpha1.ImageVerificationPolicy, error) {
-	genPolicy := func(resource autogencontroller, controllers string) (*policiesv1alpha1.ImageVerificationPolicy, error) {
+func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSet sets.Set[string]) ([]*policiesv1alpha1.IvpolAutogen, error) {
+	genPolicy := func(resource autogencontroller, controllers string) (policy *policiesv1alpha1.IvpolAutogen, err error) {
 		if len(controllers) == 0 {
 			return nil, nil
 		}
@@ -45,8 +44,11 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSe
 		if ivpol == nil {
 			return nil, nil
 		}
-		var err error
-		policy := ivpol.DeepCopy()
+
+		policy = &policiesv1alpha1.IvpolAutogen{}
+		copied := ivpol.DeepCopy()
+		policy.ObjectMeta = copied.ObjectMeta
+		policy.Spec = copied.Spec
 		if controllers == "cronjobs" {
 			policy.Name = "autogen-cronjobs-" + policy.Name
 		} else {
@@ -57,7 +59,7 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSe
 		policy.Spec.MatchConstraints = createMatchConstraints(controllers, operations)
 
 		// convert match conditions
-		policy.Spec.MatchConditions, err = convertMatchconditions(ivpol.Spec.MatchConditions, resource)
+		policy.Spec.MatchConditions, err = convertMatchConditions(policy.Spec.MatchConditions, resource)
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +76,7 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSe
 		return policy, nil
 	}
 
-	ivpols := make([]*policiesv1alpha1.ImageVerificationPolicy, 0)
+	ivpols := make([]*policiesv1alpha1.IvpolAutogen, 0)
 	if controllerSet.Has("cronjobs") {
 		p, err := genPolicy(CRONJOBS, "cronjobs")
 		if err != nil {
@@ -85,7 +87,8 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSe
 		}
 	}
 
-	p, err := genPolicy(PODS, strings.Join(sets.List(controllerSet.Delete("cronjobs")), ","))
+	controllerSetCopied := controllerSet.Clone()
+	p, err := genPolicy(PODS, strings.Join(sets.List(controllerSetCopied.Delete("cronjobs")), ","))
 	if err != nil {
 		return nil, err
 	}

@@ -520,7 +520,7 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		latest := vpol.DeepCopy()
 		latest.Status.Generated = generated
-		latest.Status.Message = msg
+		latest.Status.GetConditionStatus().Message = msg
 
 		new, err := c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {

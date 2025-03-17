@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -31,7 +30,6 @@ type ImageVerifyEngine interface {
 }
 
 type ivengine struct {
-	logger       logr.Logger
 	provider     ImageVerifyPolProviderFunc
 	nsResolver   NamespaceResolver
 	matcher      matching.Matcher
@@ -39,9 +37,8 @@ type ivengine struct {
 	registryOpts []imagedataloader.Option
 }
 
-func NewImageVerifyEngine(logger logr.Logger, provider ImageVerifyPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) ImageVerifyEngine {
+func NewImageVerifyEngine(provider ImageVerifyPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) ImageVerifyEngine {
 	return &ivengine{
-		logger:       logger,
 		provider:     provider,
 		nsResolver:   nsResolver,
 		matcher:      matcher,
@@ -203,7 +200,7 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 			Actions: ivpol.Actions,
 		}
 
-		if p, errList := c.Compile(e.logger, ivpol.Policy); errList != nil {
+		if p, errList := c.Compile(ivpol.Policy); errList != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 		} else {
 			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true)
@@ -227,7 +224,7 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 	if err != nil {
 		return nil, nil, err
 	}
-	patches, err := eval.MakeImageVerifyOutcomePatch(len(ann) != 0, e.logger, results)
+	patches, err := eval.MakeImageVerifyOutcomePatch(len(ann) != 0, results)
 	if err != nil {
 		return nil, nil, err
 	}

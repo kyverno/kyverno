@@ -6,13 +6,17 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:path=imageverificationpolicies,scope="Cluster",shortName=ivpol,categories=kyverno
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ImageVerificationPolicy struct {
@@ -21,7 +25,24 @@ type ImageVerificationPolicy struct {
 	Spec              ImageVerificationPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
-	Status PolicyStatus `json:"status,omitempty"`
+	Status IvpolStatus `json:"status,omitempty"`
+}
+
+type IvpolStatus struct {
+	ConditionStatus *ConditionStatus `json:",inline"`
+
+	// +optional
+	Autogen IvpolAutogenStatus `json:"autogen,omitempty"`
+}
+
+type IvpolAutogenStatus struct {
+	// +optional
+	Rules []*IvpolAutogen `json:"rules,omitempty"`
+}
+
+type IvpolAutogen struct {
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ImageVerificationPolicySpec `json:"spec"`
 }
 
 func (s *ImageVerificationPolicy) GetName() string {
@@ -68,7 +89,7 @@ func (s *ImageVerificationPolicy) GetSpec() *ImageVerificationPolicySpec {
 	return &s.Spec
 }
 
-func (s *ImageVerificationPolicy) GetStatus() *PolicyStatus {
+func (s *ImageVerificationPolicy) GetStatus() *IvpolStatus {
 	return &s.Status
 }
 
@@ -90,6 +111,32 @@ func (s ImageVerificationPolicySpec) BackgroundEnabled() bool {
 		return true
 	}
 	return *s.EvaluationConfiguration.Background.Enabled
+}
+
+func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
+	if status.ConditionStatus == nil {
+		status.ConditionStatus = &ConditionStatus{}
+	}
+
+	reason := "Succeeded"
+	if s != metav1.ConditionTrue {
+		reason = "Failed"
+	}
+	newCondition := metav1.Condition{
+		Type:    string(c),
+		Reason:  reason,
+		Status:  s,
+		Message: message,
+	}
+
+	meta.SetStatusCondition(&status.ConditionStatus.Conditions, newCondition)
+}
+
+func (status *IvpolStatus) GetConditionStatus() *ConditionStatus {
+	if status.ConditionStatus != nil {
+		return status.ConditionStatus
+	}
+	return &ConditionStatus{}
 }
 
 // +kubebuilder:object:root=true

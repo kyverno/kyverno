@@ -70,6 +70,7 @@ func NewServer(
 	globalContextLogger := logger.WithName("globalcontext")
 	verifyLogger := logger.WithName("verify")
 	vpolLogger := logger.WithName("vpol")
+	ivpolLogger := logger.WithName("ivpol")
 	registerWebhookHandlersWithAll(
 		mux,
 		"MUTATE",
@@ -106,7 +107,7 @@ func NewServer(
 	registerWebhookHandlers(
 		mux,
 		"VPOL",
-		config.ValidatingPolicyServicePath,
+		config.PolicyServicePath+config.ValidatingPolicyServicePath,
 		resourceHandlers.ValidatingPolicies,
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
@@ -117,6 +118,22 @@ func NewServer(
 				WithRoles(rbLister, crbLister).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(vpolLogger.WithName("validate"))
+		},
+	)
+	registerWebhookHandlers(
+		mux,
+		"IVPOL",
+		config.PolicyServicePath+config.ImageVerificationPolicyServicePath,
+		resourceHandlers.ImageVerificationPolicies,
+		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
+			return handler.
+				WithFilter(configuration).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithTopLevelGVK(discovery).
+				WithRoles(rbLister, crbLister).
+				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+				WithAdmission(ivpolLogger.WithName("validate"))
 		},
 	)
 	mux.HandlerFunc(
