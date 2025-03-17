@@ -271,21 +271,20 @@ func (iv *ImageVerifier) verifyImage(
 			att.Type = att.PredicateType
 		}
 	}
+	if !matchReferences(imageVerify.ImageReferences, image) {
+		return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties), ""
+	}
+	if matchReferences(imageVerify.SkipImageReferences, image) {
+		iv.logger.V(3).Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
+		iv.ivm.Add(image, engineapi.ImageVerificationSkip)
+		return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties).WithEmitWarning(true), ""
+	}
 	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 	if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
 		iv.logger.Error(err, "failed to add image to context", "image", image)
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err, iv.rule.ReportProperties), ""
 	}
 	if len(imageVerify.Attestors) > 0 {
-		if !matchReferences(imageVerify.ImageReferences, image) {
-			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties), ""
-		}
-
-		if matchReferences(imageVerify.SkipImageReferences, image) {
-			iv.logger.V(3).Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
-			iv.ivm.Add(image, engineapi.ImageVerificationSkip)
-			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties).WithEmitWarning(true), ""
-		}
 		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo)
 		if ruleResp.Status() != engineapi.RuleStatusPass {
 			return ruleResp, ""
