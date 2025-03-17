@@ -292,6 +292,7 @@ func (e *ivengine) handleValidation(policies []CompiledImageVerificationPolicy, 
 			} else {
 				resp.Result = *engineapi.NewRuleResponse(o.Name, engineapi.ImageVerify, o.Message, o.Status, o.Properties)
 			}
+			responses[pol.Policy.GetName()] = resp
 		}
 	}
 	return maps.Values(responses), nil

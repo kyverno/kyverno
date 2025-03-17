@@ -731,10 +731,11 @@ func main() {
 				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
 			},
 			webhooks.ResourceHandlers{
-				Mutation:                  webhooks.HandlerFunc(resourceHandlers.Mutate),
-				Validation:                webhooks.HandlerFunc(resourceHandlers.Validate),
-				ValidatingPolicies:        webhooks.HandlerFunc(voplHandlers.Validate),
-				ImageVerificationPolicies: webhooks.HandlerFunc(ivpolHandlers.Validate),
+				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
+				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
+				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
+				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.Validate),
+				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),

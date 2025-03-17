@@ -18,7 +18,6 @@ import (
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 type ImageVerificationPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -29,7 +28,7 @@ type ImageVerificationPolicy struct {
 }
 
 type IvpolStatus struct {
-	ConditionStatus *ConditionStatus `json:",inline"`
+	ConditionStatus `json:"conditionStatus,inline"`
 
 	// +optional
 	Autogen IvpolAutogenStatus `json:"autogen,omitempty"`
@@ -114,10 +113,6 @@ func (s ImageVerificationPolicySpec) BackgroundEnabled() bool {
 }
 
 func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
-	if status.ConditionStatus == nil {
-		status.ConditionStatus = &ConditionStatus{}
-	}
-
 	reason := "Succeeded"
 	if s != metav1.ConditionTrue {
 		reason = "Failed"
@@ -133,10 +128,7 @@ func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.C
 }
 
 func (status *IvpolStatus) GetConditionStatus() *ConditionStatus {
-	if status.ConditionStatus != nil {
-		return status.ConditionStatus
-	}
-	return &ConditionStatus{}
+	return &status.ConditionStatus
 }
 
 // +kubebuilder:object:root=true
