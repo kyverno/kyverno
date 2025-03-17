@@ -32,7 +32,7 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	called := false
 	data := map[string]any{
 		"resource": Context{&MockCtx{
-			GetConfigMapFunc: func(string, string) (*unstructured.Unstructured, error) {
+			GetResourceFunc: func(string, string, string, string) (*unstructured.Unstructured, error) {
 				called = true
 				return &unstructured.Unstructured{}, nil
 			},

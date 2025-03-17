@@ -13,7 +13,6 @@ var (
 )
 
 type ContextInterface interface {
-	GetConfigMap(string, string) (*unstructured.Unstructured, error)
 	GetImageData(string) (map[string]interface{}, error)
 	ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error)
 	GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error)
