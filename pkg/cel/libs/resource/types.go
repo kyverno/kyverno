@@ -1,4 +1,4 @@
-package context
+package resource
 
 import (
 	"github.com/google/cel-go/common/types"
@@ -7,14 +7,13 @@ import (
 )
 
 var (
-	ContextType   = types.NewOpaqueType("context.Context")
+	ContextType   = types.NewOpaqueType("resource.Context")
 	configMapType = BuildConfigMapType()
 	imageDataType = BuildImageDataType()
 )
 
 type ContextInterface interface {
 	GetConfigMap(string, string) (*unstructured.Unstructured, error)
-	GetGlobalReference(string, string) (any, error)
 	GetImageData(string) (map[string]interface{}, error)
 	ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error)
 	GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error)

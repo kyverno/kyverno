@@ -1,4 +1,4 @@
-package context
+package resource
 
 import (
 	"github.com/google/cel-go/common/types"
@@ -24,26 +24,6 @@ func (c *impl) get_configmap_string_string(args ...ref.Val) ref.Val {
 			return types.NewErr("failed to get configmap: %v", err)
 		}
 		return c.NativeToValue(cm.UnstructuredContent())
-	}
-}
-
-func (c *impl) get_globalreference_string_string(args ...ref.Val) ref.Val {
-	if len(args) != 3 {
-		return types.NewErr("expected 3 arguments, got %d", len(args))
-	}
-	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
-		return types.WrapErr(err)
-	} else if name, err := utils.ConvertToNative[string](args[1]); err != nil {
-		return types.WrapErr(err)
-	} else if projection, err := utils.ConvertToNative[string](args[2]); err != nil {
-		return types.WrapErr(err)
-	} else {
-		globalRef, err := self.GetGlobalReference(name, projection)
-		if err != nil {
-			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
-			return types.NewErr("failed to get global reference: %v", err)
-		}
-		return c.NativeToValue(globalRef)
 	}
 }
 

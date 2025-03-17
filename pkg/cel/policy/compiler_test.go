@@ -81,7 +81,7 @@ func Test_compiler_Compile(t *testing.T) {
 				},
 				Variables: []admissionregistrationv1.Variable{{
 					Name:       "cm",
-					Expression: "context.GetConfigMap('foo', 'bar')",
+					Expression: "resource.GetConfigMap('foo', 'bar')",
 				}},
 				Validations: []admissionregistrationv1.Validation{{
 					Expression: "variables.cm != null",

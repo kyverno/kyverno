@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -19,7 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type Context = contextlib.ContextInterface
+type Context = ContextInterface
 
 type contextProvider struct {
 	client    kubernetes.Interface
