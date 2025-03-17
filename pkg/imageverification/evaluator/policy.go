@@ -148,8 +148,18 @@ func (p *compiledPolicy) match(
 		if err != nil {
 			return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 		}
+		objectVal, err := objectToResolveVal(attr.GetObject())
+		if err != nil {
+			return false, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+		}
+		oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
+		if err != nil {
+			return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		}
 		data[NamespaceObjectKey] = namespaceVal
 		data[RequestKey] = requestVal.Object
+		data[ObjectKey] = objectVal
+		data[OldObjectKey] = oldObjectVal
 	} else {
 		data[ObjectKey] = request
 	}

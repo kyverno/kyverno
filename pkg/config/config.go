@@ -54,8 +54,10 @@ const (
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// ValidatingPolicyWebhookName defines default webhook name for validatingpolicies
 	ValidatingPolicyWebhookName = "vpol.validate.kyverno.svc"
-	// ImageVerificationPolicyWebhookName defines default webhook name for imageverificationpolicies
-	ImageVerificationPolicyWebhookName = "ivpol.validate.kyverno.svc"
+	// ImageVerificationPolicyWebhookName defines default validating webhook name for imageverificationpolicies
+	ImageVerificationPolicyValidateWebhookName = "ivpol.validate.kyverno.svc"
+	// ImageVerificationPolicyWebhookName defines default mutating webhook name for imageverificationpolicies
+	ImageVerificationPolicyMutateWebhookName = "ivpol.mutate.kyverno.svc"
 )
 
 // paths

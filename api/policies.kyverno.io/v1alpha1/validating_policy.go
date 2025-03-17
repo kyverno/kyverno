@@ -24,7 +24,7 @@ type ValidatingPolicy struct {
 }
 
 type VpolStatus struct {
-	ConditionStatus *ConditionStatus `json:",inline"`
+	ConditionStatus `json:"conditionStatus,inline"`
 
 	// +optional
 	Autogen AutogenStatus `json:"autogen"`
@@ -87,10 +87,7 @@ func (s *ValidatingPolicy) GetKind() string {
 }
 
 func (status *VpolStatus) GetConditionStatus() *ConditionStatus {
-	if status.ConditionStatus != nil {
-		return status.ConditionStatus
-	}
-	return &ConditionStatus{}
+	return &status.ConditionStatus
 }
 
 // +kubebuilder:object:root=true

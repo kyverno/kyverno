@@ -33,7 +33,7 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 		if conditionStatus.Ready == nil || conditionStatus.IsReady() != ready {
 			conditionStatus.Ready = &ready
 		}
-		status.ConditionStatus = conditionStatus
+		status.ConditionStatus = *conditionStatus
 		return nil
 	}
 
