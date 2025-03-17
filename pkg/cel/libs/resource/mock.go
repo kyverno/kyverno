@@ -7,15 +7,10 @@ import (
 
 // MOCK FOR TESTING
 type MockCtx struct {
-	GetConfigMapFunc       func(string, string) (*unstructured.Unstructured, error)
 	GetGlobalReferenceFunc func(string, string) (any, error)
 	GetImageDataFunc       func(string) (map[string]interface{}, error)
 	ListResourcesFunc      func(string, string, string) (*unstructured.UnstructuredList, error)
 	GetResourceFunc        func(string, string, string, string) (*unstructured.Unstructured, error)
-}
-
-func (mock *MockCtx) GetConfigMap(ns string, n string) (*unstructured.Unstructured, error) {
-	return mock.GetConfigMapFunc(ns, n)
 }
 
 func (mock *MockCtx) GetGlobalReference(n, p string) (any, error) {
