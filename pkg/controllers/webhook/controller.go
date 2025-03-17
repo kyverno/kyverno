@@ -811,17 +811,68 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 }
 
 func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
-	result := admissionregistrationv1.MutatingWebhookConfiguration{
+	result := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
+
+	var errs []error
+	if err := c.buildForPoliciesMutation(ctx, cfg, caBundle, result); err != nil {
+		errs = append(errs, fmt.Errorf("failed to build webhook rules for policies: %v", err))
+	}
+
+	if err := c.buildForJSONPoliciesMutation(cfg, caBundle, result); err != nil {
+		errs = append(errs, fmt.Errorf("failed to build webhook rules for imageverificationpolicies: %v", err))
+	}
+	return result, multierr.Combine(errs...)
+}
+
+func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.MutatingWebhookConfiguration) error {
+	if !c.watchdogCheck() {
+		return nil
+	}
+
+	ivpols, err := c.getImageVerificationPolicy()
+	if err != nil {
+		return err
+	}
+
+	validate := buildWebhookRules(cfg,
+		c.server,
+		config.ImageVerificationPolicyMutateWebhookName,
+		config.PolicyServicePath+config.ImageVerificationPolicyServicePath+config.MutatingWebhookServicePath,
+		c.servicePort,
+		caBundle,
+		ivpols)
+
+	var mutate []admissionregistrationv1.MutatingWebhook
+	for _, w := range validate {
+		mutate = append(mutate, admissionregistrationv1.MutatingWebhook{
+			Name:                    w.Name,
+			ClientConfig:            w.ClientConfig,
+			FailurePolicy:           w.FailurePolicy,
+			SideEffects:             w.SideEffects,
+			AdmissionReviewVersions: w.AdmissionReviewVersions,
+			NamespaceSelector:       w.NamespaceSelector,
+			ObjectSelector:          w.ObjectSelector,
+			Rules:                   w.Rules,
+			MatchConditions:         w.MatchConditions,
+			TimeoutSeconds:          w.TimeoutSeconds,
+		})
+	}
+	result.Webhooks = append(result.Webhooks, mutate...)
+	// todo(shuting): record policy state?
+	return nil
+}
+
+func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.MutatingWebhookConfiguration) error {
 	if c.watchdogCheck() {
 		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		var fineGrainedIgnoreList, fineGrainedFailList []*webhook
 		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName, policies...)
@@ -856,7 +907,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 	} else {
 		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName)
 	}
-	return &result, nil
+	return nil
 }
 
 func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.MutatingWebhook {
@@ -954,18 +1005,18 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	}
 
 	var errs []error
-	if err := c.buildForPolicies(ctx, cfg, caBundle, webhookConfig); err != nil {
+	if err := c.buildForPoliciesValidation(ctx, cfg, caBundle, webhookConfig); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for policies: %v", err))
 	}
 
-	if err := c.buildForValidatingPolicies(cfg, caBundle, webhookConfig); err != nil {
+	if err := c.buildForJSONPoliciesValidation(cfg, caBundle, webhookConfig); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
 
 	return webhookConfig, multierr.Combine(errs...)
 }
 
-func (c *controller) buildForValidatingPolicies(cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	if !c.watchdogCheck() {
 		return nil
 	}
@@ -977,7 +1028,7 @@ func (c *controller) buildForValidatingPolicies(cfg config.Configuration, caBund
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
 		config.ValidatingPolicyWebhookName,
-		config.PolicyServicePath+config.ValidatingPolicyServicePath,
+		config.PolicyServicePath+config.ValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
 		c.servicePort,
 		caBundle,
 		pols)...)
@@ -988,8 +1039,8 @@ func (c *controller) buildForValidatingPolicies(cfg config.Configuration, caBund
 	}
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
-		config.ImageVerificationPolicyWebhookName,
-		config.PolicyServicePath+config.ImageVerificationPolicyServicePath,
+		config.ImageVerificationPolicyValidateWebhookName,
+		config.PolicyServicePath+config.ImageVerificationPolicyServicePath+config.ValidatingWebhookServicePath,
 		c.servicePort,
 		caBundle,
 		ivpols)...)
@@ -998,7 +1049,7 @@ func (c *controller) buildForValidatingPolicies(cfg config.Configuration, caBund
 	return nil
 }
 
-func (c *controller) buildForPolicies(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+func (c *controller) buildForPoliciesValidation(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	if c.watchdogCheck() {
 		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
