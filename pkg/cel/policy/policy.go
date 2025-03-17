@@ -10,6 +10,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	globalcontextlib "github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
@@ -31,8 +32,13 @@ type EvaluationResult struct {
 	PatchedResource  unstructured.Unstructured
 }
 
+type ContextInterface interface {
+	contextlib.ContextInterface
+	globalcontextlib.ContextInterface
+}
+
 type CompiledPolicy interface {
-	Evaluate(context.Context, interface{}, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
+	Evaluate(context.Context, interface{}, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, ContextInterface, int) (*EvaluationResult, error)
 }
 
 type CompiledValidation struct {
@@ -69,7 +75,7 @@ type evaluationData struct {
 	Object    interface{}
 	OldObject interface{}
 	Request   interface{}
-	Context   contextlib.ContextInterface
+	Context   ContextInterface
 	Variables *lazy.MapValue
 }
 
@@ -79,7 +85,7 @@ func (p *compiledPolicy) Evaluate(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 	autogenIndex int,
 ) (*EvaluationResult, error) {
 	switch p.mode {
@@ -106,7 +112,7 @@ func (p *compiledPolicy) evaluateKubernetes(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 	autogenIndex int,
 ) (*EvaluationResult, error) {
 	data, err := p.prepareK8sData(attr, request, namespace, context)
@@ -163,6 +169,7 @@ func (p *compiledPolicy) evaluateWithData(
 	vars := lazy.NewMapValue(VariablesType)
 	dataNew := map[string]any{
 		ContextKey:         contextlib.Context{ContextInterface: data.Context},
+		GlobalContextKey:   globalcontextlib.Context{ContextInterface: data.Context},
 		HttpKey:            http.NewHTTP(),
 		NamespaceObjectKey: data.Namespace,
 		ObjectKey:          data.Object,
@@ -235,7 +242,7 @@ func (p *compiledPolicy) prepareK8sData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 ) (evaluationData, error) {
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
@@ -264,10 +271,10 @@ func (p *compiledPolicy) prepareK8sData(
 
 func (p *compiledPolicy) match(
 	ctx context.Context,
-	namespaceVal interface{},
-	objectVal interface{},
-	oldObjectVal interface{},
-	requestVal interface{},
+	namespaceVal any,
+	objectVal any,
+	oldObjectVal any,
+	requestVal any,
 	matchConditions []cel.Program,
 ) (bool, error) {
 	data := map[string]any{

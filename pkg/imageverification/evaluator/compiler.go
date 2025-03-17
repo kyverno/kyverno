@@ -5,6 +5,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	"github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
@@ -27,6 +28,7 @@ const (
 	AttestorKey        = "attestors"
 	AttestationKey     = "attestations"
 	ContextKey         = "context"
+	GlobalContextKey   = "globalcontext"
 	HttpKey            = "http"
 )
 
@@ -58,6 +60,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (
 	declTypes = append(declTypes, imageverifierfunctions.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(ContextKey, context.ContextType),
+		cel.Variable(GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),

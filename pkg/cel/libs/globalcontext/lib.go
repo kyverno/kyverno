@@ -1,4 +1,4 @@
-package context
+package globalcontext
 
 import (
 	"reflect"
@@ -6,23 +6,15 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
-const libraryName = "kyverno.context"
+const libraryName = "kyverno.globalcontext"
 
 type lib struct{}
 
 func Lib() cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{})
-}
-
-func Types() []*apiservercel.DeclType {
-	return []*apiservercel.DeclType{
-		configMapType,
-		imageDataType,
-	}
 }
 
 func (*lib) LibraryName() string {
@@ -47,38 +39,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
-		"GetConfigMap": {
+		"Get": {
 			cel.MemberOverload(
-				"get_configmap_string_string",
+				"globalcontext_get_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType},
-				configMapType.CelType(),
-				cel.FunctionBinding(impl.get_configmap_string_string),
-			),
-		},
-		"GetImageData": {
-			cel.MemberOverload(
-				"get_imagedata_string",
-				[]*cel.Type{ContextType, types.StringType},
 				types.DynType,
-				cel.BinaryBinding(impl.get_imagedata_string),
-			),
-		},
-		"ListResources": {
-			// TODO: should not use DynType in return
-			cel.MemberOverload(
-				"list_resources_string_string_string",
-				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType},
-				types.DynType,
-				cel.FunctionBinding(impl.list_resources_string_string_string),
-			),
-		},
-		"GetResource": {
-			// TODO: should not use DynType in return
-			cel.MemberOverload(
-				"get_resource_string_string_string_string",
-				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType},
-				types.DynType,
-				cel.FunctionBinding(impl.get_resource_string_string_string_string),
+				cel.FunctionBinding(impl.get_string_string),
 			),
 		},
 	}

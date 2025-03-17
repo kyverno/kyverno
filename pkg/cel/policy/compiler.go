@@ -9,6 +9,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -18,6 +19,7 @@ import (
 
 const (
 	ContextKey         = "context"
+	GlobalContextKey   = "globalcontext"
 	HttpKey            = "http"
 	NamespaceObjectKey = "namespaceObject"
 	ObjectKey          = "object"
@@ -111,6 +113,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	declTypes = append(declTypes, context.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(ContextKey, context.ContextType),
+		cel.Variable(GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(NamespaceObjectKey, NamespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
