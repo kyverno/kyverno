@@ -44,7 +44,7 @@ func (status *ConditionStatus) SetReadyByCondition(c PolicyConditionType, s meta
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
 
-func (status *ConditionStatus) IsReady() bool {
+func (status ConditionStatus) IsReady() bool {
 	if status.Ready != nil {
 		return *status.Ready
 	}

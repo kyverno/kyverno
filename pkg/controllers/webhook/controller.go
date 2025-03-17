@@ -845,7 +845,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		caBundle,
 		ivpols)
 
-	var mutate []admissionregistrationv1.MutatingWebhook
+	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
 	for _, w := range validate {
 		mutate = append(mutate, admissionregistrationv1.MutatingWebhook{
 			Name:                    w.Name,
