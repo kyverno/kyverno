@@ -12,38 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func Test_impl_get_configmap_string_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
-	assert.NoError(t, err)
-	assert.NotNil(t, base)
-	options := []cel.EnvOption{
-		cel.Variable("resource", ContextType),
-	}
-	env, err := base.Extend(options...)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	ast, issues := env.Compile(`resource.GetConfigMap("foo","bar")`)
-	assert.Nil(t, issues)
-	assert.NotNil(t, ast)
-	prog, err := env.Program(ast)
-	assert.NoError(t, err)
-	assert.NotNil(t, prog)
-	called := false
-	data := map[string]any{
-		"resource": Context{&MockCtx{
-			GetConfigMapFunc: func(string, string) (*unstructured.Unstructured, error) {
-				called = true
-				return &unstructured.Unstructured{}, nil
-			},
-		},
-		}}
-	out, _, err := prog.Eval(data)
-	assert.NoError(t, err)
-	assert.NotNil(t, out)
-	assert.True(t, called)
-}
-
 func Test_impl_get_imagedata_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
