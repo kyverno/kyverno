@@ -1,4 +1,4 @@
-package context
+package resource
 
 import (
 	"reflect"
@@ -9,7 +9,7 @@ import (
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
-const libraryName = "kyverno.context"
+const libraryName = "kyverno.resource"
 
 type lib struct{}
 
@@ -49,36 +49,36 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"GetConfigMap": {
 			cel.MemberOverload(
-				"get_configmap_string_string",
+				"resource_getconfigmap_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType},
 				configMapType.CelType(),
 				cel.FunctionBinding(impl.get_configmap_string_string),
 			),
 		},
-		"GetImageData": {
-			cel.MemberOverload(
-				"get_imagedata_string",
-				[]*cel.Type{ContextType, types.StringType},
-				types.DynType,
-				cel.BinaryBinding(impl.get_imagedata_string),
-			),
-		},
-		"ListResources": {
+		"List": {
 			// TODO: should not use DynType in return
 			cel.MemberOverload(
-				"list_resources_string_string_string",
+				"resource_list_string_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType},
 				types.DynType,
 				cel.FunctionBinding(impl.list_resources_string_string_string),
 			),
 		},
-		"GetResource": {
+		"Get": {
 			// TODO: should not use DynType in return
 			cel.MemberOverload(
-				"get_resource_string_string_string_string",
+				"resource_get_string_string_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType},
 				types.DynType,
 				cel.FunctionBinding(impl.get_resource_string_string_string_string),
+			),
+		},
+		"GetImageData": {
+			cel.MemberOverload(
+				"resource_getimagedata_string",
+				[]*cel.Type{ContextType, types.StringType},
+				types.DynType,
+				cel.BinaryBinding(impl.get_imagedata_string),
 			),
 		},
 	}

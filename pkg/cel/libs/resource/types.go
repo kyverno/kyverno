@@ -1,4 +1,4 @@
-package context
+package resource
 
 import (
 	"github.com/google/cel-go/common/types"
@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ContextType   = types.NewOpaqueType("context.Context")
+	ContextType   = types.NewOpaqueType("resource.Context")
 	configMapType = BuildConfigMapType()
 	imageDataType = BuildImageDataType()
 )

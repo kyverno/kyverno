@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,21 +43,21 @@ func Test_impl_get_globalreference_string_string(t *testing.T) {
 		{
 			name: "global context entry returns error",
 			gctxStoreData: map[string]store.Entry{
-				"foo": &context.MockEntry{Err: errors.New("get entry error")},
+				"foo": &resource.MockEntry{Err: errors.New("get entry error")},
 			},
 			expectedError: "get entry error",
 		},
 		{
 			name: "global context entry returns string",
 			gctxStoreData: map[string]store.Entry{
-				"foo": &context.MockEntry{Data: "stringValue"},
+				"foo": &resource.MockEntry{Data: "stringValue"},
 			},
 			expectedValue: "stringValue",
 		},
 		{
 			name: "global context entry returns map",
 			gctxStoreData: map[string]store.Entry{
-				"foo": &context.MockEntry{Data: map[string]interface{}{"key": "value"}},
+				"foo": &resource.MockEntry{Data: map[string]interface{}{"key": "value"}},
 			},
 			expectedValue: map[string]interface{}{"key": "value"},
 		},
@@ -65,9 +65,9 @@ func Test_impl_get_globalreference_string_string(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := &context.MockGctxStore{Data: tt.gctxStoreData}
+			mockStore := &resource.MockGctxStore{Data: tt.gctxStoreData}
 			data := map[string]any{
-				"globalcontext": Context{&context.MockCtx{
+				"globalcontext": Context{&resource.MockCtx{
 					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
 						ent, ok := mockStore.Get(name)
 						if !ok {

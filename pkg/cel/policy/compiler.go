@@ -8,9 +8,9 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
-	"github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	ContextKey         = "context"
 	GlobalContextKey   = "globalcontext"
 	HttpKey            = "http"
 	NamespaceObjectKey = "namespaceObject"
 	ObjectKey          = "object"
 	OldObjectKey       = "oldObject"
 	RequestKey         = "request"
+	ResourceKey        = "resource"
 	VariablesKey       = "variables"
 )
 
@@ -56,7 +56,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, context.Lib(), http.Lib())
+	options = append(options, resource.Lib(), http.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -110,15 +110,15 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	}
 	var declTypes []*apiservercel.DeclType
 	declTypes = append(declTypes, NamespaceType, RequestType)
-	declTypes = append(declTypes, context.Types()...)
+	declTypes = append(declTypes, resource.Types()...)
 	options := []cel.EnvOption{
-		cel.Variable(ContextKey, context.ContextType),
 		cel.Variable(GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(NamespaceObjectKey, NamespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
 		cel.Variable(RequestKey, RequestType.CelType()),
+		cel.Variable(ResourceKey, resource.ContextType),
 		cel.Variable(VariablesKey, VariablesType),
 	}
 	for _, declType := range declTypes {
@@ -132,7 +132,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		panic(err)
 	}
 	options = append(options, declOptions...)
-	options = append(options, context.Lib(), http.Lib(), user.Lib())
+	options = append(options, resource.Lib(), http.Lib(), user.Lib())
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {

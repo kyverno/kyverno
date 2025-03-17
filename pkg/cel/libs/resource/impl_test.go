@@ -1,4 +1,4 @@
-package context
+package resource
 
 import (
 	"context"
@@ -18,12 +18,12 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("context", ContextType),
+		cel.Variable("resource", ContextType),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetConfigMap("foo","bar")`)
+	ast, issues := env.Compile(`resource.GetConfigMap("foo","bar")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -31,7 +31,7 @@ func Test_impl_get_configmap_string_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	called := false
 	data := map[string]any{
-		"context": Context{&MockCtx{
+		"resource": Context{&MockCtx{
 			GetConfigMapFunc: func(string, string) (*unstructured.Unstructured, error) {
 				called = true
 				return &unstructured.Unstructured{}, nil
@@ -50,19 +50,19 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("context", ContextType),
+		cel.Variable("resource", ContextType),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetImageData("ghcr.io/kyverno/kyverno:latest").resolvedImage`)
+	ast, issues := env.Compile(`resource.GetImageData("ghcr.io/kyverno/kyverno:latest").resolvedImage`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&MockCtx{
+		"resource": Context{&MockCtx{
 			GetImageDataFunc: func(image string) (map[string]interface{}, error) {
 				idl, err := imagedataloader.New(nil)
 				assert.NoError(t, err)
@@ -95,19 +95,19 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("context", ContextType),
+		cel.Variable("resource", ContextType),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetResource("apps/v1", "deployments", "default", "nginx")`)
+	ast, issues := env.Compile(`resource.Get("apps/v1", "deployments", "default", "nginx")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&MockCtx{
+		"resource": Context{&MockCtx{
 			GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
@@ -136,19 +136,19 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("context", ContextType),
+		cel.Variable("resource", ContextType),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.ListResources("apps/v1", "deployments", "default")`)
+	ast, issues := env.Compile(`resource.List("apps/v1", "deployments", "default")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"context": Context{&MockCtx{
+		"resource": Context{&MockCtx{
 			ListResourcesFunc: func(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{
 					Items: []unstructured.Unstructured{

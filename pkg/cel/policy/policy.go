@@ -9,9 +9,9 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	globalcontextlib "github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -33,7 +33,7 @@ type EvaluationResult struct {
 }
 
 type ContextInterface interface {
-	contextlib.ContextInterface
+	resourcelib.ContextInterface
 	globalcontextlib.ContextInterface
 }
 
@@ -168,7 +168,7 @@ func (p *compiledPolicy) evaluateWithData(
 
 	vars := lazy.NewMapValue(VariablesType)
 	dataNew := map[string]any{
-		ContextKey:         contextlib.Context{ContextInterface: data.Context},
+		ResourceKey:        resourcelib.Context{ContextInterface: data.Context},
 		GlobalContextKey:   globalcontextlib.Context{ContextInterface: data.Context},
 		HttpKey:            http.NewHTTP(),
 		NamespaceObjectKey: data.Namespace,
