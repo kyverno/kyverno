@@ -65,6 +65,7 @@ type controller struct {
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister      policiesv1alpha1listers.ImageVerificationPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
 	celpolexListener policiesv1alpha1listers.CELPolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -97,6 +98,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageVerificationPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.CELPolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -140,6 +142,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(ivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -242,6 +250,20 @@ func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
 }
 
 func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addIVP(obj *policiesv1alpha1.ImageVerificationPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageVerificationPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageVerificationPolicy) {
 	c.enqueueResources()
 }
 
@@ -418,6 +440,8 @@ func (c *controller) reconcileReport(
 				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy()).String()
 			} else if policy.AsValidatingPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
+			} else if policy.AsImageVerificationPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsImageVerificationPolicy()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
@@ -586,8 +610,18 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if err != nil {
 			return err
 		}
-		for _, vpol := range policy.RemoveNoneBackgroundPolicies(vpols) {
+		for _, vpol := range policy.RemoveNoneBackgroundValidatingPolicies(vpols) {
 			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
+		}
+	}
+	if c.ivpolLister != nil {
+		// load validating policies
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return err
+		}
+		for _, vpol := range policy.RemoveNoneBackgroundImageVerificationPolicies(ivpols) {
+			policies = append(policies, engineapi.NewImageVerificationPolicy(&vpol))
 		}
 	}
 	if c.vapLister != nil {
