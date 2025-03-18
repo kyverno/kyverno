@@ -238,15 +238,16 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			engineResponse, _, err := engine.HandleMutating(ctx, request)
-			if len(engineResponse.Policies) > 1 {
-				response := engineapi.EngineResponse{
-					Resource: resource,
-					PolicyResponse: engineapi.PolicyResponse{
-						Rules: []engineapi.RuleResponse{engineResponse.Policies[0].Result},
-					},
-				}.WithPolicy(ivpols[i])
-				results[&ivpols[i]] = ScanResult{&response, err}
+			response := engineapi.EngineResponse{
+				Resource:       resource,
+				PolicyResponse: engineapi.PolicyResponse{},
+			}.WithPolicy(ivpols[i])
+
+			if len(engineResponse.Policies) >= 1 {
+				response.PolicyResponse.Rules = []engineapi.RuleResponse{engineResponse.Policies[0].Result}
 			}
+
+			results[&ivpols[i]] = ScanResult{&response, err}
 		}
 	}
 	// evaluate validating admission policies
