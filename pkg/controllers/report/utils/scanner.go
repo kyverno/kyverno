@@ -205,7 +205,7 @@ func (s *scanner) ScanResource(
 			provider, err := celengine.NewIVPOLProvider([]policiesv1alpha1.ImageVerificationPolicy{*pol})
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
-				results[&vpols[i]] = ScanResult{nil, err}
+				results[&ivpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			// create engine
@@ -220,7 +220,7 @@ func (s *scanner) ScanResource(
 			context, err := celpolicy.NewContextProvider(s.client, nil, gctxstore.New())
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
-				results[&vpols[i]] = ScanResult{nil, err}
+				results[&ivpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			request := celengine.Request(
@@ -244,8 +244,8 @@ func (s *scanner) ScanResource(
 					PolicyResponse: engineapi.PolicyResponse{
 						Rules: []engineapi.RuleResponse{engineResponse.Policies[0].Result},
 					},
-				}.WithPolicy(vpols[i])
-				results[&vpols[i]] = ScanResult{&response, err}
+				}.WithPolicy(ivpols[i])
+				results[&ivpols[i]] = ScanResult{&response, err}
 			}
 		}
 	}
