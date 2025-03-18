@@ -140,8 +140,7 @@ func preserveResourceGet(data []byte) (preserved [][]byte, segments [][]byte) {
 		startIdxList := bytes.Index(remaining, []byte(resourceList))
 
 		// Change: Determine the earliest pattern match
-		startIdx := -1
-		patternLen := 0
+		var startIdx, patternLen int
 		if startIdxGet >= 0 && (startIdxList < 0 || startIdxGet < startIdxList) {
 			startIdx = startIdxGet
 			patternLen = len(resourceGet)
