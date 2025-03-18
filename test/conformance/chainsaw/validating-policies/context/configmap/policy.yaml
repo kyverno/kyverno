@@ -5,10 +5,10 @@ metadata:
 spec:
   matchConstraints:
     resourceRules:
-    - apiGroups:   [apps]
+    - apiGroups:   [""]
       apiVersions: [v1]
       operations:  [CREATE, UPDATE]
-      resources:   [deployments]
+      resources:   [pods]
   variables:
     - name: cm
       expression: >-

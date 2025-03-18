@@ -130,8 +130,59 @@ var (
 	CronJobMatchConditionExpression        = "!(object.kind =='CronJob') || "
 )
 
+func preserveResourceGet(data []byte) (preserved [][]byte, segments [][]byte) {
+	remaining := data
+	for len(remaining) > 0 {
+		// Change: Define multiple patterns to search for
+		const resourceGet = "resource.Get"
+		const resourceList = "resource.List"
+		startIdxGet := bytes.Index(remaining, []byte(resourceGet))
+		startIdxList := bytes.Index(remaining, []byte(resourceList))
+
+		// Change: Determine the earliest pattern match
+		startIdx := -1
+		patternLen := 0
+		if startIdxGet >= 0 && (startIdxList < 0 || startIdxGet < startIdxList) {
+			startIdx = startIdxGet
+			patternLen = len(resourceGet)
+		} else if startIdxList >= 0 {
+			startIdx = startIdxList
+			patternLen = len(resourceList)
+		} else {
+			// No more resource.Get or resource.List, append remaining and exit
+			if len(remaining) > 0 {
+				segments = append(segments, remaining)
+			}
+			return preserved, segments
+		}
+
+		// Add segment before the matched pattern if it exists
+		if startIdx > 0 {
+			segments = append(segments, remaining[:startIdx])
+		}
+
+		// Find the end of the expression (resource.Get or resource.List)
+		endIdx := startIdx + patternLen
+		for i := endIdx; i < len(remaining); i++ {
+			if remaining[i] == ')' {
+				endIdx = i
+				break
+			}
+			if i == len(remaining)-1 {
+				// Malformed: no closing parenthesis, treat rest as segment and exit
+				segments = append(segments, remaining[startIdx:])
+				return preserved, segments
+			}
+		}
+
+		// Preserve the full expression (resource.Get or resource.List)
+		preserved = append(preserved, remaining[startIdx:endIdx+1])
+		remaining = remaining[endIdx+1:]
+	}
+	return preserved, segments
+}
+
 func updateFields(data []byte, resource autogencontroller) []byte {
-	// Define the target prefixes based on resource type
 	var specPrefix, metadataPrefix []byte
 	switch resource {
 	case PODS:
@@ -142,20 +193,45 @@ func updateFields(data []byte, resource autogencontroller) []byte {
 		metadataPrefix = []byte("object.spec.jobTemplate.spec.template.metadata")
 	}
 
-	// Replace object.spec and oldObject.spec with the correct prefix
-	data = bytes.ReplaceAll(data, []byte("object.spec"), specPrefix)
-	data = bytes.ReplaceAll(data, []byte("oldObject.spec"), append([]byte("oldObject"), specPrefix[6:]...)) // Adjust for oldObject
-	data = bytes.ReplaceAll(data, []byte("object.metadata"), metadataPrefix)
-	data = bytes.ReplaceAll(data, []byte("oldObject.metadata"), append([]byte("oldObject"), metadataPrefix[6:]...))
+	preserved, segments := preserveResourceGet(data)
 
-	// Normalize any over-nested paths remove extra .template.spec
+	if len(preserved) == 0 {
+		data = bytes.ReplaceAll(data, []byte("object.spec"), specPrefix)
+		data = bytes.ReplaceAll(data, []byte("oldObject.spec"), append([]byte("oldObject"), specPrefix[6:]...))
+		data = bytes.ReplaceAll(data, []byte("object.metadata"), metadataPrefix)
+		data = bytes.ReplaceAll(data, []byte("oldObject.metadata"), append([]byte("oldObject"), metadataPrefix[6:]...))
+		return normalizePaths(data, resource, specPrefix)
+	}
+
+	// Rewrite segments and reassemble with preserved parts
+	result := []byte{}
+	for i, segment := range segments {
+		// Apply standard rewrites to this segment
+		segment = bytes.ReplaceAll(segment, []byte("object.spec"), specPrefix)
+		segment = bytes.ReplaceAll(segment, []byte("oldObject.spec"), append([]byte("oldObject"), specPrefix[6:]...))
+		segment = bytes.ReplaceAll(segment, []byte("object.metadata"), metadataPrefix)
+		segment = bytes.ReplaceAll(segment, []byte("oldObject.metadata"), append([]byte("oldObject"), metadataPrefix[6:]...))
+		result = append(result, segment...)
+
+		if i < len(preserved) {
+			result = append(result, preserved[i]...)
+		}
+	}
+
+	return normalizePaths(result, resource, specPrefix)
+}
+
+func normalizePaths(data []byte, resource autogencontroller, specPrefix []byte) []byte {
 	if resource == CRONJOBS {
+		// Existing spec normalization
 		data = bytes.ReplaceAll(data, []byte("object.spec.jobTemplate.spec.template.spec.template.spec"), specPrefix)
 		data = bytes.ReplaceAll(data, []byte("oldObject.spec.jobTemplate.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
+		// metadata normalization
+		data = bytes.ReplaceAll(data, []byte("object.spec.jobTemplate.spec.template.spec.template.metadata"), []byte("object.spec.jobTemplate.spec.template.metadata"))
+		data = bytes.ReplaceAll(data, []byte("oldObject.spec.jobTemplate.spec.template.spec.template.metadata"), []byte("oldObject.spec.jobTemplate.spec.template.metadata"))
 	} else if resource == PODS {
 		data = bytes.ReplaceAll(data, []byte("object.spec.template.spec.template.spec"), specPrefix)
 		data = bytes.ReplaceAll(data, []byte("oldObject.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
 	}
-
 	return data
 }

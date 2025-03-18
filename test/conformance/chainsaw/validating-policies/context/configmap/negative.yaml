@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: negative
+  name: negative-dep
   labels:
     app: nginx
     env: testing
@@ -20,3 +20,38 @@ spec:
       containers:
       - name: nginx
         image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: negative-pod
+  labels:
+    app: nginx
+    env: testing
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: negative-cronjob
+  labels:
+    app: nginx
+    env: testing
+spec:
+  schedule: "*/5 * * * *" # Runs every 5 minutes (adjust as needed)
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: nginx
+            env: testing
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: nginx
+            image: nginx:latest
+
