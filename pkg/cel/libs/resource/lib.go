@@ -20,7 +20,6 @@ func Lib() cel.EnvOption {
 
 func Types() []*apiservercel.DeclType {
 	return []*apiservercel.DeclType{
-		configMapType,
 		imageDataType,
 	}
 }
@@ -47,14 +46,6 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
-		"GetConfigMap": {
-			cel.MemberOverload(
-				"resource_getconfigmap_string_string",
-				[]*cel.Type{ContextType, types.StringType, types.StringType},
-				configMapType.CelType(),
-				cel.FunctionBinding(impl.get_configmap_string_string),
-			),
-		},
 		"List": {
 			// TODO: should not use DynType in return
 			cel.MemberOverload(
