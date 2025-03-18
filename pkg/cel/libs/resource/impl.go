@@ -10,10 +10,6 @@ type impl struct {
 	types.Adapter
 }
 
-func (c *impl) get_configmap_string_string(args ...ref.Val) ref.Val {
-	return c.get_resource_string_string_string_string(args[0], types.String("v1"), types.String("configmaps"), args[1], args[2])
-}
-
 func (c *impl) get_imagedata_string(ctx ref.Val, image ref.Val) ref.Val {
 	if self, err := utils.ConvertToNative[Context](ctx); err != nil {
 		return types.WrapErr(err)
