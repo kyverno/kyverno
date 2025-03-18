@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
@@ -158,7 +158,7 @@ func Test_ImageVerifyEngine(t *testing.T) {
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		},
-		context: &contextlib.MockCtx{},
+		context: &resourcelib.MockCtx{},
 	}
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest)

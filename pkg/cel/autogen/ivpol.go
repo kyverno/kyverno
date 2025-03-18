@@ -47,12 +47,11 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, controllerSet 
 
 		policy = &policiesv1alpha1.IvpolAutogen{}
 		copied := ivpol.DeepCopy()
-		policy.ObjectMeta = copied.ObjectMeta
 		policy.Spec = copied.Spec
 		if controllers == "cronjobs" {
-			policy.Name = "autogen-cronjobs-" + policy.Name
+			policy.Name = "autogen-cronjobs-" + ivpol.GetName()
 		} else {
-			policy.Name = "autogen-" + policy.Name
+			policy.Name = "autogen-" + ivpol.GetName()
 		}
 		operations := ivpol.Spec.MatchConstraints.ResourceRules[0].Operations
 		// create a resource rule for pod controllers
