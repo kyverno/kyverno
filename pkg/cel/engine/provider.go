@@ -30,7 +30,7 @@ type CompiledValidatingPolicy struct {
 }
 
 type CompiledImageVerificationPolicy struct {
-	Policy  *policiesv1alpha1.ImageVerificationPolicy
+	Policy  *policiesv1alpha1.ImageValidatingPolicy
 	Actions sets.Set[admissionregistrationv1.ValidationAction]
 }
 
@@ -147,7 +147,7 @@ func NewKubeProvider(
 
 	ivpolr := newivPolicyReconciler(mgr.GetClient(), polexLister)
 	err = ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1alpha1.ImageVerificationPolicy{}).
+		For(&policiesv1alpha1.ImageValidatingPolicy{}).
 		Watches(&policiesv1alpha1.CELPolicyException{}, exceptionHandlerFuncs).
 		Complete(ivpolr)
 	if err != nil {
@@ -265,7 +265,7 @@ func newivPolicyReconciler(
 }
 
 func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var policy policiesv1alpha1.ImageVerificationPolicy
+	var policy policiesv1alpha1.ImageValidatingPolicy
 	err := r.client.Get(ctx, req.NamespacedName, &policy)
 	if errors.IsNotFound(err) {
 		r.lock.Lock()
@@ -304,7 +304,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			Name:      p.Name,
 		}
 		r.policies[namespacedName.String()] = CompiledImageVerificationPolicy{
-			Policy: &policiesv1alpha1.ImageVerificationPolicy{
+			Policy: &policiesv1alpha1.ImageValidatingPolicy{
 				ObjectMeta: p.ObjectMeta,
 				Spec:       p.Spec,
 			},

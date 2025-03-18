@@ -13,7 +13,7 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func Evaluate(ctx context.Context, ivpols []*v1alpha1.ImageVerificationPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
+func Evaluate(ctx context.Context, ivpols []*v1alpha1.ImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
 	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
 	if err != nil {
 		return nil, err
@@ -58,8 +58,8 @@ func requestGVR(request *admissionv1.AdmissionRequest) *metav1.GroupVersionResou
 	return request.RequestResource
 }
 
-func filterPolicies(ivpols []*v1alpha1.ImageVerificationPolicy, isK8s bool) []*v1alpha1.ImageVerificationPolicy {
-	filteredPolicies := make([]*v1alpha1.ImageVerificationPolicy, 0)
+func filterPolicies(ivpols []*v1alpha1.ImageValidatingPolicy, isK8s bool) []*v1alpha1.ImageValidatingPolicy {
+	filteredPolicies := make([]*v1alpha1.ImageValidatingPolicy, 0)
 
 	for _, v := range ivpols {
 		if v == nil {

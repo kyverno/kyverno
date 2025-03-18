@@ -31,7 +31,7 @@ const (
 )
 
 type Compiler interface {
-	Compile(*policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList)
+	Compile(*policiesv1alpha1.ImageValidatingPolicy) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
@@ -48,7 +48,7 @@ type compiler struct {
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -101,10 +101,10 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (
 		return nil, append(allErrs, errs...)
 	}
 
-	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Verifications))
+	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Validations))
 	{
 		path := path.Child("verifications")
-		for i, rule := range ivpolicy.Spec.Verifications {
+		for i, rule := range ivpolicy.Spec.Validations {
 			path := path.Index(i)
 			program, errs := policy.CompileValidation(path, rule, env)
 			if errs != nil {

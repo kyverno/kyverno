@@ -257,14 +257,14 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
-		ivpols           []*policiesv1alpha1.ImageVerificationPolicy
+		ivpols           []*policiesv1alpha1.ImageValidatingPolicy
 		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
 	}{
 		{
 			name: "Autogen Single Ignore Policy",
-			ivpols: []*policiesv1alpha1.ImageVerificationPolicy{
+			ivpols: []*policiesv1alpha1.ImageValidatingPolicy{
 				{
-					Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+					Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -331,7 +331,7 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 		},
 		{
 			name: "Autogen Fine-grained Ignore Policy",
-			ivpols: []*policiesv1alpha1.ImageVerificationPolicy{
+			ivpols: []*policiesv1alpha1.ImageValidatingPolicy{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "ivpol-sample",
@@ -339,7 +339,7 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 							kyverno.AnnotationAutogenControllers: "deployments,jobs,cronjobs",
 						},
 					},
-					Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+					Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{

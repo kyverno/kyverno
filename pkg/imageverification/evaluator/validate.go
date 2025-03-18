@@ -34,7 +34,7 @@ type ImageVerifyEngineResponse struct {
 }
 
 type ImageVerifyPolicyResponse struct {
-	Policy  *policiesv1alpha1.ImageVerificationPolicy
+	Policy  *policiesv1alpha1.ImageValidatingPolicy
 	Actions sets.Set[admissionregistrationv1.ValidationAction]
 	Result  engineapi.RuleResponse
 }

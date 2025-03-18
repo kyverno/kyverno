@@ -31,7 +31,7 @@ type ivfuncs struct {
 	notaryVerifier  *notary.Verifier
 }
 
-func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister k8scorev1.SecretInterface, adapter types.Adapter) (*ivfuncs, error) {
+func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface, adapter types.Adapter) (*ivfuncs, error) {
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
 	}
