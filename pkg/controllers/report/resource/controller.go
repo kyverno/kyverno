@@ -79,10 +79,11 @@ type controller struct {
 	client dclient.Interface
 
 	// listers
-	polLister  kyvernov1listers.PolicyLister
-	cpolLister kyvernov1listers.ClusterPolicyLister
-	vpolLister policiesv1alpha1listers.ValidatingPolicyLister
-	vapLister  admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	polLister   kyvernov1listers.PolicyLister
+	cpolLister  kyvernov1listers.ClusterPolicyLister
+	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister policiesv1alpha1listers.ImageVerificationPolicyLister
+	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -97,6 +98,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageVerificationPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
@@ -112,6 +114,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, ivpolInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -273,6 +281,20 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.ivpolLister != nil {
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return err
+		}
+		// fetch kinds from image verification admission policies
+		for _, policy := range ivpols {
 			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
