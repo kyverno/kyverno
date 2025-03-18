@@ -31,8 +31,7 @@ func NewIVPOLProvider(policies []v1alpha1.ImageVerificationPolicy) (ImageVerifyP
 			compiled = append(compiled, CompiledImageVerificationPolicy{
 				Actions: actions,
 				Policy: &v1alpha1.ImageVerificationPolicy{
-					ObjectMeta: ap.ObjectMeta,
-					Spec:       ap.Spec,
+					Spec: ap.Spec,
 				},
 			})
 		}
