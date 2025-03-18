@@ -6,6 +6,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
@@ -79,7 +80,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
-	options = append(options, imageverifierfunctions.Lib(c.ictx, ivpolicy, c.lister), resource.Lib(), http.Lib(), user.Lib())
+	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), imageverifierfunctions.Lib(c.ictx, ivpolicy, c.lister), resource.Lib(), user.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
