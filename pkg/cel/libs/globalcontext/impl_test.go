@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
@@ -89,6 +91,41 @@ func Test_impl_get_globalreference_string_string(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
+
+func Test_impl_get_string_string(t *testing.T) {
+	opts := Lib()
+	base, err := cel.NewEnv(opts)
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	tests := []struct {
+		name string
+		args []ref.Val
+		want ref.Val
+	}{{
+		name: "not enough args",
+		args: nil,
+		want: types.NewErr("expected 3 arguments, got %d", 0),
+	}, {
+		name: "bad arg 1",
+		args: []ref.Val{types.String("foo"), types.String("foo"), types.String("foo")},
+		want: types.NewErr("unsupported native conversion from string to 'globalcontext.Context'"),
+	}, {
+		name: "bad arg 2",
+		args: []ref.Val{base.CELTypeAdapter().NativeToValue(Context{}), types.Bool(false), types.String("foo")},
+		want: types.NewErr("type conversion error from bool to 'string'"),
+	}, {
+		name: "bad arg 3",
+		args: []ref.Val{base.CELTypeAdapter().NativeToValue(Context{}), types.String("foo"), types.Bool(false)},
+		want: types.NewErr("type conversion error from bool to 'string'"),
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &impl{}
+			got := c.get_string_string(tt.args...)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
