@@ -54,7 +54,7 @@ spec:
             type: object
           spec:
             description: ImageValidatingPolicySpec is the specification of the desired
-              behavior of the ImageVerificationPolicy.
+              behavior of the ImageValidatingPolicy.
             properties:
               attestations:
                 description: Attestations provides a list of image metadata to verify
@@ -965,7 +965,7 @@ spec:
                           type: string
                         spec:
                           description: ImageValidatingPolicySpec is the specification
-                            of the desired behavior of the ImageVerificationPolicy.
+                            of the desired behavior of the ImageValidatingPolicy.
                           properties:
                             attestations:
                               description: Attestations provides a list of image metadata
