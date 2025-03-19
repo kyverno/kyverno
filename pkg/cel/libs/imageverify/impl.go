@@ -1,4 +1,4 @@
-package imageverifierfunctions
+package imageverify
 
 import (
 	"context"

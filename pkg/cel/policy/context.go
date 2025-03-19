@@ -66,7 +66,7 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 		if err != nil {
 			return nil, err
 		}
-		apiData := map[string]interface{}{}
+		apiData := map[string]any{}
 		err = json.Unmarshal(raw, &apiData)
 		if err != nil {
 			return nil, err
@@ -75,7 +75,7 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	}
 }
 
-func (cp *contextProvider) GetImageData(image string) (map[string]interface{}, error) {
+func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
 	// TODO: get image credentials from image verification policies?
 	data, err := cp.imagedata.FetchImageData(context.TODO(), image)
 	if err != nil {
@@ -89,7 +89,7 @@ func isLikelyKubernetesObject(data any) bool {
 		return false
 	}
 
-	if m, ok := data.(map[string]interface{}); ok {
+	if m, ok := data.(map[string]any); ok {
 		_, hasAPIVersion := m["apiVersion"]
 		_, hasKind := m["kind"]
 		return hasAPIVersion && hasKind
