@@ -36,7 +36,7 @@ type genericPolicy struct {
 	ValidatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy
 	MutatingAdmissionPolicy   *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
-	ImageVerificationPolicy   *policiesv1alpha1.ImageValidatingPolicy
+	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -56,7 +56,7 @@ func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy 
 }
 
 func (p *genericPolicy) AsImageVerificationPolicy() *policiesv1alpha1.ImageValidatingPolicy {
-	return p.ImageVerificationPolicy
+	return p.ImageValidatingPolicy
 }
 
 func (p *genericPolicy) GetAPIVersion() string {
@@ -69,7 +69,7 @@ func (p *genericPolicy) GetAPIVersion() string {
 		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
 	case p.ValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
-	case p.ImageVerificationPolicy != nil:
+	case p.ImageValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	}
 	return ""
@@ -85,8 +85,8 @@ func (p *genericPolicy) GetKind() string {
 		return "MutatingAdmissionPolicy"
 	case p.ValidatingPolicy != nil:
 		return "ValidatingPolicy"
-	case p.ImageVerificationPolicy != nil:
-		return "ImageVerificationPolicy"
+	case p.ImageValidatingPolicy != nil:
+		return "ImageValidatingPolicy"
 	}
 	return ""
 }
@@ -129,7 +129,7 @@ func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
 
 func NewImageVerificationPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
-		Object:                  pol,
-		ImageVerificationPolicy: pol,
+		Object:                pol,
+		ImageValidatingPolicy: pol,
 	}
 }

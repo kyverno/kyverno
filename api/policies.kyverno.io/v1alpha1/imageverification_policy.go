@@ -94,7 +94,7 @@ func (s *ImageValidatingPolicy) GetStatus() *IvpolStatus {
 }
 
 func (s *ImageValidatingPolicy) GetKind() string {
-	return "ImageVerificationPolicy"
+	return "ImageValidatingPolicy"
 }
 
 // AdmissionEnabled checks if admission is set to true
@@ -135,7 +135,7 @@ func (status *IvpolStatus) GetConditionStatus() *ConditionStatus {
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ImageValidatingPolicyList is a list of ImageVerificationPolicy instances
+// ImageValidatingPolicyList is a list of ImageValidatingPolicy instances
 type ImageValidatingPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
@@ -154,7 +154,7 @@ const (
 	GHCR    CredentialsProvidersType = "github"
 )
 
-// ImageValidatingPolicySpec is the specification of the desired behavior of the ImageVerificationPolicy.
+// ImageValidatingPolicySpec is the specification of the desired behavior of the ImageValidatingPolicy.
 type ImageValidatingPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to validate.
 	// +optional

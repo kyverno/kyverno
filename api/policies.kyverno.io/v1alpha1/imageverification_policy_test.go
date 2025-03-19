@@ -403,7 +403,7 @@ func TestImageVerificationPolicy_GetKind(t *testing.T) {
 	}{{
 		name:   "not set",
 		policy: &ImageValidatingPolicy{},
-		want:   "ImageVerificationPolicy",
+		want:   "ImageValidatingPolicy",
 	}, {
 		name: "set",
 		policy: &ImageValidatingPolicy{
@@ -411,7 +411,7 @@ func TestImageVerificationPolicy_GetKind(t *testing.T) {
 				Kind: "Foo",
 			},
 		},
-		want: "ImageVerificationPolicy",
+		want: "ImageValidatingPolicy",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
