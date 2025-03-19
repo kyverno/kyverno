@@ -549,7 +549,7 @@ jobs:
           tests-path: validating-admission-policy-reports
           upgrade-scenario: ${{ matrix.upgrade }}
 
-  image-verification-policies:
+  image-validation-policies:
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -1126,7 +1126,7 @@ jobs:
       - validating-policies
       - verify-manifests
       - verifyImages
-      - image-verification-policies
+      - image-validation-policies
       - webhook-configurations
       - webhooks
       - custom-sigstore
@@ -1166,7 +1166,7 @@ jobs:
       - validating-policies
       - verify-manifests
       - verifyImages
-      - image-verification-policies
+      - image-validation-policies
       - webhook-configurations
       - webhooks
       - custom-sigstore
