@@ -103,7 +103,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	return nil
 }
 
-func (c controller) reconcileConditions(ctx context.Context, policy engineapi.GenericPolicy) {
+func (c controller) reconcileConditions(ctx context.Context, policy engineapi.GenericPolicy) *policiesv1alpha1.ConditionStatus {
 	var key string
 	var matchConstraints admissionregistrationv1.MatchResources
 	status := &policiesv1alpha1.ConditionStatus{}
@@ -154,4 +154,5 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	} else {
 		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
 	}
+	return status
 }

@@ -17,8 +17,8 @@ spec:
     try:
     - create:
         file: policy.yaml
-    - sleep:
-        duration: 3s
+    - assert:
+        file: policy-assert.yaml
   - try:
     - apply:
         file: new-deployment.yaml
