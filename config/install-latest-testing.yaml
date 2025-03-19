@@ -51449,8 +51449,8 @@ rules:
       - validatingpolicies
       - validatingpolicies/status
       - celpolicyexceptions
-      - imageverificationpolicies
-      - imageverificationpolicies/status
+      - imagevalidatingpolicies
+      - imagevalidatingpolicies/status
     verbs:
       - create
       - delete
@@ -52006,8 +52006,8 @@ rules:
     resources:
       - validatingpolicies
       - validatingpolicies/status
-      - imageverificationpolicies
-      - imageverificationpolicies/status
+      - imagevalidatingpolicies
+      - imagevalidatingpolicies/status
     verbs:
       - create
       - delete
