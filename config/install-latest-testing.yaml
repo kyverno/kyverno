@@ -204,7 +204,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -2816,7 +2816,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -5428,7 +5428,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -25745,7 +25745,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: globalcontextentries.kyverno.io
 spec:
   group: kyverno.io
@@ -26025,7 +26025,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -46345,7 +46345,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -47653,7 +47653,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -48491,7 +48491,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: celpolicyexceptions.policies.kyverno.io
 spec:
   group: policies.kyverno.io
@@ -48604,7 +48604,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: validatingpolicies.policies.kyverno.io
 spec:
   group: policies.kyverno.io
@@ -49955,7 +49955,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: clusterephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
@@ -50297,7 +50297,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: ephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
@@ -50639,7 +50639,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -51007,7 +51007,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v1.5.0-rc1.0.20250317140612-be974e7d938e+dirty
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
