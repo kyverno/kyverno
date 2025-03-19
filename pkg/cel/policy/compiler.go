@@ -10,6 +10,7 @@ import (
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -20,6 +21,7 @@ import (
 const (
 	GlobalContextKey   = "globalcontext"
 	HttpKey            = "http"
+	ImageDataKey       = "imagedata"
 	NamespaceObjectKey = "namespaceObject"
 	ObjectKey          = "object"
 	OldObjectKey       = "oldObject"
@@ -110,10 +112,10 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	}
 	var declTypes []*apiservercel.DeclType
 	declTypes = append(declTypes, NamespaceType, RequestType)
-	declTypes = append(declTypes, resource.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
+		cel.Variable(ImageDataKey, imagedata.ContextType),
 		cel.Variable(NamespaceObjectKey, NamespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
@@ -132,7 +134,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		panic(err)
 	}
 	options = append(options, declOptions...)
-	options = append(options, resource.Lib(), http.Lib(), user.Lib())
+	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), resource.Lib(), user.Lib())
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {

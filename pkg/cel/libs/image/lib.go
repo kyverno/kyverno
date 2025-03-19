@@ -7,6 +7,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 )
 
+const libraryName = "kyverno.image"
+
 func ImageLib() cel.EnvOption {
 	return cel.Lib(imageLib)
 }
@@ -16,7 +18,7 @@ var imageLib = &imageLibType{}
 type imageLibType struct{}
 
 func (*imageLibType) LibraryName() string {
-	return "kyverno.Image"
+	return libraryName
 }
 
 func (*imageLibType) Types() []*cel.Type {

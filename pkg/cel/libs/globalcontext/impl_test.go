@@ -28,41 +28,34 @@ func Test_impl_get_globalreference_string_string(t *testing.T) {
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-
 	tests := []struct {
 		name          string
 		gctxStoreData map[string]store.Entry
 		expectedValue any
 		expectedError string
-	}{
-		{
-			name:          "global context entry not found",
-			gctxStoreData: map[string]store.Entry{},
-			expectedError: "global context entry not found",
+	}{{
+		name:          "global context entry not found",
+		gctxStoreData: map[string]store.Entry{},
+		expectedError: "global context entry not found",
+	}, {
+		name: "global context entry returns error",
+		gctxStoreData: map[string]store.Entry{
+			"foo": &resource.MockEntry{Err: errors.New("get entry error")},
 		},
-		{
-			name: "global context entry returns error",
-			gctxStoreData: map[string]store.Entry{
-				"foo": &resource.MockEntry{Err: errors.New("get entry error")},
-			},
-			expectedError: "get entry error",
+		expectedError: "get entry error",
+	}, {
+		name: "global context entry returns string",
+		gctxStoreData: map[string]store.Entry{
+			"foo": &resource.MockEntry{Data: "stringValue"},
 		},
-		{
-			name: "global context entry returns string",
-			gctxStoreData: map[string]store.Entry{
-				"foo": &resource.MockEntry{Data: "stringValue"},
-			},
-			expectedValue: "stringValue",
+		expectedValue: "stringValue",
+	}, {
+		name: "global context entry returns map",
+		gctxStoreData: map[string]store.Entry{
+			"foo": &resource.MockEntry{Data: map[string]any{"key": "value"}},
 		},
-		{
-			name: "global context entry returns map",
-			gctxStoreData: map[string]store.Entry{
-				"foo": &resource.MockEntry{Data: map[string]interface{}{"key": "value"}},
-			},
-			expectedValue: map[string]interface{}{"key": "value"},
-		},
-	}
-
+		expectedValue: map[string]any{"key": "value"},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockStore := &resource.MockGctxStore{Data: tt.gctxStoreData}
@@ -78,7 +71,6 @@ func Test_impl_get_globalreference_string_string(t *testing.T) {
 				}},
 			}
 			out, _, err := prog.Eval(data)
-
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedError)
