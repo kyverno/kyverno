@@ -12,7 +12,7 @@ spec:
   variables:
     - name: dcount
       expression: >-
-        context.GetGlobalReference("gctxentry-apicall-correct", "")
+        globalcontext.Get("gctxentry-apicall-correct", "")
   validations:
     - expression: >-
         variables.dcount != 0

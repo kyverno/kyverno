@@ -21,7 +21,7 @@ func TestPolicyStatus_IsReady(t *testing.T) {
 	}, {
 		name: "true",
 		status: VpolStatus{
-			ConditionStatus: &ConditionStatus{
+			ConditionStatus: ConditionStatus{
 				Ready: ptr.To(true),
 			},
 		},
@@ -29,7 +29,7 @@ func TestPolicyStatus_IsReady(t *testing.T) {
 	}, {
 		name: "false",
 		status: VpolStatus{
-			ConditionStatus: &ConditionStatus{
+			ConditionStatus: ConditionStatus{
 				Ready: ptr.To(false),
 			},
 		},

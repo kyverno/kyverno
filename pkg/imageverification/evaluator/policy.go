@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/imageverification/imageverifierfunctions"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
 	"go.uber.org/multierr"
@@ -95,7 +95,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
-	if err := ictx.AddImages(ctx, imgList, imageverifierfunctions.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
 		return nil, err
 	}
 
@@ -148,8 +148,18 @@ func (p *compiledPolicy) match(
 		if err != nil {
 			return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 		}
+		objectVal, err := objectToResolveVal(attr.GetObject())
+		if err != nil {
+			return false, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+		}
+		oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
+		if err != nil {
+			return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		}
 		data[NamespaceObjectKey] = namespaceVal
 		data[RequestKey] = requestVal.Object
+		data[ObjectKey] = objectVal
+		data[OldObjectKey] = oldObjectVal
 	} else {
 		data[ObjectKey] = request
 	}

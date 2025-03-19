@@ -1,4 +1,4 @@
-package context
+package imagedata
 
 import (
 	"testing"
