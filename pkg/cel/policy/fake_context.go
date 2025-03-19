@@ -43,7 +43,7 @@ func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
 	panic("not implemented")
 }
 
-func (cp *FakeContextProvider) GetImageData(string) (map[string]interface{}, error) {
+func (cp *FakeContextProvider) GetImageData(string) (map[string]any, error) {
 	panic("not implemented")
 }
 
