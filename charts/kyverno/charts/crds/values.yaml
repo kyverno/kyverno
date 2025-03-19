@@ -6,7 +6,6 @@ templating:
   version: ~
 
 groups:
-
   # -- Install CRDs in group `kyverno.io`
   # -- This field can be overwritten by setting crds.labels in the parent chart
   kyverno:
@@ -21,6 +20,7 @@ groups:
 
   policies:
     validatingpolicies: true
+    imagevalidatingpolicies: true
     celpolicyexceptions: true
 
   # -- Install CRDs in group `reports.kyverno.io`
@@ -37,7 +37,8 @@ groups:
 
 # -- Additional CRDs annotations
 # -- This field can be overwritten by setting crds.annotations in the parent chart
-annotations: {}
+annotations:
+  {}
   # argocd.argoproj.io/sync-options: Replace=true
   # strategy.spinnaker.io/replace: 'true'
 
