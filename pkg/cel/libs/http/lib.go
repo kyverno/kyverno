@@ -12,8 +12,6 @@ import (
 
 const libraryName = "kyverno.http"
 
-var HTTPType = types.DynType
-
 type lib struct{}
 
 func Lib() cel.EnvOption {
