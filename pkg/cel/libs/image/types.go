@@ -24,7 +24,7 @@ type Image struct {
 	ImageReference
 }
 
-func (v Image) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (v Image) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if reflect.TypeOf(v.ImageReference).AssignableTo(typeDesc) {
 		return v.ImageReference, nil
 	}
@@ -55,6 +55,6 @@ func (v Image) Type() ref.Type {
 	return ImageType
 }
 
-func (v Image) Value() interface{} {
+func (v Image) Value() any {
 	return v.ImageReference
 }

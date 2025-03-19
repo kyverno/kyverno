@@ -8,7 +8,7 @@ import (
 // MOCK FOR TESTING
 type MockCtx struct {
 	GetGlobalReferenceFunc func(string, string) (any, error)
-	GetImageDataFunc       func(string) (map[string]interface{}, error)
+	GetImageDataFunc       func(string) (map[string]any, error)
 	ListResourcesFunc      func(string, string, string) (*unstructured.UnstructuredList, error)
 	GetResourceFunc        func(string, string, string, string) (*unstructured.Unstructured, error)
 }
@@ -17,7 +17,7 @@ func (mock *MockCtx) GetGlobalReference(n, p string) (any, error) {
 	return mock.GetGlobalReferenceFunc(n, p)
 }
 
-func (mock *MockCtx) GetImageData(n string) (map[string]interface{}, error) {
+func (mock *MockCtx) GetImageData(n string) (map[string]any, error) {
 	return mock.GetImageDataFunc(n)
 }
 
