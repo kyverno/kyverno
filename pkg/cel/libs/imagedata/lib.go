@@ -1,4 +1,4 @@
-package resource
+package imagedata
 
 import (
 	"reflect"
@@ -8,7 +8,7 @@ import (
 	"github.com/google/cel-go/ext"
 )
 
-const libraryName = "kyverno.resource"
+const libraryName = "kyverno.imagedata"
 
 type lib struct{}
 
@@ -39,22 +39,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
-		"List": {
-			// TODO: should not use DynType in return
-			cel.MemberOverload(
-				"resource_list_string_string_string",
-				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType},
-				types.DynType,
-				cel.FunctionBinding(impl.list_resources_string_string_string),
-			),
-		},
 		"Get": {
-			// TODO: should not use DynType in return
 			cel.MemberOverload(
-				"resource_get_string_string_string_string",
-				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType},
+				"imagedata_get_string",
+				[]*cel.Type{ContextType, types.StringType},
 				types.DynType,
-				cel.FunctionBinding(impl.get_resource_string_string_string_string),
+				cel.BinaryBinding(impl.get_imagedata_string),
 			),
 		},
 	}

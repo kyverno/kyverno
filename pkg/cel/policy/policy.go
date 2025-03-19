@@ -9,9 +9,10 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	globalcontextlib "github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -33,12 +34,13 @@ type EvaluationResult struct {
 }
 
 type ContextInterface interface {
-	resourcelib.ContextInterface
-	globalcontextlib.ContextInterface
+	globalcontext.ContextInterface
+	imagedata.ContextInterface
+	resource.ContextInterface
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, interface{}, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, ContextInterface, int) (*EvaluationResult, error)
+	Evaluate(context.Context, any, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, ContextInterface, int) (*EvaluationResult, error)
 }
 
 type CompiledValidation struct {
@@ -71,17 +73,17 @@ type compiledPolicy struct {
 }
 
 type evaluationData struct {
-	Namespace interface{}
-	Object    interface{}
-	OldObject interface{}
-	Request   interface{}
+	Namespace any
+	Object    any
+	OldObject any
+	Request   any
 	Context   ContextInterface
 	Variables *lazy.MapValue
 }
 
 func (p *compiledPolicy) Evaluate(
 	ctx context.Context,
-	json interface{},
+	json any,
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
@@ -98,7 +100,7 @@ func (p *compiledPolicy) Evaluate(
 
 func (p *compiledPolicy) evaluateJson(
 	ctx context.Context,
-	json interface{},
+	json any,
 ) (*EvaluationResult, error) {
 	data := evaluationData{
 		Object:    json,
@@ -168,13 +170,14 @@ func (p *compiledPolicy) evaluateWithData(
 
 	vars := lazy.NewMapValue(VariablesType)
 	dataNew := map[string]any{
-		ResourceKey:        resourcelib.Context{ContextInterface: data.Context},
-		GlobalContextKey:   globalcontextlib.Context{ContextInterface: data.Context},
+		GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
 		HttpKey:            http.NewHTTP(),
+		ImageDataKey:       imagedata.Context{ContextInterface: data.Context},
 		NamespaceObjectKey: data.Namespace,
 		ObjectKey:          data.Object,
 		OldObjectKey:       data.OldObject,
 		RequestKey:         data.Request,
+		ResourceKey:        resource.Context{ContextInterface: data.Context},
 		VariablesKey:       vars,
 	}
 	for name, variable := range variables {
@@ -313,7 +316,7 @@ func (p *compiledPolicy) match(
 	}
 }
 
-func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+func convertObjectToUnstructured(obj any) (*unstructured.Unstructured, error) {
 	if obj == nil || reflect.ValueOf(obj).IsNil() {
 		return &unstructured.Unstructured{Object: nil}, nil
 	}
@@ -324,7 +327,7 @@ func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, e
 	return &unstructured.Unstructured{Object: ret}, nil
 }
 
-func objectToResolveVal(r runtime.Object) (interface{}, error) {
+func objectToResolveVal(r runtime.Object) (any, error) {
 	if r == nil || reflect.ValueOf(r).IsNil() {
 		return nil, nil
 	}

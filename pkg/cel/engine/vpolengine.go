@@ -206,7 +206,7 @@ func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Att
 	return false, -1, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPolicy, jsonPayload interface{}, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context policy.ContextInterface) ValidatingPolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPolicy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context policy.ContextInterface) ValidatingPolicyResponse {
 	response := ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
