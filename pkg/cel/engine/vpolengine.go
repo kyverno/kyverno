@@ -6,8 +6,8 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policy"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -29,17 +29,17 @@ import (
 type EngineRequest struct {
 	jsonPayload *unstructured.Unstructured
 	request     admissionv1.AdmissionRequest
-	context     contextlib.ContextInterface
+	context     policy.ContextInterface
 }
 
-func RequestFromAdmission(context contextlib.ContextInterface, request admissionv1.AdmissionRequest) EngineRequest {
+func RequestFromAdmission(context policy.ContextInterface, request admissionv1.AdmissionRequest) EngineRequest {
 	return EngineRequest{
 		request: request,
 		context: context,
 	}
 }
 
-func RequestFromJSON(context contextlib.ContextInterface, jsonPayload *unstructured.Unstructured) EngineRequest {
+func RequestFromJSON(context policy.ContextInterface, jsonPayload *unstructured.Unstructured) EngineRequest {
 	return EngineRequest{
 		jsonPayload: jsonPayload,
 		context:     context,
@@ -47,7 +47,7 @@ func RequestFromJSON(context contextlib.ContextInterface, jsonPayload *unstructu
 }
 
 func Request(
-	context contextlib.ContextInterface,
+	context policy.ContextInterface,
 	gvk schema.GroupVersionKind,
 	gvr schema.GroupVersionResource,
 	subResource string,
@@ -206,7 +206,7 @@ func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Att
 	return false, -1, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPolicy, jsonPayload interface{}, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) ValidatingPolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPolicy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context policy.ContextInterface) ValidatingPolicyResponse {
 	response := ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,

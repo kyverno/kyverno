@@ -4,12 +4,14 @@ import (
 	"github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
-	"github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/imageverification/imageverifierfunctions"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,15 +21,16 @@ import (
 )
 
 const (
-	RequestKey         = "request"
+	AttestationKey     = "attestations"
+	AttestorKey        = "attestors"
+	GlobalContextKey   = "globalcontext"
+	HttpKey            = "http"
+	ImagesKey          = "images"
 	NamespaceObjectKey = "namespaceObject"
 	ObjectKey          = "object"
 	OldObjectKey       = "oldObject"
-	ImagesKey          = "images"
-	AttestorKey        = "attestors"
-	AttestationKey     = "attestations"
-	ContextKey         = "context"
-	HttpKey            = "http"
+	RequestKey         = "request"
+	ResourceKey        = "resource"
 )
 
 type Compiler interface {
@@ -55,9 +58,10 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	var declTypes []*apiservercel.DeclType
-	declTypes = append(declTypes, imageverifierfunctions.Types()...)
+	declTypes = append(declTypes, imageverify.Types()...)
 	options := []cel.EnvOption{
-		cel.Variable(ContextKey, context.ContextType),
+		cel.Variable(ResourceKey, resource.ContextType),
+		cel.Variable(GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
@@ -76,7 +80,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
-	options = append(options, imageverifierfunctions.Lib(c.ictx, ivpolicy, c.lister), context.Lib(), http.Lib(), user.Lib())
+	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), imageverify.Lib(c.ictx, ivpolicy, c.lister), resource.Lib(), user.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))

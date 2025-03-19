@@ -8,4 +8,5 @@ const (
 	SourceKyverno                   = kyverno.ValueKyvernoApp
 	SourceValidatingAdmissionPolicy = "ValidatingAdmissionPolicy"
 	SourceValidatingPolicy          = "KyvernoValidatingPolicy"
+	SourceImageVerificationPolicy   = "KyvernoImageVerificationPolicy"
 )

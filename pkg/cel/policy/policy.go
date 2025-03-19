@@ -9,8 +9,10 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -31,8 +33,14 @@ type EvaluationResult struct {
 	PatchedResource  unstructured.Unstructured
 }
 
+type ContextInterface interface {
+	globalcontext.ContextInterface
+	imagedata.ContextInterface
+	resource.ContextInterface
+}
+
 type CompiledPolicy interface {
-	Evaluate(context.Context, interface{}, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
+	Evaluate(context.Context, any, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, ContextInterface, int) (*EvaluationResult, error)
 }
 
 type CompiledValidation struct {
@@ -65,21 +73,21 @@ type compiledPolicy struct {
 }
 
 type evaluationData struct {
-	Namespace interface{}
-	Object    interface{}
-	OldObject interface{}
-	Request   interface{}
-	Context   contextlib.ContextInterface
+	Namespace any
+	Object    any
+	OldObject any
+	Request   any
+	Context   ContextInterface
 	Variables *lazy.MapValue
 }
 
 func (p *compiledPolicy) Evaluate(
 	ctx context.Context,
-	json interface{},
+	json any,
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 	autogenIndex int,
 ) (*EvaluationResult, error) {
 	switch p.mode {
@@ -92,7 +100,7 @@ func (p *compiledPolicy) Evaluate(
 
 func (p *compiledPolicy) evaluateJson(
 	ctx context.Context,
-	json interface{},
+	json any,
 ) (*EvaluationResult, error) {
 	data := evaluationData{
 		Object:    json,
@@ -106,7 +114,7 @@ func (p *compiledPolicy) evaluateKubernetes(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 	autogenIndex int,
 ) (*EvaluationResult, error) {
 	data, err := p.prepareK8sData(attr, request, namespace, context)
@@ -162,12 +170,14 @@ func (p *compiledPolicy) evaluateWithData(
 
 	vars := lazy.NewMapValue(VariablesType)
 	dataNew := map[string]any{
-		ContextKey:         contextlib.Context{ContextInterface: data.Context},
+		GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
 		HttpKey:            http.NewHTTP(),
+		ImageDataKey:       imagedata.Context{ContextInterface: data.Context},
 		NamespaceObjectKey: data.Namespace,
 		ObjectKey:          data.Object,
 		OldObjectKey:       data.OldObject,
 		RequestKey:         data.Request,
+		ResourceKey:        resource.Context{ContextInterface: data.Context},
 		VariablesKey:       vars,
 	}
 	for name, variable := range variables {
@@ -235,7 +245,7 @@ func (p *compiledPolicy) prepareK8sData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 ) (evaluationData, error) {
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
@@ -264,10 +274,10 @@ func (p *compiledPolicy) prepareK8sData(
 
 func (p *compiledPolicy) match(
 	ctx context.Context,
-	namespaceVal interface{},
-	objectVal interface{},
-	oldObjectVal interface{},
-	requestVal interface{},
+	namespaceVal any,
+	objectVal any,
+	oldObjectVal any,
+	requestVal any,
 	matchConditions []cel.Program,
 ) (bool, error) {
 	data := map[string]any{
@@ -306,7 +316,7 @@ func (p *compiledPolicy) match(
 	}
 }
 
-func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+func convertObjectToUnstructured(obj any) (*unstructured.Unstructured, error) {
 	if obj == nil || reflect.ValueOf(obj).IsNil() {
 		return &unstructured.Unstructured{Object: nil}, nil
 	}
@@ -317,7 +327,7 @@ func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, e
 	return &unstructured.Unstructured{Object: ret}, nil
 }
 
-func objectToResolveVal(r runtime.Object) (interface{}, error) {
+func objectToResolveVal(r runtime.Object) (any, error) {
 	if r == nil || reflect.ValueOf(r).IsNil() {
 		return nil, nil
 	}

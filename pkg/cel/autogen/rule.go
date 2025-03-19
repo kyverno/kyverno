@@ -120,14 +120,6 @@ func convertMatchConditions(conditions []admissionregistrationv1.MatchCondition,
 		m.Expression = expression + m.Expression
 		matchConditions = append(matchConditions, m)
 	}
-	// if bytes, err := json.Marshal(matchConditions); err != nil {
-	// 	return nil, err
-	// } else {
-	// 	bytes = updateFields(bytes, resource)
-	// 	if err := json.Unmarshal(bytes, &matchConditions); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
 	return matchConditions, nil
 }
 
