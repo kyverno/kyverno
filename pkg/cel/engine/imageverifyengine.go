@@ -210,26 +210,28 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true)
 			if err != nil {
 				response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
-			} else if len(result.Exceptions) > 0 {
-				exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
-				var keys []string
-				for i := range result.Exceptions {
-					key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
-					if err != nil {
-						response.Result = *engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil)
+			} else if result != nil {
+				if len(result.Exceptions) > 0 {
+					exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
+					var keys []string
+					for i := range result.Exceptions {
+						key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
+						if err != nil {
+							response.Result = *engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil)
+						}
+						keys = append(keys, key)
+						exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
 					}
-					keys = append(keys, key)
-					exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
-				}
-				response.Result = *engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
-			} else {
-				ruleName := ivpol.Policy.GetName()
-				if result.Error != nil {
-					response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
-				} else if result.Result {
-					response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
+					response.Result = *engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
 				} else {
-					response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, nil)
+					ruleName := ivpol.Policy.GetName()
+					if result.Error != nil {
+						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
+					} else if result.Result {
+						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
+					} else {
+						response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, nil)
+					}
 				}
 			}
 		}
