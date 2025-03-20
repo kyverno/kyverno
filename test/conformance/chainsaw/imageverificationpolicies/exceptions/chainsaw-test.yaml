@@ -9,6 +9,8 @@ spec:
     try:
     - create:
         file: policy.yaml
+    - sleep:
+        duration: 10s
     - assert:
         file: policy-assert.yaml
   - name: create exception
@@ -18,7 +20,7 @@ spec:
     - sleep:
         duration: 10s
     - assert:
-        file: policy-assert.yaml
+        file: exception.yaml
   - name: create skipped pod
     try:
     - create:
