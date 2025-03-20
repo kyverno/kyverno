@@ -9,7 +9,7 @@ spec:
     try:
     - create:
         file: policy.yaml
-      assert:
+    - assert:
         file: policy-assert.yaml
   - name: check validatingadmissionpolicy
     try:
