@@ -225,7 +225,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/cel-go v0.22.1
+	github.com/google/cel-go v0.24.1
 	github.com/google/certificate-transparency-go v1.2.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-github/v55 v55.0.0 // indirect
