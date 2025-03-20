@@ -244,7 +244,7 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPoli
 				return response
 			}
 			keys = append(keys, key)
-			exceptions = append(exceptions, engineapi.NewCELPolicyException(&result.Exceptions[i]))
+			exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
 		}
 		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions))
 	} else {

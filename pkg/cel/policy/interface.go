@@ -6,7 +6,7 @@ import (
 )
 
 type Compiler interface {
-	CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
+	CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
