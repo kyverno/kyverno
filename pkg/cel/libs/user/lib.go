@@ -17,12 +17,6 @@ func Lib() cel.EnvOption {
 	return cel.Lib(&lib{})
 }
 
-func (*lib) NativeTypes() []reflect.Type {
-	return []reflect.Type{
-		reflect.TypeFor[ServiceAccount](),
-	}
-}
-
 func (*lib) LibraryName() string {
 	return libraryName
 }
