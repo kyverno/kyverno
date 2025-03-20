@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -43,7 +44,12 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if pol := policy.AsKyvernoPolicy(); pol != nil {
-		warnings, err := policyvalidate.Validate(policy.AsKyvernoPolicy(), oldPolicy.AsKyvernoPolicy(), h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
+		var old v1.PolicyInterface
+		if oldPolicy != nil {
+			old = oldPolicy.AsKyvernoPolicy()
+		}
+
+		warnings, err := policyvalidate.Validate(policy.AsKyvernoPolicy(), old, h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 		if err != nil {
 			logger.Error(err, "policy validation errors")
 		}
