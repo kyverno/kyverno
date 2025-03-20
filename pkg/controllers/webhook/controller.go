@@ -1159,7 +1159,7 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 
 	vpols := make([]engineapi.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
-		if vpol.Spec.AdmissionEnabled() {
+		if vpol.Spec.AdmissionEnabled() && !vpol.GetStatus().Generated {
 			vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 		}
 	}
