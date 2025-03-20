@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func Test_impl_get_globalreference_string_string(t *testing.T) {
+func Test_impl_get_string_string(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
@@ -95,7 +95,7 @@ func Test_impl_get_globalreference_string_string(t *testing.T) {
 	}
 }
 
-func Test_impl_get_string_string(t *testing.T) {
+func Test_impl_get_string_string_error(t *testing.T) {
 	opts := Lib()
 	base, err := cel.NewEnv(opts)
 	assert.NoError(t, err)
