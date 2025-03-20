@@ -63,12 +63,17 @@ const (
 )
 
 var (
-	none         = admissionregistrationv1.SideEffectClassNone
-	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
-	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
-	ignore       = admissionregistrationv1.Ignore
-	fail         = admissionregistrationv1.Fail
-	policyRule   = admissionregistrationv1.Rule{
+	none                 = admissionregistrationv1.SideEffectClassNone
+	noneOnDryRun         = admissionregistrationv1.SideEffectClassNoneOnDryRun
+	ifNeeded             = admissionregistrationv1.IfNeededReinvocationPolicy
+	ignore               = admissionregistrationv1.Ignore
+	fail                 = admissionregistrationv1.Fail
+	validatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"validatingpolicy"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1alpha1"},
+	}
+	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
 		APIVersions: []string{"v1", "v2beta1"},
@@ -751,6 +756,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
 					},
+				}, {
+					Rule: validatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
 				}},
 				FailurePolicy:           &fail,
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -1159,7 +1170,7 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 
 	vpols := make([]engineapi.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
-		if vpol.Spec.AdmissionEnabled() {
+		if vpol.Spec.AdmissionEnabled() && !vpol.GetStatus().Generated {
 			vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 		}
 	}
