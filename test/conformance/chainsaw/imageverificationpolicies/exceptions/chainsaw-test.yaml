@@ -18,7 +18,7 @@ spec:
     - create:
         file: exception.yaml
     - sleep:
-        duration: 10s
+        duration: 20s
     - assert:
         file: exception.yaml
   - name: create skipped pod
