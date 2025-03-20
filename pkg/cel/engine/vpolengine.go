@@ -238,7 +238,7 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPoli
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
 		var keys []string
 		for i := range result.Exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
+			key, err := cache.MetaNamespaceKeyFunc(result.Exceptions[i])
 			if err != nil {
 				response.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil))
 				return response

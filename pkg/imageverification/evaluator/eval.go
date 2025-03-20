@@ -71,10 +71,10 @@ func filterPolicies(ivpols []*CompiledImageVerificationPolicy, isK8s bool) []*Co
 	filteredPolicies := make([]*CompiledImageVerificationPolicy, 0)
 
 	for _, v := range ivpols {
-		pol := v.Policy
-		if v == nil {
+		if v == nil || v.Policy == nil {
 			continue
 		}
+		pol := v.Policy
 
 		if isK8s && pol.Spec.EvaluationMode() == v1alpha1.EvaluationModeKubernetes {
 			filteredPolicies = append(filteredPolicies, v)
