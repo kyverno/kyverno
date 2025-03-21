@@ -34,9 +34,10 @@ type ImageVerifyEngineResponse struct {
 }
 
 type ImageVerifyPolicyResponse struct {
-	Policy  *policiesv1alpha1.ImageValidatingPolicy
-	Actions sets.Set[admissionregistrationv1.ValidationAction]
-	Result  engineapi.RuleResponse
+	Policy     *policiesv1alpha1.ImageValidatingPolicy
+	Exceptions []*policiesv1alpha1.CELPolicyException
+	Actions    sets.Set[admissionregistrationv1.ValidationAction]
+	Result     engineapi.RuleResponse
 }
 
 func outcomeFromPolicyResponse(responses map[string]ImageVerifyPolicyResponse) map[string]ImageVerificationOutcome {
