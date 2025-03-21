@@ -26,5 +26,5 @@ results:
   kind: Pod
   policy: deny-commands-in-exec-probe
   resources:
-  - goodpod
-  result: pass
+  - goodpod01
+  result: skip
