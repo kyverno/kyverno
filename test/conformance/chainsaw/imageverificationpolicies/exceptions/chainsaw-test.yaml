@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: audit
+  name: exception-test
 spec:
   steps:
   - name: create policy
@@ -11,6 +11,14 @@ spec:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 10s
+    - assert:
+        file: exception.yaml
   - name: create bad pod
     try:
     - create:
@@ -25,3 +33,9 @@ spec:
         file: good-pod.yaml
     - assert:
         file: good-pod.yaml
+  - name: create skipped pod
+    try:
+    - create:
+        file: skipped-pod.yaml
+    - assert:
+        file: skipped-pod.yaml
