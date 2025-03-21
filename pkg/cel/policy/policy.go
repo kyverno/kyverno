@@ -29,7 +29,7 @@ type EvaluationResult struct {
 	Index            int
 	Result           bool
 	AuditAnnotations map[string]string
-	Exceptions       []policiesv1alpha1.CELPolicyException
+	Exceptions       []*policiesv1alpha1.CELPolicyException
 	PatchedResource  unstructured.Unstructured
 }
 
@@ -56,9 +56,9 @@ type compiledAutogenRule struct {
 	variables       map[string]cel.Program
 }
 
-type compiledException struct {
-	exception       policiesv1alpha1.CELPolicyException
-	matchConditions []cel.Program
+type CompiledException struct {
+	Exception       *policiesv1alpha1.CELPolicyException
+	MatchConditions []cel.Program
 }
 
 type compiledPolicy struct {
@@ -69,7 +69,7 @@ type compiledPolicy struct {
 	validations      []CompiledValidation
 	auditAnnotations map[string]cel.Program
 	autogenRules     []compiledAutogenRule
-	exceptions       []compiledException
+	exceptions       []CompiledException
 }
 
 type evaluationData struct {
@@ -131,14 +131,14 @@ func (p *compiledPolicy) evaluateWithData(
 ) (*EvaluationResult, error) {
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
-		matchedExceptions := make([]policiesv1alpha1.CELPolicyException, 0)
+		matchedExceptions := make([]*policiesv1alpha1.CELPolicyException, 0)
 		for _, polex := range p.exceptions {
-			match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, polex.matchConditions)
+			match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, polex.MatchConditions)
 			if err != nil {
 				return nil, err
 			}
 			if match {
-				matchedExceptions = append(matchedExceptions, polex.exception)
+				matchedExceptions = append(matchedExceptions, polex.Exception)
 			}
 		}
 		if len(matchedExceptions) > 0 {
