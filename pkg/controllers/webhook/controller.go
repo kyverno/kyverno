@@ -63,12 +63,17 @@ const (
 )
 
 var (
-	none         = admissionregistrationv1.SideEffectClassNone
-	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
-	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
-	ignore       = admissionregistrationv1.Ignore
-	fail         = admissionregistrationv1.Fail
-	policyRule   = admissionregistrationv1.Rule{
+	none                 = admissionregistrationv1.SideEffectClassNone
+	noneOnDryRun         = admissionregistrationv1.SideEffectClassNoneOnDryRun
+	ifNeeded             = admissionregistrationv1.IfNeededReinvocationPolicy
+	ignore               = admissionregistrationv1.Ignore
+	fail                 = admissionregistrationv1.Fail
+	validatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"validatingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1alpha1"},
+	}
+	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
 		APIVersions: []string{"v1", "v2beta1"},
@@ -747,6 +752,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.PolicyValidatingWebhookServicePath),
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Rule: policyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}, {
+					Rule: validatingPolicyRule,
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
