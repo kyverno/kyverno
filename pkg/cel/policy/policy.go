@@ -165,7 +165,11 @@ func (p *compiledPolicy) evaluateWithData(
 		return nil, err
 	}
 	if !match {
-		return nil, nil
+		return &EvaluationResult{
+			Result:  true,
+			Message: "Resource does not match conditions, considered compliant",
+			Index:   -1,
+		}, nil
 	}
 
 	vars := lazy.NewMapValue(VariablesType)
