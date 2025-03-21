@@ -653,6 +653,13 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 			nil,
 		)
 		engineResponse, _, err := engine.HandleMutating(context.TODO(), request)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
+		}
 		resp := engineapi.EngineResponse{
 			Resource:       *resource,
 			PolicyResponse: engineapi.PolicyResponse{},
