@@ -31,6 +31,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -51,6 +52,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/restmapper"
 )
 
@@ -216,7 +218,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
 	var store store.Store
-	policies, vaps, vapBindings, vps, err := c.loadPolicies()
+	policies, vaps, vapBindings, vps, ivps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -254,10 +256,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		for _, policy := range policies {
 			policyRulesCount += len(autogen.Default.ComputeRules(policy, ""))
 		}
-		// account for vaps
 		policyRulesCount += len(vaps)
-		// account for vps
 		policyRulesCount += len(vps)
+		policyRulesCount += len(ivps)
 		exceptionsCount := len(exceptions)
 		exceptionsCount += len(celexceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
@@ -290,10 +291,15 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
+	responses4, err := c.applyImageVerificationPolicies(ivps, resources1, variables.Namespace, userInfo, rc, dClient)
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses1, err
+	}
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
 	responses = append(responses, responses2...)
 	responses = append(responses, responses3...)
+	responses = append(responses, responses4...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
 }
 
@@ -548,6 +554,128 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	return responses, nil
 }
 
+func (c *ApplyCommandConfig) applyImageVerificationPolicies(
+	ivps []policiesv1alpha1.ImageVerificationPolicy,
+	resources []*unstructured.Unstructured,
+	namespaceProvider func(string) *corev1.Namespace,
+	userInfo *kyvernov2.RequestInfo,
+	rc *processor.ResultCounts,
+	dclient dclient.Interface,
+) ([]engineapi.EngineResponse, error) {
+	provider, err := celengine.NewIVPOLProvider(ivps)
+	if err != nil {
+		return nil, err
+	}
+
+	var lister k8scorev1.SecretInterface
+	if dclient != nil {
+		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+	}
+	engine := celengine.NewImageVerifyEngine(
+		provider,
+		namespaceProvider,
+		matching.NewMatcher(),
+		lister,
+		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+	)
+
+	gctxStore := gctxstore.New()
+	var restMapper meta.RESTMapper
+	var contextProvider celpolicy.Context
+	if dclient != nil {
+		contextProvider, err = celpolicy.NewContextProvider(
+			dclient,
+			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			gctxStore,
+		)
+		if err != nil {
+			return nil, err
+		}
+		apiGroupResources, err := restmapper.GetAPIGroupResources(dclient.GetKubeClient().Discovery())
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	} else {
+		apiGroupResources, err := data.APIGroupResources()
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		if c.ContextPath != "" {
+			ctx, err := clicontext.Load(nil, c.ContextPath)
+			if err != nil {
+				return nil, err
+			}
+			for _, resource := range ctx.ContextSpec.Resources {
+				gvk := resource.GroupVersionKind()
+				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+				if err != nil {
+					return nil, err
+				}
+				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+					return nil, err
+				}
+			}
+		}
+		contextProvider = fakeContextProvider
+	}
+
+	responses := make([]engineapi.EngineResponse, 0)
+	for _, resource := range resources {
+		gvk := resource.GroupVersionKind()
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			log.Log.Error(err, "failed to map gvk to gvr", "gkv", gvk)
+			if c.ContinueOnFail {
+				continue
+			}
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+		}
+		gvr := mapping.Resource
+		var user authenticationv1.UserInfo
+		if userInfo != nil {
+			user = userInfo.AdmissionUserInfo
+		}
+		request := celengine.Request(
+			contextProvider,
+			resource.GroupVersionKind(),
+			gvr,
+			"",
+			resource.GetName(),
+			resource.GetNamespace(),
+			admissionv1.Create,
+			user,
+			resource,
+			nil,
+			false,
+			nil,
+		)
+		engineResponse, _, err := engine.HandleMutating(context.TODO(), request)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
+		}
+		resp := engineapi.EngineResponse{
+			Resource:       *resource,
+			PolicyResponse: engineapi.PolicyResponse{},
+		}
+
+		for _, r := range engineResponse.Policies {
+			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(r.Policy))
+			rc.AddValidatingPolicyResponse(resp)
+			responses = append(responses, resp)
+		}
+	}
+
+	return responses, nil
+}
+
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
@@ -573,6 +701,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	[]policiesv1alpha1.ValidatingPolicy,
+	[]policiesv1alpha1.ImageVerificationPolicy,
 	error,
 ) {
 	// load policies
@@ -580,18 +709,18 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	var vps []policiesv1alpha1.ValidatingPolicy
-
+	var ivps []policiesv1alpha1.ImageVerificationPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -600,11 +729,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			fs := memfs.New()
 			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -620,6 +749,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
+				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -635,6 +765,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
+				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
 			}
 		}
 		for _, policy := range policies {
@@ -643,7 +774,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		}
 	}
-	return policies, vaps, vapBindings, vps, nil
+	return policies, vaps, vapBindings, vps, ivps, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
