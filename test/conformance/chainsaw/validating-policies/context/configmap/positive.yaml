@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: positive
+  name: positive-dep
   labels:
     app: nginx
     env: prod
@@ -20,3 +20,38 @@ spec:
       containers:
       - name: nginx
         image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: positive-pod
+  labels:
+    app: nginx
+    env: prod
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.26
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: positive-cronjob
+  labels:
+    app: nginx
+    env: prod
+spec:
+  schedule: "*/5 * * * *" # Runs every 5 minutes (adjust as needed)
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: nginx
+            env: prod
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: nginx
+            image: nginx:1.23
+
