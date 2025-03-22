@@ -60,10 +60,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CELPolicyException{},
 		&CELPolicyExceptionList{},
-		&ImageVerificationPolicy{},
-		&ImageVerificationPolicyList{},
-		&MutatingPolicy{},
-		&MutatingPolicyList{},
+		&ImageValidatingPolicy{},
+		&ImageValidatingPolicyList{},
 		&ValidatingPolicy{},
 		&ValidatingPolicyList{},
 	)

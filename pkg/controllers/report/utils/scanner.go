@@ -16,10 +16,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -47,6 +49,7 @@ type Scanner interface {
 		string,
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+		[]*policiesv1alpha1.CELPolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
 }
@@ -76,15 +79,18 @@ func (s *scanner) ScanResource(
 	subResource string,
 	ns *corev1.Namespace,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+	exceptions []*policiesv1alpha1.CELPolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
-	var kpols, vpols, vaps []engineapi.GenericPolicy
+	var kpols, vpols, ivpols, vaps []engineapi.GenericPolicy
 	// split policies per nature
 	for _, policy := range policies {
 		if pol := policy.AsKyvernoPolicy(); pol != nil {
 			kpols = append(kpols, policy)
 		} else if pol := policy.AsValidatingPolicy(); pol != nil {
 			vpols = append(vpols, policy)
+		} else if pol := policy.AsImageVerificationPolicy(); pol != nil {
+			ivpols = append(vpols, policy)
 		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
 			vaps = append(vaps, policy)
 		}
@@ -152,12 +158,14 @@ func (s *scanner) ScanResource(
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 			)
+			gctxStore := gctxstore.New()
 			// create context provider
 			context, err := celpolicy.NewContextProvider(
-				s.client.GetKubeClient(),
+				s.client,
 				nil,
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+				gctxStore,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
@@ -172,6 +180,7 @@ func (s *scanner) ScanResource(
 				resource.GetName(),
 				resource.GetNamespace(),
 				admissionv1.Create,
+				authenticationv1.UserInfo{},
 				&resource,
 				nil,
 				false,
@@ -186,6 +195,59 @@ func (s *scanner) ScanResource(
 				},
 			}.WithPolicy(vpols[i])
 			results[&vpols[i]] = ScanResult{&response, err}
+		}
+	}
+
+	// evaluate image verification policies
+	for i, policy := range ivpols {
+		if pol := policy.AsImageVerificationPolicy(); pol != nil {
+			// create provider
+			provider, err := celengine.NewIVPOLProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol})
+			if err != nil {
+				logger.Error(err, "failed to create image verification policy provider")
+				results[&ivpols[i]] = ScanResult{nil, err}
+				continue
+			}
+			// create engine
+			engine := celengine.NewImageVerifyEngine(
+				provider,
+				func(name string) *corev1.Namespace { return ns },
+				matching.NewMatcher(),
+				s.client.GetKubeClient().CoreV1().Secrets(""),
+				nil,
+			)
+			// create context provider
+			context, err := celpolicy.NewContextProvider(s.client, nil, gctxstore.New())
+			if err != nil {
+				logger.Error(err, "failed to create cel context provider")
+				results[&ivpols[i]] = ScanResult{nil, err}
+				continue
+			}
+			request := celengine.Request(
+				context,
+				resource.GroupVersionKind(),
+				gvr,
+				subResource,
+				resource.GetName(),
+				resource.GetNamespace(),
+				admissionv1.Create,
+				authenticationv1.UserInfo{},
+				&resource,
+				nil,
+				false,
+				nil,
+			)
+			engineResponse, _, err := engine.HandleMutating(ctx, request)
+			response := engineapi.EngineResponse{
+				Resource:       resource,
+				PolicyResponse: engineapi.PolicyResponse{},
+			}.WithPolicy(ivpols[i])
+
+			if len(engineResponse.Policies) >= 1 {
+				response.PolicyResponse.Rules = []engineapi.RuleResponse{engineResponse.Policies[0].Result}
+			}
+
+			results[&ivpols[i]] = ScanResult{&response, err}
 		}
 	}
 	// evaluate validating admission policies

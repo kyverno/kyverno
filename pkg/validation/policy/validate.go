@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
@@ -453,7 +454,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 
 	// check for CEL expression warnings in case of CEL subrules
-	if ok, _ := admissionpolicy.CanGenerateVAP(spec, nil); ok && client != nil {
+	if ok, _ := admissionpolicy.CanGenerateVAP(spec, nil, true); ok && client != nil {
 		resolver := &resolver.ClientDiscoveryResolver{
 			Discovery: client.GetKubeClient().Discovery(),
 		}
@@ -473,7 +474,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				Name: policy.GetName(),
 			},
 		}
-		err = admissionpolicy.BuildValidatingAdmissionPolicy(client.Discovery(), vap, policy, nil)
+		genericPolicy := engineapi.NewKyvernoPolicy(policy)
+		err = admissionpolicy.BuildValidatingAdmissionPolicy(client.Discovery(), vap, genericPolicy, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1453,7 +1455,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 	return nil
 }
 
-// validateResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
+// validateMatchedResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
 // field type is checked through openapi
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []

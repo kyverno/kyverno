@@ -3,5 +3,5 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: require-ns-purpose-label
+  name: cpol-require-ns-purpose-label
 spec: {}

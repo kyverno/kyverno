@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: cpol-apicall-correct
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: []
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: dcount
+      expression: >-
+        globalcontext.Get("gctxentry-apicall-correct", "")
+  validations:
+    - expression: >-
+        variables.dcount != 0
+      message: >-
+        main-deployment should exist

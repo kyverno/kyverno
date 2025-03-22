@@ -40,6 +40,7 @@ kyverno apply [flags]
       --audit-warn                         If set to true, will flag audit policies as warnings instead of failures
   -c, --cluster                            Checks if policies should be applied to cluster in the current context
       --context string                     The name of the kubeconfig context to use
+      --context-file string                File containing context data for CEL policies
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
       --detailed-results                   If set to true, display detailed results
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
@@ -49,6 +50,7 @@ kyverno apply [flags]
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
   -h, --help                               help for apply
+      --json strings                       Path to JSON payload files
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
   -o, --output string                      Prints the mutated/generated resources in provided file/directory

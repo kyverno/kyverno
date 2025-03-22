@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -126,16 +125,8 @@ func whenClusterIsFalse(out io.Writer, resourcePaths []string, policyReport bool
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, policies []kyvernov1.PolicyInterface, resourcePaths []string, policyResourcePath string) ([]*unstructured.Unstructured, error) {
+func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []string, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
-	resourceTypesMap := make(map[string]bool)
-	for _, policy := range policies {
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
-			for _, kind := range rule.MatchResources.Kinds {
-				resourceTypesMap[kind] = true
-			}
-		}
-	}
 	if len(resourcePaths) > 0 {
 		for _, resourcePath := range resourcePaths {
 			var resourceBytes []byte

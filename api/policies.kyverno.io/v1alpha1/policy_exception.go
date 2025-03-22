@@ -10,7 +10,7 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PolicyException declares resources to be excluded from specified policies.
+// CELPolicyException declares resources to be excluded from specified policies.
 type CELPolicyException struct {
 	metav1.TypeMeta   `json:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

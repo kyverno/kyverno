@@ -26,13 +26,9 @@ type CELPolicyExceptionListerExpansion interface{}
 // CELPolicyExceptionNamespaceLister.
 type CELPolicyExceptionNamespaceListerExpansion interface{}
 
-// ImageVerificationPolicyListerExpansion allows custom methods to be added to
-// ImageVerificationPolicyLister.
-type ImageVerificationPolicyListerExpansion interface{}
-
-// MutatingPolicyListerExpansion allows custom methods to be added to
-// MutatingPolicyLister.
-type MutatingPolicyListerExpansion interface{}
+// ImageValidatingPolicyListerExpansion allows custom methods to be added to
+// ImageValidatingPolicyLister.
+type ImageValidatingPolicyListerExpansion interface{}
 
 // ValidatingPolicyListerExpansion allows custom methods to be added to
 // ValidatingPolicyLister.
