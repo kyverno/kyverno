@@ -81,6 +81,7 @@ type ApplyCommandConfig struct {
 	TargetResourcePaths   []string
 	GitBranch             string
 	warnExitCode          int
+	ignoreSkippedExitCode bool
 	warnNoPassed          bool
 	Exception             []string
 	ContinueOnFail        bool
@@ -152,7 +153,11 @@ func Command() *cobra.Command {
 				}
 				printViolations(out, rc)
 			}
-			return exit(out, rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
+			err = exit(out, rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed, applyCommandConfig.ignoreSkippedExitCode)
+			if err != nil {
+				fmt.Fprintln(out, err.Error())
+			}
+			return err
 		},
 	}
 
@@ -178,6 +183,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
+	cmd.Flags().BoolVar(&applyCommandConfig.ignoreSkippedExitCode, "ignore-skipped-exit-code", false, "Ignore skipped policies when determining the exit code")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
@@ -855,7 +861,7 @@ func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
 }
 
-func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
+func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool, ignoreSkippedExitCode bool) error {
 	if rc.Fail > 0 {
 		return fmt.Errorf("exit as there are policy violations")
 	} else if rc.Error > 0 {
@@ -870,6 +876,9 @@ func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPas
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
 		}
+	} else if ignoreSkippedExitCode && rc.Skip > 0 {
+		fmt.Println("Skipping policies ignored, exiting with code 0.")
+		return nil
 	}
 	return nil
 }
