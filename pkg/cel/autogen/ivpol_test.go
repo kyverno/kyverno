@@ -11,14 +11,14 @@ import (
 )
 
 var (
-	ivpol = &policiesv1alpha1.ImageVerificationPolicy{
+	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test",
 			Annotations: map[string]string{
 				kyverno.AnnotationAutogenControllers: "cronjobs",
 			},
 		},
-		Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
@@ -63,7 +63,7 @@ var (
 					},
 				},
 			},
-			Verifications: []admissionregistrationv1.Validation{
+			Validations: []admissionregistrationv1.Validation{
 				{
 					Expression: "images.bar.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
 					Message:    "failed to verify image with notary cert",
