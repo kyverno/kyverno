@@ -16,6 +16,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -681,7 +682,8 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
-
+  resources = test.ProcessResources(resources)
+  
 	var jsonPayloads []*unstructured.Unstructured
 	if len(c.JSONPaths) > 0 {
 		for _, path := range c.JSONPaths {
@@ -694,6 +696,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 		}
 	}
 	return resources, jsonPayloads, nil
+
 }
 
 func (c *ApplyCommandConfig) loadPolicies() (
