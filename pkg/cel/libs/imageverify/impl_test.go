@@ -31,8 +31,8 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`
 
-	ivpol = &v1alpha1.ImageVerificationPolicy{
-		Spec: v1alpha1.ImageVerificationPolicySpec{
+	ivpol = &v1alpha1.ImageValidatingPolicy{
+		Spec: v1alpha1.ImageValidatingPolicySpec{
 			Attestors: []v1alpha1.Attestor{
 				{
 					Name: "notary",

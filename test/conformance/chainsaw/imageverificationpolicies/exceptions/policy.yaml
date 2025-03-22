@@ -1,5 +1,5 @@
 apiVersion: policies.kyverno.io/v1alpha1
-kind: ImageVerificationPolicy
+kind: ImageValidatingPolicy
 metadata:
   name: ivpol-sample
 spec:
@@ -7,7 +7,7 @@ spec:
     timeoutSeconds: 20
   failurePolicy: Ignore
   validationActions:
-  - Deny
+    - Deny
   matchConstraints:
     resourceRules:
       - apiGroups: [""]
@@ -15,8 +15,8 @@ spec:
         operations: ["CREATE"]
         resources: ["pods"]
   matchConditions:
-    - name: "check-prod-label"  
-      expression: >- 
+    - name: "check-prod-label"
+      expression: >-
         has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   imageRules:
     - glob: ghcr.io/*
@@ -48,7 +48,7 @@ spec:
     - name: sbom
       referrer:
         type: sbom/cyclone-dx
-  verifications:
+  validations:
     - expression: >-
         images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
       message: failed to verify image with notary cert

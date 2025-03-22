@@ -82,7 +82,7 @@ type controller struct {
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
 	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
-	ivpolLister policiesv1alpha1listers.ImageVerificationPolicyLister
+	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 
 	// queue
@@ -98,7 +98,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageVerificationPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{

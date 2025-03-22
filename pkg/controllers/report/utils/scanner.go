@@ -202,7 +202,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range ivpols {
 		if pol := policy.AsImageVerificationPolicy(); pol != nil {
 			// create provider
-			provider, err := celengine.NewIVPOLProvider([]policiesv1alpha1.ImageVerificationPolicy{*pol})
+			provider, err := celengine.NewIVPOLProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol})
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}

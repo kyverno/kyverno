@@ -20,6 +20,6 @@ package v1alpha1
 
 type CELPolicyExceptionExpansion interface{}
 
-type ImageVerificationPolicyExpansion interface{}
+type ImageValidatingPolicyExpansion interface{}
 
 type ValidatingPolicyExpansion interface{}

@@ -17,7 +17,7 @@ import (
 )
 
 type CompiledImageVerificationPolicy struct {
-	Policy     *policiesv1alpha1.ImageVerificationPolicy
+	Policy     *policiesv1alpha1.ImageValidatingPolicy
 	Exceptions []*policiesv1alpha1.CELPolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }

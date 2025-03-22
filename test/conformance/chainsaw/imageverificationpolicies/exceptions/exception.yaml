@@ -4,8 +4,8 @@ metadata:
   name: check-name
 spec:
   policyRefs:
-  - name: ivpol-sample
-    kind: ImageVerificationPolicy
+    - name: ivpol-sample
+      kind: ImageValidatingPolicy
   matchConditions:
     - name: "check-name"
       expression: "object.metadata.name == 'skipped-pod'"

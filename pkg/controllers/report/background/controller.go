@@ -65,7 +65,7 @@ type controller struct {
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
-	ivpolLister      policiesv1alpha1listers.ImageVerificationPolicyLister
+	ivpolLister      policiesv1alpha1listers.ImageValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
 	celpolexListener policiesv1alpha1listers.CELPolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -98,7 +98,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageVerificationPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.CELPolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -253,17 +253,17 @@ func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addIVP(obj *policiesv1alpha1.ImageVerificationPolicy) {
+func (c *controller) addIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageVerificationPolicy) {
+func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageVerificationPolicy) {
+func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
