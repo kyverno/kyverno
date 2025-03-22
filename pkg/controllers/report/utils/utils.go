@@ -163,8 +163,8 @@ func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicy
 	return policies, nil
 }
 
-func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVerificationPolicyLister) ([]policiesv1alpha1.ImageVerificationPolicy, error) {
-	var policies []policiesv1alpha1.ImageVerificationPolicy
+func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister) ([]policiesv1alpha1.ImageValidatingPolicy, error) {
+	var policies []policiesv1alpha1.ImageValidatingPolicy
 	if pols, err := ivpolLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {

@@ -32,58 +32,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ImageVerificationPolicyInformer provides access to a shared informer and lister for
-// ImageVerificationPolicies.
-type ImageVerificationPolicyInformer interface {
+// ImageValidatingPolicyInformer provides access to a shared informer and lister for
+// ImageValidatingPolicies.
+type ImageValidatingPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ImageVerificationPolicyLister
+	Lister() v1alpha1.ImageValidatingPolicyLister
 }
 
-type imageVerificationPolicyInformer struct {
+type imageValidatingPolicyInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewImageVerificationPolicyInformer constructs a new informer for ImageVerificationPolicy type.
+// NewImageValidatingPolicyInformer constructs a new informer for ImageValidatingPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewImageVerificationPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredImageVerificationPolicyInformer(client, resyncPeriod, indexers, nil)
+func NewImageValidatingPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredImageValidatingPolicyInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredImageVerificationPolicyInformer constructs a new informer for ImageVerificationPolicy type.
+// NewFilteredImageValidatingPolicyInformer constructs a new informer for ImageValidatingPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredImageVerificationPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredImageValidatingPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().ImageVerificationPolicies().List(context.TODO(), options)
+				return client.PoliciesV1alpha1().ImageValidatingPolicies().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().ImageVerificationPolicies().Watch(context.TODO(), options)
+				return client.PoliciesV1alpha1().ImageValidatingPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&policieskyvernoiov1alpha1.ImageVerificationPolicy{},
+		&policieskyvernoiov1alpha1.ImageValidatingPolicy{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *imageVerificationPolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredImageVerificationPolicyInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *imageValidatingPolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredImageValidatingPolicyInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *imageVerificationPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policieskyvernoiov1alpha1.ImageVerificationPolicy{}, f.defaultInformer)
+func (f *imageValidatingPolicyInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&policieskyvernoiov1alpha1.ImageValidatingPolicy{}, f.defaultInformer)
 }
 
-func (f *imageVerificationPolicyInformer) Lister() v1alpha1.ImageVerificationPolicyLister {
-	return v1alpha1.NewImageVerificationPolicyLister(f.Informer().GetIndexer())
+func (f *imageValidatingPolicyInformer) Lister() v1alpha1.ImageValidatingPolicyLister {
+	return v1alpha1.NewImageValidatingPolicyLister(f.Informer().GetIndexer())
 }
