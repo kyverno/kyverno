@@ -23,11 +23,11 @@ var (
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
 	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 
-	ivpol = &policiesv1alpha1.ImageVerificationPolicy{
+	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "ivpol-notary",
 		},
-		Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
@@ -89,7 +89,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					},
 				},
 			},
-			Verifications: []admissionregistrationv1.Validation{
+			Validations: []admissionregistrationv1.Validation{
 				{
 					Expression: "images.containers.map(i, image(i).registry() == \"ghcr.io\" ).all(e, e)",
 					Message:    "images are not from ghcr registry",
