@@ -10553,7 +10553,7 @@ Optional. Default value is &ldquo;true&rdquo;.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 <p>Attestation defines the identification details of the  metadata that has to be verified</p>
@@ -10612,7 +10612,7 @@ Referrer
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 <p>Attestor is an identity that confirms or verifies the authenticity of an image or an attestation</p>
@@ -11183,7 +11183,7 @@ The payload may contain other key-value pairs.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 </p>
@@ -11251,7 +11251,7 @@ Secrets must live in the Kyverno namespace.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
 </p>
 <p>
@@ -11398,7 +11398,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 </p>
@@ -11439,7 +11439,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 <p>ImageRule defines a Glob or a CEL expression for matching images</p>
@@ -11479,7 +11479,7 @@ string
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.ImageVerificationPolicy">ImageVerificationPolicy
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy
 </h3>
 <p>
 </p>
@@ -11509,8 +11509,8 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">
-ImageVerificationPolicySpec
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">
+ImageValidatingPolicySpec
 </a>
 </em>
 </td>
@@ -11704,7 +11704,7 @@ Credentials
 </tr>
 <tr>
 <td>
-<code>verifications</code><br/>
+<code>validations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
 []Kubernetes admissionregistration/v1.Validation
@@ -11712,7 +11712,7 @@ Credentials
 </em>
 </td>
 <td>
-<p>Verifications contain CEL expressions which is used to apply the image verification checks.</p>
+<p>Validations contain CEL expressions which is used to apply the image validation checks.</p>
 </td>
 </tr>
 <tr>
@@ -11763,15 +11763,15 @@ IvpolStatus
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicy">ImageVerificationPolicy</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy</a>, 
 <a href="#policies.kyverno.io/v1alpha1.IvpolAutogen">IvpolAutogen</a>)
 </p>
 <p>
-<p>ImageVerificationPolicySpec is the specification of the desired behavior of the ImageVerificationPolicy.</p>
+<p>ImageValidatingPolicySpec is the specification of the desired behavior of the ImageValidatingPolicy.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11967,7 +11967,7 @@ Credentials
 </tr>
 <tr>
 <td>
-<code>verifications</code><br/>
+<code>validations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
 []Kubernetes admissionregistration/v1.Validation
@@ -11975,7 +11975,7 @@ Credentials
 </em>
 </td>
 <td>
-<p>Verifications contain CEL expressions which is used to apply the image verification checks.</p>
+<p>Validations contain CEL expressions which is used to apply the image validation checks.</p>
 </td>
 </tr>
 <tr>
@@ -12065,8 +12065,8 @@ string
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">
-ImageVerificationPolicySpec
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">
+ImageValidatingPolicySpec
 </a>
 </em>
 </td>
@@ -12260,7 +12260,7 @@ Credentials
 </tr>
 <tr>
 <td>
-<code>verifications</code><br/>
+<code>validations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
 []Kubernetes admissionregistration/v1.Validation
@@ -12268,7 +12268,7 @@ Credentials
 </em>
 </td>
 <td>
-<p>Verifications contain CEL expressions which is used to apply the image verification checks.</p>
+<p>Validations contain CEL expressions which is used to apply the image validation checks.</p>
 </td>
 </tr>
 <tr>
@@ -12341,7 +12341,7 @@ EvaluationConfiguration
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicy">ImageVerificationPolicy</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy</a>)
 </p>
 <p>
 </p>
@@ -13024,7 +13024,7 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
 </p>
 <p>

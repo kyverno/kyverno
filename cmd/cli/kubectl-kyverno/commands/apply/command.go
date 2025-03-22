@@ -560,7 +560,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 }
 
 func (c *ApplyCommandConfig) applyImageVerificationPolicies(
-	ivps []policiesv1alpha1.ImageVerificationPolicy,
+	ivps []policiesv1alpha1.ImageValidatingPolicy,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
@@ -706,7 +706,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	[]policiesv1alpha1.ValidatingPolicy,
-	[]policiesv1alpha1.ImageVerificationPolicy,
+	[]policiesv1alpha1.ImageValidatingPolicy,
 	error,
 ) {
 	// load policies
@@ -714,7 +714,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	var vps []policiesv1alpha1.ValidatingPolicy
-	var ivps []policiesv1alpha1.ImageVerificationPolicy
+	var ivps []policiesv1alpha1.ImageValidatingPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {
