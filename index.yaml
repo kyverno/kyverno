@@ -3,6 +3,55 @@ entries:
   kyverno:
   - annotations:
       artifacthub.io/changes: |
+        - kind: added
+          description: Add toggle for enabeling/disabling aggregating the user-facing roles with the kyverno rbac.
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.14.0-alpha.1
+    created: "2025-03-23T05:25:53.593318806Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.4.0-alpha.1
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.4.0-alpha.1
+    description: Kubernetes Native Policy Management
+    digest: ceabce84eace1bb85dfcd0af7cba676d3245214e4e7957110e026f0c751fd29e
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.4.0-alpha.1.tgz
+    version: 3.4.0-alpha.1
+  - annotations:
+      artifacthub.io/changes: |
         - kind: fixed
           description: fix validation error in validate.yaml, which made it impossible to disable reports-controller CRDs, with the recently introduced option .reportsController.sanityChecks
       artifacthub.io/links: |
@@ -13354,4 +13403,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2025-02-13T05:09:41.571570408Z"
+generated: "2025-03-23T05:25:53.578358975Z"
