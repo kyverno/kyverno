@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-bad
+  labels:
+    app: busybox
+spec:
+  containers:
+  - name: busybox
+    image: arm64v8/busybox
+
