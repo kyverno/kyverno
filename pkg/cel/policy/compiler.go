@@ -30,7 +30,7 @@ const (
 	VariablesKey       = "variables"
 )
 
-func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
 	switch policy.GetSpec().EvaluationMode() {
 	case policiesv1alpha1.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
@@ -39,7 +39,7 @@ func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, 
 	}
 }
 
-func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -104,7 +104,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	}, nil
 }
 
-func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -220,15 +220,15 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	}
 
 	// exceptions' match conditions
-	compiledExceptions := make([]compiledException, 0, len(exceptions))
+	compiledExceptions := make([]CompiledException, 0, len(exceptions))
 	for _, polex := range exceptions {
 		polexMatchConditions, errs := CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
-		compiledExceptions = append(compiledExceptions, compiledException{
-			exception:       polex,
-			matchConditions: polexMatchConditions,
+		compiledExceptions = append(compiledExceptions, CompiledException{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
 		})
 	}
 
