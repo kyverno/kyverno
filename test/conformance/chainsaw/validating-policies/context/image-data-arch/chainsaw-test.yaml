@@ -11,11 +11,12 @@ spec:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
-    - sleep: 
-        duration: 5s
   - name: create pods
     try:
     - apply:
+        expect:
+        - check:
+            ($error == null): true
         file: pod-good.yaml
     - apply:
         expect:
