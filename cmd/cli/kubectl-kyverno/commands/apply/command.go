@@ -677,7 +677,7 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 
 	ivpols := make([]*eval.CompiledImageVerificationPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
-	for i, _ := range ivps {
+	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = &p
 		ivpols = append(ivpols, &eval.CompiledImageVerificationPolicy{Policy: &p})
