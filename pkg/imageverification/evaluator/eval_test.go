@@ -21,8 +21,8 @@ var (
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
 	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 
-	ivpol = &policiesv1alpha1.ImageVerificationPolicy{
-		Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
+		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{
 				Mode: policiesv1alpha1.EvaluationModeJSON,
 			},
@@ -72,7 +72,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					},
 				},
 			},
-			Verifications: []admissionregistrationv1.Validation{
+			Validations: []admissionregistrationv1.Validation{
 				{
 					Expression: "images.bar.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
 					Message:    "failed to verify image with notary cert",

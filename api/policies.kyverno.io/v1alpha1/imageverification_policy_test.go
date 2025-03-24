@@ -12,24 +12,24 @@ import (
 func TestImageVerificationPolicy_GetFailurePolicy(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicy
+		policy *ImageValidatingPolicy
 		want   admissionregistrationv1.FailurePolicyType
 	}{{
 		name:   "nil",
-		policy: &ImageVerificationPolicy{},
+		policy: &ImageValidatingPolicy{},
 		want:   admissionregistrationv1.Fail,
 	}, {
 		name: "fail",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 			},
 		},
 		want: admissionregistrationv1.Fail,
 	}, {
 		name: "ignore",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 			},
 		},
@@ -183,15 +183,15 @@ func TestAttestation_IsReferrer(t *testing.T) {
 func TestImageVerificationPolicySpec_EvaluationMode(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicySpec
+		policy *ImageValidatingPolicySpec
 		want   EvaluationMode
 	}{{
 		name:   "nil",
-		policy: &ImageVerificationPolicySpec{},
+		policy: &ImageValidatingPolicySpec{},
 		want:   EvaluationModeKubernetes,
 	}, {
 		name: "json",
-		policy: &ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicySpec{
 			EvaluationConfiguration: &EvaluationConfiguration{
 				Mode: EvaluationModeJSON,
 			},
@@ -209,16 +209,16 @@ func TestImageVerificationPolicySpec_EvaluationMode(t *testing.T) {
 func TestImageVerificationPolicy_GetMatchConstraints(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicy
+		policy *ImageValidatingPolicy
 		want   admissionregistrationv1.MatchResources
 	}{{
 		name:   "nil",
-		policy: &ImageVerificationPolicy{},
+		policy: &ImageValidatingPolicy{},
 		want:   admissionregistrationv1.MatchResources{},
 	}, {
 		name: "not nil",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				MatchConstraints: &admissionregistrationv1.MatchResources{},
 			},
 		},
@@ -235,24 +235,24 @@ func TestImageVerificationPolicy_GetMatchConstraints(t *testing.T) {
 func TestImageVerificationPolicy_GetMatchConditions(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicy
+		policy *ImageValidatingPolicy
 		want   []admissionregistrationv1.MatchCondition
 	}{{
 		name:   "nil",
-		policy: &ImageVerificationPolicy{},
+		policy: &ImageValidatingPolicy{},
 		want:   nil,
 	}, {
 		name: "empty",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{},
 			},
 		},
 		want: []admissionregistrationv1.MatchCondition{},
 	}, {
 		name: "not empty",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{{
 					Name:       "dummy",
 					Expression: "expression",
@@ -275,16 +275,16 @@ func TestImageVerificationPolicy_GetMatchConditions(t *testing.T) {
 func TestImageVerificationPolicy_GetWebhookConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicy
+		policy *ImageValidatingPolicy
 		want   *WebhookConfiguration
 	}{{
 		name:   "nil",
-		policy: &ImageVerificationPolicy{},
+		policy: &ImageValidatingPolicy{},
 		want:   nil,
 	}, {
 		name: "fail",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				WebhookConfiguration: &WebhookConfiguration{},
 			},
 		},
@@ -301,24 +301,24 @@ func TestImageVerificationPolicy_GetWebhookConfiguration(t *testing.T) {
 func TestImageVerificationPolicy_GetVariables(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicy
+		policy *ImageValidatingPolicy
 		want   []admissionregistrationv1.Variable
 	}{{
 		name:   "nil",
-		policy: &ImageVerificationPolicy{},
+		policy: &ImageValidatingPolicy{},
 		want:   nil,
 	}, {
 		name: "empty",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{},
 			},
 		},
 		want: []admissionregistrationv1.Variable{},
 	}, {
 		name: "not empty",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{{
 					Name:       "dummy",
 					Expression: "expression",
@@ -341,29 +341,29 @@ func TestImageVerificationPolicy_GetVariables(t *testing.T) {
 func TestImageVerificationPolicy_GetSpec(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicy
-		want   *ImageVerificationPolicySpec
+		policy *ImageValidatingPolicy
+		want   *ImageValidatingPolicySpec
 	}{{
 		name: "empty",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{},
 			},
 		},
-		want: &ImageVerificationPolicySpec{
+		want: &ImageValidatingPolicySpec{
 			Variables: []admissionregistrationv1.Variable{},
 		},
 	}, {
 		name: "not empty",
-		policy: &ImageVerificationPolicy{
-			Spec: ImageVerificationPolicySpec{
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{{
 					Name:       "dummy",
 					Expression: "expression",
 				}},
 			},
 		},
-		want: &ImageVerificationPolicySpec{
+		want: &ImageValidatingPolicySpec{
 			Variables: []admissionregistrationv1.Variable{{
 				Name:       "dummy",
 				Expression: "expression",
@@ -381,10 +381,10 @@ func TestImageVerificationPolicy_GetSpec(t *testing.T) {
 func TestImageVerificationPolicy_GetStatus(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicy
+		policy *ImageValidatingPolicy
 		want   *IvpolStatus
 	}{{
-		policy: &ImageVerificationPolicy{},
+		policy: &ImageValidatingPolicy{},
 		want:   &IvpolStatus{},
 	}}
 	for _, tt := range tests {
@@ -398,20 +398,20 @@ func TestImageVerificationPolicy_GetStatus(t *testing.T) {
 func TestImageVerificationPolicy_GetKind(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ImageVerificationPolicy
+		policy *ImageValidatingPolicy
 		want   string
 	}{{
 		name:   "not set",
-		policy: &ImageVerificationPolicy{},
-		want:   "ImageVerificationPolicy",
+		policy: &ImageValidatingPolicy{},
+		want:   "ImageValidatingPolicy",
 	}, {
 		name: "set",
-		policy: &ImageVerificationPolicy{
+		policy: &ImageValidatingPolicy{
 			TypeMeta: v1.TypeMeta{
 				Kind: "Foo",
 			},
 		},
-		want: "ImageVerificationPolicy",
+		want: "ImageValidatingPolicy",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
