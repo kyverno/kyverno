@@ -6,7 +6,7 @@
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true,"validatingpolicies":true}` | This field can be overwritten by setting crds.labels in the parent chart |
+| groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | This field can be overwritten by setting crds.labels in the parent chart |
 | groups.policies.validatingpolicies | bool | `true` |  |
 | groups.policies.imagevalidatingpolicies | bool | `true` |  |
 | groups.policies.policyexceptions | bool | `true` |  |
