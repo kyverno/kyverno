@@ -10174,15 +10174,15 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </p>
 Resource Types:
 <ul><li>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException</a>
+<a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>
 </li><li>
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>
 </li></ul>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException
+<h3 id="policies.kyverno.io/v1alpha1.PolicyException">PolicyException
 </h3>
 <p>
-<p>CELPolicyException declares resources to be excluded from specified policies.</p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -10207,7 +10207,7 @@ policies.kyverno.io/v1alpha1
 <code>kind</code><br/>
 string
 </td>
-<td><code>CELPolicyException</code></td>
+<td><code>PolicyException</code></td>
 </tr>
 <tr>
 <td>
@@ -10227,8 +10227,8 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">
-CELPolicyExceptionSpec
+<a href="#policies.kyverno.io/v1alpha1.PolicyExceptionSpec">
+PolicyExceptionSpec
 </a>
 </em>
 </td>
@@ -10812,11 +10812,11 @@ uses variables that are only available in the admission review request (e.g. use
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec
+<h3 id="policies.kyverno.io/v1alpha1.PolicyExceptionSpec">PolicyExceptionSpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException</a>)
+<a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>)
 </p>
 <p>
 <p>PolicyExceptionSpec stores policy exception spec</p>
@@ -12553,7 +12553,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 </p>

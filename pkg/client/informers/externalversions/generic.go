@@ -78,8 +78,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().GlobalContextEntries().Informer()}, nil
 
 		// Group=policies.kyverno.io, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("celpolicyexceptions"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().CELPolicyExceptions().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("PolicyExceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().PolicyExceptions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("imagevalidatingpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().ImageValidatingPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("validatingpolicies"):

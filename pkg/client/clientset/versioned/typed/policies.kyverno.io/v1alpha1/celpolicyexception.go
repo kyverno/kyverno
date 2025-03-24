@@ -30,45 +30,45 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-// CELPolicyExceptionsGetter has a method to return a CELPolicyExceptionInterface.
+// PolicyExceptionsGetter has a method to return a PolicyExceptionInterface.
 // A group's client should implement this interface.
-type CELPolicyExceptionsGetter interface {
-	CELPolicyExceptions(namespace string) CELPolicyExceptionInterface
+type PolicyExceptionsGetter interface {
+	PolicyExceptions(namespace string) PolicyExceptionInterface
 }
 
-// CELPolicyExceptionInterface has methods to work with CELPolicyException resources.
-type CELPolicyExceptionInterface interface {
-	Create(ctx context.Context, cELPolicyException *v1alpha1.CELPolicyException, opts v1.CreateOptions) (*v1alpha1.CELPolicyException, error)
-	Update(ctx context.Context, cELPolicyException *v1alpha1.CELPolicyException, opts v1.UpdateOptions) (*v1alpha1.CELPolicyException, error)
+// PolicyExceptionInterface has methods to work with PolicyException resources.
+type PolicyExceptionInterface interface {
+	Create(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.CreateOptions) (*v1alpha1.PolicyException, error)
+	Update(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.UpdateOptions) (*v1alpha1.PolicyException, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.CELPolicyException, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.CELPolicyExceptionList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.PolicyException, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.PolicyExceptionList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.CELPolicyException, err error)
-	CELPolicyExceptionExpansion
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PolicyException, err error)
+	PolicyExceptionExpansion
 }
 
-// cELPolicyExceptions implements CELPolicyExceptionInterface
-type cELPolicyExceptions struct {
+// PolicyExceptions implements PolicyExceptionInterface
+type PolicyExceptions struct {
 	client rest.Interface
 	ns     string
 }
 
-// newCELPolicyExceptions returns a CELPolicyExceptions
-func newCELPolicyExceptions(c *PoliciesV1alpha1Client, namespace string) *cELPolicyExceptions {
-	return &cELPolicyExceptions{
+// newPolicyExceptions returns a PolicyExceptions
+func newPolicyExceptions(c *PoliciesV1alpha1Client, namespace string) *PolicyExceptions {
+	return &PolicyExceptions{
 		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
 
-// Get takes name of the cELPolicyException, and returns the corresponding cELPolicyException object, and an error if there is any.
-func (c *cELPolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.CELPolicyException, err error) {
-	result = &v1alpha1.CELPolicyException{}
+// Get takes name of the PolicyException, and returns the corresponding PolicyException object, and an error if there is any.
+func (c *PolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyException, err error) {
+	result = &v1alpha1.PolicyException{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("celpolicyexceptions").
+		Resource("PolicyExceptions").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do(ctx).
@@ -76,16 +76,16 @@ func (c *cELPolicyExceptions) Get(ctx context.Context, name string, options v1.G
 	return
 }
 
-// List takes label and field selectors, and returns the list of CELPolicyExceptions that match those selectors.
-func (c *cELPolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.CELPolicyExceptionList, err error) {
+// List takes label and field selectors, and returns the list of PolicyExceptions that match those selectors.
+func (c *PolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PolicyExceptionList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
-	result = &v1alpha1.CELPolicyExceptionList{}
+	result = &v1alpha1.PolicyExceptionList{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("celpolicyexceptions").
+		Resource("PolicyExceptions").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Do(ctx).
@@ -93,8 +93,8 @@ func (c *cELPolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (re
 	return
 }
 
-// Watch returns a watch.Interface that watches the requested cELPolicyExceptions.
-func (c *cELPolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+// Watch returns a watch.Interface that watches the requested PolicyExceptions.
+func (c *PolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -102,44 +102,44 @@ func (c *cELPolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (w
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
-		Resource("celpolicyexceptions").
+		Resource("PolicyExceptions").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Watch(ctx)
 }
 
-// Create takes the representation of a cELPolicyException and creates it.  Returns the server's representation of the cELPolicyException, and an error, if there is any.
-func (c *cELPolicyExceptions) Create(ctx context.Context, cELPolicyException *v1alpha1.CELPolicyException, opts v1.CreateOptions) (result *v1alpha1.CELPolicyException, err error) {
-	result = &v1alpha1.CELPolicyException{}
+// Create takes the representation of a PolicyException and creates it.  Returns the server's representation of the PolicyException, and an error, if there is any.
+func (c *PolicyExceptions) Create(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.CreateOptions) (result *v1alpha1.PolicyException, err error) {
+	result = &v1alpha1.PolicyException{}
 	err = c.client.Post().
 		Namespace(c.ns).
-		Resource("celpolicyexceptions").
+		Resource("PolicyExceptions").
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(cELPolicyException).
+		Body(PolicyException).
 		Do(ctx).
 		Into(result)
 	return
 }
 
-// Update takes the representation of a cELPolicyException and updates it. Returns the server's representation of the cELPolicyException, and an error, if there is any.
-func (c *cELPolicyExceptions) Update(ctx context.Context, cELPolicyException *v1alpha1.CELPolicyException, opts v1.UpdateOptions) (result *v1alpha1.CELPolicyException, err error) {
-	result = &v1alpha1.CELPolicyException{}
+// Update takes the representation of a PolicyException and updates it. Returns the server's representation of the PolicyException, and an error, if there is any.
+func (c *PolicyExceptions) Update(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.UpdateOptions) (result *v1alpha1.PolicyException, err error) {
+	result = &v1alpha1.PolicyException{}
 	err = c.client.Put().
 		Namespace(c.ns).
-		Resource("celpolicyexceptions").
-		Name(cELPolicyException.Name).
+		Resource("PolicyExceptions").
+		Name(PolicyException.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(cELPolicyException).
+		Body(PolicyException).
 		Do(ctx).
 		Into(result)
 	return
 }
 
-// Delete takes name of the cELPolicyException and deletes it. Returns an error if one occurs.
-func (c *cELPolicyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+// Delete takes name of the PolicyException and deletes it. Returns an error if one occurs.
+func (c *PolicyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource("celpolicyexceptions").
+		Resource("PolicyExceptions").
 		Name(name).
 		Body(&opts).
 		Do(ctx).
@@ -147,14 +147,14 @@ func (c *cELPolicyExceptions) Delete(ctx context.Context, name string, opts v1.D
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *cELPolicyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+func (c *PolicyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
 	if listOpts.TimeoutSeconds != nil {
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource("celpolicyexceptions").
+		Resource("PolicyExceptions").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(&opts).
@@ -162,12 +162,12 @@ func (c *cELPolicyExceptions) DeleteCollection(ctx context.Context, opts v1.Dele
 		Error()
 }
 
-// Patch applies the patch and returns the patched cELPolicyException.
-func (c *cELPolicyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.CELPolicyException, err error) {
-	result = &v1alpha1.CELPolicyException{}
+// Patch applies the patch and returns the patched PolicyException.
+func (c *PolicyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PolicyException, err error) {
+	result = &v1alpha1.PolicyException{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
-		Resource("celpolicyexceptions").
+		Resource("PolicyExceptions").
 		Name(name).
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).

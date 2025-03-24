@@ -29,31 +29,31 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-// FakeCELPolicyExceptions implements CELPolicyExceptionInterface
-type FakeCELPolicyExceptions struct {
+// FakePolicyExceptions implements PolicyExceptionInterface
+type FakePolicyExceptions struct {
 	Fake *FakePoliciesV1alpha1
 	ns   string
 }
 
-var celpolicyexceptionsResource = v1alpha1.SchemeGroupVersion.WithResource("celpolicyexceptions")
+var PolicyExceptionsResource = v1alpha1.SchemeGroupVersion.WithResource("PolicyExceptions")
 
-var celpolicyexceptionsKind = v1alpha1.SchemeGroupVersion.WithKind("CELPolicyException")
+var PolicyExceptionsKind = v1alpha1.SchemeGroupVersion.WithKind("PolicyException")
 
-// Get takes name of the cELPolicyException, and returns the corresponding cELPolicyException object, and an error if there is any.
-func (c *FakeCELPolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.CELPolicyException, err error) {
+// Get takes name of the PolicyException, and returns the corresponding PolicyException object, and an error if there is any.
+func (c *FakePolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyException, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(celpolicyexceptionsResource, c.ns, name), &v1alpha1.CELPolicyException{})
+		Invokes(testing.NewGetAction(PolicyExceptionsResource, c.ns, name), &v1alpha1.PolicyException{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CELPolicyException), err
+	return obj.(*v1alpha1.PolicyException), err
 }
 
-// List takes label and field selectors, and returns the list of CELPolicyExceptions that match those selectors.
-func (c *FakeCELPolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.CELPolicyExceptionList, err error) {
+// List takes label and field selectors, and returns the list of PolicyExceptions that match those selectors.
+func (c *FakePolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PolicyExceptionList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(celpolicyexceptionsResource, celpolicyexceptionsKind, c.ns, opts), &v1alpha1.CELPolicyExceptionList{})
+		Invokes(testing.NewListAction(PolicyExceptionsResource, PolicyExceptionsKind, c.ns, opts), &v1alpha1.PolicyExceptionList{})
 
 	if obj == nil {
 		return nil, err
@@ -63,8 +63,8 @@ func (c *FakeCELPolicyExceptions) List(ctx context.Context, opts v1.ListOptions)
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.CELPolicyExceptionList{ListMeta: obj.(*v1alpha1.CELPolicyExceptionList).ListMeta}
-	for _, item := range obj.(*v1alpha1.CELPolicyExceptionList).Items {
+	list := &v1alpha1.PolicyExceptionList{ListMeta: obj.(*v1alpha1.PolicyExceptionList).ListMeta}
+	for _, item := range obj.(*v1alpha1.PolicyExceptionList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -72,58 +72,58 @@ func (c *FakeCELPolicyExceptions) List(ctx context.Context, opts v1.ListOptions)
 	return list, err
 }
 
-// Watch returns a watch.Interface that watches the requested cELPolicyExceptions.
-func (c *FakeCELPolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+// Watch returns a watch.Interface that watches the requested PolicyExceptions.
+func (c *FakePolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(celpolicyexceptionsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchAction(PolicyExceptionsResource, c.ns, opts))
 
 }
 
-// Create takes the representation of a cELPolicyException and creates it.  Returns the server's representation of the cELPolicyException, and an error, if there is any.
-func (c *FakeCELPolicyExceptions) Create(ctx context.Context, cELPolicyException *v1alpha1.CELPolicyException, opts v1.CreateOptions) (result *v1alpha1.CELPolicyException, err error) {
+// Create takes the representation of a PolicyException and creates it.  Returns the server's representation of the PolicyException, and an error, if there is any.
+func (c *FakePolicyExceptions) Create(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.CreateOptions) (result *v1alpha1.PolicyException, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(celpolicyexceptionsResource, c.ns, cELPolicyException), &v1alpha1.CELPolicyException{})
+		Invokes(testing.NewCreateAction(PolicyExceptionsResource, c.ns, PolicyException), &v1alpha1.PolicyException{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CELPolicyException), err
+	return obj.(*v1alpha1.PolicyException), err
 }
 
-// Update takes the representation of a cELPolicyException and updates it. Returns the server's representation of the cELPolicyException, and an error, if there is any.
-func (c *FakeCELPolicyExceptions) Update(ctx context.Context, cELPolicyException *v1alpha1.CELPolicyException, opts v1.UpdateOptions) (result *v1alpha1.CELPolicyException, err error) {
+// Update takes the representation of a PolicyException and updates it. Returns the server's representation of the PolicyException, and an error, if there is any.
+func (c *FakePolicyExceptions) Update(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.UpdateOptions) (result *v1alpha1.PolicyException, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(celpolicyexceptionsResource, c.ns, cELPolicyException), &v1alpha1.CELPolicyException{})
+		Invokes(testing.NewUpdateAction(PolicyExceptionsResource, c.ns, PolicyException), &v1alpha1.PolicyException{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CELPolicyException), err
+	return obj.(*v1alpha1.PolicyException), err
 }
 
-// Delete takes name of the cELPolicyException and deletes it. Returns an error if one occurs.
-func (c *FakeCELPolicyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+// Delete takes name of the PolicyException and deletes it. Returns an error if one occurs.
+func (c *FakePolicyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(celpolicyexceptionsResource, c.ns, name, opts), &v1alpha1.CELPolicyException{})
+		Invokes(testing.NewDeleteActionWithOptions(PolicyExceptionsResource, c.ns, name, opts), &v1alpha1.PolicyException{})
 
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeCELPolicyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(celpolicyexceptionsResource, c.ns, listOpts)
+func (c *FakePolicyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(PolicyExceptionsResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &v1alpha1.CELPolicyExceptionList{})
+	_, err := c.Fake.Invokes(action, &v1alpha1.PolicyExceptionList{})
 	return err
 }
 
-// Patch applies the patch and returns the patched cELPolicyException.
-func (c *FakeCELPolicyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.CELPolicyException, err error) {
+// Patch applies the patch and returns the patched PolicyException.
+func (c *FakePolicyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PolicyException, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(celpolicyexceptionsResource, c.ns, name, pt, data, subresources...), &v1alpha1.CELPolicyException{})
+		Invokes(testing.NewPatchSubresourceAction(PolicyExceptionsResource, c.ns, name, pt, data, subresources...), &v1alpha1.PolicyException{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CELPolicyException), err
+	return obj.(*v1alpha1.PolicyException), err
 }

@@ -24,8 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// CELPolicyExceptions returns a CELPolicyExceptionInformer.
-	CELPolicyExceptions() CELPolicyExceptionInformer
+	// PolicyExceptions returns a PolicyExceptionInformer.
+	PolicyExceptions() PolicyExceptionInformer
 	// ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
 	ImageValidatingPolicies() ImageValidatingPolicyInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
@@ -43,9 +43,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// CELPolicyExceptions returns a CELPolicyExceptionInformer.
-func (v *version) CELPolicyExceptions() CELPolicyExceptionInformer {
-	return &cELPolicyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// PolicyExceptions returns a PolicyExceptionInformer.
+func (v *version) PolicyExceptions() PolicyExceptionInformer {
+	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
