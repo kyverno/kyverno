@@ -1,5 +1,0 @@
-{
-  "foo": {
-    "singed": "ghcr.io/kyverno/test-verify-image:signed"
-  }
-}
