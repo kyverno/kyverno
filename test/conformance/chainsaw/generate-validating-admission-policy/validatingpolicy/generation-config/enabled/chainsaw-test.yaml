@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: generation-config-default
+  name: generation-config-enabled
 spec:
   steps:
   - name: create policy
@@ -13,9 +13,9 @@ spec:
         file: policy-assert.yaml
   - name: check validatingadmissionpolicy not generated
     try:
-    - error:
+    - assert:
         file: validatingadmissionpolicy.yaml
   - name: check validatingadmissionpolicybinding not generated
     try:
-    - error:
+    - assert:
         file: validatingadmissionpolicybinding.yaml

@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: generation-config-default
+  name: generation-config-disabled
 spec:
   steps:
   - name: create policy
