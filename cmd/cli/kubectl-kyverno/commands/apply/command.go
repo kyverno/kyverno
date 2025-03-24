@@ -698,7 +698,8 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 		for p, rslt := range result {
 			if rslt.Error != nil {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil)}
+					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil),
+				}
 			} else if rslt.Result {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
 					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil),
