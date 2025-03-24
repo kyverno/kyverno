@@ -16,7 +16,7 @@ func TestCELPolicyException_GetKind(t *testing.T) {
 	}{{
 		name:   "not set",
 		policy: &PolicyException{},
-		want:   "CELPolicyException",
+		want:   "PolicyException",
 	}, {
 		name: "not set",
 		policy: &PolicyException{
