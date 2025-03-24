@@ -69,7 +69,7 @@ var (
 	ignore               = admissionregistrationv1.Ignore
 	fail                 = admissionregistrationv1.Fail
 	validatingPolicyRule = admissionregistrationv1.Rule{
-		Resources:   []string{"validatingpolicy"},
+		Resources:   []string{"validatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1"},
 	}
@@ -105,7 +105,7 @@ type controller struct {
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
-	ivpolLister       policiesv1alpha1listers.ImageVerificationPolicyLister
+	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
@@ -147,7 +147,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageVerificationPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,

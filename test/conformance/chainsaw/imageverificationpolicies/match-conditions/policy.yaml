@@ -1,5 +1,5 @@
 apiVersion: policies.kyverno.io/v1alpha1
-kind: ImageVerificationPolicy
+kind: ImageValidatingPolicy
 metadata:
   name: ivpol-sample
 spec:
@@ -48,7 +48,7 @@ spec:
     - name: sbom
       referrer:
         type: sbom/cyclone-dx
-  verifications:
+  validations:
     - expression: >-
         images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
       message: failed to verify image with notary cert

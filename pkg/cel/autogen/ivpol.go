@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageVerificationPolicy) ([]*policiesv1alpha1.IvpolAutogen, error) {
+func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageValidatingPolicy) ([]*policiesv1alpha1.IvpolAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
@@ -35,7 +35,7 @@ func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageVerificationPolicy
 	return genRules, nil
 }
 
-func autogenIvPols(ivpol *policiesv1alpha1.ImageVerificationPolicy, controllerSet sets.Set[string]) ([]*policiesv1alpha1.IvpolAutogen, error) {
+func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, controllerSet sets.Set[string]) ([]*policiesv1alpha1.IvpolAutogen, error) {
 	genPolicy := func(resource autogencontroller, controllers string) (policy *policiesv1alpha1.IvpolAutogen, err error) {
 		if len(controllers) == 0 {
 			return nil, nil

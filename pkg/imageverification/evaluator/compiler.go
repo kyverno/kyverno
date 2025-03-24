@@ -34,7 +34,7 @@ const (
 )
 
 type Compiler interface {
-	Compile(*policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList)
+	Compile(*policiesv1alpha1.ImageValidatingPolicy, []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
@@ -51,7 +51,7 @@ type compiler struct {
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -105,10 +105,10 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (
 		return nil, append(allErrs, errs...)
 	}
 
-	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Verifications))
+	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Validations))
 	{
 		path := path.Child("verifications")
-		for i, rule := range ivpolicy.Spec.Verifications {
+		for i, rule := range ivpolicy.Spec.Validations {
 			path := path.Index(i)
 			program, errs := policy.CompileValidation(path, rule, env)
 			if errs != nil {
@@ -116,6 +116,22 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (
 			}
 			verifications = append(verifications, program)
 		}
+	}
+
+	compiledExceptions := make([]policy.CompiledException, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polexMatchConditions, errs := policy.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		compiledExceptions = append(compiledExceptions, policy.CompiledException{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
+		})
+	}
+
+	if len(allErrs) > 0 {
+		return nil, allErrs
 	}
 
 	return &compiledPolicy{
@@ -127,5 +143,6 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageVerificationPolicy) (
 		attestorList:    variables.GetAttestors(ivpolicy.Spec.Attestors),
 		attestationList: variables.GetAttestations(ivpolicy.Spec.Attestations),
 		creds:           ivpolicy.Spec.Credentials,
+		exceptions:      compiledExceptions,
 	}, nil
 }
