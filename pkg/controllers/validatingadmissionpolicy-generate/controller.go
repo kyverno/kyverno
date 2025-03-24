@@ -423,6 +423,28 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		for _, exception := range exceptions {
 			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
 		}
+	} else {
+		spec := policy.AsValidatingPolicy().GetSpec()
+		wantVap := false
+		if spec.GenerationConfiguration != nil && spec.GenerationConfiguration.Enabled != nil {
+			wantVap = *spec.GenerationConfiguration.Enabled
+		}
+		if !wantVap {
+			// delete the ValidatingAdmissionPolicy if exist
+			if vapErr == nil {
+				if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+			// delete the ValidatingAdmissionPolicyBinding if exist
+			if vapBindingErr == nil {
+				if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+			c.updatePolicyStatus(ctx, policy, false, "skip generating ValidatingAdmissionPolicy: not enabled.")
+			return nil
+		}
 	}
 
 	if vapErr != nil {
