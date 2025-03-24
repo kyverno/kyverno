@@ -5,6 +5,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type EvaluationMode string
+
+const (
+	EvaluationModeKubernetes EvaluationMode = "Kubernetes"
+	EvaluationModeJSON       EvaluationMode = "JSON"
+)
+
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
@@ -20,10 +27,10 @@ type ValidatingPolicy struct {
 	Spec              ValidatingPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
-	Status VpolStatus `json:"status,omitempty"`
+	Status ValidatingPolicyStatus `json:"status,omitempty"`
 }
 
-type VpolStatus struct {
+type ValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
@@ -79,7 +86,7 @@ func (s *ValidatingPolicy) GetSpec() *ValidatingPolicySpec {
 	return &s.Spec
 }
 
-func (s *ValidatingPolicy) GetStatus() *VpolStatus {
+func (s *ValidatingPolicy) GetStatus() *ValidatingPolicyStatus {
 	return &s.Status
 }
 
@@ -87,7 +94,7 @@ func (s *ValidatingPolicy) GetKind() string {
 	return "ValidatingPolicy"
 }
 
-func (status *VpolStatus) GetConditionStatus() *ConditionStatus {
+func (status *ValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {
 	return &status.ConditionStatus
 }
 
@@ -177,11 +184,9 @@ type ValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
-	// Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-	// Optional. Defaults to "false" if not specified.
+	// GenerationConfiguration defines the configuration for the generation controller.
 	// +optional
-	// +kubebuilder:default=false
-	Generate *bool `json:"generate,omitempty"`
+	GenerationConfiguration *GenerationConfiguration `json:"generation,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
@@ -219,6 +224,12 @@ func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
 		return EvaluationModeKubernetes
 	}
 	return s.EvaluationConfiguration.Mode
+}
+
+type GenerationConfiguration struct {
+	// Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+	// Optional. Defaults to "false" if not specified.
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type WebhookConfiguration struct {
@@ -260,10 +271,3 @@ type BackgroundConfiguration struct {
 	// +kubebuilder:default=true
 	Enabled *bool `json:"enabled,omitempty"`
 }
-
-type EvaluationMode string
-
-const (
-	EvaluationModeKubernetes EvaluationMode = "Kubernetes"
-	EvaluationModeJSON       EvaluationMode = "JSON"
-)
