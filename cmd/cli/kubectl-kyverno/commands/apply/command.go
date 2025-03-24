@@ -677,7 +677,8 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 
 	ivpols := make([]*eval.CompiledImageVerificationPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
-	for _, p := range ivps {
+	for i, _ := range ivps {
+		p := ivps[i]
 		pMap[p.GetName()] = &p
 		ivpols = append(ivpols, &eval.CompiledImageVerificationPolicy{Policy: &p})
 	}
@@ -700,10 +701,12 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil)}
 			} else if rslt.Result {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil)}
+					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil),
+				}
 			} else {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil)}
+					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
+				}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
