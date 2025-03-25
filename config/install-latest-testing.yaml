@@ -48887,7 +48887,7 @@ spec:
                 items:
                   properties:
                     expression:
-                      description: Expression defines CEL expression to extact images
+                      description: Expression defines CEL expression to extract images
                         from the resource.
                       type: string
                     name:
@@ -49814,7 +49814,7 @@ spec:
                                 properties:
                                   expression:
                                     description: Expression defines CEL expression
-                                      to extact images from the resource.
+                                      to extract images from the resource.
                                     type: string
                                   name:
                                     description: Name is the name for this imageList.
