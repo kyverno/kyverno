@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -42,6 +44,7 @@ import (
 	"github.com/spf13/cobra"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionmutatingv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -212,7 +215,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
 	var store store.Store
-	policies, vaps, vapBindings, vps, err := c.loadPolicies()
+	policies, vaps, mutPolicies, vapBindings, vps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -278,6 +281,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
+
+	mutResponses, err := c.applyMutatingAdmissionPolicies(mutPolicies, resources1, dClient)
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses1, err
+	}
+
 	responses2, err := c.applyValidatingAdmissionPolicies(vaps, vapBindings, resources1, variables.NamespaceSelectors(), rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
@@ -288,6 +297,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
+	responses = append(responses, mutResponses...)
 	responses = append(responses, responses2...)
 	responses = append(responses, responses3...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
@@ -544,6 +554,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 func (c *ApplyCommandConfig) loadPolicies() (
 	[]kyvernov1.PolicyInterface,
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
+	[]admissionmutatingv1alpha1.MutatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	[]policiesv1alpha1.ValidatingPolicy,
 	error,
@@ -551,6 +562,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	// load policies
 	var policies []kyvernov1.PolicyInterface
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
+	var mutPolicies []admissionmutatingv1alpha1.MutatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	var vps []policiesv1alpha1.ValidatingPolicy
 
@@ -594,6 +606,18 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
 			}
+
+			// NEW: Check if the file is a mutating admission policy.
+			if loaderResults.DocumentKind == "MutatingAdmissionPolicy" {
+				var mutPolicy admissionmutatingv1alpha1.MutatingAdmissionPolicy
+				err := loaderResults.Unmarshal(&mutPolicy)
+				if err != nil {
+					log.Log.V(3).Info("failed to unmarshal mutating policy", "path", path, "error", err)
+				} else {
+					mutPolicies = append(mutPolicies, mutPolicy)
+				}
+			}
+
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
 			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
@@ -615,8 +639,19 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetNamespace()))
 			}
 		}
+
+		if loaderResults.DocumentKind == "MutatingAdmissionPolicy" {
+			var mutPolicy admissionmutatingv1alpha1.MutatingAdmissionPolicy
+			err := loaderResults.Unmarshal(&mutPolicy)
+			if err != nil {
+				log.Log.V(3).Info("failed to unmarshal mutating policy", "path", path, "error", err)
+			} else {
+				mutPolicies = append(mutPolicies, mutPolicy)
+			}
+		}
+
 	}
-	return policies, vaps, vapBindings, vps, nil
+	return policies, vaps, mutPolicies, vapBindings, vps, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
@@ -714,4 +749,120 @@ func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPas
 		}
 	}
 	return nil
+}
+
+// New Function for MAPS
+
+func (c *ApplyCommandConfig) applyMutatingAdmissionPolicies(
+	mutPolicies []admissionmutatingv1alpha1.MutatingAdmissionPolicy,
+	resources []*unstructured.Unstructured,
+	dClient dclient.Interface,
+) ([]engineapi.EngineResponse, error) {
+	var responses []engineapi.EngineResponse
+
+	// Iterate over every resource.
+	for _, resource := range resources {
+		// For each mutating policy, check if the resource matches the policy criteria.
+		for _, mutPolicy := range mutPolicies {
+			// (You need to implement matching logic.
+			// For example, check if resource.Kind is in mutPolicy.Spec.Match.Resources.Kinds)
+			if !resourceMatchesMutPolicy(resource, &mutPolicy) {
+				continue
+			}
+
+			// If matched, apply the mutation patch.
+			// (You might use a JSON patch or strategic merge patch library here.)
+			mutatedResource, err := applyMutationPatch(resource, mutPolicy.Spec.Mutation.Patches)
+			if err != nil {
+				// Log error, and decide whether to continue or return error.
+				fmt.Fprintf(os.Stderr, "Error applying mutating policy %s on resource %s: %v\n", mutPolicy.Name, resource.GetName(), err)
+				if !c.ContinueOnFail {
+					return responses, err
+				}
+				continue
+			}
+
+			// Create an EngineResponse (or similar structure) to record the mutation result.
+			response := engineapi.EngineResponse{
+				Resource:       *mutatedResource,
+				PolicyResponse: engineapi.PolicyResponse{
+					// Fill in with details from mutPolicy, e.g., name and applied patch info.
+				},
+			}
+			responses = append(responses, response)
+		}
+	}
+	return responses, nil
+
+	// Iterate over every resource.
+	for _, resource := range resources {
+		// For each mutating policy, directly call mutateResource() to apply the mutation logic.
+		for _, mutPolicy := range mutPolicies {
+			engineResp, err := mutateResource(mutPolicy, *resource)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error applying mutating policy %s on resource %s: %v\n", mutPolicy.Name, resource.GetName(), err)
+				if !c.ContinueOnFail {
+					return responses, err
+				}
+				continue
+			}
+			responses = append(responses, engineResp)
+		}
+	}
+	return responses, nil
+}
+
+func resourceMatchesMutPolicy(resource *unstructured.Unstructured, mutPolicy *admissionmutatingv1alpha1.MutatingAdmissionPolicy) bool {
+	if mutPolicy.Spec.Match == nil {
+		return true
+	}
+	// Example: check if the resource kind is among the allowed kinds in the policy.
+	for _, allowedKind := range mutPolicy.Spec.Match.Resources.Kinds {
+		if strings.EqualFold(allowedKind, resource.GetKind()) {
+			return true
+		}
+	}
+	// Additional matching logic (API versions, labels, etc.) can be added here.
+	return false
+}
+
+func applyMutationPatch(resource *unstructured.Unstructured, patches []admissionmutatingv1alpha1.Patch) (*unstructured.Unstructured, error) {
+	// Implement the patching logic.
+	// You might iterate over the patches and apply each one (using a JSON patch library or similar).
+	// Return the mutated resource.
+	// Marshal the original resource to JSON.
+	originalJSON, err := json.Marshal(resource.Object)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal resource: %w", err)
+	}
+	// Build a slice of patch operations.
+	var patchOps []map[string]interface{}
+	for _, patch := range patches {
+		op := map[string]interface{}{
+			"op":   patch.Op,
+			"path": patch.Path,
+		}
+		// If a value is provided, include it.
+		if patch.Value != nil {
+			op["value"] = patch.Value
+		}
+		patchOps = append(patchOps, op)
+	}
+	// Marshal the patch operations into JSON.
+	patchJSON, err := json.Marshal(patchOps)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal patches: %w", err)
+	}
+	// Apply the JSON merge patch.
+	patchedJSON, err := jsonpatch.MergePatch(originalJSON, patchJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply patch: %w", err)
+	}
+	// Unmarshal the patched JSON back into a map.
+	var patchedObject map[string]interface{}
+	if err = json.Unmarshal(patchedJSON, &patchedObject); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal patched object: %w", err)
+	}
+	resource.Object = patchedObject
+	return resource, nil
 }
