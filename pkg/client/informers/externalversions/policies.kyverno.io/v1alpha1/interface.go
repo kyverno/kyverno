@@ -24,10 +24,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// PolicyExceptions returns a PolicyExceptionInformer.
-	PolicyExceptions() PolicyExceptionInformer
 	// ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
 	ImageValidatingPolicies() ImageValidatingPolicyInformer
+	// PolicyExceptions returns a PolicyExceptionInformer.
+	PolicyExceptions() PolicyExceptionInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
 	ValidatingPolicies() ValidatingPolicyInformer
 }
@@ -43,14 +43,14 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// PolicyExceptions returns a PolicyExceptionInformer.
-func (v *version) PolicyExceptions() PolicyExceptionInformer {
-	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
 // ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
 func (v *version) ImageValidatingPolicies() ImageValidatingPolicyInformer {
 	return &imageValidatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// PolicyExceptions returns a PolicyExceptionInformer.
+func (v *version) PolicyExceptions() PolicyExceptionInformer {
+	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ValidatingPolicies returns a ValidatingPolicyInformer.

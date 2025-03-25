@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1alpha1
 
+// ImageValidatingPolicyListerExpansion allows custom methods to be added to
+// ImageValidatingPolicyLister.
+type ImageValidatingPolicyListerExpansion interface{}
+
 // PolicyExceptionListerExpansion allows custom methods to be added to
 // PolicyExceptionLister.
 type PolicyExceptionListerExpansion interface{}
@@ -25,10 +29,6 @@ type PolicyExceptionListerExpansion interface{}
 // PolicyExceptionNamespaceListerExpansion allows custom methods to be added to
 // PolicyExceptionNamespaceLister.
 type PolicyExceptionNamespaceListerExpansion interface{}
-
-// ImageValidatingPolicyListerExpansion allows custom methods to be added to
-// ImageValidatingPolicyLister.
-type ImageValidatingPolicyListerExpansion interface{}
 
 // ValidatingPolicyListerExpansion allows custom methods to be added to
 // ValidatingPolicyLister.

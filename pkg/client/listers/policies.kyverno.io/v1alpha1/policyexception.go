@@ -93,7 +93,7 @@ func (s policyExceptionNamespaceLister) Get(name string) (*v1alpha1.PolicyExcept
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("PolicyException"), name)
+		return nil, errors.NewNotFound(v1alpha1.Resource("policyexception"), name)
 	}
 	return obj.(*v1alpha1.PolicyException), nil
 }

@@ -38,8 +38,8 @@ type PolicyExceptionsGetter interface {
 
 // PolicyExceptionInterface has methods to work with PolicyException resources.
 type PolicyExceptionInterface interface {
-	Create(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.CreateOptions) (*v1alpha1.PolicyException, error)
-	Update(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.UpdateOptions) (*v1alpha1.PolicyException, error)
+	Create(ctx context.Context, policyException *v1alpha1.PolicyException, opts v1.CreateOptions) (*v1alpha1.PolicyException, error)
+	Update(ctx context.Context, policyException *v1alpha1.PolicyException, opts v1.UpdateOptions) (*v1alpha1.PolicyException, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.PolicyException, error)
@@ -49,26 +49,26 @@ type PolicyExceptionInterface interface {
 	PolicyExceptionExpansion
 }
 
-// PolicyExceptions implements PolicyExceptionInterface
-type PolicyExceptions struct {
+// policyExceptions implements PolicyExceptionInterface
+type policyExceptions struct {
 	client rest.Interface
 	ns     string
 }
 
 // newPolicyExceptions returns a PolicyExceptions
-func newPolicyExceptions(c *PoliciesV1alpha1Client, namespace string) *PolicyExceptions {
-	return &PolicyExceptions{
+func newPolicyExceptions(c *PoliciesV1alpha1Client, namespace string) *policyExceptions {
+	return &policyExceptions{
 		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
 
-// Get takes name of the PolicyException, and returns the corresponding PolicyException object, and an error if there is any.
-func (c *PolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyException, err error) {
+// Get takes name of the policyException, and returns the corresponding PolicyException object, and an error if there is any.
+func (c *policyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyException, err error) {
 	result = &v1alpha1.PolicyException{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("PolicyExceptions").
+		Resource("policyexceptions").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do(ctx).
@@ -77,7 +77,7 @@ func (c *PolicyExceptions) Get(ctx context.Context, name string, options v1.GetO
 }
 
 // List takes label and field selectors, and returns the list of PolicyExceptions that match those selectors.
-func (c *PolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PolicyExceptionList, err error) {
+func (c *policyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PolicyExceptionList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -85,7 +85,7 @@ func (c *PolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (resul
 	result = &v1alpha1.PolicyExceptionList{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("PolicyExceptions").
+		Resource("policyExceptions").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Do(ctx).
@@ -93,8 +93,8 @@ func (c *PolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (resul
 	return
 }
 
-// Watch returns a watch.Interface that watches the requested PolicyExceptions.
-func (c *PolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+// Watch returns a watch.Interface that watches the requested policyExceptions.
+func (c *policyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -102,44 +102,44 @@ func (c *PolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watc
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
-		Resource("PolicyExceptions").
+		Resource("policyexceptions").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Watch(ctx)
 }
 
-// Create takes the representation of a PolicyException and creates it.  Returns the server's representation of the PolicyException, and an error, if there is any.
-func (c *PolicyExceptions) Create(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.CreateOptions) (result *v1alpha1.PolicyException, err error) {
+//Create takes the representation of a policyException and creates it.  Returns the server's representation of the policyException, and an error, if there is any.
+func (c *policyExceptions) Create(ctx context.Context, policyException *v1alpha1.PolicyException, opts v1.CreateOptions) (result *v1alpha1.PolicyException, err error) {
 	result = &v1alpha1.PolicyException{}
 	err = c.client.Post().
 		Namespace(c.ns).
-		Resource("PolicyExceptions").
+		Resource("policyExceptions").
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(PolicyException).
+		Body(policyException).
 		Do(ctx).
 		Into(result)
 	return
 }
 
-// Update takes the representation of a PolicyException and updates it. Returns the server's representation of the PolicyException, and an error, if there is any.
-func (c *PolicyExceptions) Update(ctx context.Context, PolicyException *v1alpha1.PolicyException, opts v1.UpdateOptions) (result *v1alpha1.PolicyException, err error) {
+// Update takes the representation of a policyException and updates it. Returns the server's representation of the policyException, and an error, if there is any.
+func (c *policyExceptions) Update(ctx context.Context, policyException *v1alpha1.PolicyException, opts v1.UpdateOptions) (result *v1alpha1.PolicyException, err error) {
 	result = &v1alpha1.PolicyException{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("PolicyExceptions").
-		Name(PolicyException.Name).
+		Name(policyException.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(PolicyException).
+		Body(policyException).
 		Do(ctx).
 		Into(result)
 	return
 }
 
-// Delete takes name of the PolicyException and deletes it. Returns an error if one occurs.
-func (c *PolicyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+// Delete takes name of the policyException and deletes it. Returns an error if one occurs.
+func (c *policyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource("PolicyExceptions").
+		Resource("policyexceptions").
 		Name(name).
 		Body(&opts).
 		Do(ctx).
@@ -147,14 +147,14 @@ func (c *PolicyExceptions) Delete(ctx context.Context, name string, opts v1.Dele
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *PolicyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+func (c *policyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
 	if listOpts.TimeoutSeconds != nil {
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource("PolicyExceptions").
+		Resource("policyexceptions").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(&opts).
@@ -162,12 +162,12 @@ func (c *PolicyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteO
 		Error()
 }
 
-// Patch applies the patch and returns the patched PolicyException.
-func (c *PolicyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PolicyException, err error) {
+// Patch applies the patch and returns the patched policyException.
+func (c *policyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PolicyException, err error) {
 	result = &v1alpha1.PolicyException{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
-		Resource("PolicyExceptions").
+		Resource("policyexceptions").
 		Name(name).
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).

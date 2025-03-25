@@ -18,8 +18,8 @@ limitations under the License.
 
 package v1alpha1
 
-type PolicyExceptionExpansion interface{}
-
 type ImageValidatingPolicyExpansion interface{}
+
+type PolicyExceptionExpansion interface{}
 
 type ValidatingPolicyExpansion interface{}
