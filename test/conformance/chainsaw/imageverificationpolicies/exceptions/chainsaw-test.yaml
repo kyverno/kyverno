@@ -5,12 +5,6 @@ metadata:
   name: exception-test
 spec:
   steps:
-  - name: create policy
-    try:
-    - create:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml
   - name: create exception
     try:
     - create:
@@ -19,6 +13,14 @@ spec:
         duration: 10s
     - assert:
         file: exception.yaml
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - sleep:
+        duration: 10s
+    - assert:
+        file: policy-assert.yaml
   - name: create bad pod
     try:
     - create:

@@ -10444,15 +10444,16 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
-<code>generate</code><br/>
+<code>generation</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.GenerationConfiguration">
+GenerationConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>GenerationConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 <tr>
@@ -10504,8 +10505,8 @@ EvaluationConfiguration
 <td>
 <code>status</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.VpolStatus">
-VpolStatus
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyStatus">
+ValidatingPolicyStatus
 </a>
 </em>
 </td>
@@ -10750,7 +10751,7 @@ Kubernetes admissionregistration/v1.MatchResources
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.VpolStatus">VpolStatus</a>)
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyStatus">ValidatingPolicyStatus</a>)
 </p>
 <p>
 <p>AutogenStatus contains autogen status information.</p>
@@ -11006,7 +11007,7 @@ parent intermediate CA certificate of the signing certificate and end with the r
 <p>
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1alpha1.IvpolStatus">IvpolStatus</a>, 
-<a href="#policies.kyverno.io/v1alpha1.VpolStatus">VpolStatus</a>)
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyStatus">ValidatingPolicyStatus</a>)
 </p>
 <p>
 <p>ConditionStatus is the shared status across all policy types</p>
@@ -11319,6 +11320,37 @@ BackgroundConfiguration
 </p>
 <p>
 </p>
+<h3 id="policies.kyverno.io/v1alpha1.GenerationConfiguration">GenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.GenericPolicy">GenericPolicy
 </h3>
 <p>
@@ -11429,7 +11461,7 @@ string
 </em>
 </td>
 <td>
-<p>Expression defines CEL expression to extact images from the resource.</p>
+<p>Expression defines CEL expression to extract images from the resource.</p>
 </td>
 </tr>
 </tbody>
@@ -12907,15 +12939,16 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
-<code>generate</code><br/>
+<code>generation</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.GenerationConfiguration">
+GenerationConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>GenerationConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 <tr>
@@ -12963,7 +12996,7 @@ EvaluationConfiguration
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.VpolStatus">VpolStatus
+<h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicyStatus">ValidatingPolicyStatus
 </h3>
 <p>
 (<em>Appears on:</em>
