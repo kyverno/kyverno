@@ -85,7 +85,7 @@ func (c *policyExceptions) List(ctx context.Context, opts v1.ListOptions) (resul
 	result = &v1alpha1.PolicyExceptionList{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource("policyExceptions").
+		Resource("policyexceptions").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Do(ctx).
@@ -108,12 +108,12 @@ func (c *policyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watc
 		Watch(ctx)
 }
 
-//Create takes the representation of a policyException and creates it.  Returns the server's representation of the policyException, and an error, if there is any.
+// Create takes the representation of a policyException and creates it.  Returns the server's representation of the policyException, and an error, if there is any.
 func (c *policyExceptions) Create(ctx context.Context, policyException *v1alpha1.PolicyException, opts v1.CreateOptions) (result *v1alpha1.PolicyException, err error) {
 	result = &v1alpha1.PolicyException{}
 	err = c.client.Post().
 		Namespace(c.ns).
-		Resource("policyExceptions").
+		Resource("policyexceptions").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(policyException).
 		Do(ctx).
@@ -126,7 +126,7 @@ func (c *policyExceptions) Update(ctx context.Context, policyException *v1alpha1
 	result = &v1alpha1.PolicyException{}
 	err = c.client.Put().
 		Namespace(c.ns).
-		Resource("PolicyExceptions").
+		Resource("policyexceptions").
 		Name(policyException.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(policyException).
