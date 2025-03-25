@@ -5,13 +5,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type EvaluationMode string
+
+const (
+	EvaluationModeKubernetes EvaluationMode = "Kubernetes"
+	EvaluationModeJSON       EvaluationMode = "JSON"
+)
+
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=validatingpolicies,scope="Cluster",shortName=vpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.ready`
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ValidatingPolicy struct {
@@ -20,7 +27,33 @@ type ValidatingPolicy struct {
 	Spec              ValidatingPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
-	Status PolicyStatus `json:"status,omitempty"`
+	Status ValidatingPolicyStatus `json:"status,omitempty"`
+}
+
+type ValidatingPolicyStatus struct {
+	// +optional
+	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
+
+	// +optional
+	Autogen AutogenStatus `json:"autogen"`
+
+	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
+	// +optional
+	Generated bool `json:"generated"`
+}
+
+// AutogenStatus contains autogen status information.
+type AutogenStatus struct {
+	// Rules is a list of Rule instances. It contains auto generated rules added for pod controllers
+	Rules []AutogenRule `json:"rules,omitempty"`
+}
+
+type AutogenRule struct {
+	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
+	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
+	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
+	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
+	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
 }
 
 func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -53,12 +86,16 @@ func (s *ValidatingPolicy) GetSpec() *ValidatingPolicySpec {
 	return &s.Spec
 }
 
-func (s *ValidatingPolicy) GetStatus() *PolicyStatus {
+func (s *ValidatingPolicy) GetStatus() *ValidatingPolicyStatus {
 	return &s.Status
 }
 
 func (s *ValidatingPolicy) GetKind() string {
 	return "ValidatingPolicy"
+}
+
+func (status *ValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {
+	return &status.ConditionStatus
 }
 
 // +kubebuilder:object:root=true
@@ -147,11 +184,9 @@ type ValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
-	// Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-	// Optional. Defaults to "false" if not specified.
+	// GenerationConfiguration defines the configuration for the generation controller.
 	// +optional
-	// +kubebuilder:default=false
-	Generate *bool `json:"generate,omitempty"`
+	GenerationConfiguration *GenerationConfiguration `json:"generation,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
@@ -189,6 +224,12 @@ func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
 		return EvaluationModeKubernetes
 	}
 	return s.EvaluationConfiguration.Mode
+}
+
+type GenerationConfiguration struct {
+	// Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+	// Optional. Defaults to "false" if not specified.
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type WebhookConfiguration struct {
@@ -230,10 +271,3 @@ type BackgroundConfiguration struct {
 	// +kubebuilder:default=true
 	Enabled *bool `json:"enabled,omitempty"`
 }
-
-type EvaluationMode string
-
-const (
-	EvaluationModeKubernetes EvaluationMode = "Kubernetes"
-	EvaluationModeJSON       EvaluationMode = "JSON"
-)

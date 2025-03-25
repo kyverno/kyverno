@@ -50,6 +50,7 @@ import (
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -159,6 +160,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
@@ -604,7 +606,8 @@ func main() {
 			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
 		}
-		var celEngine celengine.Engine
+		var vpolEngine celengine.Engine
+		var ivpolEngine celengine.ImageVerifyEngine
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
@@ -643,8 +646,8 @@ func main() {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
 			}
-			celEngine = celengine.NewEngine(
-				provider,
+			vpolEngine = celengine.NewEngine(
+				provider.CompiledValidationPolicies,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {
@@ -653,6 +656,19 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
+			)
+			ivpolEngine = celengine.NewImageVerifyEngine(
+				provider.ImageVerificationPolicies,
+				func(name string) *corev1.Namespace {
+					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					if err != nil {
+						return nil
+					}
+					return ns
+				},
+				matching.NewMatcher(),
+				setup.KubeClient.CoreV1().Secrets(""),
+				nil,
 			)
 		}
 		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
@@ -690,10 +706,14 @@ func main() {
 			reportsBreaker,
 		)
 		voplHandlers := vpol.New(
-			celEngine,
+			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
 			reportsBreaker,
+		)
+		ivpolHandlers := ivpol.New(
+			ivpolEngine,
+			contextProvider,
 		)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
@@ -711,9 +731,11 @@ func main() {
 				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
 			},
 			webhooks.ResourceHandlers{
-				Mutation:           webhooks.HandlerFunc(resourceHandlers.Mutate),
-				Validation:         webhooks.HandlerFunc(resourceHandlers.Validate),
-				ValidatingPolicies: webhooks.HandlerFunc(voplHandlers.Validate),
+				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
+				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
+				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
+				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.Validate),
+				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),

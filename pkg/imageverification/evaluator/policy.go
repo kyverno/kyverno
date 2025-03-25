@@ -7,10 +7,11 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/imageverification/imageverifierfunctions"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
 	"go.uber.org/multierr"
@@ -21,10 +22,11 @@ import (
 )
 
 type EvaluationResult struct {
-	Error   error
-	Message string
-	Index   int
-	Result  bool
+	Error      error
+	Message    string
+	Index      int
+	Result     bool
+	Exceptions []*policiesv1alpha1.CELPolicyException
 }
 
 type CompiledPolicy interface {
@@ -40,6 +42,7 @@ type compiledPolicy struct {
 	attestorList    map[string]string
 	attestationList map[string]string
 	creds           *v1alpha1.Credentials
+	exceptions      []policy.CompiledException
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool) (*EvaluationResult, error) {
@@ -50,6 +53,24 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if !matched {
 		return nil, nil
 	}
+
+	// check if the resource matches an exception
+	if len(c.exceptions) > 0 {
+		matchedExceptions := make([]*policiesv1alpha1.CELPolicyException, 0)
+		for _, polex := range c.exceptions {
+			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+			if err != nil {
+				return nil, err
+			}
+			if match {
+				matchedExceptions = append(matchedExceptions, polex.Exception)
+			}
+		}
+		if len(matchedExceptions) > 0 {
+			return &EvaluationResult{Exceptions: matchedExceptions}, nil
+		}
+	}
+
 	data := map[string]any{}
 	if isK8s {
 		namespaceVal, err := objectToResolveVal(namespace)
@@ -95,7 +116,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
-	if err := ictx.AddImages(ctx, imgList, imageverifierfunctions.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
 		return nil, err
 	}
 
@@ -148,8 +169,18 @@ func (p *compiledPolicy) match(
 		if err != nil {
 			return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 		}
+		objectVal, err := objectToResolveVal(attr.GetObject())
+		if err != nil {
+			return false, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+		}
+		oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
+		if err != nil {
+			return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		}
 		data[NamespaceObjectKey] = namespaceVal
 		data[RequestKey] = requestVal.Object
+		data[ObjectKey] = objectVal
+		data[OldObjectKey] = oldObjectVal
 	} else {
 		data[ObjectKey] = request
 	}

@@ -9,7 +9,10 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -26,12 +29,18 @@ type EvaluationResult struct {
 	Index            int
 	Result           bool
 	AuditAnnotations map[string]string
-	Exceptions       []policiesv1alpha1.CELPolicyException
+	Exceptions       []*policiesv1alpha1.CELPolicyException
 	PatchedResource  unstructured.Unstructured
 }
 
+type ContextInterface interface {
+	globalcontext.ContextInterface
+	imagedata.ContextInterface
+	resource.ContextInterface
+}
+
 type CompiledPolicy interface {
-	Evaluate(context.Context, interface{}, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface, int) (*EvaluationResult, error)
+	Evaluate(context.Context, any, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, ContextInterface, int) (*EvaluationResult, error)
 }
 
 type CompiledValidation struct {
@@ -47,9 +56,9 @@ type compiledAutogenRule struct {
 	variables       map[string]cel.Program
 }
 
-type compiledException struct {
-	exception       policiesv1alpha1.CELPolicyException
-	matchConditions []cel.Program
+type CompiledException struct {
+	Exception       *policiesv1alpha1.CELPolicyException
+	MatchConditions []cel.Program
 }
 
 type compiledPolicy struct {
@@ -60,25 +69,25 @@ type compiledPolicy struct {
 	validations      []CompiledValidation
 	auditAnnotations map[string]cel.Program
 	autogenRules     []compiledAutogenRule
-	exceptions       []compiledException
+	exceptions       []CompiledException
 }
 
 type evaluationData struct {
-	Namespace interface{}
-	Object    interface{}
-	OldObject interface{}
-	Request   interface{}
-	Context   contextlib.ContextInterface
+	Namespace any
+	Object    any
+	OldObject any
+	Request   any
+	Context   ContextInterface
 	Variables *lazy.MapValue
 }
 
 func (p *compiledPolicy) Evaluate(
 	ctx context.Context,
-	json interface{},
+	json any,
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 	autogenIndex int,
 ) (*EvaluationResult, error) {
 	switch p.mode {
@@ -91,7 +100,7 @@ func (p *compiledPolicy) Evaluate(
 
 func (p *compiledPolicy) evaluateJson(
 	ctx context.Context,
-	json interface{},
+	json any,
 ) (*EvaluationResult, error) {
 	data := evaluationData{
 		Object:    json,
@@ -105,7 +114,7 @@ func (p *compiledPolicy) evaluateKubernetes(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 	autogenIndex int,
 ) (*EvaluationResult, error) {
 	data, err := p.prepareK8sData(attr, request, namespace, context)
@@ -122,14 +131,14 @@ func (p *compiledPolicy) evaluateWithData(
 ) (*EvaluationResult, error) {
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
-		matchedExceptions := make([]policiesv1alpha1.CELPolicyException, 0)
+		matchedExceptions := make([]*policiesv1alpha1.CELPolicyException, 0)
 		for _, polex := range p.exceptions {
-			match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, polex.matchConditions)
+			match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, polex.MatchConditions)
 			if err != nil {
 				return nil, err
 			}
 			if match {
-				matchedExceptions = append(matchedExceptions, polex.exception)
+				matchedExceptions = append(matchedExceptions, polex.Exception)
 			}
 		}
 		if len(matchedExceptions) > 0 {
@@ -161,11 +170,14 @@ func (p *compiledPolicy) evaluateWithData(
 
 	vars := lazy.NewMapValue(VariablesType)
 	dataNew := map[string]any{
-		ContextKey:         contextlib.Context{ContextInterface: data.Context},
+		GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
+		HttpKey:            http.NewHTTP(),
+		ImageDataKey:       imagedata.Context{ContextInterface: data.Context},
 		NamespaceObjectKey: data.Namespace,
 		ObjectKey:          data.Object,
 		OldObjectKey:       data.OldObject,
 		RequestKey:         data.Request,
+		ResourceKey:        resource.Context{ContextInterface: data.Context},
 		VariablesKey:       vars,
 	}
 	for name, variable := range variables {
@@ -191,7 +203,7 @@ func (p *compiledPolicy) evaluateWithData(
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := validation.Message
 			if validation.MessageExpression != nil {
-				if out, _, err := validation.MessageExpression.ContextEval(ctx, data); err != nil {
+				if out, _, err := validation.MessageExpression.ContextEval(ctx, dataNew); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
 				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
 					message = fmt.Sprintf("failed to convert message expression to string: %s", err)
@@ -202,7 +214,7 @@ func (p *compiledPolicy) evaluateWithData(
 
 			auditAnnotations := make(map[string]string, 0)
 			for key, annotation := range p.auditAnnotations {
-				out, _, err := annotation.ContextEval(ctx, data)
+				out, _, err := annotation.ContextEval(ctx, dataNew)
 				if err != nil {
 					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
 				}
@@ -233,7 +245,7 @@ func (p *compiledPolicy) prepareK8sData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context contextlib.ContextInterface,
+	context ContextInterface,
 ) (evaluationData, error) {
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
@@ -262,10 +274,10 @@ func (p *compiledPolicy) prepareK8sData(
 
 func (p *compiledPolicy) match(
 	ctx context.Context,
-	namespaceVal interface{},
-	objectVal interface{},
-	oldObjectVal interface{},
-	requestVal interface{},
+	namespaceVal any,
+	objectVal any,
+	oldObjectVal any,
+	requestVal any,
 	matchConditions []cel.Program,
 ) (bool, error) {
 	data := map[string]any{
@@ -304,7 +316,7 @@ func (p *compiledPolicy) match(
 	}
 }
 
-func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+func convertObjectToUnstructured(obj any) (*unstructured.Unstructured, error) {
 	if obj == nil || reflect.ValueOf(obj).IsNil() {
 		return &unstructured.Unstructured{Object: nil}, nil
 	}
@@ -315,7 +327,7 @@ func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, e
 	return &unstructured.Unstructured{Object: ret}, nil
 }
 
-func objectToResolveVal(r runtime.Object) (interface{}, error) {
+func objectToResolveVal(r runtime.Object) (any, error) {
 	if r == nil || reflect.ValueOf(r).IsNil() {
 		return nil, nil
 	}

@@ -57,6 +57,8 @@ rules:
     resources:
       - validatingpolicies
       - validatingpolicies/status
+      - imagevalidatingpolicies
+      - imagevalidatingpolicies/status
     verbs:
       - create
       - delete
