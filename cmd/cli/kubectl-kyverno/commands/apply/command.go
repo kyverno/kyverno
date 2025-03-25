@@ -30,6 +30,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -799,6 +800,23 @@ func (c *ApplyCommandConfig) applyMutatingAdmissionPolicies(
 		// For each mutating policy, directly call mutateResource() to apply the mutation logic.
 		for _, mutPolicy := range mutPolicies {
 			engineResp, err := mutateResource(mutPolicy, *resource)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error applying mutating policy %s on resource %s: %v\n", mutPolicy.Name, resource.GetName(), err)
+				if !c.ContinueOnFail {
+					return responses, err
+				}
+				continue
+			}
+			responses = append(responses, engineResp)
+		}
+	}
+	return responses, nil
+
+	var responses []engineapi.EngineResponse
+	// For each resource, directly call MutateResource() from pkg/admissionpolicy.
+	for _, resource := range resources {
+		for _, mutPolicy := range mutPolicies {
+			engineResp, err := admissionpolicy.MutateResource(mutPolicy, *resource)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error applying mutating policy %s on resource %s: %v\n", mutPolicy.Name, resource.GetName(), err)
 				if !c.ContinueOnFail {
