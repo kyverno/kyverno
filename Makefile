@@ -35,7 +35,7 @@ INSTALL_VERSION	     ?= 3.2.6
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.23.0
+KIND_VERSION                       ?= v0.27.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
 CONTROLLER_GEN_VERSION             ?= v0.16.1
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
