@@ -6,14 +6,15 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policy"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,17 +29,17 @@ import (
 type EngineRequest struct {
 	jsonPayload *unstructured.Unstructured
 	request     admissionv1.AdmissionRequest
-	context     contextlib.ContextInterface
+	context     policy.ContextInterface
 }
 
-func RequestFromAdmission(context contextlib.ContextInterface, request admissionv1.AdmissionRequest) EngineRequest {
+func RequestFromAdmission(context policy.ContextInterface, request admissionv1.AdmissionRequest) EngineRequest {
 	return EngineRequest{
 		request: request,
 		context: context,
 	}
 }
 
-func RequestFromJSON(context contextlib.ContextInterface, jsonPayload *unstructured.Unstructured) EngineRequest {
+func RequestFromJSON(context policy.ContextInterface, jsonPayload *unstructured.Unstructured) EngineRequest {
 	return EngineRequest{
 		jsonPayload: jsonPayload,
 		context:     context,
@@ -46,14 +47,14 @@ func RequestFromJSON(context contextlib.ContextInterface, jsonPayload *unstructu
 }
 
 func Request(
-	context contextlib.ContextInterface,
+	context policy.ContextInterface,
 	gvk schema.GroupVersionKind,
 	gvr schema.GroupVersionResource,
 	subResource string,
 	name string,
 	namespace string,
 	operation admissionv1.Operation,
-	// userInfo authenticationv1.UserInfo,
+	userInfo authenticationv1.UserInfo,
 	object runtime.Object,
 	oldObject runtime.Object,
 	dryRun bool,
@@ -69,11 +70,11 @@ func Request(
 		Name:               name,
 		Namespace:          namespace,
 		Operation:          operation,
-		// UserInfo: userInfo,
-		Object:    runtime.RawExtension{Object: object},
-		OldObject: runtime.RawExtension{Object: oldObject},
-		DryRun:    &dryRun,
-		Options:   runtime.RawExtension{Object: options},
+		UserInfo:           userInfo,
+		Object:             runtime.RawExtension{Object: object},
+		OldObject:          runtime.RawExtension{Object: oldObject},
+		DryRun:             &dryRun,
+		Options:            runtime.RawExtension{Object: options},
 	}
 	return RequestFromAdmission(context, request)
 }
@@ -205,7 +206,7 @@ func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Att
 	return false, -1, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPolicy, jsonPayload interface{}, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) ValidatingPolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPolicy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context policy.ContextInterface) ValidatingPolicyResponse {
 	response := ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
@@ -233,17 +234,19 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPoli
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
+	} else if result == nil {
+		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil))
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
 		var keys []string
 		for i := range result.Exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
+			key, err := cache.MetaNamespaceKeyFunc(result.Exceptions[i])
 			if err != nil {
 				response.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil))
 				return response
 			}
 			keys = append(keys, key)
-			exceptions = append(exceptions, engineapi.NewCELPolicyException(&result.Exceptions[i]))
+			exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
 		}
 		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions))
 	} else {

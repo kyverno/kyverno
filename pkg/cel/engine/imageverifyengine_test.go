@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
@@ -24,11 +23,11 @@ var (
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
 	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 
-	ivpol = &policiesv1alpha1.ImageVerificationPolicy{
+	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "ivpol-notary",
 		},
-		Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
@@ -90,7 +89,11 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					},
 				},
 			},
-			Verifications: []admissionregistrationv1.Validation{
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "images.containers.map(i, image(i).registry() == \"ghcr.io\" ).all(e, e)",
+					Message:    "images are not from ghcr registry",
+				},
 				{
 					Expression: "images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
 					Message:    "failed to verify image with notary cert",
@@ -144,7 +147,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_ImageVerifyEngine(t *testing.T) {
-	engine := NewImageVerifyEngine(logr.Discard(), ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
+	engine := NewImageVerifyEngine(ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
 	engineRequest := EngineRequest{
 		request: v1.AdmissionRequest{
 			Operation: v1.Create,
@@ -155,7 +158,7 @@ func Test_ImageVerifyEngine(t *testing.T) {
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		},
-		context: &contextlib.MockCtx{},
+		context: &resourcelib.MockCtx{},
 	}
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest)

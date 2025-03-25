@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -16,13 +15,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 )
 
-type Context = contextlib.ContextInterface
+type Context = ContextInterface
 
 type contextProvider struct {
-	client    kubernetes.Interface
 	dclient   dynamic.Interface
 	imagedata imagedataloader.Fetcher
 	gctxStore gctxstore.Store
@@ -38,23 +35,10 @@ func NewContextProvider(
 		return nil, err
 	}
 	return &contextProvider{
-		client:    client.GetKubeClient(),
 		dclient:   client.GetDynamicInterface(),
 		imagedata: idl,
 		gctxStore: gctxStore,
 	}, nil
-}
-
-func (cp *contextProvider) GetConfigMap(namespace string, name string) (*unstructured.Unstructured, error) {
-	cm, err := cp.client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	out, err := kubeutils.ObjToUnstructured(cm)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
@@ -82,7 +66,7 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 		if err != nil {
 			return nil, err
 		}
-		apiData := map[string]interface{}{}
+		apiData := map[string]any{}
 		err = json.Unmarshal(raw, &apiData)
 		if err != nil {
 			return nil, err
@@ -91,9 +75,13 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	}
 }
 
-func (cp *contextProvider) GetImageData(image string) (*imagedataloader.ImageData, error) {
+func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
 	// TODO: get image credentials from image verification policies?
-	return cp.imagedata.FetchImageData(context.TODO(), image)
+	data, err := cp.imagedata.FetchImageData(context.TODO(), image)
+	if err != nil {
+		return nil, err
+	}
+	return getValue(data.Data())
 }
 
 func isLikelyKubernetesObject(data any) bool {
@@ -101,7 +89,7 @@ func isLikelyKubernetesObject(data any) bool {
 		return false
 	}
 
-	if m, ok := data.(map[string]interface{}); ok {
+	if m, ok := data.(map[string]any); ok {
 		_, hasAPIVersion := m["apiVersion"]
 		_, hasKind := m["kind"]
 		return hasAPIVersion && hasKind
@@ -130,10 +118,6 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	}
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
-}
-
-func (cp *contextProvider) ParseImageReference(image string) (imagedataloader.ImageReference, error) {
-	return imagedataloader.ParseImageReference(image)
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {

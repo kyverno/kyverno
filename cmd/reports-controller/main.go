@@ -83,6 +83,7 @@ func createReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -103,6 +104,7 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					policiesV1alpha1.ValidatingPolicies(),
+					policiesV1alpha1.ImageValidatingPolicies(),
 					vapInformer,
 				),
 				aggregationWorkers,
@@ -117,6 +119,7 @@ func createReportControllers(
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
 				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1alpha1.ImageValidatingPolicies(),
 				policiesV1alpha1.CELPolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,

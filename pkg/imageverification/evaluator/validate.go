@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -35,9 +34,10 @@ type ImageVerifyEngineResponse struct {
 }
 
 type ImageVerifyPolicyResponse struct {
-	Policy  *policiesv1alpha1.ImageVerificationPolicy
-	Actions sets.Set[admissionregistrationv1.ValidationAction]
-	Result  engineapi.RuleResponse
+	Policy     *policiesv1alpha1.ImageValidatingPolicy
+	Exceptions []*policiesv1alpha1.CELPolicyException
+	Actions    sets.Set[admissionregistrationv1.ValidationAction]
+	Result     engineapi.RuleResponse
 }
 
 func outcomeFromPolicyResponse(responses map[string]ImageVerifyPolicyResponse) map[string]ImageVerificationOutcome {
@@ -55,7 +55,7 @@ func outcomeFromPolicyResponse(responses map[string]ImageVerifyPolicyResponse) m
 	return outcomes
 }
 
-func MakeImageVerifyOutcomePatch(hasAnnotations bool, log logr.Logger, responses map[string]ImageVerifyPolicyResponse) ([]jsonpatch.JsonPatchOperation, error) {
+func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]ImageVerifyPolicyResponse) ([]jsonpatch.JsonPatchOperation, error) {
 	patches := make([]jsonpatch.JsonPatchOperation, 0)
 	annotationKey := "/metadata/annotations/" + strings.ReplaceAll(kyverno.AnnotationImageVerifyOutcomes, "/", "~1")
 	if !hasAnnotations {
@@ -64,7 +64,7 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, log logr.Logger, responses
 			Path:      "/metadata/annotations",
 			Value:     map[string]string{},
 		}
-		log.V(4).Info("adding annotation patch", "patch", patch)
+		logger.V(4).Info("adding annotation patch", "patch", patch)
 		patches = append(patches, patch)
 	}
 
@@ -80,7 +80,7 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, log logr.Logger, responses
 		Value:     string(data),
 	}
 
-	log.V(4).Info("adding image verification patch", "patch", patch)
+	logger.V(4).Info("adding image verification patch", "patch", patch)
 	patches = append(patches, patch)
 	return patches, nil
 }

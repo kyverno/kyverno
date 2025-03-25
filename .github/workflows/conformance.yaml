@@ -54,7 +54,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -83,7 +83,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make build-cli
       - name: upload images archive
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: kubectl-kyverno
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
@@ -549,6 +549,26 @@ jobs:
           tests-path: validating-admission-policy-reports
           upgrade-scenario: ${{ matrix.upgrade }}
 
+  image-validation-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: imageverificationpolicies
+          upgrade-scenario: ${{ matrix.upgrade }}
+
   validating-policies:
     runs-on: ubuntu-latest
     permissions:
@@ -717,7 +737,7 @@ jobs:
           kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -790,7 +810,7 @@ jobs:
         with:
           verify: true
       - name: Download kyverno CLI archive
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: kubectl-kyverno
       - name: Install Kyverno CLI
@@ -808,7 +828,7 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -868,7 +888,7 @@ jobs:
           set -e
           make kind-create-cluster
       - name: Download kyverno images archive
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -912,7 +932,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # install tools
       - name: Download kyverno CLI archive
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: kubectl-kyverno
       - name: Install Cosign
@@ -984,7 +1004,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -1048,7 +1068,7 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -1106,6 +1126,7 @@ jobs:
       - validating-policies
       - verify-manifests
       - verifyImages
+      - image-validation-policies
       - webhook-configurations
       - webhooks
       - custom-sigstore
@@ -1145,6 +1166,7 @@ jobs:
       - validating-policies
       - verify-manifests
       - verifyImages
+      - image-validation-policies
       - webhook-configurations
       - webhooks
       - custom-sigstore

@@ -369,6 +369,35 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     
     
       <tr>
+        <td><code>jsonPayload</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>JSONPayload is the JSON payload to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>targetResources</code>
           
           <span style="color:blue;"> *</span>
@@ -565,7 +594,36 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
         <td>
           
 
-          <p>Policy Exceptions are the policy exceptions to be used in the test</p>
+          <p>PolicyExceptions are the policy exceptions to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context file containing context data for CEL policies</p>
 
 
           
@@ -2393,7 +2451,35 @@ It's required in case policy is a kyverno policy.</p>
           
 
           <p>IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
-It's required in case policy is a validating admission policy.</p>
+It's required in case the policy is a validating admission policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>isValidatingPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IsValidatingPolicy indicates if the policy is a validating policy.
+It's required in case the policy is a validating policy.</p>
 
 
           

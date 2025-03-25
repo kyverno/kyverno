@@ -53,7 +53,7 @@ runs:
         config: ${{ inputs.kind-config }}
     # deploy kyverno
     - name: Download kyverno images archive
-      uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+      uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
       with:
         name: kyverno.tar
     - name: Load kyverno images archive in kind cluster

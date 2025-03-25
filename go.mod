@@ -37,35 +37,35 @@ require (
 	github.com/notaryproject/notation-core-go v1.2.0
 	github.com/notaryproject/notation-go v1.3.1
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.36.2
+	github.com/onsi/gomega v1.36.3
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.21.1
 	github.com/robfig/cron v1.2.0
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/sigstore/cosign/v2 v2.4.1
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
 	github.com/sigstore/rekor v1.3.9
 	github.com/sigstore/sigstore v1.9.1
 	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.1
-	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.0
+	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.1
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.9.1
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.9.1
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0
-	go.opentelemetry.io/otel v1.34.0
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.34.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0
-	go.opentelemetry.io/otel/exporters/prometheus v0.56.0
-	go.opentelemetry.io/otel/metric v1.34.0
-	go.opentelemetry.io/otel/sdk v1.34.0
-	go.opentelemetry.io/otel/sdk/metric v1.34.0
-	go.opentelemetry.io/otel/trace v1.34.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0
+	go.opentelemetry.io/otel v1.35.0
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.35.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.35.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.35.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.57.0
+	go.opentelemetry.io/otel/metric v1.35.0
+	go.opentelemetry.io/otel/sdk v1.35.0
+	go.opentelemetry.io/otel/sdk/metric v1.35.0
+	go.opentelemetry.io/otel/trace v1.35.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/multierr v1.11.0
 	golang.org/x/crypto v0.36.0
@@ -75,14 +75,14 @@ require (
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.32.2
-	k8s.io/apiextensions-apiserver v0.32.2
-	k8s.io/apimachinery v0.32.2
-	k8s.io/apiserver v0.32.2
-	k8s.io/cli-runtime v0.32.2
-	k8s.io/client-go v0.32.2
+	k8s.io/api v0.32.3
+	k8s.io/apiextensions-apiserver v0.32.3
+	k8s.io/apimachinery v0.32.3
+	k8s.io/apiserver v0.32.3
+	k8s.io/cli-runtime v0.32.3
+	k8s.io/client-go v0.32.3
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kube-aggregator v0.32.2
+	k8s.io/kube-aggregator v0.32.3
 	k8s.io/pod-security-admission v0.31.0
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/controller-runtime v0.20.3
@@ -219,8 +219,8 @@ require (
 	github.com/go-piv/piv-go v1.11.0 // indirect
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -239,7 +239,7 @@ require (
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c99 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -362,7 +362,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
 	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sync v0.12.0
 	golang.org/x/sys v0.31.0 // indirect
@@ -378,13 +378,13 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/component-base v0.32.2 // indirect
+	k8s.io/component-base v0.32.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7
-	k8s.io/kubectl v0.32.2 // indirect
+	k8s.io/kubectl v0.32.3 // indirect
 	oras.land/oras-go/v2 v2.5.0 // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.3 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 )
 
-replace k8s.io/pod-security-admission v0.31.0 => github.com/kyverno/pod-security-admission v0.0.0-20240715131510-7fb54a8d376d
+replace k8s.io/pod-security-admission v0.31.0 => github.com/kyverno/pod-security-admission v0.0.0-20250314164903-c9a58987cebb
