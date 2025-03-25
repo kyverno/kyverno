@@ -1,0 +1,30 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: deny-commands-in-exec-probe
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: deny-commands-in-exec-probe
+  resources:
+  - badpod01
+  - badpod02
+  - badpod03
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: deny-commands-in-exec-probe
+  resources:
+  - goodpod02
+  - goodpod03
+  result: pass
+- isValidatingPolicy: true
+  kind: Pod
+  policy: deny-commands-in-exec-probe
+  resources:
+  - goodpod01
+  result: skip
