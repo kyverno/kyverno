@@ -39,7 +39,7 @@ var PolicyExceptionsResource = v1alpha1.SchemeGroupVersion.WithResource("PolicyE
 
 var PolicyExceptionsKind = v1alpha1.SchemeGroupVersion.WithKind("PolicyException")
 
-// Get takes name of the PolicyException, and returns the corresponding PolicyException object, and an error if there is any.
+// Get takes name of the policyException, and returns the corresponding policyException object, and an error if there is any.
 func (c *FakePolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyException, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(PolicyExceptionsResource, c.ns, name), &v1alpha1.PolicyException{})

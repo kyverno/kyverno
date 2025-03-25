@@ -63,7 +63,7 @@ func newPolicyExceptions(c *PoliciesV1alpha1Client, namespace string) *policyExc
 	}
 }
 
-// Get takes name of the policyException, and returns the corresponding PolicyException object, and an error if there is any.
+// Get takes name of the policyException, and returns the corresponding policyException object, and an error if there is any.
 func (c *policyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyException, err error) {
 	result = &v1alpha1.PolicyException{}
 	err = c.client.Get().
