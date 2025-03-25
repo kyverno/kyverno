@@ -819,6 +819,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
+          version: v0.27.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
@@ -941,6 +942,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
+          version: v0.27.0
           node_image: kindest/node:v1.30.0
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
@@ -996,6 +998,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
+          version: v0.27.0
           node_image: kindest/node:${{ matrix.k8s-version.version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
@@ -1059,6 +1062,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
+          version: v0.27.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
