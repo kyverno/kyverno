@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+  namespace: default
+spec:
+  serviceAccountName: "invalid-sa"
+  containers:
+  - name: main
+    image: "unauthorized-registry/myapp:latest"

@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: imageverification-policy
+status:
+  conditionStatus:
+    conditions:
+    - message: Webhook configured.
+      reason: Succeeded
+      status: "True"
+      type: WebhookConfigured
+    - message: Policy is ready for reporting.
+      reason: Succeeded
+      status: "True"
+      type: RBACPermissionsGranted
+    message: ""
+    ready: true

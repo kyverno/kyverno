@@ -1,0 +1,26 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: image-verification-custom-lib
+spec:
+  steps:
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create bad pod
+    try:
+    - create:
+        file: bad-pod.yaml
+        expect:
+        - check:
+            ($error): >-
+              admission webhook "imageverify.validate.kyverno.svc" denied the request: Policy imageverification-policy failed: either container image not from allowed registry or service account is not valid
+  - name: create good pod
+    try:
+    - create:
+        file: good-pod.yaml
+    - assert:
+        file: good-pod.yaml

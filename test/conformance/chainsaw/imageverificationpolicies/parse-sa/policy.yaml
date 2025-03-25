@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: imageverification-policy
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: verify-image
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Container image must be pulled from allowed registries"
+      pattern:
+        spec:
+          containers:
+          - image: "allowed-registry/*"
+  - name: verify-serviceaccount
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Service account name is not valid"
+      anyPattern:
+      - "{{ parse_service_account_string(request.object.spec.serviceAccountName) != 'invalid' }}"
