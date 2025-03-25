@@ -682,8 +682,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
-  resources = test.ProcessResources(resources)
-  
+	resources = test.ProcessResources(resources)
 	var jsonPayloads []*unstructured.Unstructured
 	if len(c.JSONPaths) > 0 {
 		for _, path := range c.JSONPaths {
@@ -696,7 +695,6 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 		}
 	}
 	return resources, jsonPayloads, nil
-
 }
 
 func (c *ApplyCommandConfig) loadPolicies() (
