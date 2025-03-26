@@ -53,6 +53,7 @@ type PolicyProcessor struct {
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
+	IgnoreSkippedExitCode     bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
 }
@@ -214,7 +215,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			p.Rc.addGenerateResponse(generateResponse)
 		}
 	}
-	p.Rc.addEngineResponses(p.AuditWarn, responses...)
+	p.Rc.addEngineResponses(p.IgnoreSkippedExitCode, p.AuditWarn, responses...)
 	return responses, nil
 }
 

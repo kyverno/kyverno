@@ -70,6 +70,7 @@ type ApplyCommandConfig struct {
 	TargetResourcePaths   []string
 	GitBranch             string
 	warnExitCode          int
+	ignoreSkippedExitCode bool
 	warnNoPassed          bool
 	Exception             []string
 	ContinueOnFail        bool
@@ -159,6 +160,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&applyCommandConfig.Context, "context", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
+	cmd.Flags().BoolVar(&applyCommandConfig.ignoreSkippedExitCode, "ignore-skipped-exit-code", false, "Ignore skipped policies when determining the exit code")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
@@ -424,24 +426,25 @@ func (c *ApplyCommandConfig) applyPolicies(
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
-			Store:                store,
-			Policies:             validPolicies,
-			Resource:             *resource,
-			PolicyExceptions:     exceptions,
-			MutateLogPath:        c.MutateLogPath,
-			MutateLogPathIsDir:   mutateLogPathIsDir,
-			Variables:            vars,
-			UserInfo:             userInfo,
-			PolicyReport:         c.PolicyReport,
-			NamespaceSelectorMap: vars.NamespaceSelectors(),
-			Stdin:                c.Stdin,
-			Rc:                   &rc,
-			PrintPatchResource:   true,
-			Cluster:              c.Cluster,
-			Client:               dClient,
-			AuditWarn:            c.AuditWarn,
-			Subresources:         vars.Subresources(),
-			Out:                  out,
+			Store:                 store,
+			Policies:              validPolicies,
+			Resource:              *resource,
+			PolicyExceptions:      exceptions,
+			MutateLogPath:         c.MutateLogPath,
+			MutateLogPathIsDir:    mutateLogPathIsDir,
+			Variables:             vars,
+			UserInfo:              userInfo,
+			PolicyReport:          c.PolicyReport,
+			NamespaceSelectorMap:  vars.NamespaceSelectors(),
+			Stdin:                 c.Stdin,
+			Rc:                    &rc,
+			PrintPatchResource:    true,
+			Cluster:               c.Cluster,
+			Client:                dClient,
+			AuditWarn:             c.AuditWarn,
+			IgnoreSkippedExitCode: c.ignoreSkippedExitCode,
+			Subresources:          vars.Subresources(),
+			Out:                   out,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
