@@ -401,6 +401,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 			Bindings:             vapBindings,
 			Resource:             resource,
 			NamespaceSelectorMap: namespaceSelectorMap,
+			PolicyReport:         c.PolicyReport,
 			Rc:                   rc,
 			Client:               dClient,
 		}
