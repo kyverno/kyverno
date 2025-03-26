@@ -18,7 +18,7 @@ spec:
   validations:
     - expression: >-
         variables.dcount != 0
-      message: main-deployment already exists
+      messageExpression: "'cannot create new deployment as main-deployment already exists, variables.dcount: ' + string(variables.dcount)"
   attestors:
     - name: notary
       notary:
