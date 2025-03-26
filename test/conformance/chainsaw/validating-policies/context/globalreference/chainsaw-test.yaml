@@ -26,7 +26,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: cpol-apicall-correct
+          value: vpol-apicall-correct
   - try:
     - create:
         file: new-deployment.yaml
