@@ -71,8 +71,8 @@ rules:
   - apiGroups:
       - policies.kyverno.io
     resources:
-      - celpolicyexceptions
-      - celpolicyexceptions/status
+      - policyexceptions
+      - policyexceptions/status
     verbs:
       - get
       - list
