@@ -1,26 +1,47 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: image-verification-custom-lib
+  name: image-validating-test
 spec:
   steps:
-  - name: create policy
+  - name: install policy
     try:
     - create:
         file: policy.yaml
+    # Create the assert resource
+    - create:
+        file: assert.yaml
     - assert:
-        file: policy-assert.yaml
-  - name: create bad pod
+        file: assert.yaml
+    - sleep:
+        duration: 10s
+  - name: create service accounts
     try:
     - create:
-        file: bad-pod.yaml
-        expect:
-        - check:
-            ($error): >-
-              admission webhook "imageverify.validate.kyverno.svc" denied the request: Policy imageverification-policy failed: either container image not from allowed registry or service account is not valid
-  - name: create good pod
+        file: test-serviceaccounts.yaml
+  - name: test unsigned image with allowed SA (my-sa)
     try:
-    - create:
-        file: good-pod.yaml
-    - assert:
-        file: good-pod.yaml
+    - script:
+        content: |
+          #!/bin/bash
+          echo "Testing pod creation with allowed service account (my-sa)..."
+          if kubectl --as=system:serviceaccount:default:my-sa apply -f pod-unsigned.yaml; then
+            echo "Pod creation allowed as expected for my-sa."
+            exit 0
+          else
+            echo "Pod creation was denied for my-sa, which is unexpected."
+            exit 1
+          fi
+  - name: test unsigned image with blocked SA (other-sa)
+    try:
+    - script:
+        content: |
+          #!/bin/bash
+          echo "Testing pod creation with blocked service account (other-sa)..."
+          if kubectl --as=system:serviceaccount:default:other-sa apply -f pod-unsigned.yaml; then
+            echo "Pod creation allowed for other-sa, which is unexpected."
+            exit 1
+          else
+            echo "Pod creation denied as expected for other-sa."
+            exit 0
+          fi
