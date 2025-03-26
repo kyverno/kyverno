@@ -13,7 +13,6 @@ type ValidatingAdmissionPolicyProcessor struct {
 	Bindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	Resource             *unstructured.Unstructured
 	NamespaceSelectorMap map[string]map[string]string
-	PolicyReport         bool
 	Rc                   *ResultCounts
 	Client               dclient.Interface
 }
