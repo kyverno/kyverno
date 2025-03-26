@@ -2454,12 +2454,12 @@
     "VersionedResources": {
       "v1alpha1": [
         {
-          "name": "celpolicyexceptions",
-          "singularName": "celpolicyexception",
+          "name": "policyexceptions",
+          "singularName": "policyexception",
           "namespaced": true,
           "group": "policies.kyverno.io",
           "version": "v1alpha1",
-          "kind": "CELPolicyException",
+          "kind": "PolicyException",
           "verbs": [
             "delete",
             "deletecollection",

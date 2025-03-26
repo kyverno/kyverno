@@ -30,7 +30,7 @@ const (
 	VariablesKey       = "variables"
 )
 
-func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	switch policy.GetSpec().EvaluationMode() {
 	case policiesv1alpha1.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
@@ -39,7 +39,7 @@ func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, 
 	}
 }
 
-func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -104,7 +104,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	}, nil
 }
 
-func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {

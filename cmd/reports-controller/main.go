@@ -120,7 +120,7 @@ func createReportControllers(
 				kyvernoV1.ClusterPolicies(),
 				policiesV1alpha1.ValidatingPolicies(),
 				policiesV1alpha1.ImageValidatingPolicies(),
-				policiesV1alpha1.CELPolicyExceptions(),
+				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
