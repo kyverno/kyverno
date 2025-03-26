@@ -244,7 +244,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	var exceptions []*kyvernov2.PolicyException
-	var celexceptions []*policiesv1alpha1.CELPolicyException
+	var celexceptions []*policiesv1alpha1.PolicyException
 	if c.inlineExceptions {
 		exceptions = exception.SelectFrom(resources)
 	} else {
@@ -425,7 +425,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
-	exceptions []*policiesv1alpha1.CELPolicyException,
+	exceptions []*policiesv1alpha1.PolicyException,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
