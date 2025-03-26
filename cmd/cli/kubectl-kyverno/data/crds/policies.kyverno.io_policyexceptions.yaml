@@ -1,29 +1,23 @@
-{{- if .Values.groups.policies.celpolicyexceptions }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  labels:
-    {{- include "kyverno.crds.labels" . | nindent 4 }}
   annotations:
-    {{- with .Values.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    controller-gen.kubebuilder.io/version: v0.16.1
-  name: celpolicyexceptions.policies.kyverno.io
+    controller-gen.kubebuilder.io/version: (devel)
+  name: policyexceptions.policies.kyverno.io
 spec:
   group: policies.kyverno.io
   names:
-    kind: CELPolicyException
-    listKind: CELPolicyExceptionList
-    plural: celpolicyexceptions
-    singular: celpolicyexception
+    kind: PolicyException
+    listKind: PolicyExceptionList
+    plural: policyexceptions
+    singular: policyexception
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CELPolicyException declares resources to be excluded from specified
+        description: PolicyException declares resources to be excluded from specified
           policies.
         properties:
           apiVersion:
@@ -110,4 +104,3 @@ spec:
         type: object
     served: true
     storage: true
-{{- end }}

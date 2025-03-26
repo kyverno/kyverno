@@ -56,7 +56,7 @@ func Test_UnmarshalCELPolicyException(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				var exception *policiesv1alpha1.CELPolicyException
+				var exception *policiesv1alpha1.PolicyException
 				json.Unmarshal(test.raw, &exception)
 				if !reflect.DeepEqual(result, exception) {
 					t.Errorf("Expected %+v, got %+v", exception, result)
@@ -155,7 +155,7 @@ func TestGetCELPolicyExceptions(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			p1, p2, _ := GetCELPolicyExceptions(test.args.request)
-			var empty *policiesv1alpha1.CELPolicyException
+			var empty *policiesv1alpha1.PolicyException
 			expectedP1, err := UnmarshalCELPolicyException(test.args.request.Object.Raw)
 			if err != nil {
 				expectedP2 := empty
