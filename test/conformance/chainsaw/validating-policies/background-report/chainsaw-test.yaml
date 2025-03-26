@@ -1,0 +1,46 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: reporting-validating-test
+spec:
+  steps:
+  - name: install policy
+    try:
+    - create:
+        file: policy.yaml
+    - create:
+        file: assert:.yaml
+    - assert:
+        file: assert:.yaml
+    - sleep:
+        duration: 10s
+  - name: create service accounts
+    try:
+    - create:
+        file: test-serviceaccounts.yaml
+  - name: test pod without reporting label (should fail)
+    try:
+    - script:
+        content: |
+          #!/bin/sh
+              echo "Testing pod creation without reporting label..."
+              if kubectl apply -f bad-pod.yaml; then
+                echo "Pod creation succeeded as expected (violation will be reported in background)."
+                exit 0
+              else
+                echo "Pod creation failed unexpectedly."
+                exit 1
+              fi
+  - name: test pod with reporting label (should succeed)
+    try:
+    - script:
+        content: |
+          #!/bin/sh
+          echo "Testing pod creation with reporting label..."
+          if kubectl apply -f good-pod.yaml; then
+            echo "Pod creation succeeded as expected."
+            exit 0
+          else
+            echo "Pod creation failed unexpectedly."
+            exit 1
+          fi
