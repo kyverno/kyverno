@@ -49,7 +49,7 @@ type Scanner interface {
 		string,
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-		[]*policiesv1alpha1.CELPolicyException,
+		[]*policiesv1alpha1.PolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
 }
@@ -79,7 +79,7 @@ func (s *scanner) ScanResource(
 	subResource string,
 	ns *corev1.Namespace,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	exceptions []*policiesv1alpha1.CELPolicyException,
+	exceptions []*policiesv1alpha1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
 	var kpols, vpols, ivpols, vaps []engineapi.GenericPolicy
