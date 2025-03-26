@@ -10813,53 +10813,6 @@ uses variables that are only available in the admission review request (e.g. use
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.PolicyExceptionSpec">PolicyExceptionSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>)
-</p>
-<p>
-<p>PolicyExceptionSpec stores policy exception spec</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>policyRefs</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyRef">
-[]PolicyRef
-</a>
-</em>
-</td>
-<td>
-<p>PolicyRefs identifies the policies to which the exception is applied.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>matchConditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.MatchCondition
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1alpha1.CTLog">CTLog
 </h3>
 <p>
@@ -12581,6 +12534,53 @@ string
 (<code>string</code> alias)</p></h3>
 <p>
 </p>
+<h3 id="policies.kyverno.io/v1alpha1.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyRefs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyRef">
+[]PolicyRef
+</a>
+</em>
+</td>
+<td>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.PolicyRef">PolicyRef
 </h3>
 <p>
