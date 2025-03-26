@@ -11,20 +11,20 @@ import (
 func TestCELPolicyException_GetKind(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *CELPolicyException
+		policy *PolicyException
 		want   string
 	}{{
 		name:   "not set",
-		policy: &CELPolicyException{},
-		want:   "CELPolicyException",
+		policy: &PolicyException{},
+		want:   "PolicyException",
 	}, {
 		name: "not set",
-		policy: &CELPolicyException{
+		policy: &PolicyException{
 			TypeMeta: v1.TypeMeta{
 				Kind: "Foo",
 			},
 		},
-		want: "CELPolicyException",
+		want: "PolicyException",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -37,11 +37,11 @@ func TestCELPolicyException_GetKind(t *testing.T) {
 func TestCELPolicyExceptionSpec_Validate(t *testing.T) {
 	tests := []struct {
 		name     string
-		policy   *CELPolicyException
+		policy   *PolicyException
 		wantErrs field.ErrorList
 	}{{
 		name:   "no refs",
-		policy: &CELPolicyException{},
+		policy: &PolicyException{},
 		wantErrs: field.ErrorList{{
 			Type:     field.ErrorTypeInvalid,
 			Field:    "spec.policyRefs",
@@ -50,8 +50,8 @@ func TestCELPolicyExceptionSpec_Validate(t *testing.T) {
 		}},
 	}, {
 		name: "one ref",
-		policy: &CELPolicyException{
-			Spec: CELPolicyExceptionSpec{
+		policy: &PolicyException{
+			Spec: PolicyExceptionSpec{
 				PolicyRefs: []PolicyRef{{
 					Name: "foo",
 					Kind: "Foo",
@@ -61,8 +61,8 @@ func TestCELPolicyExceptionSpec_Validate(t *testing.T) {
 		wantErrs: nil,
 	}, {
 		name: "ref no kind",
-		policy: &CELPolicyException{
-			Spec: CELPolicyExceptionSpec{
+		policy: &PolicyException{
+			Spec: PolicyExceptionSpec{
 				PolicyRefs: []PolicyRef{{
 					Name: "foo",
 				}},
@@ -76,8 +76,8 @@ func TestCELPolicyExceptionSpec_Validate(t *testing.T) {
 		}},
 	}, {
 		name: "ref no name",
-		policy: &CELPolicyException{
-			Spec: CELPolicyExceptionSpec{
+		policy: &PolicyException{
+			Spec: PolicyExceptionSpec{
 				PolicyRefs: []PolicyRef{{
 					Kind: "Foo",
 				}},

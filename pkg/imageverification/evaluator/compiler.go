@@ -34,7 +34,7 @@ const (
 )
 
 type Compiler interface {
-	Compile(*policiesv1alpha1.ImageValidatingPolicy, []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
+	Compile(*policiesv1alpha1.ImageValidatingPolicy, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
@@ -51,7 +51,7 @@ type compiler struct {
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
