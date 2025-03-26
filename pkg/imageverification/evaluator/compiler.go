@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
+	ivpolvar "github.com/kyverno/kyverno/pkg/imageverification/variables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -73,6 +74,8 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		options = append(options, cel.Variable(NamespaceObjectKey, policy.NamespaceType.CelType()))
 		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 		options = append(options, cel.Variable(OldObjectKey, cel.DynType))
+		options = append(options, cel.Variable(policy.VariablesKey, policy.VariablesType))
+		options = append(options, cel.Variable(GlobalContextKey, globalcontext.ContextType))
 	} else {
 		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 	}
@@ -105,9 +108,19 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		return nil, append(allErrs, errs...)
 	}
 
+	variablesProvider := policy.NewVariablesProvider(base.CELTypeProvider())
+	variables := make(map[string]cel.Program, len(ivpolicy.Spec.Variables))
+	{
+		path := path.Child("variables")
+		errs := policy.CompileVariables(path, ivpolicy.Spec.Variables, variablesProvider, env, variables)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+	}
+
 	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Validations))
 	{
-		path := path.Child("verifications")
+		path := path.Child("validations")
 		for i, rule := range ivpolicy.Spec.Validations {
 			path := path.Index(i)
 			program, errs := policy.CompileValidation(path, rule, env)
@@ -140,9 +153,10 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		imageRules:      imageRules,
 		verifications:   verifications,
 		imageExtractors: imageExtractors,
-		attestorList:    variables.GetAttestors(ivpolicy.Spec.Attestors),
-		attestationList: variables.GetAttestations(ivpolicy.Spec.Attestations),
+		attestorList:    ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
+		attestationList: ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
 		creds:           ivpolicy.Spec.Credentials,
 		exceptions:      compiledExceptions,
+		variables:       variables,
 	}, nil
 }
