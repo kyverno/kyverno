@@ -7,11 +7,19 @@ spec:
   template: false
   steps:
   - name: create policy
-    try:
-    - create:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml
+    use:
+      template: ../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-deployment-labels
   - name: create deployment
     try:
     - create:
