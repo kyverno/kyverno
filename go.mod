@@ -44,11 +44,11 @@ require (
 	github.com/prometheus/client_golang v1.21.1
 	github.com/robfig/cron v1.2.0
 	github.com/rs/zerolog v1.34.0
-	github.com/sigstore/cosign/v2 v2.4.3
+	github.com/sigstore/cosign/v2 v2.4.1
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
 	github.com/sigstore/rekor v1.3.9
 	github.com/sigstore/sigstore v1.9.1
-	github.com/sigstore/sigstore-go v0.7.0
+	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.1
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.1
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.9.1
@@ -91,6 +91,13 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.19.0
 	sigs.k8s.io/release-utils v0.11.0
 	sigs.k8s.io/yaml v1.4.0
+)
+
+require (
+	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/go-piv/piv-go v1.11.0 // indirect
+	github.com/xanzy/go-gitlab v0.109.0 // indirect
+	go.step.sm/crypto v0.57.0 // indirect
 )
 
 require (
@@ -215,7 +222,6 @@ require (
 	github.com/go-openapi/strfmt v0.23.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
-	github.com/go-piv/piv-go/v2 v2.3.0 // indirect
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
@@ -349,7 +355,6 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/yashtewari/glob-intersection v0.2.0 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
-	gitlab.com/gitlab-org/api/client-go v0.123.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.17 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.17 // indirect
 	go.etcd.io/etcd/client/v3 v3.5.17 // indirect
