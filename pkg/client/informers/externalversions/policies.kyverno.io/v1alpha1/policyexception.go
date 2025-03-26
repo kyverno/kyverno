@@ -32,59 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// CELPolicyExceptionInformer provides access to a shared informer and lister for
-// CELPolicyExceptions.
-type CELPolicyExceptionInformer interface {
+// PolicyExceptionInformer provides access to a shared informer and lister for
+// PolicyExceptions.
+type PolicyExceptionInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.CELPolicyExceptionLister
+	Lister() v1alpha1.PolicyExceptionLister
 }
 
-type cELPolicyExceptionInformer struct {
+type policyExceptionInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewCELPolicyExceptionInformer constructs a new informer for CELPolicyException type.
+// NewPolicyExceptionInformer constructs a new informer for PolicyException type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewCELPolicyExceptionInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredCELPolicyExceptionInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewPolicyExceptionInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredPolicyExceptionInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredCELPolicyExceptionInformer constructs a new informer for CELPolicyException type.
+// NewFilteredPolicyExceptionInformer constructs a new informer for PolicyException type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredCELPolicyExceptionInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredPolicyExceptionInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().CELPolicyExceptions(namespace).List(context.TODO(), options)
+				return client.PoliciesV1alpha1().PolicyExceptions(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().CELPolicyExceptions(namespace).Watch(context.TODO(), options)
+				return client.PoliciesV1alpha1().PolicyExceptions(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&policieskyvernoiov1alpha1.CELPolicyException{},
+		&policieskyvernoiov1alpha1.PolicyException{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *cELPolicyExceptionInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredCELPolicyExceptionInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *policyExceptionInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredPolicyExceptionInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *cELPolicyExceptionInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policieskyvernoiov1alpha1.CELPolicyException{}, f.defaultInformer)
+func (f *policyExceptionInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&policieskyvernoiov1alpha1.PolicyException{}, f.defaultInformer)
 }
 
-func (f *cELPolicyExceptionInformer) Lister() v1alpha1.CELPolicyExceptionLister {
-	return v1alpha1.NewCELPolicyExceptionLister(f.Informer().GetIndexer())
+func (f *policyExceptionInformer) Lister() v1alpha1.PolicyExceptionLister {
+	return v1alpha1.NewPolicyExceptionLister(f.Informer().GetIndexer())
 }
