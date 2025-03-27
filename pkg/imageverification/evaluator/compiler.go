@@ -62,7 +62,6 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	declTypes = append(declTypes, imageverify.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(ResourceKey, resource.ContextType),
-		cel.Variable(GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
@@ -83,6 +82,15 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
+	variablesProvider := policy.NewVariablesProvider(base.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		// TODO: proper error handling
+		panic(err)
+	}
+
+	options = append(options, declOptions...)
 	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), imageverify.Lib(c.ictx, ivpolicy, c.lister), resource.Lib(), user.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
@@ -108,7 +116,6 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		return nil, append(allErrs, errs...)
 	}
 
-	variablesProvider := policy.NewVariablesProvider(base.CELTypeProvider())
 	variables := make(map[string]cel.Program, len(ivpolicy.Spec.Variables))
 	{
 		path := path.Child("variables")

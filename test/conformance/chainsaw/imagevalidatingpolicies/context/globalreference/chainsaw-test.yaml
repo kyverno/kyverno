@@ -25,4 +25,4 @@ spec:
         expect:
           - check:
               ($error): >-
-                admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy  ivpol-apicall-correct failed: main-deployment already exists
+                admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy  failed: cannot create new deployment as main-deployment already exists, variables.dcount: 0
