@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -171,7 +171,7 @@ func (e *ivengine) matchPolicy(policy CompiledImageVerificationPolicy, attr admi
 	return false, nil
 }
 
-func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageVerificationPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context resourcelib.ContextInterface) ([]eval.ImageVerifyPolicyResponse, []jsonpatch.JsonPatchOperation, error) {
+func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageVerificationPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context policy.ContextInterface) ([]eval.ImageVerifyPolicyResponse, []jsonpatch.JsonPatchOperation, error) {
 	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
 	filteredPolicies := make([]CompiledImageVerificationPolicy, 0)
 	if e.matcher != nil {
@@ -207,7 +207,7 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 		if p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions); errList != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 		} else {
-			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true)
+			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true, context)
 			if err != nil {
 				response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
 			} else if result != nil {
