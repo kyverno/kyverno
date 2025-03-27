@@ -3,6 +3,8 @@ kind: ValidatingPolicy
 metadata:
   name: check-deployment-labels
 spec:
+  validationActions:
+  - Audit
   matchConstraints:
     resourceRules:
     - apiGroups: [ apps ]
@@ -16,5 +18,5 @@ spec:
   validations:
   - expression: >-
       variables.environment == true
-    message: >-
-      Deployment labels must be env=prod
+    messageExpression: >-
+      'Deployment labels must be env=prod' + (has(object.metadata.labels) && 'env' in object.metadata.labels ? ' but found env=' + string(object.metadata.labels['env']) : ' but no env label is present')
