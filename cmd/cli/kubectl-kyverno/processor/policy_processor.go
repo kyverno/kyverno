@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -31,30 +32,33 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type PolicyProcessor struct {
-	Store                     *store.Store
-	Policies                  []kyvernov1.PolicyInterface
-	Resource                  unstructured.Unstructured
-	PolicyExceptions          []*kyvernov2.PolicyException
-	MutateLogPath             string
-	MutateLogPathIsDir        bool
-	Variables                 *variables.Variables
-	Cluster                   bool
-	UserInfo                  *kyvernov2.RequestInfo
-	PolicyReport              bool
-	NamespaceSelectorMap      map[string]map[string]string
-	Stdin                     bool
-	Rc                        *ResultCounts
-	PrintPatchResource        bool
-	RuleToCloneSourceResource map[string]string
-	Client                    dclient.Interface
-	AuditWarn                 bool
-	Subresources              []v1alpha1.Subresource
-	Out                       io.Writer
+	Store                             *store.Store
+	Policies                          []kyvernov1.PolicyInterface
+	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
+	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	Resource                          unstructured.Unstructured
+	PolicyExceptions                  []*kyvernov2.PolicyException
+	MutateLogPath                     string
+	MutateLogPathIsDir                bool
+	Variables                         *variables.Variables
+	Cluster                           bool
+	UserInfo                          *kyvernov2.RequestInfo
+	PolicyReport                      bool
+	NamespaceSelectorMap              map[string]map[string]string
+	Stdin                             bool
+	Rc                                *ResultCounts
+	PrintPatchResource                bool
+	RuleToCloneSourceResource         map[string]string
+	Client                            dclient.Interface
+	AuditWarn                         bool
+	Subresources                      []v1alpha1.Subresource
+	Out                               io.Writer
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -190,6 +194,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		validateResponse := eng.Validate(context.TODO(), policyContext)
 		responses = append(responses, validateResponse)
 		resource = validateResponse.PatchedResource
+	}
+	for _, policy := range p.ValidatingAdmissionPolicies {
+		policyData := admissionpolicy.NewPolicyData(policy)
+		for _, binding := range p.ValidatingAdmissionPolicyBindings {
+			if binding.Spec.PolicyName == policy.Name {
+				policyData.AddBinding(binding)
+			}
+		}
+		validateResponse, _ := admissionpolicy.Validate(policyData, resource, p.NamespaceSelectorMap, p.Client)
+		responses = append(responses, validateResponse)
+		// p.Rc.addValidatingAdmissionResponse(validateResponse)
 	}
 	// generate
 	for _, policy := range p.Policies {
