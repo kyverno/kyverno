@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,11 +19,11 @@ func Test_impl_parse_service_account_string(t *testing.T) {
 	}{{
 		name: "simple",
 		user: "system:serviceaccount:foo:bar",
-		want: ServiceAccount{Namesapce: "foo", Name: "bar"},
+		want: ServiceAccount{Namespace: "foo", Name: "bar"},
 	}, {
 		name: "with :",
 		user: "system:serviceaccount:foo:bar:baz",
-		want: ServiceAccount{Namesapce: "foo", Name: "bar:baz"},
+		want: ServiceAccount{Namespace: "foo", Name: "bar:baz"},
 	}, {
 		name: "not a service account",
 		user: "something-else:123",
@@ -45,6 +47,25 @@ func Test_impl_parse_service_account_string(t *testing.T) {
 			sa, err := utils.ConvertToNative[ServiceAccount](out)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, sa)
+		})
+	}
+}
+
+func Test_impl_parse_service_account_string_error(t *testing.T) {
+	tests := []struct {
+		name string
+		user ref.Val
+		want ref.Val
+	}{{
+		name: "bad arg",
+		user: types.Bool(false),
+		want: types.NewErr("type conversion error from bool to 'string'"),
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &impl{}
+			got := c.parse_service_account_string(tt.user)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	payload "github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
@@ -93,6 +94,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 
+	var json any
+	if testCase.Test.JSONPayload != "" {
+		// JSON payload
+		fmt.Fprintln(out, "  Loading JSON payload", "...")
+		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
+		json, err = payload.Load(jsonFullPath[0])
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
+		}
+	}
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
 	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
 	if err != nil {
@@ -247,7 +258,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Bindings:             results.VAPBindings,
 			Resource:             resource,
 			NamespaceSelectorMap: vars.NamespaceSelectors(),
-			PolicyReport:         true,
 			Rc:                   &resultCounts,
 		}
 		ers, err := processor.ApplyPolicyOnResource()
@@ -334,6 +344,25 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				}
 				engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
 				testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], engineResponse)
+			}
+		}
+
+		if json != nil {
+			eng = engine.NewEngine(provider, nil, nil)
+			request := engine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: json.(map[string]interface{})})
+			reps, err := eng.Handle(ctx, request)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+			}
+			for _, r := range reps.Policies {
+				engineResponse := engineapi.EngineResponse{
+					Resource: *reps.Resource,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], engineResponse)
 			}
 		}
 	}

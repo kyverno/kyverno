@@ -23,7 +23,5 @@ spec:
     try:
     - create:
         file: good-pod.yaml
-    - sleep:
-        duration: 10s
     - assert:
         file: good-pod.yaml

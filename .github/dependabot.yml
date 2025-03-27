@@ -4,6 +4,7 @@ updates:
     directories:
       - /
       - /hack/controller-gen/
+      - /hack/api-group-resources/
     schedule:
       interval: daily
     rebase-strategy: disabled
