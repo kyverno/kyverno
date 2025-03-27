@@ -1,7 +1,7 @@
 apiVersion: policies.kyverno.io/v1alpha1
-kind: ValidatingPolicy
+kind: ImageValidatingPolicy
 metadata:
-  name: vpol-apicall-correct
+  name: ivpol-resource-lookup-sample
 status:
   conditionStatus:
     conditions:
