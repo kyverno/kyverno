@@ -1,0 +1,59 @@
+suite: test webhooks exclude namespaces
+templates:
+  - templates/config/configmap.yaml
+tests:
+  - it: should exclude both kyverno and kube-system namespaces by default
+    set:
+      config:
+        excludeKyvernoNamespace: true
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - containsDocument:
+          apiVersion: v1
+          kind: ConfigMap
+      - contains:
+          path: data.webhooks
+          pattern: '{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno","kube-system"]}]}}'
+          
+  - it: should exclude kyverno namespace but use custom webhooks configs
+    set:
+      config:
+        excludeKyvernoNamespace: true
+        webhooks:
+          namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: NotIn
+                values:
+                  - custom-namespace
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - containsDocument:
+          apiVersion: v1
+          kind: ConfigMap
+      - contains:
+          path: data.webhooks
+          pattern: '{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["custom-namespace","kyverno"]}]}}'
+          
+  - it: should use custom webhooks without modification when excludeKyvernoNamespace is false
+    set:
+      config:
+        excludeKyvernoNamespace: false
+        webhooks:
+          namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: NotIn
+                values:
+                  - custom-namespace
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - containsDocument:
+          apiVersion: v1
+          kind: ConfigMap
+      - contains:
+          path: data.webhooks
+          pattern: '{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["custom-namespace"]}]}}' 
