@@ -53,6 +53,7 @@ type PolicyProcessor struct {
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
 	Resource                          unstructured.Unstructured
+	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
 	CELExceptions                     []*policiesv1alpha1.PolicyException
 	MutateLogPath                     string
@@ -227,14 +228,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return nil, err
 		}
-		eng := celengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
-		var restMapper meta.RESTMapper
 		var contextProvider celpolicy.Context
-		apiGroupResources, err := data.APIGroupResources()
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 		fakeContextProvider := celpolicy.NewFakeContextProvider()
 		// if testCase.Test.Context != "" {
 		// 	ctx, err := clicontext.Load(nil, testCase.Test.Context)
@@ -253,69 +247,78 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		// 	}
 		// }
 		contextProvider = fakeContextProvider
-		// get gvk from resource
-		gvk := resource.GroupVersionKind()
-		// map gvk to gvr
-		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
-		}
-		gvr := mapping.Resource
-		var user authenticationv1.UserInfo
-		if p.UserInfo != nil {
-			user = p.UserInfo.AdmissionUserInfo
-		}
-		// create engine request
-		request := celengine.Request(
-			contextProvider,
-			gvk,
-			gvr,
-			// TODO: how to manage subresource ?
-			"",
-			resource.GetName(),
-			resource.GetNamespace(),
-			// TODO: how to manage other operations ?
-			admissionv1.Create,
-			user,
-			&resource,
-			nil,
-			false,
-			nil,
-		)
-		reps, err := eng.Handle(ctx, request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
-		}
-		for _, r := range reps.Policies {
-			response := engineapi.EngineResponse{
-				Resource: *reps.Resource,
-				PolicyResponse: engineapi.PolicyResponse{
-					Rules: r.Rules,
-				},
+		if p.Resource.Object != nil {
+			eng := celengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
+			var restMapper meta.RESTMapper
+			apiGroupResources, err := data.APIGroupResources()
+			if err != nil {
+				return nil, err
 			}
-			response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-			responses = append(responses, response)
+			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+
+			// get gvk from resource
+			gvk := resource.GroupVersionKind()
+			// map gvk to gvr
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			}
+			gvr := mapping.Resource
+			var user authenticationv1.UserInfo
+			if p.UserInfo != nil {
+				user = p.UserInfo.AdmissionUserInfo
+			}
+			// create engine request
+			request := celengine.Request(
+				contextProvider,
+				gvk,
+				gvr,
+				// TODO: how to manage subresource ?
+				"",
+				resource.GetName(),
+				resource.GetNamespace(),
+				// TODO: how to manage other operations ?
+				admissionv1.Create,
+				user,
+				&resource,
+				nil,
+				false,
+				nil,
+			)
+			reps, err := eng.Handle(ctx, request)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+			}
+			for _, r := range reps.Policies {
+				response := engineapi.EngineResponse{
+					Resource: *reps.Resource,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				responses = append(responses, response)
+			}
+		}
+		if p.JsonPayload.Object != nil {
+			eng := celengine.NewEngine(provider, nil, nil)
+			request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
+			reps, err := eng.Handle(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+			for _, r := range reps.Policies {
+				response := engineapi.EngineResponse{
+					Resource: *reps.Resource,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				responses = append(responses, response)
+			}
 		}
 	}
-
-	// if json != nil {
-	// 	eng = engine.NewEngine(provider, nil, nil)
-	// 	request := engine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: json.(map[string]interface{})})
-	// 	reps, err := eng.Handle(ctx, request)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
-	// 	}
-	// 	for _, r := range reps.Policies {
-	// 		engineResponse := engineapi.EngineResponse{
-	// 			Resource: *reps.Resource,
-	// 			PolicyResponse: engineapi.PolicyResponse{
-	// 				Rules: r.Rules,
-	// 			},
-	// 		}
-	// 		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-	// 		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], engineResponse)
-	// 	}
-	// }
 	// generate
 	for _, policy := range p.Policies {
 		if policy.GetSpec().HasGenerate() {

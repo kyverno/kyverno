@@ -277,6 +277,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		vapBindings,
 		vps,
 		resources,
+		jsonPayloads,
 		exceptions,
 		celexceptions,
 		&skippedInvalidPolicies,
@@ -314,6 +315,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	vpols []policiesv1alpha1.ValidatingPolicy,
 	resources []*unstructured.Unstructured,
+	jsonPayloads []*unstructured.Unstructured,
 	exceptions []*kyvernov2.PolicyException,
 	celExceptions []*policiesv1alpha1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
@@ -352,6 +354,41 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
 			Resource:                          *resource,
+			PolicyExceptions:                  exceptions,
+			CELExceptions:                     celExceptions,
+			MutateLogPath:                     c.MutateLogPath,
+			MutateLogPathIsDir:                mutateLogPathIsDir,
+			Variables:                         vars,
+			UserInfo:                          userInfo,
+			PolicyReport:                      c.PolicyReport,
+			NamespaceSelectorMap:              vars.NamespaceSelectors(),
+			Stdin:                             c.Stdin,
+			Rc:                                &rc,
+			PrintPatchResource:                true,
+			Cluster:                           c.Cluster,
+			Client:                            dClient,
+			AuditWarn:                         c.AuditWarn,
+			Subresources:                      vars.Subresources(),
+			Out:                               out,
+		}
+		ers, err := processor.ApplyPoliciesOnResource()
+		if err != nil {
+			if c.ContinueOnFail {
+				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
+				continue
+			}
+			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
+		}
+		responses = append(responses, ers...)
+	}
+	for _, resource := range jsonPayloads {
+		processor := processor.PolicyProcessor{
+			Store:                             store,
+			Policies:                          validPolicies,
+			ValidatingAdmissionPolicies:       vaps,
+			ValidatingAdmissionPolicyBindings: vapBindings,
+			ValidatingPolicies:                vpols,
+			JsonPayload:                       *resource,
 			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,
