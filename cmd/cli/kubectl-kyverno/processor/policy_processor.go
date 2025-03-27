@@ -195,6 +195,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, validateResponse)
 		resource = validateResponse.PatchedResource
 	}
+	// validating admission policies
+	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	for _, policy := range p.ValidatingAdmissionPolicies {
 		policyData := admissionpolicy.NewPolicyData(policy)
 		for _, binding := range p.ValidatingAdmissionPolicyBindings {
@@ -203,8 +205,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 		}
 		validateResponse, _ := admissionpolicy.Validate(policyData, resource, p.NamespaceSelectorMap, p.Client)
-		responses = append(responses, validateResponse)
-		// p.Rc.addValidatingAdmissionResponse(validateResponse)
+		vapResponses = append(vapResponses, validateResponse)
+		p.Rc.addValidatingAdmissionResponse(validateResponse)
 	}
 	// generate
 	for _, policy := range p.Policies {
@@ -230,6 +232,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	p.Rc.addEngineResponses(p.AuditWarn, responses...)
+	responses = append(responses, vapResponses...)
 	return responses, nil
 }
 
