@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-good-deployment-1
+  labels:
+    prod: "true"
+    app: good-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: good-nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: good-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-verify-image:signed
+        securityContext:
+          allowPrivilegeEscalation: false

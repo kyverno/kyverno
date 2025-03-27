@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: exception-test
+spec:
+  steps:
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 3s
+    - assert:
+        file: exception.yaml
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create bad deployment
+    try:
+    - create:
+        file: bad-deployment.yaml
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "ivpol.validate.kyverno.svc-ignore-finegrained-ivpol-sample-autogen-exceptions" denied the request: Policy  failed: failed to verify image with notary cert
+  - name: create good deployment
+    try:
+    - create:
+        file: good-deployment.yaml
+    - assert:
+        file: good-deployment.yaml
+  - name: create skipped deployment
+    try:
+    - create:
+        file: skipped-deployment.yaml
+    - assert:
+        file: skipped-deployment.yaml
