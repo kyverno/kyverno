@@ -2,7 +2,6 @@ package policy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -62,15 +61,6 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 			return nil, errors.New("failed to convert to Unstructured")
 		}
 	} else {
-		raw, err := json.Marshal(data)
-		if err != nil {
-			return nil, err
-		}
-		apiData := map[string]any{}
-		err = json.Unmarshal(raw, &apiData)
-		if err != nil {
-			return nil, err
-		}
 		return data, nil
 	}
 }
