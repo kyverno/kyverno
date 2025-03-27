@@ -19,11 +19,11 @@ func Test_impl_parse_service_account_string(t *testing.T) {
 	}{{
 		name: "simple",
 		user: "system:serviceaccount:foo:bar",
-		want: ServiceAccount{Namesapce: "foo", Name: "bar"},
+		want: ServiceAccount{Namespace: "foo", Name: "bar"},
 	}, {
 		name: "with :",
 		user: "system:serviceaccount:foo:bar:baz",
-		want: ServiceAccount{Namesapce: "foo", Name: "bar:baz"},
+		want: ServiceAccount{Namespace: "foo", Name: "bar:baz"},
 	}, {
 		name: "not a service account",
 		user: "something-else:123",

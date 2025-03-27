@@ -39,6 +39,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -243,7 +244,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	var exceptions []*kyvernov2.PolicyException
-	var celexceptions []*policiesv1alpha1.CELPolicyException
+	var celexceptions []*policiesv1alpha1.PolicyException
 	if c.inlineExceptions {
 		exceptions = exception.SelectFrom(resources)
 	} else {
@@ -296,7 +297,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageVerificationPolicies(ivps, resources1, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageVerificationPolicies(ivps, jsonPayloads, resources1, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -405,7 +406,6 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 			Bindings:             vapBindings,
 			Resource:             resource,
 			NamespaceSelectorMap: namespaceSelectorMap,
-			PolicyReport:         c.PolicyReport,
 			Rc:                   rc,
 			Client:               dClient,
 		}
@@ -425,7 +425,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []policiesv1alpha1.ValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
-	exceptions []*policiesv1alpha1.CELPolicyException,
+	exceptions []*policiesv1alpha1.PolicyException,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
@@ -560,7 +560,8 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 }
 
 func (c *ApplyCommandConfig) applyImageVerificationPolicies(
-	ivps []policiesv1alpha1.ImageVerificationPolicy,
+	ivps []policiesv1alpha1.ImageValidatingPolicy,
+	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
@@ -678,6 +679,45 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 		}
 	}
 
+	ivpols := make([]*eval.CompiledImageVerificationPolicy, 0)
+	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
+	for i := range ivps {
+		p := ivps[i]
+		pMap[p.GetName()] = &p
+		ivpols = append(ivpols, &eval.CompiledImageVerificationPolicy{Policy: &p})
+	}
+	for _, json := range jsonPayloads {
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
+		}
+		resp := engineapi.EngineResponse{
+			Resource:       *json,
+			PolicyResponse: engineapi.PolicyResponse{},
+		}
+		for p, rslt := range result {
+			if rslt.Error != nil {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil),
+				}
+			} else if rslt.Result {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil),
+				}
+			} else {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
+				}
+			}
+			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(pMap[p]))
+			rc.AddValidatingPolicyResponse(resp)
+			responses = append(responses, resp)
+		}
+	}
 	return responses, nil
 }
 
@@ -706,7 +746,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	[]policiesv1alpha1.ValidatingPolicy,
-	[]policiesv1alpha1.ImageVerificationPolicy,
+	[]policiesv1alpha1.ImageValidatingPolicy,
 	error,
 ) {
 	// load policies
@@ -714,7 +754,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	var vps []policiesv1alpha1.ValidatingPolicy
-	var ivps []policiesv1alpha1.ImageVerificationPolicy
+	var ivps []policiesv1alpha1.ImageValidatingPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {

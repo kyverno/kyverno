@@ -74,7 +74,7 @@ const (
 	ImageVerificationPolicyServicePath = "/ivpol"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
-	// CELExceptionValidatingWebhookServicePath is the path for CELPolicyException validation webhook(used to validate CELPolicyException resource)
+	// CELExceptionValidatingWebhookServicePath is the path for CEL PolicyException validation webhook(used to validate CEL PolicyException resource)
 	CELExceptionValidatingWebhookServicePath = "/celexception/validate"
 	// GlobalContextValidatingWebhookServicePath is the path for global context validation webhook(used to validate global context entries)
 	GlobalContextValidatingWebhookServicePath = "/globalcontextvalidate"

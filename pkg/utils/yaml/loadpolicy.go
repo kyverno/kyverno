@@ -19,7 +19,7 @@ func GetPolicy(bytes []byte) (
 	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	validatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	validatingPolicies []policiesv1alpha1.ValidatingPolicy,
-	imageVerificationPolicies []policiesv1alpha1.ImageVerificationPolicy,
+	imageVerificationPolicies []policiesv1alpha1.ImageValidatingPolicy,
 	err error,
 ) {
 	documents, err := extyaml.SplitDocuments(bytes)
@@ -92,7 +92,7 @@ func parse(obj unstructured.Unstructured) (
 	*admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	kyvernov1.PolicyInterface,
 	*policiesv1alpha1.ValidatingPolicy,
-	*policiesv1alpha1.ImageVerificationPolicy,
+	*policiesv1alpha1.ImageValidatingPolicy,
 	error,
 ) {
 	switch obj.GetKind() {
@@ -111,7 +111,7 @@ func parse(obj unstructured.Unstructured) (
 	case "ValidatingPolicy":
 		out, err := parseValidatingPolicy(obj)
 		return nil, nil, nil, out, nil, err
-	case "ImageVerificationPolicy":
+	case "ImageValidatingPolicy":
 		out, err := parseImageVerificationPolicy(obj)
 		return nil, nil, nil, nil, out, err
 	}
@@ -182,8 +182,8 @@ func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.Val
 	return &out, nil
 }
 
-func parseImageVerificationPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ImageVerificationPolicy, error) {
-	var out policiesv1alpha1.ImageVerificationPolicy
+func parseImageVerificationPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ImageValidatingPolicy, error) {
+	var out policiesv1alpha1.ImageValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
 		return nil, fmt.Errorf("failed to decode policy: %v", err)
 	}

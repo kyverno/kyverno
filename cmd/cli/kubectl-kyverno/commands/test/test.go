@@ -258,7 +258,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Bindings:             results.VAPBindings,
 			Resource:             resource,
 			NamespaceSelectorMap: vars.NamespaceSelectors(),
-			PolicyReport:         true,
 			Rc:                   &resultCounts,
 		}
 		ers, err := processor.ApplyPolicyOnResource()

@@ -6,5 +6,5 @@ var ServiceAccountType = types.NewObjectType("user.ServiceAccount")
 
 type ServiceAccount struct {
 	Name      string `json:"name,omitempty"`
-	Namesapce string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }

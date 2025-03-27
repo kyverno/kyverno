@@ -89,8 +89,8 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 
 		return c.updateVpolStatus(ctx, vpol)
 	}
-	if polType == webhook.ImageVerificationPolicy {
-		ivpol, err := c.client.PoliciesV1alpha1().ImageVerificationPolicies().Get(ctx, polName, metav1.GetOptions{})
+	if polType == webhook.ImageValidatingPolicy {
+		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("imageVerification policy not found", "name", polName)
@@ -111,8 +111,8 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	case webhook.ValidatingPolicyType:
 		key = webhook.BuildPolicyKey(webhook.ValidatingPolicyType, policy.GetName())
 		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
-	case webhook.ImageVerificationPolicy:
-		key = webhook.BuildPolicyKey(webhook.ImageVerificationPolicy, policy.GetName())
+	case webhook.ImageValidatingPolicy:
+		key = webhook.BuildPolicyKey(webhook.ImageValidatingPolicy, policy.GetName())
 		matchConstraints = policy.AsImageVerificationPolicy().GetMatchConstraints()
 	}
 

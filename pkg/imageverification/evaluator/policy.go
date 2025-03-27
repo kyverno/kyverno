@@ -26,7 +26,7 @@ type EvaluationResult struct {
 	Message    string
 	Index      int
 	Result     bool
-	Exceptions []*policiesv1alpha1.CELPolicyException
+	Exceptions []*policiesv1alpha1.PolicyException
 }
 
 type CompiledPolicy interface {
@@ -56,7 +56,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 
 	// check if the resource matches an exception
 	if len(c.exceptions) > 0 {
-		matchedExceptions := make([]*policiesv1alpha1.CELPolicyException, 0)
+		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
 		for _, polex := range c.exceptions {
 			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
 			if err != nil {
