@@ -274,6 +274,8 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		&store,
 		variables,
 		policies,
+		vaps,
+		vapBindings,
 		resources,
 		exceptions,
 		&skippedInvalidPolicies,
@@ -281,10 +283,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		userInfo,
 		mutateLogPathIsDir,
 	)
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses1, err
-	}
-	responses2, err := c.applyValidatingAdmissionPolicies(vaps, vapBindings, resources1, variables.NamespaceSelectors(), rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -298,7 +296,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
-	responses = append(responses, responses2...)
 	responses = append(responses, responses3...)
 	responses = append(responses, responses4...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
@@ -317,6 +314,8 @@ func (c *ApplyCommandConfig) applyPolicies(
 	store *store.Store,
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
+	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
+	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	exceptions []*kyvernov2.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
@@ -349,24 +348,26 @@ func (c *ApplyCommandConfig) applyPolicies(
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
-			Store:                store,
-			Policies:             validPolicies,
-			Resource:             *resource,
-			PolicyExceptions:     exceptions,
-			MutateLogPath:        c.MutateLogPath,
-			MutateLogPathIsDir:   mutateLogPathIsDir,
-			Variables:            vars,
-			UserInfo:             userInfo,
-			PolicyReport:         c.PolicyReport,
-			NamespaceSelectorMap: vars.NamespaceSelectors(),
-			Stdin:                c.Stdin,
-			Rc:                   &rc,
-			PrintPatchResource:   true,
-			Cluster:              c.Cluster,
-			Client:               dClient,
-			AuditWarn:            c.AuditWarn,
-			Subresources:         vars.Subresources(),
-			Out:                  out,
+			Store:                             store,
+			Policies:                          validPolicies,
+			ValidatingAdmissionPolicies:       vaps,
+			ValidatingAdmissionPolicyBindings: vapBindings,
+			Resource:                          *resource,
+			PolicyExceptions:                  exceptions,
+			MutateLogPath:                     c.MutateLogPath,
+			MutateLogPathIsDir:                mutateLogPathIsDir,
+			Variables:                         vars,
+			UserInfo:                          userInfo,
+			PolicyReport:                      c.PolicyReport,
+			NamespaceSelectorMap:              vars.NamespaceSelectors(),
+			Stdin:                             c.Stdin,
+			Rc:                                &rc,
+			PrintPatchResource:                true,
+			Cluster:                           c.Cluster,
+			Client:                            dClient,
+			AuditWarn:                         c.AuditWarn,
+			Subresources:                      vars.Subresources(),
+			Out:                               out,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -384,37 +385,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 	}
 	return &rc, resources, responses, nil
-}
-
-func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
-	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
-	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	resources []*unstructured.Unstructured,
-	namespaceSelectorMap map[string]map[string]string,
-	rc *processor.ResultCounts,
-	dClient dclient.Interface,
-) ([]engineapi.EngineResponse, error) {
-	var responses []engineapi.EngineResponse
-	for _, resource := range resources {
-		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:             vaps,
-			Bindings:             vapBindings,
-			Resource:             resource,
-			NamespaceSelectorMap: namespaceSelectorMap,
-			Rc:                   rc,
-			Client:               dClient,
-		}
-		ers, err := processor.ApplyPolicyOnResource()
-		if err != nil {
-			if c.ContinueOnFail {
-				fmt.Printf("failed to apply policies on resource %s (%v)\n", resource.GetName(), err)
-				continue
-			}
-			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		responses = append(responses, ers...)
-	}
-	return responses, nil
 }
 
 func (c *ApplyCommandConfig) applyValidatingPolicies(
