@@ -11,6 +11,7 @@ metadata:
     generate.kyverno.io/rule-name: k-kafka-address
     generate.kyverno.io/trigger-group: policy
     generate.kyverno.io/trigger-kind: Eviction
+    generate.kyverno.io/trigger-name: "nginx"
     generate.kyverno.io/trigger-namespace: test-generate-eviction
     generate.kyverno.io/trigger-version: v1
     somekey: somevalue
