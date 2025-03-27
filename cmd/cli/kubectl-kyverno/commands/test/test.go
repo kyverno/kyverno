@@ -219,21 +219,23 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
 		processor := processor.PolicyProcessor{
-			Store:                     &store,
-			Policies:                  validPolicies,
-			Resource:                  *resource,
-			PolicyExceptions:          polexLoader.Exceptions,
-			MutateLogPath:             "",
-			Variables:                 vars,
-			UserInfo:                  userInfo,
-			PolicyReport:              true,
-			NamespaceSelectorMap:      vars.NamespaceSelectors(),
-			Rc:                        &resultCounts,
-			RuleToCloneSourceResource: ruleToCloneSourceResource,
-			Cluster:                   false,
-			Client:                    dClient,
-			Subresources:              vars.Subresources(),
-			Out:                       io.Discard,
+			Store:                             &store,
+			Policies:                          validPolicies,
+			ValidatingAdmissionPolicies:       results.VAPs,
+			ValidatingAdmissionPolicyBindings: results.VAPBindings,
+			Resource:                          *resource,
+			PolicyExceptions:                  polexLoader.Exceptions,
+			MutateLogPath:                     "",
+			Variables:                         vars,
+			UserInfo:                          userInfo,
+			PolicyReport:                      true,
+			NamespaceSelectorMap:              vars.NamespaceSelectors(),
+			Rc:                                &resultCounts,
+			RuleToCloneSourceResource:         ruleToCloneSourceResource,
+			Cluster:                           false,
+			Client:                            dClient,
+			Subresources:                      vars.Subresources(),
+			Out:                               io.Discard,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -250,22 +252,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testResponse.Target[resourceKey] = append(testResponse.Target[resourceKey], engineResponse)
 			}
 		}
-	}
-
-	for _, resource := range uniques {
-		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:             results.VAPs,
-			Bindings:             results.VAPBindings,
-			Resource:             resource,
-			NamespaceSelectorMap: vars.NamespaceSelectors(),
-			Rc:                   &resultCounts,
-		}
-		ers, err := processor.ApplyPolicyOnResource()
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		resourceKey := generateResourceKey(resource)
-		testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], ers...)
 	}
 	if len(results.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
