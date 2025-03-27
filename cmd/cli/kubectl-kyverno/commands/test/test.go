@@ -1,15 +1,12 @@
 package test
 
 import (
-	"context"
 	"fmt"
 	"io"
 
-	payload "github.com/kyverno/kyverno-json/pkg/payload"
+	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -25,20 +22,13 @@ import (
 	"github.com/kyverno/kyverno/ext/output/pluralize"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
-	"github.com/kyverno/kyverno/pkg/cel/engine"
-	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	admissionv1 "k8s.io/api/admission/v1"
-	authenticationv1 "k8s.io/api/authentication/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/restmapper"
 )
 
 type TestResponse struct {
@@ -219,21 +209,26 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
 		processor := processor.PolicyProcessor{
-			Store:                     &store,
-			Policies:                  validPolicies,
-			Resource:                  *resource,
-			PolicyExceptions:          polexLoader.Exceptions,
-			MutateLogPath:             "",
-			Variables:                 vars,
-			UserInfo:                  userInfo,
-			PolicyReport:              true,
-			NamespaceSelectorMap:      vars.NamespaceSelectors(),
-			Rc:                        &resultCounts,
-			RuleToCloneSourceResource: ruleToCloneSourceResource,
-			Cluster:                   false,
-			Client:                    dClient,
-			Subresources:              vars.Subresources(),
-			Out:                       io.Discard,
+			Store:                             &store,
+			Policies:                          validPolicies,
+			ValidatingAdmissionPolicies:       results.VAPs,
+			ValidatingAdmissionPolicyBindings: results.VAPBindings,
+			ValidatingPolicies:                results.ValidatingPolicies,
+			Resource:                          *resource,
+			PolicyExceptions:                  polexLoader.Exceptions,
+			CELExceptions:                     polexLoader.CELExceptions,
+			MutateLogPath:                     "",
+			Variables:                         vars,
+			ContextPath:                       testCase.Test.Context,
+			UserInfo:                          userInfo,
+			PolicyReport:                      true,
+			NamespaceSelectorMap:              vars.NamespaceSelectors(),
+			Rc:                                &resultCounts,
+			RuleToCloneSourceResource:         ruleToCloneSourceResource,
+			Cluster:                           false,
+			Client:                            dClient,
+			Subresources:                      vars.Subresources(),
+			Out:                               io.Discard,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -243,126 +238,42 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
 	}
+	if json != nil {
+		// the policy processor is for multiple policies at once
+		processor := processor.PolicyProcessor{
+			Store:                             &store,
+			Policies:                          validPolicies,
+			ValidatingAdmissionPolicies:       results.VAPs,
+			ValidatingAdmissionPolicyBindings: results.VAPBindings,
+			ValidatingPolicies:                results.ValidatingPolicies,
+			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
+			PolicyExceptions:                  polexLoader.Exceptions,
+			CELExceptions:                     polexLoader.CELExceptions,
+			MutateLogPath:                     "",
+			Variables:                         vars,
+			ContextPath:                       testCase.Test.Context,
+			UserInfo:                          userInfo,
+			PolicyReport:                      true,
+			NamespaceSelectorMap:              vars.NamespaceSelectors(),
+			Rc:                                &resultCounts,
+			RuleToCloneSourceResource:         ruleToCloneSourceResource,
+			Cluster:                           false,
+			Client:                            dClient,
+			Subresources:                      vars.Subresources(),
+			Out:                               io.Discard,
+		}
+		ers, err := processor.ApplyPoliciesOnResource()
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+		}
+		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
+		engineResponses = append(engineResponses, ers...)
+	}
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
 			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
 				resourceKey := generateResourceKey(targetResource)
 				testResponse.Target[resourceKey] = append(testResponse.Target[resourceKey], engineResponse)
-			}
-		}
-	}
-
-	for _, resource := range uniques {
-		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:             results.VAPs,
-			Bindings:             results.VAPBindings,
-			Resource:             resource,
-			NamespaceSelectorMap: vars.NamespaceSelectors(),
-			Rc:                   &resultCounts,
-		}
-		ers, err := processor.ApplyPolicyOnResource()
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		resourceKey := generateResourceKey(resource)
-		testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], ers...)
-	}
-	if len(results.ValidatingPolicies) != 0 {
-		ctx := context.TODO()
-		compiler := celpolicy.NewCompiler()
-		provider, err := engine.NewProvider(compiler, results.ValidatingPolicies, polexLoader.CELExceptions)
-		if err != nil {
-			return nil, err
-		}
-		eng := engine.NewEngine(provider, vars.Namespace, matching.NewMatcher())
-		var restMapper meta.RESTMapper
-		var contextProvider celpolicy.Context
-		apiGroupResources, err := data.APIGroupResources()
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-		fakeContextProvider := celpolicy.NewFakeContextProvider()
-		if testCase.Test.Context != "" {
-			ctx, err := clicontext.Load(nil, testCase.Test.Context)
-			if err != nil {
-				return nil, err
-			}
-			for _, resource := range ctx.ContextSpec.Resources {
-				gvk := resource.GroupVersionKind()
-				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-				if err != nil {
-					return nil, err
-				}
-				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
-					return nil, err
-				}
-			}
-		}
-		contextProvider = fakeContextProvider
-		for _, resource := range uniques {
-			// get gvk from resource
-			gvk := resource.GroupVersionKind()
-			// map gvk to gvr
-			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
-			}
-			gvr := mapping.Resource
-			var user authenticationv1.UserInfo
-			if userInfo != nil {
-				user = userInfo.AdmissionUserInfo
-			}
-			// create engine request
-			request := engine.Request(
-				contextProvider,
-				gvk,
-				gvr,
-				// TODO: how to manage subresource ?
-				"",
-				resource.GetName(),
-				resource.GetNamespace(),
-				// TODO: how to manage other operations ?
-				admissionv1.Create,
-				user,
-				resource,
-				nil,
-				false,
-				nil,
-			)
-			reps, err := eng.Handle(ctx, request)
-			if err != nil {
-				return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
-			}
-			resourceKey := generateResourceKey(resource)
-			for _, r := range reps.Policies {
-				engineResponse := engineapi.EngineResponse{
-					Resource: *reps.Resource,
-					PolicyResponse: engineapi.PolicyResponse{
-						Rules: r.Rules,
-					},
-				}
-				engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-				testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], engineResponse)
-			}
-		}
-
-		if json != nil {
-			eng = engine.NewEngine(provider, nil, nil)
-			request := engine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: json.(map[string]interface{})})
-			reps, err := eng.Handle(ctx, request)
-			if err != nil {
-				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
-			}
-			for _, r := range reps.Policies {
-				engineResponse := engineapi.EngineResponse{
-					Resource: *reps.Resource,
-					PolicyResponse: engineapi.PolicyResponse{
-						Rules: r.Rules,
-					},
-				}
-				engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-				testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], engineResponse)
 			}
 		}
 	}

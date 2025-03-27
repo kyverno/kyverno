@@ -1,22 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: new-deployment
+  name: main-deployment
   namespace: test-globalcontext-apicall-correct
   labels:
-    app: new-deployment
-    env: prod
+    app: main-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: new-deployment
-      env: prod
+      app: main-deployment
   template:
     metadata:
       labels:
-        app: new-deployment
-        env: prod
+        app: main-deployment
     spec:
       containers:
         - name: pause

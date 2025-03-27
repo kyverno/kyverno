@@ -77,7 +77,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		errs := compileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		errs := CompileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -153,7 +153,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		errs := compileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		errs := CompileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -191,7 +191,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		}
 		// compile variables
 		variables := map[string]cel.Program{}
-		errs = compileVariables(autogenPath.Index(i).Child("variables"), rule.Variables, variablesProvider, env, variables)
+		errs = CompileVariables(autogenPath.Index(i).Child("variables"), rule.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -266,7 +266,7 @@ func CompileMatchConditions(path *field.Path, matchConditions []admissionregistr
 	return result, nil
 }
 
-func compileVariables(path *field.Path, variables []admissionregistrationv1.Variable, variablesProvider *variablesProvider, env *cel.Env, result map[string]cel.Program) field.ErrorList {
+func CompileVariables(path *field.Path, variables []admissionregistrationv1.Variable, variablesProvider *variablesProvider, env *cel.Env, result map[string]cel.Program) field.ErrorList {
 	var allErrs field.ErrorList
 	for i, variable := range variables {
 		path := path.Index(i).Child("expression")
