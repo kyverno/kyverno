@@ -19,7 +19,7 @@ spec:
         globalcontext.Get("gctxentry-apicall-projections", "test-globalcontext-apicall-correct-projections_deployment_count")
   validations:
     - expression: >-
-        variables.dcount != 0
+        variables.dcount == 0
       messageExpression: "'cannot create new deployment as main-deployment already exists, variables.dcount: ' + string(variables.dcount)"
   attestors:
     - name: notary

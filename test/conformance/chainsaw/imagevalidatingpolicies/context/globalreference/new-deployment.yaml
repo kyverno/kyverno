@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: pause
-          image: registry.k8s.io/pause:latest
+          image: ghcr.io/kyverno/test-verify-image:signed
           resources:
             requests:
               cpu: 10m

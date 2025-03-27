@@ -78,6 +78,19 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 
 	data := map[string]any{}
 	vars := lazy.NewMapValue(policy.VariablesType)
+	for name, variable := range c.variables {
+		vars.Append(name, func(*lazy.MapValue) ref.Val {
+			out, _, err := variable.ContextEval(ctx, data)
+			if out != nil {
+				return out
+			}
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return nil
+		})
+	}
+
 	if isK8s {
 		namespaceVal, err := objectToResolveVal(namespace)
 		if err != nil {
@@ -103,19 +116,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[policy.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
 	} else {
 		data[ObjectKey] = request
-	}
-
-	for name, variable := range c.variables {
-		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, _, err := variable.ContextEval(ctx, data)
-			if out != nil {
-				return out
-			}
-			if err != nil {
-				return types.WrapErr(err)
-			}
-			return nil
-		})
 	}
 
 	images, err := variables.ExtractImages(c.imageExtractors, data)
