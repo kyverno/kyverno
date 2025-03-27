@@ -18,13 +18,13 @@ func (rc *ResultCounts) IncrementError(inc int) {
 	rc.Error += inc
 }
 
-func (rc *ResultCounts) addEngineResponses(auditWarn bool, responses ...engineapi.EngineResponse) {
+func (rc *ResultCounts) addEngineResponses(ignoreSkippedExitCode bool, auditWarn bool, responses ...engineapi.EngineResponse) {
 	for _, response := range responses {
-		rc.addEngineResponse(auditWarn, response)
+		rc.addEngineResponse(ignoreSkippedExitCode, auditWarn, response)
 	}
 }
 
-func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.EngineResponse) {
+func (rc *ResultCounts) addEngineResponse(ignoreSkippedExitCode bool, auditWarn bool, response engineapi.EngineResponse) {
 	if !response.IsEmpty() {
 		genericPolicy := response.Policy()
 		if genericPolicy.AsKyvernoPolicy() == nil {
@@ -44,6 +44,8 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 								rc.Warn++
 								break
 							} else if auditWarn && response.GetValidationFailureAction().Audit() {
+								rc.Warn++
+							} else if ignoreSkippedExitCode {
 								rc.Warn++
 							} else {
 								rc.Fail++
