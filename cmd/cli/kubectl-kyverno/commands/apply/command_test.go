@@ -423,7 +423,6 @@ type TestCase struct {
 }
 
 func Test_Apply_ValidatingPolicies(t *testing.T) {
-
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
