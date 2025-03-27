@@ -116,7 +116,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[policy.VariablesKey] = vars
 		data[policy.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
 		data[policy.ResourceKey] = resource.Context{ContextInterface: context}
-
 	} else {
 		data[ObjectKey] = request
 	}
