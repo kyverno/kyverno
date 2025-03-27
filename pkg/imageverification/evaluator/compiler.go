@@ -32,6 +32,7 @@ const (
 	OldObjectKey       = "oldObject"
 	RequestKey         = "request"
 	ResourceKey        = "resource"
+	// todo(shuting): ImageDataKey, ResourceKey
 )
 
 type Compiler interface {
@@ -66,6 +67,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(policy.ImageDataKey, imagedata.ContextType),
 	}
 
 	if ivpolicy.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
