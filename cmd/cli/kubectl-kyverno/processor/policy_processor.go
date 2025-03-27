@@ -13,6 +13,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -32,6 +33,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/exceptions"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -59,18 +62,20 @@ type PolicyProcessor struct {
 	MutateLogPath                     string
 	MutateLogPathIsDir                bool
 	Variables                         *variables.Variables
-	Cluster                           bool
-	UserInfo                          *kyvernov2.RequestInfo
-	PolicyReport                      bool
-	NamespaceSelectorMap              map[string]map[string]string
-	Stdin                             bool
-	Rc                                *ResultCounts
-	PrintPatchResource                bool
-	RuleToCloneSourceResource         map[string]string
-	Client                            dclient.Interface
-	AuditWarn                         bool
-	Subresources                      []v1alpha1.Subresource
-	Out                               io.Writer
+	// TODO
+	ContextPath               string
+	Cluster                   bool
+	UserInfo                  *kyvernov2.RequestInfo
+	PolicyReport              bool
+	NamespaceSelectorMap      map[string]map[string]string
+	Stdin                     bool
+	Rc                        *ResultCounts
+	PrintPatchResource        bool
+	RuleToCloneSourceResource map[string]string
+	Client                    dclient.Interface
+	AuditWarn                 bool
+	Subresources              []v1alpha1.Subresource
+	Out                       io.Writer
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -228,34 +233,52 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return nil, err
 		}
+		// TODO: mock when no cluster provided
+		gctxStore := gctxstore.New()
+		var restMapper meta.RESTMapper
 		var contextProvider celpolicy.Context
-		fakeContextProvider := celpolicy.NewFakeContextProvider()
-		// if testCase.Test.Context != "" {
-		// 	ctx, err := clicontext.Load(nil, testCase.Test.Context)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	for _, resource := range ctx.ContextSpec.Resources {
-		// 		gvk := resource.GroupVersionKind()
-		// 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		// 		if err != nil {
-		// 			return nil, err
-		// 		}
-		// 		if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
-		// 			return nil, err
-		// 		}
-		// 	}
-		// }
-		contextProvider = fakeContextProvider
-		if p.Resource.Object != nil {
-			eng := celengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
-			var restMapper meta.RESTMapper
+		if p.Client != nil {
+			contextProvider, err = celpolicy.NewContextProvider(
+				p.Client,
+				// TODO
+				[]imagedataloader.Option{imagedataloader.WithLocalCredentials(true)},
+				gctxStore,
+			)
+			if err != nil {
+				return nil, err
+			}
+			apiGroupResources, err := restmapper.GetAPIGroupResources(p.Client.GetKubeClient().Discovery())
+			if err != nil {
+				return nil, err
+			}
+			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+		} else {
 			apiGroupResources, err := data.APIGroupResources()
 			if err != nil {
 				return nil, err
 			}
 			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-
+			fakeContextProvider := celpolicy.NewFakeContextProvider()
+			if p.ContextPath != "" {
+				ctx, err := clicontext.Load(nil, p.ContextPath)
+				if err != nil {
+					return nil, err
+				}
+				for _, resource := range ctx.ContextSpec.Resources {
+					gvk := resource.GroupVersionKind()
+					mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+					if err != nil {
+						return nil, err
+					}
+					if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+						return nil, err
+					}
+				}
+			}
+			contextProvider = fakeContextProvider
+		}
+		if p.Resource.Object != nil {
+			eng := celengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
 			// get gvk from resource
 			gvk := resource.GroupVersionKind()
 			// map gvk to gvr

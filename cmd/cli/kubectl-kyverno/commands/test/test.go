@@ -218,6 +218,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
+			ContextPath:                       testCase.Test.Context,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
