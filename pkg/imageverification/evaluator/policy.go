@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -116,6 +117,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[policy.VariablesKey] = vars
 		data[policy.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
 		data[policy.ImageDataKey] = imagedata.Context{ContextInterface: context}
+		data[policy.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
 		data[ObjectKey] = request
 	}
