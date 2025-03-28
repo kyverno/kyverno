@@ -32,7 +32,6 @@ const (
 	OldObjectKey       = "oldObject"
 	RequestKey         = "request"
 	ResourceKey        = "resource"
-	// todo(shuting): ImageDataKey, ResourceKey
 )
 
 type Compiler interface {
