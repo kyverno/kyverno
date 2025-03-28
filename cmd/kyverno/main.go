@@ -138,7 +138,7 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	vpolRecorder webhook.StateRecorder,
+	stateRecorder webhook.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -177,7 +177,7 @@ func createrLeaderControllers(
 		caSecretName,
 		webhookcontroller.WebhookCleanupSetup(kubeClient, webhookControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, webhookControllerFinalizerName),
-		vpolRecorder,
+		stateRecorder,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -275,7 +275,13 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
-	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(), reportsServiceAccountName, vpolRecorder)
+	policyStatusController := policystatuscontroller.NewController(
+		dynamicClient,
+		kyvernoClient,
+		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
+		reportsServiceAccountName,
+		stateRecorder)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
