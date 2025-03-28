@@ -19,4 +19,4 @@ spec:
         expect:
           - check:
               ($error): >-
-                admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy  failed: expect variables.exist to be true, got: true
+                admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy ivpol-image-data-sample failed: expect variables.exist to be false, got: true

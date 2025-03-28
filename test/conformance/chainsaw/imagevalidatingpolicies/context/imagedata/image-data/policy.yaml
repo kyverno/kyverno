@@ -21,7 +21,7 @@ spec:
   validations:
     - expression: >-
         !variables.exist
-      messageExpression: "'expect variables.exist to be true, got: ' + string(variables.exist)"
+      messageExpression: "'expect variables.exist to be false, got: ' + string(variables.exist)"
     - expression: >-
         images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
       message: failed to verify image with notary cert
