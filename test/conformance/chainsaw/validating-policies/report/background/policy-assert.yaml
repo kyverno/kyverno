@@ -1,7 +1,7 @@
 apiVersion: policies.kyverno.io/v1alpha1
-kind: ImageValidatingPolicy
+kind: ValidatingPolicy
 metadata:
-  name: ivpol-report-background-sample
+  name: vpol-report-background-sample
 status:
   conditionStatus:
     conditions:
