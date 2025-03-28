@@ -60,10 +60,10 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 		nil,
 	)
 	if err != nil {
-		logger.Error(err, "failed to register event handlers")
+		logger.Error(err, "failed to register event handlers for webhook state recorder")
 	}
 
-	controllerutils.AddExplicitEventHandlers(
+	_, _, err = controllerutils.AddExplicitEventHandlers(
 		logger,
 		vpolInformer.Informer(),
 		c.queue,
@@ -75,8 +75,11 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ValidatingPolicyType, vpol.Name))
 		},
 	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for ValidatingPolicy")
+	}
 
-	controllerutils.AddExplicitEventHandlers(
+	_, _, err = controllerutils.AddExplicitEventHandlers(
 		logger,
 		ivpolInformer.Informer(),
 		c.queue,
@@ -88,6 +91,9 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ImageValidatingPolicy, ivpol.Name))
 		},
 	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for ImageValidatingPolicy")
+	}
 	return c
 }
 
