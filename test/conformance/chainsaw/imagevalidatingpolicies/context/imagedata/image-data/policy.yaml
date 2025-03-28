@@ -14,14 +14,14 @@ spec:
   variables:
     - name: image
       expression: >-
-        imagedata.Get("ghcr.io/kyverno/kyverno:latest")
-    - name: accept
+        imagedata.Get("ghcr.io/kyverno/test-verify-image:signed")
+    - name: exist
       expression: >-
         variables.image != null
   validations:
     - expression: >-
-        !variables.accept
-      messageExpression: "'expect variables.accept to be true, got: ' + string(variables.accept)"
+        !variables.exist
+      messageExpression: "'expect variables.exist to be true, got: ' + string(variables.exist)"
     - expression: >-
         images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
       message: failed to verify image with notary cert
