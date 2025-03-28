@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -36,7 +37,15 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		warnings, err := celpolicy.Validate(policy.AsValidatingPolicy())
+		warnings, err := celpolicy.Validate(vpol)
+		if err != nil {
+			logger.Error(err, "validating policy validation errors")
+		}
+		return admissionutils.Response(request.UID, err, warnings...)
+	}
+
+	if ivpol := policy.AsImageVerificationPolicy(); ivpol != nil {
+		warnings, err := eval.Validate(ivpol)
 		if err != nil {
 			logger.Error(err, "validating policy validation errors")
 		}
