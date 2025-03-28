@@ -82,7 +82,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
 	resource := p.Resource
-	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
+	namespaceLabels := p.NamespaceSelectorMap[resource.GetNamespace()]
 	policyExceptionLister := &policyExceptionLister{
 		exceptions: p.PolicyExceptions,
 	}
@@ -225,7 +225,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		vapResponses = append(vapResponses, validateResponse)
 		p.Rc.addValidatingAdmissionResponse(validateResponse)
 	}
-	// validating admission policies
+	// validating policies
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
 		compiler := celpolicy.NewCompiler()
@@ -277,7 +277,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			contextProvider = fakeContextProvider
 		}
-		if p.Resource.Object != nil {
+		if resource.Object != nil {
 			eng := celengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
 			// get gvk from resource
 			gvk := resource.GroupVersionKind()
