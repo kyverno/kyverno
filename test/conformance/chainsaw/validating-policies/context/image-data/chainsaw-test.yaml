@@ -15,3 +15,5 @@ spec:
     try:
     - create:
         file: deployment.yaml
+    - assert:
+        file: deployment.yaml
