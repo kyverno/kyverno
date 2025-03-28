@@ -61,8 +61,9 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
+CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(API_GROUP_RESOURCES)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -137,6 +138,10 @@ $(KO):
 $(API_GROUP_RESOURCES):
 	@echo Install api-group-resources... >&2
 	@cd ./hack/api-group-resources && GOBIN=$(TOOLS_DIR) go install
+
+$(CLIENT_WRAPPER):
+	@echo Install client-wrapper... >&2
+	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
@@ -471,8 +476,9 @@ codegen-client-informers: $(INFORMER_GEN)
 codegen-client-wrappers: ## Generate client wrappers
 codegen-client-wrappers: codegen-client-clientset
 codegen-client-wrappers: $(GOIMPORTS)
+codegen-client-wrappers: $(CLIENT_WRAPPER)
 	@echo Generate client wrappers... >&2
-	@go run ./hack/main.go
+	@$(CLIENT_WRAPPER)
 	@$(GOIMPORTS) -w ./pkg/clients
 	@go fmt ./pkg/clients/...
 
