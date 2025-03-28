@@ -248,7 +248,7 @@ type Image struct {
 	// Name is the name for this imageList. It is used to refer to the images in verification block as images.<name>
 	Name string `json:"name"`
 
-	// Expression defines CEL expression to extact images from the resource.
+	// Expression defines CEL expression to extract images from the resource.
 	Expression string `json:"expression"`
 }
 

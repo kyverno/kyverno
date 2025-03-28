@@ -5,15 +5,18 @@ metadata:
   namespace: test-globalcontext-apicall-correct
   labels:
     app: new-deployment
+    env: prod
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: new-deployment
+      env: prod
   template:
     metadata:
       labels:
         app: new-deployment
+        env: prod
     spec:
       containers:
         - name: pause

@@ -138,7 +138,7 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	vpolRecorder webhook.StateRecorder,
+	stateRecorder webhook.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -177,7 +177,7 @@ func createrLeaderControllers(
 		caSecretName,
 		webhookcontroller.WebhookCleanupSetup(kubeClient, webhookControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, webhookControllerFinalizerName),
-		vpolRecorder,
+		stateRecorder,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -227,7 +227,7 @@ func createrLeaderControllers(
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"policies.kyverno.io"},
 				APIVersions: []string{"v1alpha1"},
-				Resources:   []string{"celpolicyexceptions"},
+				Resources:   []string{"PolicyExceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Create,
@@ -275,7 +275,13 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
-	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(), reportsServiceAccountName, vpolRecorder)
+	policyStatusController := policystatuscontroller.NewController(
+		dynamicClient,
+		kyvernoClient,
+		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
+		reportsServiceAccountName,
+		stateRecorder)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
@@ -293,7 +299,7 @@ func createrLeaderControllers(
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
-			kyvernoInformer.Policies().V1alpha1().CELPolicyExceptions(),
+			kyvernoInformer.Policies().V1alpha1().PolicyExceptions(),
 			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
@@ -625,7 +631,7 @@ func main() {
 			// create compiler
 			compiler := celpolicy.NewCompiler()
 			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().CELPolicyExceptions().Lister())
+			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)

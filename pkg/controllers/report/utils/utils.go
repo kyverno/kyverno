@@ -175,8 +175,8 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVal
 	return policies, nil
 }
 
-func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.CELPolicyExceptionLister, namespace string) ([]*policiesv1alpha1.CELPolicyException, error) {
-	exceptions, err := celexLister.CELPolicyExceptions(namespace).List(labels.Everything())
+func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.PolicyExceptionLister, namespace string) ([]*policiesv1alpha1.PolicyException, error) {
+	exceptions, err := celexLister.PolicyExceptions(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}

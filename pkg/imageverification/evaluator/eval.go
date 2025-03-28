@@ -18,7 +18,7 @@ import (
 
 type CompiledImageVerificationPolicy struct {
 	Policy     *policiesv1alpha1.ImageValidatingPolicy
-	Exceptions []*policiesv1alpha1.CELPolicyException
+	Exceptions []*policiesv1alpha1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 
@@ -45,7 +45,7 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageVerificationPolicy, re
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
-		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace, isAdmissionRequest)
+		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace, isAdmissionRequest, nil)
 		if err != nil {
 			return nil, err
 		}

@@ -423,7 +423,6 @@ type TestCase struct {
 }
 
 func Test_Apply_ValidatingPolicies(t *testing.T) {
-
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
@@ -635,9 +634,26 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/imageverificationpolicies/match-conditions/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/imageverificationpolicies/match-conditions/good-pod.yaml",
-					"../../../../../test/conformance/chainsaw/imageverificationpolicies/match-conditions/bad-pod.yaml"},
+				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/good-pod.yaml",
+					"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/bad-pod.yaml"},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
+				JSONPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
+					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json"},
 				PolicyReport: true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{

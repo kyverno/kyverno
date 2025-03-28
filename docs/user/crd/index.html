@@ -10174,15 +10174,15 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </p>
 Resource Types:
 <ul><li>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException</a>
+<a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>
 </li><li>
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>
 </li></ul>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException
+<h3 id="policies.kyverno.io/v1alpha1.PolicyException">PolicyException
 </h3>
 <p>
-<p>CELPolicyException declares resources to be excluded from specified policies.</p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -10207,7 +10207,7 @@ policies.kyverno.io/v1alpha1
 <code>kind</code><br/>
 string
 </td>
-<td><code>CELPolicyException</code></td>
+<td><code>PolicyException</code></td>
 </tr>
 <tr>
 <td>
@@ -10227,8 +10227,8 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">
-CELPolicyExceptionSpec
+<a href="#policies.kyverno.io/v1alpha1.PolicyExceptionSpec">
+PolicyExceptionSpec
 </a>
 </em>
 </td>
@@ -10808,53 +10808,6 @@ bool
 <p>Enabled controls if rules are applied to existing resources during a background scan.
 Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
 uses variables that are only available in the admission review request (e.g. user name).</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException</a>)
-</p>
-<p>
-<p>PolicyExceptionSpec stores policy exception spec</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>policyRefs</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyRef">
-[]PolicyRef
-</a>
-</em>
-</td>
-<td>
-<p>PolicyRefs identifies the policies to which the exception is applied.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>matchConditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.MatchCondition
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
 </td>
 </tr>
 </tbody>
@@ -11461,7 +11414,7 @@ string
 </em>
 </td>
 <td>
-<p>Expression defines CEL expression to extact images from the resource.</p>
+<p>Expression defines CEL expression to extract images from the resource.</p>
 </td>
 </tr>
 </tbody>
@@ -12581,11 +12534,58 @@ string
 (<code>string</code> alias)</p></h3>
 <p>
 </p>
+<h3 id="policies.kyverno.io/v1alpha1.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyRefs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyRef">
+[]PolicyRef
+</a>
+</em>
+</td>
+<td>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.PolicyRef">PolicyRef
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 </p>

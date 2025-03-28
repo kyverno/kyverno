@@ -59,9 +59,9 @@ func (c *controller) getExceptions(policyName, rule string) ([]kyvernov2.PolicyE
 	return exceptions, nil
 }
 
-// getCELExceptions get CELPolicyExceptions that match the ValidatingPolicy.
-func (c *controller) getCELExceptions(policyName string) ([]policiesv1alpha1.CELPolicyException, error) {
-	var exceptions []policiesv1alpha1.CELPolicyException
+// getCELExceptions get PolicyExceptions that match the ValidatingPolicy.
+func (c *controller) getCELExceptions(policyName string) ([]policiesv1alpha1.PolicyException, error) {
+	var exceptions []policiesv1alpha1.PolicyException
 	polexs, err := c.celpolexLister.List(labels.Everything())
 	if err != nil {
 		return nil, err

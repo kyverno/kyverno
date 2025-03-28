@@ -20,7 +20,9 @@ spec:
     - assert:
         file: policy-assert.yaml
   - try:
-    - apply:
+    - create:
         file: new-deployment.yaml
-    - assert:
-        file: new-deployment-exists.yaml
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy vpol-apicall-correct failed: cannot create new deployment as there is already one, variables.dcount: 1

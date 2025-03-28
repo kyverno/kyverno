@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
+	ivpolvar "github.com/kyverno/kyverno/pkg/imageverification/variables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -34,7 +35,7 @@ const (
 )
 
 type Compiler interface {
-	Compile(*policiesv1alpha1.ImageValidatingPolicy, []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
+	Compile(*policiesv1alpha1.ImageValidatingPolicy, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
@@ -51,7 +52,7 @@ type compiler struct {
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -61,7 +62,6 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	declTypes = append(declTypes, imageverify.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(ResourceKey, resource.ContextType),
-		cel.Variable(GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
@@ -73,6 +73,8 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		options = append(options, cel.Variable(NamespaceObjectKey, policy.NamespaceType.CelType()))
 		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 		options = append(options, cel.Variable(OldObjectKey, cel.DynType))
+		options = append(options, cel.Variable(policy.VariablesKey, policy.VariablesType))
+		options = append(options, cel.Variable(GlobalContextKey, globalcontext.ContextType))
 	} else {
 		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 	}
@@ -80,6 +82,15 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
+	variablesProvider := policy.NewVariablesProvider(base.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		// TODO: proper error handling
+		panic(err)
+	}
+
+	options = append(options, declOptions...)
 	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), imageverify.Lib(c.ictx, ivpolicy, c.lister), resource.Lib(), user.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
@@ -105,9 +116,18 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		return nil, append(allErrs, errs...)
 	}
 
+	variables := make(map[string]cel.Program, len(ivpolicy.Spec.Variables))
+	{
+		path := path.Child("variables")
+		errs := policy.CompileVariables(path, ivpolicy.Spec.Variables, variablesProvider, env, variables)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+	}
+
 	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Validations))
 	{
-		path := path.Child("verifications")
+		path := path.Child("validations")
 		for i, rule := range ivpolicy.Spec.Validations {
 			path := path.Index(i)
 			program, errs := policy.CompileValidation(path, rule, env)
@@ -140,9 +160,10 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		imageRules:      imageRules,
 		verifications:   verifications,
 		imageExtractors: imageExtractors,
-		attestorList:    variables.GetAttestors(ivpolicy.Spec.Attestors),
-		attestationList: variables.GetAttestations(ivpolicy.Spec.Attestations),
+		attestorList:    ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
+		attestationList: ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
 		creds:           ivpolicy.Spec.Credentials,
 		exceptions:      compiledExceptions,
+		variables:       variables,
 	}, nil
 }
