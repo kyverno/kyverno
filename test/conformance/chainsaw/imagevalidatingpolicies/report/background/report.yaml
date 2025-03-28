@@ -6,14 +6,14 @@ metadata:
   ownerReferences:
   - apiVersion: apps/v1
     kind: Deployment
-    name: test-deployment
+    name: test-deployment-ivpol-background
 scope:
   apiVersion: apps/v1
   kind: Deployment
-  name: test-deployment
+  name: test-deployment-ivpol-background
 results:
 - message: Deployment labels must be env=prod but found env=staging
-  policy: ivpol-report-admission-sample
+  policy: ivpol-report-background-sample
   result: fail
   scored: true
   source: KyvernoImageValidatingPolicy

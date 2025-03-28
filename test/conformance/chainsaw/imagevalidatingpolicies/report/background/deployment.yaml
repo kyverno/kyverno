@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-deployment
+  name: test-deployment-ivpol-background
   labels:
     app: test
     env: staging
