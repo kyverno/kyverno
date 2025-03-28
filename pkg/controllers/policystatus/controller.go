@@ -63,7 +63,8 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 		logger.Error(err, "failed to register event handlers")
 	}
 
-	controllerutils.AddExplicitEventHandlers(logger,
+	controllerutils.AddExplicitEventHandlers(
+		logger,
 		vpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
@@ -75,7 +76,8 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 		},
 	)
 
-	controllerutils.AddExplicitEventHandlers(logger,
+	controllerutils.AddExplicitEventHandlers(
+		logger,
 		ivpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
