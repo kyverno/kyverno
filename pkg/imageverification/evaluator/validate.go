@@ -13,6 +13,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 type ImageVerificationOutcome struct {
@@ -87,13 +88,13 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]Image
 	return patches, nil
 }
 
-func Validate(ivpol *v1alpha1.ImageValidatingPolicy) ([]string, error) {
-	ictx, er := imagedataloader.NewImageContext(nil, nil)
+func Validate(ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) ([]string, error) {
+	ictx, er := imagedataloader.NewImageContext(lister)
 	if er != nil {
 		return nil, nil
 	}
 
-	compiler := NewCompiler(ictx, nil, nil)
+	compiler := NewCompiler(ictx, lister, nil)
 	_, err := compiler.Compile(ivpol, nil)
 	if err == nil {
 		return nil, nil

@@ -20,3 +20,4 @@ cmd/background-controller/background-controller
 .manifest
 kyverno.tar*
 vendor/
+/demo/
