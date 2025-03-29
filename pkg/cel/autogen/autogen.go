@@ -3,7 +3,6 @@ package autogen
 import (
 	"strings"
 
-	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -90,16 +89,12 @@ func ComputeRules(policy *policiesv1alpha1.ValidatingPolicy) []policiesv1alpha1.
 	if !applyAutoGen {
 		return []policiesv1alpha1.AutogenRule{}
 	}
-
-	var actualControllers sets.Set[string]
-	ann := policy.GetAnnotations()
-	actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
-	if !ok {
-		actualControllers = desiredControllers
-	} else {
-		actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
+	actualControllers := desiredControllers
+	if policy.Spec.GenerationConfiguration != nil &&
+		policy.Spec.GenerationConfiguration.PodControllers != nil &&
+		policy.Spec.GenerationConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(policy.Spec.GenerationConfiguration.PodControllers.Controllers...)
 	}
-
 	resources := strings.Join(sets.List(actualControllers), ",")
 	genRules := generateRules(policy.GetSpec().DeepCopy(), resources)
 	return genRules
