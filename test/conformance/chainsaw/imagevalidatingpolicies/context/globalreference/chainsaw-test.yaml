@@ -22,6 +22,7 @@ spec:
   - try:
     - create:
         file: new-deployment.yaml
+        timeout: 60s
         expect:
           - check:
               ($error): >-
