@@ -2,9 +2,13 @@ apiVersion: policies.kyverno.io/v1alpha1
 kind: ValidatingPolicy
 metadata:
   name: disallow-privilege-escalation
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: deployments,statefulsets
 spec:
+  generation:
+    podControllers:
+      enabled: true
+      controllers:
+      - deployments
+      - statefulsets
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]
