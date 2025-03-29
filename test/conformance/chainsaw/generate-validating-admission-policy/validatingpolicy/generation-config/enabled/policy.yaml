@@ -4,7 +4,8 @@ metadata:
   name: check-deployment-labels
 spec:
   generation:
-    enabled: true
+    validatingAdmissionPolicy:
+      enabled: true
   validationActions:
     - Audit
   matchConstraints:
