@@ -11291,14 +11291,28 @@ BackgroundConfiguration
 <tbody>
 <tr>
 <td>
-<code>enabled</code><br/>
+<code>podControllers</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">
+PodControllersGenerationConfiguration
+</a>
 </em>
 </td>
 <td>
-<p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>PodControllers specifies whether to generate a pod controllers rules.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validatingAdmissionPolicy</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.VapGenerationConfiguration">
+VapGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.</p>
 </td>
 </tr>
 </tbody>
@@ -12530,6 +12544,48 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">PodControllersGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GenerationConfiguration">GenerationConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled specifies whether to generate a pod controllers rules.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>controllers</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>TODO: shall we use GVK/GVR instead of string ?</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.PolicyConditionType">PolicyConditionType
 (<code>string</code> alias)</p></h3>
 <p>
@@ -13048,6 +13104,37 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.VapGenerationConfiguration">VapGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GenerationConfiguration">GenerationConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 </tbody>
