@@ -133,50 +133,24 @@ var (
 func preserveResourceGet(data []byte) (preserved [][]byte, segments [][]byte) {
 	remaining := data
 	for len(remaining) > 0 {
-		// Change: Define multiple patterns to search for
-		const resourceGet = "resource.Get"
-		const resourceList = "resource.List"
-		startIdxGet := bytes.Index(remaining, []byte(resourceGet))
-		startIdxList := bytes.Index(remaining, []byte(resourceList))
+		const namespacePath = "object.metadata.namespace"
+		startIdx := bytes.Index(remaining, []byte(namespacePath))
 
-		// Change: Determine the earliest pattern match
-		var startIdx, patternLen int
-		if startIdxGet >= 0 && (startIdxList < 0 || startIdxGet < startIdxList) {
-			startIdx = startIdxGet
-			patternLen = len(resourceGet)
-		} else if startIdxList >= 0 {
-			startIdx = startIdxList
-			patternLen = len(resourceList)
-		} else {
-			// No more resource.Get or resource.List, append remaining and exit
+		if startIdx < 0 {
+			// No more occurrences, append remaining and exit
 			if len(remaining) > 0 {
 				segments = append(segments, remaining)
 			}
 			return preserved, segments
 		}
 
-		// Add segment before the matched pattern if it exists
 		if startIdx > 0 {
 			segments = append(segments, remaining[:startIdx])
 		}
 
-		// Find the end of the expression (resource.Get or resource.List)
-		endIdx := startIdx + patternLen
-		for i := endIdx; i < len(remaining); i++ {
-			if remaining[i] == ')' {
-				endIdx = i
-				break
-			}
-			if i == len(remaining)-1 {
-				// Malformed: no closing parenthesis, treat rest as segment and exit
-				segments = append(segments, remaining[startIdx:])
-				return preserved, segments
-			}
-		}
-
-		// Preserve the full expression (resource.Get or resource.List)
-		preserved = append(preserved, remaining[startIdx:endIdx+1])
-		remaining = remaining[endIdx+1:]
+		endIdx := startIdx + len(namespacePath)
+		preserved = append(preserved, remaining[startIdx:endIdx])
+		remaining = remaining[endIdx:]
 	}
 	return preserved, segments
 }
@@ -202,10 +176,8 @@ func updateFields(data []byte, resource autogencontroller) []byte {
 		return normalizePaths(data, resource, specPrefix)
 	}
 
-	// Rewrite segments and reassemble with preserved parts
 	result := []byte{}
 	for i, segment := range segments {
-		// Apply standard rewrites to this segment
 		segment = bytes.ReplaceAll(segment, []byte("object.spec"), specPrefix)
 		segment = bytes.ReplaceAll(segment, []byte("oldObject.spec"), append([]byte("oldObject"), specPrefix[6:]...))
 		segment = bytes.ReplaceAll(segment, []byte("object.metadata"), metadataPrefix)
@@ -222,10 +194,8 @@ func updateFields(data []byte, resource autogencontroller) []byte {
 
 func normalizePaths(data []byte, resource autogencontroller, specPrefix []byte) []byte {
 	if resource == CRONJOBS {
-		// Existing spec normalization
 		data = bytes.ReplaceAll(data, []byte("object.spec.jobTemplate.spec.template.spec.template.spec"), specPrefix)
 		data = bytes.ReplaceAll(data, []byte("oldObject.spec.jobTemplate.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
-		// metadata normalization
 		data = bytes.ReplaceAll(data, []byte("object.spec.jobTemplate.spec.template.spec.template.metadata"), []byte("object.spec.jobTemplate.spec.template.metadata"))
 		data = bytes.ReplaceAll(data, []byte("oldObject.spec.jobTemplate.spec.template.spec.template.metadata"), []byte("oldObject.spec.jobTemplate.spec.template.metadata"))
 	} else if resource == PODS {
