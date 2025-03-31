@@ -252,9 +252,6 @@ type GenerationConfiguration struct {
 }
 
 type PodControllersGenerationConfiguration struct {
-	// Enabled specifies whether to generate a pod controllers rules.
-	// Optional. Defaults to "false" if not specified.
-	Enabled *bool `json:"enabled,omitempty"`
 	// TODO: shall we use GVK/GVR instead of string ?
 	Controllers []string `json:"controllers,omitempty"`
 }
