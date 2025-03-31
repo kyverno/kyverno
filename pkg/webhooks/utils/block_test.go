@@ -359,3 +359,119 @@ func TestGetBlockedMessages(t *testing.T) {
 		})
 	}
 }
+
+func Test_BlockRequest_DeferEnforce(t *testing.T) {
+	tests := []struct {
+		name            string
+		engineResponses []engineapi.EngineResponse
+		expectBlock     bool
+	}{
+		{
+			name: "one passing rule with DeferEnforce, should not block",
+			engineResponses: []engineapi.EngineResponse{
+				createEngineResponse("test-policy", kyvernov1.DeferEnforce, true),
+			},
+			expectBlock: false,
+		},
+		{
+			name: "one failing rule with DeferEnforce, should block",
+			engineResponses: []engineapi.EngineResponse{
+				createEngineResponse("test-policy", kyvernov1.DeferEnforce, false),
+			},
+			expectBlock: true,
+		},
+		{
+			name: "one failing rule with Enforce, should block immediately",
+			engineResponses: []engineapi.EngineResponse{
+				createEngineResponse("test-policy", kyvernov1.Enforce, false),
+			},
+			expectBlock: true,
+		},
+		{
+			name: "one passing rule with Enforce, one failing rule with DeferEnforce, should block",
+			engineResponses: []engineapi.EngineResponse{
+				createEngineResponse("test-policy-1", kyvernov1.Enforce, true),
+				createEngineResponse("test-policy-2", kyvernov1.DeferEnforce, false),
+			},
+			expectBlock: true,
+		},
+		{
+			name: "one failing rule with Enforce, one failing rule with DeferEnforce, should block at Enforce",
+			engineResponses: []engineapi.EngineResponse{
+				createEngineResponse("test-policy-1", kyvernov1.Enforce, false),
+				createEngineResponse("test-policy-2", kyvernov1.DeferEnforce, false),
+			},
+			expectBlock: true,
+		},
+		{
+			name: "one failing rule with Audit, one failing rule with DeferEnforce, should block at DeferEnforce",
+			engineResponses: []engineapi.EngineResponse{
+				createEngineResponse("test-policy-1", kyvernov1.Audit, false),
+				createEngineResponse("test-policy-2", kyvernov1.DeferEnforce, false),
+			},
+			expectBlock: true,
+		},
+		{
+			name: "multiple rules with DeferEnforce, all passing, should not block",
+			engineResponses: []engineapi.EngineResponse{
+				createEngineResponse("test-policy-1", kyvernov1.DeferEnforce, true),
+				createEngineResponse("test-policy-2", kyvernov1.DeferEnforce, true),
+				createEngineResponse("test-policy-3", kyvernov1.DeferEnforce, true),
+			},
+			expectBlock: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := BlockRequest(test.engineResponses, kyvernov1.Ignore, logr.Discard())
+			assert.Equal(t, test.expectBlock, result)
+		})
+	}
+}
+
+func createEngineResponse(policyName string, action kyvernov1.ValidationFailureAction, pass bool) engineapi.EngineResponse {
+	// Create a rule response based on pass/fail
+	var rule engineapi.RuleResponse
+	if pass {
+		rule = *engineapi.RulePass("test-rule", engineapi.Validation, "test message", nil)
+	} else {
+		rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "test message", nil)
+	}
+
+	// Create a resource
+	resource := unstructured.Unstructured{
+		Object: map[string]interface{}{"kind": "Pod"},
+	}
+
+	// Create a real policy instance instead of a mock
+	policy := &kyvernov1.ClusterPolicy{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "ClusterPolicy",
+			APIVersion: kyvernov1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name: policyName,
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: action,
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "test-rule",
+				},
+			},
+		},
+	}
+
+	// Create the engine response
+	er := engineapi.NewEngineResponse(resource, engineapi.NewKyvernoPolicy(policy), nil)
+
+	// Add the rule to the policy response
+	policyResponse := engineapi.NewPolicyResponse()
+	policyResponse.Rules = []engineapi.RuleResponse{rule}
+
+	// Set the policy response in the engine response
+	er = er.WithPolicyResponse(policyResponse)
+
+	return er
+}
