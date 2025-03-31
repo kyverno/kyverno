@@ -5,7 +5,6 @@ metadata:
 spec:
   generation:
     podControllers:
-      enabled: true
       controllers:
       - deployments
       - statefulsets
