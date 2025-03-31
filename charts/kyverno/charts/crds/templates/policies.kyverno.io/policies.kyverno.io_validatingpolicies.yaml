@@ -161,11 +161,30 @@ spec:
                 description: GenerationConfiguration defines the configuration for
                   the generation controller.
                 properties:
-                  enabled:
-                    description: |-
-                      Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-                      Optional. Defaults to "false" if not specified.
-                    type: boolean
+                  podControllers:
+                    description: PodControllers specifies whether to generate a pod
+                      controllers rules.
+                    properties:
+                      controllers:
+                        items:
+                          type: string
+                        type: array
+                      enabled:
+                        description: |-
+                          Enabled specifies whether to generate a pod controllers rules.
+                          Optional. Defaults to "false" if not specified.
+                        type: boolean
+                    type: object
+                  validatingAdmissionPolicy:
+                    description: ValidatingAdmissionPolicy specifies whether to generate
+                      a Kubernetes ValidatingAdmissionPolicy.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+                          Optional. Defaults to "false" if not specified.
+                        type: boolean
+                    type: object
                 type: object
               matchConditions:
                 description: |-

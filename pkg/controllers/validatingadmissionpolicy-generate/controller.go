@@ -425,10 +425,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 	} else {
 		spec := policy.AsValidatingPolicy().GetSpec()
-		wantVap := false
-		if spec.GenerationConfiguration != nil && spec.GenerationConfiguration.Enabled != nil {
-			wantVap = *spec.GenerationConfiguration.Enabled
-		}
+		wantVap := spec.GenerateValidatingAdmissionPolicyEnabled()
 		if !wantVap {
 			// delete the ValidatingAdmissionPolicy if exist
 			if vapErr == nil {
