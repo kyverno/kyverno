@@ -46,14 +46,18 @@ func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyvernov1.Spec, error) {
 		return *spec, err
 	}
 	if setValidationFailureAction {
-		audit, err := ff.GetBool()
+		actionType, err := ff.GetInt()
 		if err != nil {
 			return *spec, err
 		}
-		if audit {
+	
+		switch actionType % 3 { 
+		case 0:
 			spec.ValidationFailureAction = "Audit"
-		} else {
+		case 1:
 			spec.ValidationFailureAction = "Enforce"
+		case 2:
+			spec.ValidationFailureAction = "DeferEnforce"
 		}
 	}
 

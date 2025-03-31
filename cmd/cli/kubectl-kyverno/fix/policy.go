@@ -10,7 +10,9 @@ import (
 func FixPolicy(policy kyvernov1.PolicyInterface) ([]string, error) {
 	var messages []string
 	spec := policy.GetSpec()
-	if spec.ValidationFailureAction.Enforce() {
+	if spec.ValidationFailureAction.DeferEnforce() {
+        spec.ValidationFailureAction = kyvernov1.DeferEnforce
+    } else if spec.ValidationFailureAction.Enforce() {
 		spec.ValidationFailureAction = kyvernov1.Enforce
 	} else {
 		spec.ValidationFailureAction = kyvernov1.Audit

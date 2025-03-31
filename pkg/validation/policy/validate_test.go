@@ -1933,7 +1933,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Action: "Enforce",
 						Namespaces: []string{
-							"*efault",
+							"*default",
 							"test",
 						},
 					},
@@ -2048,6 +2048,99 @@ func Test_ValidateNamespace(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			description: "tc14",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "DeferEnforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "DeferEnforce",
+						Namespaces: []string{
+							"default",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: &kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"labels": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("conflicting namespaces found in path: spec.validationFailureActionOverrides[1].namespaces: default"),
+		},
+		{
+			description: "tc15",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "DeferEnforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "DeferEnforce",
+						Namespaces: []string{
+							"*",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: &kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"labels": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '*' matches with namespace 'default'"),
+		},
+		{
+			description: "tc16",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "DeferEnforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "DeferEnforce",
+						Namespaces: []string{
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: &kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"labels": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: nil,
 		},
 	}
 

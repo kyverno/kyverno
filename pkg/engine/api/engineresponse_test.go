@@ -682,6 +682,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 	resource.SetNamespace("foo")
 	audit := kyvernov1.Audit
 	enforce := kyvernov1.Enforce
+	deferEnforce := kyvernov1.DeferEnforce
 	type fields struct {
 		PatchedResource unstructured.Unstructured
 		GenericPolicy   GenericPolicy
@@ -710,6 +711,15 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 			}),
 		},
 		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.DeferEnforce,
+				},
+			}),
+		},
+		want: kyvernov1.DeferEnforce,	
 	}, {
 		fields: fields{
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
@@ -744,6 +754,21 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		fields: fields{
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: &kyvernov1.Validation{
+								FailureAction: &deferEnforce,
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.DeferEnforce,	
+	}, {
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 						Action:     kyvernov1.Audit,
@@ -766,6 +791,19 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 			}),
 		},
 		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     kyvernov1.DeferEnforce,
+						Namespaces: []string{"*"},
+					}},
+				},
+			}),
+		},
+		want: kyvernov1.DeferEnforce,
 	}, {
 		fields: fields{
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{

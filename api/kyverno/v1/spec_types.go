@@ -26,6 +26,8 @@ const (
 	Enforce ValidationFailureAction = "Enforce"
 	// Audit doesn't block the request on failure
 	Audit ValidationFailureAction = "Audit"
+	// DeferEnforce blocks the request on failure but evaluates all rules first
+    DeferEnforce ValidationFailureAction = "DeferEnforce"
 )
 
 func (a ValidationFailureAction) Enforce() bool {
@@ -33,11 +35,15 @@ func (a ValidationFailureAction) Enforce() bool {
 }
 
 func (a ValidationFailureAction) Audit() bool {
-	return !a.Enforce()
+	return a == Audit || a == auditOld
+}
+
+func (a ValidationFailureAction) DeferEnforce() bool {
+    return a == DeferEnforce
 }
 
 func (a ValidationFailureAction) IsValid() bool {
-	return a == enforceOld || a == auditOld || a == Enforce || a == Audit
+	return a == enforceOld || a == auditOld || a == Enforce || a == Audit || a == DeferEnforce
 }
 
 type ValidationFailureActionOverride struct {
@@ -64,7 +70,7 @@ type Spec struct {
 	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// Deprecated, use validationFailureAction under the validate rule instead.
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce;DeferEnforce
 	// +kubebuilder:default=Audit
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty"`
 
@@ -188,6 +194,19 @@ func (s *Spec) HasValidateEnforce() bool {
 		}
 	}
 	return s.ValidationFailureAction.Enforce()
+}
+
+// HasValidateDeferEnforce checks if the policy has any validate rules with deferEnforce action
+func (s *Spec) HasValidateDeferEnforce() bool {
+    for _, rule := range s.Rules {
+        if rule.HasValidate() {
+            action := rule.Validation.FailureAction
+            if action != nil && action.DeferEnforce() {
+                return true
+            }
+        }
+    }
+    return s.ValidationFailureAction.DeferEnforce()
 }
 
 // HasGenerate checks for generate rule types

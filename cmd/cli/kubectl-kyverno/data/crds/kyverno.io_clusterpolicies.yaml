@@ -3365,6 +3365,7 @@ spec:
                                 - enforce
                                 - Audit
                                 - Enforce
+                                - DeferEnforce
                                 type: string
                               namespaceSelector:
                                 description: |-
@@ -5077,6 +5078,7 @@ spec:
                       - enforce
                       - Audit
                       - Enforce
+                      - DeferEnforce
                       type: string
                     namespaceSelector:
                       description: |-
@@ -8487,6 +8489,7 @@ spec:
                                     - enforce
                                     - Audit
                                     - Enforce
+                                    - DeferEnforce
                                     type: string
                                   namespaceSelector:
                                     description: |-
@@ -13402,6 +13405,7 @@ spec:
                                 - enforce
                                 - Audit
                                 - Enforce
+                                - DeferEnforce
                                 type: string
                               namespaceSelector:
                                 description: |-
@@ -15083,6 +15087,7 @@ spec:
                       - enforce
                       - Audit
                       - Enforce
+                      - DeferEnforce
                       type: string
                     namespaceSelector:
                       description: |-
@@ -18493,6 +18498,7 @@ spec:
                                     - enforce
                                     - Audit
                                     - Enforce
+                                    - DeferEnforce
                                     type: string
                                   namespaceSelector:
                                     description: |-

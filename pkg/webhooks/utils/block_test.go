@@ -62,6 +62,14 @@ func TestBlockRequest(t *testing.T) {
 			ValidationFailureAction: kyvernov1.Enforce,
 		},
 	})
+	deferEnforcePolicy := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: kyvernov1.DeferEnforce,
+		},
+	})
 	audit := kyvernov1.Audit
 	auditRule := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 		ObjectMeta: v1.ObjectMeta{
@@ -94,6 +102,22 @@ func TestBlockRequest(t *testing.T) {
 			},
 		},
 	})
+	deferenforce := kyvernov1.DeferEnforce
+	deferEnforceRule := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "rule-deferenforce",
+					Validation: &kyvernov1.Validation{
+						FailureAction: &deferenforce,
+					},
+				},
+			},
+		},
+	})
 	resource := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind": "foo",
@@ -113,6 +137,20 @@ func TestBlockRequest(t *testing.T) {
 		args args
 		want bool
 	}{{
+		name: "failure - deferEnforce",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, deferEnforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail", nil),
+					},
+				}),
+			},
+			failurePolicy: kyvernov1.Fail,
+			log:           logr.Discard(),
+		},
+		want: true,
+	},{
 		name: "failure - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
@@ -225,6 +263,20 @@ func TestBlockRequest(t *testing.T) {
 		},
 		want: false,
 	}, {
+		name: "failure - deferEnforce",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, deferEnforceRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail", nil),
+					},
+				}),
+			},
+			failurePolicy: kyvernov1.Fail,
+			log:           logr.Discard(),
+		},
+		want: true,
+	}, {
 		name: "error - fail",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
@@ -298,6 +350,14 @@ func TestGetBlockedMessages(t *testing.T) {
 			ValidationFailureAction: kyvernov1.Enforce,
 		},
 	})
+	deferEnforcePolicy := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: kyvernov1.DeferEnforce,
+		},
+	})
 	resource := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind": "foo",
@@ -327,6 +387,18 @@ func TestGetBlockedMessages(t *testing.T) {
 		},
 		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-fail: message fail\n",
 	}, {
+		name: "failure - deferEnforce",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, deferEnforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail", nil),
+					},
+				}),
+			},
+		},
+		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-fail: message fail\n",
+	},{
 		name: "error - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
@@ -339,10 +411,35 @@ func TestGetBlockedMessages(t *testing.T) {
 		},
 		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-error: message error\n",
 	}, {
+		name: "error - deferEnforce",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, deferEnforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil, nil),
+					},
+				}),
+			},
+		},
+		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-error: message error\n",
+	},{
 		name: "error and failure - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(resource, enforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail", nil),
+						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil, nil),
+					},
+				}),
+			},
+		},
+		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-error: message error\n  rule-fail: message fail\n",
+	}, {
+		name: "error and failure - deferEnforce",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, deferEnforcePolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail", nil),
 						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil, nil),

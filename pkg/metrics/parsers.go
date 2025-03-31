@@ -9,10 +9,16 @@ import (
 )
 
 func ParsePolicyValidationMode(validationFailureAction kyvernov1.ValidationFailureAction) (PolicyValidationMode, error) {
-	if validationFailureAction.Enforce() {
-		return Enforce, nil
-	}
-	return Audit, nil
+    switch validationFailureAction {
+    case kyvernov1.Enforce:
+        return Enforce, nil
+    case kyvernov1.DeferEnforce:
+        return DeferEnforce, nil
+    case kyvernov1.Audit:
+        return Audit, nil
+    default:
+        return Audit, nil
+    }
 }
 
 func ParsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
