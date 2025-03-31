@@ -5,9 +5,7 @@ metadata:
 spec:
   generation:
     podControllers:
-      enabled: true
-      controllers:
-      - none
+      controllers: []
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]
