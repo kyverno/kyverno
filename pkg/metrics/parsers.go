@@ -87,6 +87,8 @@ func GetPolicyInfos(policy kyvernov1.PolicyInterface) (string, string, PolicyTyp
 	var validationMode PolicyValidationMode
 	if isEnforce {
 		validationMode = Enforce
+	} else if policy.GetSpec().HasValidateDeferEnforce() {
+		validationMode = DeferEnforce
 	} else {
 		validationMode = Audit
 	}

@@ -118,6 +118,40 @@ func Test_Add_Validate_Audit(t *testing.T) {
 	}
 }
 
+func Test_Add_Validate_DeferEnforce(t *testing.T) {
+	pCache := newPolicyCache()
+	policy := newPolicy(t)
+	finder := TestResourceFinder{}
+	setPolicy(t, pCache, policy, finder)
+	setPolicy(t, pCache, policy, finder)
+	policy.Spec.ValidationFailureAction = "DeferEnforce"
+	setPolicy(t, pCache, policy, finder)
+	setPolicy(t, pCache, policy, finder)
+	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		for _, kind := range rule.MatchResources.Kinds {
+			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+			gvrs, err := finder.FindResources(group, version, kind, subresource)
+			assert.NilError(t, err)
+			for gvr := range gvrs {
+				validateEnforce := pCache.get(ValidateEnforce, gvr.GroupVersionResource(), gvr.SubResource, "")
+				if len(validateEnforce) != 0 {
+					t.Errorf("expected 0 validate (enforce) policy, found %v", len(validateEnforce))
+				}
+
+				validateDeferEnforce := pCache.get(ValidateDeferEnforce, gvr.GroupVersionResource(), gvr.SubResource, "")
+				if len(validateDeferEnforce) != 1 {
+					t.Errorf("expected 1 validate (defer enforce) policy, found %v", len(validateDeferEnforce))
+				}
+
+				validateAudit := pCache.get(ValidateAudit, gvr.GroupVersionResource(), gvr.SubResource, "")
+				if len(validateAudit) != 0 {
+					t.Errorf("expected 0 validate (audit) policy, found %v", len(validateAudit))
+				}
+			}
+		}
+	}
+}
+
 func Test_Add_Remove(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
@@ -888,6 +922,58 @@ func newValidateEnforcePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	return policy
 }
 
+func newValidateDeferEnforcePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
+	rawPolicy := []byte(`{
+        "metadata": {
+          "name": "check-label-app-defer-enforce"
+        },
+        "spec": {
+          "background": false,
+          "rules": [
+            {
+                "match": {
+                    "resources": {
+                        "kinds": [
+                            "Pod"
+                        ]
+                    }
+                },
+                "name": "check-label-app",
+                "validate": {
+                    "message": "The label 'app' is required.",
+                    "pattern": {
+                        "metadata": {
+                            "labels": {
+                                "app": "?*"
+                            }
+                        }
+                    }
+                }
+            }
+          ],
+          "validationFailureAction": "DeferEnforce",
+          "validationFailureActionOverrides": [
+                {
+                    "action": "DeferEnforce",
+                    "namespaces": [
+                        "default"
+                    ]
+                },
+                {
+                    "action": "Audit",
+                    "namespaces": [
+                        "test"
+                    ]
+                }
+            ]
+        }
+      }`)
+	var policy *kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+	return policy
+}
+
 func Test_Ns_All(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
@@ -1239,6 +1325,7 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 	cache := NewCache()
 	policy1 := newValidateAuditPolicy(t)
 	policy2 := newValidateEnforcePolicy(t)
+	policy3 := newValidateDeferEnforcePolicy(t)
 	finder := TestResourceFinder{}
 
 	key1, _ := kubecache.MetaNamespaceKeyFunc(policy1)
@@ -1246,6 +1333,9 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 
 	key2, _ := kubecache.MetaNamespaceKeyFunc(policy2)
 	cache.Set(key2, policy2, finder)
+
+	key3, _ := kubecache.MetaNamespaceKeyFunc(policy3)
+	cache.Set(key3, policy3, finder)
 
 	testCases := []testCase{
 		{name: "ValidateAudit with no namespace", action: ValidateAudit, namespace: "", expectedPolicies: 1},
@@ -1256,6 +1346,10 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 		{name: "ValidateEnforce with default namespace", action: ValidateEnforce, namespace: "default", expectedPolicies: 2},
 		{name: "ValidateEnforce with unmatched namespace in failureActionOverrides", action: ValidateEnforce, namespace: "nonexistent", expectedPolicies: 1},
 		{name: "ValidateAudit with unmatched namespace in failureActionOverrides", action: ValidateAudit, namespace: "nonexistent", expectedPolicies: 1},
+		{name: "ValidateDeferEnforce with no namespace", action: ValidateDeferEnforce, namespace: "", expectedPolicies: 1},
+		{name: "ValidateDeferEnforce with default namespace", action: ValidateDeferEnforce, namespace: "default", expectedPolicies: 1},
+		{name: "ValidateDeferEnforce with test namespace", action: ValidateDeferEnforce, namespace: "test", expectedPolicies: 0},
+		{name: "ValidateDeferEnforce with unmatched namespace", action: ValidateDeferEnforce, namespace: "nonexistent", expectedPolicies: 1},
 	}
 
 	for _, tc := range testCases {
