@@ -13,6 +13,3 @@ results:
   resources:
   - test-pod
   result: fail  # We expect the rule to fail, but it will actually pass
-  
-# This demonstrates the bug fixed in PR #XXXX
-# Where test expectations that don't match actual results should be marked as failures 
