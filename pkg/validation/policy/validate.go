@@ -1599,48 +1599,48 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW, deferEnfo
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
 	}
-    pat, ns, notOk = wildcard.MatchPatterns(deferEnforce, audit...)
-    if notOk {
-        return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
-    }
+	pat, ns, notOk = wildcard.MatchPatterns(deferEnforce, audit...)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
+	}
 
-    pat, ns, notOk = wildcard.MatchPatterns(deferEnforce, enforce...)
-    if notOk {
-        return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
-    }
+	pat, ns, notOk = wildcard.MatchPatterns(deferEnforce, enforce...)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
+	}
 
-    // Check for conflicts involving DeferEnforce wildcards
-    pat, ns, notOk = wildcard.MatchPatterns(deferenforceW, audit...)
-    if notOk {
-        return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
-    }
+	// Check for conflicts involving DeferEnforce wildcards
+	pat, ns, notOk = wildcard.MatchPatterns(deferenforceW, audit...)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
+	}
 
-    pat, ns, notOk = wildcard.MatchPatterns(deferenforceW, enforce...)
-    if notOk {
-        return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
-    }
+	pat, ns, notOk = wildcard.MatchPatterns(deferenforceW, enforce...)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
+	}
 
-    pat1, pat2, notOk = wildcard.MatchPatterns(deferenforceW, enforceW...)
-    if notOk {
-        return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
-    }
+	pat1, pat2, notOk = wildcard.MatchPatterns(deferenforceW, enforceW...)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
+	}
 
-    pat1, pat2, notOk = wildcard.MatchPatterns(deferenforceW, auditW...)
-    if notOk {
-        return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
-    }
+	pat1, pat2, notOk = wildcard.MatchPatterns(deferenforceW, auditW...)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
+	}
 
 	return nil
 }
 
 func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride, path *field.Path) error {
 	action := map[string]sets.Set[string]{
-		"enforce":  sets.New[string](),
-		"audit":    sets.New[string](),
-		"enforceW": sets.New[string](),
-		"auditW":   sets.New[string](),
-		"deferenforce": sets.New[string](),
-		"deferenforceW": sets.New[string](), 
+		"enforce":       sets.New[string](),
+		"audit":         sets.New[string](),
+		"enforceW":      sets.New[string](),
+		"auditW":        sets.New[string](),
+		"deferenforce":  sets.New[string](),
+		"deferenforceW": sets.New[string](),
 	}
 
 	for i, vfa := range validationFailureActionOverrides {
@@ -1650,7 +1650,7 @@ func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationF
 		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {
-			if action["enforce"].HasAny(nsList...) || action["deferenforce"].HasAny(nsList...){
+			if action["enforce"].HasAny(nsList...) || action["deferenforce"].HasAny(nsList...) {
 				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
 					strings.Join(sets.List(action["enforce"].Intersection(sets.New(nsList...))), ", "))
 			}
@@ -1662,12 +1662,12 @@ func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationF
 			}
 			action["enforceW"].Insert(patternList...)
 		} else if vfa.Action.DeferEnforce() {
-            if action["audit"].HasAny(nsList...) {
-                return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
-                    strings.Join(sets.List(action["audit"].Intersection(sets.New(nsList...))), ", "))
-            }
-            action["deferenforceW"].Insert(patternList...)
-        }
+			if action["audit"].HasAny(nsList...) {
+				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
+					strings.Join(sets.List(action["audit"].Intersection(sets.New(nsList...))), ", "))
+			}
+			action["deferenforceW"].Insert(patternList...)
+		}
 		action[strings.ToLower(string(vfa.Action))].Insert(nsList...)
 
 		err := validateWildcardsWithNamespaces(

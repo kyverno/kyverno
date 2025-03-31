@@ -469,11 +469,11 @@ func (m *ForEachMutation) SetPatchStrategicMerge(in any) {
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
-    // FailureAction defines if a validation policy rule violation should:
-    // - block the admission review request immediately (Enforce),
-    // - allow the admission review request and report an error in a policy report (Audit), or
-    // - evaluate all rules first, provide warnings, and then block the request on failure (DeferEnforce).
-    // Optional.
+	// FailureAction defines if a validation policy rule violation should:
+	// - block the admission review request immediately (Enforce),
+	// - allow the admission review request and report an error in a policy report (Audit), or
+	// - evaluate all rules first, provide warnings, and then block the request on failure (DeferEnforce).
+	// Optional.
 	// Allowed values are Audit, Enforce, or DeferEnforce.
 	// +optional
 	// +kubebuilder:validation:Enum=Audit;Enforce;DeferEnforce

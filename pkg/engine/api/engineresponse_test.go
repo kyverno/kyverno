@@ -719,7 +719,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				},
 			}),
 		},
-		want: kyvernov1.DeferEnforce,	
+		want: kyvernov1.DeferEnforce,
 	}, {
 		fields: fields{
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
@@ -764,7 +764,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				},
 			}),
 		},
-		want: kyvernov1.DeferEnforce,	
+		want: kyvernov1.DeferEnforce,
 	}, {
 		fields: fields{
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{

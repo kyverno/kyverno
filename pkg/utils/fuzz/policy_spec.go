@@ -50,8 +50,8 @@ func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyvernov1.Spec, error) {
 		if err != nil {
 			return *spec, err
 		}
-	
-		switch actionType % 3 { 
+
+		switch actionType % 3 {
 		case 0:
 			spec.ValidationFailureAction = "Audit"
 		case 1:

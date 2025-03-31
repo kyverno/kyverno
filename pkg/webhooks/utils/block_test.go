@@ -150,7 +150,7 @@ func TestBlockRequest(t *testing.T) {
 			log:           logr.Discard(),
 		},
 		want: true,
-	},{
+	}, {
 		name: "failure - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
@@ -398,7 +398,7 @@ func TestGetBlockedMessages(t *testing.T) {
 			},
 		},
 		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-fail: message fail\n",
-	},{
+	}, {
 		name: "error - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
@@ -422,7 +422,7 @@ func TestGetBlockedMessages(t *testing.T) {
 			},
 		},
 		want: "\n\nresource foo/bar/baz was blocked due to the following policies \n\ntest:\n  rule-error: message error\n",
-	},{
+	}, {
 		name: "error and failure - enforce",
 		args: args{
 			engineResponses: []engineapi.EngineResponse{

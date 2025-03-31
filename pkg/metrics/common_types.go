@@ -3,8 +3,8 @@ package metrics
 type PolicyValidationMode string
 
 const (
-	Enforce PolicyValidationMode = "enforce"
-	Audit   PolicyValidationMode = "audit"
+	Enforce      PolicyValidationMode = "enforce"
+	Audit        PolicyValidationMode = "audit"
 	DeferEnforce PolicyValidationMode = "deferEnforce"
 )
 

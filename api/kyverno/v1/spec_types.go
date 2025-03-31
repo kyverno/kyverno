@@ -27,7 +27,7 @@ const (
 	// Audit doesn't block the request on failure
 	Audit ValidationFailureAction = "Audit"
 	// DeferEnforce blocks the request on failure but evaluates all rules first
-    DeferEnforce ValidationFailureAction = "DeferEnforce"
+	DeferEnforce ValidationFailureAction = "DeferEnforce"
 )
 
 func (a ValidationFailureAction) Enforce() bool {
@@ -39,7 +39,7 @@ func (a ValidationFailureAction) Audit() bool {
 }
 
 func (a ValidationFailureAction) DeferEnforce() bool {
-    return a == DeferEnforce
+	return a == DeferEnforce
 }
 
 func (a ValidationFailureAction) IsValid() bool {
@@ -198,15 +198,15 @@ func (s *Spec) HasValidateEnforce() bool {
 
 // HasValidateDeferEnforce checks if the policy has any validate rules with deferEnforce action
 func (s *Spec) HasValidateDeferEnforce() bool {
-    for _, rule := range s.Rules {
-        if rule.HasValidate() {
-            action := rule.Validation.FailureAction
-            if action != nil && action.DeferEnforce() {
-                return true
-            }
-        }
-    }
-    return s.ValidationFailureAction.DeferEnforce()
+	for _, rule := range s.Rules {
+		if rule.HasValidate() {
+			action := rule.Validation.FailureAction
+			if action != nil && action.DeferEnforce() {
+				return true
+			}
+		}
+	}
+	return s.ValidationFailureAction.DeferEnforce()
 }
 
 // HasGenerate checks for generate rule types
