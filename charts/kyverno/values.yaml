@@ -1306,7 +1306,7 @@ backgroundController:
     # options:
     #   - name: ndots
     #     value: "2"
-  
+
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
 
@@ -1589,7 +1589,7 @@ cleanupController:
     # options:
     #   - name: ndots
     #     value: "2"
-  
+
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
 
@@ -1922,7 +1922,7 @@ reportsController:
     # options:
     #   - name: ndots
     #     value: "2"
-  
+
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
 
