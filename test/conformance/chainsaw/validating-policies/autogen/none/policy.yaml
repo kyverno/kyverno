@@ -3,11 +3,9 @@ kind: ValidatingPolicy
 metadata:
   name: disallow-privilege-escalation
 spec:
-  generation:
+  autogen:
     podControllers:
-      enabled: true
-      controllers:
-      - none
+      controllers: []
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]

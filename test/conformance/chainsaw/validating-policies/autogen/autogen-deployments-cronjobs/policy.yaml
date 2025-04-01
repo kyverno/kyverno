@@ -3,9 +3,8 @@ kind: ValidatingPolicy
 metadata:
   name: disallow-privilege-escalation
 spec:
-  generation:
+  autogen:
     podControllers:
-      enabled: true
       controllers:
       - deployments
       - cronjobs
