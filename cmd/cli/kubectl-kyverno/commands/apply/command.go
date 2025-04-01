@@ -644,11 +644,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			var gitPathToYamls string
 			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, path)
 			fs := memfs.New()
-			auth := &http.BasicAuth{
+			auth := http.BasicAuth{
 				Username: c.GitUsername,
 				Password: c.GitPassword,
 			}
-			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
+			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
 				return nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
