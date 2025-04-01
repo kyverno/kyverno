@@ -184,9 +184,9 @@ type ValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
-	// GenerationConfiguration defines the configuration for the generation controller.
+	// AutogenConfiguration defines the configuration for the generation controller.
 	// +optional
-	GenerationConfiguration *GenerationConfiguration `json:"generation,omitempty"`
+	AutogenConfiguration *AutogenConfiguration `json:"autogen,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
@@ -205,16 +205,16 @@ type ValidatingPolicySpec struct {
 // GenerateValidatingAdmissionPolicyEnabled checks if validating admission policy generation is enabled
 func (s ValidatingPolicySpec) GenerateValidatingAdmissionPolicyEnabled() bool {
 	const defaultValue = false
-	if s.GenerationConfiguration == nil {
+	if s.AutogenConfiguration == nil {
 		return defaultValue
 	}
-	if s.GenerationConfiguration.ValidatingAdmissionPolicy == nil {
+	if s.AutogenConfiguration.ValidatingAdmissionPolicy == nil {
 		return defaultValue
 	}
-	if s.GenerationConfiguration.ValidatingAdmissionPolicy.Enabled == nil {
+	if s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled == nil {
 		return defaultValue
 	}
-	return *s.GenerationConfiguration.ValidatingAdmissionPolicy.Enabled
+	return *s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled
 }
 
 // AdmissionEnabled checks if admission is set to true
@@ -244,7 +244,7 @@ func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
 	return s.EvaluationConfiguration.Mode
 }
 
-type GenerationConfiguration struct {
+type AutogenConfiguration struct {
 	// PodControllers specifies whether to generate a pod controllers rules.
 	PodControllers *PodControllersGenerationConfiguration `json:"podControllers,omitempty"`
 	// ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
@@ -252,9 +252,6 @@ type GenerationConfiguration struct {
 }
 
 type PodControllersGenerationConfiguration struct {
-	// Enabled specifies whether to generate a pod controllers rules.
-	// Optional. Defaults to "false" if not specified.
-	Enabled *bool `json:"enabled,omitempty"`
 	// TODO: shall we use GVK/GVR instead of string ?
 	Controllers []string `json:"controllers,omitempty"`
 }
