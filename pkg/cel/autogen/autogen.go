@@ -3,7 +3,6 @@ package autogen
 import (
 	"strings"
 
-	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -85,21 +84,17 @@ func stripCronJob(controllers string) (bool, string) {
 	return isRemoved, strings.Join(newControllers, ",")
 }
 
-func ComputeRules(policy policiesv1alpha1.GenericPolicy) []policiesv1alpha1.AutogenRule {
+func ComputeRules(policy *policiesv1alpha1.ValidatingPolicy) []policiesv1alpha1.AutogenRule {
 	applyAutoGen, desiredControllers := CanAutoGen(policy.GetSpec().MatchConstraints)
 	if !applyAutoGen {
 		return []policiesv1alpha1.AutogenRule{}
 	}
-
-	var actualControllers sets.Set[string]
-	ann := policy.GetAnnotations()
-	actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
-	if !ok {
-		actualControllers = desiredControllers
-	} else {
-		actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
+	actualControllers := desiredControllers
+	if policy.Spec.AutogenConfiguration != nil &&
+		policy.Spec.AutogenConfiguration.PodControllers != nil &&
+		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-
 	resources := strings.Join(sets.List(actualControllers), ",")
 	genRules := generateRules(policy.GetSpec().DeepCopy(), resources)
 	return genRules

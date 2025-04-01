@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.30.0
+KIND_IMAGE           ?= kindest/node:v1.32.2
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -35,7 +35,7 @@ INSTALL_VERSION	     ?= 3.2.6
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.23.0
+KIND_VERSION                       ?= v0.27.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
 CONTROLLER_GEN_VERSION             ?= v0.16.1
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
@@ -60,8 +60,10 @@ HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.17.1
+API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
+CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -132,6 +134,14 @@ $(HELM_DOCS):
 $(KO):
 	@echo Install ko... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
+
+$(API_GROUP_RESOURCES):
+	@echo Install api-group-resources... >&2
+	@cd ./hack/api-group-resources && GOBIN=$(TOOLS_DIR) go install
+
+$(CLIENT_WRAPPER):
+	@echo Install client-wrapper... >&2
+	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
@@ -426,7 +436,9 @@ $(PACKAGE_SHIM): $(GOPATH_SHIM)
 	@mkdir -p $(GOPATH_SHIM)/src/github.com/kyverno && ln -s -f ${PWD} $(PACKAGE_SHIM)
 
 .PHONY: codegen-client-clientset
-codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
+codegen-client-clientset: ## Generate clientset
+codegen-client-clientset: $(PACKAGE_SHIM)
+codegen-client-clientset: $(CLIENT_GEN)
 	@echo Generate clientset... >&2
 	@rm -rf $(CLIENTSET_PACKAGE) && mkdir -p $(CLIENTSET_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
@@ -437,7 +449,9 @@ codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 		--input $(CLIENT_INPUT_DIRS)
 
 .PHONY: codegen-client-listers
-codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
+codegen-client-listers: ## Generate listers
+codegen-client-listers: $(PACKAGE_SHIM)
+codegen-client-listers: $(LISTER_GEN)
 	@echo Generate listers... >&2
 	@rm -rf $(LISTERS_PACKAGE) && mkdir -p $(LISTERS_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
@@ -446,7 +460,9 @@ codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 		--input-dirs $(CLIENT_INPUT_DIRS)
 
 .PHONY: codegen-client-informers
-codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
+codegen-client-informers: ## Generate informers
+codegen-client-informers: $(PACKAGE_SHIM)
+codegen-client-informers: $(INFORMER_GEN)
 	@echo Generate informers... >&2
 	@rm -rf $(INFORMERS_PACKAGE) && mkdir -p $(INFORMERS_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) \
@@ -457,21 +473,28 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 		--listers-package $(LISTERS_PACKAGE)
 
 .PHONY: codegen-client-wrappers
-codegen-client-wrappers: codegen-client-clientset $(GOIMPORTS) ## Generate client wrappers
+codegen-client-wrappers: ## Generate client wrappers
+codegen-client-wrappers: codegen-client-clientset
+codegen-client-wrappers: $(GOIMPORTS)
+codegen-client-wrappers: $(CLIENT_WRAPPER)
 	@echo Generate client wrappers... >&2
-	@go run ./hack/main.go
+	@$(CLIENT_WRAPPER)
 	@$(GOIMPORTS) -w ./pkg/clients
 	@go fmt ./pkg/clients/...
 
 .PHONY: codegen-register
-codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registrations
+codegen-register: ## Generate types registrations
+codegen-register: $(PACKAGE_SHIM)
+codegen-register: $(REGISTER_GEN)
 	@echo Generate registration... >&2
 	@GOPATH=$(GOPATH_SHIM) $(REGISTER_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS)
 
 .PHONY: codegen-deepcopy
-codegen-deepcopy: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
+codegen-deepcopy: ## Generate deep copy functions
+codegen-deepcopy: $(PACKAGE_SHIM)
+codegen-deepcopy: $(DEEPCOPY_GEN)
 	@echo Generate deep copy functions... >&2
 	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
@@ -479,7 +502,9 @@ codegen-deepcopy: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy function
 		--output-file-base=zz_generated.deepcopy
 
 .PHONY: codegen-defaulters
-codegen-defaulters: $(PACKAGE_SHIM) $(DEFAULTER_GEN) ## Generate defaulters
+codegen-defaulters: ## Generate defaulters
+codegen-defaulters: $(PACKAGE_SHIM)
+codegen-defaulters: $(DEFAULTER_GEN)
 	@echo Generate defaulters... >&2
 	@GOPATH=$(GOPATH_SHIM) $(DEFAULTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --input-dirs=$(INPUT_DIRS)
 
@@ -560,6 +585,12 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Gen
 		-o crd \
 		-f html
 
+.PHONY: codegen-api-group-resources
+codegen-api-group-resources: ## Generate API group resources
+codegen-api-group-resources: $(API_GROUP_RESOURCES)
+	@echo Generate API group resources... >&2
+	@$(API_GROUP_RESOURCES) > cmd/cli/kubectl-kyverno/data/api-group-resources.json
+
 .PHONY: codegen-cli-api-docs
 codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate CLI API docs
 	@echo Generate CLI api docs... >&2
@@ -590,8 +621,9 @@ codegen-cli-crds: codegen-crds-cli
 	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/policies.kyverno.io/policies.kyverno.io_celpolicyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_imagevalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
@@ -608,7 +640,13 @@ codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy . --save
 
 .PHONY: codegen-cli-all
-codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs
+codegen-cli-all: ## Generate all CLI related code and docs
+codegen-cli-all: codegen-cli-crds
+codegen-cli-all: codegen-api-group-resources
+codegen-cli-all: codegen-cli-api-docs
+codegen-cli-all: codegen-cli-docs
+codegen-cli-all: codegen-cli-api-docs
+codegen-cli-all: codegen-fix-tests
 
 define generate_crd
 	@echo "{{- if .Values.groups.$(4).$(5) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
@@ -624,7 +662,8 @@ define generate_crd
 endef
 
 .PHONY: codegen-helm-crds
-codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
+codegen-helm-crds: ## Generate helm CRDs
+codegen-helm-crds: codegen-crds-all
 	@echo Generate helm crds... >&2
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
@@ -637,18 +676,22 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
 	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
-	$(call generate_crd,policies.kyverno.io_celpolicyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,celpolicyexceptions)
+	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
 	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
+	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports)
 	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports)
 
 .PHONY: codegen-helm-all
-codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
+codegen-helm-all: ## Generate helm docs and CRDs
+codegen-helm-all: codegen-helm-crds
+codegen-helm-all: codegen-helm-docs
 
 .PHONY: codegen-manifest-install-latest
-codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
+codegen-manifest-install-latest: ## Create install_latest manifest
+codegen-manifest-install-latest: $(HELM)
 	@echo Generate latest install manifest... >&2
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
@@ -662,7 +705,8 @@ codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
 		> ./config/install-latest-testing.yaml
 
 .PHONY: codegen-manifest-debug
-codegen-manifest-debug: $(HELM) ## Create debug manifest
+codegen-manifest-debug: ## Create debug manifest
+codegen-manifest-debug: $(HELM)
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -677,7 +721,8 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 		> ./.manifest/debug.yaml
 
 .PHONY: codegen-manifest-release
-codegen-manifest-release: $(HELM) ## Create release manifest
+codegen-manifest-release: ## Create release manifest
+codegen-manifest-release: $(HELM)
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -691,7 +736,9 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 		> ./.manifest/release.yaml
 
 .PHONY: codegen-manifest-all
-codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
+codegen-manifest-all: ## Create all manifests
+codegen-manifest-all: codegen-manifest-install-latest
+codegen-manifest-all: codegen-manifest-debug
 
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions

@@ -90,11 +90,12 @@ crds:
       policyexceptions: true
       updaterequests: true
       validatingpolicies: true
-      celpolicyexceptions: true
 
+    # -- Install CRDs in group `policies.kyverno.io`
     policies:
       validatingpolicies: true
-      celpolicyexceptions: true
+      policyexceptions: true
+      imagevalidatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:

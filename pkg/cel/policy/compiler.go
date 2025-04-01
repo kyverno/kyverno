@@ -8,22 +8,29 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
-	"github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
 const (
-	ContextKey         = "context"
+	GlobalContextKey   = "globalcontext"
+	HttpKey            = "http"
+	ImageDataKey       = "imagedata"
 	NamespaceObjectKey = "namespaceObject"
 	ObjectKey          = "object"
 	OldObjectKey       = "oldObject"
 	RequestKey         = "request"
+	ResourceKey        = "resource"
 	VariablesKey       = "variables"
 )
 
-func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	switch policy.GetSpec().EvaluationMode() {
 	case policiesv1alpha1.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
@@ -32,7 +39,7 @@ func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, 
 	}
 }
 
-func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -51,7 +58,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, context.Lib())
+	options = append(options, resource.Lib(), http.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -70,7 +77,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		errs := compileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		errs := CompileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -97,7 +104,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	}, nil
 }
 
-func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -105,13 +112,15 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	}
 	var declTypes []*apiservercel.DeclType
 	declTypes = append(declTypes, NamespaceType, RequestType)
-	declTypes = append(declTypes, context.Types()...)
 	options := []cel.EnvOption{
-		cel.Variable(ContextKey, context.ContextType),
+		cel.Variable(GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(HttpKey, http.HTTPType),
+		cel.Variable(ImageDataKey, imagedata.ContextType),
 		cel.Variable(NamespaceObjectKey, NamespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
 		cel.Variable(RequestKey, RequestType.CelType()),
+		cel.Variable(ResourceKey, resource.ContextType),
 		cel.Variable(VariablesKey, VariablesType),
 	}
 	for _, declType := range declTypes {
@@ -125,7 +134,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		panic(err)
 	}
 	options = append(options, declOptions...)
-	options = append(options, context.Lib())
+	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), resource.Lib(), user.Lib())
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {
@@ -144,7 +153,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		errs := compileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		errs := CompileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -182,7 +191,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		}
 		// compile variables
 		variables := map[string]cel.Program{}
-		errs = compileVariables(autogenPath.Index(i).Child("variables"), rule.Variables, variablesProvider, env, variables)
+		errs = CompileVariables(autogenPath.Index(i).Child("variables"), rule.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -211,15 +220,15 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	}
 
 	// exceptions' match conditions
-	compiledExceptions := make([]compiledException, 0, len(exceptions))
+	compiledExceptions := make([]CompiledException, 0, len(exceptions))
 	for _, polex := range exceptions {
 		polexMatchConditions, errs := CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
-		compiledExceptions = append(compiledExceptions, compiledException{
-			exception:       polex,
-			matchConditions: polexMatchConditions,
+		compiledExceptions = append(compiledExceptions, CompiledException{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
 		})
 	}
 
@@ -257,7 +266,7 @@ func CompileMatchConditions(path *field.Path, matchConditions []admissionregistr
 	return result, nil
 }
 
-func compileVariables(path *field.Path, variables []admissionregistrationv1.Variable, variablesProvider *variablesProvider, env *cel.Env, result map[string]cel.Program) field.ErrorList {
+func CompileVariables(path *field.Path, variables []admissionregistrationv1.Variable, variablesProvider *variablesProvider, env *cel.Env, result map[string]cel.Program) field.ErrorList {
 	var allErrs field.ErrorList
 	for i, variable := range variables {
 		path := path.Index(i).Child("expression")

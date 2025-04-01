@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -83,6 +84,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 
+	var json any
+	if testCase.Test.JSONPayload != "" {
+		// JSON payload
+		fmt.Fprintln(out, "  Loading JSON payload", "...")
+		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
+		json, err = payload.Load(jsonFullPath[0])
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
+		}
+	}
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
 	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
 	if err != nil {
@@ -138,7 +149,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, policy := range results.Policies {
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
-				if res.IsValidatingAdmissionPolicy {
+				if res.IsValidatingAdmissionPolicy || res.IsValidatingPolicy {
 					continue
 				}
 				// TODO: what if two policies have a rule with the same name ?
@@ -198,21 +209,26 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
 		processor := processor.PolicyProcessor{
-			Store:                     &store,
-			Policies:                  validPolicies,
-			Resource:                  *resource,
-			PolicyExceptions:          polexLoader.Exceptions,
-			MutateLogPath:             "",
-			Variables:                 vars,
-			UserInfo:                  userInfo,
-			PolicyReport:              true,
-			NamespaceSelectorMap:      vars.NamespaceSelectors(),
-			Rc:                        &resultCounts,
-			RuleToCloneSourceResource: ruleToCloneSourceResource,
-			Cluster:                   false,
-			Client:                    dClient,
-			Subresources:              vars.Subresources(),
-			Out:                       io.Discard,
+			Store:                             &store,
+			Policies:                          validPolicies,
+			ValidatingAdmissionPolicies:       results.VAPs,
+			ValidatingAdmissionPolicyBindings: results.VAPBindings,
+			ValidatingPolicies:                results.ValidatingPolicies,
+			Resource:                          *resource,
+			PolicyExceptions:                  polexLoader.Exceptions,
+			CELExceptions:                     polexLoader.CELExceptions,
+			MutateLogPath:                     "",
+			Variables:                         vars,
+			ContextPath:                       testCase.Test.Context,
+			UserInfo:                          userInfo,
+			PolicyReport:                      true,
+			NamespaceSelectorMap:              vars.NamespaceSelectors(),
+			Rc:                                &resultCounts,
+			RuleToCloneSourceResource:         ruleToCloneSourceResource,
+			Cluster:                           false,
+			Client:                            dClient,
+			Subresources:                      vars.Subresources(),
+			Out:                               io.Discard,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -222,6 +238,37 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
 	}
+	if json != nil {
+		// the policy processor is for multiple policies at once
+		processor := processor.PolicyProcessor{
+			Store:                             &store,
+			Policies:                          validPolicies,
+			ValidatingAdmissionPolicies:       results.VAPs,
+			ValidatingAdmissionPolicyBindings: results.VAPBindings,
+			ValidatingPolicies:                results.ValidatingPolicies,
+			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
+			PolicyExceptions:                  polexLoader.Exceptions,
+			CELExceptions:                     polexLoader.CELExceptions,
+			MutateLogPath:                     "",
+			Variables:                         vars,
+			ContextPath:                       testCase.Test.Context,
+			UserInfo:                          userInfo,
+			PolicyReport:                      true,
+			NamespaceSelectorMap:              vars.NamespaceSelectors(),
+			Rc:                                &resultCounts,
+			RuleToCloneSourceResource:         ruleToCloneSourceResource,
+			Cluster:                           false,
+			Client:                            dClient,
+			Subresources:                      vars.Subresources(),
+			Out:                               io.Discard,
+		}
+		ers, err := processor.ApplyPoliciesOnResource()
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+		}
+		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
+		engineResponses = append(engineResponses, ers...)
+	}
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
 			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
@@ -229,23 +276,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testResponse.Target[resourceKey] = append(testResponse.Target[resourceKey], engineResponse)
 			}
 		}
-	}
-
-	for _, resource := range uniques {
-		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:             results.VAPs,
-			Bindings:             results.VAPBindings,
-			Resource:             resource,
-			NamespaceSelectorMap: vars.NamespaceSelectors(),
-			PolicyReport:         true,
-			Rc:                   &resultCounts,
-		}
-		ers, err := processor.ApplyPolicyOnResource()
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		resourceKey := generateResourceKey(resource)
-		testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], ers...)
 	}
 	// this is an array of responses of all policies, generated by all of their rules
 	return &testResponse, nil

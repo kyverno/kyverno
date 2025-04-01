@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -22,8 +21,8 @@ var (
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
 	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 
-	ivpol = &policiesv1alpha1.ImageVerificationPolicy{
-		Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
+		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{
 				Mode: policiesv1alpha1.EvaluationModeJSON,
 			},
@@ -35,7 +34,7 @@ var (
 			Images: []policiesv1alpha1.Image{
 				{
 					Name:       "bar",
-					Expression: "[request.foo.bar]",
+					Expression: "[object.foo.bar]",
 				},
 			},
 			Attestors: []policiesv1alpha1.Attestor{
@@ -73,7 +72,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					},
 				},
 			},
-			Verifications: []admissionregistrationv1.Validation{
+			Validations: []admissionregistrationv1.Validation{
 				{
 					Expression: "images.bar.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
 					Message:    "failed to verify image with notary cert",
@@ -92,14 +91,14 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_Eval(t *testing.T) {
-	result, err := Evaluate(context.Background(), logr.Discard(), []*policiesv1alpha1.ImageVerificationPolicy{ivpol}, obj(signedImage), nil, nil, nil)
+	result, err := Evaluate(context.Background(), []*CompiledImageVerificationPolicy{{Policy: ivpol}}, obj(signedImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
-	assert.True(t, result[0].Result)
+	assert.True(t, result[ivpol.Name].Result)
 
-	result, err = Evaluate(context.Background(), logr.Discard(), []*policiesv1alpha1.ImageVerificationPolicy{ivpol}, obj(unsignedImage), nil, nil, nil)
+	result, err = Evaluate(context.Background(), []*CompiledImageVerificationPolicy{{Policy: ivpol}}, obj(unsignedImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
-	assert.False(t, result[0].Result)
-	assert.Equal(t, result[0].Message, "failed to verify image with notary cert")
+	assert.False(t, result[ivpol.Name].Result)
+	assert.Equal(t, result[ivpol.Name].Message, "failed to verify image with notary cert")
 }

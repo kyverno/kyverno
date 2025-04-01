@@ -11,7 +11,7 @@ webhooks:
     service:
       name: kyverno-svc
       namespace: kyverno
-      path: /vpol/fail/finegrained/disallow-privilege-escalation
+      path: /policies/vpol/validate/fail/finegrained/disallow-privilege-escalation
       port: 443
   failurePolicy: Fail
   matchConditions:
