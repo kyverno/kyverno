@@ -14,7 +14,7 @@ metadata:
 
     kind: Deployment
 
-    name: test-deployment-ivpol-background
+    name: background-report
 
 scope:
 
@@ -22,13 +22,13 @@ scope:
 
   kind: Deployment
 
-  name: test-deployment-ivpol-background
+  name: background-report
 
 results:
 
 - message: Deployment labels must be env=prod but found env=staging
 
-  policy: ivpol-report
+  policy: background-report
 
   result: fail
 

@@ -9,14 +9,4 @@ spec:
     - create:
         file: policy.yaml
     - create:
-        file: assert.yaml
-    - assert:
-        file: assert.yaml
-    - sleep:
-        duration: 10s
-  - name: create service accounts
-    try:
-    - create:
-        file: test-serviceaccounts.yaml
-    - create:
         file: deployment.yaml
