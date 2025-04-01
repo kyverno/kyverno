@@ -38,3 +38,12 @@
     {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.cleanupController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{- define "kyverno.cleanup-controller.dnsNames" -}}
+{{- $fullname := include "kyverno.cleanup-controller.roleName" . }}
+{{- $namespace := include "kyverno.namespace" . }}
+{{- $fullname }}
+{{ $fullname }}.{{ $namespace }}.svc
+{{ template "kyverno.cleanup-controller.name" . }}
+{{ template "kyverno.cleanup-controller.name" . }}.{{ $namespace }}.svc
+{{- end }}
