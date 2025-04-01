@@ -1,28 +1,28 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: ImageValidatingPolicy
 metadata:
-  name: ivpol-apicall-correct
+  name: ivpol-image-data-arch-sample
 spec:
-  webhookConfiguration:
-    timeoutSeconds: 20
-  evaluation:
-    mode: Kubernetes
-  validationActions:
-    - Deny
+  validationActions: [Deny]
   matchConstraints:
     resourceRules:
-      - apiGroups: [""]
-        apiVersions: [v1]
-        operations: [CREATE, UPDATE]
-        resources: [pods]
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [pods]
   variables:
-    - name: dcount
-      expression: >-
-        globalcontext.Get("gctxentry-apicall-projections", "test-globalcontext-apicall-correct-projections_deployment_count")
+    - name: imageRef
+      expression: object.spec.containers[0].image
+    - name: imageKey
+      expression: variables.imageRef
+    - name: image
+      expression: imagedata.Get(variables.imageKey)
   validations:
     - expression: >-
-        variables.dcount == 0
-      messageExpression: "'cannot create new deployment as main-deployment already exists, variables.dcount: ' + string(variables.dcount)"
+         variables.image.config.architecture == "amd64"  
+      messageExpression: "'image architecture is not supported: ' + string(variables.image.config.architecture)"
+  imageRules:
+    - glob: ghcr.io/*
   attestors:
     - name: notary
       notary:
@@ -47,3 +47,7 @@ spec:
           5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
           uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
           -----END CERTIFICATE-----
+  attestations:
+    - name: sbom
+      referrer:
+        type: sbom/cyclone-dx

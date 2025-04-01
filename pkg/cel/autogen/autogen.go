@@ -90,10 +90,10 @@ func ComputeRules(policy *policiesv1alpha1.ValidatingPolicy) []policiesv1alpha1.
 		return []policiesv1alpha1.AutogenRule{}
 	}
 	actualControllers := desiredControllers
-	if policy.Spec.GenerationConfiguration != nil &&
-		policy.Spec.GenerationConfiguration.PodControllers != nil &&
-		policy.Spec.GenerationConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(policy.Spec.GenerationConfiguration.PodControllers.Controllers...)
+	if policy.Spec.AutogenConfiguration != nil &&
+		policy.Spec.AutogenConfiguration.PodControllers != nil &&
+		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
 	resources := strings.Join(sets.List(actualControllers), ",")
 	genRules := generateRules(policy.GetSpec().DeepCopy(), resources)

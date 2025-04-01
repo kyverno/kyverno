@@ -3,7 +3,7 @@ kind: ValidatingPolicy
 metadata:
   name: check-deployment-labels
 spec:
-  generation:
+  autogen:
     validatingAdmissionPolicy:
       enabled: true
   validationActions:
