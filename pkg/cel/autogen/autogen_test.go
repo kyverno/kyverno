@@ -2,11 +2,10 @@ package autogen
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -14,6 +13,7 @@ func Test_CanAutoGen(t *testing.T) {
 	testCases := []struct {
 		name                string
 		policy              []byte
+		applyAutoGen        bool
 		expectedControllers sets.Set[string]
 	}{
 		{
@@ -61,7 +61,7 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			expectedControllers: sets.New("none"),
+			expectedControllers: sets.New[string](),
 		},
 		{
 			name: "policy-with-match-object-selector",
@@ -110,7 +110,7 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			expectedControllers: sets.New("none"),
+			expectedControllers: sets.New[string](),
 		},
 		{
 			name: "policy-with-match-namespace-selector",
@@ -159,7 +159,7 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			expectedControllers: sets.New("none"),
+			expectedControllers: sets.New[string](),
 		},
 		{
 			name: "policy-with-match-mixed-kinds-pod-podcontrollers",
@@ -218,7 +218,7 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			expectedControllers: sets.New("none"),
+			expectedControllers: sets.New[string](),
 		},
 		{
 			name: "policy-with-match-kinds-pod-only",
@@ -262,6 +262,7 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
+			applyAutoGen:        true,
 			expectedControllers: podControllers,
 		},
 	}
@@ -270,15 +271,10 @@ func Test_CanAutoGen(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var policy *policiesv1alpha1.ValidatingPolicy
 			err := json.Unmarshal(test.policy, &policy)
-			assert.NilError(t, err)
-
+			assert.NoError(t, err)
 			applyAutoGen, controllers := CanAutoGen(policy.Spec.MatchConstraints)
-			if !applyAutoGen {
-				controllers = sets.New("none")
-			}
-
-			equalityTest := test.expectedControllers.Equal(controllers)
-			assert.Assert(t, equalityTest, fmt.Sprintf("expected: %v, got: %v", test.expectedControllers, controllers))
+			assert.Equal(t, test.expectedControllers, controllers)
+			assert.Equal(t, test.applyAutoGen, applyAutoGen)
 		})
 	}
 }
