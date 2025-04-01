@@ -19,8 +19,9 @@ spec:
             file: deployment.yaml
     - name: create bad deployment
       try:
-        - apply:
-            expect:
-              - check:
-                  ($error != null): true
+        - create:
             file: bad-deployment.yaml
+            expect:
+            - check:
+                ($error): >-
+                  admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-ivpol-imagereference-sample" denied the request: Policy ivpol-imagereference-sample failed: Deployment must be have images from ghcr and images should be tagged
