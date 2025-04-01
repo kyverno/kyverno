@@ -1,28 +1,32 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: ImageValidatingPolicy
 metadata:
-  name: ivpol-apicall-correct
+  name: ivpol-image-data-sample
 spec:
-  webhookConfiguration:
-    timeoutSeconds: 20
-  evaluation:
-    mode: Kubernetes
   validationActions:
-    - Deny
+  - Deny
   matchConstraints:
     resourceRules:
       - apiGroups: [""]
-        apiVersions: [v1]
-        operations: [CREATE, UPDATE]
-        resources: [pods]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
   variables:
-    - name: dcount
+    - name: image
       expression: >-
-        globalcontext.Get("gctxentry-apicall-projections", "test-globalcontext-apicall-correct-projections_deployment_count")
+        imagedata.Get("ghcr.io/kyverno/test-verify-image:signed")
+    - name: exist
+      expression: >-
+        variables.image != null
   validations:
     - expression: >-
-        variables.dcount == 0
-      messageExpression: "'cannot create new deployment as main-deployment already exists, variables.dcount: ' + string(variables.dcount)"
+        !variables.exist
+      messageExpression: "'expect variables.exist to be false, got: ' + string(variables.exist)"
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
+      message: failed to verify image with notary cert
+  imageRules:
+    - glob: ghcr.io/*
   attestors:
     - name: notary
       notary:
@@ -47,3 +51,7 @@ spec:
           5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
           uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
           -----END CERTIFICATE-----
+  attestations:
+    - name: sbom
+      referrer:
+        type: sbom/cyclone-dx
