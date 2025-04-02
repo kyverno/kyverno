@@ -28,7 +28,7 @@ func configure(args ...string) error {
 		return err
 	}
 	if isVerboseBool {
-		return logging.Setup(logging.TextFormat, logging.DefaultTime, level)
+		return logging.Setup(logging.TextFormat, logging.DefaultTime, level, false)
 	} else {
 		log.SetLogger(logr.Discard())
 	}
