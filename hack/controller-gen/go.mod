@@ -1,11 +1,12 @@
 module github.com/kyverno/kyverno/hack/controller-gen
 
 go 1.23.4
+toolchain go1.24.1
 
 require (
 	github.com/spf13/cobra v1.9.1
 	k8s.io/apiextensions-apiserver v0.32.3
-	sigs.k8s.io/controller-tools v0.17.2
+	sigs.k8s.io/controller-tools v0.17.3
 )
 
 require (
