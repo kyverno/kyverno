@@ -1,0 +1,15 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: test-vpol-subresource-namespace
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: test-vpol-subresource-namespace
+spec:
+  containers:
+  - name: busybox
+    image: busybox:1.35
+    command: ["sleep", "300"]

@@ -62,31 +62,31 @@ func Test_Match(t *testing.T) {
 						"nginx:latest",
 						"alpine:latest",
 					},
-					"object": map[string]any{
-						"spec": map[string]any{
-							"containers": []map[string]string{
-								{
-									"image": "kyverno/image-one",
-								},
-								{
-									"image": "kyverno/image-two",
-								},
+				},
+				"object": map[string]any{
+					"spec": map[string]any{
+						"containers": []map[string]string{
+							{
+								"image": "kyverno/image-one",
 							},
-							"initContainers": []map[string]string{
-								{
-									"image": "kyverno/init-image-one",
-								},
-								{
-									"image": "kyverno/init-image-two",
-								},
+							{
+								"image": "kyverno/image-two",
 							},
-							"ephemeralContainers": []map[string]string{
-								{
-									"image": "kyverno/ephr-image-one",
-								},
-								{
-									"image": "kyverno/ephr-image-two",
-								},
+						},
+						"initContainers": []map[string]string{
+							{
+								"image": "kyverno/init-image-one",
+							},
+							{
+								"image": "kyverno/init-image-two",
+							},
+						},
+						"ephemeralContainers": []map[string]string{
+							{
+								"image": "kyverno/ephr-image-one",
+							},
+							{
+								"image": "kyverno/ephr-image-two",
 							},
 						},
 					},
@@ -132,7 +132,7 @@ func Test_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, errList := CompileImageExtractors(field.NewPath("spec", "images"), tt.imageExtractor, tt.gvr, []cel.EnvOption{cel.Variable(policy.RequestKey, types.DynType)})
+			c, errList := CompileImageExtractors(field.NewPath("spec", "images"), tt.imageExtractor, tt.gvr, []cel.EnvOption{cel.Variable(policy.RequestKey, types.DynType), cel.Variable(policy.ObjectKey, types.DynType)})
 			assert.Nil(t, errList)
 			images, err := ExtractImages(c, tt.request)
 			if tt.wantErr {

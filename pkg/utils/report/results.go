@@ -147,6 +147,9 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	if pol.AsValidatingPolicy() != nil {
 		result.Source = SourceValidatingPolicy
 	}
+	if pol.AsImageVerificationPolicy() != nil {
+		result.Source = SourceImageVerificationPolicy
+	}
 	return result
 }
 

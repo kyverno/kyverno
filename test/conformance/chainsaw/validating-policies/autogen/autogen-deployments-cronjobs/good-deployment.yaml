@@ -22,3 +22,27 @@ spec:
         image: nginx:latest
         securityContext:
           allowPrivilegeEscalation: false
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: good-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    metadata:
+      labels:
+        prod: "true" 
+    spec:
+      template:
+        metadata:
+          labels:
+            prod: "true"
+        spec:
+          containers:
+          - name: secure-container
+            image: busybox
+            command: ["echo", "Hello, world"]
+            securityContext:
+              allowPrivilegeEscalation: false 
+          restartPolicy: OnFailure

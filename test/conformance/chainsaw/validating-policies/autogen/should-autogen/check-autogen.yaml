@@ -56,7 +56,7 @@ status:
           resources:
           - cronjobs
       validations:
-      - expression: object.spec.jobTemplate.spec.template.spec.template.spec.containers.all(container,
+      - expression: object.spec.jobTemplate.spec.template.spec.containers.all(container,
           has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation)
           && container.securityContext.allowPrivilegeEscalation == false)
         message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation

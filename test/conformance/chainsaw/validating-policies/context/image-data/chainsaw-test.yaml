@@ -9,9 +9,11 @@ spec:
     try:
     - create:
         file: policy.yaml
-    - sleep:
-        duration: 10s
+    - assert:
+        file: policy-assert.yaml
   - name: create deployment
     try:
     - create:
+        file: deployment.yaml
+    - assert:
         file: deployment.yaml

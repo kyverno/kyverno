@@ -53,6 +53,7 @@ type controller struct {
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
 	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
@@ -74,6 +75,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
@@ -137,6 +139,17 @@ func NewController(
 		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
 			vpolInformer.Informer(),
+			func(_ metav1.Object) { enqueueAll() },
+			func(_, _ metav1.Object) { enqueueAll() },
+			func(_ metav1.Object) { enqueueAll() },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			ivpolInformer.Informer(),
 			func(_ metav1.Object) { enqueueAll() },
 			func(_, _ metav1.Object) { enqueueAll() },
 			func(_ metav1.Object) { enqueueAll() },
@@ -225,6 +238,20 @@ func (c *controller) createVPolMap() (sets.Set[string], error) {
 		}
 		for _, vpol := range vpols {
 			results.Insert(cache.MetaObjectToName(vpol).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createIVPolMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.ivpolLister != nil {
+		ivpols, err := c.ivpolLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, ivpol := range ivpols {
+			results.Insert(cache.MetaObjectToName(ivpol).String())
 		}
 	}
 	return results, nil
@@ -454,10 +481,15 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
+	ivpolMap, err := c.createIVPolMap()
+	if err != nil {
+		return err
+	}
 	maps := maps{
-		pol:  policyMap,
-		vap:  vapMap,
-		vpol: vpolMap,
+		pol:   policyMap,
+		vap:   vapMap,
+		vpol:  vpolMap,
+		ivpol: ivpolMap,
 	}
 	reports = append(reports, ephemeralReports...)
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}

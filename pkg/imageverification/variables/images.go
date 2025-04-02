@@ -12,43 +12,43 @@ var (
 	podImageExtractors = []v1alpha1.Image{
 		{
 			Name:       "containers",
-			Expression: "request.object.spec.containers.map(e, e.image)",
+			Expression: "has(object.spec.containers) ? object.spec.containers.map(e, e.image) : []",
 		},
 		{
 			Name:       "initContainers",
-			Expression: "request.object.spec.initContainers.map(e, e.image)",
+			Expression: "has(object.spec.initContainers) ? object.spec.initContainers.map(e, e.image) : []",
 		},
 		{
 			Name:       "ephemeralContainers",
-			Expression: "request.object.spec.ephemeralContainers.map(e, e.image)",
+			Expression: "has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(e, e.image) : []",
 		},
 	}
 	podControllerImageExtractors = []v1alpha1.Image{
 		{
 			Name:       "containers",
-			Expression: "request.object.spec.template.spec.containers.map(e, e.image)",
+			Expression: "has(object.spec.template.spec.containers) ? object.spec.template.spec.containers.map(e, e.image) : []",
 		},
 		{
 			Name:       "initContainers",
-			Expression: "request.object.spec.template.spec.initContainers.map(e, e.image)",
+			Expression: "has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers.map(e, e.image) : []",
 		},
 		{
 			Name:       "ephemeralContainers",
-			Expression: "request.object.spec.template.spec.ephemeralContainers.map(e, e.image)",
+			Expression: "has(object.spec.template.spec.ephemeralContainers) ? object.spec.template.spec.ephemeralContainers.map(e, e.image) : []",
 		},
 	}
 	cronJobImageExtractors = []v1alpha1.Image{
 		{
 			Name:       "containers",
-			Expression: "request.object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image)",
+			Expression: "has(object.spec.jobTemplate.spec.template.spec.containers) ? object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image) : []",
 		},
 		{
 			Name:       "initContainers",
-			Expression: "request.object.spec.jobTemplate.spec.template.spec.initContainers.map(e, e.image)",
+			Expression: "has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers.map(e, e.image) : []",
 		},
 		{
 			Name:       "ephemeralContainers",
-			Expression: "request.object.spec.jobTemplate.spec.template.spec.ephemeralContainers.map(e, e.image)",
+			Expression: "has(object.spec.jobTemplate.spec.template.spec.ephemeralContainers) ? object.spec.jobTemplate.spec.template.spec.ephemeralContainers.map(e, e.image) : []",
 		},
 	}
 )

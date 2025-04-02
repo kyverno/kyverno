@@ -12,7 +12,7 @@ spec:
   variables:
     - name: cm
       expression: >-
-        context.GetConfigMap(object.metadata.namespace, "policy-cm")
+        resource.Get("v1", "configmaps", object.metadata.namespace, "policy-cm")
     - name: environment
       expression: >-
         has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == variables.cm.data.env

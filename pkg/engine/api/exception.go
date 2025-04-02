@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GenericException abstracts the exception type (PolicyException, CELPolicyException)
+// GenericException abstracts the exception type (PolicyException, PolicyException)
 type GenericException interface {
 	metav1.Object
 	// GetAPIVersion returns policy API version
@@ -16,20 +16,20 @@ type GenericException interface {
 	// AsException returns the policy exception
 	AsException() *kyvernov2.PolicyException
 	// AsCELException returns the CEL policy exception
-	AsCELException() *policiesv1alpha1.CELPolicyException
+	AsCELException() *policiesv1alpha1.PolicyException
 }
 
 type genericException struct {
 	metav1.Object
 	PolicyException    *kyvernov2.PolicyException
-	CELPolicyException *policiesv1alpha1.CELPolicyException
+	CELPolicyException *policiesv1alpha1.PolicyException
 }
 
 func (p *genericException) AsException() *kyvernov2.PolicyException {
 	return p.PolicyException
 }
 
-func (p *genericException) AsCELException() *policiesv1alpha1.CELPolicyException {
+func (p *genericException) AsCELException() *policiesv1alpha1.PolicyException {
 	return p.CELPolicyException
 }
 
@@ -60,7 +60,7 @@ func NewPolicyException(polex *kyvernov2.PolicyException) GenericException {
 	}
 }
 
-func NewCELPolicyException(polex *policiesv1alpha1.CELPolicyException) GenericException {
+func NewCELPolicyException(polex *policiesv1alpha1.PolicyException) GenericException {
 	return &genericException{
 		Object:             polex,
 		CELPolicyException: polex,

@@ -3,6 +3,7 @@ package cel
 import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"k8s.io/apiserver/pkg/cel/library"
 )
 
@@ -30,5 +31,6 @@ func NewEnv() (*cel.Env, error) {
 		library.Lists(),
 		library.Regex(),
 		library.URLs(),
+		image.ImageLib(),
 	)
 }
