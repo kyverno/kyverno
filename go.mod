@@ -1,6 +1,7 @@
 module github.com/kyverno/kyverno
 
 go 1.23.4
+toolchain go1.24.1
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -71,7 +72,7 @@ require (
 	golang.org/x/crypto v0.36.0
 	golang.org/x/text v0.23.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
-	google.golang.org/grpc v1.71.0
+	google.golang.org/grpc v1.71.1
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
