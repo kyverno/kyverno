@@ -70,6 +70,9 @@ func allCertificatesExpired(now time.Time, certs ...*x509.Certificate) bool {
 }
 
 func validateCert(now time.Time, cert *x509.Certificate, caCerts ...*x509.Certificate) bool {
+	if len(caCerts) == 0 || cert == nil {
+		return false
+	}
 	pool := x509.NewCertPool()
 	for _, cert := range caCerts {
 		pool.AddCert(cert)
