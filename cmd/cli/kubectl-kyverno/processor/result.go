@@ -45,6 +45,8 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 								break
 							} else if auditWarn && response.GetValidationFailureAction().Audit() {
 								rc.Warn++
+							} else if auditWarn && response.GetValidationFailureAction().Enforce() {
+								rc.Warn++
 							} else {
 								rc.Fail++
 							}
