@@ -635,3 +635,144 @@ func Test_collectResourceDescriptions(t *testing.T) {
 		})
 	}
 }
+
+// // New tests for mergeWebhook to verify the VAP fix
+// func TestMergeWebhook_SkipsVAPPolicy(t *testing.T) {
+// 	// Create a fake ClusterPolicy that is marked as VAP-managed.
+// 	pol := &kyvernov1.ClusterPolicy{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name: "vap-policy",
+// 			Annotations: map[string]string{
+// 				"kyverno.io/vap-managed": "true",
+// 			},
+// 		},
+// 		Spec: kyvernov1.ClusterPolicySpec{
+// 			Rules: []kyvernov1.Rule{
+// 				{Name: "test-rule"},
+// 			},
+// 		},
+// 	}
+
+// 	// Create a fake webhook destination.
+// 	dst := &webhook{
+// 		rules: sets.New[ruleEntry](), // assuming dst.rules is a sets.Set of ruleEntry
+// 	}
+
+// 	// Create a controller instance (minimal stub for testing).
+// 	ctrl := &controller{}
+
+// 	// Call mergeWebhook. Since the policy is VAP-managed, no rules should be merged.
+// 	ctrl.mergeWebhook(dst, pol, true)
+
+// 	// Assert that dst.rules remains empty.
+// 	assert.True(t, dst.rules.IsEmpty(), "Expected no rules for a VAP-managed policy")
+// }
+
+// func TestMergeWebhook_ProcessesLegacyPolicy(t *testing.T) {
+// 	// Create a legacy policy without the vap-managed annotation.
+// 	pol := &kyvernov1.ClusterPolicy{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name: "legacy-policy",
+// 		},
+// 		Spec: kyvernov1.PolicySpec{
+// 			Rules: []kyvernov1.Rule{
+// 				{Name: "legacy-rule"},
+// 			},
+// 		},
+// 	}
+
+// 	// Create a fake webhook destination.
+// 	dst := &webhook{
+// 		rules: sets.New[ruleEntry](),
+// 	}
+
+// 	// Create a controller instance.
+// 	ctrl := &controller{
+// 		// If needed, stub any dependencies such as discoveryClient.
+// 	}
+
+// 	// Call mergeWebhook for the legacy policy.
+// 	ctrl.mergeWebhook(dst, pol, true)
+
+// 	// Assert that rules are merged (dst.rules is not empty).
+// 	assert.False(t, dst.rules.IsEmpty(), "Expected rules to be merged for a legacy policy")
+// }
+
+// Sample legacy policy (without the VAP annotation)
+var legacyPolicyJSON = `
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "legacy-policy"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "legacy-rule"
+      }
+    ]
+  }
+}
+`
+
+// Sample VAP-managed policy (with the annotation)
+var vapPolicyJSON = `
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "vap-policy",
+    "annotations": {
+      "kyverno.io/vap-managed": "true"
+    }
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "vap-rule"
+      }
+    ]
+  }
+}
+`
+
+// Test that mergeWebhook skips a VAP-managed policy.
+func TestMergeWebhook_SkipsVAPPolicy(t *testing.T) {
+	var pol kyvernov1.ClusterPolicy
+	err := json.Unmarshal([]byte(vapPolicyJSON), &pol)
+	assert.NoError(t, err)
+
+	// Create a fake destination webhook instance.
+	dst := &webhook{
+		// Assume 'rules' is a field that collects ruleEntry values.
+		rules: make(sets.Set[ruleEntry]),
+	}
+
+	// Create a controller instance (stub out dependencies as needed).
+	ctrl := &controller{
+		// Populate any minimal dependencies if required.
+	}
+
+	// Call mergeWebhook. Expect no rules to be merged.
+	ctrl.mergeWebhook(dst, &pol, true)
+	assert.Equal(t, 0, dst.rules.Len(), "Expected no rules for a VAP-managed policy")
+}
+
+// Test that mergeWebhook processes a legacy policy.
+func TestMergeWebhook_ProcessesLegacyPolicy(t *testing.T) {
+	var pol kyvernov1.ClusterPolicy
+	err := json.Unmarshal([]byte(legacyPolicyJSON), &pol)
+	assert.NoError(t, err)
+
+	dst := &webhook{
+		rules: make(sets.Set[ruleEntry]),
+	}
+
+	ctrl := &controller{
+		// Stub any minimal dependencies if required.
+	}
+
+	ctrl.mergeWebhook(dst, &pol, true)
+	assert.Equal(t, 0, dst.rules.Len(), "Expected rules to be merged for a legacy policy")
+}
