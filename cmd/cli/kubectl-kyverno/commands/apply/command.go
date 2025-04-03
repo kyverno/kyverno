@@ -139,6 +139,9 @@ func Command() *cobra.Command {
 						if applyCommandConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
 							auditWarn = true
 						}
+						if applyCommandConfig.AuditWarn && response.GetValidationFailureAction().Enforce() {
+							auditWarn = true
+						}
 						if auditWarn {
 							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed as audit warning:")
 						} else {
