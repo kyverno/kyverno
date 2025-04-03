@@ -184,15 +184,15 @@ crds:
       seccompProfile:
         type: RuntimeDefault
 
-  resourcesPod:
-    # -- Pod resource limits
-    limits:
-      cpu: 100m
-      memory: 256Mi
-    # -- Pod resource requests
-    requests:
-      cpu: 10m
-      memory: 64Mi
+    resourcesPod:
+      # -- Pod resource limits
+      limits:
+        cpu: 100m
+        memory: 256Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 10m
+        memory: 64Mi
 
 # Configuration
 config:
