@@ -10444,16 +10444,16 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
-<code>generation</code><br/>
+<code>autogen</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.GenerationConfiguration">
-GenerationConfiguration
+<a href="#policies.kyverno.io/v1alpha1.AutogenConfiguration">
+AutogenConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerationConfiguration defines the configuration for the generation controller.</p>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 <tr>
@@ -10663,6 +10663,51 @@ Notary
 <td>
 <em>(Optional)</em>
 <p>Notary defines attestor configuration for Notary based signatures</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AutogenConfiguration">AutogenConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>podControllers</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">
+PodControllersGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>PodControllers specifies whether to generate a pod controllers rules.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validatingAdmissionPolicy</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.VapGenerationConfiguration">
+VapGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.</p>
 </td>
 </tr>
 </tbody>
@@ -11273,37 +11318,6 @@ BackgroundConfiguration
 </p>
 <p>
 </p>
-<h3 id="policies.kyverno.io/v1alpha1.GenerationConfiguration">GenerationConfiguration
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>enabled</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1alpha1.GenericPolicy">GenericPolicy
 </h3>
 <p>
@@ -12530,6 +12544,36 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">PodControllersGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AutogenConfiguration">AutogenConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>controllers</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>TODO: shall we use GVK/GVR instead of string ?</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.PolicyConditionType">PolicyConditionType
 (<code>string</code> alias)</p></h3>
 <p>
@@ -12939,16 +12983,16 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
-<code>generation</code><br/>
+<code>autogen</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.GenerationConfiguration">
-GenerationConfiguration
+<a href="#policies.kyverno.io/v1alpha1.AutogenConfiguration">
+AutogenConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerationConfiguration defines the configuration for the generation controller.</p>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 <tr>
@@ -13048,6 +13092,37 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.VapGenerationConfiguration">VapGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AutogenConfiguration">AutogenConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 </tbody>
