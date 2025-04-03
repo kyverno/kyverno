@@ -1268,6 +1268,126 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			matched.merge(collectResourceDescriptions(rule, defaultOperations[updateValidate]...))
 		}
 	}
+	// // NEW: Skip merging webhook rules if the policy is managed via VAP.
+	// if isVAP(policy) {
+	// 	logger.V(4).Info("Skipping webhook merging for VAP-managed policy", "policy", policy.GetName())
+	// 	return
+	// }
+
+	// for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	// 	// matching kinds in generate policies need to be added to both webhooks
+	// 	if rule.HasGenerate() {
+	// 		matched.merge(collectResourceDescriptions(rule, allOperations...))
+	// 		// ... additional generation logic (ForEachGeneration, etc.) remains unchanged ...
+	// 	} else if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
+	// 		(updateValidate && rule.HasMutateExisting()) ||
+	// 		(!updateValidate && rule.HasMutateStandard()) ||
+	// 		(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
+	// 		matched.merge(collectResourceDescriptions(rule, defaultOperations[updateValidate]...))
+	// 	}
+	// }
+
+	if isVAP(policy) {
+		logger.V(4).Info("Skipping webhook merging for VAP-managed policy", "policy", policy.GetName())
+		return
+	}
+
+	matched = webhookConfig{}
+	// Single loop to compute and merge rules.
+	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		if rule.HasGenerate() {
+			matched.merge(collectResourceDescriptions(rule, allOperations...))
+			// Process ForEachGeneration if present.
+			for _, g := range rule.Generation.ForEachGeneration {
+				if g.GeneratePattern.ResourceSpec.Kind != "" {
+					matched.add(g.GeneratePattern.ResourceSpec.Kind, createUpdateDelete...)
+				} else {
+					for _, kind := range g.GeneratePattern.CloneList.Kinds {
+						matched.add(kind, createUpdateDelete...)
+					}
+				}
+			}
+			// Process Generation resource spec.
+			if rule.Generation.ResourceSpec.Kind != "" {
+				matched.add(rule.Generation.ResourceSpec.Kind, createUpdateDelete...)
+			} else {
+				for _, kind := range rule.Generation.CloneList.Kinds {
+					matched.add(kind, createUpdateDelete...)
+				}
+			}
+		} else if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
+			(updateValidate && rule.HasMutateExisting()) ||
+			(!updateValidate && rule.HasMutateStandard()) ||
+			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
+			matched.merge(collectResourceDescriptions(rule, defaultOperations[updateValidate]...))
+		}
+	}
+
+	// Proceed to convert the collected matched data into webhook rules.
+	for kind, ops := range matched {
+		var gvrsList []groupVersionResourceSubresourceScope
+		group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+		policyScope := admissionregistrationv1.AllScopes
+		if policy.IsNamespaced() {
+			policyScope = admissionregistrationv1.NamespacedScope
+		}
+		// Determine resource scope based on the kind/subresource.
+		if kind == "*" && subresource == "*" {
+			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+				group:       group,
+				version:     version,
+				resource:    kind,
+				subresource: subresource,
+				scope:       policyScope,
+			})
+		} else if kind == "*" && subresource == "" {
+			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+				group:       group,
+				version:     version,
+				resource:    kind,
+				subresource: subresource,
+				scope:       policyScope,
+			})
+		} else if kind == "*" && subresource != "" {
+			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+				group:       group,
+				version:     version,
+				resource:    kind,
+				subresource: subresource,
+				scope:       policyScope,
+			})
+		} else {
+			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
+			if err != nil {
+				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				continue
+			}
+			for gvrs, resource := range gvrss {
+				resourceScope := admissionregistrationv1.AllScopes
+				if resource.Namespaced {
+					resourceScope = admissionregistrationv1.NamespacedScope
+				}
+				gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+					group:       gvrs.GroupVersion.Group,
+					version:     gvrs.GroupVersion.Version,
+					resource:    gvrs.Resource,
+					subresource: gvrs.SubResource,
+					scope:       resourceScope,
+				})
+			}
+		}
+		for _, gvrs := range gvrsList {
+			dst.set(gvrs.group, gvrs.version, gvrs.resource, gvrs.subresource, gvrs.scope, ops.UnsortedList()...)
+		}
+	}
+	spec := policy.GetSpec()
+	webhookTimeoutSeconds := spec.GetWebhookTimeoutSeconds()
+	if webhookTimeoutSeconds != nil {
+		if dst.maxWebhookTimeout < *webhookTimeoutSeconds {
+			dst.maxWebhookTimeout = *webhookTimeoutSeconds
+		}
+	}
+
 	for kind, ops := range matched {
 		var gvrsList []groupVersionResourceSubresourceScope
 		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
@@ -1326,8 +1446,8 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			dst.set(gvrs.group, gvrs.version, gvrs.resource, gvrs.subresource, gvrs.scope, ops.UnsortedList()...)
 		}
 	}
-	spec := policy.GetSpec()
-	webhookTimeoutSeconds := spec.GetWebhookTimeoutSeconds()
+	spec = policy.GetSpec()
+	webhookTimeoutSeconds = spec.GetWebhookTimeoutSeconds()
 	if webhookTimeoutSeconds != nil {
 		if dst.maxWebhookTimeout < *webhookTimeoutSeconds {
 			dst.maxWebhookTimeout = *webhookTimeoutSeconds
@@ -1359,4 +1479,14 @@ func (c *controller) buildOwner() []metav1.OwnerReference {
 		}
 	}
 	return nil
+}
+
+func isVAP(policy kyvernov1.PolicyInterface) bool {
+	annotations := policy.GetAnnotations()
+	if annotations != nil {
+		if val, ok := annotations["kyverno.io/vap-managed"]; ok && strings.ToLower(val) == "true" {
+			return true
+		}
+	}
+	return false
 }
