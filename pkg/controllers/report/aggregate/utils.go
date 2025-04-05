@@ -31,28 +31,28 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 			switch result.Source {
 			case reportutils.SourceValidatingPolicy:
 				if maps.vpol != nil && maps.vpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+					} else if time.Unix(rule.Timestamp.Seconds, int64(rule.Timestamp.Nanos)).Before(time.Unix(result.Timestamp.Seconds, int64(result.Timestamp.Nanos))) {
 						accumulator[key] = result
 					}
 				}
 			case reportutils.SourceImageVerificationPolicy:
 				if maps.ivpol != nil && maps.ivpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+					} else if time.Unix(rule.Timestamp.Seconds, int64(rule.Timestamp.Nanos)).Before(time.Unix(result.Timestamp.Seconds, int64(result.Timestamp.Nanos))) {
 						accumulator[key] = result
 					}
 				}
 			case reportutils.SourceValidatingAdmissionPolicy:
 				if maps.vap != nil && maps.vap.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+					} else if time.Unix(rule.Timestamp.Seconds, int64(rule.Timestamp.Nanos)).Before(time.Unix(result.Timestamp.Seconds, int64(result.Timestamp.Nanos))) {
 						accumulator[key] = result
 					}
 				}
@@ -62,7 +62,7 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+					} else if time.Unix(rule.Timestamp.Seconds, int64(rule.Timestamp.Nanos)).Before(time.Unix(result.Timestamp.Seconds, int64(result.Timestamp.Nanos))) {
 						accumulator[key] = result
 					}
 				}
