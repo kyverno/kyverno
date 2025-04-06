@@ -1,0 +1,12 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: test-map
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      resources: [ "pods" ]
+  mutations:
+  - expression: 'object.metadata.labels["env"] = "test"'

@@ -15,7 +15,6 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
@@ -23,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
@@ -34,16 +34,12 @@ var (
 	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vpV1alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	mapV1alpha1           = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	ivpV1alpha1           = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	LegacyLoader          = legacyLoader
 	KubectlValidateLoader = kubectlValidateLoader
-	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
-		if experimental.UseKubectlValidate() {
-			return KubectlValidateLoader(path, bytes)
-		} else {
-			return LegacyLoader(path, bytes)
-		}
-	}
+	// Always use the kubectl-validate loader (so MAPs get parsed)
+	defaultLoader = kubectlValidateLoader
 )
 
 type LoaderError struct {
@@ -55,6 +51,7 @@ type LoaderResults struct {
 	Policies                  []kyvernov1.PolicyInterface
 	VAPs                      []admissionregistrationv1.ValidatingAdmissionPolicy
 	VAPBindings               []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MutatingAdmissionPolicies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	ValidatingPolicies        []policiesv1alpha1.ValidatingPolicy
 	ImageVerificationPolicies []policiesv1alpha1.ImageValidatingPolicy
 	NonFatalErrors            []LoaderError
@@ -68,6 +65,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
 	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
+	l.MutatingAdmissionPolicies = append(l.MutatingAdmissionPolicies, results.MutatingAdmissionPolicies...)
 	l.ImageVerificationPolicies = append(l.ImageVerificationPolicies, results.ImageVerificationPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 }
@@ -180,6 +178,12 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.ImageVerificationPolicies = append(results.ImageVerificationPolicies, *typed)
+		case mapV1alpha1:
+			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.MutatingAdmissionPolicies = append(results.MutatingAdmissionPolicies, *typed)
 		default:
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}
