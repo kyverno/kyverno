@@ -630,12 +630,14 @@ func (c *ApplyCommandConfig) applyMutatingAdmissionPolicies(
 			// Apply the real MAP mutation logic
 			res, err := mutate.MutateResource(mp, *resource)
 			if err != nil {
+				fmt.Printf("Error applying MAP %s on resource %s/%s: %v\n", mp.Name, resource.GetNamespace(), resource.GetName(), err)
 				if c.ContinueOnFail {
 					continue
 				}
 				return nil, fmt.Errorf("failed to apply MAP %s on %s/%s: %w",
 					mp.Name, resource.GetNamespace(), resource.GetName(), err)
 			}
+			fmt.Printf("MAP %s applied to resource %s/%s returned: %+v\n", mp.Name, resource.GetNamespace(), resource.GetName(), res.PolicyResponse)
 			// Count and collect the response
 			rc.AddMutatingPolicyResponse(res)
 			responses = append(responses, res)
@@ -737,12 +739,13 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
+				maps = append(maps, loaderResults.MutatingAdmissionPolicies...) //  Adding map
 				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
 			}
 		}
 		for _, policy := range policies {
 			if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetNamespace()))
+				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetName()))
 			}
 		}
 	}

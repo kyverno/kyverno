@@ -1,12 +1,49 @@
+# apiVersion: admissionregistration.k8s.io/v1alpha1
+# kind: MutatingAdmissionPolicy
+# metadata:
+#   name: test-map
+# spec:
+#   matchConstraints:
+#     resourceRules:
+#     - apiGroups: [ "" ]
+#       apiVersions: [ "v1" ]
+#       operations: [ "CREATE" ]
+#       resources: [ "pods" ]
+#   mutations:
+#   - patchType: JSONPatch
+#     jsonPatch:
+#       expression: |
+#         [
+#           {
+#             "op": "add",
+#             "path": "/metadata/labels/env",
+#             "value": "test"
+#           }
+#         ]
+#   reinvocationPolicy: IfNeeded
 apiVersion: admissionregistration.k8s.io/v1alpha1
 kind: MutatingAdmissionPolicy
 metadata:
-  name: test-map
+  name: mutate-policy
 spec:
   matchConstraints:
     resourceRules:
     - apiGroups: [ "" ]
       apiVersions: [ "v1" ]
-      resources: [ "pods" ]
+      operations: [ "CREATE" ]
+      resources: [ "configmaps" ]
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
   mutations:
-  - expression: 'object.metadata.labels["env"] = "test"'
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: |
+        object.metadata.labels.exists("lfx-mentorship") ?
+        Object{} :
+        Object{
+          metadata: Object.metadata{
+            labels: {
+              "lfx-mentorship": "kyverno"
+            }
+          }
+        }
