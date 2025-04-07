@@ -5,10 +5,6 @@ metadata:
 status:
   conditionStatus:
     conditions:
-      - message: Webhook configured.
-        reason: Succeeded
-        status: "True"
-        type: WebhookConfigured
       - message: Policy is ready for reporting.
         reason: Succeeded
         status: "True"

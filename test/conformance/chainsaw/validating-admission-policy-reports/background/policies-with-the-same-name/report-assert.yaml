@@ -3,7 +3,6 @@ kind: PolicyReport
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  namespace: default
   ownerReferences:
   - apiVersion: apps/v1
     kind: Deployment
@@ -31,7 +30,6 @@ scope:
   apiVersion: apps/v1
   kind: Deployment
   name: test-deployment-vpol-background
-  namespace: default
 summary:
   error: 0
   fail: 1

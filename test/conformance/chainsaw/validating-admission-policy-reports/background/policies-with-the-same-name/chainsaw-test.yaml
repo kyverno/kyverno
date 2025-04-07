@@ -28,6 +28,8 @@ spec:
         file: validatingadmissionpolicy.yaml
     - assert:
         file: validatingadmissionpolicy.yaml
+    - sleep:
+        duration: 10s
   - name: step-05
     try:
     - assert:
