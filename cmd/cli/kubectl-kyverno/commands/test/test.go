@@ -298,6 +298,22 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
 		}
+		ivpols, err := applyImageVerificationPolicies(
+			results.ImageVerificationPolicies,
+			[]*unstructured.Unstructured{&unstructured.Unstructured{Object: json.(map[string]any)}},
+			nil,
+			vars.Namespace,
+			userInfo,
+			&resultCounts,
+			dClient,
+			true,
+			testCase.Test.Context,
+			false,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+		}
+		ers = append(ers, ivpols...)
 		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
