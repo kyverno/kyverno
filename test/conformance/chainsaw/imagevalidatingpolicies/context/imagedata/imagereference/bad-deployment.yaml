@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-deployment
+  name: bad-deployment
   labels:
-    app: test
-    env: prod
+    app: nginx
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: test
+      app: nginx
   template:
     metadata:
       labels:
-        app: test
+        app: nginx
     spec:
       containers:
-      - name: test
-        image: 'ghcr.io/kyverno/test-verify-image:unsigned'
+        - name: nginx
+          image: nginx:latest
+          imagePullPolicy: IfNotPresent
