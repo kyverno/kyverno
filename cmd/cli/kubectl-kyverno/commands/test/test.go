@@ -250,7 +250,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
-		ivpols, err := applyImageVerificationPolicies(
+		ivpols, err := applyImageValidatingPolicies(
 			results.ImageVerificationPolicies,
 			nil,
 			[]*unstructured.Unstructured{resource},
@@ -298,9 +298,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
 		}
-		ivpols, err := applyImageVerificationPolicies(
+		ivpols, err := applyImageValidatingPolicies(
 			results.ImageVerificationPolicies,
-			[]*unstructured.Unstructured{&unstructured.Unstructured{Object: json.(map[string]any)}},
+			[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
 			nil,
 			vars.Namespace,
 			userInfo,
@@ -329,7 +329,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	return &testResponse, nil
 }
 
-func applyImageVerificationPolicies(
+func applyImageValidatingPolicies(
 	ivps []policiesv1alpha1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
