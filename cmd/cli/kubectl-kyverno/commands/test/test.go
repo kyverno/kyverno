@@ -349,7 +349,7 @@ func applyImageValidatingPolicies(
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
 	}
-	engine := celengine.NewImageVerifyEngine(
+	engine := celengine.NewImageValidatingEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
