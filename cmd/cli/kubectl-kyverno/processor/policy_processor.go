@@ -51,6 +51,7 @@ type PolicyProcessor struct {
 	Rc                        *ResultCounts
 	PrintPatchResource        bool
 	RuleToCloneSourceResource map[string]string
+	PolicyRuleMapping         map[string]map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
@@ -227,6 +228,18 @@ func (p *PolicyProcessor) makePolicyContext(
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) (*policycontext.PolicyContext, error) {
+	// Check if we're using the new policy rule mapping
+	if p.PolicyRuleMapping != nil && p.PolicyRuleMapping[policy.GetName()] != nil {
+		// If this policy has rules in the mapping, use them
+		ruleMapping := p.PolicyRuleMapping[policy.GetName()]
+		for ruleName, clonePath := range ruleMapping {
+			if p.RuleToCloneSourceResource == nil {
+				p.RuleToCloneSourceResource = make(map[string]string)
+			}
+			p.RuleToCloneSourceResource[ruleName] = clonePath
+		}
+	}
+
 	operation := kyvernov1.Create
 	var resourceValues map[string]interface{}
 	if p.Variables != nil {
