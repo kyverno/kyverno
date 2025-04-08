@@ -250,6 +250,22 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
+		ivpols, err := applyImageVerificationPolicies(
+			results.ImageVerificationPolicies,
+			nil,
+			[]*unstructured.Unstructured{resource},
+			vars.Namespace,
+			userInfo,
+			&resultCounts,
+			dClient,
+			true,
+			testCase.Test.Context,
+			false,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
+		}
+		ers = append(ers, ivpols...)
 		resourceKey := generateResourceKey(resource)
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
