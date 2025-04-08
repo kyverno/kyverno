@@ -32,8 +32,13 @@ import (
 )
 
 type TestResponse struct {
-	Trigger map[string][]engineapi.EngineResponse
-	Target  map[string][]engineapi.EngineResponse
+	Trigger         map[string][]engineapi.EngineResponse
+	Target          map[string][]engineapi.EngineResponse
+	InvalidPolicies []struct {
+		Name  string
+		Error error
+	}
+	PolicyRuleMapping map[string]map[string]string
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
@@ -144,25 +149,50 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "...")
 	}
 
-	// TODO document the code below
+	// Create a map to store the code that processes rule names for Clone Source Resources in test results
+	// This builds a mapping between rule names and clone source resources for generate rules
+	// The mapping is used later by the policy processor to locate clone source resources when applying policies
 	ruleToCloneSourceResource := map[string]string{}
+
+	// Map to handle duplicate rule names across policies
+	policyRuleToCloneSource := map[string]map[string]string{}
+
 	for _, policy := range results.Policies {
+		// Get computed rules (including auto-generated rules)
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
+			// Process each test result to find matching rules and clone source resources
 			for _, res := range testCase.Test.Results {
 				if res.IsValidatingAdmissionPolicy || res.IsValidatingPolicy {
 					continue
 				}
-				// TODO: what if two policies have a rule with the same name ?
+
+				// Check if this rule matches the test result rule name
 				if rule.Name == res.Rule {
+					// Handle generate rules that require clone source resources
 					if rule.HasGenerate() {
-						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
+						// Handle cloneList type generate rules
+						if len(rule.Generation.CloneList.Kinds) != 0 {
 							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
+								// For git repositories, use the source path as provided
 								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+
+								// Store with policy context to handle duplicate rule names
+								if policyRuleToCloneSource[policy.GetName()] == nil {
+									policyRuleToCloneSource[policy.GetName()] = make(map[string]string)
+								}
+								policyRuleToCloneSource[policy.GetName()][rule.Name] = res.CloneSourceResource
 							} else {
+								// For local files, get the full path to the clone source
 								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+
+								// Store with policy context to handle duplicate rule names
+								if policyRuleToCloneSource[policy.GetName()] == nil {
+									policyRuleToCloneSource[policy.GetName()] = make(map[string]string)
+								}
+								policyRuleToCloneSource[policy.GetName()][rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 							}
-						} else { // clone or data
+						} else { // Handle clone or data type generate rules
 							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
 							if err != nil {
 								fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
@@ -174,10 +204,23 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 								break
 							}
 							if len(genClone) != 0 {
+								// Store the clone source resource path
 								if isGit {
 									ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+
+									// Store with policy context to handle duplicate rule names
+									if policyRuleToCloneSource[policy.GetName()] == nil {
+										policyRuleToCloneSource[policy.GetName()] = make(map[string]string)
+									}
+									policyRuleToCloneSource[policy.GetName()][rule.Name] = res.CloneSourceResource
 								} else {
 									ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+
+									// Store with policy context to handle duplicate rule names
+									if policyRuleToCloneSource[policy.GetName()] == nil {
+										policyRuleToCloneSource[policy.GetName()] = make(map[string]string)
+									}
+									policyRuleToCloneSource[policy.GetName()][rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 								}
 							}
 						}
@@ -187,24 +230,40 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			}
 		}
 	}
-	// validate policies
+
+	// Validate policies and collect validation errors
 	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
+	invalidPolicies := make([]struct {
+		Name  string
+		Error error
+	}, 0)
+
 	for _, pol := range results.Policies {
-		// TODO we should return this info to the caller
+		// Validate each policy and track results
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
 		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
+			invalidPolicies = append(invalidPolicies, struct {
+				Name  string
+				Error error
+			}{
+				Name:  pol.GetName(),
+				Error: err,
+			})
 			continue
 		}
 		validPolicies = append(validPolicies, pol)
 	}
+
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
 	testResponse := TestResponse{
-		Trigger: map[string][]engineapi.EngineResponse{},
-		Target:  map[string][]engineapi.EngineResponse{},
+		Trigger:           map[string][]engineapi.EngineResponse{},
+		Target:            map[string][]engineapi.EngineResponse{},
+		InvalidPolicies:   invalidPolicies,
+		PolicyRuleMapping: policyRuleToCloneSource,
 	}
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
@@ -225,6 +284,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
+			PolicyRuleMapping:                 policyRuleToCloneSource,
 			Cluster:                           false,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
@@ -257,6 +317,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
+			PolicyRuleMapping:                 policyRuleToCloneSource,
 			Cluster:                           false,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
