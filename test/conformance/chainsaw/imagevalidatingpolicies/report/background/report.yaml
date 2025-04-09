@@ -12,7 +12,7 @@ scope:
   kind: Deployment
   name: test-deployment-ivpol-background
 results:
-- message: Deployment labels must be env=prod but found env=staging
+- message: failed to verify image with notary cert
   policy: ivpol-report-background-sample
   result: fail
   scored: true
