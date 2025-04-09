@@ -3,8 +3,6 @@ kind: ValidatingPolicy
 metadata:
   name: disallow-privilege-escalation
 spec:
-  validationActions:
-    - Deny
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]

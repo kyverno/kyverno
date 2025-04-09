@@ -3,16 +3,16 @@ package policy
 import "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 
 func Validate(vpol *v1alpha1.ValidatingPolicy) ([]string, error) {
+	var warnings []string
 	compiler := NewCompiler()
 	_, err := compiler.CompileValidating(vpol, nil)
-	if err == nil {
-		return nil, nil
+	if err != nil {
+		return warnings, err.ToAggregate()
 	}
 
-	warnings := make([]string, 0, len(err.ToAggregate().Errors()))
-	for _, e := range err.ToAggregate().Errors() {
-		warnings = append(warnings, e.Error())
+	err = vpol.Spec.Validate()
+	if err != nil {
+		return warnings, err.ToAggregate()
 	}
-
-	return warnings, err.ToAggregate()
+	return nil, nil
 }

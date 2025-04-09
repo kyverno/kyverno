@@ -51310,6 +51310,8 @@ spec:
                     format: int32
                     type: integer
                 type: object
+            required:
+            - validationActions
             type: object
           status:
             description: Status contains policy runtime data.

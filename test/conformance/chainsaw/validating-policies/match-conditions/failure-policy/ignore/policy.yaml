@@ -3,6 +3,8 @@ kind: ValidatingPolicy
 metadata:
   name: check-deployment-labels
 spec:
+  validationActions:
+    - Deny
   failurePolicy: Ignore
   matchConstraints:
     resourceRules:
