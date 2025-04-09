@@ -103,7 +103,7 @@ spec:
             - --resource
             - {{ . }}
             {{- end }}
-          {{- with .Values.crds.migration.resourcesPod }}
+          {{- with .Values.crds.migration.podResources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
