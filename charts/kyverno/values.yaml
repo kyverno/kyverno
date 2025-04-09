@@ -184,7 +184,7 @@ crds:
       seccompProfile:
         type: RuntimeDefault
 
-    resourcesPod:
+    podResources:
       # -- Pod resource limits
       limits:
         cpu: 100m
