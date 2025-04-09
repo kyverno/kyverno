@@ -147,7 +147,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_ImageVerifyEngine(t *testing.T) {
-	engine := NewImageVerifyEngine(ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
+	engine := NewImageValidatingEngine(ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
 	engineRequest := EngineRequest{
 		request: v1.AdmissionRequest{
 			Operation: v1.Create,
