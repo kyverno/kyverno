@@ -295,7 +295,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageVerificationPolicies(ivps, jsonPayloads, resources1, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -433,7 +433,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) applyImageVerificationPolicies(
+func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	ivps []policiesv1alpha1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
@@ -451,7 +451,7 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
 	}
-	engine := celengine.NewImageVerifyEngine(
+	engine := celengine.NewImageValidatingEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
