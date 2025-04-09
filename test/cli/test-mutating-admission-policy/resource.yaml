@@ -3,5 +3,6 @@ kind: ConfigMap
 metadata:
   name: test-map
   namespace: default
+  labels: {}
 data:
   foo: bar

@@ -902,8 +902,8 @@ func Test_LoadMAPFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error loading policy file: %v", err)
 	}
-	if loaderResults == nil || len(loaderResults.MutatingAdmissionPolicies) == 0 {
+	if loaderResults == nil || len(loaderResults.MAPs) == 0 {
 		t.Fatalf("Expected at least one MAP, but got 0")
 	}
-	t.Logf("Loaded MAPs: %+v", loaderResults.MutatingAdmissionPolicies)
+	t.Logf("Loaded MAPs: %+v", loaderResults.MAPs)
 }

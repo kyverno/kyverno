@@ -144,7 +144,7 @@ func (rc *ResultCounts) AddValidatingPolicyResponse(engineResponse engineapi.Eng
 		}
 	}
 }
-func (rc *ResultCounts) AddMutatingPolicyResponse(engineResponse engineapi.EngineResponse) {
+func (rc *ResultCounts) AddMutatingAdmissionPolicyResponse(engineResponse engineapi.EngineResponse) {
 	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
 		switch ruleResp.Status() {
 		case engineapi.RuleStatusPass:

@@ -29,7 +29,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
-	mutate "github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -282,6 +282,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		vaps,
 		vapBindings,
 		vps,
+		maps,
 		resources,
 		jsonPayloads,
 		exceptions,
@@ -326,6 +327,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	vpols []policiesv1alpha1.ValidatingPolicy,
+	maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	resources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
 	exceptions []*kyvernov2.PolicyException,
@@ -365,6 +367,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
+			MutatingAdmissionPolicies:         maps,
 			Resource:                          *resource,
 			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
@@ -401,6 +404,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
+			MutatingAdmissionPolicies:         maps,
 			JsonPayload:                       *resource,
 			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
@@ -516,7 +520,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			if c.ContinueOnFail {
 				continue
 			}
-			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
 		}
 		gvr := mapping.Resource
 		var user authenticationv1.UserInfo
@@ -630,7 +634,7 @@ func (c *ApplyCommandConfig) applyMutatingAdmissionPolicies(
 	for _, resource := range resources {
 		for _, mp := range maps {
 			// Apply the real MAP mutation logic
-			res, err := mutate.MutateResource(mp, *resource)
+			res, err := admissionpolicy.MutateResource(mp, *resource)
 			if err != nil {
 				fmt.Printf("Error applying MAP %s on resource %s/%s: %v\n", mp.Name, resource.GetNamespace(), resource.GetName(), err)
 				if c.ContinueOnFail {
@@ -641,7 +645,7 @@ func (c *ApplyCommandConfig) applyMutatingAdmissionPolicies(
 			}
 			fmt.Printf("MAP %s applied to resource %s/%s returned: %+v\n", mp.Name, resource.GetNamespace(), resource.GetName(), res.PolicyResponse)
 			// Count and collect the response
-			rc.AddMutatingPolicyResponse(res)
+			rc.AddMutatingAdmissionPolicyResponse(res)
 			responses = append(responses, res)
 		}
 	}
@@ -724,7 +728,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				maps = append(maps, loaderResults.MutatingAdmissionPolicies...) // Assuming policy.Load returns MAPs
+				maps = append(maps, loaderResults.MAPs...) // Assuming policy.Load returns MAPs
 				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
 			}
 		} else {
@@ -741,7 +745,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				maps = append(maps, loaderResults.MutatingAdmissionPolicies...) //  Adding map
+				maps = append(maps, loaderResults.MAPs...) //  Adding map
 				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
 			}
 		}
