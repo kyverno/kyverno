@@ -209,7 +209,7 @@ func (s *scanner) ScanResource(
 				continue
 			}
 			// create engine
-			engine := celengine.NewImageVerifyEngine(
+			engine := celengine.NewImageValidatingEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
