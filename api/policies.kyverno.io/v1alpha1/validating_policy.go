@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 type EvaluationMode string
@@ -191,7 +192,7 @@ type ValidatingPolicySpec struct {
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
 	// +listType=set
-	ValidationAction []admissionregistrationv1.ValidationAction `json:"validationActions,omitempty"`
+	ValidationAction []admissionregistrationv1.ValidationAction `json:"validationActions"`
 
 	// WebhookConfiguration defines the configuration for the webhook.
 	// +optional
@@ -200,6 +201,19 @@ type ValidatingPolicySpec struct {
 	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
+}
+
+// Validate implements programmatic validation
+func (s *ValidatingPolicySpec) Validate() (errs field.ErrorList) {
+	path := field.NewPath("spec")
+	if len(s.ValidationAction) != 0 {
+		for _, action := range s.ValidationAction {
+			if action != admissionregistrationv1.Deny && action != admissionregistrationv1.Warn && action != admissionregistrationv1.Audit {
+				errs = append(errs, field.Invalid(path.Child("validationActions"), action, "validationActions must be 'deny', 'warn' or 'audit'"))
+			}
+		}
+	}
+	return errs
 }
 
 // GenerateValidatingAdmissionPolicyEnabled checks if validating admission policy generation is enabled
