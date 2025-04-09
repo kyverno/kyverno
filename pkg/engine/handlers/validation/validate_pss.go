@@ -151,7 +151,7 @@ func (h validatePssHandler) validate(
 					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object", rule.ReportProperties)
 				}
 
-				if ruleResponse.Status() == priorResp.Status() {
+				if priorResp != nil && ruleResponse.Status() == priorResp.Status() {
 					logger.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "oldResp", priorResp, "newResp", ruleResponse)
 					if ruleResponse.Status() == engineapi.RuleStatusPass {
 						return resource, ruleResponse
