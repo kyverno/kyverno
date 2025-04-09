@@ -77,6 +77,17 @@ rules:
       - get
       - list
       - watch
+{{- if .Values.features.validatingAdmissionPolicyReports.enabled }}
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
   - apiGroups:
       - reports.kyverno.io
     resources:
