@@ -250,22 +250,24 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
-		ivpols, err := applyImageValidatingPolicies(
-			results.ImageVerificationPolicies,
-			nil,
-			[]*unstructured.Unstructured{resource},
-			vars.Namespace,
-			userInfo,
-			&resultCounts,
-			dClient,
-			true,
-			testCase.Test.Context,
-			false,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
+		if len(results.ImageVerificationPolicies) != 0 {
+			ivpols, err := applyImageValidatingPolicies(
+				results.ImageVerificationPolicies,
+				nil,
+				[]*unstructured.Unstructured{resource},
+				vars.Namespace,
+				userInfo,
+				&resultCounts,
+				dClient,
+				true,
+				testCase.Test.Context,
+				false,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
+			}
+			ers = append(ers, ivpols...)
 		}
-		ers = append(ers, ivpols...)
 		resourceKey := generateResourceKey(resource)
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
@@ -298,22 +300,24 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
 		}
-		ivpols, err := applyImageValidatingPolicies(
-			results.ImageVerificationPolicies,
-			[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
-			nil,
-			vars.Namespace,
-			userInfo,
-			&resultCounts,
-			dClient,
-			true,
-			testCase.Test.Context,
-			false,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+		if len(results.ImageVerificationPolicies) != 0 {
+			ivpols, err := applyImageValidatingPolicies(
+				results.ImageVerificationPolicies,
+				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				nil,
+				vars.Namespace,
+				userInfo,
+				&resultCounts,
+				dClient,
+				true,
+				testCase.Test.Context,
+				false,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+			}
+			ers = append(ers, ivpols...)
 		}
-		ers = append(ers, ivpols...)
 		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
