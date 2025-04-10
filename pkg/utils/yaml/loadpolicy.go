@@ -203,8 +203,13 @@ func parseImageVerificationPolicy(obj unstructured.Unstructured) (*policiesv1alp
 }
 func parseMutatingAdmissionPolicy(obj unstructured.Unstructured) (*admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
 	var out admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		return nil, fmt.Errorf("failed to decode MutatingAdmissionPolicy: %v", err)
+	if err := runtime.DefaultUnstructuredConverter.
+		FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
+		return nil, fmt.Errorf("failed to decode MutatingAdmissionPolicy: %w", err)
+	}
+	if out.Kind == "" {
+		log.V(3).Info("skipping file as MutatingAdmissionPolicy.Kind not found")
+		return nil, nil
 	}
 	return &out, nil
 }
