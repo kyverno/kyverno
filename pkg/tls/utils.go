@@ -70,17 +70,17 @@ func allCertificatesExpired(now time.Time, certs ...*x509.Certificate) bool {
 }
 
 func validateCert(now time.Time, cert *x509.Certificate, caCerts ...*x509.Certificate) bool {
-	if len(caCerts) == 0 || cert == nil {
+	if cert == nil || len(cert.Raw) == 0 {
 		return false
 	}
 	pool := x509.NewCertPool()
-	for _, cert := range caCerts {
-		pool.AddCert(cert)
+	for _, c := range caCerts {
+		if c != nil && len(c.Raw) != 0 {
+			pool.AddCert(c)
+		}
 	}
-	if _, err := cert.Verify(x509.VerifyOptions{Roots: pool, CurrentTime: now}); err != nil {
-		return false
-	}
-	return true
+	_, err := cert.Verify(x509.VerifyOptions{Roots: pool, CurrentTime: now})
+	return err == nil
 }
 
 func isSecretManagedByKyverno(secret *corev1.Secret) bool {

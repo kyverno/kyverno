@@ -143,9 +143,7 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 		valid, err := c.ValidateCert(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to validate cert: %w", err)
-		} else if !valid {
-			return fmt.Errorf("certificate validation failed, certificate is invalid")
-		} else if !allCertificatesExpired(now.Add(c.renewBefore), cert) {
+		} else if valid && !allCertificatesExpired(now.Add(c.renewBefore), cert) {
 			return nil
 		}
 	}
