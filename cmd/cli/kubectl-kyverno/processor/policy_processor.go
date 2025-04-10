@@ -320,6 +320,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
 		}
@@ -338,6 +339,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
 		}
