@@ -250,9 +250,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
-		if len(results.ImageVerificationPolicies) != 0 {
+		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
-				results.ImageVerificationPolicies,
+				results.ImageValidatingPolicies,
 				nil,
 				[]*unstructured.Unstructured{resource},
 				vars.Namespace,
@@ -300,9 +300,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
 		}
-		if len(results.ImageVerificationPolicies) != 0 {
+		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
-				results.ImageVerificationPolicies,
+				results.ImageValidatingPolicies,
 				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
 				nil,
 				vars.Namespace,
@@ -447,18 +447,18 @@ func applyImageValidatingPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 
-	ivpols := make([]*eval.CompiledImageVerificationPolicy, 0)
+	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageVerificationPolicy{Policy: &p})
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -487,7 +487,7 @@ func applyImageValidatingPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
