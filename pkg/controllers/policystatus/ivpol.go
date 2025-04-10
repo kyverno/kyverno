@@ -14,7 +14,7 @@ import (
 
 func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1alpha1.ImageValidatingPolicy) error {
 	updateFunc := func(ivpol *policiesv1alpha1.ImageValidatingPolicy) error {
-		p := engineapi.NewImageVerificationPolicy(ivpol)
+		p := engineapi.NewImageValidatingPolicy(ivpol)
 		conditionStatus := c.reconcileConditions(ctx, p)
 
 		status := ivpol.GetStatus()
