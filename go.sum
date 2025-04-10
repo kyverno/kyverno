@@ -243,8 +243,8 @@ github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be h1:J5BL
 github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be/go.mod h1:mk5IQ+Y0ZeO87b858TlA645sVcEcbiX6YqP98kt+7+w=
 github.com/containerd/stargz-snapshotter/estargz v0.16.3 h1:7evrXtoh1mSbGj/pfRccTampEyKpjpOnS3CyiV1Ebr8=
 github.com/containerd/stargz-snapshotter/estargz v0.16.3/go.mod h1:uyr4BfYfOj3G9WBVE8cOlQmXAbPN9VEQpBBeJIuOipU=
-github.com/coreos/go-oidc/v3 v3.12.0 h1:sJk+8G2qq94rDI6ehZ71Bol3oUHy63qNYmkiSjrc/Jo=
-github.com/coreos/go-oidc/v3 v3.12.0/go.mod h1:gE3LgjOgFoHi9a4ce4/tJczr0Ai2/BoDhf0r5lltWI0=
+github.com/coreos/go-oidc/v3 v3.13.0 h1:M66zd0pcc5VxvBNM4pB331Wrsanby+QomQYjN8HamW8=
+github.com/coreos/go-oidc/v3 v3.13.0/go.mod h1:HaZ3szPaZ0e4r6ebqvsLWlk2Tn+aejfmrfah6hnSYEU=
 github.com/coreos/go-semver v0.3.1 h1:yi21YpKnrx1gt5R+la8n5WgS0kCrsPp33dmEyHReZr4=
 github.com/coreos/go-semver v0.3.1/go.mod h1:irMmmIw/7yzSRPWryHsK7EYSg09caPQL03VsM8rvUec=
 github.com/coreos/go-systemd/v22 v22.5.0 h1:RrqgGjYQKalulkV8NGVIfkXQf6YYmOyiJKk8iXXhfZs=
@@ -802,8 +802,8 @@ github.com/sigstore/protobuf-specs v0.4.1 h1:5SsMqZbdkcO/DNHudaxuCUEjj6x29tS2Xby
 github.com/sigstore/protobuf-specs v0.4.1/go.mod h1:+gXR+38nIa2oEupqDdzg4qSBT0Os+sP7oYv6alWewWc=
 github.com/sigstore/rekor v1.3.9 h1:sUjRpKVh/hhgqGMs0t+TubgYsksArZ6poLEC3MsGAzU=
 github.com/sigstore/rekor v1.3.9/go.mod h1:xThNUhm6eNEmkJ/SiU/FVU7pLY2f380fSDZFsdDWlcM=
-github.com/sigstore/sigstore v1.9.1 h1:bNMsfFATsMPaagcf+uppLk4C9rQZ2dh5ysmCxQBYWaw=
-github.com/sigstore/sigstore v1.9.1/go.mod h1:zUoATYzR1J3rLNp3jmp4fzIJtWdhC3ZM6MnpcBtnsE4=
+github.com/sigstore/sigstore v1.9.3 h1:y2qlTj+vh+Or3ictKuR3JUFawZPdDxAjrWkeFhon0OQ=
+github.com/sigstore/sigstore v1.9.3/go.mod h1:VwYkiw0G0dRtwL25KSs04hCyVFF6CYMd/qvNeYrl7EQ=
 github.com/sigstore/sigstore-go v0.6.2 h1:8uiywjt73vzfrGfWYVwVsiB1E1Qmwmpgr1kVpl4fs6A=
 github.com/sigstore/sigstore-go v0.6.2/go.mod h1:pOIUH7Jx+ctwMICo+2zNrViOJJN5sGaQgwX4yAVJkA0=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.3 h1:ofTeeCNenFFqUxSziEOYh5TLMtHbHO6e8+9vT3Vf34A=

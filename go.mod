@@ -47,7 +47,7 @@ require (
 	github.com/sigstore/cosign/v2 v2.4.1
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
 	github.com/sigstore/rekor v1.3.9
-	github.com/sigstore/sigstore v1.9.1
+	github.com/sigstore/sigstore v1.9.3
 	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.3
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.3
@@ -182,7 +182,7 @@ require (
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
-	github.com/coreos/go-oidc/v3 v3.12.0 // indirect
+	github.com/coreos/go-oidc/v3 v3.13.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
