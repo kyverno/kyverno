@@ -254,7 +254,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
-func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
+func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
 		ivpols           []*policiesv1alpha1.ImageValidatingPolicy
@@ -286,7 +286,7 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name: config.ImageVerificationPolicyValidateWebhookName + "-ignore",
+					Name: config.ImageValidatingPolicyValidateWebhookName + "-ignore",
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -367,7 +367,7 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name:         config.ImageVerificationPolicyValidateWebhookName + "-ignore-finegrained-ivpol-sample",
+					Name:         config.ImageValidatingPolicyValidateWebhookName + "-ignore-finegrained-ivpol-sample",
 					ClientConfig: newClientConfig("", 0, nil, "/policies/ivpol/validate/ignore"+config.FineGrainedWebhookPath+"/ivpol-sample"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
@@ -431,10 +431,10 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var ivpols []engineapi.GenericPolicy
 			for _, ivpol := range tt.ivpols {
-				ivpols = append(ivpols, engineapi.NewImageVerificationPolicy(ivpol))
+				ivpols = append(ivpols, engineapi.NewImageValidatingPolicy(ivpol))
 			}
-			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", config.ImageVerificationPolicyValidateWebhookName,
-				config.PolicyServicePath+config.ImageVerificationPolicyServicePath+config.ValidatingWebhookServicePath, 0, nil, ivpols)
+			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", config.ImageValidatingPolicyValidateWebhookName,
+				config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath, 0, nil, ivpols)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)

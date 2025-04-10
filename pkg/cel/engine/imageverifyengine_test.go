@@ -110,8 +110,8 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 		},
 	}
 
-	ivfunc = func(ctx context.Context) ([]CompiledImageVerificationPolicy, error) {
-		return []CompiledImageVerificationPolicy{
+	ivfunc = func(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
+		return []CompiledImageValidatingPolicy{
 			{
 				Policy:  ivpol,
 				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
