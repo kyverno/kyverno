@@ -753,7 +753,10 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
-	if len(c.ResourcePaths) == 0 && !c.Cluster && len(c.JSONPaths) == 0 {
+	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
+		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
+	}
+	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
 	return nil
