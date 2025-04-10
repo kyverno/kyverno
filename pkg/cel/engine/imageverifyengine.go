@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type ImageVerifyEngine interface {
+type ImageValidatingEngine interface {
 	HandleMutating(context.Context, EngineRequest) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error)
 	HandleValidating(ctx context.Context, request EngineRequest) (eval.ImageVerifyEngineResponse, error)
 }
@@ -39,7 +39,7 @@ type ivengine struct {
 	registryOpts []imagedataloader.Option
 }
 
-func NewImageVerifyEngine(provider ImageVerifyPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) ImageVerifyEngine {
+func NewImageValidatingEngine(provider ImageVerifyPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) ImageValidatingEngine {
 	return &ivengine{
 		provider:     provider,
 		nsResolver:   nsResolver,
