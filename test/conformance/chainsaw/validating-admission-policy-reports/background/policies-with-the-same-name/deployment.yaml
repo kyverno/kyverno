@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-deployment-ivpol-background
+  name: test-deployment-vpol-background
   labels:
     app: test
     env: prod
