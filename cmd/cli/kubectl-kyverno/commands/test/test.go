@@ -1,12 +1,16 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -22,13 +26,25 @@ import (
 	"github.com/kyverno/kyverno/ext/output/pluralize"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
+	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/restmapper"
 )
 
 type TestResponse struct {
@@ -73,7 +89,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, results.Policies, results.VAPs, dClient, "", false, false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
@@ -95,7 +111,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
-	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
+	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, results.Policies, results.VAPs, dClient, "", false, false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
@@ -234,6 +250,24 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
+		if len(results.ImageValidatingPolicies) != 0 {
+			ivpols, err := applyImageValidatingPolicies(
+				results.ImageValidatingPolicies,
+				nil,
+				[]*unstructured.Unstructured{resource},
+				vars.Namespace,
+				userInfo,
+				&resultCounts,
+				dClient,
+				true,
+				testCase.Test.Context,
+				false,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
+			}
+			ers = append(ers, ivpols...)
+		}
 		resourceKey := generateResourceKey(resource)
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
@@ -266,6 +300,24 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
 		}
+		if len(results.ImageValidatingPolicies) != 0 {
+			ivpols, err := applyImageValidatingPolicies(
+				results.ImageValidatingPolicies,
+				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				nil,
+				vars.Namespace,
+				userInfo,
+				&resultCounts,
+				dClient,
+				true,
+				testCase.Test.Context,
+				false,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+			}
+			ers = append(ers, ivpols...)
+		}
 		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
@@ -279,6 +331,168 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 	// this is an array of responses of all policies, generated by all of their rules
 	return &testResponse, nil
+}
+
+func applyImageValidatingPolicies(
+	ivps []policiesv1alpha1.ImageValidatingPolicy,
+	jsonPayloads []*unstructured.Unstructured,
+	resources []*unstructured.Unstructured,
+	namespaceProvider func(string) *corev1.Namespace,
+	userInfo *kyvernov2.RequestInfo,
+	rc *processor.ResultCounts,
+	dclient dclient.Interface,
+	registryAccess bool,
+	contextPath string,
+	continueOnFail bool,
+) ([]engineapi.EngineResponse, error) {
+	provider, err := celengine.NewIVPOLProvider(ivps)
+	if err != nil {
+		return nil, err
+	}
+	var lister k8scorev1.SecretInterface
+	if dclient != nil {
+		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+	}
+	engine := celengine.NewImageValidatingEngine(
+		provider,
+		namespaceProvider,
+		matching.NewMatcher(),
+		lister,
+		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
+	)
+	gctxStore := gctxstore.New()
+	var restMapper meta.RESTMapper
+	var contextProvider celpolicy.Context
+	if dclient != nil {
+		contextProvider, err = celpolicy.NewContextProvider(
+			dclient,
+			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
+			gctxStore,
+		)
+		if err != nil {
+			return nil, err
+		}
+		apiGroupResources, err := restmapper.GetAPIGroupResources(dclient.GetKubeClient().Discovery())
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	} else {
+		apiGroupResources, err := data.APIGroupResources()
+		if err != nil {
+			return nil, err
+		}
+		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		if contextPath != "" {
+			ctx, err := clicontext.Load(nil, contextPath)
+			if err != nil {
+				return nil, err
+			}
+			for _, resource := range ctx.ContextSpec.Resources {
+				gvk := resource.GroupVersionKind()
+				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+				if err != nil {
+					return nil, err
+				}
+				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+					return nil, err
+				}
+			}
+		}
+		contextProvider = fakeContextProvider
+	}
+	responses := make([]engineapi.EngineResponse, 0)
+	for _, resource := range resources {
+		gvk := resource.GroupVersionKind()
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			log.Log.Error(err, "failed to map gvk to gvr", "gkv", gvk)
+			if continueOnFail {
+				continue
+			}
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+		}
+		gvr := mapping.Resource
+		var user authenticationv1.UserInfo
+		if userInfo != nil {
+			user = userInfo.AdmissionUserInfo
+		}
+		request := celengine.Request(
+			contextProvider,
+			resource.GroupVersionKind(),
+			gvr,
+			"",
+			resource.GetName(),
+			resource.GetNamespace(),
+			admissionv1.Create,
+			user,
+			resource,
+			nil,
+			false,
+			nil,
+		)
+		engineResponse, _, err := engine.HandleMutating(context.TODO(), request)
+		if err != nil {
+			if continueOnFail {
+				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
+		}
+		resp := engineapi.EngineResponse{
+			Resource:       *resource,
+			PolicyResponse: engineapi.PolicyResponse{},
+		}
+
+		for _, r := range engineResponse.Policies {
+			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
+			rc.AddValidatingPolicyResponse(resp)
+			responses = append(responses, resp)
+		}
+	}
+
+	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
+	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
+	for i := range ivps {
+		p := ivps[i]
+		pMap[p.GetName()] = &p
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
+	}
+	for _, json := range jsonPayloads {
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		if err != nil {
+			if continueOnFail {
+				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
+		}
+		resp := engineapi.EngineResponse{
+			Resource:       *json,
+			PolicyResponse: engineapi.PolicyResponse{},
+		}
+		for p, rslt := range result {
+			if rslt.Error != nil {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil),
+				}
+			} else if rslt.Result {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil),
+				}
+			} else {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
+				}
+			}
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
+			rc.AddValidatingPolicyResponse(resp)
+			responses = append(responses, resp)
+		}
+	}
+	return responses, nil
 }
 
 func generateResourceKey(resource *unstructured.Unstructured) string {
