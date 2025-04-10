@@ -121,6 +121,33 @@ func testCommandExecute(
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
+
+			// Display information about invalid policies if any were found
+			if len(responses.InvalidPolicies) > 0 {
+				fmt.Fprintln(out, "  Warning: Some policies were invalid and were skipped:")
+				for _, invalid := range responses.InvalidPolicies {
+					fmt.Fprintf(out, "    - Policy '%s': %v\n", invalid.Name, invalid.Error)
+				}
+			}
+
+			// Display information about policy rule mappings if there are any duplicates
+			if len(responses.PolicyRuleMapping) > 0 {
+				// Check for duplicate rule names across policies
+				ruleNameCount := make(map[string]int)
+				for _, ruleMap := range responses.PolicyRuleMapping {
+					for ruleName := range ruleMap {
+						ruleNameCount[ruleName]++
+					}
+				}
+
+				// Report any duplicate rule names
+				for ruleName, count := range ruleNameCount {
+					if count > 1 {
+						fmt.Fprintf(out, "  Note: Rule '%s' appears in %d different policies\n", ruleName, count)
+					}
+				}
+			}
+
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
 			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
@@ -146,6 +173,22 @@ func testCommandExecute(
 		if !failOnly {
 			printFailedTestResult(out, fullTable, detailedResults)
 		}
+
+		// Count total invalid policies across all tests
+		invalidPolicyCount := 0
+		for _, test := range tests {
+			if test.Err == nil {
+				responses, _ := runTest(io.Discard, test, registryAccess)
+				if responses != nil {
+					invalidPolicyCount += len(responses.InvalidPolicies)
+				}
+			}
+		}
+
+		if invalidPolicyCount > 0 {
+			fmt.Fprintf(out, "\nNote: %d policies had validation errors which may affect test results\n", invalidPolicyCount)
+		}
+
 		return fmt.Errorf("%d tests failed", rc.Fail)
 	}
 	return nil
