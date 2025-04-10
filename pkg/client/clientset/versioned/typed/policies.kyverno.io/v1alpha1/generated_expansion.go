@@ -18,8 +18,8 @@ limitations under the License.
 
 package v1alpha1
 
-type CELPolicyExceptionExpansion interface{}
+type ImageValidatingPolicyExpansion interface{}
 
-type ImageVerificationPolicyExpansion interface{}
+type PolicyExceptionExpansion interface{}
 
 type ValidatingPolicyExpansion interface{}

@@ -12,15 +12,15 @@ import (
 func TestPolicyStatus_IsReady(t *testing.T) {
 	tests := []struct {
 		name   string
-		status VpolStatus
+		status ValidatingPolicyStatus
 		want   bool
 	}{{
 		name:   "nil",
-		status: VpolStatus{},
+		status: ValidatingPolicyStatus{},
 		want:   false,
 	}, {
 		name: "true",
-		status: VpolStatus{
+		status: ValidatingPolicyStatus{
 			ConditionStatus: ConditionStatus{
 				Ready: ptr.To(true),
 			},
@@ -28,7 +28,7 @@ func TestPolicyStatus_IsReady(t *testing.T) {
 		want: true,
 	}, {
 		name: "false",
-		status: VpolStatus{
+		status: ValidatingPolicyStatus{
 			ConditionStatus: ConditionStatus{
 				Ready: ptr.To(false),
 			},

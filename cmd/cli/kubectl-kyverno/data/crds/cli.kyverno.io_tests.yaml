@@ -70,6 +70,9 @@ spec:
             items:
               type: string
             type: array
+          jsonPayload:
+            description: JSONPayload is the JSON payload to be used in the test
+            type: string
           kind:
             description: |-
               Kind is a string value representing the REST resource this object represents.

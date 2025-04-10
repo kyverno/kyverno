@@ -6,8 +6,14 @@ import (
 	"reflect"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -18,17 +24,19 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
 type EvaluationResult struct {
-	Error   error
-	Message string
-	Index   int
-	Result  bool
+	Error      error
+	Message    string
+	Index      int
+	Result     bool
+	Exceptions []*policiesv1alpha1.PolicyException
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool) (*EvaluationResult, error)
+	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, policy.ContextInterface) (*EvaluationResult, error)
 }
 
 type compiledPolicy struct {
@@ -40,9 +48,11 @@ type compiledPolicy struct {
 	attestorList    map[string]string
 	attestationList map[string]string
 	creds           *v1alpha1.Credentials
+	exceptions      []policy.CompiledException
+	variables       map[string]cel.Program
 }
 
-func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool) (*EvaluationResult, error) {
+func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context policy.ContextInterface) (*EvaluationResult, error) {
 	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -50,7 +60,39 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if !matched {
 		return nil, nil
 	}
+
+	// check if the resource matches an exception
+	if len(c.exceptions) > 0 {
+		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+		for _, polex := range c.exceptions {
+			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+			if err != nil {
+				return nil, err
+			}
+			if match {
+				matchedExceptions = append(matchedExceptions, polex.Exception)
+			}
+		}
+		if len(matchedExceptions) > 0 {
+			return &EvaluationResult{Exceptions: matchedExceptions}, nil
+		}
+	}
+
 	data := map[string]any{}
+	vars := lazy.NewMapValue(policy.VariablesType)
+	for name, variable := range c.variables {
+		vars.Append(name, func(*lazy.MapValue) ref.Val {
+			out, _, err := variable.ContextEval(ctx, data)
+			if out != nil {
+				return out
+			}
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return nil
+		})
+	}
+
 	if isK8s {
 		namespaceVal, err := objectToResolveVal(namespace)
 		if err != nil {
@@ -72,6 +114,10 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[RequestKey] = requestVal.Object
 		data[ObjectKey] = objectVal
 		data[OldObjectKey] = oldObjectVal
+		data[policy.VariablesKey] = vars
+		data[policy.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
+		data[policy.ImageDataKey] = imagedata.Context{ContextInterface: context}
+		data[policy.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
 		data[ObjectKey] = request
 	}

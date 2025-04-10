@@ -27,6 +27,9 @@ func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 		if x := cmp.Compare(a.Rule, b.Rule); x != 0 {
 			return x
 		}
+		if x := cmp.Compare(a.Source, b.Source); x != 0 {
+			return x
+		}
 		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
 			return x
 		}

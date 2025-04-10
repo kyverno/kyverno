@@ -24,7 +24,7 @@ func (c *impl) parse_service_account_string(user ref.Val) ref.Val {
 		if strings.HasPrefix(user, saPrefix) {
 			user = user[len(saPrefix):]
 			if sep := strings.Index(user, ":"); sep != -1 {
-				sa.Namesapce = user[:sep]
+				sa.Namespace = user[:sep]
 				sa.Name = user[sep+1:]
 			}
 		}

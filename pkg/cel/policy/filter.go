@@ -11,8 +11,8 @@ func RemoveNoneBackgroundValidatingPolicies(policies []v1alpha1.ValidatingPolicy
 	})
 }
 
-func RemoveNoneBackgroundImageVerificationPolicies(policies []v1alpha1.ImageVerificationPolicy) []v1alpha1.ImageVerificationPolicy {
-	return slices.Filter(policies, func(vp v1alpha1.ImageVerificationPolicy) bool {
+func RemoveNoneBackgroundImageVerificationPolicies(policies []v1alpha1.ImageValidatingPolicy) []v1alpha1.ImageValidatingPolicy {
+	return slices.Filter(policies, func(vp v1alpha1.ImageValidatingPolicy) bool {
 		return vp.Spec.BackgroundEnabled()
 	})
 }

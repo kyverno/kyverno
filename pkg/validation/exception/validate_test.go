@@ -72,7 +72,7 @@ func Test_Validate(t *testing.T) {
 				},
 				resource: []byte(`{
     "apiVersion": "policies.kyverno.io/v1alpha1",
-    "kind": "CELPolicyException",
+    "kind": "PolicyException",
     "metadata": {
         "name": "pod-security-exception",
         "namespace": "delta"
@@ -103,7 +103,7 @@ func Test_Validate(t *testing.T) {
 				},
 				resource: []byte(`{
     "apiVersion": "policies.kyverno.io/v1alpha1",
-    "kind": "CELPolicyException",
+    "kind": "PolicyException",
     "metadata": {
         "name": "pod-security-exception",
         "namespace": "delta"
@@ -134,7 +134,7 @@ func Test_Validate(t *testing.T) {
 				},
 				resource: []byte(`{
     "apiVersion": "policies.kyverno.io/v1alpha1",
-    "kind": "CELPolicyException",
+    "kind": "PolicyException",
     "metadata": {
         "name": "pod-security-exception",
         "namespace": "delta"
@@ -165,7 +165,7 @@ func Test_Validate(t *testing.T) {
 				},
 				resource: []byte(`{
     "apiVersion": "policies.kyverno.io/v1alpha1",
-    "kind": "CELPolicyException",
+    "kind": "PolicyException",
     "metadata": {
         "name": "pod-security-exception",
         "namespace": "delta"
