@@ -1,0 +1,96 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-http-cel
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: test-http-get
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "HTTP GET test failed"
+      cel:
+        expressions:
+        - expression: "http.send('GET', 'http://test-server.http-cel-test:8080/health').response.code == 200"
+        - expression: "http.send('GET', 'http://test-server.http-cel-test:8080/health').response.body.get('status') == 'ok'"
+  - name: test-http-get-echo
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "HTTP GET echo test failed"
+      cel:
+        expressions:
+        - expression: "http.send('GET', 'http://test-server.http-cel-test:8080/echo').response.code == 200"
+        - expression: "http.send('GET', 'http://test-server.http-cel-test:8080/echo').response.body.get('method') == 'GET'"
+  - name: test-http-get-with-headers
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      cel:
+        expressions:
+        - expression: |
+            let response = http.Get("http://test-server.http-cel-test:8080/auth", {"Authorization": "Bearer test-token"})
+            response.statusCode == 200 && response.body.headers.authorization == "Bearer test-token"
+        message: "Authentication failed"
+  - name: test-http-post
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      cel:
+        expressions:
+        - expression: |
+            let response = http.Post("http://test-server.http-cel-test:8080/data", {"key": "value"})
+            response.statusCode == 200 && response.body.method == "POST"
+        message: "Data submission failed"
+  - name: test-http-post-with-headers
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      cel:
+        expressions:
+        - expression: |
+            let response = http.Post("http://test-server.http-cel-test:8080/data", {"key": "value"}, {"Content-Type": "application/json"})
+            response.statusCode == 200 && response.body.headers["content-type"] == "application/json"
+        message: "Data submission with headers failed"
+  - name: test-http-client
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      cel:
+        expressions:
+        - expression: |
+            http.Client(caBundle).Get("https://secure-server:8443/health").body.status == "ok"
+        message: "Secure health check failed"
+  - name: test-http-response-handling
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      cel:
+        expressions:
+        - expression: |
+            let response = http.Get("http://test-server.http-cel-test:8080/echo")
+            response.statusCode == 200 && response.body.method == "GET"
+        message: "Response handling failed" 
