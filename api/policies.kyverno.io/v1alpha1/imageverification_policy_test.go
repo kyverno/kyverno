@@ -9,7 +9,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func TestImageVerificationPolicy_GetFailurePolicy(t *testing.T) {
+func TestImageValidatingPolicy_GetFailurePolicy(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
@@ -180,7 +180,7 @@ func TestAttestation_IsReferrer(t *testing.T) {
 	}
 }
 
-func TestImageVerificationPolicySpec_EvaluationMode(t *testing.T) {
+func TestImageValidatingPolicySpec_EvaluationMode(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicySpec
@@ -206,7 +206,7 @@ func TestImageVerificationPolicySpec_EvaluationMode(t *testing.T) {
 	}
 }
 
-func TestImageVerificationPolicy_GetMatchConstraints(t *testing.T) {
+func TestImageValidatingPolicy_GetMatchConstraints(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
@@ -232,7 +232,7 @@ func TestImageVerificationPolicy_GetMatchConstraints(t *testing.T) {
 	}
 }
 
-func TestImageVerificationPolicy_GetMatchConditions(t *testing.T) {
+func TestImageValidatingPolicy_GetMatchConditions(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
@@ -272,7 +272,7 @@ func TestImageVerificationPolicy_GetMatchConditions(t *testing.T) {
 	}
 }
 
-func TestImageVerificationPolicy_GetWebhookConfiguration(t *testing.T) {
+func TestImageValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
@@ -298,7 +298,7 @@ func TestImageVerificationPolicy_GetWebhookConfiguration(t *testing.T) {
 	}
 }
 
-func TestImageVerificationPolicy_GetVariables(t *testing.T) {
+func TestImageValidatingPolicy_GetVariables(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
@@ -338,7 +338,7 @@ func TestImageVerificationPolicy_GetVariables(t *testing.T) {
 	}
 }
 
-func TestImageVerificationPolicy_GetSpec(t *testing.T) {
+func TestImageValidatingPolicy_GetSpec(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
@@ -378,7 +378,7 @@ func TestImageVerificationPolicy_GetSpec(t *testing.T) {
 	}
 }
 
-func TestImageVerificationPolicy_GetStatus(t *testing.T) {
+func TestImageValidatingPolicy_GetStatus(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
@@ -395,7 +395,7 @@ func TestImageVerificationPolicy_GetStatus(t *testing.T) {
 	}
 }
 
-func TestImageVerificationPolicy_GetKind(t *testing.T) {
+func TestImageValidatingPolicy_GetKind(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy

@@ -88,6 +88,7 @@ type ApplyCommandConfig struct {
 	GenerateExceptions    bool
 	GeneratedExceptionTTL time.Duration
 	JSONPaths             []string
+	ClusterWideResources  bool
 }
 
 func Command() *cobra.Command {
@@ -188,6 +189,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
+	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
 	return cmd
 }
 
@@ -288,7 +290,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageVerificationPolicies(ivps, jsonPayloads, resources1, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -426,7 +428,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) applyImageVerificationPolicies(
+func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	ivps []policiesv1alpha1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
@@ -444,7 +446,7 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
 	}
-	engine := celengine.NewImageVerifyEngine(
+	engine := celengine.NewImageValidatingEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
@@ -540,18 +542,18 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 
-	ivpols := make([]*eval.CompiledImageVerificationPolicy, 0)
+	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageVerificationPolicy{Policy: &p})
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -580,7 +582,7 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
@@ -589,7 +591,7 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 }
 
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, c.ClusterWideResources, "")
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
@@ -661,7 +663,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
+				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -677,7 +679,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
+				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 			}
 		}
 		for _, policy := range policies {
@@ -753,7 +755,10 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
-	if len(c.ResourcePaths) == 0 && !c.Cluster && len(c.JSONPaths) == 0 {
+	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
+		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
+	}
+	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
 	return nil
