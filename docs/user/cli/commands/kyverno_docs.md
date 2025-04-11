@@ -29,6 +29,7 @@ kyverno docs [flags]
 ```
       --autogenTag      Determines if the generated docs should contain a timestamp (default true)
   -h, --help            help for docs
+      --markdownLinks   Determines if the generated docs should contain links to markdown files
       --noDate          Determines if the generated docs should contain a date
   -o, --output string   Output path (default ".")
       --website         Website version
