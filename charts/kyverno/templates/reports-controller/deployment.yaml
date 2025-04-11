@@ -61,6 +61,10 @@ spec:
       {{- with .Values.reportsController.dnsPolicy }}
       dnsPolicy: {{ . }}
       {{- end }}
+      {{- with .Values.reportsController.dnsConfig }}
+      dnsConfig:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
       {{- if or .Values.reportsController.antiAffinity.enabled .Values.reportsController.podAffinity .Values.reportsController.nodeAffinity }}
       affinity:
         {{- if .Values.reportsController.antiAffinity.enabled }}
