@@ -280,6 +280,8 @@ The chart values are organised per component.
 | crds.migration.podAnnotations | object | `{}` | Pod annotations. |
 | crds.migration.nodeAffinity | object | `{}` | Node affinity constraints. |
 | crds.migration.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
+| crds.migration.podResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
+| crds.migration.podResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 
 ### Config
 
@@ -736,6 +738,8 @@ The chart values are organised per component.
 | webhooksCleanup.podAnnotations | object | `{}` | Pod annotations. |
 | webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
+| webhooksCleanup.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
+| webhooksCleanup.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 
 ### Test
 
@@ -792,6 +796,8 @@ The chart values are organised per component.
 | policyReportsCleanup.podAnnotations | object | `{}` | Pod annotations. |
 | policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
+| policyReportsCleanup.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
+| policyReportsCleanup.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 
 ## TLS Configuration
 
