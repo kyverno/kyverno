@@ -42,6 +42,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -54,6 +55,7 @@ type PolicyProcessor struct {
 	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
@@ -212,6 +214,29 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, validateResponse)
 		resource = validateResponse.PatchedResource
 	}
+	// Mutate Admission Policies
+
+	mapResponses := make([]engineapi.EngineResponse, 0, len(p.MutatingAdmissionPolicies))
+	for _, mapPolicy := range p.MutatingAdmissionPolicies {
+		log.Log.V(3).Info("applying MAP", "name", mapPolicy.Name)
+		mutateResponse, err := admissionpolicy.MutateResource(mapPolicy, resource)
+		if err != nil {
+			log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
+			continue
+		}
+		if !mutateResponse.IsEmpty() {
+			if p.Rc != nil {
+				p.Rc.addMutateResponse(mutateResponse)
+			}
+			mapResponses = append(mapResponses, mutateResponse)
+			resource = mutateResponse.PatchedResource
+			if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
+				log.Log.Error(err, "failed to log MAP mutation")
+			}
+		}
+	}
+	responses = append(responses, mapResponses...)
+
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	for _, policy := range p.ValidatingAdmissionPolicies {
@@ -284,7 +309,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo

@@ -22,7 +22,7 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func mutateResource(
+func MutateResource(
 	policy admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	resource unstructured.Unstructured,
 ) (engineapi.EngineResponse, error) {
