@@ -147,8 +147,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs)
-	policyPlural := pluralize.Pluralize(len(results.Policies)+len(results.VAPs), "policy", "policies")
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies)
+	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
 	if polexLoader != nil {
@@ -255,6 +255,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				results.ImageValidatingPolicies,
 				nil,
 				[]*unstructured.Unstructured{resource},
+				polexLoader.CELExceptions,
 				vars.Namespace,
 				userInfo,
 				&resultCounts,
@@ -305,6 +306,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				results.ImageValidatingPolicies,
 				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
 				nil,
+				polexLoader.CELExceptions,
 				vars.Namespace,
 				userInfo,
 				&resultCounts,
@@ -337,6 +339,7 @@ func applyImageValidatingPolicies(
 	ivps []policiesv1alpha1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
+	celExceptions []*policiesv1alpha1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
@@ -345,7 +348,7 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := celengine.NewIVPOLProvider(ivps)
+	provider, err := celengine.NewIVPOLProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
