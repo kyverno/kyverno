@@ -57,10 +57,16 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 		},
 		"Post": {
 			cel.MemberOverload(
-				"resource_post_string_string_string_string",
-				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
+				"resource_post_string_string_string_map",
+				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
 				types.DynType,
-				cel.FunctionBinding(impl.post_resource_string_string_string_string),
+				cel.FunctionBinding(impl.post_resource_string_string_string_map),
+			),
+			cel.MemberOverload(
+				"resource_post_string_string_map",
+				[]*cel.Type{ContextType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
+				types.DynType,
+				cel.FunctionBinding(impl.post_resource_string_string_map),
 			),
 		},
 	}
