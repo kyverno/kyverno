@@ -53410,6 +53410,8 @@ rules:
     resources:
       - mutatingwebhookconfigurations
       - validatingwebhookconfigurations
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
     verbs:
       - create
       - delete
@@ -54030,6 +54032,15 @@ rules:
     resources:
       - policyexceptions
       - policyexceptions/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
     verbs:
       - get
       - list
@@ -54739,7 +54750,7 @@ spec:
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
-            - --generateValidatingAdmissionPolicy=false
+            - --generateValidatingAdmissionPolicy=true
             - --dumpPatches=false
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
@@ -55144,7 +55155,7 @@ spec:
             - --admissionReports=true
             - --aggregateReports=true
             - --policyReports=true
-            - --validatingAdmissionPolicyReports=false
+            - --validatingAdmissionPolicyReports=true
             - --backgroundScan=true
             - --backgroundScanWorkers=2
             - --backgroundScanInterval=1h
