@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -18,6 +20,13 @@ func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, 
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
 		if err != nil {
 			logging.Error(err, "failed to get the namespace", "name", namespaceOfResource)
+			return namespaceLabels, err
+		}
+
+		// Check if the namespace object is nil (namespace not found)
+		if namespaceObj == nil {
+			err := fmt.Errorf("namespace %s not found", namespaceOfResource)
+			logging.Error(err, "namespace object is nil", "name", namespaceOfResource)
 			return namespaceLabels, err
 		}
 
