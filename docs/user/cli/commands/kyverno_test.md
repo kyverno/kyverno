@@ -41,6 +41,7 @@ kyverno test [local folder or git repository]... [flags]
   -h, --help                        help for test
       --registry                    If set to true, access the image registry using local docker credentials to populate external data
       --remove-color                Remove any color from output
+      --require-tests               If set to true, return an error if no tests are found
   -t, --test-case-selector string   Filter test cases to run (default "policy=*,rule=*,resource=*")
 ```
 
