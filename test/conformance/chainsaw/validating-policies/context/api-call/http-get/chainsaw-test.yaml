@@ -1,0 +1,36 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apicall-http-get
+spec:
+  steps:
+  - try:
+    - apply:
+        file: http-pod.yaml
+    - apply:
+        file: service.yaml
+    - sleep:
+        duration: 8s
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: vpol-http-get
+  - try:
+    - apply: 
+       file: good-pod.yaml
+    - create:
+        file: bad-pod.yaml
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy vpol-http-get failed: only create pod with labels, variables.get.metadata.labels.app: test
