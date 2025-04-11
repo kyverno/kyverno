@@ -16,13 +16,13 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-type CompiledImageVerificationPolicy struct {
+type CompiledImageValidatingPolicy struct {
 	Policy     *policiesv1alpha1.ImageValidatingPolicy
 	Exceptions []*policiesv1alpha1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 
-func Evaluate(ctx context.Context, ivpols []*CompiledImageVerificationPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
+func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
 	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
 	if err != nil {
 		return nil, err
@@ -67,8 +67,8 @@ func requestGVR(request *admissionv1.AdmissionRequest) *metav1.GroupVersionResou
 	return request.RequestResource
 }
 
-func filterPolicies(ivpols []*CompiledImageVerificationPolicy, isK8s bool) []*CompiledImageVerificationPolicy {
-	filteredPolicies := make([]*CompiledImageVerificationPolicy, 0)
+func filterPolicies(ivpols []*CompiledImageValidatingPolicy, isK8s bool) []*CompiledImageValidatingPolicy {
+	filteredPolicies := make([]*CompiledImageValidatingPolicy, 0)
 
 	for _, v := range ivpols {
 		if v == nil || v.Policy == nil {
