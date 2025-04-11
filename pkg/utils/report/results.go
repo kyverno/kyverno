@@ -115,7 +115,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 
 	switch {
 	case pol.AsValidatingAdmissionPolicy() != nil:
-		result.Source = SourceImageValidatingPolicy
+		result.Source = SourceValidatingAdmissionPolicy
 		result.Policy = ruleResult.Name()
 		process = "admission review"
 		if binding := ruleResult.ValidatingAdmissionPolicyBinding(); binding != nil {
