@@ -14,6 +14,8 @@ spec:
   imagePullSecrets:
     {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
+  tolerations:
+    {{- toYaml .Values.global.tolerations | nindent 4 }}
   containers:
     - name: test
       image: {{ template "kyverno.test.image" . }}
