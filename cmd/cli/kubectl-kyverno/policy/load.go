@@ -59,7 +59,7 @@ type LoaderResults struct {
 	VAPBindings               []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MAPs                      []admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	ValidatingPolicies        []policiesv1alpha1.ValidatingPolicy
-	ImageVerificationPolicies []policiesv1alpha1.ImageValidatingPolicy
+	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
 	NonFatalErrors            []LoaderError
 }
 
@@ -71,8 +71,9 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
 	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
+
 	l.MAPs = append(l.MAPs, results.MAPs...)
-	l.ImageVerificationPolicies = append(l.ImageVerificationPolicies, results.ImageVerificationPolicies...)
+	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 }
 
@@ -189,7 +190,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			if err != nil {
 				return nil, err
 			}
-			results.ImageVerificationPolicies = append(results.ImageVerificationPolicies, *typed)
+			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
 		case mapV1alpha1:
 			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicy](untyped)
 			if err != nil {

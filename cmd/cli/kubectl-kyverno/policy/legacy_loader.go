@@ -13,6 +13,6 @@ func legacyLoader(_ string, content []byte) (*LoaderResults, error) {
 		VAPBindings:               bindings,
 		MAPs:                      maps,
 		ValidatingPolicies:        vps,
-		ImageVerificationPolicies: ivps,
+		ImageValidatingPolicies: ivps,
 	}, nil
 }

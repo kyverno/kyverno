@@ -782,6 +782,20 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
+func TestCommandWithJsonAndResource(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{"--json", "foo", "--resource", "bar", "policy"})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	expected := `Error: both resource and json files can not be used together, use one or the other`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+}
+
 func TestCommandWarnExitCode(t *testing.T) {
 	var warnExitCode = 3
 

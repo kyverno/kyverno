@@ -557,18 +557,18 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 
-	ivpols := make([]*eval.CompiledImageVerificationPolicy, 0)
+	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageVerificationPolicy{Policy: &p})
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -597,7 +597,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
@@ -734,8 +734,9 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				maps = append(maps, loaderResults.MAPs...) // Assuming policy.Load returns MAPs
-				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
+				maps = append(maps, loaderResults.MAPs...) // Assuming policy.Load returns MAP
+				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
+
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -752,7 +753,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
 				maps = append(maps, loaderResults.MAPs...) //  Adding map
-				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
+				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 			}
 		}
 		for _, policy := range policies {
@@ -828,7 +829,10 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
-	if len(c.ResourcePaths) == 0 && !c.Cluster && len(c.JSONPaths) == 0 {
+	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
+		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
+	}
+	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
 	return nil
