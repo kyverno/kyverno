@@ -148,8 +148,8 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsValidatingPolicy().GetSpec().BackgroundEnabled())
 	case webhook.ImageValidatingPolicy:
 		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicy, policy.GetName())
-		matchConstraints = policy.AsImageVerificationPolicy().GetMatchConstraints()
-		backgroundOnly = (!policy.AsImageVerificationPolicy().GetSpec().AdmissionEnabled() && policy.AsImageVerificationPolicy().GetSpec().BackgroundEnabled())
+		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled())
 	}
 
 	if !backgroundOnly {
