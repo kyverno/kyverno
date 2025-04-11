@@ -4,7 +4,7 @@ metadata:
   name: test-deployment-ivpol-background
   labels:
     app: test
-    env: staging
+    env: prod
 spec:
   replicas: 1
   selector:
