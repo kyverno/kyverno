@@ -317,7 +317,7 @@ func TestPSSComputePolicyReportResult(t *testing.T) {
 			Scored:     true,
 			Category:   "Pod Security Standards (Restricted)",
 			Severity:   policyreportv1alpha2.SeverityMedium,
-			Properties: map[string]string{"source": "background scan"},
+			Properties: map[string]string{"process": "background scan"},
 		},
 	}}
 	for _, tt := range tests {
