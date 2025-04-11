@@ -39,7 +39,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -363,8 +362,12 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
+	apiGroupResources, err := data.APIGroupResources()
+	if err != nil {
+		return nil, err
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	gctxStore := gctxstore.New()
-	var restMapper meta.RESTMapper
 	var contextProvider celpolicy.Context
 	if dclient != nil {
 		contextProvider, err = celpolicy.NewContextProvider(
@@ -375,17 +378,7 @@ func applyImageValidatingPolicies(
 		if err != nil {
 			return nil, err
 		}
-		apiGroupResources, err := restmapper.GetAPIGroupResources(dclient.GetKubeClient().Discovery())
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	} else {
-		apiGroupResources, err := data.APIGroupResources()
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 		fakeContextProvider := celpolicy.NewFakeContextProvider()
 		if contextPath != "" {
 			ctx, err := clicontext.Load(nil, contextPath)
@@ -455,7 +448,6 @@ func applyImageValidatingPolicies(
 			responses = append(responses, resp)
 		}
 	}
-
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
 	for i := range ivps {
