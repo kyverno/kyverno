@@ -1,0 +1,23 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-http-post
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+  variables:
+    - name: response
+      expression: >-
+       http.Post(
+        "http://test-api-service.default.svc.cluster.local/",
+        {"labels": object.metadata.labels.app},{"Content-Type": "application/json"})
+  validations:
+    - expression: variables.response.received == "test"
+      messageExpression: >-
+       'External POST call did not return the expected response ' + string(variables.response.received)
