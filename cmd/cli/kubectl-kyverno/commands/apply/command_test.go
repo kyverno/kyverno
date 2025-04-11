@@ -880,7 +880,7 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
-					Pass:  1,
+					Pass:  2,
 					Fail:  0,
 					Skip:  0,
 					Error: 0,

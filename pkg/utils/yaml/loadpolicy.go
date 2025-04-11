@@ -92,7 +92,7 @@ func GetPolicy(bytes []byte) (
 			}
 		}
 	}
-	return policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, validatingPolicies, imageVerificationPolicies, mutatingAdmissionPolicies, err
+	return policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, validatingPolicies, imageVerificationPolicies, mutatingAdmissionPolicies, nil
 }
 
 func parse(obj unstructured.Unstructured) (
@@ -125,6 +125,7 @@ func parse(obj unstructured.Unstructured) (
 		return nil, nil, nil, nil, out, nil, err
 	case "MutatingAdmissionPolicy":
 		out, err := parseMutatingAdmissionPolicy(obj)
+		fmt.Println("DEBUG: inside parse for MAP, error:", err, "object kind:", obj.GetKind())
 		return nil, nil, nil, nil, nil, out, err
 	}
 	return nil, nil, nil, nil, nil, nil, nil
@@ -205,6 +206,7 @@ func parseMutatingAdmissionPolicy(obj unstructured.Unstructured) (*admissionregi
 	var out admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	if err := runtime.DefaultUnstructuredConverter.
 		FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
+		fmt.Println("DEBUG: failed to convert MAP:", err)
 		return nil, fmt.Errorf("failed to decode MutatingAdmissionPolicy: %w", err)
 	}
 	if out.Kind == "" {

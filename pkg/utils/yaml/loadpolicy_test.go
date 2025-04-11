@@ -15,12 +15,13 @@ func TestGetPolicy(t *testing.T) {
 		namespace string
 	}
 	tests := []struct {
-		name         string
-		args         args
-		wantPolicies []policy
-		vaps         []policy
-		vapBindings  []policy
-		wantErr      bool
+		name                      string
+		args                      args
+		wantPolicies              []policy
+		vaps                      []policy
+		vapBindings               []policy
+		MutatingAdmissionPolicies []policy
+		wantErr                   bool
 	}{{
 		name: "policy",
 		args: args{
@@ -486,10 +487,52 @@ spec:
 			{"ValidatingAdmissionPolicyBinding", ""},
 		},
 		wantErr: false,
-	}}
+	},
+
+		// Mutate Admission Policy
+		{
+			name: "MutatingAdmissionPolicy",
+			args: args{[]byte(`
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: my-mutation
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["deployments"]
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: "[]"
+  reinvocationPolicy: Never
+`)},
+			MutatingAdmissionPolicies: []policy{{"MutatingAdmissionPolicy", ""}},
+			wantErr:                   false,
+		},
+		// Missing kind must error under strict decoding
+		{
+			name: "MutatingAdmissionPolicy missing kind",
+			args: args{[]byte(`
+apiVersion: admissionregistration.k8s.io/v1alpha1
+metadata:
+  name: missing-kind
+`)},
+			MutatingAdmissionPolicies: nil,
+			wantErr:                   true,
+		},
+		{
+			name:    "MutatingAdmissionPolicy invalid YAML",
+			args:    args{[]byte(`: bad yaml`)},
+			wantErr: true,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPolicies, gotValidatingAdmissionPolicies, gotBindings, _, _, _, err := GetPolicy(tt.args.bytes)
+			gotPolicies, gotValidatingAdmissionPolicies, gotBindings, _, _, gotMutatingAdmissionPolicies, err := GetPolicy(tt.args.bytes)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -510,6 +553,25 @@ spec:
 				if assert.Equal(t, len(tt.vapBindings), len(gotBindings)) {
 					for i := range tt.vapBindings {
 						assert.Equal(t, tt.vapBindings[i].kind, gotBindings[i].Kind)
+					}
+				}
+
+				if assert.Equal(t,
+					len(tt.MutatingAdmissionPolicies),
+					len(gotMutatingAdmissionPolicies),
+					"MutatingAdmissionPolicy count",
+				) {
+					for i := range tt.MutatingAdmissionPolicies {
+						assert.Equal(t,
+							tt.MutatingAdmissionPolicies[i].kind,
+							gotMutatingAdmissionPolicies[i].Kind,
+							"MAP[%d].Kind", i,
+						)
+						assert.Equal(t,
+							tt.MutatingAdmissionPolicies[i].namespace,
+							gotMutatingAdmissionPolicies[i].GetNamespace(),
+							"MAP[%d].Namespace", i,
+						)
 					}
 				}
 			}

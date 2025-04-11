@@ -41,13 +41,6 @@ func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engi
 			// if ruleResponse.RuleType() != engineapi.Validation && ruleResponse.RuleType() != engineapi.ImageVerify {
 			// 	continue
 			// }
-			// allow validation, image‑verify, and mutation rule types
-			if ruleResponse.RuleType() != engineapi.Validation &&
-				ruleResponse.RuleType() != engineapi.ImageVerify &&
-				ruleResponse.RuleType() != engineapi.Mutation {
-				continue
-			}
-
 			results[policy] = append(results[policy], ComputePolicyReportResult(auditWarn, engineResponse, ruleResponse))
 		}
 	}

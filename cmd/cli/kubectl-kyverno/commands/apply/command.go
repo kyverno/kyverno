@@ -265,6 +265,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(vaps)
 		policyRulesCount += len(vps)
 		policyRulesCount += len(ivps)
+		policyRulesCount += len(maps)
 		exceptionsCount := len(exceptions)
 		exceptionsCount += len(celexceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
@@ -612,39 +613,44 @@ func (c *ApplyCommandConfig) applyMutatingAdmissionPolicies(
 ) ([]engineapi.EngineResponse, error) {
 	var responses []engineapi.EngineResponse
 
-	// for _, resource := range resources {
-	// 	for _, mp := range maps {
-	// 		// TODO: Replace this with real match logic and JSONPatch application
-	// 		fmt.Printf("[debug] applying MAP '%s' to resource '%s/%s'\n", mp.Name, resource.GetNamespace(), resource.GetName())
-
-	// 		// Mock successful response (replace with real evaluation)
-	// 		res := engineapi.EngineResponse{
-	// 			Resource:       *resource,
-	// 			PolicyResponse: engineapi.PolicyResponse{},
-	// 		}
-	// 		res.PolicyResponse.Rules = []engineapi.RuleResponse{
-	// 			*engineapi.RulePass(mp.Name, engineapi.Mutation, "mock mutation applied", nil),
-	// 		}
-	// 		res = res.WithPolicy(engineapi.NewMutatingAdmissionPolicy(&mp))
-	// 		rc.AddMutatingPolicyResponse(res)
-	// 		responses = append(responses, res)
-	// 	}
-	// }
-
 	for _, resource := range resources {
 		for _, mp := range maps {
-			// Apply the real MAP mutation logic
+			// 1) run the real MAP mutation
 			res, err := admissionpolicy.MutateResource(mp, *resource)
 			if err != nil {
-				fmt.Printf("Error applying MAP %s on resource %s/%s: %v\n", mp.Name, resource.GetNamespace(), resource.GetName(), err)
+				fmt.Printf("Error applying MAP %s on %s/%s: %v\n",
+					mp.Name, resource.GetNamespace(), resource.GetName(), err)
 				if c.ContinueOnFail {
 					continue
 				}
 				return nil, fmt.Errorf("failed to apply MAP %s on %s/%s: %w",
 					mp.Name, resource.GetNamespace(), resource.GetName(), err)
 			}
-			fmt.Printf("MAP %s applied to resource %s/%s returned: %+v\n", mp.Name, resource.GetNamespace(), resource.GetName(), res.PolicyResponse)
-			// Count and collect the response
+
+			// 2) synthesize exactly one RuleResponse based on Stats()
+			if len(res.PolicyResponse.Rules) == 0 {
+				stats := res.PolicyResponse.Stats() // capture into local to call pointer method
+
+				if stats.RulesAppliedCount() > 0 {
+					pass := *engineapi.RulePass(
+						mp.Name,
+						engineapi.Mutation,
+						fmt.Sprintf("%d patch(es) applied", stats.RulesAppliedCount()),
+						nil,
+					)
+					res.PolicyResponse.Rules = append(res.PolicyResponse.Rules, pass)
+				} else {
+					skip := *engineapi.RuleSkip(
+						mp.Name,
+						engineapi.Mutation,
+						"no matching resources",
+						nil, // <-- now passing the fourth map[string]string argument
+					)
+					res.PolicyResponse.Rules = append(res.PolicyResponse.Rules, skip)
+				}
+			}
+
+			// 3) record & collect the response
 			rc.AddMutatingAdmissionPolicyResponse(res)
 			responses = append(responses, res)
 		}
