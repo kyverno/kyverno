@@ -136,10 +136,12 @@ func testCommandExecute(
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
-			printer := table.NewTablePrinter(out)
-			fmt.Fprintln(out)
-			printer.Print(resultsTable.Rows(detailedResults))
-			fmt.Fprintln(out)
+			if !failOnly {
+				printer := table.NewTablePrinter(out)
+				fmt.Fprintln(out)
+				printer.Print(resultsTable.Rows(detailedResults))
+				fmt.Fprintln(out)
+			}
 		}
 	}
 	if !failOnly {
@@ -149,7 +151,7 @@ func testCommandExecute(
 	}
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {
-		if !failOnly {
+		if failOnly {
 			printFailedTestResult(out, fullTable, detailedResults)
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)
