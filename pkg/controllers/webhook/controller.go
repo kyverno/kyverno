@@ -854,15 +854,15 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return nil
 	}
 
-	ivpols, err := c.getImageVerificationPolicy()
+	ivpols, err := c.getImageValidatingPolicy()
 	if err != nil {
 		return err
 	}
 
 	validate := buildWebhookRules(cfg,
 		c.server,
-		config.ImageVerificationPolicyMutateWebhookName,
-		config.PolicyServicePath+config.ImageVerificationPolicyServicePath+config.MutatingWebhookServicePath,
+		config.ImageValidatingPolicyMutateWebhookName,
+		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.MutatingWebhookServicePath,
 		c.servicePort,
 		caBundle,
 		ivpols)
@@ -1055,14 +1055,14 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		pols)...)
 
-	ivpols, err := c.getImageVerificationPolicy()
+	ivpols, err := c.getImageValidatingPolicy()
 	if err != nil {
 		return err
 	}
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
-		config.ImageVerificationPolicyValidateWebhookName,
-		config.PolicyServicePath+config.ImageVerificationPolicyServicePath+config.ValidatingWebhookServicePath,
+		config.ImageValidatingPolicyValidateWebhookName,
+		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
 		c.servicePort,
 		caBundle,
 		ivpols)...)
@@ -1188,7 +1188,7 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	return vpols, nil
 }
 
-func (c *controller) getImageVerificationPolicy() ([]engineapi.GenericPolicy, error) {
+func (c *controller) getImageValidatingPolicy() ([]engineapi.GenericPolicy, error) {
 	policies, err := c.ivpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -1197,7 +1197,7 @@ func (c *controller) getImageVerificationPolicy() ([]engineapi.GenericPolicy, er
 	ivpols := make([]engineapi.GenericPolicy, 0)
 	for _, ivpol := range policies {
 		if ivpol.Spec.AdmissionEnabled() {
-			ivpols = append(ivpols, engineapi.NewImageVerificationPolicy(ivpol))
+			ivpols = append(ivpols, engineapi.NewImageValidatingPolicy(ivpol))
 		}
 	}
 	return ivpols, nil
