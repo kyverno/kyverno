@@ -44,7 +44,10 @@ global:
   nodeSelector: {}
 
   # -- Global List of node taints to tolerate. Non-global values will override the global value.
-  tolerations: []
+  tolerations:
+  - key: env
+    operator: Exists
+    effect: NoSchedule
 
 # -- (string) Override the name of the chart
 nameOverride: ~
