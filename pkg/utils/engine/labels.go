@@ -8,17 +8,23 @@ import (
 )
 
 // GetNamespaceSelectorsFromNamespaceLister - extract the namespacelabels when namespace lister is passed
-func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister corev1listers.NamespaceLister, policies []kyvernov1.PolicyInterface, logger logr.Logger) map[string]string {
+func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister corev1listers.NamespaceLister, policies []kyvernov1.PolicyInterface, logger logr.Logger) (map[string]string, error) {
 	namespaceLabels := make(map[string]string)
+	if !HasNamespaceSelector(policies) {
+		return namespaceLabels, nil
+	}
+
 	if kind != "Namespace" && namespaceOfResource != "" {
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
 		if err != nil {
 			logging.Error(err, "failed to get the namespace", "name", namespaceOfResource)
-			return namespaceLabels
+			return namespaceLabels, err
 		}
-		return namespaceObj.DeepCopy().GetLabels()
+
+		return namespaceObj.DeepCopy().GetLabels(), nil
 	}
-	return namespaceLabels
+
+	return namespaceLabels, nil
 }
 
 func HasNamespaceSelector(policies []kyvernov1.PolicyInterface) bool {
