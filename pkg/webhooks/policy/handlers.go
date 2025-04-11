@@ -44,7 +44,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
 
-	if ivpol := policy.AsImageVerificationPolicy(); ivpol != nil {
+	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
 		warnings, err := eval.Validate(ivpol, h.client.GetKubeClient().CoreV1().Secrets(""))
 		if err != nil {
 			logger.Error(err, "validating policy validation errors")
