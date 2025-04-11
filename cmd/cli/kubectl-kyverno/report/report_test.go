@@ -191,7 +191,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Message:    "test",
 			Scored:     true,
 			Category:   "Pod Security Standards (Restricted)",
-			Properties: map[string]string{"source": "admission review"},
+			Properties: map[string]string{"process": "admission review"},
 			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
@@ -208,7 +208,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Message:    "test",
 			Scored:     true,
 			Category:   "Pod Security Standards (Restricted)",
-			Properties: map[string]string{"source": "admission review"},
+			Properties: map[string]string{"process": "admission review"},
 			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
@@ -225,7 +225,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Message:    "test",
 			Scored:     true,
 			Category:   "Pod Security Standards (Restricted)",
-			Properties: map[string]string{"source": "admission review"},
+			Properties: map[string]string{"process": "admission review"},
 			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
@@ -242,7 +242,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Message:    "test",
 			Scored:     true,
 			Category:   "Pod Security Standards (Restricted)",
-			Properties: map[string]string{"source": "admission review"},
+			Properties: map[string]string{"process": "admission review"},
 			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
@@ -259,7 +259,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Message:    "test",
 			Scored:     true,
 			Category:   "Pod Security Standards (Restricted)",
-			Properties: map[string]string{"source": "admission review"},
+			Properties: map[string]string{"process": "admission review"},
 			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
@@ -276,7 +276,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Message:    "test",
 			Scored:     true,
 			Category:   "Pod Security Standards (Restricted)",
-			Properties: map[string]string{"source": "admission review"},
+			Properties: map[string]string{"process": "admission review"},
 			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}}
