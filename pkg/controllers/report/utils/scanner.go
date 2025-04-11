@@ -89,7 +89,7 @@ func (s *scanner) ScanResource(
 			kpols = append(kpols, policy)
 		} else if pol := policy.AsValidatingPolicy(); pol != nil {
 			vpols = append(vpols, policy)
-		} else if pol := policy.AsImageVerificationPolicy(); pol != nil {
+		} else if pol := policy.AsImageValidatingPolicy(); pol != nil {
 			ivpols = append(vpols, policy)
 		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
 			vaps = append(vaps, policy)
@@ -200,7 +200,7 @@ func (s *scanner) ScanResource(
 
 	// evaluate image verification policies
 	for i, policy := range ivpols {
-		if pol := policy.AsImageVerificationPolicy(); pol != nil {
+		if pol := policy.AsImageValidatingPolicy(); pol != nil {
 			// create provider
 			provider, err := celengine.NewIVPOLProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol})
 			if err != nil {
@@ -209,7 +209,7 @@ func (s *scanner) ScanResource(
 				continue
 			}
 			// create engine
-			engine := celengine.NewImageVerifyEngine(
+			engine := celengine.NewImageValidatingEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),

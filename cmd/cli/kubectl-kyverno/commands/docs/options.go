@@ -12,6 +12,7 @@ type options struct {
 	path       string
 	website    bool
 	autogenTag bool
+	noDate     bool
 }
 
 func (o options) validate(root *cobra.Command) error {
@@ -28,7 +29,7 @@ func (o options) execute(root *cobra.Command) error {
 	prepender := empty
 	linkHandler := identity
 	if o.website {
-		prepender = websitePrepender
+		prepender = websitePrepender(o.noDate)
 		linkHandler = websiteLinkHandler
 	}
 	if _, err := os.Stat(o.path); errors.Is(err, os.ErrNotExist) {

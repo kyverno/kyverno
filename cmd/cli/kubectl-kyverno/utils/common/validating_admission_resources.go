@@ -11,8 +11,7 @@ import (
 )
 
 type ValidatingAdmissionResources struct {
-	policies             []admissionregistrationv1.ValidatingAdmissionPolicy
-	clusterWideResources bool
+	policies []admissionregistrationv1.ValidatingAdmissionPolicy
 }
 
 func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
@@ -24,10 +23,7 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(out io.Writer, r
 
 	for _, policy := range r.policies {
 		var resourceTypesInRule map[schema.GroupVersionKind]bool
-		resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(policy, dClient, r.clusterWideResources)
-		if err != nil {
-			return resources, err
-		}
+		resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(policy, dClient)
 		for resourceKind := range resourceTypesInRule {
 			resourceTypesMap[resourceKind] = true
 		}

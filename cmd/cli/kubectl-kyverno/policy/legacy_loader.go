@@ -8,10 +8,10 @@ func legacyLoader(_ string, content []byte) (*LoaderResults, error) {
 		return nil, err
 	}
 	return &LoaderResults{
-		Policies:                  policies,
-		VAPs:                      vaps,
-		VAPBindings:               bindings,
-		ValidatingPolicies:        vps,
-		ImageVerificationPolicies: ivps,
+		Policies:                policies,
+		VAPs:                    vaps,
+		VAPBindings:             bindings,
+		ValidatingPolicies:      vps,
+		ImageValidatingPolicies: ivps,
 	}, nil
 }

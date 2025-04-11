@@ -237,7 +237,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		gctxStore := gctxstore.New()
 		var restMapper meta.RESTMapper
 		var contextProvider celpolicy.Context
-		if p.Client != nil {
+		if p.Client != nil && p.Cluster {
 			contextProvider, err = celpolicy.NewContextProvider(
 				p.Client,
 				// TODO
@@ -320,6 +320,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
 		}
@@ -338,6 +339,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
 		}

@@ -440,8 +440,8 @@ func (c *controller) reconcileReport(
 				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy()).String()
 			} else if policy.AsValidatingPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
-			} else if policy.AsImageVerificationPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsImageVerificationPolicy()).String()
+			} else if policy.AsImageValidatingPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsImageValidatingPolicy()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
@@ -621,7 +621,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			return err
 		}
 		for _, vpol := range policy.RemoveNoneBackgroundImageVerificationPolicies(ivpols) {
-			policies = append(policies, engineapi.NewImageVerificationPolicy(&vpol))
+			policies = append(policies, engineapi.NewImageValidatingPolicy(&vpol))
 		}
 	}
 	if c.vapLister != nil {
