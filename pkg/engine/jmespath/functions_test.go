@@ -1655,6 +1655,10 @@ func Test_ImageNormalize(t *testing.T) {
 			expectedResult: "ghcr.io/nginx:1.2",
 		},
 		{
+			jmesPath:       "image_normalize('docker.io/bitnami/kubernetes-event-exporter:1.7.0@sha256:6248febf0439542ce8c32cae6882dd5cfad7cf1aef1c6a990261011aa0157dd9')",
+			expectedResult: "docker.io/bitnami/kubernetes-event-exporter:1.7.0@sha256:6248febf0439542ce8c32cae6882dd5cfad7cf1aef1c6a990261011aa0157dd9",
+		},
+		{
 			jmesPath: "image_normalize('')",
 			wantErr:  true,
 		},
