@@ -19,12 +19,12 @@ spec:
           "apiVersion":"authorization.k8s.io/v1",
           "spec": {
             "resourceAttributes": {
-              "resource": "namespaces"
-              "namespace": object.metadata.namespace
-              "verb": "delete"
+              "resource": "namespaces",
+              "namespace": string(object.metadata.namespace),
+              "verb": "delete",
               "group": ""
             },
-            "user": request.userInfo.username
+            "user": string(request.userInfo.username)
           }
         }
     - name: subjectaccessreview
