@@ -65,7 +65,7 @@ func (c *impl) post_resource_string_string_string_map(args ...ref.Val) ref.Val {
 		res, err := self.PostResource(apiVersion, resource, namespace, data)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
-			return types.NewErr("failed to get resource: %v", err)
+			return types.NewErr("failed to create resource: %v", err)
 		}
 		return c.NativeToValue(res.UnstructuredContent())
 	}
@@ -84,7 +84,7 @@ func (c *impl) post_resource_string_string_map(args ...ref.Val) ref.Val {
 		res, err := self.PostResource(apiVersion, resource, "", data)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
-			return types.NewErr("failed to get resource: %v", err)
+			return types.NewErr("failed to create resource: %v", err)
 		}
 		return c.NativeToValue(res.UnstructuredContent())
 	}
