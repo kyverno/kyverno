@@ -374,12 +374,18 @@ func (c *controller) updateHash(eventType EventType, obj *unstructured.Unstructu
 	if exists {
 		uid := obj.GetUID()
 		hash := reportutils.CalculateResourceHash(*obj)
-		if exists && hash != watcher.hashes[uid].Hash {
-			watcher.hashes[uid] = Resource{
-				Hash:      hash,
-				Namespace: obj.GetNamespace(),
-				Name:      obj.GetName(),
-			}
+
+		// Always update the hash and notify when a resource is modified
+		// This ensures reports are reevaluated even if the fields we calculate the hash
+		// from haven't changed (which can happen when other parts of the resource change)
+		watcher.hashes[uid] = Resource{
+			Hash:      hash,
+			Namespace: obj.GetNamespace(),
+			Name:      obj.GetName(),
+		}
+
+		// Always notify for adds and modifications
+		if eventType == Added || eventType == Modified {
 			c.notify(eventType, uid, watcher.gvk, watcher.hashes[uid])
 		}
 	}

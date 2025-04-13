@@ -26,7 +26,7 @@ const (
 	LabelResourceUid            = "audit.kyverno.io/resource.uid"
 	LabelResourceGVR            = "audit.kyverno.io/resource.gvr"
 	LabelResourceGroup          = "audit.kyverno.io/resource.group"
-	LabelResourceVersion        = "audit.kyverno.io/resource.version"
+	LabelResourceVersion        = "resource.kyverno.io/resourceversion"
 	LabelResourceKind           = "audit.kyverno.io/resource.kind"
 	LabelSource                 = "audit.kyverno.io/source"
 	AnnotationResourceNamespace = "audit.kyverno.io/resource.namespace"
@@ -45,6 +45,8 @@ const (
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
+	// Create a constant for tracking resource's object version specifically
+	LabelResourceObjectVersion = "resource.kyverno.io/objectversion"
 )
 
 func IsPolicyLabel(label string) bool {
@@ -161,8 +163,11 @@ func CalculateResourceHash(resource unstructured.Unstructured) string {
 func SetResourceVersionLabels(report reportsv1.ReportInterface, resource *unstructured.Unstructured) {
 	if resource != nil {
 		controllerutils.SetLabel(report, LabelResourceHash, CalculateResourceHash(*resource))
+		// Store the actual resource version to help detect changes
+		controllerutils.SetLabel(report, LabelResourceObjectVersion, resource.GetResourceVersion())
 	} else {
 		controllerutils.SetLabel(report, LabelResourceHash, "")
+		controllerutils.SetLabel(report, LabelResourceObjectVersion, "")
 	}
 }
 
