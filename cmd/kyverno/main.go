@@ -613,7 +613,7 @@ func main() {
 			os.Exit(1)
 		}
 		var vpolEngine celengine.Engine
-		var ivpolEngine celengine.ImageVerifyEngine
+		var ivpolEngine celengine.ImageValidatingEngine
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
@@ -663,7 +663,7 @@ func main() {
 				},
 				matching.NewMatcher(),
 			)
-			ivpolEngine = celengine.NewImageVerifyEngine(
+			ivpolEngine = celengine.NewImageValidatingEngine(
 				provider.ImageVerificationPolicies,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})

@@ -67,7 +67,7 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	if policy.AsValidatingPolicy() != nil {
 		return LabelPrefixValidatingPolicy
 	}
-	if policy.AsImageVerificationPolicy() != nil {
+	if policy.AsImageValidatingPolicy() != nil {
 		return LabelPrefixImageValidatingPolicy
 	}
 	// TODO: detect potential type not detected

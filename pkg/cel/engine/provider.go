@@ -29,7 +29,7 @@ type CompiledValidatingPolicy struct {
 	CompiledPolicy policy.CompiledPolicy
 }
 
-type CompiledImageVerificationPolicy struct {
+type CompiledImageValidatingPolicy struct {
 	Policy     *policiesv1alpha1.ImageValidatingPolicy
 	Exceptions []*policiesv1alpha1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
@@ -37,7 +37,7 @@ type CompiledImageVerificationPolicy struct {
 
 type Provider interface {
 	CompiledValidationPolicies(context.Context) ([]CompiledValidatingPolicy, error)
-	ImageVerificationPolicies(context.Context) ([]CompiledImageVerificationPolicy, error)
+	ImageVerificationPolicies(context.Context) ([]CompiledImageValidatingPolicy, error)
 }
 
 type reconcilers struct {
@@ -51,9 +51,9 @@ func (f VPolProviderFunc) CompiledValidationPolicies(ctx context.Context) ([]Com
 	return f(ctx)
 }
 
-type ImageVerifyPolProviderFunc func(context.Context) ([]CompiledImageVerificationPolicy, error)
+type ImageVerifyPolProviderFunc func(context.Context) ([]CompiledImageValidatingPolicy, error)
 
-func (f ImageVerifyPolProviderFunc) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageVerificationPolicy, error) {
+func (f ImageVerifyPolProviderFunc) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
 	return f(ctx)
 }
 
@@ -249,7 +249,7 @@ func listExceptions(polexLister policiesv1alpha1listers.PolicyExceptionLister, p
 type ivpolpolicyReconciler struct {
 	client      client.Client
 	lock        *sync.RWMutex
-	policies    map[string]CompiledImageVerificationPolicy
+	policies    map[string]CompiledImageValidatingPolicy
 	polexLister policiesv1alpha1listers.PolicyExceptionLister
 }
 
@@ -260,7 +260,7 @@ func newivPolicyReconciler(
 	return &ivpolpolicyReconciler{
 		client:      client,
 		lock:        &sync.RWMutex{},
-		policies:    map[string]CompiledImageVerificationPolicy{},
+		policies:    map[string]CompiledImageValidatingPolicy{},
 		polexLister: polexLister,
 	}
 }
@@ -293,7 +293,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if len(actions) == 0 {
 		actions.Insert(admissionregistrationv1.Deny)
 	}
-	r.policies[req.NamespacedName.String()] = CompiledImageVerificationPolicy{
+	r.policies[req.NamespacedName.String()] = CompiledImageValidatingPolicy{
 		Policy:     &policy,
 		Exceptions: exceptions,
 		Actions:    actions,
@@ -302,7 +302,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		namespacedName := types.NamespacedName{
 			Name: p.Name,
 		}
-		r.policies[namespacedName.String()] = CompiledImageVerificationPolicy{
+		r.policies[namespacedName.String()] = CompiledImageValidatingPolicy{
 			Policy: &policiesv1alpha1.ImageValidatingPolicy{
 				Spec: p.Spec,
 			},
@@ -313,7 +313,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func (r *ivpolpolicyReconciler) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageVerificationPolicy, error) {
+func (r *ivpolpolicyReconciler) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	return maps.Values(r.policies), nil
