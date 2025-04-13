@@ -290,9 +290,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageVerificationPolicies(ivps, jsonPayloads, resources1, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses1, err
+		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
@@ -428,16 +428,17 @@ func (c *ApplyCommandConfig) applyPolicies(
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) applyImageVerificationPolicies(
+func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	ivps []policiesv1alpha1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
+	celExceptions []*policiesv1alpha1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := celengine.NewIVPOLProvider(ivps)
+	provider, err := celengine.NewIVPOLProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +447,7 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
 	}
-	engine := celengine.NewImageVerifyEngine(
+	engine := celengine.NewImageValidatingEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
@@ -542,18 +543,18 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 
-	ivpols := make([]*eval.CompiledImageVerificationPolicy, 0)
+	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageVerificationPolicy{Policy: &p})
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -582,7 +583,7 @@ func (c *ApplyCommandConfig) applyImageVerificationPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
@@ -663,7 +664,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
+				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -679,7 +680,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
+				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 			}
 		}
 		for _, policy := range policies {
@@ -755,7 +756,10 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
-	if len(c.ResourcePaths) == 0 && !c.Cluster && len(c.JSONPaths) == 0 {
+	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
+		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
+	}
+	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
 	return nil
