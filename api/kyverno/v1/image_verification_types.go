@@ -190,6 +190,7 @@ type Attestor struct {
 }
 
 type StaticKeyAttestor struct {
+	// +kubebuilder:validation:XValidation:rule="has(self.publicKeys) || has(self.kms) || has(self.secret)", message="either publicKeys, kms or secret must be set"
 	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
 	// https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
@@ -232,6 +233,7 @@ type SecretReference struct {
 
 type CertificateAttestor struct {
 	// Cert is an optional PEM-encoded public certificate.
+	// +kubebuilder:validation:XValidation:rule="has(self.certificate) || has(self.certificateChain)", message="either cert or certChain must be set"
 	// +kubebuilder:validation:Optional
 	Certificate string `json:"cert,omitempty"`
 
@@ -251,6 +253,7 @@ type CertificateAttestor struct {
 }
 
 type KeylessAttestor struct {
+	// +kubebuilder:validation:XValidation:rule="has(self.rekor) || has(self.roots)", message="either rekor or roots must be set"
 	// Rekor provides configuration for the Rekor transparency log service. If an empty object
 	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
