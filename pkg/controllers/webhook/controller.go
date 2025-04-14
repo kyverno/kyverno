@@ -936,6 +936,8 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 				if ready {
 					c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName, p)
 				}
+			} else {
+				c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName, p)
 			}
 		}
 		webhooks := []*webhook{ignoreWebhook, failWebhook}
@@ -1127,6 +1129,8 @@ func (c *controller) buildForPoliciesValidation(ctx context.Context, cfg config.
 				if ready {
 					readyPolicies = append(readyPolicies, p)
 				}
+			} else {
+				readyPolicies = append(readyPolicies, p)
 			}
 		}
 		sideEffects := &none
