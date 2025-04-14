@@ -13,3 +13,4 @@ results:
   resources:
   - good-deployment
   result: pass
+variables: values.yaml
