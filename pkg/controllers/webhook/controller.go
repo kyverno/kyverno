@@ -911,7 +911,7 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 		var readyPolicies []kyvernov1.PolicyInterface
 		// reset policy state set
 		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName)
-		for i, p := range policies {
+		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				var ready bool
 				spec := p.GetSpec()
