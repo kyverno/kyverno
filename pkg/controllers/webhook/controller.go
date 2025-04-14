@@ -908,9 +908,10 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 			return err
 		}
 		var fineGrainedIgnoreList, fineGrainedFailList []*webhook
+		var readyPolicies []kyvernov1.PolicyInterface
 		// reset policy state set
 		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName)
-		for _, p := range policies {
+		for i, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				var ready bool
 				spec := p.GetSpec()
@@ -934,16 +935,17 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 					}
 				}
 				if ready {
-					c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName, p)
+					readyPolicies = append(readyPolicies, p)
 				}
 			} else {
-				c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName, p)
+				readyPolicies = append(readyPolicies, p)
 			}
 		}
 		webhooks := []*webhook{ignoreWebhook, failWebhook}
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
 		result.Webhooks = c.buildResourceMutatingWebhookRules(caBundle, webhookCfg, &noneOnDryRun, webhooks)
+		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName, readyPolicies...)
 	} else {
 		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName)
 	}
