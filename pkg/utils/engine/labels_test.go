@@ -2,6 +2,7 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -13,33 +14,30 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// mockNamespaceLister is a stub for the NamespaceLister interface.
+// mockNamespaceLister is a mock implementation of the corev1listers.NamespaceLister interface.
 type mockNamespaceLister struct {
 	namespaces map[string]*corev1.Namespace
 	err        error
 }
 
-// Get returns a namespace by name. It returns an error if m.err is set,
-// or nil if the namespace does not exist.
 func (m *mockNamespaceLister) Get(name string) (*corev1.Namespace, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	if ns, exists := m.namespaces[name]; exists {
+	if ns, ok := m.namespaces[name]; ok {
 		return ns, nil
 	}
 	return nil, nil
 }
 
-// List is not used by the tests.
 func (m *mockNamespaceLister) List(selector labels.Selector) ([]*corev1.Namespace, error) {
-	var result []*corev1.Namespace
+	var nsList []*corev1.Namespace
 	for _, ns := range m.namespaces {
 		if selector.Matches(labels.Set(ns.Labels)) {
-			result = append(result, ns)
+			nsList = append(nsList, ns)
 		}
 	}
-	return result, nil
+	return nsList, nil
 }
 
 func TestHasNamespaceSelector(t *testing.T) {
@@ -54,7 +52,7 @@ func TestHasNamespaceSelector(t *testing.T) {
 			want:     false,
 		},
 		{
-			name: "policy with namespace selector in match",
+			name: "namespace selector in MatchResources",
 			policies: []kyvernov1.PolicyInterface{
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
@@ -75,7 +73,7 @@ func TestHasNamespaceSelector(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "policy with namespace selector in exclude",
+			name: "namespace selector in ExcludeResources.ResourceDescription",
 			policies: []kyvernov1.PolicyInterface{
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
@@ -96,7 +94,7 @@ func TestHasNamespaceSelector(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "policy with namespace selector in All slice",
+			name: "namespace selector in MatchResources.All slice",
 			policies: []kyvernov1.PolicyInterface{
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
@@ -121,7 +119,7 @@ func TestHasNamespaceSelector(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "policy with namespace selector in Any slice",
+			name: "namespace selector in MatchResources.Any slice",
 			policies: []kyvernov1.PolicyInterface{
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
@@ -146,7 +144,57 @@ func TestHasNamespaceSelector(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "policy without namespace selector anywhere",
+			name: "namespace selector in ExcludeResources.All slice",
+			policies: []kyvernov1.PolicyInterface{
+				&kyvernov1.ClusterPolicy{
+					Spec: kyvernov1.Spec{
+						Rules: []kyvernov1.Rule{
+							{
+								ExcludeResources: &kyvernov1.MatchResources{
+									All: []kyvernov1.ResourceFilter{
+										{
+											ResourceDescription: kyvernov1.ResourceDescription{
+												NamespaceSelector: &metav1.LabelSelector{
+													MatchLabels: map[string]string{"exclude": "all"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "namespace selector in ExcludeResources.Any slice",
+			policies: []kyvernov1.PolicyInterface{
+				&kyvernov1.ClusterPolicy{
+					Spec: kyvernov1.Spec{
+						Rules: []kyvernov1.Rule{
+							{
+								ExcludeResources: &kyvernov1.MatchResources{
+									Any: []kyvernov1.ResourceFilter{
+										{
+											ResourceDescription: kyvernov1.ResourceDescription{
+												NamespaceSelector: &metav1.LabelSelector{
+													MatchLabels: map[string]string{"exclude": "any"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "policy with no namespace selector anywhere",
 			policies: []kyvernov1.PolicyInterface{
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
@@ -157,6 +205,11 @@ func TestHasNamespaceSelector(t *testing.T) {
 										Kinds: []string{"Pod"},
 									},
 								},
+								ExcludeResources: &kyvernov1.MatchResources{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds: []string{"Deployment"},
+									},
+								},
 							},
 						},
 					},
@@ -165,7 +218,6 @@ func TestHasNamespaceSelector(t *testing.T) {
 			want: false,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := hasNamespaceSelector(tt.policies)
@@ -185,7 +237,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 		wantErr             bool
 	}{
 		{
-			name:                "no namespace selector in policies",
+			name:                "no namespace selector in policies returns empty map",
 			kind:                "Pod",
 			namespaceOfResource: "default",
 			nsLister: &mockNamespaceLister{
@@ -198,7 +250,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 				},
 			},
 			policies: []kyvernov1.PolicyInterface{
-				// Policy without any namespace selector.
+				// Policy with no namespace selector.
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
 						Rules: []kyvernov1.Rule{
@@ -217,7 +269,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:                "namespace resource; kind is Namespace, so no lookup",
+			name:                "resource kind Namespace bypass lookup",
 			kind:                "Namespace",
 			namespaceOfResource: "default",
 			nsLister: &mockNamespaceLister{
@@ -230,7 +282,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 				},
 			},
 			policies: []kyvernov1.PolicyInterface{
-				// Even though policy defines a namespace selector, resource kind is Namespace.
+				// Policy defines a namespace selector, but kind is "Namespace" so lookup is skipped.
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
 						Rules: []kyvernov1.Rule{
@@ -245,20 +297,50 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 					},
 				},
 			},
-			// Should return empty map because lookup is bypassed.
 			wantLabels: map[string]string{},
 			wantErr:    false,
 		},
 		{
-			name:                "lookup error returned from lister",
+			name:                "empty namespace returns empty map",
+			kind:                "Pod",
+			namespaceOfResource: "",
+			nsLister: &mockNamespaceLister{
+				namespaces: map[string]*corev1.Namespace{
+					"default": {
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"env": "prod"},
+						},
+					},
+				},
+			},
+			policies: []kyvernov1.PolicyInterface{
+				// Policy has a namespace selector but namespaceOfResource is empty.
+				&kyvernov1.ClusterPolicy{
+					Spec: kyvernov1.Spec{
+						Rules: []kyvernov1.Rule{
+							{
+								MatchResources: kyvernov1.MatchResources{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										NamespaceSelector: &metav1.LabelSelector{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantLabels: map[string]string{},
+			wantErr:    false,
+		},
+		{
+			name:                "lister returns error",
 			kind:                "Pod",
 			namespaceOfResource: "default",
 			nsLister: &mockNamespaceLister{
-				namespaces: nil,
-				err:        errors.New("lookup failure"),
+				err: errors.New("lookup failure"),
 			},
 			policies: []kyvernov1.PolicyInterface{
-				// Policy has a namespace selector.
+				// Policy requires namespace selector.
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
 						Rules: []kyvernov1.Rule{
@@ -277,14 +359,14 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name:                "namespace not found (nil namespace returned)",
+			name:                "namespace not found (nil object returned)",
 			kind:                "Pod",
 			namespaceOfResource: "nonexistent",
 			nsLister: &mockNamespaceLister{
-				namespaces: map[string]*corev1.Namespace{},
+				namespaces: map[string]*corev1.Namespace{}, // lookup returns nil
 			},
 			policies: []kyvernov1.PolicyInterface{
-				// Policy with namespace selector.
+				// Policy requires namespace selector.
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
 						Rules: []kyvernov1.Rule{
@@ -303,7 +385,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name:                "successful namespace labels retrieval",
+			name:                "successful lookup from MatchResources",
 			kind:                "Pod",
 			namespaceOfResource: "default",
 			nsLister: &mockNamespaceLister{
@@ -335,7 +417,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:                "successful lookup with namespace selector in All slice",
+			name:                "successful lookup from MatchResources.All slice",
 			kind:                "Pod",
 			namespaceOfResource: "default",
 			nsLister: &mockNamespaceLister{
@@ -348,7 +430,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 				},
 			},
 			policies: []kyvernov1.PolicyInterface{
-				// Policy with namespace selector in the "All" slice.
+				// Policy with namespace selector in MatchResources.All.
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
 						Rules: []kyvernov1.Rule{
@@ -371,7 +453,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:                "successful lookup with namespace selector in Any slice",
+			name:                "successful lookup from MatchResources.Any slice",
 			kind:                "Pod",
 			namespaceOfResource: "default",
 			nsLister: &mockNamespaceLister{
@@ -384,7 +466,7 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 				},
 			},
 			policies: []kyvernov1.PolicyInterface{
-				// Policy with namespace selector in the "Any" slice.
+				// Policy with namespace selector in MatchResources.Any.
 				&kyvernov1.ClusterPolicy{
 					Spec: kyvernov1.Spec{
 						Rules: []kyvernov1.Rule{
@@ -406,8 +488,79 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 			wantLabels: map[string]string{"role": "backend", "zone": "us-east"},
 			wantErr:    false,
 		},
+		{
+			name:                "successful lookup from ExcludeResources.All slice",
+			kind:                "Pod",
+			namespaceOfResource: "default",
+			nsLister: &mockNamespaceLister{
+				namespaces: map[string]*corev1.Namespace{
+					"default": {
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"exclude": "all", "region": "east"},
+						},
+					},
+				},
+			},
+			policies: []kyvernov1.PolicyInterface{
+				// Policy with namespace selector in ExcludeResources.All.
+				&kyvernov1.ClusterPolicy{
+					Spec: kyvernov1.Spec{
+						Rules: []kyvernov1.Rule{
+							{
+								ExcludeResources: &kyvernov1.MatchResources{
+									All: []kyvernov1.ResourceFilter{
+										{
+											ResourceDescription: kyvernov1.ResourceDescription{
+												NamespaceSelector: &metav1.LabelSelector{},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantLabels: map[string]string{"exclude": "all", "region": "east"},
+			wantErr:    false,
+		},
+		{
+			name:                "successful lookup from ExcludeResources.Any slice",
+			kind:                "Pod",
+			namespaceOfResource: "default",
+			nsLister: &mockNamespaceLister{
+				namespaces: map[string]*corev1.Namespace{
+					"default": {
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"exclude": "any", "cluster": "main"},
+						},
+					},
+				},
+			},
+			policies: []kyvernov1.PolicyInterface{
+				// Policy with namespace selector in ExcludeResources.Any.
+				&kyvernov1.ClusterPolicy{
+					Spec: kyvernov1.Spec{
+						Rules: []kyvernov1.Rule{
+							{
+								ExcludeResources: &kyvernov1.MatchResources{
+									Any: []kyvernov1.ResourceFilter{
+										{
+											ResourceDescription: kyvernov1.ResourceDescription{
+												NamespaceSelector: &metav1.LabelSelector{},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantLabels: map[string]string{"exclude": "any", "cluster": "main"},
+			wantErr:    false,
+		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := GetNamespaceSelectorsFromNamespaceLister(
@@ -418,9 +571,9 @@ func TestGetNamespaceSelectorsFromNamespaceLister(t *testing.T) {
 				logging.GlobalLogger(),
 			)
 			if tt.wantErr {
-				assert.Error(t, err)
+				assert.Error(t, err, "expected error but got nil")
 			} else {
-				assert.NoError(t, err)
+				assert.NoError(t, err, fmt.Sprintf("unexpected error: %v", err))
 			}
 			assert.Equal(t, tt.wantLabels, got)
 		})

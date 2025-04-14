@@ -65,6 +65,19 @@ func hasNamespaceSelector(policies []kyvernov1.PolicyInterface) bool {
 				}
 			}
 
+			if rule.ExcludeResources != nil {
+				for _, ele := range rule.ExcludeResources.All {
+					if ele.ResourceDescription.NamespaceSelector != nil {
+						return true
+					}
+				}
+
+				for _, ele := range rule.ExcludeResources.Any {
+					if ele.ResourceDescription.NamespaceSelector != nil {
+						return true
+					}
+				}
+			}
 		}
 	}
 
