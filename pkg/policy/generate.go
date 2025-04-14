@@ -106,6 +106,10 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
 			namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, []kyvernov1.PolicyInterface{policyNew}, pc.log)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("failed to get namespace labels for rule %s: %w", rule.Name, err))
+				continue
+			}
 			policyContext, err := common.NewBackgroundContext(pc.log, pc.client, ur.Spec.Context, policy, trigger, pc.configuration, pc.jp, namespaceLabels)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err))
