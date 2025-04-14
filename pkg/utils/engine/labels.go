@@ -12,7 +12,7 @@ import (
 // GetNamespaceSelectorsFromNamespaceLister - extract the namespacelabels when namespace lister is passed
 func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister corev1listers.NamespaceLister, policies []kyvernov1.PolicyInterface, logger logr.Logger) (map[string]string, error) {
 	namespaceLabels := make(map[string]string)
-	if !HasNamespaceSelector(policies) {
+	if !hasNamespaceSelector(policies) {
 		return namespaceLabels, nil
 	}
 
@@ -36,7 +36,7 @@ func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, 
 	return namespaceLabels, nil
 }
 
-func HasNamespaceSelector(policies []kyvernov1.PolicyInterface) bool {
+func hasNamespaceSelector(policies []kyvernov1.PolicyInterface) bool {
 	for _, policy := range policies {
 		spec := policy.GetSpec()
 		if spec == nil {
