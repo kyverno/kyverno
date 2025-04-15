@@ -48793,6 +48793,20 @@ spec:
                   - name
                   type: object
                 type: array
+              autogen:
+                description: AutogenConfiguration defines the configuration for the
+                  generation controller.
+                properties:
+                  podControllers:
+                    description: PodControllers specifies whether to generate a pod
+                      controllers rules.
+                    properties:
+                      controllers:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                type: object
               credentials:
                 description: Credentials provides credentials that will be used for
                   authentication with registry.
@@ -49716,6 +49730,20 @@ spec:
                                 - name
                                 type: object
                               type: array
+                            autogen:
+                              description: AutogenConfiguration defines the configuration
+                                for the generation controller.
+                              properties:
+                                podControllers:
+                                  description: PodControllers specifies whether to
+                                    generate a pod controllers rules.
+                                  properties:
+                                    controllers:
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
+                              type: object
                             credentials:
                               description: Credentials provides credentials that will
                                 be used for authentication with registry.
