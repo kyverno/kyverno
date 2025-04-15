@@ -204,7 +204,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -2816,7 +2816,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -5428,7 +5428,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -25745,7 +25745,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: globalcontextentries.kyverno.io
 spec:
   group: kyverno.io
@@ -26025,7 +26025,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -46345,7 +46345,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -47653,7 +47653,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -48491,7 +48491,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: imagevalidatingpolicies.policies.kyverno.io
 spec:
   group: policies.kyverno.io
@@ -48793,6 +48793,20 @@ spec:
                   - name
                   type: object
                 type: array
+              autogen:
+                description: AutogenConfiguration defines the configuration for the
+                  generation controller.
+                properties:
+                  podControllers:
+                    description: PodControllers specifies whether to generate a pod
+                      controllers rules.
+                    properties:
+                      controllers:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                type: object
               credentials:
                 description: Credentials provides credentials that will be used for
                   authentication with registry.
@@ -49716,6 +49730,20 @@ spec:
                                 - name
                                 type: object
                               type: array
+                            autogen:
+                              description: AutogenConfiguration defines the configuration
+                                for the generation controller.
+                              properties:
+                                podControllers:
+                                  description: PodControllers specifies whether to
+                                    generate a pod controllers rules.
+                                  properties:
+                                    controllers:
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
+                              type: object
                             credentials:
                               description: Credentials provides credentials that will
                                 be used for authentication with registry.
@@ -50481,7 +50509,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: policyexceptions.policies.kyverno.io
 spec:
   group: policies.kyverno.io
@@ -50594,7 +50622,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: validatingpolicies.policies.kyverno.io
 spec:
   group: policies.kyverno.io
@@ -51963,7 +51991,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: clusterephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
@@ -52305,7 +52333,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: ephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
@@ -52647,7 +52675,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -53015,7 +53043,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
