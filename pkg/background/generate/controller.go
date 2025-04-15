@@ -101,7 +101,7 @@ func NewGenerateController(
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	var genResources []kyvernov1.ResourceSpec
-	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
+	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	var failures []error
 	policy, err := c.getPolicyObject(*ur)
@@ -121,7 +121,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
-				logger.V(4).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
+				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
 			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
@@ -214,7 +214,11 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		return nil, nil
 	}
 
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+	namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, []kyvernov1.PolicyInterface{p}, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, p, &trigger, c.configuration, c.jp, namespaceLabels)
 	if err != nil {
 		return nil, err
@@ -332,7 +336,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			for _, s := range vars {
 				for _, banned := range validationpolicy.ForbiddenUserVariables {
 					if banned.Match([]byte(s[2])) {
-						log.Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
+						log.V(2).Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
 					}
 				}
 			}

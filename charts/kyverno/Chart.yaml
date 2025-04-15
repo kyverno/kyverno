@@ -33,12 +33,8 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: fixed
-      description: fix validation error in validate.yaml
-    - kind: fixed
-      description: fixed global image registry config by introducing *.image.defaultRegistry.
     - kind: added
-      description: added a new option .reportsController.sanityChecks to disable checks for policy reports crds
+      description: Add toggle for enabeling/disabling aggregating the user-facing roles with the kyverno rbac.
 dependencies:
   - name: grafana
     version: v0.0.0

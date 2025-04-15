@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-apicall-failed
+spec:
+  failurePolicy: Fail
+  rules:
+  - name: main-deployment-exists
+    context:
+    - name: deploymentCount
+      globalReference:
+        name: gctxentry-apicall-failed
+        jmesPath: "length(@)"
+    match:
+      all:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - test-globalcontext-apicall-failed
+    preconditions:
+      all:
+      - key: '{{ request.operation }}'
+        operator: AnyIn
+        value:
+        - CREATE
+        - UPDATE
+    validate:
+      failureAction: Enforce
+      deny:
+        conditions:
+          any:
+          - key: "{{ deploymentCount }}"
+            operator: Equal
+            value: 0

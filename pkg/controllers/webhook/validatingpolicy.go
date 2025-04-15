@@ -1,68 +1,120 @@
 package webhook
 
 import (
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols []*kyvernov2alpha1.ValidatingPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
+func buildWebhookRules(cfg config.Configuration, server, name, path string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
 	var (
 		webhookIgnoreList []admissionregistrationv1.ValidatingWebhook
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook
 		webhookIgnore     = admissionregistrationv1.ValidatingWebhook{
-			Name:                    config.ValidatingPolicyWebhookName + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/ignore"),
+			Name:                    name + "-ignore",
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/ignore"),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 		webhookFail = admissionregistrationv1.ValidatingWebhook{
-			Name:                    config.ValidatingPolicyWebhookName + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/fail"),
+			Name:                    name + "-fail",
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/fail"),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 	)
-	for _, vpol := range vpols {
+
+	if cfg.GetWebhook().NamespaceSelector != nil {
+		webhookIgnore.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
+		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
+	}
+	if cfg.GetWebhook().ObjectSelector != nil {
+		webhookIgnore.ObjectSelector = cfg.GetWebhook().ObjectSelector
+		webhookFail.ObjectSelector = cfg.GetWebhook().ObjectSelector
+	}
+	for _, pol := range policies {
+		var p policiesv1alpha1.GenericPolicy
+		matchResource := &admissionregistrationv1.MatchResources{}
+		if vpol := pol.AsValidatingPolicy(); vpol != nil {
+			p = vpol
+			matchResource = vpol.Spec.MatchConstraints
+		} else if ivpol := pol.AsImageValidatingPolicy(); ivpol != nil {
+			p = ivpol
+			matchResource = ivpol.Spec.MatchConstraints
+		}
+
 		webhook := admissionregistrationv1.ValidatingWebhook{}
-		failurePolicyIgnore := vpol.Spec.FailurePolicy != nil && *vpol.Spec.FailurePolicy == admissionregistrationv1.Ignore
+		failurePolicyIgnore := p.GetFailurePolicy() == admissionregistrationv1.Ignore
 		if failurePolicyIgnore {
 			webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 		} else {
 			webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 		}
-		// TODO(shuting): exclude?
-		for _, match := range vpol.Spec.MatchConstraints.ResourceRules {
+
+		for _, match := range p.GetMatchConstraints().ResourceRules {
 			webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 		}
 
 		fineGrainedWebhook := false
-		if vpol.Spec.MatchConditions != nil {
-			webhook.MatchConditions = vpol.Spec.MatchConditions
+		if p.GetMatchConditions() != nil {
+			for _, m := range p.GetMatchConditions() {
+				if ok, _ := autogen.CanAutoGen(matchResource); ok {
+					webhook.MatchConditions = append(webhook.MatchConditions, admissionregistrationv1.MatchCondition{
+						Name:       m.Name,
+						Expression: "!(object.kind == 'Pod') || " + m.Expression,
+					})
+				} else {
+					webhook.MatchConditions = p.GetMatchConditions()
+				}
+			}
 			fineGrainedWebhook = true
 		}
-		if vpol.Spec.MatchConstraints.MatchPolicy != nil && *vpol.Spec.MatchConstraints.MatchPolicy == admissionregistrationv1.Exact {
-			webhook.MatchPolicy = vpol.Spec.MatchConstraints.MatchPolicy
+		if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
+			webhook.MatchPolicy = p.GetMatchConstraints().MatchPolicy
 			fineGrainedWebhook = true
 		}
-		if vpol.Spec.WebhookConfiguration != nil && vpol.Spec.WebhookConfiguration.TimeoutSeconds != nil {
-			webhook.TimeoutSeconds = vpol.Spec.WebhookConfiguration.TimeoutSeconds
+		if p.GetWebhookConfiguration() != nil && p.GetWebhookConfiguration().TimeoutSeconds != nil {
+			webhook.TimeoutSeconds = p.GetWebhookConfiguration().TimeoutSeconds
 			fineGrainedWebhook = true
+		}
+
+		if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
+			for _, rule := range autogen.ComputeRules(vpol) {
+				webhook.MatchConditions = append(webhook.MatchConditions, rule.MatchConditions...)
+				for _, match := range rule.MatchConstraints.ResourceRules {
+					webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+				}
+			}
+		}
+
+		if ivpol, ok := p.(*policiesv1alpha1.ImageValidatingPolicy); ok {
+			autogeneratedIvPols, err := autogen.GetAutogenRulesImageVerify(ivpol)
+			if err != nil {
+				continue
+			}
+			for _, p := range autogeneratedIvPols {
+				webhook.MatchConditions = append(webhook.MatchConditions, p.Spec.MatchConditions...)
+				for _, match := range p.Spec.MatchConstraints.ResourceRules {
+					webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+				}
+			}
 		}
 
 		if fineGrainedWebhook {
 			webhook.SideEffects = &noneOnDryRun
 			webhook.AdmissionReviewVersions = []string{"v1"}
 			if failurePolicyIgnore {
-				webhook.Name = config.ValidatingPolicyWebhookName + "-ignore-finegrained-" + vpol.Name
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/ignore"+config.FineGrainedWebhookPath+"/"+vpol.Name)
+				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path+"/ignore"+config.FineGrainedWebhookPath+"/"+p.GetName())
 				webhookIgnoreList = append(webhookIgnoreList, webhook)
 			} else {
-				webhook.Name = config.ValidatingPolicyWebhookName + "-fail-finegrained-" + vpol.Name
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/fail"+config.FineGrainedWebhookPath+"/"+vpol.Name)
+				webhook.Name = name + "-fail-finegrained-" + p.GetName()
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path+"/fail"+config.FineGrainedWebhookPath+"/"+p.GetName())
 				webhookFailList = append(webhookFailList, webhook)
 			}
 		} else {

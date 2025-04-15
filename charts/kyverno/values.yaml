@@ -65,6 +65,13 @@ apiVersionOverride:
   # determine the api version automatically.
   podDisruptionBudget: ~
 
+rbac:
+  roles:
+    # -- Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles)
+    aggregate:
+      admin: true
+      view: true
+
 # CRDs configuration
 crds:
 
@@ -83,6 +90,12 @@ crds:
       policyexceptions: true
       updaterequests: true
       validatingpolicies: true
+
+    # -- Install CRDs in group `policies.kyverno.io`
+    policies:
+      validatingpolicies: true
+      policyexceptions: true
+      imagevalidatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -856,6 +869,13 @@ admissionController:
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
 
+  # -- `dnsConfig` allows to specify DNS configuration for the pod.
+  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
+  dnsConfig: {}
+    # options:
+    #   - name: ndots
+    #     value: "2"
+
   # -- Startup probe.
   # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -1295,6 +1315,13 @@ backgroundController:
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
 
+  # -- `dnsConfig` allows to specify DNS configuration for the pod.
+  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
+  dnsConfig: {}
+    # options:
+    #   - name: ndots
+    #     value: "2"
+
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
 
@@ -1570,6 +1597,13 @@ cleanupController:
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
+
+  # -- `dnsConfig` allows to specify DNS configuration for the pod.
+  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
+  dnsConfig: {}
+    # options:
+    #   - name: ndots
+    #     value: "2"
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
@@ -1896,6 +1930,13 @@ reportsController:
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
+
+  # -- `dnsConfig` allows to specify DNS configuration for the pod.
+  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
+  dnsConfig: {}
+    # options:
+    #   - name: ndots
+    #     value: "2"
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}

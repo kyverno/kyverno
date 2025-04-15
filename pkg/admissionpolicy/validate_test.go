@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	"gotest.tools/assert"
 )
 
 func TestGetKinds(t *testing.T) {
@@ -127,8 +128,9 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, policy, _, _, _ := yamlutils.GetPolicy(tt.policy)
-			kinds := GetKinds(policy[0])
+			_, policy, _, _, _, err := yamlutils.GetPolicy(tt.policy)
+			assert.NilError(t, err)
+			kinds := GetKinds(policy[0].Spec.MatchConstraints)
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
 				t.Errorf("Expected %v, got %v", tt.wantKinds, kinds)
 			}

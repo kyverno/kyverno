@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-deployment-1
+  labels:
+    prod: "true"
+    app: bad-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: bad-nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: bad-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+---
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bad-cronjob  
+spec:
+  schedule: "*/5 * * * *"  
+  concurrencyPolicy: Forbid  
+  jobTemplate:
+    metadata:
+      labels:
+        prod: "true"  
+    spec:
+      template:
+        metadata:
+          labels:
+            prod: "true"  
+        spec:
+          containers:
+          - name: secure-container  
+            image: busybox  
+            command: ["echo", "Hello, world"]  
+            securityContext:
+              allowPrivilegeEscalation: true 
+          restartPolicy: OnFailure  

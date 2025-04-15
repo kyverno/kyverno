@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -18,32 +18,33 @@ func GetPolicy(bytes []byte) (
 	policies []kyvernov1.PolicyInterface,
 	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	validatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	validatingPolicies []kyvernov2alpha1.ValidatingPolicy,
+	validatingPolicies []policiesv1alpha1.ValidatingPolicy,
+	imageVerificationPolicies []policiesv1alpha1.ImageValidatingPolicy,
 	err error,
 ) {
 	documents, err := extyaml.SplitDocuments(bytes)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	for _, thisPolicyBytes := range documents {
 		policyBytes, err := yaml.ToJSON(thisPolicyBytes)
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("failed to convert to JSON: %v", err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("failed to convert to JSON: %v", err)
 		}
 		var us unstructured.Unstructured
 		if err := us.UnmarshalJSON(policyBytes); err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("failed to decode policy: %v", err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("failed to decode policy: %v", err)
 		}
 		if us.IsList() {
 			list, err := us.ToList()
 			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("failed to decode policy list: %v", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to decode policy list: %v", err)
 			}
 			for i := range list.Items {
 				item := list.Items[i]
-				vap, vapb, pol, vp, err := parse(item)
+				vap, vapb, pol, vp, ivp, err := parse(item)
 				if err != nil {
-					return nil, nil, nil, nil, err
+					return nil, nil, nil, nil, nil, err
 				}
 				if vap != nil {
 					validatingAdmissionPolicies = append(validatingAdmissionPolicies, *vap)
@@ -57,11 +58,14 @@ func GetPolicy(bytes []byte) (
 				if vp != nil {
 					validatingPolicies = append(validatingPolicies, *vp)
 				}
+				if ivp != nil {
+					imageVerificationPolicies = append(imageVerificationPolicies, *ivp)
+				}
 			}
 		} else {
-			vap, vapb, pol, vp, err := parse(us)
+			vap, vapb, pol, vp, ivp, err := parse(us)
 			if err != nil {
-				return nil, nil, nil, nil, err
+				return nil, nil, nil, nil, nil, err
 			}
 			if vap != nil {
 				validatingAdmissionPolicies = append(validatingAdmissionPolicies, *vap)
@@ -75,36 +79,43 @@ func GetPolicy(bytes []byte) (
 			if vp != nil {
 				validatingPolicies = append(validatingPolicies, *vp)
 			}
+			if ivp != nil {
+				imageVerificationPolicies = append(imageVerificationPolicies, *ivp)
+			}
 		}
 	}
-	return policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, validatingPolicies, err
+	return policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, validatingPolicies, imageVerificationPolicies, err
 }
 
 func parse(obj unstructured.Unstructured) (
 	*admissionregistrationv1.ValidatingAdmissionPolicy,
 	*admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	kyvernov1.PolicyInterface,
-	*kyvernov2alpha1.ValidatingPolicy,
+	*policiesv1alpha1.ValidatingPolicy,
+	*policiesv1alpha1.ImageValidatingPolicy,
 	error,
 ) {
 	switch obj.GetKind() {
 	case "ValidatingAdmissionPolicy":
 		out, err := parseValidatingAdmissionPolicy(obj)
-		return out, nil, nil, nil, err
+		return out, nil, nil, nil, nil, err
 	case "ValidatingAdmissionPolicyBinding":
 		out, err := parseValidatingAdmissionPolicyBinding(obj)
-		return nil, out, nil, nil, err
+		return nil, out, nil, nil, nil, err
 	case "Policy":
 		out, err := parsePolicy(obj)
-		return nil, nil, out, nil, err
+		return nil, nil, out, nil, nil, err
 	case "ClusterPolicy":
 		out, err := parseClusterPolicy(obj)
-		return nil, nil, out, nil, err
+		return nil, nil, out, nil, nil, err
 	case "ValidatingPolicy":
 		out, err := parseValidatingPolicy(obj)
-		return nil, nil, nil, out, err
+		return nil, nil, nil, out, nil, err
+	case "ImageValidatingPolicy":
+		out, err := parseImageValidatingPolicy(obj)
+		return nil, nil, nil, nil, out, err
 	}
-	return nil, nil, nil, nil, nil
+	return nil, nil, nil, nil, nil, nil
 }
 
 func parseValidatingAdmissionPolicy(obj unstructured.Unstructured) (*admissionregistrationv1.ValidatingAdmissionPolicy, error) {
@@ -159,14 +170,22 @@ func parseClusterPolicy(obj unstructured.Unstructured) (*kyvernov1.ClusterPolicy
 	return &out, nil
 }
 
-func parseValidatingPolicy(obj unstructured.Unstructured) (*kyvernov2alpha1.ValidatingPolicy, error) {
-	var out kyvernov2alpha1.ValidatingPolicy
+func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ValidatingPolicy, error) {
+	var out policiesv1alpha1.ValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
 		return nil, fmt.Errorf("failed to decode policy: %v", err)
 	}
 	if out.Kind == "" {
 		log.V(3).Info("skipping file as ValidatingPolicy.Kind not found")
 		return nil, nil
+	}
+	return &out, nil
+}
+
+func parseImageValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ImageValidatingPolicy, error) {
+	var out policiesv1alpha1.ImageValidatingPolicy
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
+		return nil, fmt.Errorf("failed to decode policy: %v", err)
 	}
 	return &out, nil
 }

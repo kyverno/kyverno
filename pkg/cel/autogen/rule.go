@@ -6,134 +6,56 @@ import (
 	"slices"
 	"strings"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
-type AutogenRule struct {
-	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
-	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
-	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
-	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
-	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
-}
+type autogencontroller string
 
-func generateCronJobRule(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*AutogenRule, error) {
+var (
+	PODS     autogencontroller = "pods"
+	CRONJOBS autogencontroller = "cronjobs"
+)
+
+func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string, resource autogencontroller) (autogenRule *policiesv1alpha1.AutogenRule, err error) {
 	operations := spec.MatchConstraints.ResourceRules[0].Operations
-	// create a resource rule for the cronjob resource
-	matchConstraints := createMatchConstraints(controllers, operations)
-
-	// convert match conditions
-	matchConditions := spec.MatchConditions
-	if bytes, err := json.Marshal(matchConditions); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, controllers)
-		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
-			return nil, err
-		}
-	}
-
-	// convert validations
-	validations := spec.Validations
-	for i := range validations {
-		if bytes, err := json.Marshal(validations[i]); err != nil {
-			return nil, err
-		} else {
-			bytes = updateFields(bytes, controllers)
-			if err := json.Unmarshal(bytes, &validations[i]); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// convert audit annotations
-	auditAnnotations := spec.AuditAnnotations
-	if bytes, err := json.Marshal(auditAnnotations); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, controllers)
-		if err := json.Unmarshal(bytes, &auditAnnotations); err != nil {
-			return nil, err
-		}
-	}
-
-	// convert variables
-	variables := spec.Variables
-	if bytes, err := json.Marshal(variables); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, controllers)
-		if err := json.Unmarshal(bytes, &variables); err != nil {
-			return nil, err
-		}
-	}
-
-	return &AutogenRule{
-		MatchConstraints: matchConstraints,
-		MatchConditions:  matchConditions,
-		Validations:      validations,
-		AuditAnnotation:  auditAnnotations,
-		Variables:        variables,
-	}, nil
-}
-
-func generateRuleForControllers(spec *kyvernov2alpha1.ValidatingPolicySpec, controllers string) (*AutogenRule, error) {
-	operations := spec.MatchConstraints.ResourceRules[0].Operations
+	newSpec := &policiesv1alpha1.ValidatingPolicySpec{}
 	// create a resource rule for pod controllers
-	matchConstraints := createMatchConstraints(controllers, operations)
+	newSpec.MatchConstraints = createMatchConstraints(controllers, operations)
 
 	// convert match conditions
-	matchConditions := spec.MatchConditions
-	if bytes, err := json.Marshal(matchConditions); err != nil {
+	newSpec.MatchConditions, err = convertMatchConditions(spec.MatchConditions, resource)
+	if err != nil {
+		return nil, err
+	}
+
+	newSpec.Validations = spec.Validations
+	newSpec.AuditAnnotations = spec.AuditAnnotations
+	newSpec.Variables = spec.Variables
+	if bytes, err := json.Marshal(newSpec); err != nil {
 		return nil, err
 	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &matchConditions); err != nil {
+		bytes = updateFields(bytes, resource)
+		if err := json.Unmarshal(bytes, &newSpec); err != nil {
 			return nil, err
 		}
 	}
 
-	// convert validations
-	validations := spec.Validations
-	if bytes, err := json.Marshal(validations); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &validations); err != nil {
-			return nil, err
-		}
-	}
-
-	// convert audit annotations
-	auditAnnotations := spec.AuditAnnotations
-	if bytes, err := json.Marshal(auditAnnotations); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &auditAnnotations); err != nil {
-			return nil, err
-		}
-	}
-
-	// convert variables
-	variables := spec.Variables
-	if bytes, err := json.Marshal(variables); err != nil {
-		return nil, err
-	} else {
-		bytes = updateFields(bytes, "pods")
-		if err := json.Unmarshal(bytes, &variables); err != nil {
-			return nil, err
-		}
-	}
-
-	return &AutogenRule{
-		MatchConstraints: matchConstraints,
-		MatchConditions:  matchConditions,
-		Validations:      validations,
-		AuditAnnotation:  auditAnnotations,
-		Variables:        variables,
+	return &policiesv1alpha1.AutogenRule{
+		MatchConstraints: newSpec.MatchConstraints,
+		MatchConditions:  newSpec.MatchConditions,
+		Validations:      newSpec.Validations,
+		AuditAnnotation:  newSpec.AuditAnnotations,
+		Variables:        newSpec.Variables,
 	}, nil
+}
+
+func generateCronJobRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
+	return generateRuleForControllers(spec, controllers, CRONJOBS)
+}
+
+func generatePodControllerRule(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) (*policiesv1alpha1.AutogenRule, error) {
+	return generateRuleForControllers(spec, controllers, PODS)
 }
 
 func createMatchConstraints(controllers string, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
@@ -182,31 +104,58 @@ func createMatchConstraints(controllers string, operations []admissionregistrati
 	}
 }
 
+func convertMatchConditions(conditions []admissionregistrationv1.MatchCondition, resource autogencontroller) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
+	var name, expression string
+	switch resource {
+	case PODS:
+		name = podControllerMatchConditionName
+		expression = PodControllersMatchConditionExpression
+	case CRONJOBS:
+		name = cronjobMatchConditionName
+		expression = CronJobMatchConditionExpression
+	}
+
+	for _, m := range conditions {
+		m.Name = name + m.Name
+		m.Expression = expression + m.Expression
+		matchConditions = append(matchConditions, m)
+	}
+	return matchConditions, nil
+}
+
 var (
-	podReplacementRules [][2][]byte = [][2][]byte{
-		{[]byte("object.spec"), []byte("object.spec.template.spec")},
-		{[]byte("oldObject.spec"), []byte("oldObject.spec.template.spec")},
-		{[]byte("object.metadata"), []byte("object.spec.template.metadata")},
-		{[]byte("oldObject.metadata"), []byte("oldObject.spec.template.metadata")},
-	}
-	cronJobReplacementRules [][2][]byte = [][2][]byte{
-		{[]byte("object.spec"), []byte("object.spec.jobTemplate.spec.template.spec")},
-		{[]byte("oldObject.spec"), []byte("oldObject.spec.jobTemplate.spec.template.spec")},
-		{[]byte("object.metadata"), []byte("object.spec.jobTemplate.spec.template.metadata")},
-		{[]byte("oldObject.metadata"), []byte("oldObject.spec.jobTemplate.spec.template.metadata")},
-	}
+	podControllerMatchConditionName        = "autogen-"
+	PodControllersMatchConditionExpression = "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || "
+	cronjobMatchConditionName              = "autogen-cronjobs-"
+	CronJobMatchConditionExpression        = "!(object.kind =='CronJob') || "
 )
 
-func updateFields(data []byte, resource string) []byte {
+func updateFields(data []byte, resource autogencontroller) []byte {
+	// Define the target prefixes based on resource type
+	var specPrefix, metadataPrefix []byte
 	switch resource {
-	case "pods":
-		for _, replacement := range podReplacementRules {
-			data = bytes.ReplaceAll(data, replacement[0], replacement[1])
-		}
-	case "cronjobs":
-		for _, replacement := range cronJobReplacementRules {
-			data = bytes.ReplaceAll(data, replacement[0], replacement[1])
-		}
+	case PODS:
+		specPrefix = []byte("object.spec.template.spec")
+		metadataPrefix = []byte("object.spec.template.metadata")
+	case CRONJOBS:
+		specPrefix = []byte("object.spec.jobTemplate.spec.template.spec")
+		metadataPrefix = []byte("object.spec.jobTemplate.spec.template.metadata")
 	}
+
+	// Replace object.spec and oldObject.spec with the correct prefix
+	data = bytes.ReplaceAll(data, []byte("object.spec"), specPrefix)
+	data = bytes.ReplaceAll(data, []byte("oldObject.spec"), append([]byte("oldObject"), specPrefix[6:]...)) // Adjust for oldObject
+	data = bytes.ReplaceAll(data, []byte("object.metadata"), metadataPrefix)
+	data = bytes.ReplaceAll(data, []byte("oldObject.metadata"), append([]byte("oldObject"), metadataPrefix[6:]...))
+
+	// Normalize any over-nested paths remove extra .template.spec
+	if resource == CRONJOBS {
+		data = bytes.ReplaceAll(data, []byte("object.spec.jobTemplate.spec.template.spec.template.spec"), specPrefix)
+		data = bytes.ReplaceAll(data, []byte("oldObject.spec.jobTemplate.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
+	} else if resource == PODS {
+		data = bytes.ReplaceAll(data, []byte("object.spec.template.spec.template.spec"), specPrefix)
+		data = bytes.ReplaceAll(data, []byte("oldObject.spec.template.spec.template.spec"), append([]byte("oldObject"), specPrefix[6:]...))
+	}
+
 	return data
 }

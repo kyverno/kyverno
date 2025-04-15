@@ -76,11 +76,14 @@ func createReportControllers(
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
+	policiesV1alpha1 := kyvernoInformer.Policies().V1alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
+			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -100,6 +103,8 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
+					policiesV1alpha1.ValidatingPolicies(),
+					policiesV1alpha1.ImageValidatingPolicies(),
 					vapInformer,
 				),
 				aggregationWorkers,
@@ -113,6 +118,9 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
+				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1alpha1.ImageValidatingPolicies(),
+				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
@@ -129,8 +137,8 @@ func createReportControllers(
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
 				backgroundScanController,
-				backgroundScanWorkers),
-			)
+				backgroundScanWorkers,
+			))
 		}
 	}
 	return ctrls, func(ctx context.Context) error {
@@ -262,7 +270,7 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
@@ -288,6 +296,7 @@ func main() {
 				eventGenerator,
 				maxAPICallResponseLength,
 				false,
+				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
 		)
@@ -318,7 +327,6 @@ func main() {
 			setup.Logger.Error(err, "failed to start background-scan reports watcher")
 			os.Exit(1)
 		}
-
 		// create the circuit breaker
 		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
 			count, isRunning := ephrs.Count()

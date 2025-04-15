@@ -12,8 +12,8 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
@@ -33,7 +33,8 @@ var (
 	clusterPolicyV2       = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
 	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	vpV2alpha1            = kyvernov2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	vpV1alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	ivpV1alpha1           = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	LegacyLoader          = legacyLoader
 	KubectlValidateLoader = kubectlValidateLoader
 	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
@@ -51,11 +52,12 @@ type LoaderError struct {
 }
 
 type LoaderResults struct {
-	Policies           []kyvernov1.PolicyInterface
-	VAPs               []admissionregistrationv1.ValidatingAdmissionPolicy
-	VAPBindings        []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	ValidatingPolicies []kyvernov2alpha1.ValidatingPolicy
-	NonFatalErrors     []LoaderError
+	Policies                []kyvernov1.PolicyInterface
+	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
+	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
+	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
+	NonFatalErrors          []LoaderError
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {
@@ -66,6 +68,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
 	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
+	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 }
 
@@ -165,12 +168,18 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.VAPBindings = append(results.VAPBindings, *typed)
-		case vpV2alpha1:
-			typed, err := convert.To[kyvernov2alpha1.ValidatingPolicy](untyped)
+		case vpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.ValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.ValidatingPolicies = append(results.ValidatingPolicies, *typed)
+		case ivpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.ImageValidatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
 		default:
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}

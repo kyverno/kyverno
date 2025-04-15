@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -660,6 +660,11 @@ spec:
                           type: string
                         nullable: true
                         type: array
+                      synchronize:
+                        description: |-
+                          DryRun indicates that modifications will definitely not be persisted for this request.
+                          Defaults to false.
+                        type: boolean
                       userInfo:
                         description: UserInfo is the userInfo carried in the admission
                           request.

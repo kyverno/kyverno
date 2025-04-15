@@ -7,6 +7,7 @@ import (
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
@@ -17,32 +18,39 @@ import (
 )
 
 var (
-	exceptionV2beta1 = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
-	exceptionV2      = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
+	exceptionV2beta1     = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
+	exceptionV2          = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
+	celExceptionV1alpha1 = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("PolicyException")
 )
 
-func Load(paths ...string) ([]*kyvernov2.PolicyException, error) {
-	var out []*kyvernov2.PolicyException
+type LoaderResults struct {
+	Exceptions    []*kyvernov2.PolicyException
+	CELExceptions []*policiesv1alpha1.PolicyException
+}
+
+func Load(paths ...string) (*LoaderResults, error) {
+	loaderResults := &LoaderResults{}
 	for _, path := range paths {
 		bytes, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
 			return nil, fmt.Errorf("unable to read yaml (%w)", err)
 		}
-		exceptions, err := load(bytes)
+		results, err := load(bytes)
 		if err != nil {
 			return nil, fmt.Errorf("unable to load exceptions (%w)", err)
 		}
-		out = append(out, exceptions...)
+		loaderResults.Exceptions = append(loaderResults.Exceptions, results.Exceptions...)
+		loaderResults.CELExceptions = append(loaderResults.CELExceptions, results.CELExceptions...)
 	}
-	return out, nil
+	return loaderResults, nil
 }
 
-func load(content []byte) ([]*kyvernov2.PolicyException, error) {
+func load(content []byte) (*LoaderResults, error) {
+	results := &LoaderResults{}
 	documents, err := yamlutils.SplitDocuments(content)
 	if err != nil {
 		return nil, err
 	}
-	var exceptions []*kyvernov2.PolicyException
 	crds, err := data.Crds()
 	if err != nil {
 		return nil, err
@@ -64,12 +72,18 @@ func load(content []byte) ([]*kyvernov2.PolicyException, error) {
 			if err != nil {
 				return nil, err
 			}
-			exceptions = append(exceptions, exception)
+			results.Exceptions = append(results.Exceptions, exception)
+		case celExceptionV1alpha1:
+			exception, err := convert.To[policiesv1alpha1.PolicyException](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.CELExceptions = append(results.CELExceptions, exception)
 		default:
 			return nil, fmt.Errorf("policy exception type not supported %s", gvk)
 		}
 	}
-	return exceptions, nil
+	return results, nil
 }
 
 func SelectFrom(resources []*unstructured.Unstructured) []*kyvernov2.PolicyException {

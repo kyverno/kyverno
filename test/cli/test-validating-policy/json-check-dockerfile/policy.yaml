@@ -1,0 +1,40 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-dockerfile-disallow-curl
+spec:
+  evaluation:
+    mode: JSON
+  validations:
+    - message: "curl is not allowed"
+      expression: >- 
+        !object.Stages.exists(s, 
+          s.Commands.exists(c, 
+            has(c.CmdLine) && c.CmdLine.exists(cmd, string(cmd).contains('curl'))
+          )
+        )
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-dockerfile-disallow-wget
+spec:
+  evaluation:
+    mode: JSON
+  validations:
+    - message: "wget is not allowed"
+      expression: >- 
+        !object.Stages.exists(s, 
+          s.Commands.exists(c, 
+            has(c.CmdLine) && c.CmdLine.exists(cmd, string(cmd).contains('wget'))
+          )
+        )
+    - message: "HTTP calls are not allowed"
+      expression: >- 
+        !object.Stages.exists(s, 
+          s.Commands.exists(c, 
+            c.Args.exists(a, 
+              a.Value.contains('http://') || a.Value.contains('https://')
+            )
+          )
+        )

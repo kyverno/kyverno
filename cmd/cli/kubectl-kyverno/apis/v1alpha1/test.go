@@ -24,6 +24,9 @@ type Test struct {
 	// Resources are the resource to be used in the test
 	Resources []string `json:"resources,omitempty"`
 
+	// JSONPayload is the JSON payload to be used in the test
+	JSONPayload string `json:"jsonPayload,omitempty"`
+
 	// Target Resources are for policies that have mutate existing
 	TargetResources []string `json:"targetResources,omitempty"`
 
@@ -42,8 +45,11 @@ type Test struct {
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
 
-	// Policy Exceptions are the policy exceptions to be used in the test
+	// PolicyExceptions are the policy exceptions to be used in the test
 	PolicyExceptions []string `json:"exceptions,omitempty"`
+
+	// Context file containing context data for CEL policies
+	Context string `json:"context,omitempty"`
 }
 
 type CheckResult struct {

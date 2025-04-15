@@ -34,10 +34,11 @@ func GetResourceAccordingToResourcePath(
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
+	clusterWideResources bool,
 	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
-		resources, err = GetResourcesWithTest(out, fs, policies, resourcePaths, policyResourcePath)
+		resources, err = GetResourcesWithTest(out, fs, resourcePaths, policyResourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
@@ -77,10 +78,20 @@ func GetResourceAccordingToResourcePath(
 					resourcePaths = listOfFiles
 				}
 			}
-			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
+			if clusterWideResources {
+				resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, "", policyReport, clusterWideResources)
+				if err != nil {
+					return resources, err
+				}
+				if namespace == "" {
+					return resources, nil
+				}
+			}
+			namespaceResources, err := GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport, false)
 			if err != nil {
 				return resources, err
 			}
+			resources = append(resources, namespaceResources...)
 		}
 	}
 	return resources, err

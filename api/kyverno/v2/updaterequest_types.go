@@ -144,6 +144,11 @@ type RequestInfo struct {
 	// UserInfo is the userInfo carried in the admission request.
 	// +optional
 	AdmissionUserInfo authenticationv1.UserInfo `json:"userInfo"`
+
+	// DryRun indicates that modifications will definitely not be persisted for this request.
+	// Defaults to false.
+	// +optional
+	DryRun bool `json:"synchronize,omitempty"`
 }
 
 // AdmissionRequestInfoObject stores the admission request and operation details

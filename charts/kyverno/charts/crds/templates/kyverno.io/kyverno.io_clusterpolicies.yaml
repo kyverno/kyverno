@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3183,6 +3183,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -8299,6 +8305,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.
@@ -13119,6 +13131,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -18293,6 +18311,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.

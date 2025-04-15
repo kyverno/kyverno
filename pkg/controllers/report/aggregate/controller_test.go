@@ -59,7 +59,7 @@ func TestController(t *testing.T) {
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: kyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: notKyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 
-	controller := aggregate.NewController(client, nil, metaFactory, polInformer, cpolInformer, nil)
+	controller := aggregate.NewController(client, nil, metaFactory, polInformer, cpolInformer, nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

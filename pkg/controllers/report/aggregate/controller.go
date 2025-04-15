@@ -12,7 +12,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -50,6 +52,8 @@ type controller struct {
 	// listers
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
+	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
@@ -70,6 +74,8 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
@@ -102,7 +108,6 @@ func NewController(
 		selector := labels.SelectorFromSet(labels.Set{
 			kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
 		})
-
 		if list, err := polrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
 				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
@@ -129,6 +134,28 @@ func NewController(
 		func(_ metav1.Object) { enqueueAll() },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
+	}
+	if vpolInformer != nil {
+		c.vpolLister = vpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			vpolInformer.Informer(),
+			func(_ metav1.Object) { enqueueAll() },
+			func(_, _ metav1.Object) { enqueueAll() },
+			func(_ metav1.Object) { enqueueAll() },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			ivpolInformer.Informer(),
+			func(_ metav1.Object) { enqueueAll() },
+			func(_, _ metav1.Object) { enqueueAll() },
+			func(_ metav1.Object) { enqueueAll() },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
 	}
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
@@ -162,10 +189,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		return nil, err
 	}
 	for _, cpol := range cpols {
-		key, err := cache.MetaNamespaceKeyFunc(cpol)
-		if err != nil {
-			return nil, err
-		}
+		key := cache.MetaObjectToName(cpol).String()
 		results[key] = policyMapEntry{
 			policy: cpol,
 			rules:  sets.New[string](),
@@ -179,10 +203,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		return nil, err
 	}
 	for _, pol := range pols {
-		key, err := cache.MetaNamespaceKeyFunc(pol)
-		if err != nil {
-			return nil, err
-		}
+		key := cache.MetaObjectToName(pol).String()
 		results[key] = policyMapEntry{
 			policy: pol,
 			rules:  sets.New[string](),
@@ -202,11 +223,35 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 			return nil, err
 		}
 		for _, vap := range vaps {
-			key, err := cache.MetaNamespaceKeyFunc(vap)
-			if err != nil {
-				return nil, err
-			}
-			results.Insert(key)
+			results.Insert(cache.MetaObjectToName(vap).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createVPolMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.vpolLister != nil {
+		vpols, err := c.vpolLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, vpol := range vpols {
+			results.Insert(cache.MetaObjectToName(vpol).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createIVPolMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.ivpolLister != nil {
+		ivpols, err := c.ivpolLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, ivpol := range ivpols {
+			results.Insert(cache.MetaObjectToName(ivpol).String())
 		}
 	}
 	return results, nil
@@ -383,7 +428,7 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 	if adopted, forbidden := c.adopt(ctx, reportMeta); adopted {
 		return nil
 	} else if forbidden {
-		logger.Info("deleting because insufficient permission to fetch resource")
+		logger.V(3).Info("deleting because insufficient permission to fetch resource")
 		return c.deleteEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
 	}
 	// if not found and too old, forget about it
@@ -432,9 +477,23 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
+	vpolMap, err := c.createVPolMap()
+	if err != nil {
+		return err
+	}
+	ivpolMap, err := c.createIVPolMap()
+	if err != nil {
+		return err
+	}
+	maps := maps{
+		pol:   policyMap,
+		vap:   vapMap,
+		vpol:  vpolMap,
+		ivpol: ivpolMap,
+	}
 	reports = append(reports, ephemeralReports...)
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
-	mergeReports(policyMap, vapMap, merged, types.UID(name), reports...)
+	mergeReports(maps, merged, types.UID(name), reports...)
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(merged))
 	for _, result := range merged {
 		results = append(results, result)
