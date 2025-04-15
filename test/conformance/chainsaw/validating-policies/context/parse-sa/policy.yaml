@@ -14,7 +14,7 @@ spec:
     variables:
       - name: sa
         expression: >-
-          user.ParseServiceAccount(request.userInfo.username)
+          parseServiceAccount(request.userInfo.username)
     validations:
      - expression: >-
           variables.sa.Name== "my-sa"
