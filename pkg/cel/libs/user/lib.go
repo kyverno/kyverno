@@ -39,8 +39,13 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
-		"user.ParseServiceAccount": {
-			cel.Overload("parse_service_account_string", []*cel.Type{types.StringType}, ServiceAccountType, cel.UnaryBinding(impl.parse_service_account_string)),
+		"parseServiceAccount": {
+			cel.Overload(
+				"parse_service_account_string",
+				[]*cel.Type{types.StringType},
+				ServiceAccountType,
+				cel.UnaryBinding(impl.parse_service_account_string),
+			),
 		},
 	}
 	// create env options corresponding to our function overloads

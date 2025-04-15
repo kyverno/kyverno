@@ -43,7 +43,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 		if vpol := pol.AsValidatingPolicy(); vpol != nil {
 			p = vpol
 			matchResource = vpol.Spec.MatchConstraints
-		} else if ivpol := pol.AsImageVerificationPolicy(); ivpol != nil {
+		} else if ivpol := pol.AsImageValidatingPolicy(); ivpol != nil {
 			p = ivpol
 			matchResource = ivpol.Spec.MatchConstraints
 		}

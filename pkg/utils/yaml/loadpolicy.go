@@ -112,7 +112,7 @@ func parse(obj unstructured.Unstructured) (
 		out, err := parseValidatingPolicy(obj)
 		return nil, nil, nil, out, nil, err
 	case "ImageValidatingPolicy":
-		out, err := parseImageVerificationPolicy(obj)
+		out, err := parseImageValidatingPolicy(obj)
 		return nil, nil, nil, nil, out, err
 	}
 	return nil, nil, nil, nil, nil, nil
@@ -182,7 +182,7 @@ func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.Val
 	return &out, nil
 }
 
-func parseImageVerificationPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ImageValidatingPolicy, error) {
+func parseImageValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ImageValidatingPolicy, error) {
 	var out policiesv1alpha1.ImageValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
 		return nil, fmt.Errorf("failed to decode policy: %v", err)

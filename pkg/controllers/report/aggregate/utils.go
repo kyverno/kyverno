@@ -38,7 +38,7 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 						accumulator[key] = result
 					}
 				}
-			case reportutils.SourceImageVerificationPolicy:
+			case reportutils.SourceImageValidatingPolicy:
 				if maps.ivpol != nil && maps.ivpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
