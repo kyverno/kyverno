@@ -1189,7 +1189,9 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 		return nil, err
 	} else {
 		for _, cpol := range cpols {
-			policies = append(policies, cpol)
+			if !cpol.GetStatus().ValidatingAdmissionPolicy.Generated {
+				policies = append(policies, cpol)
+			}
 		}
 	}
 	if pols, err := c.polLister.List(labels.Everything()); err != nil {
