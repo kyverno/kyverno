@@ -25,3 +25,7 @@ spec:
     try:
     - assert:
         file: validatingadmissionpolicybinding.yaml
+  - name: check validatingwebhookconfiguration
+    try:
+    - assert:
+        file: validatingwebhookconfiguration.yaml
