@@ -15,23 +15,23 @@ spec:
     - name: res
       expression: >-
         {
-          "kind":"SubjectAccessReview",
-          "apiVersion":"authorization.k8s.io/v1",
-          "spec": {
-            "resourceAttributes": {
+          "kind": dyn("SubjectAccessReview"),
+          "apiVersion": dyn("authorization.k8s.io/v1"),
+          "spec": dyn({
+            "resourceAttributes": dyn({
               "resource": "namespaces",
               "namespace": string(object.metadata.namespace),
               "verb": "delete",
               "group": ""
-            },
-            "user": string(request.userInfo.username)
-          }
+            }),
+            "user": dyn(request.userInfo.username)
+          })
         }
     - name: subjectaccessreview
       expression: >-
         resource.Post("authorization.k8s.io/v1", "subjectaccessreviews", variables.res)
   validations:
     - expression: >-
-        variables.subjectaccessreview.status.allowed
+        has(variables.subjectaccessreview.status) && bool(variables.subjectaccessreview.status.allowed)
       message: >-
         User is not authorized.
