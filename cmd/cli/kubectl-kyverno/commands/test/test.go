@@ -39,7 +39,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -147,8 +146,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs)
-	policyPlural := pluralize.Pluralize(len(results.Policies)+len(results.VAPs), "policy", "policies")
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies)
+	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
 	if polexLoader != nil {
@@ -255,6 +254,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				results.ImageValidatingPolicies,
 				nil,
 				[]*unstructured.Unstructured{resource},
+				polexLoader.CELExceptions,
 				vars.Namespace,
 				userInfo,
 				&resultCounts,
@@ -305,6 +305,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				results.ImageValidatingPolicies,
 				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
 				nil,
+				polexLoader.CELExceptions,
 				vars.Namespace,
 				userInfo,
 				&resultCounts,
@@ -337,6 +338,7 @@ func applyImageValidatingPolicies(
 	ivps []policiesv1alpha1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
+	celExceptions []*policiesv1alpha1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
@@ -345,7 +347,7 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := celengine.NewIVPOLProvider(ivps)
+	provider, err := celengine.NewIVPOLProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -360,8 +362,12 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
+	apiGroupResources, err := data.APIGroupResources()
+	if err != nil {
+		return nil, err
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	gctxStore := gctxstore.New()
-	var restMapper meta.RESTMapper
 	var contextProvider celpolicy.Context
 	if dclient != nil {
 		contextProvider, err = celpolicy.NewContextProvider(
@@ -372,17 +378,7 @@ func applyImageValidatingPolicies(
 		if err != nil {
 			return nil, err
 		}
-		apiGroupResources, err := restmapper.GetAPIGroupResources(dclient.GetKubeClient().Discovery())
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	} else {
-		apiGroupResources, err := data.APIGroupResources()
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 		fakeContextProvider := celpolicy.NewFakeContextProvider()
 		if contextPath != "" {
 			ctx, err := clicontext.Load(nil, contextPath)
@@ -452,7 +448,6 @@ func applyImageValidatingPolicies(
 			responses = append(responses, resp)
 		}
 	}
-
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
 	for i := range ivps {

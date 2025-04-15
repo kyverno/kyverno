@@ -28,28 +28,68 @@ func (*imageLibType) Types() []*cel.Type {
 func (*imageLibType) declarations() map[string][]cel.FunctionOpt {
 	return map[string][]cel.FunctionOpt{
 		"image": {
-			cel.Overload("string_to_image", []*cel.Type{cel.StringType}, ImageType, cel.UnaryBinding((stringToImage))),
+			cel.Overload(
+				"string_to_image",
+				[]*cel.Type{cel.StringType},
+				ImageType,
+				cel.UnaryBinding(stringToImage),
+			),
 		},
 		"isImage": {
-			cel.Overload("is_image_string", []*cel.Type{cel.StringType}, cel.BoolType, cel.UnaryBinding(isImage)),
+			cel.Overload(
+				"is_image_string",
+				[]*cel.Type{cel.StringType},
+				cel.BoolType,
+				cel.UnaryBinding(isImage),
+			),
 		},
 		"containsDigest": {
-			cel.MemberOverload("image_contains_digest", []*cel.Type{ImageType}, cel.BoolType, cel.UnaryBinding(imageContainsDigest)),
+			cel.MemberOverload(
+				"image_contains_digest",
+				[]*cel.Type{ImageType},
+				cel.BoolType,
+				cel.UnaryBinding(imageContainsDigest),
+			),
 		},
 		"registry": {
-			cel.MemberOverload("image_registry", []*cel.Type{ImageType}, cel.StringType, cel.UnaryBinding(imageRegistry)),
+			cel.MemberOverload(
+				"image_registry",
+				[]*cel.Type{ImageType},
+				cel.StringType,
+				cel.UnaryBinding(imageRegistry),
+			),
 		},
 		"repository": {
-			cel.MemberOverload("image_repository", []*cel.Type{ImageType}, cel.StringType, cel.UnaryBinding(imageRepository)),
+			cel.MemberOverload(
+				"image_repository",
+				[]*cel.Type{ImageType},
+				cel.StringType,
+				cel.UnaryBinding(imageRepository),
+			),
 		},
 		"identifier": {
-			cel.MemberOverload("image_identifier", []*cel.Type{ImageType}, cel.StringType, cel.UnaryBinding(imageIdentifier)),
+			cel.MemberOverload(
+				"image_identifier",
+				[]*cel.Type{ImageType},
+				cel.StringType,
+				cel.UnaryBinding(imageIdentifier),
+			),
 		},
 		"tag": {
-			cel.MemberOverload("image_tag", []*cel.Type{ImageType}, cel.StringType, cel.UnaryBinding(imageTag)),
+			cel.MemberOverload(
+				"image_tag",
+				[]*cel.Type{ImageType},
+				cel.StringType,
+				cel.UnaryBinding(imageTag),
+			),
 		},
 		"digest": {
-			cel.MemberOverload("image_digest", []*cel.Type{ImageType}, cel.StringType, cel.UnaryBinding(imageDigest)),
+			cel.MemberOverload(
+				"image_digest",
+				[]*cel.Type{ImageType},
+				cel.StringType,
+				cel.UnaryBinding(imageDigest),
+			),
 		},
 	}
 }

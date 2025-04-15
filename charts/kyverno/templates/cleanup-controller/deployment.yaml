@@ -68,6 +68,10 @@ spec:
       {{- with .Values.cleanupController.dnsPolicy }}
       dnsPolicy: {{ . }}
       {{- end }}
+      {{- with .Values.cleanupController.dnsConfig }}
+      dnsConfig:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
       {{- if or .Values.cleanupController.antiAffinity.enabled .Values.cleanupController.podAffinity .Values.cleanupController.nodeAffinity }}
       affinity:
         {{- if .Values.cleanupController.antiAffinity.enabled }}
