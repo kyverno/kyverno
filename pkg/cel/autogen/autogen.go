@@ -4,48 +4,10 @@ import (
 	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 var podControllers = sets.New("daemonsets", "deployments", "jobs", "statefulsets", "replicasets", "cronjobs")
-
-// canAutoGen checks whether the policy can be applied to Pod controllers
-// It returns false if:
-//   - name or selector is defined
-//   - mixed kinds (Pod + pod controller) is defined
-//   - Pod is not defined
-//
-// Otherwise it returns all pod controllers
-func CanAutoGen(match *admissionregistrationv1.MatchResources) (bool, sets.Set[string]) {
-	if match == nil {
-		return false, sets.New[string]()
-	}
-	if match.NamespaceSelector != nil {
-		if len(match.NamespaceSelector.MatchLabels) > 0 || len(match.NamespaceSelector.MatchExpressions) > 0 {
-			return false, sets.New[string]()
-		}
-	}
-	if match.ObjectSelector != nil {
-		if len(match.ObjectSelector.MatchLabels) > 0 || len(match.ObjectSelector.MatchExpressions) > 0 {
-			return false, sets.New[string]()
-		}
-	}
-
-	rules := match.ResourceRules
-	for _, rule := range rules {
-		if len(rule.ResourceNames) > 0 {
-			return false, sets.New[string]()
-		}
-		if len(rule.Resources) > 1 {
-			return false, sets.New[string]()
-		}
-		if rule.Resources[0] != "pods" {
-			return false, sets.New[string]()
-		}
-	}
-	return true, podControllers
-}
 
 func generateRules(spec *policiesv1alpha1.ValidatingPolicySpec, controllers string) []policiesv1alpha1.AutogenRule {
 	var genRules []policiesv1alpha1.AutogenRule
