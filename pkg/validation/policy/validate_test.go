@@ -3448,8 +3448,8 @@ func Test_GenerateFieldsUpdates(t *testing.T) {
 		assert.Nil(t, err)
 
 		warning, err := immutableGenerateFields(new, old)
-		golangassert.Assert(t, (warning != "") == test.expectWarning, test.name, err)
-		golangassert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
+		golangassert.Assert(t, (warning != "") == test.expectWarning, "%s: %v", test.name, err)
+		golangassert.Assert(t, (err != nil) == test.expectedErr, "%s: %v", test.name, err)
 
 	}
 }
