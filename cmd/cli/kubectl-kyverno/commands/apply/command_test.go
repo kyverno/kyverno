@@ -667,6 +667,23 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/resources.yaml"},
+				Exception:     []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/exception.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  1,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	for _, tc := range testcases {

@@ -26,7 +26,7 @@ func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger l
 }
 
 func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface, admissionRequestTimestamp time.Time) {
-	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
+	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request, policies)
 	if err != nil {
 		logger.Error(err, "failed to create policy context")
 		return
@@ -92,7 +92,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 }
 
 func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
-	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
+	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request, generatePolicies)
 	if err != nil {
 		logger.Error(err, "failed to create policy context")
 		return

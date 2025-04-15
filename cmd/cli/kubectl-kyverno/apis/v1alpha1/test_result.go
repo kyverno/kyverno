@@ -24,6 +24,11 @@ type TestResultBase struct {
 	// +optional
 	IsValidatingPolicy bool `json:"isValidatingPolicy,omitempty"`
 
+	// IsImageValidatingPolicy indicates if the policy is an image validating policy.
+	// It's required in case the policy is an image validating policy.
+	// +optional
+	IsImageValidatingPolicy bool `json:"isImageValidatingPolicy,omitempty"`
+
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
 	Result policyreportv1alpha2.PolicyResult `json:"result"`
