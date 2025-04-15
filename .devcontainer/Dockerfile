@@ -1,4 +1,4 @@
-FROM ubuntu:24.04@sha256:45243615f4992816784f678ce6c31b34bd07ba09279f740d8d014a9b855c531d
+FROM ubuntu:24.04@sha256:1e622c5f073b4f6bfad6632f2616c7f59ef256e96fe78bf6a595d1dc4376ac02
 
 RUN apt-get update && apt-get install -y sudo git curl apt-transport-https ca-certificates gnupg-agent software-properties-common
 ARG USERNAME=root
@@ -7,9 +7,9 @@ RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
 
 # Install Golang
 RUN ARCH="$(dpkg --print-architecture)"; \
-    curl -LO https://dl.google.com/go/go1.21.3.linux-$ARCH.tar.gz \
-    && tar -C /usr/local -xzf go1.21.3.linux-$ARCH.tar.gz \
-    && rm go1.21.3.linux-$ARCH.tar.gz \
+    curl -LO https://dl.google.com/go/go1.23.8.linux-$ARCH.tar.gz \
+    && tar -C /usr/local -xzf go1.23.8.linux-$ARCH.tar.gz \
+    && rm go1.23.8.linux-$ARCH.tar.gz \
     && echo 'export PATH=$PATH:/usr/local/go/bin' >> /etc/profile
 
 # Install Docker
