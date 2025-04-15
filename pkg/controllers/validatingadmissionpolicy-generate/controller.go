@@ -54,7 +54,7 @@ type controller struct {
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
-	celpolexLister   policiesv1alpha1listers.CELPolicyExceptionLister
+	celpolexLister   policiesv1alpha1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 
@@ -72,7 +72,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
-	celpolexInformer policiesv1alpha1informers.CELPolicyExceptionInformer,
+	celpolexInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
@@ -163,12 +163,12 @@ func (c *controller) enqueueVP(obj *policiesv1alpha1.ValidatingPolicy) {
 	c.queue.Add("ValidatingPolicy/" + key)
 }
 
-func (c *controller) addCELException(obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) addCELException(obj *policiesv1alpha1.PolicyException) {
 	logger.V(2).Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueCELException(obj)
 }
 
-func (c *controller) updateCELException(old, obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) updateCELException(old, obj *policiesv1alpha1.PolicyException) {
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
@@ -176,14 +176,14 @@ func (c *controller) updateCELException(old, obj *policiesv1alpha1.CELPolicyExce
 	c.enqueueCELException(obj)
 }
 
-func (c *controller) deleteCELException(obj *policiesv1alpha1.CELPolicyException) {
-	polex := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.CELPolicyException)
+func (c *controller) deleteCELException(obj *policiesv1alpha1.PolicyException) {
+	polex := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.PolicyException)
 
 	logger.V(2).Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
 	c.enqueueCELException(obj)
 }
 
-func (c *controller) enqueueCELException(obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) enqueueCELException(obj *policiesv1alpha1.PolicyException) {
 	for _, policy := range obj.Spec.PolicyRefs {
 		if policy.Kind == "ValidatingPolicy" {
 			vpol, err := c.getValidatingPolicy(policy.Name)
@@ -425,10 +425,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 	} else {
 		spec := policy.AsValidatingPolicy().GetSpec()
-		wantVap := false
-		if spec.GenerationConfiguration != nil && spec.GenerationConfiguration.Enabled != nil {
-			wantVap = *spec.GenerationConfiguration.Enabled
-		}
+		wantVap := spec.GenerateValidatingAdmissionPolicyEnabled()
 		if !wantVap {
 			// delete the ValidatingAdmissionPolicy if exist
 			if vapErr == nil {

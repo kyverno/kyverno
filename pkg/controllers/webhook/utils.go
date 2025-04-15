@@ -179,23 +179,3 @@ const (
 	ValidatingPolicyType  = "ValidatingPolicy"
 	ImageValidatingPolicy = "ImageValidatingPolicy"
 )
-
-// ParsePolicyKey builds policy key in kind/name format
-func BuildPolicyKey(policyType, name string) string {
-	switch policyType {
-	case ValidatingPolicyType:
-		return ValidatingPolicyType + "/" + name
-	case ImageValidatingPolicy:
-		return ImageValidatingPolicy + "/" + name
-	}
-	return ""
-}
-
-// ParsePolicyKey parses policy key in kind/name format
-func ParsePolicyKey(key string) (policyType, name string) {
-	vars := strings.Split(key, "/")
-	if len(vars) < 2 {
-		return "", ""
-	}
-	return vars[0], vars[1]
-}

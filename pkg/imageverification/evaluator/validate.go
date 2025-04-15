@@ -5,12 +5,15 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 type ImageVerificationOutcome struct {
@@ -35,7 +38,7 @@ type ImageVerifyEngineResponse struct {
 
 type ImageVerifyPolicyResponse struct {
 	Policy     *policiesv1alpha1.ImageValidatingPolicy
-	Exceptions []*policiesv1alpha1.CELPolicyException
+	Exceptions []*policiesv1alpha1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 	Result     engineapi.RuleResponse
 }
@@ -83,4 +86,24 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]Image
 	logger.V(4).Info("adding image verification patch", "patch", patch)
 	patches = append(patches, patch)
 	return patches, nil
+}
+
+func Validate(ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) ([]string, error) {
+	ictx, er := imagedataloader.NewImageContext(lister)
+	if er != nil {
+		return nil, nil
+	}
+
+	compiler := NewCompiler(ictx, lister, nil)
+	_, err := compiler.Compile(ivpol, nil)
+	if err == nil {
+		return nil, nil
+	}
+
+	warnings := make([]string, 0, len(err.ToAggregate().Errors()))
+	for _, e := range err.ToAggregate().Errors() {
+		warnings = append(warnings, e.Error())
+	}
+
+	return warnings, err.ToAggregate()
 }

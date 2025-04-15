@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: image-data
+spec:
+  steps:
+    - name: create policy
+      try:
+        - create:
+            file: policy.yaml
+        - assert:
+            file: policy-assert.yaml
+    - name: create deployment
+      try:
+        - create:
+            file: deployment.yaml
+        - assert:
+            file: deployment.yaml
+    - name: create bad deployment
+      try:
+        - create:
+            file: bad-deployment.yaml
+            expect:
+            - check:
+                ($error): >-
+                  admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-ivpol-imagereference-sample" denied the request: Policy ivpol-imagereference-sample failed: Deployment must be have images from ghcr and images should be tagged

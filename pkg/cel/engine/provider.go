@@ -29,15 +29,15 @@ type CompiledValidatingPolicy struct {
 	CompiledPolicy policy.CompiledPolicy
 }
 
-type CompiledImageVerificationPolicy struct {
+type CompiledImageValidatingPolicy struct {
 	Policy     *policiesv1alpha1.ImageValidatingPolicy
-	Exceptions []*policiesv1alpha1.CELPolicyException
+	Exceptions []*policiesv1alpha1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 
 type Provider interface {
 	CompiledValidationPolicies(context.Context) ([]CompiledValidatingPolicy, error)
-	ImageVerificationPolicies(context.Context) ([]CompiledImageVerificationPolicy, error)
+	ImageVerificationPolicies(context.Context) ([]CompiledImageValidatingPolicy, error)
 }
 
 type reconcilers struct {
@@ -51,16 +51,16 @@ func (f VPolProviderFunc) CompiledValidationPolicies(ctx context.Context) ([]Com
 	return f(ctx)
 }
 
-type ImageVerifyPolProviderFunc func(context.Context) ([]CompiledImageVerificationPolicy, error)
+type ImageVerifyPolProviderFunc func(context.Context) ([]CompiledImageValidatingPolicy, error)
 
-func (f ImageVerifyPolProviderFunc) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageVerificationPolicy, error) {
+func (f ImageVerifyPolProviderFunc) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
 	return f(ctx)
 }
 
-func NewProvider(compiler policy.Compiler, vpolicies []policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.CELPolicyException) (VPolProviderFunc, error) {
+func NewProvider(compiler policy.Compiler, vpolicies []policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (VPolProviderFunc, error) {
 	compiled := make([]CompiledValidatingPolicy, 0, len(vpolicies))
 	for _, vp := range vpolicies {
-		var matchedExceptions []*policiesv1alpha1.CELPolicyException
+		var matchedExceptions []*policiesv1alpha1.PolicyException
 		for _, polex := range exceptions {
 			for _, ref := range polex.Spec.PolicyRefs {
 				if ref.Name == vp.GetName() && ref.Kind == vp.GetKind() {
@@ -91,7 +91,7 @@ func NewProvider(compiler policy.Compiler, vpolicies []policiesv1alpha1.Validati
 func NewKubeProvider(
 	compiler policy.Compiler,
 	mgr ctrl.Manager,
-	polexLister policiesv1alpha1listers.CELPolicyExceptionLister,
+	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 ) (Provider, error) {
 	exceptionHandlerFuncs := &handler.Funcs{
 		CreateFunc: func(
@@ -99,7 +99,7 @@ func NewKubeProvider(
 			tce event.TypedCreateEvent[client.Object],
 			trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 		) {
-			polex := tce.Object.(*policiesv1alpha1.CELPolicyException)
+			polex := tce.Object.(*policiesv1alpha1.PolicyException)
 			for _, ref := range polex.Spec.PolicyRefs {
 				trli.Add(reconcile.Request{
 					NamespacedName: client.ObjectKey{
@@ -113,7 +113,7 @@ func NewKubeProvider(
 			tue event.TypedUpdateEvent[client.Object],
 			trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 		) {
-			polex := tue.ObjectNew.(*policiesv1alpha1.CELPolicyException)
+			polex := tue.ObjectNew.(*policiesv1alpha1.PolicyException)
 			for _, ref := range polex.Spec.PolicyRefs {
 				trli.Add(reconcile.Request{
 					NamespacedName: client.ObjectKey{
@@ -127,7 +127,7 @@ func NewKubeProvider(
 			tde event.TypedDeleteEvent[client.Object],
 			trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 		) {
-			polex := tde.Object.(*policiesv1alpha1.CELPolicyException)
+			polex := tde.Object.(*policiesv1alpha1.PolicyException)
 			for _, ref := range polex.Spec.PolicyRefs {
 				trli.Add(reconcile.Request{
 					NamespacedName: client.ObjectKey{
@@ -140,7 +140,7 @@ func NewKubeProvider(
 	r := newPolicyReconciler(compiler, mgr.GetClient(), polexLister)
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&policiesv1alpha1.ValidatingPolicy{}).
-		Watches(&policiesv1alpha1.CELPolicyException{}, exceptionHandlerFuncs).
+		Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs).
 		Complete(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct manager: %w", err)
@@ -149,7 +149,7 @@ func NewKubeProvider(
 	ivpolr := newivPolicyReconciler(mgr.GetClient(), polexLister)
 	err = ctrl.NewControllerManagedBy(mgr).
 		For(&policiesv1alpha1.ImageValidatingPolicy{}).
-		Watches(&policiesv1alpha1.CELPolicyException{}, exceptionHandlerFuncs).
+		Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs).
 		Complete(ivpolr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct manager: %w", err)
@@ -163,13 +163,13 @@ type policyReconciler struct {
 	compiler    policy.Compiler
 	lock        *sync.RWMutex
 	policies    map[string]CompiledValidatingPolicy
-	polexLister policiesv1alpha1listers.CELPolicyExceptionLister
+	polexLister policiesv1alpha1listers.PolicyExceptionLister
 }
 
 func newPolicyReconciler(
 	compiler policy.Compiler,
 	client client.Client,
-	polexLister policiesv1alpha1listers.CELPolicyExceptionLister,
+	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 ) *policyReconciler {
 	return &policyReconciler{
 		client:      client,
@@ -230,12 +230,12 @@ func (r *policyReconciler) CompiledValidationPolicies(ctx context.Context) ([]Co
 	return maps.Values(r.policies), nil
 }
 
-func listExceptions(polexLister policiesv1alpha1listers.CELPolicyExceptionLister, policyName, policyKind string) ([]*policiesv1alpha1.CELPolicyException, error) {
+func listExceptions(polexLister policiesv1alpha1listers.PolicyExceptionLister, policyName, policyKind string) ([]*policiesv1alpha1.PolicyException, error) {
 	polexList, err := polexLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	var exceptions []*policiesv1alpha1.CELPolicyException
+	var exceptions []*policiesv1alpha1.PolicyException
 	for _, polex := range polexList {
 		for _, ref := range polex.Spec.PolicyRefs {
 			if ref.Name == policyName && ref.Kind == policyKind {
@@ -249,18 +249,18 @@ func listExceptions(polexLister policiesv1alpha1listers.CELPolicyExceptionLister
 type ivpolpolicyReconciler struct {
 	client      client.Client
 	lock        *sync.RWMutex
-	policies    map[string]CompiledImageVerificationPolicy
-	polexLister policiesv1alpha1listers.CELPolicyExceptionLister
+	policies    map[string]CompiledImageValidatingPolicy
+	polexLister policiesv1alpha1listers.PolicyExceptionLister
 }
 
 func newivPolicyReconciler(
 	client client.Client,
-	polexLister policiesv1alpha1listers.CELPolicyExceptionLister,
+	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 ) *ivpolpolicyReconciler {
 	return &ivpolpolicyReconciler{
 		client:      client,
 		lock:        &sync.RWMutex{},
-		policies:    map[string]CompiledImageVerificationPolicy{},
+		policies:    map[string]CompiledImageValidatingPolicy{},
 		polexLister: polexLister,
 	}
 }
@@ -293,7 +293,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if len(actions) == 0 {
 		actions.Insert(admissionregistrationv1.Deny)
 	}
-	r.policies[req.NamespacedName.String()] = CompiledImageVerificationPolicy{
+	r.policies[req.NamespacedName.String()] = CompiledImageValidatingPolicy{
 		Policy:     &policy,
 		Exceptions: exceptions,
 		Actions:    actions,
@@ -302,7 +302,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		namespacedName := types.NamespacedName{
 			Name: p.Name,
 		}
-		r.policies[namespacedName.String()] = CompiledImageVerificationPolicy{
+		r.policies[namespacedName.String()] = CompiledImageValidatingPolicy{
 			Policy: &policiesv1alpha1.ImageValidatingPolicy{
 				Spec: p.Spec,
 			},
@@ -313,7 +313,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func (r *ivpolpolicyReconciler) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageVerificationPolicy, error) {
+func (r *ivpolpolicyReconciler) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	return maps.Values(r.policies), nil

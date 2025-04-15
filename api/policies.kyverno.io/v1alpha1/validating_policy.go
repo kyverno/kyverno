@@ -184,9 +184,9 @@ type ValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
-	// GenerationConfiguration defines the configuration for the generation controller.
+	// AutogenConfiguration defines the configuration for the generation controller.
 	// +optional
-	GenerationConfiguration *GenerationConfiguration `json:"generation,omitempty"`
+	AutogenConfiguration *AutogenConfiguration `json:"autogen,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
@@ -202,31 +202,61 @@ type ValidatingPolicySpec struct {
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
 }
 
+// GenerateValidatingAdmissionPolicyEnabled checks if validating admission policy generation is enabled
+func (s ValidatingPolicySpec) GenerateValidatingAdmissionPolicyEnabled() bool {
+	const defaultValue = false
+	if s.AutogenConfiguration == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.ValidatingAdmissionPolicy == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled == nil {
+		return defaultValue
+	}
+	return *s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled
+}
+
 // AdmissionEnabled checks if admission is set to true
 func (s ValidatingPolicySpec) AdmissionEnabled() bool {
+	const defaultValue = true
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
-		return true
+		return defaultValue
 	}
 	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
 // BackgroundEnabled checks if background is set to true
 func (s ValidatingPolicySpec) BackgroundEnabled() bool {
+	const defaultValue = true
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return true
+		return defaultValue
 	}
 	return *s.EvaluationConfiguration.Background.Enabled
 }
 
 // EvaluationMode returns the evaluation mode of the policy.
 func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
+	const defaultValue = EvaluationModeKubernetes
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
-		return EvaluationModeKubernetes
+		return defaultValue
 	}
 	return s.EvaluationConfiguration.Mode
 }
 
-type GenerationConfiguration struct {
+type AutogenConfiguration struct {
+	// PodControllers specifies whether to generate a pod controllers rules.
+	PodControllers *PodControllersGenerationConfiguration `json:"podControllers,omitempty"`
+	// ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+	ValidatingAdmissionPolicy *VapGenerationConfiguration `json:"validatingAdmissionPolicy,omitempty"`
+}
+
+type PodControllersGenerationConfiguration struct {
+	// TODO: shall we use GVK/GVR instead of string ?
+	Controllers []string `json:"controllers,omitempty"`
+}
+
+type VapGenerationConfiguration struct {
 	// Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
 	// Optional. Defaults to "false" if not specified.
 	Enabled *bool `json:"enabled,omitempty"`
