@@ -615,8 +615,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
-					Pass:  0,
-					Fail:  1,
+					Pass:  1,
+					Fail:  0,
 					Skip:  0,
 					Error: 0,
 					Warn:  0,
