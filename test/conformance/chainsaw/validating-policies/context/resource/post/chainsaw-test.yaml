@@ -84,6 +84,12 @@ spec:
           value: check-subjectaccessreview
   - name: apply-resources
     try:
+  - name: step-01
+    try:
+    - apply:
+        file: ns.yaml
+    - apply:
+        file: chainsaw-step-03-apply-1.yaml
     - apply:
         file: chainsaw-step-03-apply-2.yaml
     - apply:
