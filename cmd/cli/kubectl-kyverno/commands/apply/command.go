@@ -29,7 +29,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
-	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -303,12 +302,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
 	responses = append(responses, responses4...)
-	//adding new response
-	responses5, err := c.applyMutatingAdmissionPolicies(maps, resources1, rc)
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses, err
-	}
-	responses = append(responses, responses5...)
+	// //adding new response
+	// responses5, err := c.applyMutatingAdmissionPolicies(maps, resources1, rc)
+	// if err != nil {
+	// 	return rc, resources1, skippedInvalidPolicies, responses, err
+	// }
+	// responses = append(responses, responses5...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
 }
 
@@ -605,59 +604,59 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	return responses, nil
 }
 
-// Adding maps
-func (c *ApplyCommandConfig) applyMutatingAdmissionPolicies(
-	maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
-	resources []*unstructured.Unstructured,
-	rc *processor.ResultCounts,
-) ([]engineapi.EngineResponse, error) {
-	var responses []engineapi.EngineResponse
+// // Adding maps
+// func (c *ApplyCommandConfig) applyMutatingAdmissionPolicies(
+// 	maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
+// 	resources []*unstructured.Unstructured,
+// 	rc *processor.ResultCounts,
+// ) ([]engineapi.EngineResponse, error) {
+// 	var responses []engineapi.EngineResponse
 
-	for _, resource := range resources {
-		for _, mp := range maps {
-			// 1) run the real MAP mutation
-			res, err := admissionpolicy.MutateResource(mp, *resource)
-			if err != nil {
-				fmt.Printf("Error applying MAP %s on %s/%s: %v\n",
-					mp.Name, resource.GetNamespace(), resource.GetName(), err)
-				if c.ContinueOnFail {
-					continue
-				}
-				return nil, fmt.Errorf("failed to apply MAP %s on %s/%s: %w",
-					mp.Name, resource.GetNamespace(), resource.GetName(), err)
-			}
+// 	for _, resource := range resources {
+// 		for _, mp := range maps {
+// 			// 1) run the real MAP mutation
+// 			res, err := admissionpolicy.MutateResource(mp, *resource)
+// 			if err != nil {
+// 				fmt.Printf("Error applying MAP %s on %s/%s: %v\n",
+// 					mp.Name, resource.GetNamespace(), resource.GetName(), err)
+// 				if c.ContinueOnFail {
+// 					continue
+// 				}
+// 				return nil, fmt.Errorf("failed to apply MAP %s on %s/%s: %w",
+// 					mp.Name, resource.GetNamespace(), resource.GetName(), err)
+// 			}
 
-			// 2) synthesize exactly one RuleResponse based on Stats()
-			if len(res.PolicyResponse.Rules) == 0 {
-				stats := res.PolicyResponse.Stats() // capture into local to call pointer method
+// 			// 2) synthesize exactly one RuleResponse based on Stats()
+// 			if len(res.PolicyResponse.Rules) == 0 {
+// 				stats := res.PolicyResponse.Stats() // capture into local to call pointer method
 
-				if stats.RulesAppliedCount() > 0 {
-					pass := *engineapi.RulePass(
-						mp.Name,
-						engineapi.Mutation,
-						fmt.Sprintf("%d patch(es) applied", stats.RulesAppliedCount()),
-						nil,
-					)
-					res.PolicyResponse.Rules = append(res.PolicyResponse.Rules, pass)
-				} else {
-					skip := *engineapi.RuleSkip(
-						mp.Name,
-						engineapi.Mutation,
-						"no matching resources",
-						nil, // <-- now passing the fourth map[string]string argument
-					)
-					res.PolicyResponse.Rules = append(res.PolicyResponse.Rules, skip)
-				}
-			}
+// 				if stats.RulesAppliedCount() > 0 {
+// 					pass := *engineapi.RulePass(
+// 						mp.Name,
+// 						engineapi.Mutation,
+// 						fmt.Sprintf("%d patch(es) applied", stats.RulesAppliedCount()),
+// 						nil,
+// 					)
+// 					res.PolicyResponse.Rules = append(res.PolicyResponse.Rules, pass)
+// 				} else {
+// 					skip := *engineapi.RuleSkip(
+// 						mp.Name,
+// 						engineapi.Mutation,
+// 						"no matching resources",
+// 						nil, // <-- now passing the fourth map[string]string argument
+// 					)
+// 					res.PolicyResponse.Rules = append(res.PolicyResponse.Rules, skip)
+// 				}
+// 			}
 
-			// 3) record & collect the response
-			rc.AddMutatingAdmissionPolicyResponse(res)
-			responses = append(responses, res)
-		}
-	}
+// 			// 3) record & collect the response
+// 			rc.AddMutatingAdmissionPolicyResponse(res)
+// 			responses = append(responses, res)
+// 		}
+// 	}
 
-	return responses, nil
-}
+// 	return responses, nil
+// }
 
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, c.ClusterWideResources, "")

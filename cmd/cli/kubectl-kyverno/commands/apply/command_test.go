@@ -831,58 +831,6 @@ func TestCommandHelp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
-
-// func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, policyreportv1alpha2.PolicyReportSummary, policyreportv1alpha2.PolicyReportSummary, string)) {
-// 	if tc.stdinFile != "" {
-// 		oldStdin := os.Stdin
-// 		input, err := os.OpenFile(tc.stdinFile, os.O_RDONLY, 0)
-// 		assert.NoError(t, err)
-// 		os.Stdin = input
-// 		defer func() {
-// 			os.Stdin = oldStdin
-// 			_ = input.Close()
-// 		}()
-// 	}
-// 	desc := fmt.Sprintf("Policies: [%s], / Resources: [%s], JSON payload: [%s]",
-// 		strings.Join(tc.config.PolicyPaths, ","),
-// 		strings.Join(tc.config.ResourcePaths, ","),
-// 		strings.Join(tc.config.JSONPaths, ","),
-// 	)
-
-// 	// Call applyCommandHelper and capture EngineResponses.
-// 	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
-// 	assert.NoError(t, err, desc)
-
-// 	// **** STEP 2: Debugging MAP Mutation Responses ****
-// 	// Loop over the responses and print details. This helps you see what mutate.MutateResource returned.
-// 	fmt.Println("DEBUG: Engine Responses from applyCommandHelper:")
-// 	for i, resp := range responses {
-// 		policyName := "unknown"
-// 		if resp.Policy() != nil {
-// 			policyName = resp.Policy().GetName()
-// 		}
-// 		namespace := resp.Resource.GetNamespace()
-// 		name := resp.Resource.GetName()
-// 		fmt.Printf("Response %d: Policy: %s, Resource: %s/%s, Outcome: %+v\n",
-// 			i, policyName, namespace, name, resp.PolicyResponse)
-// 	}
-
-// 	// **** STEP 3: Debugging Report Aggregation ****
-// 	// Compute and log the aggregated (cluster) reports.
-// 	clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
-// 	fmt.Printf("DEBUG: Clustered reports (pre-merge): %+v\n", clustered)
-// 	combined := []policyreportv1alpha2.ClusterPolicyReport{
-// 		report.MergeClusterReports(clustered),
-// 	}
-// 	fmt.Printf("DEBUG: Combined Cluster Policy Report summary: %+v\n", combined)
-
-// 	// Now compare the aggregated summary with the expected one.
-// 	assert.Equal(t, len(combined), len(tc.expectedPolicyReports), "Number of combined reports does not match expected: "+desc)
-// 	for i, resp := range combined {
-// 		compareSummary(t, tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
-// 	}
-// }
-
 func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
@@ -894,7 +842,7 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
-					Pass:  2,
+					Pass:  1,
 					Fail:  0,
 					Skip:  0,
 					Error: 0,

@@ -54,13 +54,13 @@ type LoaderError struct {
 }
 
 type LoaderResults struct {
-	Policies                  []kyvernov1.PolicyInterface
-	VAPs                      []admissionregistrationv1.ValidatingAdmissionPolicy
-	VAPBindings               []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MAPs                      []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	ValidatingPolicies        []policiesv1alpha1.ValidatingPolicy
+	Policies                []kyvernov1.PolicyInterface
+	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
+	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MAPs                    []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
 	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
-	NonFatalErrors            []LoaderError
+	NonFatalErrors          []LoaderError
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {

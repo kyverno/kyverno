@@ -225,9 +225,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			continue
 		}
 		if !mutateResponse.IsEmpty() {
-			if p.Rc != nil {
-				p.Rc.addMutateResponse(mutateResponse)
-			}
 			mapResponses = append(mapResponses, mutateResponse)
 			resource = mutateResponse.PatchedResource
 			if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
@@ -309,7 +306,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
+				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
