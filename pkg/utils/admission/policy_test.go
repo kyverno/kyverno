@@ -89,8 +89,8 @@ func TestUnmarshalPolicy(t *testing.T) {
 				if err := json.Unmarshal(test.raw, &expectedPolicy); err != nil {
 					expectedPolicy = nil
 				}
-				if !reflect.DeepEqual(policy.AsImageVerificationPolicy(), expectedPolicy) {
-					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsImageVerificationPolicy())
+				if !reflect.DeepEqual(policy.AsImageValidatingPolicy(), expectedPolicy) {
+					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsImageValidatingPolicy())
 				}
 			default:
 				if !reflect.DeepEqual(policy, nil) {
