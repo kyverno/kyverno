@@ -518,8 +518,7 @@ func main() {
 		// bootstrap non leader controllers
 		if nonLeaderBootstrap != nil {
 			if err := nonLeaderBootstrap(signalCtx); err != nil {
-				setup.Logger.Error(err, "failed to bootstrap non leader controllers")
-				os.Exit(1)
+				setup.Logger.Error(err, "warning: failed to bootstrap non leader controllers")
 			}
 		}
 		// setup leader election

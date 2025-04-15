@@ -906,12 +906,27 @@ test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-mutate test-cli-local-generate test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-ivpols test-cli-local-vaps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-cel-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
 
 .PHONY: test-cli-local-validate
 test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
 	@echo Running local cli validation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test
+
+.PHONY: test-cli-local-vpols
+test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests
+	@echo Running local cli vpol tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-validating-policy
+
+.PHONY: test-cli-local-ivpols
+test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
+	@echo Running local cli ivpol tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-image-validating-policy
+
+.PHONY: test-cli-local-vaps
+test-cli-local-vaps: $(CLI_BIN) ## Run local CLI VAP tests
+	@echo Running local cli vap tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-validating-admission-policy
 
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
@@ -922,6 +937,16 @@ test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
 test-cli-local-generate: $(CLI_BIN) ## Run local CLI generation tests
 	@echo Running local cli generation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-generate
+
+.PHONY: test-cli-local-exceptions
+test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
+	@echo Running local cli exception tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-exceptions
+
+.PHONY: test-cli-local-cel-exceptions
+test-cli-local-cel-exceptions: $(CLI_BIN) ## Run local CLI cel exception tests
+	@echo Running local cli cel exception tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-cel-exceptions
 
 .PHONY: test-cli-local-selector
 test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)

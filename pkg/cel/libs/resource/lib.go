@@ -40,7 +40,6 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"List": {
-			// TODO: should not use DynType in return
 			cel.MemberOverload(
 				"resource_list_string_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType},
@@ -49,7 +48,6 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			),
 		},
 		"Get": {
-			// TODO: should not use DynType in return
 			cel.MemberOverload(
 				"resource_get_string_string_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType},

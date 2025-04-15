@@ -146,7 +146,7 @@ func (s *scanner) ScanResource(
 			// create compiler
 			compiler := celpolicy.NewCompiler()
 			// create provider
-			provider, err := celengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, nil)
+			provider, err := celengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
@@ -202,7 +202,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range ivpols {
 		if pol := policy.AsImageValidatingPolicy(); pol != nil {
 			// create provider
-			provider, err := celengine.NewIVPOLProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol}, nil)
+			provider, err := celengine.NewIVPOLProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}

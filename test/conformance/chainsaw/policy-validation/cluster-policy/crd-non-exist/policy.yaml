@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-node-pool-deletion
+spec:
+  background: false
+  rules:
+  - name: prevent-node-pool-deletion
+    match:
+      any:
+      - resources:
+          kinds:
+          - eks.aws.upbound.io/*/NodeGroup # applies to AWS/EKS only
+    preconditions:
+      all:
+      - key: '{{ request.operation }}'
+        operator: In
+        value:
+        - DELETE
+      - key: '{{ request.userInfo.username }}'
+        operator: NotEquals
+        value: system:serviceaccount:our-tool:our-tool
+    validate:
+      deny: {}
+      message: SOME MESSAGE
+  - name: add-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - eks.aws.upbound.io/*/NodeGroup # applies to AWS/EKS only
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar
+  validationFailureAction: Enforce
