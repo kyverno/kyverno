@@ -15,6 +15,7 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
@@ -38,14 +39,17 @@ var (
 	ivpV1alpha1           = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	LegacyLoader          = legacyLoader
 	KubectlValidateLoader = kubectlValidateLoader
-	// defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
-	// 	if experimental.UseKubectlValidate() {
-	// 		return KubectlValidateLoader(path, bytes)
-	// 	} else {
-	// 		return LegacyLoader(path, bytes)
-	// 	}
-	// }
-	defaultLoader = LegacyLoader
+	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
+		if experimental.UseKubectlValidate() {
+			fmt.Println("Using KubectlLoader")
+			return KubectlValidateLoader(path, bytes)
+		} else {
+			fmt.Println("Using LegacyLoader")
+			return LegacyLoader(path, bytes)
+
+		}
+	}
+	//defaultLoader = LegacyLoader
 )
 
 type LoaderError struct {
@@ -87,7 +91,8 @@ func (l *LoaderResults) addError(path string, err error) {
 type loader = func(string, []byte) (*LoaderResults, error)
 
 func Load(fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
-	return LoadWithLoader(nil, fs, resourcePath, paths...)
+	fmt.Println(" DEBUG: defaultLoader")
+	return LoadWithLoader(defaultLoader, fs, resourcePath, paths...)
 }
 
 func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
@@ -131,7 +136,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		return nil, err
 	}
 	factory, err := resourceloader.New(openapiclient.NewComposite(
-		openapiclient.NewHardcodedBuiltins("1.30"),
+		openapiclient.NewHardcodedBuiltins("1.32"),
 		openapiclient.NewLocalCRDFiles(crds),
 	))
 	if err != nil {

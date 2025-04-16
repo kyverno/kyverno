@@ -145,19 +145,19 @@ func (rc *ResultCounts) AddValidatingPolicyResponse(engineResponse engineapi.Eng
 	}
 }
 
-// func (rc *ResultCounts) AddMutatingAdmissionPolicyResponse(engineResponse engineapi.EngineResponse) {
-// 	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
-// 		switch ruleResp.Status() {
-// 		case engineapi.RuleStatusPass:
-// 			rc.Pass++
-// 		case engineapi.RuleStatusFail:
-// 			rc.Fail++
-// 		case engineapi.RuleStatusError:
-// 			rc.Error++
-// 		case engineapi.RuleStatusWarn:
-// 			rc.Warn++
-// 		case engineapi.RuleStatusSkip:
-// 			rc.Skip++
-// 		}
-// 	}
-// }
+func (rc *ResultCounts) AddMutatingAdmissionPolicyResponse(engineResponse engineapi.EngineResponse) {
+	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
+		switch ruleResp.Status() {
+		case engineapi.RuleStatusPass:
+			rc.Pass++
+		case engineapi.RuleStatusFail:
+			rc.Fail++
+		case engineapi.RuleStatusError:
+			rc.Error++
+		case engineapi.RuleStatusWarn:
+			rc.Warn++
+		case engineapi.RuleStatusSkip:
+			rc.Skip++
+		}
+	}
+}

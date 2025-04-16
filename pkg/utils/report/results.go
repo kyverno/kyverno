@@ -140,6 +140,10 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	if pss != nil && len(pss.Checks) > 0 {
 		addPodSecurityProperties(pss, &result)
 	}
+	if pol.AsMutatingAdmissionPolicy() != nil {
+		result.Source = "MutatingAdmissionPolicy"
+	}
+
 	if pol.AsValidatingAdmissionPolicy() != nil {
 		result.Source = SourceValidatingAdmissionPolicy
 		result.Policy = ruleResult.Name()

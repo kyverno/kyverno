@@ -226,6 +226,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		if !mutateResponse.IsEmpty() {
 			mapResponses = append(mapResponses, mutateResponse)
+			p.Rc.AddMutatingAdmissionPolicyResponse(mutateResponse)
 			resource = mutateResponse.PatchedResource
 			if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
 				log.Log.Error(err, "failed to log MAP mutation")

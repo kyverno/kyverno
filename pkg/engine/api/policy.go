@@ -28,6 +28,7 @@ type GenericPolicy interface {
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
+	AsMutatingAdmissionPolicy() *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 }
 
 type genericPolicy struct {
@@ -49,6 +50,9 @@ func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 
 func (p *genericPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy {
 	return p.ValidatingAdmissionPolicy
+}
+func (p *genericPolicy) AsMutatingAdmissionPolicy() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
+	return p.MutatingAdmissionPolicy
 }
 
 func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy {
