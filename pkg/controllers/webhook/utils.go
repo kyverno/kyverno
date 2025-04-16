@@ -176,26 +176,6 @@ func less[T cmp.Ordered](a []T, b []T) int {
 }
 
 const (
-	ValidatingPolicyType    = "ValidatingPolicy"
-	ImageVerificationPolicy = "ImageVerificationPolicy"
+	ValidatingPolicyType  = "ValidatingPolicy"
+	ImageValidatingPolicy = "ImageValidatingPolicy"
 )
-
-// ParsePolicyKey builds policy key in kind/name format
-func BuildPolicyKey(policyType, name string) string {
-	switch policyType {
-	case ValidatingPolicyType:
-		return ValidatingPolicyType + "/" + name
-	case ImageVerificationPolicy:
-		return ImageVerificationPolicy + "/" + name
-	}
-	return ""
-}
-
-// ParsePolicyKey parses policy key in kind/name format
-func ParsePolicyKey(key string) (policyType, name string) {
-	vars := strings.Split(key, "/")
-	if len(vars) < 2 {
-		return "", ""
-	}
-	return vars[0], vars[1]
-}

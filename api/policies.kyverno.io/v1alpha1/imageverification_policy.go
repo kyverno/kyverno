@@ -14,14 +14,14 @@ import (
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=imageverificationpolicies,scope="Cluster",shortName=ivpol,categories=kyverno
+// +kubebuilder:resource:path=imagevalidatingpolicies,scope="Cluster",shortName=ivpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ImageVerificationPolicy struct {
+type ImageValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              ImageVerificationPolicySpec `json:"spec"`
+	Spec              ImageValidatingPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
 	Status IvpolStatus `json:"status,omitempty"`
@@ -41,11 +41,11 @@ type IvpolAutogenStatus struct {
 }
 
 type IvpolAutogen struct {
-	Name string                      `json:"name,omitempty"`
-	Spec ImageVerificationPolicySpec `json:"spec"`
+	Name string                    `json:"name,omitempty"`
+	Spec ImageValidatingPolicySpec `json:"spec"`
 }
 
-func (s *ImageVerificationPolicy) GetName() string {
+func (s *ImageValidatingPolicy) GetName() string {
 	name := s.Name
 	if s.Annotations == nil {
 		if _, found := s.Annotations[kyverno.AnnotationAutogenControllers]; found {
@@ -59,46 +59,46 @@ func (s *ImageVerificationPolicy) GetName() string {
 	return name
 }
 
-func (s *ImageVerificationPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+func (s *ImageValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
 	if s.Spec.MatchConstraints == nil {
 		return admissionregistrationv1.MatchResources{}
 	}
 	return *s.Spec.MatchConstraints
 }
 
-func (s *ImageVerificationPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+func (s *ImageValidatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
 	return s.Spec.MatchConditions
 }
 
-func (s *ImageVerificationPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+func (s *ImageValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
 	return s.Spec.WebhookConfiguration
 }
 
-func (s *ImageVerificationPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+func (s *ImageValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail
 	}
 	return *s.Spec.FailurePolicy
 }
 
-func (s *ImageVerificationPolicy) GetVariables() []admissionregistrationv1.Variable {
+func (s *ImageValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
 }
 
-func (s *ImageVerificationPolicy) GetSpec() *ImageVerificationPolicySpec {
+func (s *ImageValidatingPolicy) GetSpec() *ImageValidatingPolicySpec {
 	return &s.Spec
 }
 
-func (s *ImageVerificationPolicy) GetStatus() *IvpolStatus {
+func (s *ImageValidatingPolicy) GetStatus() *IvpolStatus {
 	return &s.Status
 }
 
-func (s *ImageVerificationPolicy) GetKind() string {
-	return "ImageVerificationPolicy"
+func (s *ImageValidatingPolicy) GetKind() string {
+	return "ImageValidatingPolicy"
 }
 
 // AdmissionEnabled checks if admission is set to true
-func (s ImageVerificationPolicySpec) AdmissionEnabled() bool {
+func (s ImageValidatingPolicySpec) AdmissionEnabled() bool {
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
 		return true
 	}
@@ -106,7 +106,7 @@ func (s ImageVerificationPolicySpec) AdmissionEnabled() bool {
 }
 
 // BackgroundEnabled checks if background is set to true
-func (s ImageVerificationPolicySpec) BackgroundEnabled() bool {
+func (s ImageValidatingPolicySpec) BackgroundEnabled() bool {
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
 		return true
 	}
@@ -135,11 +135,11 @@ func (status *IvpolStatus) GetConditionStatus() *ConditionStatus {
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ImageVerificationPolicyList is a list of ImageVerificationPolicy instances
-type ImageVerificationPolicyList struct {
+// ImageValidatingPolicyList is a list of ImageValidatingPolicy instances
+type ImageValidatingPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []ImageVerificationPolicy `json:"items"`
+	Items           []ImageValidatingPolicy `json:"items"`
 }
 
 // CredentialsProvidersType provides the list of credential providers required.
@@ -154,8 +154,8 @@ const (
 	GHCR    CredentialsProvidersType = "github"
 )
 
-// ImageVerificationPolicySpec is the specification of the desired behavior of the ImageVerificationPolicy.
-type ImageVerificationPolicySpec struct {
+// ImageValidatingPolicySpec is the specification of the desired behavior of the ImageValidatingPolicy.
+type ImageValidatingPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to validate.
 	// +optional
 	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints"`
@@ -221,9 +221,9 @@ type ImageVerificationPolicySpec struct {
 	// +optional
 	Attestations []Attestation `json:"attestations"`
 
-	// Verifications contain CEL expressions which is used to apply the image verification checks.
+	// Validations contain CEL expressions which is used to apply the image validation checks.
 	// +listType=atomic
-	Verifications []admissionregistrationv1.Validation `json:"verifications"`
+	Validations []admissionregistrationv1.Validation `json:"validations"`
 
 	// WebhookConfiguration defines the configuration for the webhook.
 	// +optional
@@ -232,6 +232,10 @@ type ImageVerificationPolicySpec struct {
 	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
+
+	// AutogenConfiguration defines the configuration for the generation controller.
+	// +optional
+	AutogenConfiguration *ImageValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 }
 
 // ImageRule defines a Glob or a CEL expression for matching images
@@ -248,7 +252,7 @@ type Image struct {
 	// Name is the name for this imageList. It is used to refer to the images in verification block as images.<name>
 	Name string `json:"name"`
 
-	// Expression defines CEL expression to extact images from the resource.
+	// Expression defines CEL expression to extract images from the resource.
 	Expression string `json:"expression"`
 }
 
@@ -490,9 +494,14 @@ type Referrer struct {
 }
 
 // EvaluationMode returns the evaluation mode of the policy.
-func (s ImageVerificationPolicySpec) EvaluationMode() EvaluationMode {
+func (s ImageValidatingPolicySpec) EvaluationMode() EvaluationMode {
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
 		return EvaluationModeKubernetes
 	}
 	return s.EvaluationConfiguration.Mode
+}
+
+type ImageValidatingPolicyAutogenConfiguration struct {
+	// PodControllers specifies whether to generate a pod controllers rules.
+	PodControllers *PodControllersGenerationConfiguration `json:"podControllers,omitempty"`
 }

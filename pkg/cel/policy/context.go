@@ -2,7 +2,6 @@ package policy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -62,15 +61,6 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 			return nil, errors.New("failed to convert to Unstructured")
 		}
 	} else {
-		raw, err := json.Marshal(data)
-		if err != nil {
-			return nil, err
-		}
-		apiData := map[string]any{}
-		err = json.Unmarshal(raw, &apiData)
-		if err != nil {
-			return nil, err
-		}
 		return data, nil
 	}
 }
@@ -118,6 +108,15 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	}
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
+}
+
+func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	groupVersion, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
+	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {

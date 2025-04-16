@@ -30,7 +30,7 @@ const (
 	VariablesKey       = "variables"
 )
 
-func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	switch policy.GetSpec().EvaluationMode() {
 	case policiesv1alpha1.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
@@ -39,7 +39,7 @@ func (c *compiler) CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, 
 	}
 }
 
-func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -77,7 +77,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		errs := compileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		errs := CompileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -104,7 +104,7 @@ func (c *compiler) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exc
 	}, nil
 }
 
-func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []policiesv1alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -153,7 +153,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		errs := compileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		errs := CompileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -191,7 +191,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		}
 		// compile variables
 		variables := map[string]cel.Program{}
-		errs = compileVariables(autogenPath.Index(i).Child("variables"), rule.Variables, variablesProvider, env, variables)
+		errs = CompileVariables(autogenPath.Index(i).Child("variables"), rule.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -220,15 +220,15 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 	}
 
 	// exceptions' match conditions
-	compiledExceptions := make([]compiledException, 0, len(exceptions))
+	compiledExceptions := make([]CompiledException, 0, len(exceptions))
 	for _, polex := range exceptions {
 		polexMatchConditions, errs := CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
-		compiledExceptions = append(compiledExceptions, compiledException{
-			exception:       polex,
-			matchConditions: polexMatchConditions,
+		compiledExceptions = append(compiledExceptions, CompiledException{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
 		})
 	}
 
@@ -266,7 +266,7 @@ func CompileMatchConditions(path *field.Path, matchConditions []admissionregistr
 	return result, nil
 }
 
-func compileVariables(path *field.Path, variables []admissionregistrationv1.Variable, variablesProvider *variablesProvider, env *cel.Env, result map[string]cel.Program) field.ErrorList {
+func CompileVariables(path *field.Path, variables []admissionregistrationv1.Variable, variablesProvider *variablesProvider, env *cel.Env, result map[string]cel.Program) field.ErrorList {
 	var allErrs field.ErrorList
 	for i, variable := range variables {
 		path := path.Index(i).Child("expression")

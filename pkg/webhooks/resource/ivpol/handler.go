@@ -20,11 +20,11 @@ import (
 
 type handler struct {
 	context celpolicy.Context
-	engine  celengine.ImageVerifyEngine
+	engine  celengine.ImageValidatingEngine
 }
 
 func New(
-	engine celengine.ImageVerifyEngine,
+	engine celengine.ImageValidatingEngine,
 	context celpolicy.Context,
 ) *handler {
 	return &handler{

@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: validatingpolicies.policies.kyverno.io
 spec:
   group: policies.kyverno.io
@@ -108,6 +108,30 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
+              autogen:
+                description: AutogenConfiguration defines the configuration for the
+                  generation controller.
+                properties:
+                  podControllers:
+                    description: PodControllers specifies whether to generate a pod
+                      controllers rules.
+                    properties:
+                      controllers:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  validatingAdmissionPolicy:
+                    description: ValidatingAdmissionPolicy specifies whether to generate
+                      a Kubernetes ValidatingAdmissionPolicy.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+                          Optional. Defaults to "false" if not specified.
+                        type: boolean
+                    type: object
+                type: object
               evaluation:
                 description: EvaluationConfiguration defines the configuration for
                   the policy evaluation.
@@ -157,12 +181,6 @@ spec:
 
                   Allowed values are Ignore or Fail. Defaults to Fail.
                 type: string
-              generate:
-                default: false
-                description: |-
-                  Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-                  Optional. Defaults to "false" if not specified.
-                type: boolean
               matchConditions:
                 description: |-
                   MatchConditions is a list of conditions that must be met for a request to be validated.

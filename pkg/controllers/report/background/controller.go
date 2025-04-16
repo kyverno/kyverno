@@ -65,9 +65,9 @@ type controller struct {
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
-	ivpolLister      policiesv1alpha1listers.ImageVerificationPolicyLister
+	ivpolLister      policiesv1alpha1listers.ImageValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
-	celpolexListener policiesv1alpha1listers.CELPolicyExceptionLister
+	celpolexListener policiesv1alpha1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	bgscanrLister    cache.GenericLister
@@ -98,8 +98,8 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageVerificationPolicyInformer,
-	celpolexlInformer policiesv1alpha1informers.CELPolicyExceptionInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
@@ -221,15 +221,15 @@ func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 	}
 }
 
-func (c *controller) deleteCELPolicy(obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) deleteCELPolicy(obj *policiesv1alpha1.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addCELException(obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) addCELException(obj *policiesv1alpha1.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateCELException(old, obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) updateCELException(old, obj *policiesv1alpha1.PolicyException) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
@@ -253,17 +253,17 @@ func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addIVP(obj *policiesv1alpha1.ImageVerificationPolicy) {
+func (c *controller) addIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageVerificationPolicy) {
+func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageVerificationPolicy) {
+func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
@@ -386,7 +386,7 @@ func (c *controller) reconcileReport(
 	gvr schema.GroupVersionResource,
 	resource resource.Resource,
 	exceptions []kyvernov2.PolicyException,
-	celexceptions []*policiesv1alpha1.CELPolicyException,
+	celexceptions []*policiesv1alpha1.PolicyException,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) error {
@@ -440,8 +440,8 @@ func (c *controller) reconcileReport(
 				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy()).String()
 			} else if policy.AsValidatingPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
-			} else if policy.AsImageVerificationPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsImageVerificationPolicy()).String()
+			} else if policy.AsImageValidatingPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsImageValidatingPolicy()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
@@ -621,7 +621,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			return err
 		}
 		for _, vpol := range policy.RemoveNoneBackgroundImageVerificationPolicies(ivpols) {
-			policies = append(policies, engineapi.NewImageVerificationPolicy(&vpol))
+			policies = append(policies, engineapi.NewImageValidatingPolicy(&vpol))
 		}
 	}
 	if c.vapLister != nil {

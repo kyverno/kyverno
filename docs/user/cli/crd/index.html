@@ -201,6 +201,17 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
 </tr>
 <tr>
 <td>
+<code>jsonPayload</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>JSONPayload is the JSON payload to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>targetResources</code><br/>
 <em>
 []string
@@ -1127,6 +1138,19 @@ bool
 <em>(Optional)</em>
 <p>IsValidatingPolicy indicates if the policy is a validating policy.
 It&rsquo;s required in case the policy is a validating policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isImageValidatingPolicy</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsImageValidatingPolicy indicates if the policy is an image validating policy.
+It&rsquo;s required in case the policy is an image validating policy.</p>
 </td>
 </tr>
 <tr>
