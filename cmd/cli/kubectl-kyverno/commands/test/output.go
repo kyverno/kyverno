@@ -491,7 +491,6 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 						b.WriteString(fmt.Sprintf("    Message: %s\n   ]]></system-out>\n", policyRow.Message))
 					}
 				}
-
 				b.WriteString("  </testcase>\n")
 			}
 			b.WriteString(" </testsuite>\n")
