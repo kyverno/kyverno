@@ -9,6 +9,10 @@ metadata:
   {{- else }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- end }}
+  annotations:
+    {{- with .Values.backgroundController.serviceMonitor.additionalAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
     {{- with .Values.backgroundController.serviceMonitor.additionalLabels }}
