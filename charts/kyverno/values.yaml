@@ -6,6 +6,7 @@ templating:
   version: ~
 
 global:
+
   image:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
@@ -73,10 +74,12 @@ rbac:
 
 # CRDs configuration
 crds:
+
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
   groups:
+
     # -- Install CRDs in group `kyverno.io`
     kyverno:
       cleanuppolicies: true
@@ -105,8 +108,7 @@ crds:
       policyreports: true
 
   # -- Additional CRDs annotations
-  annotations:
-    {}
+  annotations: {}
     # argocd.argoproj.io/sync-options: Replace=true
     # strategy.spinnaker.io/replace: 'true'
 
@@ -114,6 +116,7 @@ crds:
   customLabels: {}
 
   migration:
+
     # -- Enable CRDs migration using helm post upgrade hook
     enabled: true
 
@@ -183,6 +186,7 @@ crds:
 
 # Configuration
 config:
+
   # -- Create the configmap.
   create: true
 
@@ -206,8 +210,7 @@ config:
     - system:nodes
 
   # -- Exclude usernames
-  excludeUsernames:
-    []
+  excludeUsernames: []
     # - '!system:kube-scheduler'
 
   # -- Exclude roles
@@ -224,23 +227,23 @@ config:
   # These are joined together without spaces, run through `tpl`, and the result is set in the config map.
   # @default -- See [values.yaml](values.yaml)
   resourceFilters:
-    - "[Event,*,*]"
-    - "[*/*,kube-system,*]"
-    - "[*/*,kube-public,*]"
-    - "[*/*,kube-node-lease,*]"
-    - "[Node,*,*]"
-    - "[Node/*,*,*]"
-    - "[APIService,*,*]"
-    - "[APIService/*,*,*]"
-    - "[TokenReview,*,*]"
-    - "[SubjectAccessReview,*,*]"
-    - "[SelfSubjectAccessReview,*,*]"
-    - "[Binding,*,*]"
-    - "[Pod/binding,*,*]"
-    - "[ReplicaSet,*,*]"
-    - "[ReplicaSet/*,*,*]"
-    - "[EphemeralReport,*,*]"
-    - "[ClusterEphemeralReport,*,*]"
+    - '[Event,*,*]'
+    - '[*/*,kube-system,*]'
+    - '[*/*,kube-public,*]'
+    - '[*/*,kube-node-lease,*]'
+    - '[Node,*,*]'
+    - '[Node/*,*,*]'
+    - '[APIService,*,*]'
+    - '[APIService/*,*,*]'
+    - '[TokenReview,*,*]'
+    - '[SubjectAccessReview,*,*]'
+    - '[SelfSubjectAccessReview,*,*]'
+    - '[Binding,*,*]'
+    - '[Pod/binding,*,*]'
+    - '[ReplicaSet,*,*]'
+    - '[ReplicaSet/*,*,*]'
+    - '[EphemeralReport,*,*]'
+    - '[ClusterEphemeralReport,*,*]'
     # exclude resources from the chart
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}]'
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:core]'
@@ -338,10 +341,10 @@ config:
     # Exclude namespaces
     namespaceSelector:
       matchExpressions:
-        - key: kubernetes.io/metadata.name
-          operator: NotIn
-          values:
-            - kube-system
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+          - kube-system
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:
@@ -351,11 +354,10 @@ config:
   # -- Defines annotations to set on webhook configurations.
   webhookAnnotations:
     # Example to disable admission enforcer on AKS:
-    "admissions.enforcer/disabled": "true"
+    'admissions.enforcer/disabled': 'true'
 
   # -- Defines labels to set on webhook configurations.
-  webhookLabels:
-    {}
+  webhookLabels: {}
     # Example to adopt webhook resources in ArgoCD:
     # 'argocd.argoproj.io/instance': 'kyverno'
 
@@ -384,6 +386,7 @@ config:
 
 # Metrics configuration
 metricsConfig:
+
   # -- Create the configmap.
   create: true
 
@@ -394,6 +397,7 @@ metricsConfig:
   annotations: {}
 
   namespaces:
+
     # -- List of namespaces to capture metrics for.
     include: []
 
@@ -405,15 +409,13 @@ metricsConfig:
   # metricsRefreshInterval: 24h
 
   # -- (list) Configures the bucket boundaries for all Histogram metrics, changing this configuration requires restart of the kyverno admission controller
-  bucketBoundaries:
-    [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30]
+  bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30]
 
   # -- (map) Configures the exposure of individual metrics, by default all metrics and all labels are exported, changing this configuration requires restart of the kyverno admission controller
   metricsExposure:
     kyverno_policy_execution_duration_seconds:
       # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
-      disabledLabelDimensions:
-        ["resource_namespace", "resource_request_operation"]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
     kyverno_admission_review_duration_seconds:
       # enabled: false
       disabledLabelDimensions: ["resource_namespace"]
@@ -427,8 +429,7 @@ metricsConfig:
       disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
 
 # -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
-imagePullSecrets:
-  {}
+imagePullSecrets: {}
   # regcred:
   #   registry: foo.example.com
   #   username: foobar
@@ -439,8 +440,7 @@ imagePullSecrets:
   #   password: secret2
 
 # -- Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
-existingImagePullSecrets:
-  []
+existingImagePullSecrets: []
   # - test-registry
   # - other-test-registry
 
@@ -456,7 +456,7 @@ test:
     repository: busybox
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: "1.35"
+    tag: '1.35'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -507,7 +507,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: "1.32.3"
+    tag: '1.32.3'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -564,7 +564,7 @@ policyReportsCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: "1.32.3"
+    tag: '1.32.3'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -713,7 +713,7 @@ features:
     enabled: false
     # -- Restrict policy exceptions to a single namespace
     # Set to "*" to allow exceptions in all namespaces
-    namespace: ""
+    namespace: ''
   protectManagedResources:
     # -- Enables the feature
     enabled: false
@@ -722,11 +722,11 @@ features:
     allowInsecure: false
     # -- Enable registry client helpers
     credentialHelpers:
-      - default
-      - google
-      - amazon
-      - azure
-      - github
+    - default
+    - google
+    - amazon
+    - azure
+    - github
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
@@ -779,8 +779,7 @@ admissionController:
       name:
 
       # -- Annotations for the ServiceAccount
-      annotations:
-        {}
+      annotations: {}
         # example.com/annotation: value
 
     coreClusterRole:
@@ -815,13 +814,11 @@ admissionController:
   resyncPeriod: 15m
 
   # -- Additional labels to add to each pod
-  podLabels:
-    {}
+  podLabels: {}
     # example.com/label: foo
 
   # -- Additional annotations to add to each pod
-  podAnnotations:
-    {}
+  podAnnotations: {}
     # example.com/annotation: foo
 
   # -- Deployment annotations.
@@ -837,7 +834,7 @@ admissionController:
     type: RollingUpdate
 
   # -- Optional priority class
-  priorityClassName: ""
+  priorityClassName: ''
 
   # -- Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno admission controller activities.
   # This will help ensure Kyverno stability in busy clusters.
@@ -874,8 +871,7 @@ admissionController:
 
   # -- `dnsConfig` allows to specify DNS configuration for the pod.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
-  dnsConfig:
-    {}
+  dnsConfig: {}
     # options:
     #   - name: ndots
     #     value: "2"
@@ -991,11 +987,11 @@ admissionController:
     #   type: File
 
   # -- Image pull secrets
-  imagePullSecrets:
-    []
+  imagePullSecrets: []
     # - secretName
 
   initContainer:
+
     image:
       # -- Image registry
       registry: ~
@@ -1042,6 +1038,7 @@ admissionController:
     #   value: 'https://proxy.example.com:3128'
 
   container:
+
     image:
       # -- Image registry
       registry: ~
@@ -1086,15 +1083,13 @@ admissionController:
     #   value: 'https://proxy.example.com:3128'
 
   # -- Array of extra init containers
-  extraInitContainers:
-    []
+  extraInitContainers: []
     # - name: init-container
     #   image: busybox
     #   command: ['sh', '-c', 'echo Hello']
 
   # -- Array of extra containers to run alongside kyverno
-  extraContainers:
-    []
+  extraContainers: []
     # - name: myapp-container
     #   image: busybox
     #   command: ['sh', '-c', 'echo Hello && sleep 3600']
@@ -1161,7 +1156,7 @@ admissionController:
     # -- Traces receiver port
     port:
     # -- Traces receiver credentials
-    creds: ""
+    creds: ''
 
   metering:
     # -- Disable metrics export
@@ -1171,9 +1166,9 @@ admissionController:
     # -- Prometheus endpoint port
     port: 8000
     # -- Otel collector endpoint
-    collector: ""
+    collector: ''
     # -- Otel collector credentials
-    creds: ""
+    creds: ''
 
   profiling:
     # -- Enable profiling
@@ -1188,6 +1183,7 @@ admissionController:
 
 # Background controller configuration
 backgroundController:
+
   # -- Overrides features defined at the root level
   featuresOverride: {}
 
@@ -1209,8 +1205,7 @@ backgroundController:
       name:
 
       # -- Annotations for the ServiceAccount
-      annotations:
-        {}
+      annotations: {}
         # example.com/annotation: value
 
     coreClusterRole:
@@ -1240,7 +1235,7 @@ backgroundController:
             - patch
             - delete
         - apiGroups:
-            - ""
+            - ''
           resources:
             - configmaps
             - resourcequotas
@@ -1277,8 +1272,7 @@ backgroundController:
     pullPolicy: IfNotPresent
 
   # -- Image pull secrets
-  imagePullSecrets:
-    []
+  imagePullSecrets: []
     # - secretName
 
   # -- (int) Desired number of pods
@@ -1311,7 +1305,7 @@ backgroundController:
     type: RollingUpdate
 
   # -- Optional priority class
-  priorityClassName: ""
+  priorityClassName: ''
 
   # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
@@ -1325,8 +1319,7 @@ backgroundController:
 
   # -- `dnsConfig` allows to specify DNS configuration for the pod.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
-  dnsConfig:
-    {}
+  dnsConfig: {}
     # options:
     #   - name: ndots
     #     value: "2"
@@ -1437,6 +1430,7 @@ backgroundController:
     annotations: {}
 
   networkPolicy:
+
     # -- When true, use a NetworkPolicy to allow ingress to the webhook
     # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
     enabled: false
@@ -1474,7 +1468,7 @@ backgroundController:
     # -- Traces receiver port
     port:
     # -- Traces receiver credentials
-    creds: ""
+    creds: ''
 
   metering:
     # -- Disable metrics export
@@ -1484,9 +1478,9 @@ backgroundController:
     # -- Prometheus endpoint port
     port: 8000
     # -- Otel collector endpoint
-    collector: ""
+    collector: ''
     # -- Otel collector credentials
-    creds: ""
+    creds: ''
 
   # -- backgroundController server port
   # in case you are using hostNetwork: true, you might want to change the port the backgroundController is listening to
@@ -1506,6 +1500,7 @@ backgroundController:
 
 # Cleanup controller configuration
 cleanupController:
+
   # -- Overrides features defined at the root level
   featuresOverride: {}
 
@@ -1521,8 +1516,7 @@ cleanupController:
       name:
 
       # -- Annotations for the ServiceAccount
-      annotations:
-        {}
+      annotations: {}
         # example.com/annotation: value
 
     clusterRole:
@@ -1554,8 +1548,7 @@ cleanupController:
     pullPolicy: IfNotPresent
 
   # -- Image pull secrets
-  imagePullSecrets:
-    []
+  imagePullSecrets: []
     # - secretName
 
   # -- (int) Desired number of pods
@@ -1588,7 +1581,7 @@ cleanupController:
     type: RollingUpdate
 
   # -- Optional priority class
-  priorityClassName: ""
+  priorityClassName: ''
 
   # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
@@ -1611,8 +1604,7 @@ cleanupController:
 
   # -- `dnsConfig` allows to specify DNS configuration for the pod.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
-  dnsConfig:
-    {}
+  dnsConfig: {}
     # options:
     #   - name: ndots
     #     value: "2"
@@ -1765,6 +1757,7 @@ cleanupController:
     annotations: {}
 
   networkPolicy:
+
     # -- When true, use a NetworkPolicy to allow ingress to the webhook
     # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
     enabled: false
@@ -1802,7 +1795,7 @@ cleanupController:
     # -- Traces receiver port
     port:
     # -- Traces receiver credentials
-    creds: ""
+    creds: ''
 
   metering:
     # -- Disable metrics export
@@ -1812,9 +1805,9 @@ cleanupController:
     # -- Prometheus endpoint port
     port: 8000
     # -- Otel collector endpoint
-    collector: ""
+    collector: ''
     # -- Otel collector credentials
-    creds: ""
+    creds: ''
 
   profiling:
     # -- Enable profiling
@@ -1829,6 +1822,7 @@ cleanupController:
 
 # Reports controller configuration
 reportsController:
+
   # -- Overrides features defined at the root level
   featuresOverride: {}
 
@@ -1850,8 +1844,7 @@ reportsController:
       name:
 
       # -- Annotations for the ServiceAccount
-      annotations:
-        {}
+      annotations: {}
         # example.com/annotation: value
 
     coreClusterRole:
@@ -1881,8 +1874,7 @@ reportsController:
     pullPolicy: IfNotPresent
 
   # -- Image pull secrets
-  imagePullSecrets:
-    []
+  imagePullSecrets: []
     # - secretName
 
   # -- (int) Desired number of pods
@@ -1915,7 +1907,7 @@ reportsController:
     type: RollingUpdate
 
   # -- Optional priority class
-  priorityClassName: ""
+  priorityClassName: ''
 
   # -- Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno reports controller activities.
   # This will help ensure Kyverno reports stability in busy clusters.
@@ -1947,8 +1939,7 @@ reportsController:
 
   # -- `dnsConfig` allows to specify DNS configuration for the pod.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
-  dnsConfig:
-    {}
+  dnsConfig: {}
     # options:
     #   - name: ndots
     #     value: "2"
@@ -2051,6 +2042,7 @@ reportsController:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+
   metricsService:
     # -- Create service.
     create: true
@@ -2066,6 +2058,7 @@ reportsController:
     annotations: {}
 
   networkPolicy:
+
     # -- When true, use a NetworkPolicy to allow ingress to the webhook
     # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
     enabled: false
