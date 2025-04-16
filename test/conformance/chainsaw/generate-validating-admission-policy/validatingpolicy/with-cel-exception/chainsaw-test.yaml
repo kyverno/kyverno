@@ -42,3 +42,7 @@ spec:
           # This check ensures the contents of stderr are exactly as shown.  
           (trim_space($stderr)): |-
             The deployments "bad-deployment" is invalid: : ValidatingAdmissionPolicy 'vpol-check-deployment-labels' with binding 'vpol-check-deployment-labels-binding' denied request: Deployment labels must be env=prod
+  - name: check validatingwebhookconfiguration
+    try:
+    - assert:
+        file: validatingwebhookconfiguration.yaml

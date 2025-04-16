@@ -35,7 +35,7 @@ func Test_impl_parse_service_account_string(t *testing.T) {
 			env, err := cel.NewEnv(opts)
 			assert.NoError(t, err)
 			assert.NotNil(t, env)
-			ast, issues := env.Compile(fmt.Sprintf(`user.ParseServiceAccount("%s")`, tt.user))
+			ast, issues := env.Compile(fmt.Sprintf(`parseServiceAccount("%s")`, tt.user))
 			fmt.Println(issues.String())
 			assert.Nil(t, issues)
 			assert.NotNil(t, ast)

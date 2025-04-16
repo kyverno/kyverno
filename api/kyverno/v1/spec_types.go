@@ -311,6 +311,10 @@ func (s *Spec) GetApplyRules() ApplyRulesType {
 	return *s.ApplyRules
 }
 
+func (s *Spec) GetRules() []Rule {
+	return s.Rules
+}
+
 // ValidateRuleNames checks if the rule names are unique across a policy
 func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 	names := sets.New[string]()

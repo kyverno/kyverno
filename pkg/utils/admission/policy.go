@@ -34,7 +34,7 @@ func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
-		return api.NewImageVerificationPolicy(policy), nil
+		return api.NewImageValidatingPolicy(policy), nil
 	}
 	return nil, fmt.Errorf("admission request does not contain a policy")
 }
