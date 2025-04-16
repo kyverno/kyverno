@@ -31,7 +31,7 @@ func Command() *cobra.Command {
 		Args:         cobra.MinimumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
-			if len(outputFormat) > 0 && outputFormat != "table" {
+			if len(outputFormat) > 0 {
 				removeColor = true
 			}
 			color.Init(removeColor)
@@ -41,7 +41,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "Test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "policy=*,rule=*,resource=*", "Filter test cases to run")
-	cmd.Flags().StringVarP(&outputFormat, "output-format", "o", "", "Specifies the output format (json, yaml, markdown, junit, table). Default: table. ")
+	cmd.Flags().StringVarP(&outputFormat, "output-format", "o", "", "Specifies the output format (json, yaml, markdown, junit) ")
 	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
@@ -79,10 +79,9 @@ func testCommandExecute(
 			"yaml":     true,
 			"markdown": true,
 			"junit":    true,
-			"table":    true,
 		}
 		if !validFormats[outputFormat] {
-			return fmt.Errorf("invalid format, expected (json, yaml, markdown, junit, table)")
+			return fmt.Errorf("invalid format, expected (json, yaml, markdown, junit)")
 		}
 	}
 	// parse filter
@@ -155,7 +154,7 @@ func testCommandExecute(
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
 			if !failOnly {
-				if len(outputFormat) > 0 && outputFormat != "table" {
+				if len(outputFormat) > 0 {
 					printOutputFormats(out, outputFormat, resultsTable, detailedResults)
 				} else {
 					printer := table.NewTablePrinter(out)
@@ -174,7 +173,7 @@ func testCommandExecute(
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {
 		if failOnly {
-			if len(outputFormat) > 0 && outputFormat != "table" {
+			if len(outputFormat) > 0 {
 				printOutputFormats(out, outputFormat, fullTable, detailedResults)
 			} else {
 				printFailedTestResult(out, fullTable, detailedResults)
