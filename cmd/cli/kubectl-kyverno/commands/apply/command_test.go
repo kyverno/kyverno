@@ -653,9 +653,9 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/good-pod.yaml",
-					"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/bad-pod.yaml"},
+				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml"},
 				PolicyReport: true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
