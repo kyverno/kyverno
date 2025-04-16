@@ -394,6 +394,9 @@ spec:
                   FailurePolicy defines how to handle failures for the admission policy. Failures can
                   occur from CEL expression parse errors, type check errors, runtime errors and invalid
                   or mis-configured policy definitions or bindings.
+                enum:
+                - Ignore
+                - Fail
                 type: string
               imageRules:
                 description: |-
@@ -1332,6 +1335,9 @@ spec:
                                 FailurePolicy defines how to handle failures for the admission policy. Failures can
                                 occur from CEL expression parse errors, type check errors, runtime errors and invalid
                                 or mis-configured policy definitions or bindings.
+                              enum:
+                              - Ignore
+                              - Fail
                               type: string
                             imageRules:
                               description: |-

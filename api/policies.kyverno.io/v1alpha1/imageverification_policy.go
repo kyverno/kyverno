@@ -164,6 +164,7 @@ type ImageValidatingPolicySpec struct {
 	// occur from CEL expression parse errors, type check errors, runtime errors and invalid
 	// or mis-configured policy definitions or bindings.
 	// +optional
+	// +kubebuilder:validation:Enum=Ignore;Fail
 	FailurePolicy *admissionregistrationv1.FailurePolicyType `json:"failurePolicy"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.

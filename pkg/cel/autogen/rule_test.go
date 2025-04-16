@@ -8,18 +8,19 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestGenerateRuleForControllers(t *testing.T) {
 	tests := []struct {
 		name          string
-		controllers   string
+		controllers   sets.Set[string]
 		policySpec    []byte
 		generatedRule policiesv1alpha1.AutogenRule
 	}{
 		{
 			name:        "autogen rule for deployments",
-			controllers: "deployments",
+			controllers: sets.New("deployments"),
 			policySpec: []byte(`{
 				"matchConstraints": {
 					"resourceRules": [
@@ -73,7 +74,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		},
 		{
 			name:        "autogen rule for deployments and daemonsets",
-			controllers: "deployments,daemonsets",
+			controllers: sets.New("deployments", "daemonsets"),
 			policySpec: []byte(`{
 				"matchConstraints": {
 					"resourceRules": [
@@ -112,7 +113,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{"apps"},
 									APIVersions: []string{"v1"},
-									Resources:   []string{"deployments", "daemonsets"},
+									Resources:   []string{"daemonsets", "deployments"},
 								},
 							},
 						},
@@ -127,7 +128,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		},
 		{
 			name:        "autogen rule for deployments, daemonsets, statefulsets and replicasets",
-			controllers: "deployments,daemonsets,statefulsets,replicasets",
+			controllers: sets.New("deployments", "daemonsets", "statefulsets", "replicasets"),
 			policySpec: []byte(`{
 				"matchConstraints": {
 					"resourceRules": [
@@ -172,7 +173,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{"apps"},
 									APIVersions: []string{"v1"},
-									Resources:   []string{"deployments", "daemonsets", "statefulsets", "replicasets"},
+									Resources:   []string{"daemonsets", "deployments", "replicasets", "statefulsets"},
 								},
 							},
 						},
@@ -403,7 +404,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 		err := json.Unmarshal(tt.policySpec, &spec)
 		assert.NilError(t, err)
 
-		genRule, err := generateCronJobRule(spec, "cronjobs")
+		genRule, err := generateCronJobRule(spec, sets.New("cronjobs"))
 		assert.NilError(t, err)
 
 		if !reflect.DeepEqual(genRule, &tt.generatedRule) {

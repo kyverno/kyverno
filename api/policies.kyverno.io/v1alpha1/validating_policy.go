@@ -112,8 +112,6 @@ type ValidatingPolicyList struct {
 type ValidatingPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to validate.
 	// The AdmissionPolicy cares about a request if it matches _all_ Constraints.
-	// However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
-	// ValidatingAdmissionPolicy cannot match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
 	// Required.
 	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints,omitempty"`
 
@@ -128,16 +126,13 @@ type ValidatingPolicySpec struct {
 	// occur from CEL expression parse errors, type check errors, runtime errors and invalid
 	// or mis-configured policy definitions or bindings.
 	//
-	// A policy is invalid if spec.paramKind refers to a non-existent Kind.
-	// A binding is invalid if spec.paramRef.name refers to a non-existent resource.
-	//
 	// failurePolicy does not define how validations that evaluate to false are handled.
 	//
-	// When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding validationActions
-	// define how failures are enforced.
+	// When failurePolicy is set to Fail, the validationActions field define how failures are enforced.
 	//
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
+	// +kubebuilder:validation:Enum=Ignore;Fail
 	FailurePolicy *admissionregistrationv1.FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// auditAnnotations contains CEL expressions which are used to produce audit
