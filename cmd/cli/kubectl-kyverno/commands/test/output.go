@@ -470,14 +470,14 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 		for _, row := range resultTable.RawRows {
 			suites[row.Policy] = append(suites[row.Policy], row)
 		}
-		for policName, rows := range suites {
+		for policyName, rows := range suites {
 			failures := 0
 			for _, row := range rows {
 				if row.IsFailure {
 					failures++
 				}
 			}
-			b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", policName, len(rows), failures))
+			b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", policyName, len(rows), failures))
 			for _, policyRow := range rows {
 				b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", policyRow.Rule, policyRow.Resource))
 				if policyRow.IsFailure {
