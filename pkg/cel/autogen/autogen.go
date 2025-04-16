@@ -31,8 +31,10 @@ func generateRules(spec *policiesv1alpha1.ValidatingPolicySpec, configs sets.Set
 		}
 	}
 	// generate rule for pod controllers
-	if genRule, err := generatePodControllerRule(spec, configs.Difference(cronjobs)); err == nil {
-		genRules = append(genRules, *genRule.DeepCopy())
+	if configs := configs.Difference(cronjobs); configs.Len() != 0 {
+		if genRule, err := generatePodControllerRule(spec, configs); err == nil {
+			genRules = append(genRules, *genRule.DeepCopy())
+		}
 	}
 	return genRules
 }

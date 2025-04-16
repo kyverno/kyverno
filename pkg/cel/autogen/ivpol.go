@@ -68,10 +68,12 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 			ivpols = append(ivpols, p)
 		}
 	}
-	if p, err := genPolicy(PODS, "autogen-", configs.Difference(cronjobs)); err != nil {
-		return nil, err
-	} else if p != nil {
-		ivpols = append(ivpols, p)
+	if configs := configs.Difference(cronjobs); configs.Len() != 0 {
+		if p, err := genPolicy(PODS, "autogen-", configs); err != nil {
+			return nil, err
+		} else if p != nil {
+			ivpols = append(ivpols, p)
+		}
 	}
 	return ivpols, nil
 }
