@@ -7,10 +7,10 @@ spec:
     - Deny
   matchConstraints:
     resourceRules:
-    - apiGroups:   []
+    - apiGroups:   ['']
       apiVersions: [v1]
       operations:  [CREATE, UPDATE]
-      resources:   [ConfigMap]
+      resources:   [configmaps]
   variables:
     - name: res
       expression: >-

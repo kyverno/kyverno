@@ -84,12 +84,6 @@ spec:
           value: check-subjectaccessreview
   - name: apply-resources
     try:
-  - name: step-01
-    try:
-    - apply:
-        file: ns.yaml
-    - apply:
-        file: chainsaw-step-03-apply-1.yaml
     - apply:
         file: chainsaw-step-03-apply-2.yaml
     - apply:
@@ -109,10 +103,6 @@ spec:
           export KUBECONFIG=./temp
           if kubectl create --context=badsubreviewuser-context -f cm-two.yaml; then exit 1; else exit 0; fi
     finally:
-    - script:
-        content: |
-          set -e
-          kubectl delete vpol check-subjectaccessreview
     - script:
         content: |
           set -e
