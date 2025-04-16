@@ -171,7 +171,7 @@ func BuildValidatingAdmissionPolicyBinding(
 		paramRef = rule.Validation.CEL.ParamRef
 		policyName = "cpol-" + cpol.GetName()
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		validationActions = vpol.Spec.ValidationAction
+		validationActions = vpol.Spec.ValidationActions()
 		policyName = "vpol-" + vpol.GetName()
 	}
 
