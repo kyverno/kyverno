@@ -19,10 +19,6 @@ spec:
     - name: dcount
       expression: >-
         globalcontext.Get("gctxentry-apicall-projections", "test-globalcontext-apicall-correct-projections_deployment_count")
-  validations:
-    - expression: >-
-        variables.dcount == 0
-      messageExpression: "'cannot create new deployment as main-deployment already exists, variables.dcount: ' + string(variables.dcount)"
   attestors:
     - name: notary
       notary:
@@ -47,3 +43,12 @@ spec:
           5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
           uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
           -----END CERTIFICATE-----
+  validations:
+    - expression: >-
+        variables.dcount == 0
+      messageExpression: "'cannot create new deployment as main-deployment already exists, variables.dcount: ' + string(variables.dcount)"
+    - expression: >-
+       images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e ,e > 0)
+      message: >-
+       failed the image Signature verification
+        
