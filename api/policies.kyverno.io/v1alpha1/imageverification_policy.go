@@ -164,6 +164,7 @@ type ImageValidatingPolicySpec struct {
 	// occur from CEL expression parse errors, type check errors, runtime errors and invalid
 	// or mis-configured policy definitions or bindings.
 	// +optional
+	// +kubebuilder:validation:Enum=Ignore;Fail
 	FailurePolicy *admissionregistrationv1.FailurePolicyType `json:"failurePolicy"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
@@ -232,6 +233,10 @@ type ImageValidatingPolicySpec struct {
 	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
+
+	// AutogenConfiguration defines the configuration for the generation controller.
+	// +optional
+	AutogenConfiguration *ImageValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 }
 
 // ImageRule defines a Glob or a CEL expression for matching images
@@ -495,4 +500,9 @@ func (s ImageValidatingPolicySpec) EvaluationMode() EvaluationMode {
 		return EvaluationModeKubernetes
 	}
 	return s.EvaluationConfiguration.Mode
+}
+
+type ImageValidatingPolicyAutogenConfiguration struct {
+	// PodControllers specifies whether to generate a pod controllers rules.
+	PodControllers *PodControllersGenerationConfiguration `json:"podControllers,omitempty"`
 }
