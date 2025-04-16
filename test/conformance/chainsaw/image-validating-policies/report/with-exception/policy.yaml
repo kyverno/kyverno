@@ -1,25 +1,36 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: ImageValidatingPolicy
 metadata:
-  name: ivpol-autogen-sample
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: deployments,cronjobs
+  name: ivpol-report-background-sample
 spec:
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+  validationActions:
+  - Audit
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments] 
+  variables:
+    - name: environment
+      expression: >-
+        has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'
+  validations:
+    - expression: >-
+        variables.environment == true
+      messageExpression: >-
+        'Deployment labels must be env=prod' + (has(object.metadata.labels) && 'env' in object.metadata.labels ? ' but found env=' + string(object.metadata.labels['env']) : ' but no env label is present')
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
+      message: failed to verify image with notary cert
   webhookConfiguration:
     timeoutSeconds: 20
   failurePolicy: Ignore
-  validationActions:
-  - Deny
-  matchConstraints:
-    resourceRules:
-      - apiGroups: [""]
-        apiVersions: ["v1"]
-        operations: ["CREATE"]
-        resources: ["pods"]
-  matchConditions:
-    - name: "check-prod-label"  
-      expression: >- 
-        has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   imageRules:
     - glob: ghcr.io/*
   attestors:
@@ -50,13 +61,3 @@ spec:
     - name: sbom
       referrer:
         type: sbom/cyclone-dx
-  validations:
-    - expression: >-
-        images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
-      message: failed to verify image with notary cert
-    - expression: >-
-        images.containers.map(image, verifyAttestationSignatures(image, attestations.sbom ,[attestors.notary])).all(e, e > 0)
-      message: failed to verify attestation with notary cer
-    - expression: >-
-        images.containers.map(image, payload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)
-      message: sbom is not a cyclone dx sbom
