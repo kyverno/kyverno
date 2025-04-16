@@ -26,13 +26,13 @@ func generateRules(spec *policiesv1alpha1.ValidatingPolicySpec, configs sets.Set
 	cronjobs := sets.New("cronjobs")
 	// generate rule for cronjobs if exist
 	if configs.Has("cronjobs") {
-		if genRule, err := generateCronJobRule(spec, cronjobs); err == nil {
+		if genRule, err := generateCronJobRule(spec.DeepCopy(), cronjobs); err == nil {
 			genRules = append(genRules, *genRule.DeepCopy())
 		}
 	}
 	// generate rule for pod controllers
 	if configs := configs.Difference(cronjobs); configs.Len() != 0 {
-		if genRule, err := generatePodControllerRule(spec, configs); err == nil {
+		if genRule, err := generatePodControllerRule(spec.DeepCopy(), configs); err == nil {
 			genRules = append(genRules, *genRule.DeepCopy())
 		}
 	}

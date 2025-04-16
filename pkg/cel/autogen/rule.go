@@ -16,10 +16,9 @@ var (
 )
 
 func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string], resource autogencontroller) (autogenRule *policiesv1alpha1.AutogenRule, err error) {
-	operations := spec.MatchConstraints.ResourceRules[0].Operations
 	newSpec := &policiesv1alpha1.ValidatingPolicySpec{}
 	// create a resource rule for pod controllers
-	newSpec.MatchConstraints = createMatchConstraints(configs, operations)
+	newSpec.MatchConstraints = createMatchConstraints(configs, spec.MatchConstraints.ResourceRules[0].Operations)
 	// convert match conditions
 	newSpec.MatchConditions, err = convertMatchConditions(spec.MatchConditions, resource)
 	if err != nil {
