@@ -12,9 +12,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1alpha1.ImageVerificationPolicy) error {
-	updateFunc := func(ivpol *policiesv1alpha1.ImageVerificationPolicy) error {
-		p := engineapi.NewImageVerificationPolicy(ivpol)
+func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1alpha1.ImageValidatingPolicy) error {
+	updateFunc := func(ivpol *policiesv1alpha1.ImageValidatingPolicy) error {
+		p := engineapi.NewImageValidatingPolicy(ivpol)
 		conditionStatus := c.reconcileConditions(ctx, p)
 
 		status := ivpol.GetStatus()
@@ -43,9 +43,9 @@ func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1alph
 
 	err := controllerutils.UpdateStatus(ctx,
 		ivpol,
-		c.client.PoliciesV1alpha1().ImageVerificationPolicies(),
+		c.client.PoliciesV1alpha1().ImageValidatingPolicies(),
 		updateFunc,
-		func(current, expect *policiesv1alpha1.ImageVerificationPolicy) bool {
+		func(current, expect *policiesv1alpha1.ImageValidatingPolicy) bool {
 			if current.GetStatus().GetConditionStatus().Ready == nil || current.GetStatus().GetConditionStatus().IsReady() != expect.GetStatus().GetConditionStatus().IsReady() {
 				return false
 			}

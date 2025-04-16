@@ -6,3 +6,7 @@ spec:
   apiCall:
     urlPath: "/apis/apps/v1/namespaces/test-globalcontext-apicall-correct/deployments"
     refreshInterval: 1h
+  projections:
+    - name: test-globalcontext-apicall-correct-projections_deployment_count
+      jmesPath: "items | length(@)"
+

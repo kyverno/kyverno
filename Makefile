@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.30.0
+KIND_IMAGE           ?= kindest/node:v1.32.2
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -35,9 +35,9 @@ INSTALL_VERSION	     ?= 3.2.6
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.23.0
+KIND_VERSION                       ?= v0.27.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.16.1
+CONTROLLER_GEN_VERSION             ?= v0.17.3
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
@@ -61,8 +61,9 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
+CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(API_GROUP_RESOURCES)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -76,7 +77,7 @@ $(KIND):
 
 $(CONTROLLER_GEN):
 	@echo Install controller-gen... >&2
-	@cd ./hack/controller-gen && GOBIN=$(TOOLS_DIR) go install
+	@cd ./hack/controller-gen && GOBIN=$(TOOLS_DIR) go install -buildvcs=false
 
 $(CLIENT_GEN):
 	@echo Install client-gen... >&2
@@ -137,6 +138,10 @@ $(KO):
 $(API_GROUP_RESOURCES):
 	@echo Install api-group-resources... >&2
 	@cd ./hack/api-group-resources && GOBIN=$(TOOLS_DIR) go install
+
+$(CLIENT_WRAPPER):
+	@echo Install client-wrapper... >&2
+	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
@@ -471,8 +476,9 @@ codegen-client-informers: $(INFORMER_GEN)
 codegen-client-wrappers: ## Generate client wrappers
 codegen-client-wrappers: codegen-client-clientset
 codegen-client-wrappers: $(GOIMPORTS)
+codegen-client-wrappers: $(CLIENT_WRAPPER)
 	@echo Generate client wrappers... >&2
-	@go run ./hack/main.go
+	@$(CLIENT_WRAPPER)
 	@$(GOIMPORTS) -w ./pkg/clients
 	@go fmt ./pkg/clients/...
 
@@ -615,9 +621,9 @@ codegen-cli-crds: codegen-crds-cli
 	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/policies.kyverno.io/policies.kyverno.io_celpolicyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/policies.kyverno.io/policies.kyverno.io_imageverificationpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_imagevalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
@@ -670,9 +676,9 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
 	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
-	$(call generate_crd,policies.kyverno.io_celpolicyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,celpolicyexceptions)
+	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
 	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
-	$(call generate_crd,policies.kyverno.io_imageverificationpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imageverificationpolicies)
+	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports)
@@ -900,12 +906,27 @@ test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-mutate test-cli-local-generate test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-ivpols test-cli-local-vaps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-cel-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
 
 .PHONY: test-cli-local-validate
 test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
 	@echo Running local cli validation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test
+
+.PHONY: test-cli-local-vpols
+test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests
+	@echo Running local cli vpol tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-validating-policy
+
+.PHONY: test-cli-local-ivpols
+test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
+	@echo Running local cli ivpol tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-image-validating-policy
+
+.PHONY: test-cli-local-vaps
+test-cli-local-vaps: $(CLI_BIN) ## Run local CLI VAP tests
+	@echo Running local cli vap tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-validating-admission-policy
 
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
@@ -916,6 +937,16 @@ test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
 test-cli-local-generate: $(CLI_BIN) ## Run local CLI generation tests
 	@echo Running local cli generation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-generate
+
+.PHONY: test-cli-local-exceptions
+test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
+	@echo Running local cli exception tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-exceptions
+
+.PHONY: test-cli-local-cel-exceptions
+test-cli-local-cel-exceptions: $(CLI_BIN) ## Run local CLI cel exception tests
+	@echo Running local cli cel exception tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-cel-exceptions
 
 .PHONY: test-cli-local-selector
 test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)

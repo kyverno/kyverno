@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -22,9 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
-type ImageVerifyEngine interface {
+type ImageValidatingEngine interface {
 	HandleMutating(context.Context, EngineRequest) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error)
 	HandleValidating(ctx context.Context, request EngineRequest) (eval.ImageVerifyEngineResponse, error)
 }
@@ -37,7 +39,7 @@ type ivengine struct {
 	registryOpts []imagedataloader.Option
 }
 
-func NewImageVerifyEngine(provider ImageVerifyPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) ImageVerifyEngine {
+func NewImageValidatingEngine(provider ImageVerifyPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) ImageValidatingEngine {
 	return &ivengine{
 		provider:     provider,
 		nsResolver:   nsResolver,
@@ -147,7 +149,7 @@ func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (e
 	return response, patches, nil
 }
 
-func (e *ivengine) matchPolicy(policy CompiledImageVerificationPolicy, attr admission.Attributes, namespace runtime.Object) (bool, error) {
+func (e *ivengine) matchPolicy(policy CompiledImageValidatingPolicy, attr admission.Attributes, namespace runtime.Object) (bool, error) {
 	match := func(constraints *admissionregistrationv1.MatchResources) (bool, error) {
 		criteria := matchCriteria{constraints: constraints}
 		matches, err := e.matcher.Match(&criteria, attr, namespace)
@@ -169,15 +171,16 @@ func (e *ivengine) matchPolicy(policy CompiledImageVerificationPolicy, attr admi
 	return false, nil
 }
 
-func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageVerificationPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context resourcelib.ContextInterface) ([]eval.ImageVerifyPolicyResponse, []jsonpatch.JsonPatchOperation, error) {
+func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageValidatingPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context policy.ContextInterface) ([]eval.ImageVerifyPolicyResponse, []jsonpatch.JsonPatchOperation, error) {
 	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
-	filteredPolicies := make([]CompiledImageVerificationPolicy, 0)
+	filteredPolicies := make([]CompiledImageValidatingPolicy, 0)
 	if e.matcher != nil {
 		for _, pol := range policies {
 			matches, err := e.matchPolicy(pol, attr, namespace)
 			response := eval.ImageVerifyPolicyResponse{
-				Policy:  pol.Policy,
-				Actions: pol.Actions,
+				Policy:     pol.Policy,
+				Actions:    pol.Actions,
+				Exceptions: pol.Exceptions,
 			}
 			if err != nil {
 				response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
@@ -196,24 +199,39 @@ func (e *ivengine) handleMutation(ctx context.Context, policies []CompiledImageV
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
 	for _, ivpol := range filteredPolicies {
 		response := eval.ImageVerifyPolicyResponse{
-			Policy:  ivpol.Policy,
-			Actions: ivpol.Actions,
+			Policy:     ivpol.Policy,
+			Actions:    ivpol.Actions,
+			Exceptions: ivpol.Exceptions,
 		}
 
-		if p, errList := c.Compile(ivpol.Policy); errList != nil {
+		if p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions); errList != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 		} else {
-			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true)
+			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true, context)
 			if err != nil {
 				response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
-			} else {
-				ruleName := ivpol.Policy.GetName()
-				if result.Error != nil {
-					response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
-				} else if result.Result {
-					response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
+			} else if result != nil {
+				if len(result.Exceptions) > 0 {
+					exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
+					var keys []string
+					for i := range result.Exceptions {
+						key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
+						if err != nil {
+							response.Result = *engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil)
+						}
+						keys = append(keys, key)
+						exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
+					}
+					response.Result = *engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
 				} else {
-					response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, nil)
+					ruleName := ivpol.Policy.GetName()
+					if result.Error != nil {
+						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
+					} else if result.Result {
+						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
+					} else {
+						response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, nil)
+					}
 				}
 			}
 		}
@@ -247,7 +265,7 @@ func objectAnnotations(attr admission.Attributes) (map[string]string, error) {
 	return u.GetAnnotations(), nil
 }
 
-func (e *ivengine) handleValidation(policies []CompiledImageVerificationPolicy, attr admission.Attributes, namespace runtime.Object) ([]eval.ImageVerifyPolicyResponse, error) {
+func (e *ivengine) handleValidation(policies []CompiledImageValidatingPolicy, attr admission.Attributes, namespace runtime.Object) ([]eval.ImageVerifyPolicyResponse, error) {
 	responses := make(map[string]eval.ImageVerifyPolicyResponse)
 	annotations, err := objectAnnotations(attr)
 	if err != nil {
@@ -257,13 +275,14 @@ func (e *ivengine) handleValidation(policies []CompiledImageVerificationPolicy, 
 		return nil, fmt.Errorf("annotations not present on object, image verification failed")
 	}
 
-	filteredPolicies := make([]CompiledImageVerificationPolicy, 0)
+	filteredPolicies := make([]CompiledImageValidatingPolicy, 0)
 	if e.matcher != nil {
 		for _, pol := range policies {
 			matches, err := e.matchPolicy(pol, attr, namespace)
 			response := eval.ImageVerifyPolicyResponse{
-				Policy:  pol.Policy,
-				Actions: pol.Actions,
+				Policy:     pol.Policy,
+				Actions:    pol.Actions,
+				Exceptions: pol.Exceptions,
 			}
 			if err != nil {
 				response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
