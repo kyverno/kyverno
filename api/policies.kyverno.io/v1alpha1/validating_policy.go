@@ -186,6 +186,7 @@ type ValidatingPolicySpec struct {
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
 	// +listType=set
+	// +kubebuilder:validation:items:Enum=Deny;Audit;Warn
 	ValidationAction []admissionregistrationv1.ValidationAction `json:"validationActions,omitempty"`
 
 	// WebhookConfiguration defines the configuration for the webhook.
@@ -237,6 +238,14 @@ func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
 		return defaultValue
 	}
 	return s.EvaluationConfiguration.Mode
+}
+
+func (s ValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
+	const defaultValue = admissionregistrationv1.Deny
+	if s.ValidationAction == nil {
+		return []admissionregistrationv1.ValidationAction{defaultValue}
+	}
+	return s.ValidationAction
 }
 
 type ValidatingPolicyAutogenConfiguration struct {
