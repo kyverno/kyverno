@@ -402,38 +402,22 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 
-		match := rule.MatchResources
-		matchKinds := match.GetKinds()
-		var allKinds []string
-		allKinds = append(allKinds, matchKinds...)
-		if exclude := rule.ExcludeResources; exclude != nil {
-			excludeKinds := exclude.GetKinds()
-			allKinds = append(allKinds, excludeKinds...)
-		}
 		if rule.HasValidate() {
 			validationElem := rule.Validation.DeepCopy()
 			if validationElem.Deny != nil {
 				validationElem.Deny.RawAnyAllConditions = nil
 			}
-			validationJson, err := json.Marshal(validationElem)
+			_, err := json.Marshal(validationElem)
 			if err != nil {
 				return nil, err
 			}
-			checkForScaleSubresource(validationJson, allKinds, &warnings)
-			checkForStatusSubresource(validationJson, allKinds, &warnings)
 		}
 
 		if rule.HasMutate() {
-			mutationJson, err := json.Marshal(rule.Mutation)
-			targets := rule.Mutation.Targets
-			for _, target := range targets {
-				allKinds = append(allKinds, target.GetKind())
-			}
+			_, err := json.Marshal(rule.Mutation)
 			if err != nil {
 				return nil, err
 			}
-			checkForScaleSubresource(mutationJson, allKinds, &warnings)
-			checkForStatusSubresource(mutationJson, allKinds, &warnings)
 
 			mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
 			if mutateExisting != nil {
@@ -458,12 +442,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 					if validationElem.Deny != nil {
 						validationElem.Deny.RawAnyAllConditions = nil
 					}
-					validationJson, err := json.Marshal(validationElem)
+					_, err := json.Marshal(validationElem)
 					if err != nil {
 						return nil, err
 					}
-					checkForScaleSubresource(validationJson, allKinds, &warnings)
-					checkForStatusSubresource(validationJson, allKinds, &warnings)
 				}
 			}
 		}
@@ -1663,31 +1645,6 @@ func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationF
 	}
 
 	return nil
-}
-
-func checkForScaleSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
-	if strings.Contains(string(ruleTypeJson), "replicas") {
-		for _, kind := range allKinds {
-			if strings.Contains(strings.ToLower(kind), "scale") {
-				return
-			}
-		}
-		msg := "You are matching on replicas but not including the scale subresource in the policy."
-		*warnings = append(*warnings, msg)
-	}
-}
-
-func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
-	rule := string(ruleTypeJson)
-	if strings.Contains(rule, ".status") || strings.Contains(rule, "\"status\":") {
-		for _, kind := range allKinds {
-			if strings.Contains(strings.ToLower(kind), "status") {
-				return
-			}
-		}
-		msg := "You are matching on status but not including the status subresource in the policy."
-		*warnings = append(*warnings, msg)
-	}
 }
 
 func checkForDeprecatedFieldsInVerifyImages(rule kyvernov1.Rule, warnings *[]string) {
