@@ -549,7 +549,7 @@ jobs:
           tests-path: validating-admission-policy-reports
           upgrade-scenario: ${{ matrix.upgrade }}
 
-  image-validation-policies:
+  image-validating-policies:
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -566,7 +566,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: imagevalidatingpolicies
+          tests-path: image-validating-policies
           upgrade-scenario: ${{ matrix.upgrade }}
 
   validating-policies:
@@ -1126,7 +1126,7 @@ jobs:
       - validating-policies
       - verify-manifests
       - verifyImages
-      - image-validation-policies
+      - image-validating-policies
       - webhook-configurations
       - webhooks
       - custom-sigstore
@@ -1166,7 +1166,7 @@ jobs:
       - validating-policies
       - verify-manifests
       - verifyImages
-      - image-validation-policies
+      - image-validating-policies
       - webhook-configurations
       - webhooks
       - custom-sigstore

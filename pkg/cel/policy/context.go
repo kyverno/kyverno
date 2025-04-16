@@ -110,6 +110,15 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
 }
 
+func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	groupVersion, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
+	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
+}
+
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {
 	client := cp.dclient.Resource(groupVersion.WithResource(resource))
 	if namespace != "" {
