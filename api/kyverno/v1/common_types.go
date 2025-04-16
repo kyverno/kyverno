@@ -858,7 +858,7 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
-func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
 	count := 0
 	if g.GetData() != nil {
 		count++
@@ -874,21 +874,22 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 	}
 	if count > 1 {
 		errs = append(errs, field.Forbidden(path, "only one of generate patterns(data, clone, cloneList and foreach) can be specified"))
-		return errs
+		return warnings, errs
 	}
 
 	if g.ForEachGeneration != nil {
 		for i, foreach := range g.ForEachGeneration {
-			err := foreach.GeneratePattern.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			warnings, err := foreach.GeneratePattern.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			warnings = append(warnings, warnings...)
 			errs = append(errs, err...)
 		}
-		return errs
+		return warnings, errs
 	} else {
 		return g.GeneratePattern.Validate(path, namespaced, policyNamespace, clusterResources)
 	}
 }
 
-func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
 	if namespaced {
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
@@ -902,7 +903,7 @@ func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyName
 			}
 		} else {
 			if g.GetNamespace() != "" {
-				errs = append(errs, field.Forbidden(path.Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
+				warnings = append(warnings, field.Forbidden(path.Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
 			}
 		}
 	}
@@ -917,7 +918,7 @@ func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyName
 	}
 
 	if err := regex.ObjectHasVariables(newGeneration); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+		warnings = append(warnings, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
 	}
 
 	if len(g.CloneList.Kinds) == 0 {
@@ -932,7 +933,7 @@ func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyName
 		}
 	}
 
-	return append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
+	return warnings, append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
 }
 
 func (g *GeneratePattern) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
