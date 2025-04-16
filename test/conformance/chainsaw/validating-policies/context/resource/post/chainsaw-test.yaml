@@ -85,6 +85,8 @@ spec:
   - name: apply-resources
     try:
     - apply:
+        file: chainsaw-step-03-apply-1.yaml
+    - apply:
         file: chainsaw-step-03-apply-2.yaml
     - apply:
         file: chainsaw-step-03-apply-3.yaml
@@ -92,6 +94,8 @@ spec:
         file: chainsaw-step-03-apply-4.yaml
     - apply:
         file: chainsaw-step-03-apply-5.yaml
+    - apply:
+        file: ns.yaml
     - script:
         content: |
           set -eu
