@@ -72,7 +72,7 @@ func testCommandExecute(
 	if len(dirPath) == 0 {
 		return fmt.Errorf("a directory is required")
 	}
-	// checkout correct format output
+	// check correct format output
 	if len(outputFormat) > 0 {
 		validFormats := map[string]bool{
 			"json":     true,
