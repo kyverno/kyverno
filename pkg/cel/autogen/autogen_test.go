@@ -6,15 +6,13 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func Test_CanAutoGen(t *testing.T) {
 	testCases := []struct {
-		name                string
-		policy              []byte
-		applyAutoGen        bool
-		expectedControllers sets.Set[string]
+		name         string
+		policy       []byte
+		applyAutoGen bool
 	}{
 		{
 			name: "policy-with-match-name",
@@ -61,7 +59,6 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			expectedControllers: sets.New[string](),
 		},
 		{
 			name: "policy-with-match-object-selector",
@@ -110,7 +107,6 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			expectedControllers: sets.New[string](),
 		},
 		{
 			name: "policy-with-match-namespace-selector",
@@ -159,7 +155,6 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			expectedControllers: sets.New[string](),
 		},
 		{
 			name: "policy-with-match-mixed-kinds-pod-podcontrollers",
@@ -218,7 +213,6 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			expectedControllers: sets.New[string](),
 		},
 		{
 			name: "policy-with-match-kinds-pod-only",
@@ -262,8 +256,7 @@ func Test_CanAutoGen(t *testing.T) {
         ]
     }
 }`),
-			applyAutoGen:        true,
-			expectedControllers: podControllers,
+			applyAutoGen: true,
 		},
 	}
 
@@ -272,8 +265,7 @@ func Test_CanAutoGen(t *testing.T) {
 			var policy *policiesv1alpha1.ValidatingPolicy
 			err := json.Unmarshal(test.policy, &policy)
 			assert.NoError(t, err)
-			applyAutoGen, controllers := CanAutoGen(policy.Spec.MatchConstraints)
-			assert.Equal(t, test.expectedControllers, controllers)
+			applyAutoGen := CanAutoGen(policy.Spec.MatchConstraints)
 			assert.Equal(t, test.applyAutoGen, applyAutoGen)
 		})
 	}
