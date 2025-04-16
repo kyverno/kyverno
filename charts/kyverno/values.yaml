@@ -507,7 +507,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.30.2'
+    tag: '1.32.3'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -564,7 +564,7 @@ policyReportsCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.30.2'
+    tag: '1.32.3'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -742,6 +742,21 @@ features:
 
 # Admission controller configuration
 admissionController:
+  autoscaling:
+    # -- Enable horizontal pod autoscaling
+    enabled: false
+
+    # -- Minimum number of pods
+    minReplicas: 1
+
+    # -- Maximum number of pods
+    maxReplicas: 10
+
+    # -- Target CPU utilization percentage
+    targetCPUUtilizationPercentage: 80
+
+    # -- Configurable scaling behavior
+    behavior: {}
 
   # -- Overrides features defined at the root level
   featuresOverride:

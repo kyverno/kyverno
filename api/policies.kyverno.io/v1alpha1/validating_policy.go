@@ -186,7 +186,7 @@ type ValidatingPolicySpec struct {
 
 	// AutogenConfiguration defines the configuration for the generation controller.
 	// +optional
-	AutogenConfiguration *AutogenConfiguration `json:"autogen,omitempty"`
+	AutogenConfiguration *ValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
@@ -244,16 +244,11 @@ func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
 	return s.EvaluationConfiguration.Mode
 }
 
-type AutogenConfiguration struct {
+type ValidatingPolicyAutogenConfiguration struct {
 	// PodControllers specifies whether to generate a pod controllers rules.
 	PodControllers *PodControllersGenerationConfiguration `json:"podControllers,omitempty"`
 	// ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
 	ValidatingAdmissionPolicy *VapGenerationConfiguration `json:"validatingAdmissionPolicy,omitempty"`
-}
-
-type PodControllersGenerationConfiguration struct {
-	// TODO: shall we use GVK/GVR instead of string ?
-	Controllers []string `json:"controllers,omitempty"`
 }
 
 type VapGenerationConfiguration struct {

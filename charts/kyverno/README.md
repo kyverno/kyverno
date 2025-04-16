@@ -364,6 +364,11 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| admissionController.autoscaling.enabled | bool | `false` | Enable horizontal pod autoscaling |
+| admissionController.autoscaling.minReplicas | int | `1` | Minimum number of pods |
+| admissionController.autoscaling.maxReplicas | int | `10` | Maximum number of pods |
+| admissionController.autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
+| admissionController.autoscaling.behavior | object | `{}` | Configurable scaling behavior |
 | admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
 | admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
@@ -728,7 +733,7 @@ The chart values are organised per component.
 | webhooksCleanup.autoDeleteWebhooks.enabled | bool | `false` | Allow webhooks controller to delete webhooks using finalizers |
 | webhooksCleanup.image.registry | string | `nil` | Image registry |
 | webhooksCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| webhooksCleanup.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.tag | string | `"1.32.3"` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -784,7 +789,7 @@ The chart values are organised per component.
 | policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
 | policyReportsCleanup.image.registry | string | `nil` | Image registry |
 | policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| policyReportsCleanup.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |
+| policyReportsCleanup.image.tag | string | `"1.32.3"` | Image tag Defaults to `latest` if omitted |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |

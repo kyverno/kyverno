@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: imagevalidatingpolicies.policies.kyverno.io
 spec:
   group: policies.kyverno.io
@@ -311,6 +311,20 @@ spec:
                   - name
                   type: object
                 type: array
+              autogen:
+                description: AutogenConfiguration defines the configuration for the
+                  generation controller.
+                properties:
+                  podControllers:
+                    description: PodControllers specifies whether to generate a pod
+                      controllers rules.
+                    properties:
+                      controllers:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                type: object
               credentials:
                 description: Credentials provides credentials that will be used for
                   authentication with registry.
@@ -1234,6 +1248,20 @@ spec:
                                 - name
                                 type: object
                               type: array
+                            autogen:
+                              description: AutogenConfiguration defines the configuration
+                                for the generation controller.
+                              properties:
+                                podControllers:
+                                  description: PodControllers specifies whether to
+                                    generate a pod controllers rules.
+                                  properties:
+                                    controllers:
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
+                              type: object
                             credentials:
                               description: Credentials provides credentials that will
                                 be used for authentication with registry.
