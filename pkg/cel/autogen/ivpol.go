@@ -2,7 +2,6 @@ package autogen
 
 import (
 	"encoding/json"
-	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -12,11 +11,11 @@ func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageValidatingPolicy) 
 	if policy == nil {
 		return nil, nil
 	}
-	applyAutoGen, desiredControllers := CanAutoGen(policy.Spec.MatchConstraints)
+	applyAutoGen := CanAutoGen(policy.Spec.MatchConstraints)
 	if !applyAutoGen {
 		return nil, nil
 	}
-	actualControllers := desiredControllers
+	actualControllers := podControllers
 	if policy.Spec.AutogenConfiguration != nil &&
 		policy.Spec.AutogenConfiguration.PodControllers != nil &&
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
@@ -29,34 +28,26 @@ func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageValidatingPolicy) 
 	return genRules, nil
 }
 
-func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, controllerSet sets.Set[string]) ([]*policiesv1alpha1.IvpolAutogen, error) {
-	genPolicy := func(resource autogencontroller, controllers string) (policy *policiesv1alpha1.IvpolAutogen, err error) {
-		if len(controllers) == 0 {
-			return nil, nil
-		}
-
+func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) ([]*policiesv1alpha1.IvpolAutogen, error) {
+	genPolicy := func(resource autogencontroller, prefix string, configs sets.Set[string]) (*policiesv1alpha1.IvpolAutogen, error) {
 		if ivpol == nil {
 			return nil, nil
 		}
-
-		policy = &policiesv1alpha1.IvpolAutogen{}
-		copied := ivpol.DeepCopy()
-		policy.Spec = copied.Spec
-		if controllers == "cronjobs" {
-			policy.Name = "autogen-cronjobs-" + ivpol.GetName()
-		} else {
-			policy.Name = "autogen-" + ivpol.GetName()
+		if len(configs) == 0 {
+			return nil, nil
 		}
-		operations := ivpol.Spec.MatchConstraints.ResourceRules[0].Operations
-		// create a resource rule for pod controllers
-		policy.Spec.MatchConstraints = createMatchConstraints(controllers, operations)
-
+		policy := &policiesv1alpha1.IvpolAutogen{
+			Name: prefix + ivpol.GetName(),
+			Spec: *ivpol.Spec.DeepCopy(),
+		}
+		// override match constraints for configs
+		policy.Spec.MatchConstraints = createMatchConstraints(configs, ivpol.Spec.MatchConstraints.ResourceRules[0].Operations)
 		// convert match conditions
-		policy.Spec.MatchConditions, err = convertMatchConditions(policy.Spec.MatchConditions, resource)
+		matchConditions, err := convertMatchConditions(policy.Spec.MatchConditions, resource)
 		if err != nil {
 			return nil, err
 		}
-
+		policy.Spec.MatchConditions = matchConditions
 		// convert validations
 		if bytes, err := json.Marshal(policy); err != nil {
 			return nil, err
@@ -68,24 +59,18 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, controllerSet 
 		}
 		return policy, nil
 	}
-
-	ivpols := make([]*policiesv1alpha1.IvpolAutogen, 0)
-	if controllerSet.Has("cronjobs") {
-		p, err := genPolicy(CRONJOBS, "cronjobs")
-		if err != nil {
+	ivpols := make([]*policiesv1alpha1.IvpolAutogen, 0, 2)
+	cronjobs := sets.New("cronjobs")
+	if configs.Has("cronjobs") {
+		if p, err := genPolicy(CRONJOBS, "autogen-cronjobs-", cronjobs); err != nil {
 			return nil, err
-		}
-		if p != nil {
+		} else if p != nil {
 			ivpols = append(ivpols, p)
 		}
 	}
-
-	controllerSetCopied := controllerSet.Clone()
-	p, err := genPolicy(PODS, strings.Join(sets.List(controllerSetCopied.Delete("cronjobs")), ","))
-	if err != nil {
+	if p, err := genPolicy(PODS, "autogen-", configs.Difference(cronjobs)); err != nil {
 		return nil, err
-	}
-	if p != nil {
+	} else if p != nil {
 		ivpols = append(ivpols, p)
 	}
 	return ivpols, nil
