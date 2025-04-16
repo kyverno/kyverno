@@ -113,7 +113,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{"apps"},
 									APIVersions: []string{"v1"},
-									Resources:   []string{"deployments", "daemonsets"},
+									Resources:   []string{"daemonsets", "deployments"},
 								},
 							},
 						},
@@ -173,7 +173,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{"apps"},
 									APIVersions: []string{"v1"},
-									Resources:   []string{"deployments", "daemonsets", "statefulsets", "replicasets"},
+									Resources:   []string{"daemonsets", "deployments", "replicasets", "statefulsets"},
 								},
 							},
 						},
