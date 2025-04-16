@@ -260,7 +260,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		gctxStore := gctxstore.New()
 		var restMapper meta.RESTMapper
 		var contextProvider celpolicy.Context
-		if p.Client != nil {
+		if p.Client != nil && p.Cluster {
 			contextProvider, err = celpolicy.NewContextProvider(
 				p.Client,
 				// TODO

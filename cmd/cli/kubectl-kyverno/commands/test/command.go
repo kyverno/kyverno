@@ -136,10 +136,12 @@ func testCommandExecute(
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
-			printer := table.NewTablePrinter(out)
-			fmt.Fprintln(out)
-			printer.Print(resultsTable.Rows(detailedResults))
-			fmt.Fprintln(out)
+			if !failOnly {
+				printer := table.NewTablePrinter(out)
+				fmt.Fprintln(out)
+				printer.Print(resultsTable.Rows(detailedResults))
+				fmt.Fprintln(out)
+			}
 		}
 	}
 	if !failOnly {
@@ -149,7 +151,7 @@ func testCommandExecute(
 	}
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {
-		if !failOnly {
+		if failOnly {
 			printFailedTestResult(out, fullTable, detailedResults)
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)
@@ -196,7 +198,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
-	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy {
+	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy {
 		matches = responses
 	} else {
 		for _, response := range responses {

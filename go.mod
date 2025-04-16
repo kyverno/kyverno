@@ -21,7 +21,7 @@ require (
 	github.com/fluxcd/pkg/oci v0.45.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.6.2
-	github.com/go-git/go-git/v5 v5.14.0
+	github.com/go-git/go-git/v5 v5.16.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zerologr v1.2.3
 	github.com/google/gnostic-models v0.6.9
@@ -46,7 +46,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/sigstore/cosign/v2 v2.4.1
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
-	github.com/sigstore/rekor v1.3.9
+	github.com/sigstore/rekor v1.3.10
 	github.com/sigstore/sigstore v1.9.3
 	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.3
@@ -97,7 +97,7 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/go-piv/piv-go v1.11.0 // indirect
 	github.com/xanzy/go-gitlab v0.109.0 // indirect
-	go.step.sm/crypto v0.57.0 // indirect
+	go.step.sm/crypto v0.60.0 // indirect
 )
 
 require (
@@ -114,7 +114,7 @@ require (
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/AliyunContainerService/ack-ram-tool/pkg/credentials/provider v0.15.2 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.3.1 // indirect
@@ -135,7 +135,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/OneOfOne/xxhash v1.2.8 // indirect
-	github.com/ProtonMail/go-crypto v1.1.5 // indirect
+	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/ThalesIgnite/crypto11 v1.2.5 // indirect
 	github.com/agnivade/levenshtein v1.2.0 // indirect
 	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.5 // indirect
@@ -178,7 +178,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
-	github.com/cloudflare/circl v1.6.0 // indirect
+	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
@@ -213,14 +213,14 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.10 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.23.0 // indirect
-	github.com/go-openapi/errors v0.22.0 // indirect
+	github.com/go-openapi/errors v0.22.1 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/loads v0.22.0 // indirect
 	github.com/go-openapi/runtime v0.28.0 // indirect
 	github.com/go-openapi/spec v0.21.0 // indirect
 	github.com/go-openapi/strfmt v0.23.0 // indirect
-	github.com/go-openapi/swag v0.23.0 // indirect
+	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -365,7 +365,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sync v0.13.0
 	golang.org/x/sys v0.32.0 // indirect
