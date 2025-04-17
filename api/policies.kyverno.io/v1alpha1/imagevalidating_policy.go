@@ -194,12 +194,17 @@ type ImageValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty"`
 
-	// ImagesRules is a list of Glob and CELExpressions to match images.
+	// ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.
+	// +optional
+	// +kubebuilder:default={}
+	ValidationConfigurations ValidationConfiguration `json:"validationConfigurations"`
+
+	// MatchImageReferences is a list of Glob and CELExpressions to match images.
 	// Any image that matches one of the rules is considered for validation
 	// Any image that does not match a rule is skipped, even when they are passed as arguments to
 	// image verification functions
 	// +optional
-	ImageRules []ImageRule `json:"imageRules"`
+	MatchImageReferences []MatchImageReference `json:"matchImageReferences"`
 
 	// MutateDigest enables replacement of image tags with digests.
 	// Defaults to true.
@@ -249,14 +254,32 @@ type ImageValidatingPolicySpec struct {
 	AutogenConfiguration *ImageValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 }
 
-// ImageRule defines a Glob or a CEL expression for matching images
-type ImageRule struct {
+// MatchImageReference defines a Glob or a CEL expression for matching images
+type MatchImageReference struct {
 	// Glob defines a globbing pattern for matching images
 	// +optional
 	Glob string `json:"glob"`
 	// Cel defines CEL Expressions for matching images
 	// +optional
 	CELExpression string `json:"cel"`
+}
+
+type ValidationConfiguration struct {
+	// MutateDigest enables replacement of image tags with digests.
+	// Defaults to true.
+	// +kubebuilder:default=true
+	// +optional
+	MutateDigest *bool `json:"mutateDigest"`
+
+	// VerifyDigest validates that images have a digest.
+	// +kubebuilder:default=true
+	// +optional
+	VerifyDigest *bool `json:"verifyDigest"`
+
+	// Required validates that images are verified, i.e., have passed a signature or attestation check.
+	// +kubebuilder:default=true
+	// +optional
+	Required *bool `json:"required"`
 }
 
 type Image struct {
