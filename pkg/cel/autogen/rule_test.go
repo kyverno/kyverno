@@ -181,7 +181,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "autogen-only for production",
-						Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet')||(object.apiVersion == 'apps/v1' && object.kind =='Deployment')||(object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet')||(object.apiVersion == 'apps/v1' && object.kind =='StatefulSet')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
+						Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
 					},
 				},
 				Validations: []admissionregistrationv1.Validation{
