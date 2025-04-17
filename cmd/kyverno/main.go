@@ -7,16 +7,13 @@ import (
 	"flag"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
-	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -27,9 +24,7 @@ import (
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
-	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
-	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -43,38 +38,30 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	webhookscelexception "github.com/kyverno/kyverno/pkg/webhooks/celexception"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	ctrl "sigs.k8s.io/controller-runtime"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
 const (
-	exceptionWebhookControllerName      = "exception-webhook-controller"
-	celExceptionWebhookControllerName   = "celexception-webhook-controller"
-	gctxWebhookControllerName           = "global-context-webhook-controller"
-	webhookControllerFinalizerName      = "kyverno.io/webhooks"
-	exceptionControllerFinalizerName    = "kyverno.io/exceptionwebhooks"
-	celExceptionControllerFinalizerName = "kyverno.io/celexceptionwebhooks"
-	gctxControllerFinalizerName         = "kyverno.io/globalcontextwebhooks"
+	exceptionWebhookControllerName   = "exception-webhook-controller"
+	gctxWebhookControllerName        = "global-context-webhook-controller"
+	webhookControllerFinalizerName   = "kyverno.io/webhooks"
+	exceptionControllerFinalizerName = "kyverno.io/exceptionwebhooks"
+	gctxControllerFinalizerName      = "kyverno.io/globalcontextwebhooks"
 )
 
 var (
@@ -86,7 +73,7 @@ func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
 	// log if `forceFailurePolicyIgnore` flag has been set or not
 	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
-		logger.V(2).Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
+		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
 }
 
@@ -117,9 +104,9 @@ func createNonLeaderControllers(
 }
 
 func createrLeaderControllers(
+	generateVAPs bool,
 	admissionReports bool,
 	serverIP string,
-	reportsServiceAccountName string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
 	autoDeleteWebhooks bool,
@@ -138,7 +125,6 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	stateRecorder webhook.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -159,12 +145,11 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
+		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 		serverIP,
 		int32(webhookTimeout), //nolint:gosec
 		servicePort,
@@ -177,7 +162,6 @@ func createrLeaderControllers(
 		caSecretName,
 		webhookcontroller.WebhookCleanupSetup(kubeClient, webhookControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, webhookControllerFinalizerName),
-		stateRecorder,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -211,38 +195,6 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, exceptionControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, exceptionControllerFinalizerName),
 	)
-	celExceptionWebhookController := genericwebhookcontroller.NewController(
-		celExceptionWebhookControllerName,
-		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
-		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-		caInformer,
-		deploymentInformer,
-		config.CELExceptionValidatingWebhookConfigurationName,
-		config.CELExceptionValidatingWebhookServicePath,
-		serverIP,
-		servicePort,
-		webhookServerPort,
-		nil,
-		[]admissionregistrationv1.RuleWithOperations{{
-			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{"policies.kyverno.io"},
-				APIVersions: []string{"v1alpha1"},
-				Resources:   []string{"PolicyExceptions"},
-			},
-			Operations: []admissionregistrationv1.OperationType{
-				admissionregistrationv1.Create,
-				admissionregistrationv1.Update,
-			},
-		}},
-		genericwebhookcontroller.Fail,
-		genericwebhookcontroller.None,
-		configuration,
-		caSecretName,
-		runtime,
-		autoDeleteWebhooks,
-		webhookcontroller.WebhookCleanupSetup(kubeClient, celExceptionControllerFinalizerName),
-		webhookcontroller.WebhookCleanupHandler(kubeClient, celExceptionControllerFinalizerName),
-	)
 	gctxWebhookController := genericwebhookcontroller.NewController(
 		gctxWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
@@ -275,21 +227,11 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
-	policyStatusController := policystatuscontroller.NewController(
-		dynamicClient,
-		kyvernoClient,
-		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
-		reportsServiceAccountName,
-		stateRecorder)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
-	leaderControllers = append(leaderControllers, internal.NewController(celExceptionWebhookControllerName, celExceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
-	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
-	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
 	if generateVAPs {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 		vapController := vapcontroller.NewController(
@@ -297,11 +239,9 @@ func createrLeaderControllers(
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
-			kyvernoInformer.Policies().V1alpha1().PolicyExceptions(),
-			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies(),
-			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings(),
+			kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicies(),
+			kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
 			checker,
 		)
@@ -379,11 +319,10 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 		internal.WithReporting(),
-		internal.WithRestConfig(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	var wg wait.Group
+	var wg sync.WaitGroup
 	func() {
 		// setup
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
@@ -396,7 +335,15 @@ func main() {
 			setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 			os.Exit(1)
 		}
-
+		// check if validating admission policies are registered in the API server
+		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
+		if generateValidatingAdmissionPolicy {
+			registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
+			if !registered {
+				setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
+				os.Exit(1)
+			}
+		}
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
 		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), setup.ResyncPeriod)
@@ -418,6 +365,7 @@ func main() {
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+
 		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 			tls.CertRenewalInterval,
@@ -432,8 +380,6 @@ func main() {
 			tlsSecretName,
 		)
 		policyCache := policycache.NewCache()
-		notifyChan := make(chan string)
-		stateRecorder := webhook.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -451,7 +397,6 @@ func main() {
 				eventGenerator,
 				maxAPICallResponseLength,
 				true,
-				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
 		)
@@ -518,7 +463,8 @@ func main() {
 		// bootstrap non leader controllers
 		if nonLeaderBootstrap != nil {
 			if err := nonLeaderBootstrap(signalCtx); err != nil {
-				setup.Logger.Error(err, "warning: failed to bootstrap non leader controllers")
+				setup.Logger.Error(err, "failed to bootstrap non leader controllers")
+				os.Exit(1)
 			}
 		}
 		// setup leader election
@@ -536,9 +482,9 @@ func main() {
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, warmup, err := createrLeaderControllers(
+					generateValidatingAdmissionPolicy,
 					admissionReports,
 					serverIP,
-					reportsServiceAccountName,
 					webhookTimeout,
 					autoUpdateWebhooks,
 					autoDeleteWebhooks,
@@ -557,7 +503,6 @@ func main() {
 					int32(webhookServerPort), //nolint:gosec
 					setup.Configuration,
 					eventGenerator,
-					stateRecorder,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")
@@ -575,7 +520,7 @@ func main() {
 					}
 				}
 				// start leader controllers
-				var wg wait.Group
+				var wg sync.WaitGroup
 				for _, controller := range leaderControllers {
 					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 				}
@@ -597,85 +542,10 @@ func main() {
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,
+			setup.KyvernoClient,
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
-
-		contextProvider, err := celpolicy.NewContextProvider(
-			setup.KyvernoDynamicClient,
-			nil,
-			gcstore,
-			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
-		)
-		if err != nil {
-			setup.Logger.Error(err, "failed to create cel context provider")
-			os.Exit(1)
-		}
-		var vpolEngine celengine.Engine
-		var ivpolEngine celengine.ImageValidatingEngine
-		{
-			// create a controller manager
-			scheme := kruntime.NewScheme()
-			if err := policiesv1alpha1.Install(scheme); err != nil {
-				setup.Logger.Error(err, "failed to initialize scheme")
-				os.Exit(1)
-			}
-			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
-				Scheme: scheme,
-			})
-			if err != nil {
-				setup.Logger.Error(err, "failed to construct manager")
-				os.Exit(1)
-			}
-			// create compiler
-			compiler := celpolicy.NewCompiler()
-			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
-			if err != nil {
-				setup.Logger.Error(err, "failed to create policy provider")
-				os.Exit(1)
-			}
-			// create a cancellable context
-			ctx, cancel := context.WithCancel(signalCtx)
-			// start manager
-			wg.StartWithContext(ctx, func(ctx context.Context) {
-				// cancel context at the end
-				defer cancel()
-				if err := mgr.Start(ctx); err != nil {
-					setup.Logger.Error(err, "failed to start manager")
-					os.Exit(1)
-				}
-			})
-			if !mgr.GetCache().WaitForCacheSync(ctx) {
-				defer cancel()
-				setup.Logger.Error(err, "failed to create policy provider")
-				os.Exit(1)
-			}
-			vpolEngine = celengine.NewEngine(
-				provider.CompiledValidationPolicies,
-				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
-					if err != nil {
-						return nil
-					}
-					return ns
-				},
-				matching.NewMatcher(),
-			)
-			ivpolEngine = celengine.NewImageValidatingEngine(
-				provider.ImageVerificationPolicies,
-				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
-					if err != nil {
-						return nil
-					}
-					return ns
-				},
-				matching.NewMatcher(),
-				setup.KubeClient.CoreV1().Secrets(""),
-				nil,
-			)
-		}
 		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
 			setup.Logger.Error(err, "failed to start admission reports watcher")
@@ -710,47 +580,17 @@ func main() {
 			setup.ReportingConfiguration,
 			reportsBreaker,
 		)
-		voplHandlers := vpol.New(
-			vpolEngine,
-			contextProvider,
-			setup.KyvernoClient,
-			reportsBreaker,
-		)
-		ivpolHandlers := ivpol.New(
-			ivpolEngine,
-			contextProvider,
-		)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
-			Enabled:   internal.PolicyExceptionEnabled(),
-			Namespace: internal.ExceptionNamespace(),
-		})
-		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(
 			signalCtx,
-			webhooks.PolicyHandlers{
-				Mutation:   webhooks.HandlerFunc(policyHandlers.Mutate),
-				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
-			},
-			webhooks.ResourceHandlers{
-				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
-				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
-				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
-				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.Validate),
-				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
-			},
-			webhooks.ExceptionHandlers{
-				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
-			},
-			webhooks.CELExceptionHandlers{
-				Validation: webhooks.HandlerFunc(celExceptionHandlers.Validate),
-			},
-			webhooks.GlobalContextHandlers{
-				Validation: webhooks.HandlerFunc(globalContextHandlers.Validate),
-			},
+			policyHandlers,
+			resourceHandlers,
+			exceptionHandlers,
+			globalContextHandlers,
 			setup.Configuration,
 			setup.MetricsManager,
 			webhooks.DebugModeOptions{

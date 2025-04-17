@@ -6,6 +6,7 @@ templating:
   version: ~
 
 groups:
+
   # -- Install CRDs in group `kyverno.io`
   # -- This field can be overwritten by setting crds.labels in the parent chart
   kyverno:
@@ -18,11 +19,6 @@ groups:
     updaterequests: true
 
   # -- Install CRDs in group `reports.kyverno.io`
-  policies:
-    validatingpolicies: true
-    imagevalidatingpolicies: true
-    policyexceptions: true
-
   # -- This field can be overwritten by setting crds.labels in the parent chart
   reports:
     clusterephemeralreports: true

@@ -2,12 +2,10 @@ package engine
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,7 +17,6 @@ func (e *engine) reportMetrics(
 	logger logr.Logger,
 	operation kyvernov1.AdmissionOperation,
 	admissionOperation bool,
-	admissionInfo kyvernov2.RequestInfo,
 	response engineapi.EngineResponse,
 ) {
 	if e.resultCounter == nil && e.durationHistogram == nil {
@@ -74,7 +71,6 @@ func (e *engine) reportMetrics(
 					attribute.String("rule_result", string(ruleResult)),
 					attribute.String("rule_type", string(ruleType)),
 					attribute.String("rule_execution_cause", string(executionCause)),
-					attribute.String("dry_run", strconv.FormatBool(admissionInfo.DryRun)),
 				}
 				e.resultCounter.Add(ctx, 1, metric.WithAttributes(commonLabels...))
 			}
@@ -92,7 +88,6 @@ func (e *engine) reportMetrics(
 					attribute.String("rule_result", string(ruleResult)),
 					attribute.String("rule_type", string(ruleType)),
 					attribute.String("rule_execution_cause", string(executionCause)),
-					attribute.String("dry_run", strconv.FormatBool(admissionInfo.DryRun)),
 				}
 				e.durationHistogram.Record(ctx, rule.Stats().ProcessingTime().Seconds(), metric.WithAttributes(commonLabels...))
 			}

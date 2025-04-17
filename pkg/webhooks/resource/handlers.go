@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alitto/pond"
@@ -27,6 +28,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
@@ -34,7 +36,6 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -90,7 +91,7 @@ func NewHandlers(
 	maxAuditCapacity int,
 	reportingConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
-) *resourceHandlers {
+) webhooks.ResourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
 		client:                       client,
@@ -144,21 +145,24 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.reportingConfig,
 		h.reportsBreaker,
 	)
-	var wg wait.Group
+	var wg sync.WaitGroup
 	var ok bool
 	var msg string
 	var warnings []string
 	var enforceResponses []engineapi.EngineResponse
-	wg.Start(func() {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		ok, msg, warnings, enforceResponses = vh.HandleValidationEnforce(ctx, request, policies, auditWarnPolicies, startTime)
-	})
+	}()
+
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
-		var dummy wait.Group
-		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime, &dummy)
+		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime, nil)
 	}
+
 	wg.Wait()
 	if !ok {
-		logger.V(4).Info("admission request denied")
+		logger.Info("admission request denied")
 		events := webhookutils.GenerateEvents(enforceResponses, true, h.configuration)
 		h.eventGen.Add(events...)
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
@@ -301,17 +305,14 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 	return policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, auditWarnPolicies, nil
 }
 
-func (h *resourceHandlers) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface) (*policycontext.PolicyContext, error) {
+func (h *resourceHandlers) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {
 	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 	if err != nil {
 		return nil, err
 	}
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels, err = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, policies, logger)
-		if err != nil {
-			return nil, err
-		}
+		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	return policyContext, nil

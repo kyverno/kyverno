@@ -105,11 +105,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
-			namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, []kyvernov1.PolicyInterface{policyNew}, pc.log)
-			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to get namespace labels for rule %s: %w", rule.Name, err))
-				continue
-			}
+			namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, pc.log)
 			policyContext, err := common.NewBackgroundContext(pc.log, pc.client, ur.Spec.Context, policy, trigger, pc.configuration, pc.jp, namespaceLabels)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err))
@@ -150,7 +146,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
 	var errs []error
 	var err error
-	rules := autogen.Default.ComputeRules(policy, "")
+	rules := autogen.ComputeRules(policy, "")
 	ur := newGenerateUR(policy)
 	for _, r := range rules {
 		if !r.HasGenerate() {

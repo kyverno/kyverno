@@ -124,7 +124,7 @@ func (v *mutationHandler) applyMutations(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				engineResponse, policyPatches, err := v.applyMutation(ctx, request.AdmissionRequest, currentContext, failurePolicy, policy)
+				engineResponse, policyPatches, err := v.applyMutation(ctx, request.AdmissionRequest, currentContext, failurePolicy)
 				if err != nil {
 					return fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
 				}
@@ -133,7 +133,7 @@ func (v *mutationHandler) applyMutations(
 					patches = append(patches, policyPatches...)
 					rules := engineResponse.GetSuccessRules()
 					if len(rules) != 0 {
-						v.log.V(2).Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
+						v.log.Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
 					}
 				}
 
@@ -172,14 +172,9 @@ func (v *mutationHandler) applyMutations(
 	return jsonutils.JoinPatches(patch.ConvertPatches(patches...)...), engineResponses, nil
 }
 
-func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, failurePolicy kyvernov1.FailurePolicyType, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, []jsonpatch.JsonPatchOperation, error) {
+func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, failurePolicy kyvernov1.FailurePolicyType) (*engineapi.EngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, []kyvernov1.PolicyInterface{policy}, h.log)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
+		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
 
 	engineResponse := h.engine.Mutate(ctx, policyContext)
@@ -187,10 +182,10 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1
 
 	if !engineResponse.IsSuccessful() {
 		if webhookutils.BlockRequest([]engineapi.EngineResponse{engineResponse}, failurePolicy, h.log) {
-			h.log.V(2).Info("failed to apply policy, blocking request", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
+			h.log.Info("failed to apply policy, blocking request", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
 			return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
 		} else {
-			h.log.V(4).Info("ignoring unsuccessful engine responses", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
+			h.log.Info("ignoring unsuccessful engine responses", "policy", policyContext.Policy().GetName(), "rules", engineResponse.GetFailedRulesWithErrors())
 			return &engineResponse, nil, nil
 		}
 	}

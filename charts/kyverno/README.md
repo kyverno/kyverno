@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
+![Version: 3.3.7](https://img.shields.io/badge/Version-3.3.7-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.13.4](https://img.shields.io/badge/AppVersion-v1.13.4-informational?style=flat-square)
 
 ## About
 
@@ -257,8 +257,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
-| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true,"validatingpolicies":true}` | Install CRDs in group `kyverno.io` |
-| crds.groups.policies | object | `{"imagevalidatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
+| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
 | crds.groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
 | crds.groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
@@ -266,7 +265,7 @@ The chart values are organised per component.
 | crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
 | crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `nil` | Image registry |
-| crds.migration.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| crds.migration.image.defaultRegistry | string | `"ghcr.io"` |  |
 | crds.migration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
 | crds.migration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | crds.migration.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -280,8 +279,6 @@ The chart values are organised per component.
 | crds.migration.podAnnotations | object | `{}` | Pod annotations. |
 | crds.migration.nodeAffinity | object | `{}` | Node affinity constraints. |
 | crds.migration.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
-| crds.migration.podResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
-| crds.migration.podResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 
 ### Config
 
@@ -366,11 +363,6 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| admissionController.autoscaling.enabled | bool | `false` | Enable horizontal pod autoscaling |
-| admissionController.autoscaling.minReplicas | int | `1` | Minimum number of pods |
-| admissionController.autoscaling.maxReplicas | int | `10` | Maximum number of pods |
-| admissionController.autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
-| admissionController.autoscaling.behavior | object | `{}` | Configurable scaling behavior |
 | admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
 | admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
@@ -394,7 +386,6 @@ The chart values are organised per component.
 | admissionController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | admissionController.webhookServer | object | `{"port":9443}` | admissionController webhook server port in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to |
 | admissionController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| admissionController.dnsConfig | object | `{}` | `dnsConfig` allows to specify DNS configuration for the pod. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config. |
 | admissionController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | admissionController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | admissionController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
@@ -415,7 +406,7 @@ The chart values are organised per component.
 | admissionController.caCertificates.volume | object | `{}` | Volume to be mounted for CA certificates Not used when `.Values.admissionController.caCertificates.data` is defined |
 | admissionController.imagePullSecrets | list | `[]` | Image pull secrets |
 | admissionController.initContainer.image.registry | string | `nil` | Image registry |
-| admissionController.initContainer.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| admissionController.initContainer.image.defaultRegistry | string | `"ghcr.io"` |  |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
 | admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
@@ -425,7 +416,7 @@ The chart values are organised per component.
 | admissionController.initContainer.extraArgs | object | `{}` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `nil` | Image registry |
-| admissionController.container.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| admissionController.container.image.defaultRegistry | string | `"ghcr.io"` |  |
 | admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
 | admissionController.container.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -484,7 +475,7 @@ The chart values are organised per component.
 | backgroundController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | backgroundController.image.registry | string | `nil` | Image registry |
-| backgroundController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| backgroundController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | backgroundController.image.repository | string | `"kyverno/background-controller"` | Image repository |
 | backgroundController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -499,7 +490,6 @@ The chart values are organised per component.
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
 | backgroundController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | backgroundController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| backgroundController.dnsConfig | object | `{}` | `dnsConfig` allows to specify DNS configuration for the pod. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config. |
 | backgroundController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | backgroundController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
@@ -561,7 +551,7 @@ The chart values are organised per component.
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | cleanupController.image.registry | string | `nil` | Image registry |
-| cleanupController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| cleanupController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
 | cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -578,7 +568,6 @@ The chart values are organised per component.
 | cleanupController.server | object | `{"port":9443}` | cleanupController server port in case you are using hostNetwork: true, you might want to change the port the cleanupController is listening to |
 | cleanupController.webhookServer | object | `{"port":9443}` | cleanupController webhook server port in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to |
 | cleanupController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| cleanupController.dnsConfig | object | `{}` | `dnsConfig` allows to specify DNS configuration for the pod. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config. |
 | cleanupController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | cleanupController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | cleanupController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
@@ -646,7 +635,7 @@ The chart values are organised per component.
 | reportsController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | reportsController.image.registry | string | `nil` | Image registry |
-| reportsController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| reportsController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
 | reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -663,7 +652,6 @@ The chart values are organised per component.
 | reportsController.priorityLevelConfigurationSpec | object | See [values.yaml](values.yaml) | Priority level configuration. The block is directly forwarded into the priorityLevelConfiguration, so you can use whatever specification you want. ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/#prioritylevelconfiguration |
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| reportsController.dnsConfig | object | `{}` | `dnsConfig` allows to specify DNS configuration for the pod. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config. |
 | reportsController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | reportsController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
@@ -735,7 +723,7 @@ The chart values are organised per component.
 | webhooksCleanup.autoDeleteWebhooks.enabled | bool | `false` | Allow webhooks controller to delete webhooks using finalizers |
 | webhooksCleanup.image.registry | string | `nil` | Image registry |
 | webhooksCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| webhooksCleanup.image.tag | string | `"1.32.3"` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -747,8 +735,6 @@ The chart values are organised per component.
 | webhooksCleanup.podAnnotations | object | `{}` | Pod annotations. |
 | webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
-| webhooksCleanup.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
-| webhooksCleanup.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 
 ### Test
 
@@ -786,14 +772,13 @@ The chart values are organised per component.
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
-| rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
 | policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
 | policyReportsCleanup.image.registry | string | `nil` | Image registry |
 | policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| policyReportsCleanup.image.tag | string | `"1.32.3"` | Image tag Defaults to `latest` if omitted |
+| policyReportsCleanup.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -805,8 +790,6 @@ The chart values are organised per component.
 | policyReportsCleanup.podAnnotations | object | `{}` | Pod annotations. |
 | policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
-| policyReportsCleanup.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
-| policyReportsCleanup.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 
 ## TLS Configuration
 
@@ -867,8 +850,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | v0.0.0 |
-|  | grafana | v0.0.0 |
+|  | crds | 3.3.7 |
+|  | grafana | 3.3.7 |
 
 ## Maintainers
 

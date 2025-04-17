@@ -33,7 +33,7 @@ func (e *engine) filterRules(
 	policy := policyContext.Policy()
 	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.Rules = append(resp.Rules, *ruleResp)
@@ -68,7 +68,6 @@ func (e *engine) filterRule(
 	// check if there are policy exceptions that match the incoming resource
 	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
 	if len(matchedExceptions) > 0 {
-		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
 		for i, exception := range matchedExceptions {
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
@@ -77,11 +76,10 @@ func (e *engine) filterRule(
 				return engineapi.RuleError(rule.Name, ruleType, "failed to compute exception key", err, rule.ReportProperties)
 			}
 			keys = append(keys, key)
-			exceptions = append(exceptions, engineapi.NewPolicyException(&exception))
 		}
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
-		return engineapi.RuleSkip(rule.Name, ruleType, "rule is skipped due to policy exception "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions)
+		return engineapi.RuleSkip(rule.Name, ruleType, "rule is skipped due to policy exception "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions)
 	}
 
 	newResource := policyContext.NewResource()
@@ -92,14 +90,13 @@ func (e *engine) filterRule(
 	gvk, subresource := policyContext.ResourceKind()
 
 	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err != nil {
-		logger.V(4).Info("new resource does not match...", "reason", err.Error())
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err == nil {
 				return engineapi.RuleFail(rule.Name, ruleType, "", rule.ReportProperties)
 			}
 		}
-		logger.V(4).Info("old resource does not match...", "reason", err.Error())
+		logger.V(4).Info("rule not matched", "reason", err.Error())
 		return nil
 	}
 

@@ -25,101 +25,12 @@ background-color: #1589dd;
 <h2 id="cli.kyverno.io/v1alpha1">cli.kyverno.io/v1alpha1</h2>
 Resource Types:
 <ul><li>
-<a href="#cli.kyverno.io/v1alpha1.Context">Context</a>
-</li><li>
 <a href="#cli.kyverno.io/v1alpha1.Test">Test</a>
 </li><li>
 <a href="#cli.kyverno.io/v1alpha1.UserInfo">UserInfo</a>
 </li><li>
 <a href="#cli.kyverno.io/v1alpha1.Values">Values</a>
 </li></ul>
-<hr />
-<h3 id="cli.kyverno.io/v1alpha1.Context">Context
-</h3>
-<p>
-<p>Values declares values to be loaded by the Kyverno CLI</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-cli.kyverno.io/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>Context</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#cli.kyverno.io/v1alpha1.ContextSpec">
-ContextSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>resources</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#unstructured-unstructured-v1">
-[]Kubernetes meta/v1/unstructured.Unstructured
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>images</code><br/>
-<em>
-<a href="#cli.kyverno.io/v1alpha1.ImageData">
-[]ImageData
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
 <hr />
 <h3 id="cli.kyverno.io/v1alpha1.Test">Test
 </h3>
@@ -201,28 +112,6 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
 </tr>
 <tr>
 <td>
-<code>jsonPayload</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>JSONPayload is the JSON payload to be used in the test</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>targetResources</code><br/>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>Target Resources are for policies that have mutate existing</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>variables</code><br/>
 <em>
 string
@@ -290,18 +179,7 @@ ValuesSpec
 </em>
 </td>
 <td>
-<p>PolicyExceptions are the policy exceptions to be used in the test</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>context</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Context file containing context data for CEL policies</p>
+<p>Policy Exceptions are the policy exceptions to be used in the test</p>
 </td>
 </tr>
 </tbody>
@@ -532,158 +410,6 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </td>
 <td>
 <p>Error contains negative assertion to be performed on the relevant rule responses</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="cli.kyverno.io/v1alpha1.ContextSpec">ContextSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#cli.kyverno.io/v1alpha1.Context">Context</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>resources</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#unstructured-unstructured-v1">
-[]Kubernetes meta/v1/unstructured.Unstructured
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>images</code><br/>
-<em>
-<a href="#cli.kyverno.io/v1alpha1.ImageData">
-[]ImageData
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="cli.kyverno.io/v1alpha1.ImageData">ImageData
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#cli.kyverno.io/v1alpha1.ContextSpec">ContextSpec</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>image</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>resolvedImage</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>registry</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>repository</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>tag</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>digest</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>imageIndex</code><br/>
-<em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>manifest</code><br/>
-<em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>config</code><br/>
-<em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
-</em>
-</td>
-<td>
 </td>
 </tr>
 </tbody>
@@ -929,85 +655,6 @@ Kubernetes meta/v1.APIResource
 </tbody>
 </table>
 <hr />
-<h3 id="cli.kyverno.io/v1alpha1.TestResourceSpec">TestResourceSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#cli.kyverno.io/v1alpha1.TestResultData">TestResultData</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>group</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>version</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespace</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>subresource</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="cli.kyverno.io/v1alpha1.TestResult">TestResult
 </h3>
 <p>
@@ -1015,7 +662,7 @@ string
 <a href="#cli.kyverno.io/v1alpha1.Test">Test</a>)
 </p>
 <p>
-<p>TestResult declares a test result</p>
+<p>TestResultBase declares a test result</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -1057,17 +704,13 @@ TestResultDeprecated
 </tr>
 <tr>
 <td>
-<code>TestResultData</code><br/>
+<code>resources</code><br/>
 <em>
-<a href="#cli.kyverno.io/v1alpha1.TestResultData">
-TestResultData
-</a>
+[]string
 </em>
 </td>
 <td>
-<p>
-(Members of <code>TestResultData</code> are embedded into this type.)
-</p>
+<p>Resources gives us the list of resources on which the policy is going to be applied.</p>
 </td>
 </tr>
 </tbody>
@@ -1124,33 +767,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
-It&rsquo;s required in case the policy is a validating admission policy.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>isValidatingPolicy</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>IsValidatingPolicy indicates if the policy is a validating policy.
-It&rsquo;s required in case the policy is a validating policy.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>isImageValidatingPolicy</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>IsImageValidatingPolicy indicates if the policy is an image validating policy.
-It&rsquo;s required in case the policy is an image validating policy.</p>
+It&rsquo;s required in case policy is a validating admission policy.</p>
 </td>
 </tr>
 <tr>
@@ -1211,50 +828,6 @@ string
 <td>
 <p>CloneSourceResource takes the resource configuration file in yaml format
 from the user which is meant to be cloned by the generate rule.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="cli.kyverno.io/v1alpha1.TestResultData">TestResultData
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#cli.kyverno.io/v1alpha1.TestResult">TestResult</a>)
-</p>
-<p>
-<p>TestResultData declares a test result data</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>resources</code><br/>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>Resources gives us the list of resources on which the policy is going to be applied.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resourceSpecs</code><br/>
-<em>
-<a href="#cli.kyverno.io/v1alpha1.TestResourceSpec">
-[]TestResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>Resources gives us the list of resources on which the policy is going to be applied.</p>
 </td>
 </tr>
 </tbody>
@@ -1383,19 +956,6 @@ map[string]interface{}
 </td>
 <td>
 <p>NamespaceSelectors are the namespace labels</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespaces</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#namespace-v1-core">
-[]Kubernetes core/v1.Namespace
-</a>
-</em>
-</td>
-<td>
-<p>Namespaces are the namespaces</p>
 </td>
 </tr>
 <tr>

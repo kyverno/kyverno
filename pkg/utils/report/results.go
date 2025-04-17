@@ -27,9 +27,6 @@ func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 		if x := cmp.Compare(a.Rule, b.Rule); x != 0 {
 			return x
 		}
-		if x := cmp.Compare(a.Source, b.Source); x != 0 {
-			return x
-		}
 		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
 			return x
 		}
@@ -92,12 +89,9 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	return ""
 }
 
-func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.RuleResponse, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
-	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
-	annotations := pol.GetAnnotations()
-
+func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ruleResult engineapi.RuleResponse, annotations map[string]string, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
 	result := policyreportv1alpha2.PolicyReportResult{
-		Source:     SourceKyverno,
+		Source:     kyverno.ValueKyvernoApp,
 		Policy:     policyName,
 		Rule:       ruleResult.Name(),
 		Message:    ruleResult.Message(),
@@ -110,55 +104,33 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Category: annotations[kyverno.AnnotationPolicyCategory],
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 	}
-
-	var process string
-
-	switch {
-	case pol.AsValidatingAdmissionPolicy() != nil:
-		result.Source = SourceValidatingAdmissionPolicy
-		result.Policy = ruleResult.Name()
-		process = "admission review"
-		if binding := ruleResult.ValidatingAdmissionPolicyBinding(); binding != nil {
-			addProperty("binding", binding.Name, &result)
-		}
-
-	case pol.AsValidatingPolicy() != nil:
-		vp := pol.AsValidatingPolicy()
-		result.Source = SourceValidatingPolicy
-		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
-
-	case pol.AsImageValidatingPolicy() != nil:
-		ivp := pol.AsImageValidatingPolicy()
-		result.Source = SourceImageValidatingPolicy
-		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
-
-	case pol.AsKyvernoPolicy() != nil:
-		kyvernoPolicy := pol.AsKyvernoPolicy()
-		result.Source = SourceKyverno
-		process = selectProcess(kyvernoPolicy.BackgroundProcessingEnabled(), kyvernoPolicy.AdmissionProcessingEnabled())
-	}
-	addProperty("process", process, &result)
-
 	if result.Result == "fail" && !result.Scored {
 		result.Result = "warn"
 	}
-
 	if resource != nil {
-		result.Resources = []corev1.ObjectReference{*resource}
+		result.Resources = []corev1.ObjectReference{
+			*resource,
+		}
 	}
-
-	if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
+	exceptions := ruleResult.Exceptions()
+	if len(exceptions) > 0 {
 		var names []string
-		for _, e := range exceptions {
-			names = append(names, e.GetName())
+		for _, exception := range exceptions {
+			names = append(names, exception.Name)
 		}
 		addProperty("exceptions", strings.Join(names, ","), &result)
 	}
-
-	if pss := ruleResult.PodSecurityChecks(); pss != nil && len(pss.Checks) > 0 {
+	pss := ruleResult.PodSecurityChecks()
+	if pss != nil && len(pss.Checks) > 0 {
 		addPodSecurityProperties(pss, &result)
 	}
-
+	if policyType == engineapi.ValidatingAdmissionPolicyType {
+		result.Source = "ValidatingAdmissionPolicy"
+		result.Policy = ruleResult.Name()
+		if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
+			addProperty("binding", ruleResult.ValidatingAdmissionPolicyBinding().Name, &result)
+		}
+	}
 	return result
 }
 
@@ -168,17 +140,6 @@ func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
 	}
 
 	result.Properties[k] = v
-}
-
-func selectProcess(background, admission bool) string {
-	switch {
-	case background:
-		return "background scan"
-	case admission:
-		return "admission review"
-	default:
-		return ""
-	}
 }
 
 type Control struct {
@@ -217,9 +178,14 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyre
 }
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	pol := response.Policy()
+	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	policyType := pol.GetType()
+	annotations := pol.GetAnnotations()
+
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
-		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
+		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
 		results = append(results, result)
 	}
 
@@ -227,9 +193,14 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 }
 
 func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	pol := response.Policy()
+	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	policyType := pol.GetType()
+	annotations := pol.GetAnnotations()
+
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
-		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
+		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
 		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
 			addProperty("patched-target", getResourceInfo(target.GroupVersionKind(), target.GetName(), target.GetNamespace()), &result)
 		}
@@ -240,9 +211,14 @@ func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []
 }
 
 func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	pol := response.Policy()
+	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	policyType := pol.GetType()
+	annotations := pol.GetAnnotations()
+
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
-		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
+		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
 		if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
 			property := make([]string, 0)
 			for _, r := range generatedResources {

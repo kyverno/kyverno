@@ -110,12 +110,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 
 				policyContext := policyContext.WithPolicy(policy)
 				if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-					namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, []kyvernov1.PolicyInterface{policy}, h.log)
-					if err != nil {
-						h.log.Error(err, "failed to get namespace labels for policy", "policy", policy.GetName())
-						return
-					}
-					policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
+					policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 				}
 
 				resp, ivm := h.engine.VerifyAndPatchImages(ctx, policyContext)

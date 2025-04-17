@@ -23,7 +23,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      serviceAccount: {{ template "kyverno.admission-controller.serviceAccountName" . }}
       {{- with .Values.policyReportsCleanup.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
@@ -60,10 +60,6 @@ spec:
               else
                 echo "no clusterpolicyreports"
               fi
-          {{- with .Values.policyReportsCleanup.resources }}
-          resources:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
           {{- with .Values.policyReportsCleanup.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

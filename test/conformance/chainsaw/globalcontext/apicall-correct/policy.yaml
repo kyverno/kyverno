@@ -16,8 +16,6 @@ spec:
       - resources:
           kinds:
           - Pod
-          namespaces:
-          - test-globalcontext-apicall-correct
     preconditions:
       all:
       - key: '{{ request.operation }}'

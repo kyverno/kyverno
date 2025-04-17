@@ -15,19 +15,9 @@ type TestResultBase struct {
 	Rule string `json:"rule,omitempty"`
 
 	// IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
-	// It's required in case the policy is a validating admission policy.
+	// It's required in case policy is a validating admission policy.
 	// +optional
 	IsValidatingAdmissionPolicy bool `json:"isValidatingAdmissionPolicy,omitempty"`
-
-	// IsValidatingPolicy indicates if the policy is a validating policy.
-	// It's required in case the policy is a validating policy.
-	// +optional
-	IsValidatingPolicy bool `json:"isValidatingPolicy,omitempty"`
-
-	// IsImageValidatingPolicy indicates if the policy is an image validating policy.
-	// It's required in case the policy is an image validating policy.
-	// +optional
-	IsImageValidatingPolicy bool `json:"isImageValidatingPolicy,omitempty"`
 
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
@@ -71,18 +61,11 @@ type TestResultDeprecated struct {
 	PatchedResource string `json:"patchedResource,omitempty"`
 }
 
-// TestResultData declares a test result data
-type TestResultData struct {
-	// Resources gives us the list of resources on which the policy is going to be applied.
-	Resources []string `json:"resources,omitempty"`
-
-	// Resources gives us the list of resources on which the policy is going to be applied.
-	ResourceSpecs []TestResourceSpec `json:"resourceSpecs,omitempty"`
-}
-
-// TestResult declares a test result
+// TestResultBase declares a test result
 type TestResult struct {
-	TestResultBase       `json:",inline"`
-	TestResultDeprecated `json:",inline"`
-	TestResultData       `json:",inline"`
+	TestResultBase       `json:",inline,omitempty"`
+	TestResultDeprecated `json:",inline,omitempty"`
+
+	// Resources gives us the list of resources on which the policy is going to be applied.
+	Resources []string `json:"resources"`
 }

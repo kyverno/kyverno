@@ -12,7 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/externalapi"
 	"github.com/kyverno/kyverno/pkg/globalcontext/k8sresource"
@@ -46,7 +45,6 @@ type controller struct {
 	eventGen           event.Interface
 	maxResponseLength  int64
 	shouldUpdateStatus bool
-	jp                 jmespath.Interface
 }
 
 func NewController(
@@ -57,12 +55,8 @@ func NewController(
 	eventGen event.Interface,
 	maxResponseLength int64,
 	shouldUpdateStatus bool,
-	jp jmespath.Interface,
 ) controllers.Controller {
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
-		workqueue.DefaultTypedControllerRateLimiter[any](),
-		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
-	)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	c := &controller{
 		gceLister:          gceInformer.Lister(),
 		queue:              queue,
@@ -72,7 +66,6 @@ func NewController(
 		eventGen:           eventGen,
 		maxResponseLength:  maxResponseLength,
 		shouldUpdateStatus: shouldUpdateStatus,
-		jp:                 jp,
 	}
 
 	if _, err := controllerutils.AddEventHandlersT(gceInformer.Informer(), c.addGTXEntry, c.updateGTXEntry, c.deleteGTXEntry); err != nil {
@@ -83,7 +76,7 @@ func NewController(
 }
 
 func (c *controller) addGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
-	logger.V(4).Info("globalcontextentry created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	logger.Info("globalcontextentry created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
@@ -91,12 +84,12 @@ func (c *controller) updateGTXEntry(old, obj *kyvernov2alpha1.GlobalContextEntry
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
-	logger.V(4).Info("globalcontextentry updated", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	logger.Info("globalcontextentry updated", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
 func (c *controller) deleteGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
-	logger.V(4).Info("globalcontextentry deleted", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	logger.Info("globalcontextentry deleted", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
@@ -149,10 +142,11 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			gce,
 			c.eventGen,
 			c.dclient.GetDynamicInterface(),
+			c.kyvernoClient,
 			logger,
 			gvr,
 			gce.Spec.KubernetesResource.Namespace,
-			c.jp,
+			c.shouldUpdateStatus,
 		)
 	}
 	return externalapi.New(
@@ -167,6 +161,5 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 		gce.Spec.APICall.RefreshInterval.Duration,
 		c.maxResponseLength,
 		c.shouldUpdateStatus,
-		c.jp,
 	)
 }

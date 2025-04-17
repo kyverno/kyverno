@@ -49,10 +49,7 @@ func NewController(
 	tlsSecretName string,
 	namespace string,
 ) controllers.Controller {
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
-		workqueue.DefaultTypedControllerRateLimiter[any](),
-		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
-	)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	caEnqueue, _, _ := controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue)
 	tlsEnqueue, _, _ := controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue)
 	c := controller{

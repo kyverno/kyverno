@@ -18,5 +18,5 @@ cmd/background-controller/background-controller
 /config/.release
 .dist
 .manifest
-kyverno.tar*
+kyverno.tar.gz
 vendor/

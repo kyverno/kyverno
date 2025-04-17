@@ -121,12 +121,7 @@ func (h *generationHandler) handleTrigger(
 		var appliedRules, failedRules []engineapi.RuleResponse
 		policyContext := policyContext.WithPolicy(policy)
 		if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-			namespaceLabels, err := utils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, []kyvernov1.PolicyInterface{policy}, h.log)
-			if err != nil {
-				h.log.Error(err, "failed to get namespace labels for policy", "policy", policy.GetName())
-				continue
-			}
-			policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
+			policyContext = policyContext.WithNamespaceLabels(utils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 		}
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {

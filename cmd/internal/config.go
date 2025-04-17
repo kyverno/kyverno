@@ -23,7 +23,6 @@ type Configuration interface {
 	UsesKyvernoDynamicClient() bool
 	UsesEventsClient() bool
 	UsesReporting() bool
-	UsesRestConfig() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -153,12 +152,6 @@ func WithReporting() ConfigurationOption {
 	}
 }
 
-func WithRestConfig() ConfigurationOption {
-	return func(c *configuration) {
-		c.usesRestConfig = true
-	}
-}
-
 type configuration struct {
 	usesMetrics              bool
 	usesTracing              bool
@@ -178,7 +171,6 @@ type configuration struct {
 	usesKyvernoDynamicClient bool
 	usesEventsClient         bool
 	usesReporting            bool
-	usesRestConfig           bool
 	flagSets                 []*flag.FlagSet
 }
 
@@ -252,10 +244,6 @@ func (c *configuration) UsesEventsClient() bool {
 
 func (c *configuration) UsesReporting() bool {
 	return c.usesReporting
-}
-
-func (c *configuration) UsesRestConfig() bool {
-	return c.usesRestConfig
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {

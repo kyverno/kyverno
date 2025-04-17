@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,19 +17,22 @@ import (
 	"github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
-	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
+	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -127,7 +131,7 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -238,54 +242,36 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, err
 	}
 
-	rules := autogen.Default.ComputeRules(policy, "")
+	rules := autogen.ComputeRules(policy, "")
 	rulesPath := specPath.Child("rules")
 
 	for i, rule := range rules {
 		match := rule.MatchResources
 		for j, value := range match.Any {
-			if warning, err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); warning != "" {
-				warnings = append(warnings, warning)
-				return warnings, nil
-			} else if err != nil {
+			if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
 				return warnings, fmt.Errorf("path: spec.rules[%d].match.any[%d].kinds: %v", i, j, err)
 			}
 		}
 		for j, value := range match.All {
-			if warning, err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); warning != "" {
-				warnings = append(warnings, warning)
-				return warnings, nil
-			} else if err != nil {
+			if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
 				return warnings, fmt.Errorf("path: spec.rules[%d].match.all[%d].kinds: %v", i, j, err)
 			}
 		}
-		if warning, err := validateKinds(rule.MatchResources.Kinds, rule, mock, background, client); warning != "" {
-			warnings = append(warnings, warning)
-			return warnings, nil
-		} else if err != nil {
+		if err := validateKinds(rule.MatchResources.Kinds, rule, mock, background, client); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d].match.kinds: %v", i, err)
 		}
 		if exclude := rule.ExcludeResources; exclude != nil {
 			for j, value := range exclude.Any {
-				if warning, err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); warning != "" {
-					warnings = append(warnings, warning)
-					return warnings, nil
-				} else if err != nil {
+				if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
 					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.any[%d].kinds: %v", i, j, err)
 				}
 			}
 			for j, value := range exclude.All {
-				if warning, err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); warning != "" {
-					warnings = append(warnings, warning)
-					return warnings, nil
-				} else if err != nil {
+				if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
 					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.all[%d].kinds: %v", i, j, err)
 				}
 			}
-			if warning, err := validateKinds(exclude.Kinds, rule, mock, background, client); warning != "" {
-				warnings = append(warnings, warning)
-				return warnings, nil
-			} else if err != nil {
+			if err := validateKinds(exclude.Kinds, rule, mock, background, client); err != nil {
 				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
 			}
 		}
@@ -471,8 +457,33 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
 	}
 
+	// global context entry validation
+	if kyvernoClient != nil {
+		gctxentries, err := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, rule := range rules {
+			if rule.Context == nil {
+				continue
+			}
+			for _, ctxEntry := range rule.Context {
+				if ctxEntry.GlobalReference != nil {
+					if ctxEntry.GlobalReference.Name == "" {
+						warnings = append(warnings, "Global context entry name is not provided")
+						return warnings, nil
+					}
+					if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
+						warnings = append(warnings, fmt.Sprintf("Global context entry %s does not exist or is not ready", ctxEntry.GlobalReference.Name))
+						return warnings, nil
+					}
+				}
+			}
+		}
+	}
+
 	// check for CEL expression warnings in case of CEL subrules
-	if ok, _ := admissionpolicy.CanGenerateVAP(spec, nil, true); ok && client != nil {
+	if ok, _ := vaputils.CanGenerateVAP(spec, nil); ok && client != nil {
 		resolver := &resolver.ClientDiscoveryResolver{
 			Discovery: client.GetKubeClient().Discovery(),
 		}
@@ -487,19 +498,19 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		// build Kubernetes ValidatingAdmissionPolicy
-		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		vap := &admissionregistrationv1beta1.ValidatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: policy.GetName(),
 			},
 		}
-		genericPolicy := engineapi.NewKyvernoPolicy(policy)
-		err = admissionpolicy.BuildValidatingAdmissionPolicy(client.Discovery(), vap, genericPolicy, nil)
+		err = vaputils.BuildValidatingAdmissionPolicy(client.Discovery(), vap, policy, nil)
 		if err != nil {
 			return nil, err
 		}
+		v1vap := vaputils.ConvertValidatingAdmissionPolicy(*vap)
 
 		// check cel expression warnings
-		ctx := checker.CreateContext(vap)
+		ctx := checker.CreateContext(&v1vap)
 		fieldRef := field.NewPath("spec", "rules[0]", "validate", "cel", "expressions")
 		for i, e := range spec.Rules[0].Validation.CEL.Expressions {
 			results := checker.CheckExpression(ctx, e.Expression)
@@ -521,12 +532,21 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	return warnings, nil
 }
 
+func isGlobalContextEntryReady(name string, gctxentries *kyvernov2alpha1.GlobalContextEntryList) bool {
+	for _, gctxentry := range gctxentries.Items {
+		if gctxentry.Name == name {
+			return gctxentry.Status.IsReady()
+		}
+	}
+	return false
+}
+
 func ValidateCustomWebhookMatchConditions(wc []admissionregistrationv1.MatchCondition) error {
-	c, err := admissionpolicy.NewCompiler(wc, nil)
+	c, err := celutils.NewCompiler(nil, nil, wc, nil)
 	if err != nil {
 		return err
 	}
-	f := c.CompileMatchConditions(cel.OptionalVariableDeclarations{})
+	f := c.CompileMatchExpressions(cel.OptionalVariableDeclarations{})
 	if len(f.CompilationErrors()) > 0 {
 		return fmt.Errorf("match conditions compilation errors: %v", f.CompilationErrors())
 	}
@@ -551,7 +571,7 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) error {
-	for _, r := range autogen.Default.ComputeRules(policy, "") {
+	for _, r := range autogen.ComputeRules(policy, "") {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {
@@ -1473,7 +1493,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 	return nil
 }
 
-// validateMatchedResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
+// validateResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
 // field type is checked through openapi
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []
@@ -1514,21 +1534,19 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 	return false
 }
 
-func validateKinds(kinds []string, rule kyvernov1.Rule, mock, background bool, client dclient.Interface) (string, error) {
+func validateKinds(kinds []string, rule kyvernov1.Rule, mock, background bool, client dclient.Interface) error {
 	if err := validateWildcard(kinds, background, rule); err != nil {
-		return "", err
+		return err
 	}
 
 	if slices.Contains(kinds, "*") {
-		return "", nil
+		return nil
 	}
 
-	if warning, err := validKinds(kinds, mock, background, rule.HasValidate(), client); warning != "" {
-		return fmt.Sprintf("the kind defined in the all match resource is invalid: %s", warning), nil
-	} else if err != nil {
-		return "", err
+	if err := validKinds(kinds, mock, background, rule.HasValidate(), client); err != nil {
+		return fmt.Errorf("the kind defined in the all match resource is invalid: %w", err)
 	}
-	return "", nil
+	return nil
 }
 
 // validateWildcard check for an Match/Exclude block contains "*"
@@ -1579,27 +1597,27 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 // validKinds verifies if an API resource that matches 'kind' is valid kind
 // and found in the cache, returns error if not found. It also returns an error if background scanning
 // is enabled for a subresource.
-func validKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) (string, error) {
+func validKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) error {
 	if !mock {
 		for _, k := range kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(k)
 			gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 			if err != nil {
-				return fmt.Sprintf("unable to convert GVK to GVR for kinds %s, err: %v", k, err), nil
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
 			}
 			if len(gvrss) == 0 {
-				return fmt.Sprintf("unable to convert GVK to GVR for kinds %s", k), nil
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s", k)
 			}
 			if isValidationPolicy && backgroundScanningEnabled {
 				for gvrs := range gvrss {
 					if gvrs.SubResource != "" {
-						return "", fmt.Errorf("background scan enabled with subresource %s", k)
+						return fmt.Errorf("background scan enabled with subresource %s", k)
 					}
 				}
 			}
 		}
 	}
-	return "", nil
+	return nil
 }
 
 func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) error {

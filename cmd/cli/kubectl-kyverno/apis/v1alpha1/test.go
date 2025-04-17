@@ -24,12 +24,6 @@ type Test struct {
 	// Resources are the resource to be used in the test
 	Resources []string `json:"resources,omitempty"`
 
-	// JSONPayload is the JSON payload to be used in the test
-	JSONPayload string `json:"jsonPayload,omitempty"`
-
-	// Target Resources are for policies that have mutate existing
-	TargetResources []string `json:"targetResources,omitempty"`
-
 	// Variables is the values to be used in the test
 	Variables string `json:"variables,omitempty"`
 
@@ -45,11 +39,8 @@ type Test struct {
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
 
-	// PolicyExceptions are the policy exceptions to be used in the test
+	// Policy Exceptions are the policy exceptions to be used in the test
 	PolicyExceptions []string `json:"exceptions,omitempty"`
-
-	// Context file containing context data for CEL policies
-	Context string `json:"context,omitempty"`
 }
 
 type CheckResult struct {
@@ -61,15 +52,6 @@ type CheckResult struct {
 
 	// Error contains negative assertion to be performed on the relevant rule responses
 	Error v1alpha1.Any `json:"error"`
-}
-
-type TestResourceSpec struct {
-	Group       string `json:"group,omitempty"`
-	Version     string `json:"version,omitempty"`
-	Kind        string `json:"kind,omitempty"`
-	Namespace   string `json:"namespace,omitempty"`
-	Subresource string `json:"subresource,omitempty"`
-	Name        string `json:"name,omitempty"`
 }
 
 type CheckMatch struct {

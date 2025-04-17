@@ -65,13 +65,6 @@ apiVersionOverride:
   # determine the api version automatically.
   podDisruptionBudget: ~
 
-rbac:
-  roles:
-    # -- Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles)
-    aggregate:
-      admin: true
-      view: true
-
 # CRDs configuration
 crds:
 
@@ -89,13 +82,6 @@ crds:
       policies: true
       policyexceptions: true
       updaterequests: true
-      validatingpolicies: true
-
-    # -- Install CRDs in group `policies.kyverno.io`
-    policies:
-      validatingpolicies: true
-      policyexceptions: true
-      imagevalidatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -133,7 +119,7 @@ crds:
     image:
       # -- (string) Image registry
       registry: ~
-      defaultRegistry: reg.kyverno.io
+      defaultRegistry: ghcr.io
       # -- (string) Image repository
       repository: kyverno/kyverno-cli
       # -- (string) Image tag
@@ -183,16 +169,6 @@ crds:
           - ALL
       seccompProfile:
         type: RuntimeDefault
-
-    podResources:
-      # -- Pod resource limits
-      limits:
-        cpu: 100m
-        memory: 256Mi
-      # -- Pod resource requests
-      requests:
-        cpu: 10m
-        memory: 64Mi
 
 # Configuration
 config:
@@ -517,7 +493,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.32.3'
+    tag: '1.30.2'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -563,16 +539,6 @@ webhooksCleanup:
     seccompProfile:
       type: RuntimeDefault
 
-  resources:
-    # -- Pod resource limits
-    limits:
-      cpu: 100m
-      memory: 256Mi
-    # -- Pod resource requests
-    requests:
-      cpu: 10m
-      memory: 64Mi
-
 policyReportsCleanup:
   # -- Create a helm post-upgrade hook to cleanup the old policy reports.
   enabled: true
@@ -584,7 +550,7 @@ policyReportsCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.32.3'
+    tag: '1.30.2'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -630,16 +596,6 @@ policyReportsCleanup:
         - ALL
     seccompProfile:
       type: RuntimeDefault
-
-  resources:
-    # -- Pod resource limits
-    limits:
-      cpu: 100m
-      memory: 256Mi
-    # -- Pod resource requests
-    requests:
-      cpu: 10m
-      memory: 64Mi
 
 grafana:
   # -- Enable grafana dashboard creation.
@@ -772,21 +728,6 @@ features:
 
 # Admission controller configuration
 admissionController:
-  autoscaling:
-    # -- Enable horizontal pod autoscaling
-    enabled: false
-
-    # -- Minimum number of pods
-    minReplicas: 1
-
-    # -- Maximum number of pods
-    maxReplicas: 10
-
-    # -- Target CPU utilization percentage
-    targetCPUUtilizationPercentage: 80
-
-    # -- Configurable scaling behavior
-    behavior: {}
 
   # -- Overrides features defined at the root level
   featuresOverride:
@@ -898,13 +839,6 @@ admissionController:
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
-
-  # -- `dnsConfig` allows to specify DNS configuration for the pod.
-  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
-  dnsConfig: {}
-    # options:
-    #   - name: ndots
-    #     value: "2"
 
   # -- Startup probe.
   # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
@@ -1025,7 +959,7 @@ admissionController:
     image:
       # -- Image registry
       registry: ~
-      defaultRegistry: reg.kyverno.io
+      defaultRegistry: ghcr.io
       # -- Image repository
       repository: kyverno/kyvernopre
       # -- (string) Image tag
@@ -1072,7 +1006,7 @@ admissionController:
     image:
       # -- Image registry
       registry: ~
-      defaultRegistry: reg.kyverno.io
+      defaultRegistry: ghcr.io
       # -- Image repository
       repository: kyverno/kyverno
       # -- (string) Image tag
@@ -1290,7 +1224,7 @@ backgroundController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: reg.kyverno.io
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/background-controller
     # -- Image tag
@@ -1344,13 +1278,6 @@ backgroundController:
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
-
-  # -- `dnsConfig` allows to specify DNS configuration for the pod.
-  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
-  dnsConfig: {}
-    # options:
-    #   - name: ndots
-    #     value: "2"
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
@@ -1564,7 +1491,7 @@ cleanupController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: reg.kyverno.io
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/cleanup-controller
     # -- (string) Image tag
@@ -1627,13 +1554,6 @@ cleanupController:
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
-
-  # -- `dnsConfig` allows to specify DNS configuration for the pod.
-  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
-  dnsConfig: {}
-    # options:
-    #   - name: ndots
-    #     value: "2"
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
@@ -1888,7 +1808,7 @@ reportsController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: reg.kyverno.io
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/reports-controller
     # -- (string) Image tag
@@ -1960,13 +1880,6 @@ reportsController:
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
-
-  # -- `dnsConfig` allows to specify DNS configuration for the pod.
-  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config.
-  dnsConfig: {}
-    # options:
-    #   - name: ndots
-    #     value: "2"
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}

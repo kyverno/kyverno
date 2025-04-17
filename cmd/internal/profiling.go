@@ -10,7 +10,7 @@ import (
 func setupProfiling(logger logr.Logger) {
 	logger = logger.WithName("profiling").WithValues("enabled", profilingEnabled, "address", profilingAddress, "port", profilingPort)
 	if profilingEnabled {
-		logger.V(2).Info("setup profiling...")
+		logger.Info("setup profiling...")
 		profiling.Start(logger, net.JoinHostPort(profilingAddress, profilingPort))
 	}
 }

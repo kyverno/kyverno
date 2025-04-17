@@ -2152,34 +2152,6 @@ attributes for keyless verification, or a nested attestor declaration.</p>
     
     
       <tr>
-        <td><code>generate</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">bool</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
-Optional. Defaults to &quot;false&quot; if not specified.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
         <td><code>expressions</code>
           
           <span style="color:blue;"> *</span>
@@ -2189,7 +2161,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+              <span style="font-family: monospace">[]admissionregistration/v1beta1.Validation</span>
             
           
         </td>
@@ -2216,7 +2188,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1.ParamKind</span>
+              <span style="font-family: monospace">admissionregistration/v1beta1.ParamKind</span>
             
           
         </td>
@@ -2243,7 +2215,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1.ParamRef</span>
+              <span style="font-family: monospace">admissionregistration/v1beta1.ParamRef</span>
             
           
         </td>
@@ -2270,7 +2242,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+              <span style="font-family: monospace">[]admissionregistration/v1beta1.AuditAnnotation</span>
             
           
         </td>
@@ -2297,7 +2269,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+              <span style="font-family: monospace">[]admissionregistration/v1beta1.Variable</span>
             
           
         </td>
@@ -3892,7 +3864,7 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
 
           <p>PatchStrategicMerge is a strategic merge patch used to modify resources.
 See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.</p>
+and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.</p>
 
 
           
@@ -3920,7 +3892,7 @@ and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patche
           
 
           <p>PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.</p>
+See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.</p>
 
 
           
@@ -6606,7 +6578,7 @@ Please specify under &quot;any&quot; or &quot;all&quot; instead.</p>
 
           <p>PatchStrategicMerge is a strategic merge patch used to modify resources.
 See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.</p>
+and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.</p>
 
 
           
@@ -6634,7 +6606,7 @@ and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patche
           
 
           <p>PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.</p>
+See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.</p>
 
 
           
@@ -8064,7 +8036,7 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+              <span style="font-family: monospace">[]admissionregistration/v1beta1.MatchCondition</span>
             
           
         </td>

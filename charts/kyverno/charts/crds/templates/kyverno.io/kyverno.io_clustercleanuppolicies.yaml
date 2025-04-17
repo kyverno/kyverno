@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -364,14 +364,6 @@ spec:
                   - name
                   type: object
                 type: array
-              deletionPropagationPolicy:
-                description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background, Orphan).
-                enum:
-                - Foreground
-                - Background
-                - Orphan
-                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -1657,14 +1649,6 @@ spec:
                   - name
                   type: object
                 type: array
-              deletionPropagationPolicy:
-                description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background, Orphan).
-                enum:
-                - Foreground
-                - Background
-                - Orphan
-                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude

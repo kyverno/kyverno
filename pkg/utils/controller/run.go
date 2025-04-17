@@ -54,9 +54,9 @@ func newControllerMetrics(logger logr.Logger, controllerName string) *controller
 	}
 }
 
-func Run[T comparable](ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.TypedRateLimitingInterface[T], n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
-	logger.V(2).Info("starting ...")
-	defer logger.V(2).Info("stopped")
+func Run(ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.TypedRateLimitingInterface[any], n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
+	logger.Info("starting ...")
+	defer logger.Info("stopped")
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	defer runtime.HandleCrash()
@@ -68,8 +68,8 @@ func Run[T comparable](ctx context.Context, logger logr.Logger, controllerName s
 		for i := 0; i < n; i++ {
 			wg.Add(1)
 			go func(logger logr.Logger) {
-				logger.V(4).Info("starting worker")
-				defer logger.V(4).Info("worker stopped")
+				logger.Info("starting worker")
+				defer logger.Info("worker stopped")
 				defer wg.Done()
 				wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, metric, queue, maxRetries, r) }, period)
 			}(logger.WithName("worker").WithValues("id", i))
@@ -77,23 +77,23 @@ func Run[T comparable](ctx context.Context, logger logr.Logger, controllerName s
 		for i, routine := range routines {
 			wg.Add(1)
 			go func(logger logr.Logger, routine func(context.Context, logr.Logger)) {
-				logger.V(4).Info("starting routine")
-				defer logger.V(4).Info("routine stopped")
+				logger.Info("starting routine")
+				defer logger.Info("routine stopped")
 				defer wg.Done()
 				routine(ctx, logger)
 			}(logger.WithName("routine").WithValues("id", i), routine)
 		}
 		<-ctx.Done()
 	}()
-	logger.V(4).Info("waiting for workers to terminate ...")
+	logger.Info("waiting for workers to terminate ...")
 }
 
-func worker[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, r reconcileFunc) {
+func worker(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, r reconcileFunc) {
 	for processNextWorkItem(ctx, logger, metric, queue, maxRetries, r) {
 	}
 }
 
-func processNextWorkItem[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, r reconcileFunc) bool {
+func processNextWorkItem(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, r reconcileFunc) bool {
 	if obj, quit := queue.Get(); !quit {
 		defer queue.Done(obj)
 		handleErr(ctx, logger, metric, queue, maxRetries, reconcile(ctx, logger, obj, r), obj)
@@ -102,7 +102,7 @@ func processNextWorkItem[T comparable](ctx context.Context, logger logr.Logger, 
 	return false
 }
 
-func handleErr[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, err error, obj T) {
+func handleErr(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, err error, obj interface{}) {
 	if metric.reconcileTotal != nil {
 		metric.reconcileTotal.Add(ctx, 1, sdkmetric.WithAttributes(attribute.String("controller_name", metric.controllerName)))
 	}
@@ -112,7 +112,7 @@ func handleErr[T comparable](ctx context.Context, logger logr.Logger, metric *co
 		logger.V(4).Info("Dropping request from the queue", "obj", obj, "error", err.Error())
 		queue.Forget(obj)
 	} else if queue.NumRequeues(obj) < maxRetries {
-		logger.V(3).Info("Retrying request", "obj", obj, "error", err.Error())
+		logger.Info("Retrying request", "obj", obj, "error", err.Error())
 		queue.AddRateLimited(obj)
 		if metric.requeueTotal != nil {
 			metric.requeueTotal.Add(

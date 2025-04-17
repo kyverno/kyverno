@@ -24,8 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/ptr"
+	"k8s.io/utils/pointer"
 )
 
 var policyCheckLabel = `{
@@ -650,14 +649,15 @@ func Test_MutateAndGenerate(t *testing.T) {
 				Raw: []byte(resourceMutateandGenerate),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			DryRun:          ptr.To(false),
+			DryRun:          pointer.Bool(false),
 		},
 	}
 
 	_, mutatePolicies, generatePolicies, _, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
 	assert.NilError(t, err)
 
-	var wg wait.Group
+	var wg sync.WaitGroup
+	wg.Add(2)
 	resourceHandlers.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, time.Now(), &wg)
 	wg.Wait()
 

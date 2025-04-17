@@ -16,7 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,15 +30,14 @@ func GetResourceAccordingToResourcePath(
 	resourcePaths []string,
 	cluster bool,
 	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
+	validatingAdmissionPolicies []admissionregistrationv1beta1.ValidatingAdmissionPolicy,
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
-	clusterWideResources bool,
 	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
-		resources, err = GetResourcesWithTest(out, fs, resourcePaths, policyResourcePath)
+		resources, err = GetResourcesWithTest(out, fs, policies, resourcePaths, policyResourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
@@ -78,20 +77,11 @@ func GetResourceAccordingToResourcePath(
 					resourcePaths = listOfFiles
 				}
 			}
-			if clusterWideResources {
-				resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, "", policyReport, clusterWideResources)
-				if err != nil {
-					return resources, err
-				}
-				if namespace == "" {
-					return resources, nil
-				}
-			}
-			namespaceResources, err := GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport, false)
+
+			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
-			resources = append(resources, namespaceResources...)
 		}
 	}
 	return resources, err
@@ -99,7 +89,7 @@ func GetResourceAccordingToResourcePath(
 
 func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []v1alpha1.Subresource, dClient dclient.Interface) sets.Set[string] {
 	knownkinds := sets.New[string]()
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
 			if err != nil {

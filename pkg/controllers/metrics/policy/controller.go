@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"sync"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -15,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type controller struct {
@@ -26,7 +26,7 @@ type controller struct {
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
-	waitGroup *wait.Group
+	waitGroup *sync.WaitGroup
 }
 
 // TODO: this is a strange controller, it only processes events, this should be changed to a real controller.
@@ -34,7 +34,7 @@ func NewController(
 	metricsConfig metrics.MetricsConfigManager,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
-	waitGroup *wait.Group,
+	waitGroup *sync.WaitGroup,
 ) {
 	meterProvider := otel.GetMeterProvider()
 	meter := meterProvider.Meter(metrics.MeterName)
@@ -111,7 +111,7 @@ func (c *controller) reportPolicy(ctx context.Context, policy kyvernov1.PolicyIn
 			attribute.String("policy_type", string(policyType)),
 			attribute.String("policy_background_mode", string(backgroundMode)),
 		}
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			ruleType := metrics.ParseRuleType(rule)
 			ruleAttributes := []attribute.KeyValue{
 				attribute.String("rule_name", rule.Name),
@@ -124,7 +124,11 @@ func (c *controller) reportPolicy(ctx context.Context, policy kyvernov1.PolicyIn
 }
 
 func (c *controller) startRountine(routine func()) {
-	c.waitGroup.Start(routine)
+	c.waitGroup.Add(1)
+	go func() {
+		defer c.waitGroup.Done()
+		routine()
+	}()
 }
 
 func (c *controller) addPolicy(obj interface{}) {

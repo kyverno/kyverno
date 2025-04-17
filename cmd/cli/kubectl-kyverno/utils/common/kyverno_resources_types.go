@@ -12,8 +12,7 @@ import (
 )
 
 type KyvernoResources struct {
-	policies             []kyvernov1.PolicyInterface
-	clusterWideResources bool
+	policies []kyvernov1.PolicyInterface
 }
 
 func (r *KyvernoResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
@@ -24,9 +23,9 @@ func (r *KyvernoResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths
 	var subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
 
 	for _, policy := range r.policies {
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			var resourceTypesInRule map[schema.GroupVersionKind]bool
-			resourceTypesInRule, subresourceMap = GetKindsFromRule(rule, dClient, r.clusterWideResources)
+			resourceTypesInRule, subresourceMap = GetKindsFromRule(rule, dClient)
 			for resourceKind := range resourceTypesInRule {
 				resourceTypesMap[resourceKind] = true
 			}
