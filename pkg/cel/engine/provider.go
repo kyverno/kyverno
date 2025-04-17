@@ -51,9 +51,9 @@ func (f VPolProviderFunc) CompiledValidationPolicies(ctx context.Context) ([]Com
 	return f(ctx)
 }
 
-type ImageVerifyPolProviderFunc func(context.Context) ([]CompiledImageValidatingPolicy, error)
+type ImageValidatingPolProviderFunc func(context.Context) ([]CompiledImageValidatingPolicy, error)
 
-func (f ImageVerifyPolProviderFunc) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
+func (f ImageValidatingPolProviderFunc) ImageValidatingPolicies(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
 	return f(ctx)
 }
 
