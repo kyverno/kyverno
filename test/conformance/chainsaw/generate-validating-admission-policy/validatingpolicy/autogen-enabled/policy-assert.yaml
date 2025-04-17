@@ -1,7 +1,7 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: ValidatingPolicy
 metadata:
-  name: parse-sa-test
+  name: disallow-privilege-escalation
 status:
   conditionStatus:
     conditions:
@@ -13,5 +13,5 @@ status:
       reason: Succeeded
       status: "True"
       type: RBACPermissionsGranted
-    message: ""
     ready: true
+  generated: false
