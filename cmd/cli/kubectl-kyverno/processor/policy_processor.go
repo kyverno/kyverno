@@ -56,6 +56,7 @@ type PolicyProcessor struct {
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
@@ -218,12 +219,20 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 
 	mapResponses := make([]engineapi.EngineResponse, 0, len(p.MutatingAdmissionPolicies))
 	for _, mapPolicy := range p.MutatingAdmissionPolicies {
-		log.Log.V(3).Info("applying MAP", "name", mapPolicy.Name)
-		mutateResponse, err := admissionpolicy.MutateResource(mapPolicy, resource)
+		policyData := admissionpolicy.NewMutatingPolicyData(mapPolicy)
+
+		for _, binding := range p.MutatingAdmissionPolicyBindings {
+			if binding.Spec.PolicyName == mapPolicy.Name {
+				policyData.AddBinding(binding)
+			}
+		}
+
+		mutateResponse, err := admissionpolicy.Mutate(policyData, resource)
 		if err != nil {
 			log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 			continue
 		}
+
 		if !mutateResponse.IsEmpty() {
 			mapResponses = append(mapResponses, mutateResponse)
 			p.Rc.AddMutatingAdmissionPolicyResponse(mutateResponse)

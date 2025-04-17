@@ -161,6 +161,9 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 
 	if pol.AsMutatingAdmissionPolicy() != nil {
 		result.Source = "MutatingAdmissionPolicy"
+		if binding := ruleResult.MutatingAdmissionPolicyBinding(); binding != nil {
+			addProperty("binding", binding.Name, &result)
+		}
 	}
 
 	if pol.AsValidatingAdmissionPolicy() != nil {

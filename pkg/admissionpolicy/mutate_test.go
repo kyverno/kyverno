@@ -568,7 +568,7 @@ func Test_MutateResource(t *testing.T) {
 			resource, err := kubeutils.BytesToUnstructured(tt.rawResource)
 			assert.NilError(t, err)
 
-			response, err := MutateResource(policy, *resource)
+			response, err := MutateResource(policy, nil, *resource)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)

@@ -36,6 +36,7 @@ var (
 	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vpV1alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
 	mapV1alpha1           = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapBindingV1alpha1    = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	ivpV1alpha1           = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	LegacyLoader          = legacyLoader
 	KubectlValidateLoader = kubectlValidateLoader
@@ -62,6 +63,7 @@ type LoaderResults struct {
 	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
 	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MAPs                    []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MAPBindings             []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
 	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
 	NonFatalErrors          []LoaderError
@@ -75,8 +77,8 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
 	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
-
 	l.MAPs = append(l.MAPs, results.MAPs...)
+	l.MAPBindings = append(l.MAPBindings, results.MAPBindings...)
 	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 }
@@ -202,6 +204,12 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.MAPs = append(results.MAPs, *typed)
+		case mapBindingV1alpha1:
+			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.MAPBindings = append(results.MAPBindings, *typed)
 		default:
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}

@@ -10,6 +10,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,6 +25,7 @@ import (
 
 func MutateResource(
 	policy admissionregistrationv1alpha1.MutatingAdmissionPolicy,
+	binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
@@ -97,11 +99,18 @@ func MutateResource(
 
 		// if preconditions are not met, then skip mutations
 		if !matchResults.Matches {
-			return engineResponse, nil
+			ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Mutation, "match conditions not met", nil)
+			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+			return engineResponse.WithPolicyResponse(policyResp), nil
 		}
 	}
 	// compile mutations
 	patchers := compiler.CompileMutations(optionalVars)
+	if len(patchers) == 0 {
+		ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Mutation, "mutation returned no patchers", nil)
+		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+		return engineResponse.WithPolicyResponse(policyResp), nil
+	}
 	// apply mutations
 	for _, patcher := range patchers {
 		patchRequest := patch.Request{
@@ -112,23 +121,72 @@ func MutateResource(
 			Namespace:           namespace,
 			TypeConverter:       managedfields.NewDeducedTypeConverter(),
 		}
+		original := versionedAttributes.VersionedObject
+
 		newVersionedObject, err := patcher.Patch(context.TODO(), patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
-			return engineResponse, nil
+			ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil)
+			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+			return engineResponse.WithPolicyResponse(policyResp), nil
 		}
-		versionedAttributes.Dirty = true
+
+		// check if mutation actually changed anything
+		if equality.Semantic.DeepEqual(original, newVersionedObject) {
+			ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Mutation, "mutation had no effect", nil)
+			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+			return engineResponse.WithPolicyResponse(policyResp), nil
+		}
+
 		versionedAttributes.VersionedObject = newVersionedObject
+
 	}
+
 	patchedResource, err := celutils.ConvertObjectToUnstructured(versionedAttributes.VersionedObject)
 	if err != nil {
-		return engineResponse, err
+		ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil)
+		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+		return engineResponse.WithPolicyResponse(policyResp), nil
 	}
 
 	ruleResp := engineapi.RulePass(policy.GetName(), engineapi.Mutation, "", nil)
+	if binding != nil {
+		ruleResp = ruleResp.WithMutatingBinding(binding)
+	}
 	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	engineResponse = engineResponse.
 		WithPatchedResource(*patchedResource).
 		WithPolicyResponse(policyResp)
 
 	return engineResponse, nil
+}
+
+// MutatingPolicyData holds a MAP and its associated MAPBs
+type MutatingPolicyData struct {
+	definition admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+}
+
+// NewMutatingPolicyData initializes a MAP wrapper with no bindings
+func NewMutatingPolicyData(p admissionregistrationv1alpha1.MutatingAdmissionPolicy) MutatingPolicyData {
+	return MutatingPolicyData{definition: p}
+}
+
+// AddBinding appends a MAPB to the policy data
+func (m *MutatingPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+	m.bindings = append(m.bindings, b)
+}
+
+func Mutate(data MutatingPolicyData, resource unstructured.Unstructured) (engineapi.EngineResponse, error) {
+	var response engineapi.EngineResponse
+	for i, _ := range data.bindings {
+		resp, err := MutateResource(data.definition, &data.bindings[i], resource)
+		if err != nil {
+			return response, err
+		}
+		if !resp.IsEmpty() {
+			return resp, nil
+		}
+	}
+	// fallback: no bindings matched? call with nil
+	return MutateResource(data.definition, nil, resource)
 }

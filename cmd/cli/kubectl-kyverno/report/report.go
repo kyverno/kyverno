@@ -37,10 +37,6 @@ func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engi
 		}
 		policy := engineResponse.Policy()
 
-		// if policy.AsMutatingAdmissionPolicy() != nil {
-		// 	results[policy] = append(results[policy], reportutils.MutationEngineResponseToReportResults(engineResponse)...)
-		// 	continue
-		// }
 		for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
 			// TODO only validation is managed here ?
 			// if ruleResponse.RuleType() != engineapi.Validation && ruleResponse.RuleType() != engineapi.ImageVerify {

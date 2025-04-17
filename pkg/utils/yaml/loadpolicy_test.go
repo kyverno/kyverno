@@ -15,13 +15,14 @@ func TestGetPolicy(t *testing.T) {
 		namespace string
 	}
 	tests := []struct {
-		name                      string
-		args                      args
-		wantPolicies              []policy
-		vaps                      []policy
-		vapBindings               []policy
-		MutatingAdmissionPolicies []policy
-		wantErr                   bool
+		name                            string
+		args                            args
+		wantPolicies                    []policy
+		vaps                            []policy
+		vapBindings                     []policy
+		MutatingAdmissionPolicies       []policy
+		MutatingAdmissionPolicyBindings []policy
+		wantErr                         bool
 	}{{
 		name: "policy",
 		args: args{
@@ -529,10 +530,29 @@ metadata:
 			args:    args{[]byte(`: bad yaml`)},
 			wantErr: true,
 		},
+		{
+			name: "MutatingAdmissionPolicyBinding",
+			args: args{[]byte(`
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+      name: mapb-demo
+    spec:
+      policyName: my-mutation
+      matchResources:
+        namespaceSelector:
+          matchLabels:
+            environment: prod
+    `)},
+			MutatingAdmissionPolicyBindings: []policy{
+				{"MutatingAdmissionPolicyBinding", ""},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPolicies, gotValidatingAdmissionPolicies, gotBindings, _, _, gotMutatingAdmissionPolicies, err := GetPolicy(tt.args.bytes)
+			gotPolicies, gotValidatingAdmissionPolicies, gotBindings, _, _, gotMutatingAdmissionPolicies, gotMutatingAdmissionPolicyBinding, err := GetPolicy(tt.args.bytes)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -574,6 +594,25 @@ metadata:
 						)
 					}
 				}
+				if assert.Equal(t,
+					len(tt.MutatingAdmissionPolicyBindings),
+					len(gotMutatingAdmissionPolicyBinding),
+					"MutatingAdmissionPolicyBinding count",
+				) {
+					for i := range tt.MutatingAdmissionPolicyBindings {
+						assert.Equal(t,
+							tt.MutatingAdmissionPolicyBindings[i].kind,
+							gotMutatingAdmissionPolicyBinding[i].Kind,
+							"MAPB[%d].Kind", i,
+						)
+						assert.Equal(t,
+							tt.MutatingAdmissionPolicyBindings[i].namespace,
+							gotMutatingAdmissionPolicyBinding[i].GetNamespace(),
+							"MAPB[%d].Namespace", i,
+						)
+					}
+				}
+
 			}
 		})
 	}

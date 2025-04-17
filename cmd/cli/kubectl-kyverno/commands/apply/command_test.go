@@ -886,3 +886,31 @@ func Test_LoadMAPFile(t *testing.T) {
 	}
 	t.Logf("Loaded MAPs: %+v", loaderResults.MAPs)
 }
+
+func Test_Apply_MutatingAdmissionPolicy_WithBinding(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy-binding/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy-binding/resource.yaml"},
+				PolicyReport:  true,
+				Variables:     []string{"request.operation=CREATE"},
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("MAP with MAPB test", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
