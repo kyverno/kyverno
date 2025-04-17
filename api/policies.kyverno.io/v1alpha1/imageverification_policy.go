@@ -37,7 +37,7 @@ type IvpolStatus struct {
 
 type IvpolAutogenStatus struct {
 	// +optional
-	Rules []*IvpolAutogen `json:"rules,omitempty"`
+	Rules []IvpolAutogen `json:"rules,omitempty"`
 }
 
 type IvpolAutogen struct {

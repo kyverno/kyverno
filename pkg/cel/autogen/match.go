@@ -1,48 +1,29 @@
 package autogen
 
 import (
+	"fmt"
+	"strings"
+
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const (
-	podControllerMatchConditionName        = "autogen-"
-	PodControllersMatchConditionExpression = "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || "
-	cronjobMatchConditionName              = "autogen-cronjobs-"
-	CronJobMatchConditionExpression        = "!(object.kind =='CronJob') || "
-)
-
-func createMatchConstraints(configs sets.Set[string], operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
-	apps := sets.New[string]()
-	batch := sets.New[string]()
-	for config := range configs {
-		switch config {
-		case "jobs", "cronjobs":
-			batch = batch.Insert(config)
-		case "daemonsets", "deployments", "statefulsets", "replicasets":
-			apps = apps.Insert(config)
-		}
+func createMatchConstraints(targets []target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
+	rulesMap := map[schema.GroupVersion][]string{}
+	for _, target := range targets {
+		gv := schema.GroupVersion{Group: target.group, Version: target.version}
+		resources := rulesMap[gv]
+		resources = append(resources, target.resource)
+		rulesMap[gv] = resources
 	}
-	rules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, 2)
-	if apps.Len() > 0 {
+	rules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(rulesMap))
+	for gv, resources := range rulesMap {
 		rules = append(rules, admissionregistrationv1.NamedRuleWithOperations{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 				Rule: admissionregistrationv1.Rule{
-					Resources:   sets.List(apps),
-					APIGroups:   []string{"apps"},
-					APIVersions: []string{"v1"},
-				},
-				Operations: operations,
-			},
-		})
-	}
-	if batch.Len() > 0 {
-		rules = append(rules, admissionregistrationv1.NamedRuleWithOperations{
-			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-				Rule: admissionregistrationv1.Rule{
-					Resources:   sets.List(batch),
-					APIGroups:   []string{"batch"},
-					APIVersions: []string{"v1"},
+					APIGroups:   []string{gv.Group},
+					APIVersions: []string{gv.Version},
+					Resources:   resources,
 				},
 				Operations: operations,
 			},
@@ -53,20 +34,24 @@ func createMatchConstraints(configs sets.Set[string], operations []admissionregi
 	}
 }
 
-func convertMatchConditions(conditions []admissionregistrationv1.MatchCondition, resource autogencontroller) (matchConditions []admissionregistrationv1.MatchCondition, err error) {
-	var name, expression string
-	switch resource {
-	case PODS:
-		name = podControllerMatchConditionName
-		expression = PodControllersMatchConditionExpression
-	case CRONJOBS:
-		name = cronjobMatchConditionName
-		expression = CronJobMatchConditionExpression
+func createMatchConditions(targets []target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	var preconditions []string
+	for _, target := range targets {
+		apiVersion := target.group
+		if apiVersion != "" {
+			apiVersion += "/"
+		}
+		apiVersion += target.version
+		preconditions = append(preconditions, fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.kind))
 	}
+	precondition := strings.Join(preconditions, "||")
+
+	var matchConditions []admissionregistrationv1.MatchCondition
 	for _, m := range conditions {
-		m.Name = name + m.Name
-		m.Expression = expression + m.Expression
-		matchConditions = append(matchConditions, m)
+		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
+			Name:       m.Name,
+			Expression: fmt.Sprintf(`!(%s) || (%s)`, precondition, m.Expression),
+		})
 	}
-	return matchConditions, nil
+	return matchConditions
 }

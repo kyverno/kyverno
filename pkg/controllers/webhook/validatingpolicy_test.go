@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	celautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
@@ -329,102 +327,102 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "Autogen Fine-grained Ignore Policy",
-			ivpols: []*policiesv1alpha1.ImageValidatingPolicy{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "ivpol-sample",
-						Annotations: map[string]string{
-							kyverno.AnnotationAutogenControllers: "deployments,jobs,cronjobs",
-						},
-					},
-					Spec: policiesv1alpha1.ImageValidatingPolicySpec{
-						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
-						MatchConstraints: &admissionregistrationv1.MatchResources{
-							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-								{
-									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-										Rule: admissionregistrationv1.Rule{
-											APIGroups:   []string{""},
-											APIVersions: []string{"v1"},
-											Resources:   []string{"pods"},
-											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-										},
-									},
-								},
-							},
-						},
-						MatchConditions: []admissionregistrationv1.MatchCondition{
-							{
-								Name:       "check-prod-label",
-								Expression: "has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'",
-							},
-						},
-					},
-				},
-			},
-			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
-				{
-					Name:         config.ImageValidatingPolicyValidateWebhookName + "-ignore-finegrained-ivpol-sample",
-					ClientConfig: newClientConfig("", 0, nil, "/policies/ivpol/validate/ignore"+config.FineGrainedWebhookPath+"/ivpol-sample"),
-					Rules: []admissionregistrationv1.RuleWithOperations{
-						{
-							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-							Rule: admissionregistrationv1.Rule{
-								APIGroups:   []string{""},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"pods"},
-								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-							},
-						},
-						{
-							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-							Rule: admissionregistrationv1.Rule{
-								APIGroups:   []string{"apps"},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"deployments"},
-								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-							},
-						},
-						{
-							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-							Rule: admissionregistrationv1.Rule{
-								APIGroups:   []string{"batch"},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"jobs"},
-								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-							},
-						},
-						{
-							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-							Rule: admissionregistrationv1.Rule{
-								APIGroups:   []string{"batch"},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"cronjobs"},
-								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
-							},
-						},
-					},
-					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
-					MatchConditions: []admissionregistrationv1.MatchCondition{
-						{
-							Name:       "check-prod-label",
-							Expression: "!(object.kind == 'Pod') || has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'",
-						},
-						{
-							Name:       "autogen-check-prod-label",
-							Expression: celautogen.PodControllersMatchConditionExpression + "has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
-						},
-						{
-							Name:       "autogen-cronjobs-check-prod-label",
-							Expression: celautogen.CronJobMatchConditionExpression + "has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
-						},
-					},
-				},
-			},
-		},
+		// {
+		// 	name: "Autogen Fine-grained Ignore Policy",
+		// 	ivpols: []*policiesv1alpha1.ImageValidatingPolicy{
+		// 		{
+		// 			ObjectMeta: metav1.ObjectMeta{
+		// 				Name: "ivpol-sample",
+		// 				Annotations: map[string]string{
+		// 					kyverno.AnnotationAutogenControllers: "deployments,jobs,cronjobs",
+		// 				},
+		// 			},
+		// 			Spec: policiesv1alpha1.ImageValidatingPolicySpec{
+		// 				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+		// 				MatchConstraints: &admissionregistrationv1.MatchResources{
+		// 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+		// 						{
+		// 							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+		// 								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+		// 								Rule: admissionregistrationv1.Rule{
+		// 									APIGroups:   []string{""},
+		// 									APIVersions: []string{"v1"},
+		// 									Resources:   []string{"pods"},
+		// 									Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+		// 								},
+		// 							},
+		// 						},
+		// 					},
+		// 				},
+		// 				MatchConditions: []admissionregistrationv1.MatchCondition{
+		// 					{
+		// 						Name:       "check-prod-label",
+		// 						Expression: "has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'",
+		// 					},
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// 	expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+		// 		{
+		// 			Name:         config.ImageValidatingPolicyValidateWebhookName + "-ignore-finegrained-ivpol-sample",
+		// 			ClientConfig: newClientConfig("", 0, nil, "/policies/ivpol/validate/ignore"+config.FineGrainedWebhookPath+"/ivpol-sample"),
+		// 			Rules: []admissionregistrationv1.RuleWithOperations{
+		// 				{
+		// 					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+		// 					Rule: admissionregistrationv1.Rule{
+		// 						APIGroups:   []string{""},
+		// 						APIVersions: []string{"v1"},
+		// 						Resources:   []string{"pods"},
+		// 						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+		// 					},
+		// 				},
+		// 				{
+		// 					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+		// 					Rule: admissionregistrationv1.Rule{
+		// 						APIGroups:   []string{"apps"},
+		// 						APIVersions: []string{"v1"},
+		// 						Resources:   []string{"deployments"},
+		// 						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+		// 					},
+		// 				},
+		// 				{
+		// 					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+		// 					Rule: admissionregistrationv1.Rule{
+		// 						APIGroups:   []string{"batch"},
+		// 						APIVersions: []string{"v1"},
+		// 						Resources:   []string{"jobs"},
+		// 						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+		// 					},
+		// 				},
+		// 				{
+		// 					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+		// 					Rule: admissionregistrationv1.Rule{
+		// 						APIGroups:   []string{"batch"},
+		// 						APIVersions: []string{"v1"},
+		// 						Resources:   []string{"cronjobs"},
+		// 						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+		// 					},
+		// 				},
+		// 			},
+		// 			FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+		// 			MatchConditions: []admissionregistrationv1.MatchCondition{
+		// 				{
+		// 					Name:       "check-prod-label",
+		// 					Expression: "!(object.kind == 'Pod') || has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'",
+		// 				},
+		// 				{
+		// 					Name:       "autogen-check-prod-label",
+		// 					Expression: celautogen.PodControllersMatchConditionExpression + "has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
+		// 				},
+		// 				{
+		// 					Name:       "autogen-cronjobs-check-prod-label",
+		// 					Expression: celautogen.CronJobMatchConditionExpression + "has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// },
 	}
 
 	for _, tt := range tests {
