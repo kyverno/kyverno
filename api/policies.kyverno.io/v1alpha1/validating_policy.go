@@ -240,9 +240,10 @@ func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
 	return s.EvaluationConfiguration.Mode
 }
 
+// ValidationActions returns the validation actions.
 func (s ValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
 	const defaultValue = admissionregistrationv1.Deny
-	if s.ValidationAction == nil {
+	if len(s.ValidationAction) == 0 {
 		return []admissionregistrationv1.ValidationAction{defaultValue}
 	}
 	return s.ValidationAction
