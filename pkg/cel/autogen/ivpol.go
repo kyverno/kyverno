@@ -3,6 +3,8 @@ package autogen
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -34,7 +36,8 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 		}
 	}
 	var rules []policiesv1alpha1.IvpolAutogen
-	for replacements, targets := range mapping {
+	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
+		targets := mapping[replacements]
 		spec := ivpol.Spec.DeepCopy()
 		operations := ivpol.Spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = createMatchConstraints(targets, operations)

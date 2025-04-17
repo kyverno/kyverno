@@ -3,6 +3,8 @@ package autogen
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
+	"slices"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -18,7 +20,8 @@ func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, con
 		}
 	}
 	var rules []policiesv1alpha1.AutogenRule
-	for replacements, targets := range mapping {
+	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
+		targets := mapping[replacements]
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		bytes, err := json.Marshal(policiesv1alpha1.ValidatingPolicySpec{
 			MatchConstraints: createMatchConstraints(targets, operations),
