@@ -6,7 +6,6 @@ import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -22,10 +21,7 @@ func NewIVPOLProvider(policies []v1alpha1.ImageValidatingPolicy, exceptions []*p
 				}
 			}
 		}
-		actions := sets.New(policy.Spec.ValidationAction...)
-		if len(actions) == 0 {
-			actions.Insert(admissionregistrationv1.Deny)
-		}
+		actions := sets.New(policy.Spec.ValidationActions()...)
 		compiled = append(compiled, CompiledImageValidatingPolicy{
 			Actions:    actions,
 			Policy:     &p,
