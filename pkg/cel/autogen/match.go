@@ -9,14 +9,18 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func createMatchConstraints(targets []target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
-	rulesMap := map[schema.GroupVersion][]string{}
+	rulesMap := map[schema.GroupVersion]sets.Set[string]{}
 	for _, target := range targets {
 		gv := schema.GroupVersion{Group: target.group, Version: target.version}
 		resources := rulesMap[gv]
-		resources = append(resources, target.resource)
+		if resources == nil {
+			resources = sets.New[string]()
+		}
+		resources.Insert(target.resource)
 		rulesMap[gv] = resources
 	}
 	rules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(rulesMap))
@@ -36,7 +40,7 @@ func createMatchConstraints(targets []target, operations []admissionregistration
 				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{gv.Group},
 					APIVersions: []string{gv.Version},
-					Resources:   resources,
+					Resources:   sets.List(resources),
 				},
 				Operations: operations,
 			},
@@ -48,16 +52,16 @@ func createMatchConstraints(targets []target, operations []admissionregistration
 }
 
 func createMatchConditions(prefix string, targets []target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
-	var preconditions []string
+	preconditions := sets.New[string]()
 	for _, target := range targets {
 		apiVersion := target.group
 		if apiVersion != "" {
 			apiVersion += "/"
 		}
 		apiVersion += target.version
-		preconditions = append(preconditions, fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.kind))
+		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.kind))
 	}
-	precondition := strings.Join(preconditions, "||")
+	precondition := strings.Join(sets.List(preconditions), "||")
 	var matchConditions []admissionregistrationv1.MatchCondition
 	if prefix == "" {
 		prefix = "autogen"
