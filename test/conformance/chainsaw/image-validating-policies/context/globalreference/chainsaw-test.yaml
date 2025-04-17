@@ -9,10 +9,14 @@ spec:
         file: namespace.yaml
     - apply:
         file: main-deployment.yaml
+    - sleep:
+       duration: 7s
     - apply:
         file: gctxentry.yaml
+    - assert:
+        file: gctx-assert.yaml
     - sleep:
-        duration: 20s
+        duration: 3s
   - name: create policy
     try:
     - create:
@@ -20,7 +24,7 @@ spec:
     - assert:
         file: policy-assert.yaml
   - try:
-    - create:
+    - apply:
         file: new-deployment.yaml
         timeout: 60s
         expect:
