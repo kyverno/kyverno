@@ -392,3 +392,5 @@ require (
 )
 
 replace k8s.io/pod-security-admission v0.32.3 => github.com/kyverno/pod-security-admission v0.0.0-20250314164903-c9a58987cebb
+
+replace github.com/golang-jwt/jwt/v5 => github.com/golang-jwt/jwt/v5 v5.2.2
