@@ -9,10 +9,6 @@ type replacement struct {
 	to   string
 }
 
-type replacements struct {
-	entries []replacement
-}
-
 type target struct {
 	group    string
 	version  string
@@ -21,32 +17,28 @@ type target struct {
 }
 
 type config struct {
-	target       target
-	replacements *replacements
+	target          target
+	replacementsRef string
 }
 
-var replacementsMap = map[string]*replacements{
-	"": {
-		entries: []replacement{{
-			from: "spec",
-			to:   "spec.template.spec",
-		}, {
-			from: "metadata",
-			to:   "spec.template.metadata",
-		}},
-	},
-	"cronjobs": {
-		entries: []replacement{{
-			from: "spec",
-			to:   "spec.jobTemplate.spec.template.spec",
-		}, {
-			from: "metadata",
-			to:   "spec.jobTemplate.spec.template.metadata",
-		}},
-	},
+var replacementsMap = map[string][]replacement{
+	"": {{
+		from: "spec",
+		to:   "spec.template.spec",
+	}, {
+		from: "metadata",
+		to:   "spec.template.metadata",
+	}},
+	"cronjobs": {{
+		from: "spec",
+		to:   "spec.jobTemplate.spec.template.spec",
+	}, {
+		from: "metadata",
+		to:   "spec.jobTemplate.spec.template.metadata",
+	}},
 }
 
-var builtins = map[string]*config{
+var configsMap = map[string]*config{
 	"daemonsets": {
 		target: target{
 			group:    "apps",
@@ -54,7 +46,7 @@ var builtins = map[string]*config{
 			resource: "daemonsets",
 			kind:     "DaemonSet",
 		},
-		replacements: replacementsMap[""],
+		replacementsRef: "",
 	},
 	"deployments": {
 		target: target{
@@ -63,7 +55,7 @@ var builtins = map[string]*config{
 			resource: "deployments",
 			kind:     "Deployment",
 		},
-		replacements: replacementsMap[""],
+		replacementsRef: "",
 	},
 	"replicasets": {
 		target: target{
@@ -72,7 +64,7 @@ var builtins = map[string]*config{
 			resource: "replicasets",
 			kind:     "ReplicaSet",
 		},
-		replacements: replacementsMap[""],
+		replacementsRef: "",
 	},
 	"statefulsets": {
 		target: target{
@@ -81,7 +73,7 @@ var builtins = map[string]*config{
 			resource: "statefulsets",
 			kind:     "StatefulSet",
 		},
-		replacements: replacementsMap[""],
+		replacementsRef: "",
 	},
 	"jobs": {
 		target: target{
@@ -90,7 +82,7 @@ var builtins = map[string]*config{
 			resource: "jobs",
 			kind:     "Job",
 		},
-		replacements: replacementsMap[""],
+		replacementsRef: "",
 	},
 	"cronjobs": {
 		target: target{
@@ -99,7 +91,7 @@ var builtins = map[string]*config{
 			resource: "cronjobs",
 			kind:     "CronJob",
 		},
-		replacements: replacementsMap["cronjobs"],
+		replacementsRef: "cronjobs",
 	},
 }
 

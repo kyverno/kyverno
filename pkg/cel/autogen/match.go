@@ -1,7 +1,10 @@
 package autogen
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -17,7 +20,17 @@ func createMatchConstraints(targets []target, operations []admissionregistration
 		rulesMap[gv] = resources
 	}
 	rules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(rulesMap))
-	for gv, resources := range rulesMap {
+	compareGroupVersion := func(gv1 schema.GroupVersion, gv2 schema.GroupVersion) int {
+		if x := cmp.Compare(gv1.Group, gv2.Group); x != 0 {
+			return x
+		}
+		if x := cmp.Compare(gv1.Version, gv2.Version); x != 0 {
+			return x
+		}
+		return 0
+	}
+	for _, gv := range slices.SortedFunc(maps.Keys(rulesMap), compareGroupVersion) {
+		resources := rulesMap[gv]
 		rules = append(rules, admissionregistrationv1.NamedRuleWithOperations{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 				Rule: admissionregistrationv1.Rule{
@@ -34,7 +47,7 @@ func createMatchConstraints(targets []target, operations []admissionregistration
 	}
 }
 
-func createMatchConditions(targets []target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+func createMatchConditions(prefix string, targets []target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
 	var preconditions []string
 	for _, target := range targets {
 		apiVersion := target.group
@@ -45,11 +58,15 @@ func createMatchConditions(targets []target, conditions []admissionregistrationv
 		preconditions = append(preconditions, fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.kind))
 	}
 	precondition := strings.Join(preconditions, "||")
-
 	var matchConditions []admissionregistrationv1.MatchCondition
+	if prefix == "" {
+		prefix = "autogen"
+	} else {
+		prefix = "autogen-" + prefix
+	}
 	for _, m := range conditions {
 		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
-			Name:       m.Name,
+			Name:       fmt.Sprintf(`%s-%s`, prefix, m.Name),
 			Expression: fmt.Sprintf(`!(%s) || (%s)`, precondition, m.Expression),
 		})
 	}

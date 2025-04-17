@@ -9,31 +9,31 @@ import (
 )
 
 func generateRuleForControllers(spec *policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string]) ([]policiesv1alpha1.AutogenRule, error) {
-	mapping := map[*replacements][]target{}
+	mapping := map[string][]target{}
 	for config := range configs {
-		if config := builtins[config]; config != nil {
-			targets := mapping[config.replacements]
+		if config := configsMap[config]; config != nil {
+			targets := mapping[config.replacementsRef]
 			targets = append(targets, config.target)
-			mapping[config.replacements] = targets
+			mapping[config.replacementsRef] = targets
 		}
 	}
 	var rules []policiesv1alpha1.AutogenRule
 	for replacements, targets := range mapping {
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-		newSpec := &policiesv1alpha1.ValidatingPolicySpec{
+		bytes, err := json.Marshal(policiesv1alpha1.ValidatingPolicySpec{
 			MatchConstraints: createMatchConstraints(targets, operations),
-			MatchConditions:  createMatchConditions(targets, spec.MatchConditions),
+			MatchConditions:  createMatchConditions(replacements, targets, spec.MatchConditions),
 			Validations:      spec.Validations,
 			AuditAnnotations: spec.AuditAnnotations,
 			Variables:        spec.Variables,
-		}
-		if bytes, err := json.Marshal(newSpec); err != nil {
+		})
+		if err != nil {
 			return nil, err
-		} else {
-			bytes = updateFields(bytes, replacements.entries...)
-			if err := json.Unmarshal(bytes, &newSpec); err != nil {
-				return nil, err
-			}
+		}
+		bytes = updateFields(bytes, replacementsMap[replacements]...)
+		var newSpec policiesv1alpha1.ValidatingPolicySpec
+		if err := json.Unmarshal(bytes, &newSpec); err != nil {
+			return nil, err
 		}
 		rules = append(rules, policiesv1alpha1.AutogenRule{
 			MatchConstraints: newSpec.MatchConstraints,

@@ -24,12 +24,12 @@ func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageValidatingPolicy) 
 }
 
 func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) ([]policiesv1alpha1.IvpolAutogen, error) {
-	mapping := map[*replacements][]target{}
+	mapping := map[string][]target{}
 	for config := range configs {
-		if config := builtins[config]; config != nil {
-			targets := mapping[config.replacements]
+		if config := configsMap[config]; config != nil {
+			targets := mapping[config.replacementsRef]
 			targets = append(targets, config.target)
-			mapping[config.replacements] = targets
+			mapping[config.replacementsRef] = targets
 		}
 	}
 	var rules []policiesv1alpha1.IvpolAutogen
@@ -37,11 +37,11 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 		spec := ivpol.Spec.DeepCopy()
 		operations := ivpol.Spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = createMatchConstraints(targets, operations)
-		spec.MatchConditions = createMatchConditions(targets, ivpol.Spec.MatchConditions)
+		spec.MatchConditions = createMatchConditions(replacements, targets, ivpol.Spec.MatchConditions)
 		if bytes, err := json.Marshal(spec); err != nil {
 			return nil, err
 		} else {
-			bytes = updateFields(bytes, replacements.entries...)
+			bytes = updateFields(bytes, replacementsMap[replacements]...)
 			if err := json.Unmarshal(bytes, spec); err != nil {
 				return nil, err
 			}
