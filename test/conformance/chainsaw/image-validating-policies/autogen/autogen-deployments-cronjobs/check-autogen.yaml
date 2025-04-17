@@ -55,8 +55,6 @@ status:
             - CREATE
             resources:
             - cronjobs
-        mutateDigest: true
-        required: true
         validationActions:
         - Deny
         validations:
@@ -69,7 +67,10 @@ status:
         - expression: images.containers.map(image, payload(image, attestations.sbom).bomFormat
             == 'CycloneDX').all(e, e)
           message: sbom is not a cyclone dx sbom
-        verifyDigest: true
+        validationConfigurations:
+          mutateDigest: true
+          required: true
+          verifyDigest: true
         webhookConfiguration:
           timeoutSeconds: 20
     - name: autogen-ivpol-autogen-sample
@@ -123,8 +124,7 @@ status:
             - CREATE
             resources:
             - deployments
-        mutateDigest: true
-        required: true
+        
         validationActions:
         - Deny
         validations:
@@ -137,6 +137,9 @@ status:
         - expression: images.containers.map(image, payload(image, attestations.sbom).bomFormat
             == 'CycloneDX').all(e, e)
           message: sbom is not a cyclone dx sbom
-        verifyDigest: true
+        validationConfigurations:
+          mutateDigest: true
+          required: true
+          verifyDigest: true
         webhookConfiguration:
           timeoutSeconds: 20
