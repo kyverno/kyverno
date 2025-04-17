@@ -11384,50 +11384,6 @@ string
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.MatchImageReference">MatchImageReference
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
-</p>
-<p>
-<p>MatchImageReference defines a Glob or a CEL expression for matching images</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>glob</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Glob defines a globbing pattern for matching images</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>cel</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Cel defines CEL Expressions for matching images</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy
 </h3>
 <p>
@@ -11554,7 +11510,7 @@ Each variable is defined as a named CEL expression.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
@@ -11863,7 +11819,7 @@ Each variable is defined as a named CEL expression.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
@@ -12170,7 +12126,7 @@ Each variable is defined as a named CEL expression.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
@@ -12520,6 +12476,50 @@ string
 <td>
 <p>Roots is an optional set of PEM encoded trusted root certificates.
 If not provided, the system roots are used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MatchImageReference">MatchImageReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+</p>
+<p>
+<p>MatchImageReference defines a Glob or a CEL expression for matching images</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>glob</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Glob defines a globbing pattern for matching images</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Cel defines CEL Expressions for matching images</p>
 </td>
 </tr>
 </tbody>

@@ -156,15 +156,15 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	}
 
 	return &compiledPolicy{
-		failurePolicy:   ivpolicy.GetFailurePolicy(),
-		matchConditions: matchConditions,
+		failurePolicy:        ivpolicy.GetFailurePolicy(),
+		matchConditions:      matchConditions,
 		matchImageReferences: matchImageReferences,
-		verifications:   verifications,
-		imageExtractors: imageExtractors,
-		attestorList:    ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
-		attestationList: ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
-		creds:           ivpolicy.Spec.Credentials,
-		exceptions:      compiledExceptions,
-		variables:       variables,
+		verifications:        verifications,
+		imageExtractors:      imageExtractors,
+		attestorList:         ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
+		attestationList:      ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
+		creds:                ivpolicy.Spec.Credentials,
+		exceptions:           compiledExceptions,
+		variables:            variables,
 	}, nil
 }

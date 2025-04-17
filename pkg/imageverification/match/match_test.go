@@ -10,11 +10,11 @@ import (
 
 func Test_Match(t *testing.T) {
 	tests := []struct {
-		name       string
+		name                 string
 		matchImageReferences []v1alpha1.MatchImageReference
-		image      string
-		wantResult bool
-		wantErr    bool
+		image                string
+		wantResult           bool
+		wantErr              bool
 	}{
 		{
 			name: "standard pass",
