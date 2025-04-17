@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: restrict-service-ports
 spec:
-  validationFailureAction: Enforce
   background: true
   rules:
   - name: restrict-port-range
@@ -18,6 +17,7 @@ spec:
           operator: Equals
           value: 'LoadBalancer'
     validate:
+      failureAction: Enforce
       message: >-
         Only approved ports may be used for LoadBalancer services.
       foreach:
@@ -38,6 +38,7 @@ spec:
           kinds:
           - Service
     validate:
+      failureAction: Enforce
       message: "NodePort services are not allowed. This is {{ request.object.spec.type }}"
       pattern:
         spec:

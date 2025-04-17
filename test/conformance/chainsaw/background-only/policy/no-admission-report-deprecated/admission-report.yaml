@@ -1,0 +1,7 @@
+apiVersion: reports.kyverno.io/v1
+kind: EphemeralReport
+metadata:
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: pod

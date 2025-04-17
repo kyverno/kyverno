@@ -38,4 +38,3 @@ spec:
           kinds:
           - Namespace
     name: default-deny
-  validationFailureAction: Audit

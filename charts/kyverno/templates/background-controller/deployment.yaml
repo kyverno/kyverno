@@ -7,6 +7,10 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
+  {{- with .Values.backgroundController.annotations }}
+  annotations:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}
   revisionHistoryLimit: {{ .Values.backgroundController.revisionHistoryLimit }}
@@ -28,7 +32,7 @@ spec:
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.backgroundController.imagePullSecrets }}
+      {{- with .Values.backgroundController.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -56,6 +60,10 @@ spec:
       {{- end }}
       {{- with .Values.backgroundController.dnsPolicy }}
       dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.backgroundController.dnsConfig }}
+      dnsConfig:
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- if or .Values.backgroundController.antiAffinity.enabled .Values.backgroundController.podAffinity .Values.backgroundController.nodeAffinity }}
       affinity:
@@ -114,7 +122,9 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.backgroundController.featuresOverride)
+            - --resyncPeriod={{ .Values.backgroundController.resyncPeriod | default .Values.global.resyncPeriod }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.backgroundController.featuresOverride)
+              "reporting"
               "configMapCaching"
               "deferredLoading"
               "globalContext"

@@ -43,4 +43,8 @@ The following components have been installed in your cluster:
 ⚠️  WARNING: Generating reports from ValidatingAdmissionPolicies requires a Kubernetes 1.27+ cluster with `ValidatingAdmissionPolicy` feature gate and `admissionregistration.k8s.io` API group enabled.
 {{- end }}
 
+{{ if not .Values.features.policyExceptions.enabled }}
+⚠️  WARNING: PolicyExceptions are disabled by default. To enable them, set '--enablePolicyException' to true.
+{{- end }}
+
 💡 Note: There is a trade-off when deciding which approach to take regarding Namespace exclusions. Please see the documentation at https://kyverno.io/docs/installation/#security-vs-operability to understand the risks.

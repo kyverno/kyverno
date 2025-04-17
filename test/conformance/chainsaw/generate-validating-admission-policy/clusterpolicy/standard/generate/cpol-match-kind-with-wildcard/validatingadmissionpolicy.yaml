@@ -1,9 +1,9 @@
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: check-label-app4
+  name: cpol-check-label-app4
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
@@ -26,6 +26,8 @@ spec:
       operations:
       - CREATE
       - UPDATE
+      - CONNECT
+      - DELETE
       resources:
       - '*'
   validations:

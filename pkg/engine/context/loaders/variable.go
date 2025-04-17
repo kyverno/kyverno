@@ -62,24 +62,24 @@ func (vl *variableLoader) loadVariable() (err error) {
 	}
 
 	var defaultValue interface{} = nil
-	if entry.Variable.Default != nil {
-		value, err := jsonutils.DocumentToUntyped(entry.Variable.Default)
+	if entry.Variable.GetDefault() != nil {
+		value, err := jsonutils.DocumentToUntyped(entry.Variable.GetDefault())
 		if err != nil {
 			return fmt.Errorf("invalid default for variable %s", entry.Name)
 		}
 		defaultValue, err = variables.SubstituteAll(logger, ctx, value)
 		if err != nil {
-			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Default, err)
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.GetDefault(), err)
 		}
 		logger.V(4).Info("evaluated default value", "variable name", entry.Name, "jmespath", defaultValue)
 	}
 
 	var output interface{} = defaultValue
-	if entry.Variable.Value != nil {
-		value, _ := jsonutils.DocumentToUntyped(entry.Variable.Value)
+	if entry.Variable.GetValue() != nil {
+		value, _ := jsonutils.DocumentToUntyped(entry.Variable.GetValue())
 		variable, err := variables.SubstituteAll(logger, ctx, value)
 		if err != nil {
-			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Value, err)
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.GetValue(), err)
 		}
 		if path != "" {
 			variable, err := applyJMESPath(vl.jp, path, variable)

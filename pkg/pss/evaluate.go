@@ -23,47 +23,26 @@ var (
 // Evaluate Pod's specified containers only and get PSSCheckResults
 func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
 	checks := policy.DefaultChecks()
-	var latestVersionCheck policy.VersionedCheck
 	for _, check := range checks {
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
 			continue
 		}
 
-		latestVersionCheck = check.Versions[0]
+		selectedCheck := check.Versions[0]
 		for i := 1; i < len(check.Versions); i++ {
-			vc := check.Versions[i]
-			if !vc.MinimumVersion.Older(latestVersionCheck.MinimumVersion) {
-				latestVersionCheck = vc
+			nextCheck := check.Versions[i]
+			if !level.Version.Older(nextCheck.MinimumVersion) && selectedCheck.MinimumVersion.Older(nextCheck.MinimumVersion) {
+				selectedCheck = nextCheck
 			}
 		}
 
-		if level.Version == api.LatestVersion() {
-			checkResult := latestVersionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec, policy.WithFieldErrors())
-			if !checkResult.Allowed {
-				results = append(results, pssutils.PSSCheckResult{
-					ID:               string(check.ID),
-					CheckResult:      checkResult,
-					RestrictedFields: GetRestrictedFields(check),
-				})
-			}
-		}
-
-		for _, versionCheck := range check.Versions {
-			// the latest check returned twice, skip duplicate application
-			if level.Version == api.LatestVersion() {
-				continue
-			} else if level.Version != api.LatestVersion() && level.Version.Older(versionCheck.MinimumVersion) {
-				continue
-			}
-			checkResult := versionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec, policy.WithFieldErrors())
-			// Append only if the checkResult is not already in pssCheckResult
-			if !checkResult.Allowed {
-				results = append(results, pssutils.PSSCheckResult{
-					ID:               string(check.ID),
-					CheckResult:      checkResult,
-					RestrictedFields: GetRestrictedFields(check),
-				})
-			}
+		checkResult := selectedCheck.CheckPod(&pod.ObjectMeta, &pod.Spec, policy.WithFieldErrors())
+		if !checkResult.Allowed {
+			results = append(results, pssutils.PSSCheckResult{
+				ID:               string(check.ID),
+				CheckResult:      checkResult,
+				RestrictedFields: GetRestrictedFields(check),
+			})
 		}
 	}
 	return results

@@ -19,6 +19,7 @@ spec:
           - Pod
     name: require-image-tag
     validate:
+      failureAction: Audit
       message: An image tag is required.
       pattern:
         spec:
@@ -33,12 +34,12 @@ spec:
           - test
     name: validate-image-tag
     validate:
+      failureAction: Audit
       message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:
         spec:
           containers:
           - image: '!*:latest'
-  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -62,6 +63,7 @@ spec:
           operator: GreaterThan
           value: 8h
       message: Pod lifetime exceeds limit of 8h
+      failureAction: Enforce
   - match:
       any:
       - resources:
@@ -76,6 +78,7 @@ spec:
           operator: LessThan
           value: 8h
       message: Pod lifetime under limit of 8h
+      failureAction: Enforce
   - match:
       any:
       - resources:
@@ -90,6 +93,7 @@ spec:
           operator: GreaterThanOrEquals
           value: 8h
       message: Pod lifetime exceeds limit of 8h
+      failureAction: Enforce
   - match:
       any:
       - resources:
@@ -104,7 +108,7 @@ spec:
           operator: LessThanOrEquals
           value: 8h
       message: Pod lifetime under limit of 8h
-  validationFailureAction: Enforce
+      failureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -148,4 +152,4 @@ spec:
           operator: GreaterThan
           value: 10
       message: A maximum of 10 Pods are allowed on the Node `minikube`
-  validationFailureAction: Audit
+      failureAction: Audit

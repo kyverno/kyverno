@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: nginx-test-scaling-policy
+spec:
+  background: false
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Deployment/scale
+        names:
+        - nginx-test
+        namespaces:
+        - test-validate
+    name: validate-nginx-test
+    validate:
+      failureAction: Enforce
+      message: nginx-test needs to have 2 replicas
+      pattern:
+        spec:
+          replicas: 2
+  webhookConfiguration:
+    failurePolicy: Fail

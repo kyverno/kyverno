@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sync-image-pull-secrets
+spec:
+  validationFailureAction: Audit
+  background: false
+  generateExisting: true
+  rules:
+  - name: sync-image-pull-secret-harbor-external
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          selector:
+            matchLabels:
+              sync-image-pull-secrets: "true"
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: harbor-external
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: platform
+        name: harbor-external

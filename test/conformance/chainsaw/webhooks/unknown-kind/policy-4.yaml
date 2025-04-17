@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: unknown
 spec:
-  validationFailureAction: Audit
   background: false
   rules:
     - name: unknown
@@ -13,6 +12,7 @@ spec:
               kinds:
                 - Pod/foo
       validate:
+        failureAction: Audit
         message: 'The label `team` is required.'
         pattern:
           metadata:

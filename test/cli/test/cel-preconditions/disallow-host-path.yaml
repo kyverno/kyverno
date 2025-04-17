@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: disallow-host-path
 spec:
-  validationFailureAction: Audit
   background: false
   rules:
     - name: host-path
@@ -16,6 +15,7 @@ spec:
         - expression: "object.metadata.labels['color'] == 'red'"
           name: "Label should be red"
       validate:
+        failureAction: Audit
         cel:
           expressions:
             - expression: "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"

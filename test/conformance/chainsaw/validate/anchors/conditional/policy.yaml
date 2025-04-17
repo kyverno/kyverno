@@ -29,7 +29,7 @@ spec:
               kinds:
                 - Deployment/scale
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: The replica count for this Deployment may not exceed 8.
         pattern:
           (status):

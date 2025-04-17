@@ -1,16 +1,23 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: variable-substitution-failure-messages
 spec:
   steps:
-  - name: step-01 
-    try: 
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml    
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-panic
   - name: step-02  
     try:  
     - script:  
@@ -18,7 +25,7 @@ spec:
         check:  
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
-          ($stderr): |-
+          (trim_space($stderr)): |-
             Error from server: error when creating "pod.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
         
             resource Pod/default/test was blocked due to the following policies 

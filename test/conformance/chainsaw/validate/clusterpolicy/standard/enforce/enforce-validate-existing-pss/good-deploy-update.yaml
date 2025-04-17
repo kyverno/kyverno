@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: good-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1
+        seccompProfile:
+          type: Localhost
+          localhostProfile: operator/default/profile1.json
+      hostNetwork: false
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-nginx:dontpull
+        ports:
+        - containerPort: 80
+        securityContext:
+          allowPrivilegeEscalation: true
+          runAsNonRoot: true
+          seccompProfile:
+            type: Localhost
+            localhostProfile: operator/default/profile1.json
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+

@@ -22,4 +22,4 @@ spec:
           fourth_value: 2.5-3.5
           second_value: -2-5
           third_value: 100Mi!-1024Mi
-  validationFailureAction: Enforce
+      failureAction: Enforce

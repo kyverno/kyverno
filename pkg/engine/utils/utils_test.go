@@ -837,7 +837,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "name": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
 			areErrorsExpected: false,
 		},
 		{
@@ -846,7 +846,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "name": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "v1/Pod" ] } }, "validate": { "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": {"rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "v1/Pod" ] } }, "validate": { "failureAction": "enforce", "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
 			areErrorsExpected: false,
 		},
 		{
@@ -864,7 +864,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1beta1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "name": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 		{
@@ -873,7 +873,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "kind": "ClusterRole", "apiVersion": "rbac.authorization.k8s.io/v1", "metadata": { "name": "secret-reader-demo", "namespace": "default" }, "rules": [ { "apiGroups": [ "" ], "resources": [ "secrets" ], "verbs": [ "get", "watch", "list" ] } ] }`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "check-host-path" }, "spec": { "validationFailureAction": "enforce", "background": true, "rules": [ { "name": "check-host-path", "match": { "resources": { "kinds": [ "rbac.authorization.k8s.io/v1beta1/ClusterRole" ] } }, "validate": { "message": "Host path is not allowed", "pattern": { "spec": { "volumes": [ { "name": "*", "hostPath": { "path": "" } } ] } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "check-host-path" }, "spec": { "background": true, "rules": [ { "name": "check-host-path", "match": { "resources": { "kinds": [ "rbac.authorization.k8s.io/v1beta1/ClusterRole" ] } }, "validate": { "failureAction": "enforce", "message": "Host path is not allowed", "pattern": { "spec": { "volumes": [ { "name": "*", "hostPath": { "path": "" } } ] } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 		{
@@ -882,7 +882,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "name": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "pod" ] } }, "validate": { "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "pod" ] } }, "validate": { "failureAction": "enforce", "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 		{
@@ -891,7 +891,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "name": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 	}
@@ -904,7 +904,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		}
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
-		for _, rule := range autogen.ComputeRules(&policy, "") {
+		for _, rule := range autogen.Default.ComputeRules(&policy, "") {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
@@ -1742,7 +1742,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "generateName": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "failureAction": "enforce", "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
 			areErrorsExpected: false,
 		},
 		{
@@ -1751,7 +1751,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "generateName": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "v1/Pod" ] } }, "validate": { "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "v1/Pod" ] } }, "validate": { "failureAction": "enforce", "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
 			areErrorsExpected: false,
 		},
 		{
@@ -1769,7 +1769,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1beta1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "generateName": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "failureAction": "enforce", "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 		{
@@ -1778,7 +1778,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "kind": "ClusterRole", "apiVersion": "rbac.authorization.k8s.io/v1", "metadata": { "generateName": "secret-reader-demo", "namespace": "default" }, "rules": [ { "apiGroups": [ "" ], "resources": [ "secrets" ], "verbs": [ "get", "watch", "list" ] } ] }`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "check-host-path" }, "spec": { "validationFailureAction": "enforce", "background": true, "rules": [ { "name": "check-host-path", "match": { "resources": { "kinds": [ "rbac.authorization.k8s.io/v1beta1/ClusterRole" ] } }, "validate": { "message": "Host path is not allowed", "pattern": { "spec": { "volumes": [ { "name": "*", "hostPath": { "path": "" } } ] } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "check-host-path" }, "spec": { "background": true, "rules": [ { "name": "check-host-path", "match": { "resources": { "kinds": [ "rbac.authorization.k8s.io/v1beta1/ClusterRole" ] } }, "validate": { "failureAction": "enforce", "message": "Host path is not allowed", "pattern": { "spec": { "volumes": [ { "name": "*", "hostPath": { "path": "" } } ] } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 		{
@@ -1787,7 +1787,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "generateName": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "pod" ] } }, "validate": { "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "pod" ] } }, "validate": { "failureAction": "enforce", "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 		{
@@ -1796,7 +1796,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "generateName": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 	}
@@ -1809,7 +1809,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		}
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
-		for _, rule := range autogen.ComputeRules(&policy, "") {
+		for _, rule := range autogen.Default.ComputeRules(&policy, "") {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
@@ -1963,7 +1963,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 				},
 			},
 		}},
-		ExcludeResources: v1.MatchResources{},
+		ExcludeResources: &v1.MatchResources{},
 	}
 
 	// this is the request info that was also passed with the mocked pod
@@ -1996,7 +1996,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 				},
 			},
 		}},
-		ExcludeResources: v1.MatchResources{Any: v1.ResourceFilters{}},
+		ExcludeResources: &v1.MatchResources{Any: v1.ResourceFilters{}},
 	}
 
 	// Second test: confirm that matching this rule does not create any errors (and raise if err != nil)
@@ -2005,7 +2005,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}
 
 	// Now we extend the previous rule to have an Exclude part. Making it 'not-empty' should make the exclude-code run.
-	rule2.ExcludeResources = v1.MatchResources{Any: v1.ResourceFilters{
+	rule2.ExcludeResources = &v1.MatchResources{Any: v1.ResourceFilters{
 		v1.ResourceFilter{
 			ResourceDescription: v1.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -2461,7 +2461,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 
 	rule := v1.Rule{
 		MatchResources:   v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
+		ExcludeResources: &v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
 	}
 
 	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {

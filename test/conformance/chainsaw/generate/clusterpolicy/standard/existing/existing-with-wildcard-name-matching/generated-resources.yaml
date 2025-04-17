@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: home
+  namespace: tst-home-dev
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mobile
+  namespace: tst-mobile-dev

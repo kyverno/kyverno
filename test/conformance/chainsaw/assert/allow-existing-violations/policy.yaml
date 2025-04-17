@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-old-object
+spec:
+  background: false
+  rules:
+    - name: require-labels
+      match:
+        all:
+        - resources:
+            operations:
+              - CREATE
+              - UPDATE
+            kinds:
+              - Namespace
+      context:
+      - name: small
+        variable:
+          value: small
+      - name: medium
+        variable:
+          value: medium
+      - name: large
+        variable:
+          value: large
+      validate:
+        failureAction: Enforce
+        message: "The label `size` is required"
+        assert:
+          object:
+            metadata:
+              labels:
+                size:
+                  (@ == $small || @ == $medium || @ == $large): true
+

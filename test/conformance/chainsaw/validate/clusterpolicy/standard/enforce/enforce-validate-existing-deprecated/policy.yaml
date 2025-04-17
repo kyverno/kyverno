@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-labels-validate-existing
+spec:
+  background: true
+  validationFailureAction: enforce
+  rules:
+    - name: check-labels
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        pattern:
+          metadata:
+            labels:
+              =(foo): "bar"

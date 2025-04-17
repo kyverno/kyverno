@@ -20,3 +20,4 @@ webhooks:
     - 'configmaps'
     - 'secrets'
     scope: 'Namespaced'
+

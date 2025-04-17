@@ -8,7 +8,7 @@ resources:
 - resources.yaml
 results:
 - kind: Deployment
-  patchedResource: deploy-patched.yaml
+  patchedResources: deploy-patched.yaml
   policy: mutate-emptydir
   resources:
   - svc-sizelimit-test

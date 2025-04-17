@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: existing-basic-create-policy-preconditions-data
 spec:
-  generateExisting: true
   rules:
   - name: existing-basic-create-data-preconditions-rule
     match:
@@ -17,6 +16,7 @@ spec:
         operator: Equals
         value: LoadBalancer
     generate:
+      generateExisting: true
       kind: ConfigMap
       apiVersion: v1
       name: mylb-cm

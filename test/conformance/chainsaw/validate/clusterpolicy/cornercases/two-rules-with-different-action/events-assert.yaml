@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: check-ns-labels
+message: 'Namespace good-ns-1: [require-ns-env-label] fail; validation error: You
+  must have label `environment` with value `production` set on all new namespaces.
+  rule require-ns-env-label failed at path /metadata/labels/environment/'
+reason: PolicyViolation
+related:
+  apiVersion: v1
+  kind: Namespace
+  name: good-ns-1
+reportingComponent: kyverno-admission
+type: Warning
+action: Resource Passed
+---
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: check-ns-labels
+message: 'Namespace good-ns-2: pass'
+reason: PolicyApplied
+related:
+  apiVersion: v1
+  kind: Namespace
+  name: good-ns-2
+reportingComponent: kyverno-admission
+type: Normal
+action: Resource Passed
+---
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+message: 'Namespace bad-ns-1: [require-ns-purpose-label] fail (blocked); validation
+  error: You must have label `purpose` with value `production` set on all new namespaces.
+  rule require-ns-purpose-label failed at path /metadata/labels/purpose/'
+reason: PolicyViolation
+involvedObject:
+  apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: check-ns-labels
+related:
+  apiVersion: v1
+  kind: Namespace
+  name: bad-ns-1
+reportingComponent: kyverno-admission
+type: Warning
+action: Resource Blocked
+---
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: check-ns-labels
+message: 'Namespace bad-ns-2: [require-ns-purpose-label] fail (blocked); validation
+  error: You must have label `purpose` with value `production` set on all new namespaces.
+  rule require-ns-purpose-label failed at path /metadata/labels/purpose/'
+reason: PolicyViolation
+related:
+  apiVersion: v1
+  kind: Namespace
+  name: bad-ns-2
+reportingComponent: kyverno-admission
+type: Warning
+action: Resource Blocked

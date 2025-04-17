@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: foreach-cpol-clone-list-sync-update-target
+spec:
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    name: k-kafka-address
+    context:
+    - name: configmapns
+      variable:
+        jmesPath: request.object.metadata.namespace
+    preconditions:
+      any:
+      - key: '{{configmapns}}'
+        operator: Equals
+        value: '{{request.object.metadata.namespace}}'
+    generate:
+      generateExisting: false
+      synchronize: true
+      foreach:
+        - list: request.object.data.namespaces | split(@, ',')
+          context:
+          - name: ns
+            variable:
+              jmesPath: element
+          preconditions:
+            any:
+            - key: '{{ ns }}'
+              operator: AnyIn
+              value:
+              - foreach-cpol-clone-list-sync-update-target-target-ns-1
+          namespace: '{{ ns }}'
+          cloneList:
+            kinds:
+            - v1/Secret
+            namespace: foreach-cpol-clone-list-sync-update-target-existing-ns
+            selector:
+              matchLabels:
+                allowedToBeCloned: "true"

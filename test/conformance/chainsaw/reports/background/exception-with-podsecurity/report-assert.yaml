@@ -9,7 +9,7 @@ metadata:
 results:
 - policy: psa-1
   properties:
-    exception: pod-security-exception
+    exceptions: pod-security-exception
   result: skip
   rule: restricted
   scored: true

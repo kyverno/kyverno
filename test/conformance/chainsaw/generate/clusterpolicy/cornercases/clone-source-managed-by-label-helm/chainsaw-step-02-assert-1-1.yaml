@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  .dockerconfigjson: ewoJImF1dGhzIjogewoJCSI4NDQzMzM1OTc1MzYuZGtyLmVjci51cy13ZXN0LTIuYW1hem9uYXdzLmNvbSI6IHt9LAoJCSJnaGNyLmlvIjoge30sCgkJImt5dmVybm9ub3Rhcnl0ZXN0LmF6dXJlY3IuaW8iOiB7fSwKCQkicXVheS5pbyI6IHt9LAoJCSJyZWdpc3RyeS12Mi5uaXJtYXRhLmlvIjoge30sCgkJInJlZ2lzdHJ5LmNvbm5lY3QucmVkaGF0LmNvbSI6IHt9LAoJCSJyZWdpc3RyeS5yZWRoYXQuaW8iOiB7fSwKCQkic2Nhbi5jb25uZWN0LnJlZGhhdC5jb20iOiB7fQoJfSwKCSJjcmVkc1N0b3JlIjogImRlc2t0b3AiLAoJImN1cnJlbnRDb250ZXh0IjogImRlc2t0b3AtbGludXgiCn0=
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: harbor-external
+  namespace: my-app
+type: kubernetes.io/dockerconfigjson

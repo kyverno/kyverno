@@ -13,6 +13,6 @@ var Context = context.Background()
 
 func setupSignals(logger logr.Logger) (context.Context, context.CancelFunc) {
 	logger = logger.WithName("signals")
-	logger.Info("setup signals...")
+	logger.V(2).Info("setup signals...")
 	return signal.NotifyContext(Context, os.Interrupt, syscall.SIGTERM)
 }

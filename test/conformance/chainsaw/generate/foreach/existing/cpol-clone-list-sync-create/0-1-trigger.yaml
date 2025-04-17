@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foreach-existing-cpol-clone-list-sync-create-trigger-ns
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: default-deny
+  namespace: foreach-existing-cpol-clone-list-sync-create-trigger-ns
+data:
+  namespaces: foreach-existing-cpol-clone-list-sync-create-target-ns-1,foreach-existing-cpol-clone-list-sync-create-target-ns-2

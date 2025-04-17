@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: pol-data-sync-modify-rule
 spec:
   steps:
@@ -9,18 +8,34 @@ spec:
     try:
     - apply:
         file: chainsaw-step-01-apply-1-1.yaml
-    - apply:
-        file: chainsaw-step-01-apply-1-2.yaml
-    - assert:
-        file: chainsaw-step-01-assert-1-1.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: zk-kafka-address
+        - name: namespace
+          value: pol-data-sync-modify-rule
   - name: step-02
     try:
     - apply:
         file: chainsaw-step-02-apply-1-1.yaml
-  - name: step-03
-    try:
-    - apply:
-        file: chainsaw-step-03-apply-1-1.yaml
+  - name: update policy
+    use:
+      template: ../../../../../../_step-templates/update-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-2.yaml
+  - try:
     - assert:
         file: chainsaw-step-03-assert-1-1.yaml
   - name: step-04

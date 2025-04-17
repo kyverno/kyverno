@@ -1,0 +1,45 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: policy-1
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+    - name: require-team
+      match:
+        any:
+          - resources:
+              kinds:
+                - 'Deployment'
+      validate:
+        failureAction: Audit
+        message: 'The label `team` is required.'
+        pattern:
+          metadata:
+            labels:
+              team: '?*'
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: policy-2
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+    - name: require-team
+      match:
+        any:
+          - resources:
+              kinds:
+                - 'ConfigMap'
+      validate:
+        failureAction: Audit
+        message: 'The label `team` is required.'
+        pattern:
+          metadata:
+            labels:
+              team: '?*'

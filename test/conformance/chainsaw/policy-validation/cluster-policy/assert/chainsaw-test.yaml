@@ -1,0 +1,29 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: assert-validation
+spec:
+  steps:
+  - try:
+    - create:
+        file: ok.yaml
+  - try:
+    - create:
+        file: no-foreach.yaml
+        bindings:
+        - name: errPattern
+          value: |-
+            *path: spec.rules[0].validate..: only one of pattern, anyPattern, deny, foreach, cel can be specified
+        expect:
+        - check:
+            (wildcard($errPattern, $error)): true
+  - try:
+    - create:
+        file: bad-context-name.yaml
+        bindings:
+        - name: errPattern
+          value: |-
+            *path: spec.rules[0]: context entry name bad-name is invalid, it must be a single word when the validation rule uses `assert`
+        expect:
+        - check:
+            (wildcard($errPattern, $error)): true

@@ -8,7 +8,7 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  patchedResource: pod-patched.yaml
+  patchedResources: pod-patched.yaml
   policy: replace-image-registry-containers
   resources:
   - test-patched-image

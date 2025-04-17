@@ -60,7 +60,7 @@ func (fi FuzzInterface) ListResource(ctx context.Context, apiVersion string, kin
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (fi FuzzInterface) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool) error {
+func (fi FuzzInterface) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool, options metav1.DeleteOptions) error {
 	return fmt.Errorf("Not implemented")
 }
 

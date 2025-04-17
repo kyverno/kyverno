@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: psp-baseline
+spec:
+  failurePolicy: Ignore
+  background: true
+  validationFailureAction: Enforce
+  rules:
+  - name: baseline
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      podSecurity:
+        level: baseline
+        version: v1.29

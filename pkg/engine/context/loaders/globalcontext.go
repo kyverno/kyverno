@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -46,15 +47,7 @@ func NewGCTXLoader(
 }
 
 func (g *gctxLoader) HasLoaded() bool {
-	data, ok := g.gctxStore.Get(g.entry.Name)
-	if ok {
-		g.logger.Error(fmt.Errorf("failed to get data from global context store"), "failed to get data from global context store")
-		return false
-	}
-	if data == nil {
-		return false
-	}
-	return true
+	return false
 }
 
 func (g *gctxLoader) LoadData() error {
@@ -88,60 +81,45 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 	}
 	g.logger.V(6).Info("variables substituted", "resourcecache", rc)
 
-	storeEntry, ok := g.gctxStore.Get(rc.Name)
-	if !ok {
-		err := fmt.Errorf("failed to fetch entry key=%s", rc.Name)
+	names := strings.Split(rc.Name, ".")
+	if len(names) < 1 {
+		err := fmt.Errorf("invalid resource cache name %s", rc.Name)
 		g.logger.Error(err, "")
 		return nil, err
 	}
-	data, err = storeEntry.Get()
+
+	gctxName := names[0]
+	projectionName := ""
+	if len(names) > 1 {
+		projectionName = names[1]
+	}
+
+	storeEntry, ok := g.gctxStore.Get(gctxName)
+	if !ok {
+		err := fmt.Errorf("failed to fetch entry key=%s", gctxName)
+		g.logger.Error(err, "")
+		return nil, err
+	}
+	data, err = storeEntry.Get(projectionName)
 	if err != nil {
 		g.logger.Error(err, "failed to fetch data from entry")
 		return nil, err
 	}
 
-	var jsonData []byte
-	if _, ok := data.([]byte); ok {
-		jsonData = data.([]byte)
-	} else {
-		jsonData, err = json.Marshal(data)
+	if rc.JMESPath == "" {
+		jsonData, err := json.Marshal(data)
 		if err != nil {
 			return nil, err
 		}
-	}
-	g.logger.V(6).Info("fetched json data", "name", g.entry.Name, "jsondata", jsonData)
-
-	if g.entry.GlobalReference.JMESPath == "" {
-		err := g.enginectx.AddContextEntry(g.entry.Name, jsonData)
-		if err != nil {
-			g.logger.Error(err, "failed to add resource data to context entry")
-			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", g.entry.Name, err)
-		}
-
 		return jsonData, nil
 	}
 
-	path, err := variables.SubstituteAll(g.logger, g.enginectx, rc.JMESPath)
-	if err != nil {
-		g.logger.Error(err, "failed to substitute variables in context entry")
-		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", g.entry.Name, rc.JMESPath, err)
-	}
-
-	results, err := g.applyJMESPathJSON(path.(string), jsonData)
+	results, err := g.jp.Search(rc.JMESPath, data)
 	if err != nil {
 		g.logger.Error(err, "failed to apply JMESPath for context entry")
-		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, g.entry.Name, err)
+		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", rc.JMESPath, g.entry.Name, err)
 	}
 	g.logger.V(6).Info("applied jmespath expression", "name", g.entry.Name, "results", results)
 
 	return json.Marshal(results)
-}
-
-func (a *gctxLoader) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
-	var data interface{}
-	err := json.Unmarshal(jsonData, &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(jsonData), err)
-	}
-	return a.jp.Search(jmesPath, data)
 }

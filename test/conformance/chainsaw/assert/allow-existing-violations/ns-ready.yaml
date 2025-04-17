@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+  labels:
+    kubernetes.io/metadata.name: test
+    size: unknown

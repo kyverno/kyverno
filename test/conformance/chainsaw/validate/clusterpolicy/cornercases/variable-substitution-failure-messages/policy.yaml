@@ -16,7 +16,7 @@ spec:
             kinds:
               - Pod
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: >-
           Running with specific user IDs {{ allowedUIDs }}. The fields
           spec.securityContext.runAsGroup, spec.containers[*].securityContext.runAsGroup,

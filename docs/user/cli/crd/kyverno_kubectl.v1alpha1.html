@@ -25,6 +25,8 @@
             
             <h3>Resource Types:</h3>
             <ul><li>
+                    <a href="#cli-kyverno-io-v1alpha1-Context">Context</a>
+                  </li><li>
                     <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>
                   </li><li>
                     <a href="#cli-kyverno-io-v1alpha1-UserInfo">UserInfo</a>
@@ -34,6 +36,179 @@
 
             
             
+  <H3 id="cli-kyverno-io-v1alpha1-Context">Context
+    </H3>
+
+  
+
+  <p><p>Values declares values to be loaded by the Kyverno CLI</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>cli.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>Context</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-ContextSpec">
+                <span style="font-family: monospace">ContextSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]meta/v1/unstructured.Unstructured</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>images</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-ImageData">
+                <span style="font-family: monospace">[]ImageData</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="cli-kyverno-io-v1alpha1-Test">Test
     </H3>
 
@@ -182,6 +357,64 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
 
           <p>Resources are the resource to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>jsonPayload</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>JSONPayload is the JSON payload to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>targetResources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Target Resources are for policies that have mutate existing</p>
 
 
           
@@ -361,7 +594,36 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
         <td>
           
 
-          <p>Policy Exceptions are the policy exceptions to be used in the test</p>
+          <p>PolicyExceptions are the policy exceptions to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context file containing context data for CEL policies</p>
 
 
           
@@ -823,6 +1085,386 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
 
           <p>Error contains negative assertion to be performed on the relevant rule responses</p>
 
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-ContextSpec">ContextSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Context">Context</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]meta/v1/unstructured.Unstructured</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>images</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-ImageData">
+                <span style="font-family: monospace">[]ImageData</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-ImageData">ImageData
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-ContextSpec">ContextSpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>image</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resolvedImage</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>registry</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>repository</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>tag</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>digest</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>imageIndex</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>manifest</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>config</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
 
           
 
@@ -1369,6 +2011,209 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     </table>
   
 
+  <H3 id="cli-kyverno-io-v1alpha1-TestResourceSpec">TestResourceSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-TestResultData">TestResultData</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>group</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>version</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kind</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>namespace</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subresource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="cli-kyverno-io-v1alpha1-TestResult">TestResult
     </H3>
 
@@ -1379,7 +2224,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     </p>
   
 
-  <p><p>TestResultBase declares a test result</p>
+  <p><p>TestResult declares a test result</p>
 </p>
 
   
@@ -1466,7 +2311,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     
     
       <tr>
-        <td><code>resources</code>
+        <td><code>TestResultData</code>
           
           <span style="color:blue;"> *</span>
           
@@ -1475,15 +2320,18 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
           
             
-              <span style="font-family: monospace">[]string</span>
+              <a href="#cli-kyverno-io-v1alpha1-TestResultData">
+                <span style="font-family: monospace">TestResultData</span>
+              </a>
             
           
         </td>
         <td>
           
+            <p>(Members of <code>TestResultData</code> are embedded into this type.)</p>
+          
 
-          <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
-
+          
 
           
 
@@ -1603,7 +2451,63 @@ It's required in case policy is a kyverno policy.</p>
           
 
           <p>IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
-It's required in case policy is a validating admission policy.</p>
+It's required in case the policy is a validating admission policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>isValidatingPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IsValidatingPolicy indicates if the policy is a validating policy.
+It's required in case the policy is a validating policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>isImageValidatingPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IsImageValidatingPolicy indicates if the policy is an image validating policy.
+It's required in case the policy is an image validating policy.</p>
 
 
           
@@ -1675,7 +2579,7 @@ Possible values are pass, fail and skip.</p>
     
     
       <tr>
-        <td><code>patchedResource</code>
+        <td><code>patchedResources</code>
           
           <span style="color:blue;"> *</span>
           
@@ -1692,7 +2596,8 @@ Possible values are pass, fail and skip.</p>
           
 
           <p>PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.</p>
+the user to compare it against the Kyverno mutated resource configuration.
+Multiple resources can be passed in the same file</p>
 
 
           
@@ -1753,6 +2658,102 @@ the user to compare it against the Kyverno generated resource configuration.</p>
 
           <p>CloneSourceResource takes the resource configuration file in yaml format
 from the user which is meant to be cloned by the generate rule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-TestResultData">TestResultData
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-TestResult">TestResult</a>)
+    </p>
+  
+
+  <p><p>TestResultData declares a test result data</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resourceSpecs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-TestResourceSpec">
+                <span style="font-family: monospace">[]TestResourceSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
 
 
           
@@ -1889,6 +2890,37 @@ This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;<
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>patchedResource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PatchedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno mutated resource configuration.
+This is DEPRECATED, Use <code>patchedResources</code> instead.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -2008,6 +3040,35 @@ This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;<
           
 
           <p>NamespaceSelectors are the namespace labels</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>namespaces</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]core/v1.Namespace</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Namespaces are the namespaces</p>
 
 
           

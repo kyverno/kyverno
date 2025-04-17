@@ -39,6 +39,7 @@ spec:
         operator: AllIn
         value: '{{ hosts }}'
     validate:
+      failureAction: Audit
       deny: {}
       message: The Ingress host name must be unique.
   - match:
@@ -56,6 +57,6 @@ spec:
         operator: GreaterThan
         value: 1
     validate:
+      failureAction: Audit
       deny: {}
       message: An Ingress resource may only contain a single host entry.
-  validationFailureAction: Audit

@@ -227,7 +227,10 @@ func TestCosignMatchCertificateData(t *testing.T) {
 	assert.NilError(t, err)
 
 	subject1 := "https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/*"
+	subject1RegExp := `https://github\.com/JimBugwadia/demo-java-tomcat/.+`
 	issuer1 := "https://token.actions.githubusercontent.com"
+	issuer1RegExp := `https://token\.actions\..+`
+
 	extensions := map[string]string{
 		"githubWorkflowTrigger":    "push",
 		"githubWorkflowSha":        "c7645284fa7aebe554618eee879b4d6947f8564e",
@@ -235,20 +238,41 @@ func TestCosignMatchCertificateData(t *testing.T) {
 		"githubWorkflowRepository": "JimBugwadia/demo-java-tomcat",
 	}
 
-	matchErr := matchCertificateData(cert1, subject1, issuer1, extensions)
+	matchErr := matchCertificateData(cert1, subject1, "", issuer1, "", extensions)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchCertificateData(cert1, "", issuer1, extensions)
+	matchErr = matchCertificateData(cert1, "", "", issuer1, "", extensions)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchCertificateData(cert1, subject1, issuer1, nil)
+	matchErr = matchCertificateData(cert1, subject1, "", issuer1, "", nil)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchCertificateData(cert1, "wrong-subject", issuer1, extensions)
+	matchErr = matchCertificateData(cert1, "", subject1RegExp, "", issuer1RegExp, nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchCertificateData(cert1, "", "", "", issuer1RegExp, nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchCertificateData(cert1, subject1, subject1RegExp, issuer1, issuer1RegExp, nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchCertificateData(cert1, "", `^wrong-regex$`, issuer1, issuer1RegExp, nil)
+	assert.Error(t, matchErr, "subject mismatch: expected ^wrong-regex$, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22")
+
+	matchErr = matchCertificateData(cert1, "", "", "", `^wrong-regex$`, nil)
+	assert.Error(t, matchErr, "issuer mismatch: expected ^wrong-regex$, received https://token.actions.githubusercontent.com")
+
+	matchErr = matchCertificateData(cert1, "wrong-subject", "", issuer1, "", extensions)
 	assert.Error(t, matchErr, "subject mismatch: expected wrong-subject, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22")
 
+	matchErr = matchCertificateData(cert1, "", "*", "", issuer1RegExp, nil)
+	assert.Error(t, matchErr, "invalid regexp for subject: * : error parsing regexp: missing argument to repetition operator: `*`")
+
+	matchErr = matchCertificateData(cert1, "", subject1RegExp, "", "?", nil)
+	assert.Error(t, matchErr, "invalid regexp for issuer: ? : error parsing regexp: missing argument to repetition operator: `?`")
+
 	extensions["githubWorkflowTrigger"] = "pull"
-	matchErr = matchCertificateData(cert1, subject1, issuer1, extensions)
+	matchErr = matchCertificateData(cert1, subject1, "", issuer1, "", extensions)
 	assert.Error(t, matchErr, "extension mismatch: expected pull for key githubWorkflowTrigger, received push")
 }
 
@@ -431,17 +455,28 @@ func TestCosignMatchSignatures(t *testing.T) {
 	}
 
 	subject2 := "*@nirmata.com"
+	subject2RegExp := `.+@nirmata\.com`
 	issuer2 := "https://github.com/login/oauth"
+	issuer2RegExp := `https://github\.com/login/.+`
 
-	matchErr := matchSignatures(sigs, subject1, issuer1, extensions)
+	matchErr := matchSignatures(sigs, subject1, "", issuer1, "", extensions)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchSignatures(sigs, subject2, issuer2, nil)
+	matchErr = matchSignatures(sigs, subject2, "", issuer2, "", nil)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchSignatures(sigs, subject2, issuer1, nil)
+	matchErr = matchSignatures(sigs, "", subject2RegExp, issuer2, "", nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchSignatures(sigs, "", "", "", issuer2RegExp, nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchSignatures(sigs, subject2, "", issuer1, "", nil)
 	assert.Error(t, matchErr, "subject mismatch: expected *@nirmata.com, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22; issuer mismatch: expected https://token.actions.githubusercontent.com, received https://github.com/login/oauth")
 
-	matchErr = matchSignatures(sigs, subject2, issuer2, extensions)
+	matchErr = matchSignatures(sigs, "", subject2RegExp, issuer1, "", nil)
+	assert.Error(t, matchErr, `subject mismatch: expected .+@nirmata\.com, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22; issuer mismatch: expected https://token.actions.githubusercontent.com, received https://github.com/login/oauth`)
+
+	matchErr = matchSignatures(sigs, subject2, "", issuer2, "", extensions)
 	assert.ErrorContains(t, matchErr, "extension mismatch")
 }

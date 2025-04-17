@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: require-run-as-non-root-user
 spec:
-  validationFailureAction: Enforce
   background: true
   rules:
     - name: run-as-non-root-user
@@ -13,6 +12,7 @@ spec:
               kinds:
                 - Pod
       validate:
+        failureAction: Enforce
         message: >-
           Running the container as root user is not allowed.
         pattern:

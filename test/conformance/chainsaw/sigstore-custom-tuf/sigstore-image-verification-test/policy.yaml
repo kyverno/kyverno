@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: sigstore-image-verification
+spec:
+  background: false
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: sigstore-image-verification
+    verifyImages:
+    - imageReferences:
+      - "*"
+      type: SigstoreBundle
+      attestors:
+      - entries:
+        - keyless:
+            issuer: https://token.actions.githubusercontent.com
+            subject: https://github.com/nirmata/github-signing-demo/.github/workflows/build-attested-image.yaml@refs/heads/main
+            rekor:
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true

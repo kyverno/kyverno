@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    helm.sh/resource-policy: keep
+    linkerd.io/inject: enabled
+    meta.helm.sh/release-name: workload-namespaces
+    meta.helm.sh/release-namespace: default
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    gen-vault-kv-store: enabled
+    helm.toolkit.fluxcd.io/name: workload-namespaces-sbx-usc1
+    helm.toolkit.fluxcd.io/namespace: default
+    kubernetes.io/metadata.name: my-app
+    name: my-app
+    namespaceKind: workloads
+    owner: team-ccs
+    sync-image-pull-secrets: "true"
+    vault-sidecar-injector: enabled
+  name: my-app

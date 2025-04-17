@@ -1,0 +1,8 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  namespace: test-non-audit-reports-namespacesselector
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: non-audit-pod

@@ -1,16 +1,16 @@
 # Reports
 
-This document contains scripts to help troubleshooting reports issues.
+This document contains scripts to help troubleshoot reports issues.
 
 ## Getting reports detailed information
 
-When querying reports you can add `-o wide` to get a more detailed output.
+When querying reports, you can add `-o wide` to get a more detailed output.
 
-This will show infos about the resource associated with the report.
+This will show information about the resource associated with the report.
 
 It can be useful to determine if a particular resource kind is responsible for creating too many reports.
 
-If `APIVERSION`, `KIND` and `SUBJECT` is empty it means the report is orphan and it is an issue if the report is more than a couple of minutes old.
+If `APIVERSION`, `KIND` and `SUBJECT` is empty it means the report is orphaned, and it is an issue if the report is more than a couple of minutes old.
 
 ```console
 # list cluster admission reports
@@ -37,7 +37,7 @@ NAME                                   APIVERSION                     KIND      
 
 ## Getting the number of reports in a cluster
 
-This will help checking if reports are incorrectly accumulating in the cluster.
+This will help check if reports are incorrectly accumulating in the cluster.
 
 ```console
 COUNT=$(kubectl get cadmr --no-headers 2> /dev/null | wc -l)
@@ -65,9 +65,9 @@ done
 
 ## Getting the number of reports per kind
 
-Use the script below to get number of reports per resource kind in a cluster.
+Use the script below to get the number of reports per resource kind in a cluster.
 
-This will help determining if a particular resource kind is responsible for creating too many reports.
+This will help determine if a particular resource kind is responsible for creating too many reports.
 
 ```console
 API_LIST=$(kubectl api-resources --namespaced=false --no-headers | awk '{print $NF}')
@@ -87,7 +87,7 @@ do
     echo "number of admission reports for $api: $COUNT"
 
     COUNT=$(kubectl get bgscanr --no-headers -o jsonpath="{range .items[?(@.metadata.ownerReferences[0].kind=='$api')]}{.metadata.name}{'\n'}{end}" 2> /dev/null | wc -l)
-    echo "number of background scan reports for $api: $COUNT"    
+    echo "number of background scan reports for $api: $COUNT"
 done
 ```
 
@@ -97,9 +97,9 @@ By using `--watch-only` with `kubectl` you can view report changes only without 
 
 Listing existing reports can take a long time when there is a high number of reports.
 
-With `--watch-only` you only get an output for reports that are created, updated or deleted.
+With `--watch-only` you only get an output for reports that are created, updated, or deleted.
 
-This is useful to determine if particular resource kind is reponsible for creating too many reports.
+This is useful to determine if a particular resource kind is responsible for creating too many reports.
 
 ```console
 # watch changing cluster admission reports

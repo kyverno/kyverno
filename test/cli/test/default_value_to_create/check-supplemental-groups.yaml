@@ -39,4 +39,4 @@ spec:
         spec:
           =(securityContext):
             =(supplementalGroups): 100-200 | 500-600
-  validationFailureAction: Audit
+      failureAction: Audit

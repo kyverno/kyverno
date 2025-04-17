@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job
+  annotations:
+    cleanup.kyverno.io/propagation-policy: Foreground
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: main
+        image: docker.io/library/bash:5
+        command: ["bash"]
+        args:
+        - -c
+        - sleep 120s

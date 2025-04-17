@@ -36,7 +36,6 @@ kind: ClusterPolicy
 metadata:
   name: check-image-notary
 spec:
-  validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
   failurePolicy: Fail  
   rules:
@@ -55,6 +54,7 @@ spec:
       - type: Notary
         imageReferences:
         - "ghcr.io/kyverno/test-verify-image*"
+        failureAction: Enforce
         attestors:
         - count: 1
           entries:

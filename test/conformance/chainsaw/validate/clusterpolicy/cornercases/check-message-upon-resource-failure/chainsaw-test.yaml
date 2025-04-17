@@ -1,29 +1,44 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: check-message-upon-resource-failure
 spec:
   steps:
-  - name: step-01
-    try: 
-    - apply:
-        file: policy-1.yaml
-    - assert:
-        file: policy-assert1.yaml    
-  - name: step-02
-    try:
-    - apply:
-        file: policy-2.yaml
-    - assert:
-        file: policy-assert2.yaml    
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-1.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: require-ns-owner-label
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-2.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: preconditions-check
   - name: step-03
     try:
     - script:
        content: kubectl apply -f resource.yaml
        check:
          # This check ensures the contents of stderr are exactly as shown.
-         ($stderr): |-
+         (trim_space($stderr)): |-
            Error from server: error when creating "resource.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
 
            resource Namespace//asdfhl was blocked due to the following policies 

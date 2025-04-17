@@ -14,5 +14,5 @@ spec:
           operations:
           - UPDATE
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny: {}

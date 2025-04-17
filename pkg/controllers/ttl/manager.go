@@ -41,6 +41,7 @@ type manager struct {
 	interval        time.Duration
 	lock            sync.Mutex
 	infoMetric      metric.Int64ObservableGauge
+	resyncPeriod    time.Duration
 }
 
 func NewManager(
@@ -48,6 +49,7 @@ func NewManager(
 	discoveryInterface discovery.DiscoveryInterface,
 	checker checker.AuthChecker,
 	timeInterval time.Duration,
+	resyncPeriod time.Duration,
 ) controllers.Controller {
 	logger := logging.WithName(ControllerName)
 	meterProvider := otel.GetMeterProvider()
@@ -67,6 +69,7 @@ func NewManager(
 		logger:          logger,
 		interval:        timeInterval,
 		infoMetric:      infoMetric,
+		resyncPeriod:    resyncPeriod,
 	}
 	if infoMetric != nil {
 		if _, err := meter.RegisterCallback(mgr.report, infoMetric); err != nil {
@@ -124,8 +127,8 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 	if stopFunc, ok := m.resController[gvr]; ok {
 		delete(m.resController, gvr)
 		func() {
-			defer logger.Info("controller stopped")
-			logger.Info("stopping controller...")
+			defer logger.V(2).Info("controller stopped")
+			logger.V(2).Info("stopping controller...")
 			stopFunc()
 		}()
 	}
@@ -143,7 +146,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 	informer := metadatainformer.NewFilteredMetadataInformer(m.metadataClient,
 		gvr,
 		metav1.NamespaceAll,
-		10*time.Minute,
+		m.resyncPeriod,
 		indexers,
 		options,
 	)

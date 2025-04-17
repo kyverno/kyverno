@@ -1,0 +1,33 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: enforce-validate-existing
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: prevent-ingress-annotation
+  - name: step-02
+    try:
+    - apply:
+        file: ingress.yaml
+    - assert:
+        file: ingress-ready.yaml
+  - name: step-03
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: ingress-update.yaml

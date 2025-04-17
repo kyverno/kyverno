@@ -1,39 +1,68 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: cpol-data-sync-delete-rule
 spec:
   steps:
   - name: step-01
     try:
     - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-ready.yaml
+        file: 1-1-permissions.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: 1-2-policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multiple-gens
   - name: step-02
     try:
     - apply:
-        file: chainsaw-step-02-apply-1-1.yaml
+        file: 2-1-namespace.yaml
   - name: step-03
     try:
     - assert:
-        file: secret.yaml
+        file: 3-1-secret.yaml
     - assert:
-        file: configmap.yaml
+        file: 3-2-configmap.yaml
   - name: step-04
     try:
     - apply:
-        file: delete-rule.yaml
-    - assert:
-        file: policy-ready.yaml
+        file: 4-1-rule-update.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multiple-gens
   - name: step-05
     try:
-    - sleep:
-        duration: 3s
+    - apply:
+        file: 5-1-namespace-update.yaml
+    - assert:
+        file: 5-2-configmap-new.yaml
   - name: step-06
     try:
+    - apply:
+        file: 6-1-delete-rule.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multiple-gens
+  - name: step-07
+    try:
     - assert:
-        file: secret.yaml
+        file: 3-2-configmap.yaml
     - error:
-        file: configmap.yaml
+        file: 5-2-configmap-new.yaml

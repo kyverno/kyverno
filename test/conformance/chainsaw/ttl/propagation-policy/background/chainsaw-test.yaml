@@ -1,0 +1,22 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: background
+spec:
+  steps:
+  - name: Create job with background deletion policy
+    try:
+    - create:
+        file: job.yaml
+  - name: Wait pod is running
+    try:
+    - assert:
+        file: pod-assert.yaml
+  - name: Delete job with background deletion policy
+    try:
+    - delete:
+        file: job.yaml
+  - name: Assert pod is no longer running
+    try:
+    - error:
+        file: pod-assert.yaml

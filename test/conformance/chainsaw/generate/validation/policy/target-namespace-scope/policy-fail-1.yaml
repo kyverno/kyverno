@@ -5,7 +5,7 @@ metadata:
   name: pol-target-namespace-scope-fail-1
   namespace: default
 spec:
-  generateExistingOnPolicyUpdate: true
+  generateExisting: true
   rules:
     - generate:
         apiVersion: iam.aws.crossplane.io/v1beta1

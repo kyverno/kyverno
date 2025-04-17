@@ -6,13 +6,9 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) policyreportv1alpha2.PolicyReportResult {
-	policy := engineResponse.Policy()
-	policyType := policy.GetType()
-	policyName := cache.MetaObjectToName(policy.MetaObject()).String()
 	resource := engineResponse.Resource
 	resorceRef := &corev1.ObjectReference{
 		Kind:            resource.GetKind(),
@@ -22,8 +18,7 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 		APIVersion:      resource.GetAPIVersion(),
 		ResourceVersion: resource.GetResourceVersion(),
 	}
-
-	result := reportutils.ToPolicyReportResult(policyType, policyName, ruleResponse, policy.GetAnnotations(), resorceRef)
+	result := reportutils.ToPolicyReportResult(engineResponse.Policy(), ruleResponse, resorceRef)
 	if result.Result == policyreportv1alpha2.StatusFail {
 		audit := engineResponse.GetValidationFailureAction().Audit()
 		if audit && auditWarn {

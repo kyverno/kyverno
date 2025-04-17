@@ -17,6 +17,7 @@ spec:
               protected: '*'
     name: wildcard-label
     validate:
+      failureAction: Enforce
       message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:
         spec:
@@ -32,6 +33,7 @@ spec:
               protected: '*-test'
     name: label-end-with-test
     validate:
+      failureAction: Enforce
       message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:
         spec:
@@ -52,4 +54,4 @@ spec:
         spec:
           containers:
           - image: '!*:latest'
-  validationFailureAction: Enforce
+      failureAction: Enforce

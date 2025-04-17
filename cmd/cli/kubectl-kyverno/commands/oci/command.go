@@ -10,7 +10,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/push"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +20,7 @@ func Command() *cobra.Command {
 		github.Keychain,
 		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
 		google.Keychain,
-		registryclient.AzureKeychain,
+		imagedataloader.AzureKeychain,
 	)
 	cmd := &cobra.Command{
 		Use:          "oci",

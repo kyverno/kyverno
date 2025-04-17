@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: ok
+spec:
+  rules:
+  - name: test
+    match:
+      all:
+      - resources:
+          kinds:
+            - Namespace
+    validate:
+      failureAction: Enforce
+      message: "namespace must have an env label"
+      assert:
+        object:
+          metadata:
+            labels:
+              env: {}

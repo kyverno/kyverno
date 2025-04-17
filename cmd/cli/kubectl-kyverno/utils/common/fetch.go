@@ -12,11 +12,10 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,12 +28,13 @@ import (
 func GetResources(
 	out io.Writer,
 	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
+	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	resourcePaths []string,
 	dClient dclient.Interface,
 	cluster bool,
 	namespace string,
 	policyReport bool,
+	clusterWideResources bool,
 ) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
@@ -42,7 +42,8 @@ func GetResources(
 	if cluster && dClient != nil {
 		if len(policies) > 0 {
 			matchedResources := &KyvernoResources{
-				policies: policies,
+				policies:             policies,
+				clusterWideResources: clusterWideResources,
 			}
 
 			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
@@ -53,7 +54,8 @@ func GetResources(
 
 		if len(validatingAdmissionPolicies) > 0 {
 			matchedResources := &ValidatingAdmissionResources{
-				policies: validatingAdmissionPolicies,
+				policies:             validatingAdmissionPolicies,
+				clusterWideResources: clusterWideResources,
 			}
 
 			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
@@ -126,16 +128,8 @@ func whenClusterIsFalse(out io.Writer, resourcePaths []string, policyReport bool
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, policies []kyvernov1.PolicyInterface, resourcePaths []string, policyResourcePath string) ([]*unstructured.Unstructured, error) {
+func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []string, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
-	resourceTypesMap := make(map[string]bool)
-	for _, policy := range policies {
-		for _, rule := range autogen.ComputeRules(policy, "") {
-			for _, kind := range rule.MatchResources.Kinds {
-				resourceTypesMap[kind] = true
-			}
-		}
-	}
 	if len(resourcePaths) > 0 {
 		for _, resourcePath := range resourcePaths {
 			var resourceBytes []byte
@@ -227,49 +221,53 @@ func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstruct
 }
 
 // GetKindsFromRule will return the kinds from policy match block
-func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
+func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface, clusterWideResources bool) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
 	for _, kind := range rule.MatchResources.Kinds {
-		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
+		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
 	}
 	if rule.MatchResources.Any != nil {
 		for _, resFilter := range rule.MatchResources.Any {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
-				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
+				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
 			}
 		}
 	}
 	if rule.MatchResources.All != nil {
 		for _, resFilter := range rule.MatchResources.All {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
-				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
+				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
 			}
 		}
 	}
 	return resourceTypesMap, subresourceMap
 }
 
-func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1alpha1.ValidatingAdmissionPolicy, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
+func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1.ValidatingAdmissionPolicy, client dclient.Interface, clusterWideResources bool) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
 
-	kinds := validatingadmissionpolicy.GetKinds(policy)
+	kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
 	for _, kind := range kinds {
-		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
+		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
 	}
 
 	return resourceTypesMap, subresourceMap
 }
 
-func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource, client dclient.Interface) {
+func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource, client dclient.Interface, clusterWideResources bool) {
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
-		log.Log.Info("failed to find resource", "kind", kind, "error", err)
+		log.Log.V(2).Info("failed to find resource", "kind", kind, "error", err)
 		return
 	}
 	for parent, child := range gvrss {
+		if clusterWideResources && child.Namespaced {
+			continue
+		}
+
 		// The resource is not a subresource
 		if parent.SubResource == "" {
 			resourceTypesMap[parent.GroupVersionKind()] = true

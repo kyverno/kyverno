@@ -1,0 +1,36 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: match-trigger-namespace
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+    - apply:
+        file: chainsaw-step-01-apply-1-2.yaml
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: match-trigger-namespace
+        - name: namespace
+          value: match-trigger-namespace-ns
+  - name: step-02
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-03
+    try:
+    - assert:
+        file: chainsaw-step-03-assert-1-1.yaml

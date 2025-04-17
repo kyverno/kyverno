@@ -7,7 +7,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -76,12 +75,16 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 }
 
 func TransformConditions(original apiextensions.JSON) (interface{}, error) {
-	// conditions are currently in the form of []interface{}
-	oldConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(original)
-	if err != nil {
-		return nil, err
+	if original == nil {
+		return kyvernov1.AnyAllConditions{}, nil
 	}
-	switch typedValue := oldConditions.(type) {
+
+	switch typedValue := original.(type) {
+	case *kyvernov1.AnyAllConditions:
+		if typedValue == nil {
+			return kyvernov1.AnyAllConditions{}, nil
+		}
+		return *typedValue.DeepCopy(), nil
 	case kyvernov1.AnyAllConditions:
 		return *typedValue.DeepCopy(), nil
 	case []kyvernov1.Condition: // backwards compatibility
@@ -107,5 +110,5 @@ func IsSameRuleResponse(r1 *engineapi.RuleResponse, r2 *engineapi.RuleResponse) 
 
 func IsUpdateRequest(ctx engineapi.PolicyContext) bool {
 	// is the OldObject and NewObject are available, the request is an UPDATE
-	return ctx.OldResource().Object != nil && ctx.NewResource().Object != nil
+	return (ctx.OldResource().Object != nil && ctx.NewResource().Object != nil) || ctx.Operation() == kyvernov1.Update
 }

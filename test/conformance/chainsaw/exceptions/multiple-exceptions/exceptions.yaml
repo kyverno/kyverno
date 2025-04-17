@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: exception-baseline
+spec:
+  exceptions:
+  - policyName: psp-baseline
+    ruleNames:
+    - baseline
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+---
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: init-exception-baseline
+spec:
+  exceptions:
+  - policyName: psp-baseline
+    ruleNames:
+    - baseline
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+  podSecurity:
+  - controlName: Capabilities
+    images:
+    - 'busybox:latest'
+    restrictedField: spec.initContainers[*].securityContext.capabilities.add
+    values:
+    - SYS_TIME

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm1
+  labels:
+    should-match: 'yes'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm2
+  labels:
+    should-match: 'yes'

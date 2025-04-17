@@ -8,7 +8,7 @@ resources:
 - ./resource.yaml
 results:
 - kind: Pod
-  patchedResource: patched-resource-pattern.yaml
+  patchedResources: patched-resource-pattern.yaml
   policy: bug-demo
   resources:
   - pod1

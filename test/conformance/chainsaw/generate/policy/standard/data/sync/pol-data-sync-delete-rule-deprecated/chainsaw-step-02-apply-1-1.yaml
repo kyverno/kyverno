@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  labels:
+    org: kyverno
+  name: trigger-secret
+  namespace: pol-data-sync-delete-rule
+type: Opaque

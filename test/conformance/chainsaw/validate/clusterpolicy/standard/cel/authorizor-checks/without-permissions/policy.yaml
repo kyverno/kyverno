@@ -15,7 +15,7 @@ spec:
               - CREATE
               - UPDATE
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         cel:
           expressions:
             - expression: "authorizer.serviceAccount('default', 'test-account-1').group('apps').resource('deployments').namespace('default').check('delete').allowed()"

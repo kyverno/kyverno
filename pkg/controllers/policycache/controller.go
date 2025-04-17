@@ -39,7 +39,7 @@ type controller struct {
 	polLister  kyvernov1listers.PolicyLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// client
 	client dclient.Interface
@@ -50,8 +50,11 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 		cache:      pcache,
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
-		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		client:     client,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+		),
+		client: client,
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -63,8 +66,8 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 }
 
 func (c *controller) WarmUp() error {
-	logger.Info("warming up ...")
-	defer logger.Info("warm up done")
+	logger.V(4).Info("warming up ...")
+	defer logger.V(4).Info("warm up done")
 
 	pols, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {

@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: init1-exception-baseline
+spec:
+  exceptions:
+  - policyName: psp-baseline
+    ruleNames:
+    - baseline
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+  podSecurity:
+  - controlName: Capabilities
+    images:
+    - 'alpine:latest'
+    restrictedField: spec.initContainers[*].securityContext.capabilities.add
+    values:
+    - NET_ADMIN
+    - NET_RAW
+---
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: init2-exception-baseline
+spec:
+  exceptions:
+  - policyName: psp-baseline
+    ruleNames:
+    - baseline
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+  podSecurity:
+  - controlName: Capabilities
+    images:
+    - 'busybox:latest'
+    restrictedField: spec.initContainers[*].securityContext.capabilities.add
+    values:
+    - SYS_TIME

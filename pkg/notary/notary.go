@@ -11,6 +11,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/notary"
 	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
@@ -69,7 +70,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		MaxSignatureAttempts: 10,
 	}
 
-	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, notary.NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify %s", ref)
 	}
@@ -136,7 +137,8 @@ func (v *notaryVerifier) verifyOutcomes(outcomes []*notation.VerificationOutcome
 func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
 	v.log.V(2).Info("fetching attestations", "reference", opts.ImageRef, "opts", opts)
 
-	ref, err := name.ParseReference(opts.ImageRef)
+	nameOpts := opts.Client.NameOptions()
+	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
@@ -191,7 +193,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		}
 
 		v.log.V(4).Info("extracting statements", "desc", referrer, "repo", ref)
-		statements, err = extractStatements(ctx, ref, referrer, remoteOpts)
+		statements, err = extractStatements(ctx, ref, referrer, remoteOpts, nameOpts)
 		if err != nil {
 			msg := err.Error()
 			v.log.V(4).Info("failed to extract statements %s", "err", msg)
@@ -272,9 +274,9 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	return targetDesc, nil
 }
 
-func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) ([]map[string]interface{}, error) {
+func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option, nameOpts []name.Option) ([]map[string]interface{}, error) {
 	statements := make([]map[string]interface{}, 0)
-	data, err := extractStatement(ctx, repoRef, desc, remoteOpts)
+	data, err := extractStatement(ctx, repoRef, desc, remoteOpts, nameOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -286,9 +288,9 @@ func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Desc
 	return statements, nil
 }
 
-func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) (map[string]interface{}, error) {
+func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option, nameOpts []name.Option) (map[string]interface{}, error) {
 	refStr := repoRef.Context().RegistryStr() + "/" + repoRef.Context().RepositoryStr() + "@" + desc.Digest.String()
-	ref, err := name.ParseReference(refStr)
+	ref, err := name.ParseReference(refStr, nameOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", refStr)
 	}

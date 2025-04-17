@@ -11,11 +11,18 @@ import (
 	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -26,23 +33,38 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/exceptions"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
+	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/restmapper"
 )
 
 type PolicyProcessor struct {
-	Store                     *store.Store
-	Policies                  []kyvernov1.PolicyInterface
-	Resource                  unstructured.Unstructured
-	PolicyExceptions          []*kyvernov2.PolicyException
-	MutateLogPath             string
-	MutateLogPathIsDir        bool
-	Variables                 *variables.Variables
+	Store                             *store.Store
+	Policies                          []kyvernov1.PolicyInterface
+	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
+	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
+	Resource                          unstructured.Unstructured
+	JsonPayload                       unstructured.Unstructured
+	PolicyExceptions                  []*kyvernov2.PolicyException
+	CELExceptions                     []*policiesv1alpha1.PolicyException
+	MutateLogPath                     string
+	MutateLogPathIsDir                bool
+	Variables                         *variables.Variables
+	// TODO
+	ContextPath               string
+	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
@@ -60,7 +82,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
 	resource := p.Resource
-	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
+	namespaceLabels := p.NamespaceSelectorMap[resource.GetNamespace()]
 	policyExceptionLister := &policyExceptionLister{
 		exceptions: p.PolicyExceptions,
 	}
@@ -72,6 +94,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if rclient == nil {
 		rclient = registryclient.NewOrDie()
 	}
+	isCluster := false
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
@@ -81,10 +104,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
 		exceptions.New(policyExceptionLister),
+		&isCluster,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
+	resourceKind := resource.GetKind()
+	resourceName := resource.GetName()
+	resourceNamespace := resource.GetNamespace()
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
-	if p.Client == nil {
+	if !p.Cluster {
 		for _, s := range p.Subresources {
 			subgvk := schema.GroupVersionKind{
 				Group:   s.Subresource.Group,
@@ -101,8 +128,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				subresource = parts[1]
 			}
 		}
+	} else {
+		if len(namespaceLabels) == 0 && resourceKind != "Namespace" && resourceNamespace != "" {
+			ns, err := p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resourceNamespace)
+			if err != nil {
+				log.Log.Error(err, "failed to get the resource's namespace")
+				return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+			}
+			namespaceLabels = ns.GetLabels()
+		}
 	}
-	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
+	resPath := fmt.Sprintf("%s/%s/%s", resourceNamespace, resourceKind, resourceName)
 	responses := make([]engineapi.EngineResponse, 0, len(p.Policies))
 	// mutate
 	for _, policy := range p.Policies {
@@ -176,6 +212,138 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, validateResponse)
 		resource = validateResponse.PatchedResource
 	}
+	// validating admission policies
+	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
+	for _, policy := range p.ValidatingAdmissionPolicies {
+		policyData := admissionpolicy.NewPolicyData(policy)
+		for _, binding := range p.ValidatingAdmissionPolicyBindings {
+			if binding.Spec.PolicyName == policy.Name {
+				policyData.AddBinding(binding)
+			}
+		}
+		validateResponse, _ := admissionpolicy.Validate(policyData, resource, p.NamespaceSelectorMap, p.Client)
+		vapResponses = append(vapResponses, validateResponse)
+		p.Rc.addValidatingAdmissionResponse(validateResponse)
+	}
+	// validating policies
+	if len(p.ValidatingPolicies) != 0 {
+		ctx := context.TODO()
+		compiler := celpolicy.NewCompiler()
+		provider, err := celengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
+		if err != nil {
+			return nil, err
+		}
+		// TODO: mock when no cluster provided
+		gctxStore := gctxstore.New()
+		var restMapper meta.RESTMapper
+		var contextProvider celpolicy.Context
+		if p.Client != nil && p.Cluster {
+			contextProvider, err = celpolicy.NewContextProvider(
+				p.Client,
+				// TODO
+				[]imagedataloader.Option{imagedataloader.WithLocalCredentials(true)},
+				gctxStore,
+			)
+			if err != nil {
+				return nil, err
+			}
+			apiGroupResources, err := restmapper.GetAPIGroupResources(p.Client.GetKubeClient().Discovery())
+			if err != nil {
+				return nil, err
+			}
+			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+		} else {
+			apiGroupResources, err := data.APIGroupResources()
+			if err != nil {
+				return nil, err
+			}
+			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+			fakeContextProvider := celpolicy.NewFakeContextProvider()
+			if p.ContextPath != "" {
+				ctx, err := clicontext.Load(nil, p.ContextPath)
+				if err != nil {
+					return nil, err
+				}
+				for _, resource := range ctx.ContextSpec.Resources {
+					gvk := resource.GroupVersionKind()
+					mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+					if err != nil {
+						return nil, err
+					}
+					if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+						return nil, err
+					}
+				}
+			}
+			contextProvider = fakeContextProvider
+		}
+		if resource.Object != nil {
+			eng := celengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
+			// get gvk from resource
+			gvk := resource.GroupVersionKind()
+			// map gvk to gvr
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			}
+			gvr := mapping.Resource
+			var user authenticationv1.UserInfo
+			if p.UserInfo != nil {
+				user = p.UserInfo.AdmissionUserInfo
+			}
+			// create engine request
+			request := celengine.Request(
+				contextProvider,
+				gvk,
+				gvr,
+				// TODO: how to manage subresource ?
+				"",
+				resource.GetName(),
+				resource.GetNamespace(),
+				// TODO: how to manage other operations ?
+				admissionv1.Create,
+				user,
+				&resource,
+				nil,
+				false,
+				nil,
+			)
+			reps, err := eng.Handle(ctx, request)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+			}
+			for _, r := range reps.Policies {
+				response := engineapi.EngineResponse{
+					Resource: *reps.Resource,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				p.Rc.AddValidatingPolicyResponse(response)
+				responses = append(responses, response)
+			}
+		}
+		if p.JsonPayload.Object != nil {
+			eng := celengine.NewEngine(provider, nil, nil)
+			request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
+			reps, err := eng.Handle(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+			for _, r := range reps.Policies {
+				response := engineapi.EngineResponse{
+					Resource: *reps.Resource,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				p.Rc.AddValidatingPolicyResponse(response)
+				responses = append(responses, response)
+			}
+		}
+	}
 	// generate
 	for _, policy := range p.Policies {
 		if policy.GetSpec().HasGenerate() {
@@ -191,12 +359,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				} else {
 					generateResponse.PolicyResponse.Rules = newRuleResponse
 				}
+				if err := p.processGenerateResponse(generateResponse, resPath); err != nil {
+					return responses, err
+				}
 				responses = append(responses, generateResponse)
 			}
-			p.Rc.addGenerateResponse(p.AuditWarn, generateResponse)
+			p.Rc.addGenerateResponse(generateResponse)
 		}
 	}
 	p.Rc.addEngineResponses(p.AuditWarn, responses...)
+	responses = append(responses, vapResponses...)
 	return responses, nil
 }
 
@@ -253,14 +425,6 @@ func (p *PolicyProcessor) makePolicyContext(
 		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
 			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
 		}
-	}
-	if p.Client != nil && len(namespaceLabels) == 0 && resource.GetKind() != "Namespace" {
-		ns, err := p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resource.GetNamespace())
-		if err != nil {
-			log.Log.Error(err, "failed to get the resource's namespace")
-			return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
-		}
-		namespaceLabels = ns.GetLabels()
 	}
 	policyContext = policyContext.
 		WithPolicy(policy).
@@ -338,37 +502,82 @@ func (p *PolicyProcessor) makePolicyContext(
 	return policyContext, nil
 }
 
-func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	printMutatedRes := p.Rc.addMutateResponse(response)
-	if printMutatedRes && p.PrintPatchResource {
-		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
+func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineResponse, resourcePath string) error {
+	generatedResources := []*unstructured.Unstructured{}
+	for _, rule := range response.PolicyResponse.Rules {
+		gen := rule.GeneratedResources()
+		generatedResources = append(generatedResources, gen...)
+	}
+	for _, r := range generatedResources {
+		err := p.printOutput(r.Object, response, resourcePath, true)
 		if err != nil {
-			return fmt.Errorf("failed to marshal (%w)", err)
+			return fmt.Errorf("failed to print generate result (%w)", err)
 		}
-
-		if p.MutateLogPath == "" {
-			mutatedResource := string(yamlEncodedResource) + string("\n---")
-			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				if !p.Stdin {
-					fmt.Fprintf(p.Out, "\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
-				}
-				fmt.Fprintf(p.Out, "\n"+mutatedResource+"\n")
-			}
-		} else {
-			err := p.printMutatedOutput(string(yamlEncodedResource))
-			if err != nil {
-				return fmt.Errorf("failed to print mutated result (%w)", err)
-			}
-			fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully. Check the files.")
-		}
+		fmt.Fprintf(p.Out, "\n\nGenerate:\nGeneration completed successfully.")
 	}
 	return nil
 }
 
-func (p *PolicyProcessor) printMutatedOutput(yaml string) error {
+func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
+	p.Rc.addMutateResponse(response)
+	err := p.printOutput(response.PatchedResource.Object, response, resourcePath, false)
+	if err != nil {
+		return fmt.Errorf("failed to print mutated result (%w)", err)
+	}
+	fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully.")
+	return nil
+}
+
+func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
+	yamlEncodedResource, err := yamlv2.Marshal(resource)
+	if err != nil {
+		return fmt.Errorf("failed to marshal (%w)", err)
+	}
+
+	var yamlEncodedTargetResources [][]byte
+	for _, ruleResponese := range response.PolicyResponse.Rules {
+		patchedTarget, _, _ := ruleResponese.PatchedTarget()
+
+		if patchedTarget != nil {
+			yamlEncodedResource, err := yamlv2.Marshal(patchedTarget.Object)
+			if err != nil {
+				return fmt.Errorf("failed to marshal (%w)", err)
+			}
+
+			yamlEncodedResource = append(yamlEncodedResource, []byte("\n---\n")...)
+			yamlEncodedTargetResources = append(yamlEncodedTargetResources, yamlEncodedResource)
+		}
+	}
+
+	if p.MutateLogPath == "" {
+		resource := string(yamlEncodedResource) + string("\n---")
+		if len(strings.TrimSpace(resource)) > 0 {
+			if !p.Stdin {
+				fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().GetName(), resourcePath)
+			}
+			fmt.Fprintf(p.Out, "\n"+resource+"\n") //nolint:govet
+			if len(yamlEncodedTargetResources) > 0 {
+				fmt.Fprintf(p.Out, "patched targets: \n")
+				for _, patchedTarget := range yamlEncodedTargetResources {
+					fmt.Fprintf(p.Out, "\n"+string(patchedTarget)+"\n")
+				}
+			}
+		}
+		return nil
+	}
+
 	var file *os.File
 	mutateLogPath := filepath.Clean(p.MutateLogPath)
 	filename := p.Resource.GetName() + "-mutated"
+	if isGenerate {
+		filename = response.Policy().GetName() + "-generated"
+	}
+
+	file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
+	if err != nil {
+		return err
+	}
+
 	if !p.MutateLogPathIsDir {
 		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
 		f, err := os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
@@ -376,18 +585,15 @@ func (p *PolicyProcessor) printMutatedOutput(yaml string) error {
 			return err
 		}
 		file = f
-	} else {
-		f, err := os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304
-		if err != nil {
+	}
+	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
+		return err
+	}
+
+	for _, patchedTarget := range yamlEncodedTargetResources {
+		if _, err := file.Write(patchedTarget); err != nil {
 			return err
 		}
-		file = f
-	}
-	if _, err := file.Write([]byte(yaml + "\n---\n\n")); err != nil {
-		if err := file.Close(); err != nil {
-			log.Log.Error(err, "failed to close file")
-		}
-		return err
 	}
 	if err := file.Close(); err != nil {
 		return err

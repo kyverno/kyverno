@@ -9,10 +9,20 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// EvaluateList evaluates the context using the given JMESPath expression and returns a unified slice of interfaces.
 func EvaluateList(jmesPath string, ctx enginecontext.EvalInterface) ([]interface{}, error) {
 	i, err := ctx.Query(jmesPath)
 	if err != nil {
 		return nil, err
+	}
+
+	m, ok := i.([]map[string]interface{})
+	if ok {
+		l := make([]interface{}, 0, len(m))
+		for _, e := range m {
+			l = append(l, e)
+		}
+		return l, nil
 	}
 
 	l, ok := i.([]interface{})

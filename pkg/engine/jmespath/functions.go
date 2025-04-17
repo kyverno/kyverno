@@ -2,8 +2,10 @@ package jmespath
 
 import (
 	"bytes"
+	"crypto/md5" // #nosec G501
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1" // #nosec G505
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
@@ -79,6 +81,8 @@ var (
 	imageNormalize         = "image_normalize"
 	isExternalURL          = "is_external_url"
 	SHA256                 = "sha256"
+	SHA1                   = "sha1"
+	MD5                    = "md5"
 )
 
 func GetFunctions(configuration config.Configuration) []FunctionEntry {
@@ -606,6 +610,26 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "generate unique resources name if length exceeds the limit",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: SHA1,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpSha1,
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "generate a SHA-1 hash",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: MD5,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpMd5,
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "generates an MD5 hash",
 	}}
 }
 
@@ -1282,6 +1306,36 @@ func jpSha256(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 	hasher := sha256.New()
+	_, err = hasher.Write([]byte(str.String()))
+	if err != nil {
+		return "", err
+	}
+	hashedBytes := hasher.Sum(nil)
+	return hex.EncodeToString(hashedBytes), nil
+}
+
+func jpSha1(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	hasher := sha1.New() // #nosec G401
+	_, err = hasher.Write([]byte(str.String()))
+	if err != nil {
+		return "", err
+	}
+	hashedBytes := hasher.Sum(nil)
+	return hex.EncodeToString(hashedBytes), nil
+}
+
+func jpMd5(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	hasher := md5.New() // #nosec G401
 	_, err = hasher.Write([]byte(str.String()))
 	if err != nil {
 		return "", err

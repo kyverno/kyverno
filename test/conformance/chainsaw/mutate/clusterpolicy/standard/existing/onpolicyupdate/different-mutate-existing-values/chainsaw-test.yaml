@@ -1,0 +1,36 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: different-mutate-existing-values
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: namespaces.yaml
+    - apply:
+        file: configmaps.yaml
+    - apply:
+        file: secrets.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-post-mutation-create-policy
+  - name: step-03
+    try:
+    - assert:
+        file: mutated-secret.yaml
+  - name: step-04
+    try:
+    - error:
+        file: mutated-secret-error.yaml

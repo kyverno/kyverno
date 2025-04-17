@@ -18,6 +18,6 @@ spec:
                   values:
                   - "true"
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: "Namespace is frozen."
         deny: {}

@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-ingress-annotation
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: prevent-ingress-annotation-subnet
+    match:
+      any:
+      - resources:
+          kinds:
+          - Ingress
+    preconditions:
+      any:
+      - key: "{{request.operation || 'BACKGROUND'}}"
+        operator: Equals
+        value: UPDATE
+    validate:
+      message: |
+        alb.ingress.kubernetes.io/scheme cannot be updated
+      pattern:
+        deny:
+          conditions:
+            any:
+            - key: "{{ request.object.metadata.annotations.\"alb.ingress.kubernetes.io/scheme\" || '' }}"
+              operator: Equals
+              value: ""
+            - key: "{{ request.object.metadata.annotations.\"alb.ingress.kubernetes.io/scheme\" }}"
+              operator: NotEquals
+              value: "{{ request.oldObject.metadata.annotations.\"alb.ingress.kubernetes.io/scheme\" }}"

@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: invalid-pod-security-exceptions
 spec:
   steps:
@@ -12,7 +11,7 @@ spec:
         check:
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
-          ($stderr): |-
+          (trim_space($stderr)): |-
             Error from server: error when creating "exception-1.yaml": admission webhook "kyverno-svc.kyverno.svc" denied the request: [spec.podSecurity[0].controlName: Invalid value: "Capabilities": exclude.images must be specified for the container level control, spec.podSecurity[3].controlName: Invalid value: "Privilege Escalation": exclude.images must be specified for the container level control]
   - name: Apply the second policy exception
     try:
@@ -21,7 +20,7 @@ spec:
         check:
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
-          ($stderr): |-
+          (trim_space($stderr)): |-
             Error from server: error when creating "exception-2.yaml": admission webhook "kyverno-svc.kyverno.svc" denied the request: spec.podSecurity[0].values: Forbidden: values is required
   - name: Apply the third policy exception
     try:
@@ -30,5 +29,5 @@ spec:
         check:
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
-          ($stderr): |-
+          (trim_space($stderr)): |-
             Error from server: error when creating "exception-3.yaml": admission webhook "kyverno-svc.kyverno.svc" denied the request: spec.podSecurity[0].restrictedField: Forbidden: restrictedField is required

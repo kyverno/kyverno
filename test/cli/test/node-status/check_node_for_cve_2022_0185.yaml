@@ -32,4 +32,4 @@ spec:
         status:
           nodeInfo:
             kernelVersion: '!5.10.84-1 & !5.15.5-2'
-  validationFailureAction: Audit
+      failureAction: Audit

@@ -16,10 +16,17 @@ results:
   scored: true
   source: kyverno
   properties:
-    exception: mynewpolex
+    exceptions: mynewpolex
+- policy: require-labels
+  result: skip
+  rule: require-team-assert
+  scored: true
+  source: kyverno
+  properties:
+    exceptions: mynewpolex
 summary:
   error: 0
   fail: 0
   pass: 0
-  skip: 1
+  skip: 2
   warn: 0

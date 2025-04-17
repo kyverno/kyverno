@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-binding-system-groups      
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: restrict-masters
+      match:
+        any:
+        - resources:
+            kinds:
+              - RoleBinding
+              - ClusterRoleBinding
+      validate:
+        message: "Binding to system:masters is not allowed."
+        pattern:
+          roleRef:
+            name: "!system:masters"

@@ -1,18 +1,29 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: cpol-clone-list-sync-create
 spec:
   steps:
   - name: step-01
     try:
     - apply:
-        file: manifests.yaml
+        file: permissions.yaml
     - apply:
-        file: cluster-policy.yaml
-    - assert:
-        file: cluster-policy-ready.yaml
+        file: manifests.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: cluster-policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-with-multi-clone
   - name: step-02
     try:
     - apply:

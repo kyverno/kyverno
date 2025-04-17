@@ -1,16 +1,27 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: cpol-data-sync-create
 spec:
   steps:
   - name: step-01
     try:
     - apply:
-        file: chainsaw-step-01-apply-1-1.yaml
-    - assert:
-        file: chainsaw-step-01-assert-1-1.yaml
+        file: permissions.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: manifests.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: cpol-data-sync-create-upon-generated-resource
   - name: step-02
     try:
     - apply:

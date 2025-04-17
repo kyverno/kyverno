@@ -1,0 +1,13 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: failing-match-conditions
+spec:
+  steps:
+    - name: expect-policy-failure
+      try:
+        - apply:
+            expect:
+              - check:
+                  ($error != null): true
+            file: policy.yaml

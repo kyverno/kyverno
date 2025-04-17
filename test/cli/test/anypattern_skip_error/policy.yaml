@@ -14,6 +14,7 @@ spec:
           - Service
     name: check-loadbalancer-public
     validate:
+      failureAction: Enforce
       anyPattern:
       - metadata:
           annotations:
@@ -26,4 +27,3 @@ spec:
       message: Service of type 'LoadBalancer' is public and does not explicitly define
         network security. To use a public LB you must supply either spec[loadBalancerSourceRanges]
         or the 'service.beta.kubernetes.io/aws-load-balancer-security-groups' annotation.
-  validationFailureAction: Enforce

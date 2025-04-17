@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: verify-image-background-basic
 spec:
   timeouts:
@@ -10,11 +9,21 @@ spec:
   - name: step-01
     try:
     - apply:
-        file: chainsaw-step-01-apply-1.yaml
-    - apply:
-        file: chainsaw-step-01-apply-2.yaml
-    - assert:
-        file: chainsaw-step-01-assert-1.yaml
+        file: ns.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: keyed-basic-policy
   - name: step-02
     try:
     - apply:

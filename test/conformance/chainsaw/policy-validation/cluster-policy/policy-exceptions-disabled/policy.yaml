@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: require-app-label
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: require-app-label
@@ -14,6 +13,7 @@ spec:
            - Pod
            - Deployment
       validate:
+        failureAction: Enforce
         message: Pod must include the 'app=my-app' label
         pattern:
           metadata:

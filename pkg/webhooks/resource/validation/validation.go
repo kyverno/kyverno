@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/d4f"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -31,8 +31,8 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidationEnforce(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, time.Time) (bool, string, []string)
-	HandleValidationAudit(context.Context, handlers.AdmissionRequest)
+	HandleValidationEnforce(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, time.Time) (bool, string, []string, []engineapi.EngineResponse)
+	HandleValidationAudit(context.Context, handlers.AdmissionRequest) []engineapi.EngineResponse
 }
 
 func NewValidationHandler(
@@ -46,7 +46,8 @@ func NewValidationHandler(
 	metrics metrics.MetricsConfigManager,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
-	reportsBreaker d4f.Breaker,
+	reportConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -59,6 +60,7 @@ func NewValidationHandler(
 		metrics:          metrics,
 		cfg:              cfg,
 		nsLister:         nsLister,
+		reportConfig:     reportConfig,
 		reportsBreaker:   reportsBreaker,
 	}
 }
@@ -74,26 +76,28 @@ type validationHandler struct {
 	metrics          metrics.MetricsConfigManager
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
-	reportsBreaker   d4f.Breaker
+	reportConfig     reportutils.ReportingConfiguration
+	reportsBreaker   breaker.Breaker
 }
 
 func (v *validationHandler) HandleValidationEnforce(
 	ctx context.Context,
 	request handlers.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
+	auditWarnPolicies []kyvernov1.PolicyInterface,
 	admissionRequestTimestamp time.Time,
-) (bool, string, []string) {
+) (bool, string, []string, []engineapi.EngineResponse) {
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
-	if len(policies) == 0 {
-		return true, "", nil
+	if len(policies) == 0 && len(auditWarnPolicies) == 0 {
+		return true, "", nil, nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request, policies)
 	if err != nil {
 		msg := fmt.Sprintf("failed to create policy context: %v", err)
-		return false, msg, nil
+		return false, msg, nil, nil
 	}
 
 	var engineResponses []engineapi.EngineResponse
@@ -118,7 +122,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
-					logger.V(2).Info("validation failed", "action", policy.GetSpec().GetValidationFailureAction(), "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
+					logger.V(2).Info("validation failed", "action", "Enforce", "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 					return
 				}
 
@@ -129,55 +133,74 @@ func (v *validationHandler) HandleValidationEnforce(
 		)
 	}
 
+	var auditWarnEngineResponses []engineapi.EngineResponse
+	for _, policy := range auditWarnPolicies {
+		tracing.ChildSpan(
+			ctx,
+			"pkg/webhooks/resource/validate",
+			fmt.Sprintf("AUDIT WARN POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+			func(ctx context.Context, span trace.Span) {
+				policyContext := policyContext.WithPolicy(policy)
+
+				engineResponse := v.engine.Validate(ctx, policyContext)
+				if engineResponse.IsNil() {
+					// we get an empty response if old and new resources created the same response
+					// allow updates if resource update doesn't change the policy evaluation
+					return
+				}
+
+				auditWarnEngineResponses = append(auditWarnEngineResponses, engineResponse)
+			},
+		)
+	}
+
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	events := webhookutils.GenerateEvents(engineResponses, blocked)
-	v.eventGen.Add(events...)
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")
-		return false, webhookutils.GetBlockedMessages(engineResponses), nil
+		return false, webhookutils.GetBlockedMessages(engineResponses), nil, engineResponses
 	}
 
 	go func() {
-		if needsReports(request, policyContext.NewResource(), v.admissionReports) {
+		if needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
 		}
 	}()
 
+	engineResponses = append(engineResponses, auditWarnEngineResponses...)
 	warnings := webhookutils.GetWarningMessages(engineResponses)
-	return true, "", warnings
+	return true, "", warnings, engineResponses
 }
 
 func (v *validationHandler) HandleValidationAudit(
 	ctx context.Context,
 	request handlers.AdmissionRequest,
-) {
+) []engineapi.EngineResponse {
 	gvr := schema.GroupVersionResource(request.Resource)
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
 	if len(policies) == 0 {
-		return
+		return nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request, policies)
 	if err != nil {
 		v.log.Error(err, "failed to build policy context")
-		return
+		return nil
 	}
 
-	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports)
+	var responses []engineapi.EngineResponse
+	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig)
 	tracing.Span(
 		context.Background(),
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
-			responses, err := v.buildAuditResponses(ctx, policyContext, policies)
+			responses, err = v.buildAuditResponses(ctx, policyContext, policies)
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
-			events := webhookutils.GenerateEvents(responses, false)
-			v.eventGen.Add(events...)
 			if needsReport {
 				if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
 					v.log.Error(err, "failed to create report")
@@ -186,6 +209,7 @@ func (v *validationHandler) HandleValidationAudit(
 		},
 		trace.WithLinks(trace.LinkFromContext(ctx)),
 	)
+	return responses
 }
 
 func (v *validationHandler) buildAuditResponses(
@@ -209,14 +233,17 @@ func (v *validationHandler) buildAuditResponses(
 	return responses, nil
 }
 
-func (v *validationHandler) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {
+func (v *validationHandler) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface) (*policycontext.PolicyContext, error) {
 	policyContext, err := v.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 	if err != nil {
 		return nil, err
 	}
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, v.nsLister, logger)
+		namespaceLabels, err = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, v.nsLister, policies, logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	return policyContext, nil

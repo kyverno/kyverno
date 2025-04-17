@@ -3,7 +3,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
-  creationTimestamp: null
   name: dbclusters.rds.aws.crossplane.io
 spec:
   group: rds.aws.crossplane.io

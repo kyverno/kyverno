@@ -37,4 +37,4 @@ spec:
           operator: NotEquals
           value: 2400
       message: certificate duration must be < than 2400h (100 days)
-  validationFailureAction: Audit
+      failureAction: Audit

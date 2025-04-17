@@ -59,6 +59,10 @@ quota-backend-bytes: 8589934592
 
 ## Prepare etcd access
 
+Depending on your cluster setup, the `KUBECONFIG` variable below is optional. You can choose to use the default path, `$HOME/.kube/config`.
+If you are using the default `KUBECONFIG` path, comment out the `export` command below using `#`, and do the same for the ones available
+in the `node.sh`, `kwok.sh`, and `deployment.sh` files in this folder.
+
 ```sh
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 docker cp k3d-scaling-server-0:/var/lib/rancher/k3s/server/tls/etcd/server-ca.crt ./server-ca.crt
@@ -102,7 +106,10 @@ make dev-lab-metrics-server dev-lab-prometheus
 
 # Install Kyverno
 
+Visit the [Helm documentation](https://helm.sh/docs/intro/install/) if you don't have Helm installed on your device.
+
 ```sh
+helm repo add kyverno https://kyverno.github.io/kyverno/
 helm repo update
 helm upgrade --install kyverno kyverno/kyverno -n kyverno \
   --create-namespace \

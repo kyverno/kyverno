@@ -25,8 +25,8 @@ func (a *dclientAdapter) RawAbsPath(ctx context.Context, path, method string, da
 	return a.client.RawAbsPath(ctx, path, method, dataReader)
 }
 
-func (a *dclientAdapter) GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string) ([]engineapi.Resource, error) {
-	resources, err := dclient.GetResources(ctx, a.client, group, version, kind, subresource, namespace, name)
+func (a *dclientAdapter) GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string, lselector *metav1.LabelSelector) ([]engineapi.Resource, error) {
+	resources, err := dclient.GetResources(ctx, a.client, group, version, kind, subresource, namespace, name, lselector)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (a *dclientAdapter) IsNamespaced(group, version, kind string) (bool, error)
 }
 
 func (a *dclientAdapter) CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, string, error) {
-	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, verb, subresource, user)
+	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "", verb, subresource, user)
 	ok, reason, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, reason, err

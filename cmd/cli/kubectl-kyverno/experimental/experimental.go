@@ -7,7 +7,7 @@ import (
 
 const (
 	ExperimentalEnv    = "KYVERNO_EXPERIMENTAL"
-	KubectlValidateEnv = "KYVERNO_KUBECTL_VALIDATE" //nolint:gosec
+	KubectlValidateEnv = "KYVERNO_KUBECTL_VALIDATE"
 )
 
 func getBool(env string, fallback bool) bool {

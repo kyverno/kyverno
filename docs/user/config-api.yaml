@@ -29,19 +29,19 @@ apis:
     path: api/kyverno/v1
 
   - name: kyverno
-    title: kyverno (v1alpha2)
+    title: kyverno (v1beta1)
     package: github.com/kyverno/kyverno
-    path: api/kyverno/v1alpha2
+    path: api/kyverno/v1beta1
+
+  - name: kyverno
+    title: kyverno (v2)
+    package: github.com/kyverno/kyverno
+    path: api/kyverno/v2
 
   - name: kyverno
     title: kyverno (v2alpha1)
     package: github.com/kyverno/kyverno
     path: api/kyverno/v2alpha1
-
-  - name: kyverno
-    title: kyverno (v1beta1)
-    package: github.com/kyverno/kyverno
-    path: api/kyverno/v1beta1
 
   - name: kyverno
     title: kyverno (v2beta1)
@@ -52,3 +52,8 @@ apis:
     title: kyverno policy report (v1alpha2)
     package: github.com/kyverno/kyverno
     path: api/policyreport/v1alpha2
+
+  - name: kyverno_reports
+    title: kyverno reports (v1)
+    package: github.com/kyverno/kyverno
+    path: api/reports/v1

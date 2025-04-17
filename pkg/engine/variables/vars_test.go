@@ -544,6 +544,50 @@ func Test_SubstituteRecursive(t *testing.T) {
 	}
 }
 
+func Test_SubstituteShallow(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"variableWithVariables": "{{ DO_NOT_SUBSTITUTE_ME {{OR_ME}} }}",
+		"foo":                   "bar",
+		"foo2":                  "bar2",
+		"variablesNested":       "{{foo2}}",
+	}
+
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	patternRaw := []byte(`"{{- variableWithVariables }} {{foo}} {{variablesNested}}"`)
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), "\"{{ DO_NOT_SUBSTITUTE_ME {{OR_ME}} }} bar bar2\"")
+
+	patternRaw = []byte(`"{{foo}} {{- variableWithVariables }} {{variablesNested}}"`)
+	action = substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err = action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), "\"bar {{ DO_NOT_SUBSTITUTE_ME {{OR_ME}} }} bar2\"")
+
+	patternRaw = []byte(`"{{- variableWithVariables {{foo}} {{variablesNested}} }}"`)
+	action = substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	_, err = action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/",
+	})
+
+	assert.ErrorContains(t, err, "failed to resolve variableWithVariables bar bar2")
+}
+
 func Test_policyContextValidation(t *testing.T) {
 	policyContext := []byte(`
 	{
@@ -1077,7 +1121,7 @@ func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 
 	// pattern, err := actualizePattern(log.Log, pattern, referencePath, absolutePath)
 
-	pattern, err := resolveReference(logr.Discard(), pattern, referencePath, absolutePath)
+	pattern, err := resolveReference(pattern, referencePath, absolutePath)
 
 	assert.NilError(t, err)
 	assert.DeepEqual(t, resolvedReference, pattern)

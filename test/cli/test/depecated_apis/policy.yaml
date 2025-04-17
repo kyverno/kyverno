@@ -33,4 +33,4 @@ spec:
       deny: {}
       message: '{{ request.object.apiVersion }}/{{ request.object.kind }} is deprecated
         and will be removed in v1.25. See: https://kubernetes.io/docs/reference/using-api/deprecation-guide/'
-  validationFailureAction: Enforce
+      failureAction: Enforce

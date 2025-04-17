@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: one
 spec:
-  validationFailureAction: Enforce
   rules:
   - name: one
     match:

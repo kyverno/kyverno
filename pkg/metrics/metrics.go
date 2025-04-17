@@ -30,6 +30,7 @@ type MetricsConfig struct {
 	// instruments
 	policyChangesMetric metric.Int64Counter
 	clientQueriesMetric metric.Int64Counter
+	kyvernoInfoMetric   metric.Int64Gauge
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -59,6 +60,14 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries")
 		return err
 	}
+	m.kyvernoInfoMetric, err = meter.Int64Gauge("kyverno_info",
+		metric.WithDescription("Kyverno version information"),
+	)
+	if err != nil {
+		m.Log.Error(err, "Failed to create instrument, kyverno_info")
+		return err
+	}
+	initKyvernoInfoMetric(m)
 	return nil
 }
 
@@ -106,8 +115,7 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 	}
 	res, err := resource.Merge(
 		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
+		resource.NewSchemaless(
 			semconv.ServiceNameKey.String(MeterName),
 			semconv.ServiceVersionKey.String(version.Version()),
 		),
@@ -132,8 +140,7 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, *http.ServeMux, error) {
 	res, err := resource.Merge(
 		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
+		resource.NewSchemaless(
 			semconv.ServiceNameKey.String("kyverno-svc-metrics"),
 			semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace()),
 			semconv.ServiceVersionKey.String(version.Version()),
@@ -182,4 +189,12 @@ func (m *MetricsConfig) RecordClientQueries(ctx context.Context, clientQueryOper
 		attribute.String("resource_namespace", resourceNamespace),
 	}
 	m.clientQueriesMetric.Add(ctx, 1, metric.WithAttributes(commonLabels...))
+}
+
+func initKyvernoInfoMetric(m *MetricsConfig) {
+	info := GetKyvernoInfo()
+	commonLabels := []attribute.KeyValue{
+		attribute.String("version", info.Version),
+	}
+	m.kyvernoInfoMetric.Record(context.Background(), 1, metric.WithAttributes(commonLabels...))
 }

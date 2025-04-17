@@ -4,6 +4,13 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.cleanup-controller.roleName" . }}
+  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
+  {{- if not .Values.templating.enabled }}
+  finalizers:
+  - kyverno.io/policywebhooks
+  - kyverno.io/ttlwebhooks
+  {{- end }}
+  {{- end }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}

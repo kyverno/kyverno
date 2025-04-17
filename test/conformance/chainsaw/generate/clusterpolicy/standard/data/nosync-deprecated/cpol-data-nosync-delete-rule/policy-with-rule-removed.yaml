@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-data-nosync-delete-rule-policy
+spec:
+  generateExisting: false
+  rules:
+  - name: cpol-data-nosync-delete-rule-ruletwo
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+    generate:
+      synchronize: false
+      apiVersion: v1
+      kind: Secret
+      name: supersecret
+      namespace: "{{request.object.metadata.name}}"
+      data:
+        kind: Secret
+        type: Opaque
+        metadata:
+          labels:
+            somekey: somesecretvalue
+        data:
+          mysupersecretkey: bXlzdXBlcnNlY3JldHZhbHVl

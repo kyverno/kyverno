@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: max-containers
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
   - name: max-two-containers
@@ -13,6 +12,7 @@ spec:
           kinds:
           - Pod
     validate:
+      failureAction: Enforce
       message: "A maximum of 2 containers are allowed inside a Pod."
       deny:
         conditions:

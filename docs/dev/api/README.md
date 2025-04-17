@@ -39,7 +39,7 @@ Attributes cannot be deleted in a version. They should be marked for deprecation
 
 ## Modifying an attribute
 
-Attributes cannot be modified in a version. The existing attribute should be marked for deprecation and a new attribute should be added following version compatibity guidelines.
+Attributes cannot be modified in a version. The existing attribute should be marked for deprecation and a new attribute should be added following version compatibility guidelines.
 
 
 ## Stable References

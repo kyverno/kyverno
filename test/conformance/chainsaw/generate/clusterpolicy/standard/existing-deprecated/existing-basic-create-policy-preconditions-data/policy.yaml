@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: existing-basic-create-policy-preconditions-data
+spec:
+  generateExisting: true
+  rules:
+  - name: existing-basic-create-data-preconditions-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    preconditions:
+      any:
+      - key: "{{request.object.spec.type}}"
+        operator: Equals
+        value: LoadBalancer
+    generate:
+      kind: ConfigMap
+      apiVersion: v1
+      name: mylb-cm
+      namespace: "{{request.object.metadata.namespace}}"
+      synchronize: true
+      data:
+        data:
+          doeshavesvclb: "true"

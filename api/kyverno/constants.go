@@ -9,11 +9,13 @@ const (
 	LabelCleanupTtl       = "cleanup.kyverno.io/ttl"
 	LabelWebhookManagedBy = "webhook.kyverno.io/managed-by"
 	// Well known annotations
-	AnnotationAutogenControllers = "pod-policies.kyverno.io/autogen-controllers"
-	AnnotationImageVerify        = "kyverno.io/verify-images"
-	AnnotationPolicyCategory     = "policies.kyverno.io/category"
-	AnnotationPolicyScored       = "policies.kyverno.io/scored"
-	AnnotationPolicySeverity     = "policies.kyverno.io/severity"
+	AnnotationAutogenControllers       = "pod-policies.kyverno.io/autogen-controllers"
+	AnnotationImageVerify              = "kyverno.io/verify-images"
+	AnnotationImageVerifyOutcomes      = "kyverno.io/image-verification-outcomes"
+	AnnotationPolicyCategory           = "policies.kyverno.io/category"
+	AnnotationPolicyScored             = "policies.kyverno.io/scored"
+	AnnotationPolicySeverity           = "policies.kyverno.io/severity"
+	AnnotationCleanupPropagationPolicy = "cleanup.kyverno.io/propagation-policy"
 	// Well known values
 	ValueKyvernoApp        = "kyverno"
 	ValueTtlDateTimeLayout = "2006-01-02T150405Z"

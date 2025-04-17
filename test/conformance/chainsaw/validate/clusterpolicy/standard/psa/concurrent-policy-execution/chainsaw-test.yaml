@@ -4,33 +4,148 @@ metadata:
   name: concurrent-policy-execution
 spec:
   steps:
-    - name: install-pss-policies
-      try:
-        - script:
-            content: |
-              #!/bin/bash
-              set -eu
-
-              helm --repo https://kyverno.github.io/kyverno/ install kyverno-policies kyverno-policies --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce
-        - assert:
-            file: policy-asserts.yaml
-    - name: apply-test-pods
-      try:
-        - apply:
-            expect:
-              - check:
-                  ($error != null): false
-            file: good-pod.yaml
-        - apply:
-            expect:
-              - check:
-                  ($error != null): true
-            file: bad-pod.yaml
-    - name: uninstall-pss-policies
-      try:
-        - script:
-            content: |
-              #!/bin/bash
-              set -eu
-
-              helm uninstall kyverno-policies
+  - name: install-pss-policies
+    try:
+      - script:
+          content: |
+            #!/bin/bash
+            set -eu
+            helm --repo https://kyverno.github.io/kyverno/ -n kyverno install kyverno-policies kyverno-policies  --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-capabilities
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-capabilities-strict
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-host-namespaces
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-host-path
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-host-ports
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-host-process
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-privilege-escalation
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-privileged-containers
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-proc-mount
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-selinux
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: require-run-as-non-root-user
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: require-run-as-nonroot
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: restrict-apparmor-profiles
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: restrict-seccomp
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: restrict-seccomp-strict
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: restrict-sysctls
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: restrict-volume-types
+  - name: apply-test-pods
+    try:
+      - apply:
+          expect:
+            - check:
+                ($error != null): false
+          file: good-pod.yaml
+      - apply:
+          expect:
+            - check:
+                ($error != null): true
+          file: bad-pod.yaml
+  - name: uninstall-pss-policies
+    try:
+      - script:
+          content: |
+            #!/bin/bash
+            set -eu
+            helm uninstall kyverno-policies -n kyverno

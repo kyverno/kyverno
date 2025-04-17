@@ -77,4 +77,3 @@ spec:
       - key: '{{ tg_attributes }}'
         operator: Equals
         value: "false"
-  validationFailureAction: Audit

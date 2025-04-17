@@ -2,18 +2,24 @@ package background
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	"github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
+	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -25,14 +31,15 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -57,15 +64,18 @@ type controller struct {
 	// listers
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
+	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister      policiesv1alpha1listers.ImageValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
-	vapLister        admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
-	vapBindingLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyBindingLister
+	celpolexListener policiesv1alpha1listers.PolicyExceptionLister
+	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	bgscanrLister    cache.GenericLister
 	cbgscanrLister   cache.GenericLister
 	nsLister         corev1listers.NamespaceLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	// cache
 	metadataCache resource.MetadataCache
@@ -76,6 +86,8 @@ type controller struct {
 	jp            jmespath.Interface
 	eventGen      event.Interface
 	policyReports bool
+	reportsConfig reportutils.ReportingConfiguration
+	breaker       breaker.Breaker
 }
 
 func NewController(
@@ -85,9 +97,12 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
-	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
-	vapBindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer,
+	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
 	forceDelay time.Duration,
@@ -95,10 +110,15 @@ func NewController(
 	jp jmespath.Interface,
 	eventGen event.Interface,
 	policyReports bool,
+	reportsConfig reportutils.ReportingConfiguration,
+	breaker breaker.Breaker,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
+	)
 	c := controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
@@ -116,6 +136,26 @@ func NewController(
 		jp:             jp,
 		eventGen:       eventGen,
 		policyReports:  policyReports,
+		reportsConfig:  reportsConfig,
+		breaker:        breaker,
+	}
+	if vpolInformer != nil {
+		c.vpolLister = vpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(ivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if celpolexlInformer != nil {
+		c.celpolexListener = celpolexlInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(celpolexlInformer.Informer(), c.addCELException, c.updateCELException, c.deleteCELPolicy); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
 	}
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
@@ -153,7 +193,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	logger.Info("background scan", "interval", c.forceDelay.Abs().String())
+	logger.V(2).Info("background scan", "interval", c.forceDelay.Abs().String())
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
@@ -181,35 +221,77 @@ func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 	}
 }
 
+func (c *controller) deleteCELPolicy(obj *policiesv1alpha1.PolicyException) {
+	c.enqueueResources()
+}
+
+func (c *controller) addCELException(obj *policiesv1alpha1.PolicyException) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateCELException(old, obj *policiesv1alpha1.PolicyException) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
 func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVAP(obj *admissionregistrationv1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) addVP(obj *policiesv1alpha1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVAP(old, obj *admissionregistrationv1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVAP(obj *admissionregistrationv1alpha1.ValidatingAdmissionPolicy) {
+func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVAPBinding(obj *admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) addIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVAPBinding(old, obj *admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVAPBinding(obj *admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addVAP(obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateVAP(old, obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteVAP(obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addVAPBinding(obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateVAPBinding(old, obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteVAPBinding(obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	c.enqueueResources()
 }
 
@@ -243,7 +325,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2.PolicyException, bindings []admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) (bool, bool, error) {
+func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2.PolicyException, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) (bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
 	reportMetadata, err := c.getMeta(namespace, name)
 	if err != nil {
@@ -301,19 +383,21 @@ func (c *controller) reconcileReport(
 	full bool,
 	uid types.UID,
 	gvk schema.GroupVersionKind,
+	gvr schema.GroupVersionResource,
 	resource resource.Resource,
 	exceptions []kyvernov2.PolicyException,
-	bindings []admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding,
+	celexceptions []*policiesv1alpha1.PolicyException,
+	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) error {
 	// namespace labels to be used by the scanner
-	var nsLabels map[string]string
+	var ns *corev1.Namespace
 	if namespace != "" {
-		ns, err := c.nsLister.Get(namespace)
+		namespace, err := c.nsLister.Get(namespace)
 		if err != nil {
 			return err
 		}
-		nsLabels = ns.GetLabels()
+		ns = namespace
 	}
 	// load target resource
 	target, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
@@ -350,47 +434,55 @@ func (c *controller) reconcileReport(
 		policyNameToLabel := map[string]string{}
 		for _, policy := range policies {
 			var key string
-			var err error
-			if policy.GetType() == engineapi.KyvernoPolicyType {
-				key, err = cache.MetaNamespaceKeyFunc(policy.AsKyvernoPolicy())
-			} else {
-				key, err = cache.MetaNamespaceKeyFunc(policy.AsValidatingAdmissionPolicy())
-			}
-			if err != nil {
-				return err
+			if policy.AsKyvernoPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsKyvernoPolicy()).String()
+			} else if policy.AsValidatingAdmissionPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy()).String()
+			} else if policy.AsValidatingPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
+			} else if policy.AsImageValidatingPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsImageValidatingPolicy()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
-		for _, exception := range exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(exception)
-			if err != nil {
-				return err
-			}
+		for i, exception := range exceptions {
+			key := cache.MetaObjectToName(&exceptions[i]).String()
 			policyNameToLabel[key] = reportutils.PolicyExceptionLabel(exception)
 		}
 		for _, binding := range bindings {
-			key, err := cache.MetaNamespaceKeyFunc(binding)
-			if err != nil {
-				return err
-			}
+			key := cache.MetaObjectToName(&binding).String()
 			policyNameToLabel[key] = reportutils.ValidatingAdmissionPolicyBindingLabel(binding)
 		}
 		for _, result := range observed.GetResults() {
-			// if the policy did not change, keep the result
+			// The result is kept as it is if:
+			// 1. The Kyverno policy and its matched exceptions are unchanged
+			// 2. The ValidatingAdmissionPolicy and its matched binding are unchanged
+			keepResult := true
+			exception := result.Properties["exceptions"]
+			exceptions := strings.Split(exception, ",")
+			for _, exception := range exceptions {
+				exceptionLabel := policyNameToLabel[exception]
+				if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
+					keepResult = false
+					break
+				}
+			}
 			label := policyNameToLabel[result.Policy]
-			exceptionLabel := policyNameToLabel[result.Properties["exception"]]
 			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
 			if (label != "" && expected[label] == actual[label]) ||
-				(exceptionLabel != "" && expected[exceptionLabel] == actual[exceptionLabel]) ||
-				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) {
+				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) || keepResult {
 				ruleResults = append(ruleResults, result)
 			}
 		}
 	}
 	// calculate necessary results
 	for _, policy := range policies {
+		if vpol := policy.AsValidatingPolicy(); vpol != nil && vpol.Status.Generated {
+			continue
+		}
+
 		reevaluate := false
-		if policy.GetType() == engineapi.KyvernoPolicyType {
+		if policy.AsKyvernoPolicy() != nil {
 			for _, polex := range exceptions {
 				if actual[reportutils.PolicyExceptionLabel(polex)] != polex.GetResourceVersion() {
 					reevaluate = true
@@ -406,8 +498,8 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client)
-			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, bindings, policy) {
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig)
+			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, bindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
 				} else if result.EngineResponse != nil {
@@ -450,7 +542,13 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 	if !hasReport && !wantsReport {
 		return nil
 	} else if !hasReport && wantsReport {
-		_, err = reportutils.CreateReport(ctx, desired, c.kyvernoClient)
+		err = c.breaker.Do(ctx, func(context.Context) error {
+			_, err := reportutils.CreateReport(ctx, desired, c.kyvernoClient)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 		return err
 	} else if hasReport && !wantsReport {
 		if observed.GetNamespace() == "" {
@@ -470,7 +568,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
-	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
+	resource, gvk, gvr, exists := c.metadataCache.GetResourceHash(uid)
 	// if the resource is not present it means we shouldn't have a report for it
 	// we can delete the report, we will recreate one if the resource comes back
 	if !exists {
@@ -506,6 +604,26 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	for _, pol := range kyvernoPolicies {
 		policies = append(policies, engineapi.NewKyvernoPolicy(pol))
 	}
+	if c.vpolLister != nil {
+		// load validating policies
+		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
+		if err != nil {
+			return err
+		}
+		for _, vpol := range policy.RemoveNoneBackgroundValidatingPolicies(vpols) {
+			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
+		}
+	}
+	if c.ivpolLister != nil {
+		// load validating policies
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return err
+		}
+		for _, vpol := range policy.RemoveNoneBackgroundImageVerificationPolicies(ivpols) {
+			policies = append(policies, engineapi.NewImageValidatingPolicy(&vpol))
+		}
+	}
 	if c.vapLister != nil {
 		// load validating admission policies
 		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
@@ -513,10 +631,10 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			return err
 		}
 		for _, pol := range vapPolicies {
-			policies = append(policies, engineapi.NewValidatingAdmissionPolicy(pol))
+			policies = append(policies, engineapi.NewValidatingAdmissionPolicy(&pol))
 		}
 	}
-	var vapBindings []admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding
+	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	if c.vapBindingLister != nil {
 		// load validating admission policy bindings
 		vapBindings, err = utils.FetchValidatingAdmissionPolicyBindings(c.vapBindingLister)
@@ -529,6 +647,11 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	if err != nil {
 		return err
 	}
+	// load celexceptions with background process enabled
+	celexceptions, err := utils.FetchCELPolicyExceptions(c.celpolexListener, namespace)
+	if err != nil {
+		return err
+	}
 	// we have the resource, check if we need to reconcile
 	if needsReconcile, full, err := c.needsReconcile(namespace, name, resource.Hash, exceptions, vapBindings, policies...); err != nil {
 		return err
@@ -537,7 +660,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			c.queue.AddAfter(key, c.forceDelay)
 		}()
 		if needsReconcile {
-			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, resource, exceptions, vapBindings, policies...)
+			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, resource, exceptions, celexceptions, vapBindings, policies...)
 		}
 	}
 	return nil

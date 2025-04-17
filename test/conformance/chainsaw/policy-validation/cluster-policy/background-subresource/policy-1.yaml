@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: deny
 spec:
-  validationFailureAction: Audit
   background: true
   rules:
     - name: deny
@@ -13,4 +12,5 @@ spec:
               kinds:
                 - Scale
       validate:
+        failureAction: Audit
         deny: {}

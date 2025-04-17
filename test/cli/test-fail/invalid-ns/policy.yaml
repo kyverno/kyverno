@@ -36,4 +36,4 @@ spec:
           labels:
             =(schiff.telekom.de/owner): '!schiff'
             platform.das-schiff.telekom.de/owner: '!das-schiff'
-  validationFailureAction: Enforce
+      failureAction: Enforce

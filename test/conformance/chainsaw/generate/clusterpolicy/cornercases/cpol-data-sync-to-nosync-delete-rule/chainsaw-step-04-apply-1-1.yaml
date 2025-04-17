@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: cpol-data-sync-to-nosync-delete-rule
 spec:
-  generateExisting: false
   rules:
   - exclude:
       any:
@@ -14,6 +13,7 @@ spec:
           - kube-public
           - kyverno
     generate:
+      generateExisting: false
       apiVersion: v1
       data:
         data:
@@ -42,6 +42,7 @@ spec:
           - kube-public
           - kyverno
     generate:
+      generateExisting: false
       apiVersion: v1
       data:
         data:

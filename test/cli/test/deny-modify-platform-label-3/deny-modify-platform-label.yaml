@@ -26,4 +26,4 @@ spec:
       deny: {}
       message: Roles owned by platform team (ones with label hpedevops.net/platform=true)
         should not be modified by non-admin users.
-  validationFailureAction: Audit
+      failureAction: Audit

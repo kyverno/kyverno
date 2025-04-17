@@ -1,0 +1,33 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: vpol-check-deployment-labels
+  ownerReferences:
+  - apiVersion: policies.kyverno.io/v1alpha1
+    kind: ValidatingPolicy
+    name: check-deployment-labels
+spec:
+  failurePolicy: Fail
+  matchConditions:
+  - expression: '!(object.metadata.name == ''skipped-deployment'')'
+    name: check-name
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - apps
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - deployments
+  variables:
+  - expression: has(object.metadata.labels) && 'env' in object.metadata.labels &&
+      object.metadata.labels['env'] == 'prod'
+    name: environment
+  validations:
+  - expression: variables.environment == true
+    message: Deployment labels must be env=prod

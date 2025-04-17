@@ -1,0 +1,16 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cleanup-policy-with-clusterrole
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: clusterrole.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml

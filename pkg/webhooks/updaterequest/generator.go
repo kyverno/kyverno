@@ -43,6 +43,9 @@ func NewGenerator(client versioned.Interface, urInformer kyvernov2informers.Upda
 
 // Apply creates update request resource
 func (g *generator) Apply(ctx context.Context, ur kyvernov2.UpdateRequestSpec) error {
+	if ur.Type == kyvernov2.Generate && len(ur.RuleContext) == 0 {
+		return nil
+	}
 	logger.V(4).Info("apply Update Request", "request", ur)
 	go g.applyResource(context.TODO(), ur)
 	return nil
@@ -70,7 +73,7 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov2.Updat
 	if urSpec.GetRequestType() == kyvernov2.Mutate {
 		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.GetResource())
 	} else if urSpec.GetRequestType() == kyvernov2.Generate {
-		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.GetResource())
+		queryLabels = common.GenerateLabelsSet(urSpec.Policy)
 	}
 
 	l.V(4).Info("creating new UpdateRequest")

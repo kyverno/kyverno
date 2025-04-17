@@ -26,11 +26,13 @@ func TestComputeClusterPolicyReports(t *testing.T) {
 			"pods-require-account",
 			engineapi.Validation,
 			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+			nil,
 		),
 		*engineapi.RulePass(
 			"pods-require-limits",
 			engineapi.Validation,
 			"validation rule 'pods-require-limits' passed.",
+			nil,
 		),
 	)
 	clustered, namespaced := ComputePolicyReports(false, er)
@@ -60,11 +62,13 @@ func TestComputePolicyReports(t *testing.T) {
 			"pods-require-account",
 			engineapi.Validation,
 			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+			nil,
 		),
 		*engineapi.RulePass(
 			"pods-require-limits",
 			engineapi.Validation,
 			"validation rule 'pods-require-limits' passed.",
+			nil,
 		),
 	)
 	clustered, namespaced := ComputePolicyReports(false, er)
@@ -94,11 +98,13 @@ func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
 			"pods-require-account",
 			engineapi.Validation,
 			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+			nil,
 		),
 		*engineapi.RulePass(
 			"pods-require-limits",
 			engineapi.Validation,
 			"validation rule 'pods-require-limits' passed.",
+			nil,
 		),
 	)
 	results := ComputePolicyReportResultsPerPolicy(false, er)
@@ -175,97 +181,103 @@ func TestComputePolicyReportResult(t *testing.T) {
 		name:           "skip",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleSkip("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleSkip("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusSkip,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+			Source:     "kyverno",
+			Policy:     "pod-requirements",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusSkip,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Properties: map[string]string{"process": "admission review"},
+			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
 		name:           "pass",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RulePass("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RulePass("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusPass,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+			Source:     "kyverno",
+			Policy:     "pod-requirements",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusPass,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Properties: map[string]string{"process": "admission review"},
+			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
 		name:           "fail",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusFail,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+			Source:     "kyverno",
+			Policy:     "pod-requirements",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusFail,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Properties: map[string]string{"process": "admission review"},
+			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
 		name:           "fail - audit warn",
 		auditWarn:      true,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusWarn,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+			Source:     "kyverno",
+			Policy:     "pod-requirements",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusWarn,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Properties: map[string]string{"process": "admission review"},
+			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
 		name:           "error",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleError("xxx", engineapi.Mutation, "test", nil),
+		ruleResponse:   *engineapi.RuleError("xxx", engineapi.Mutation, "test", nil, nil),
 		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusError,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+			Source:     "kyverno",
+			Policy:     "pod-requirements",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusError,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Properties: map[string]string{"process": "admission review"},
+			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}, {
 		name:           "warn",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleWarn("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleWarn("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusWarn,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+			Source:     "kyverno",
+			Policy:     "pod-requirements",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusWarn,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Properties: map[string]string{"process": "admission review"},
+			Severity:   policyreportv1alpha2.SeverityMedium,
 		},
 	}}
 	for _, tt := range tests {
@@ -294,7 +306,7 @@ func TestPSSComputePolicyReportResult(t *testing.T) {
 		name:           "fail",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
 			Source:     "kyverno",
 			Policy:     "psa",
@@ -305,7 +317,7 @@ func TestPSSComputePolicyReportResult(t *testing.T) {
 			Scored:     true,
 			Category:   "Pod Security Standards (Restricted)",
 			Severity:   policyreportv1alpha2.SeverityMedium,
-			Properties: nil,
+			Properties: map[string]string{"process": "background scan"},
 		},
 	}}
 	for _, tt := range tests {
@@ -341,4 +353,32 @@ func TestComputePolicyReportResultsPerPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNamespacedPolicyReportGeneration(t *testing.T) {
+	results, err := policy.Load(nil, "", "../_testdata/policies/namespace-policy.yaml")
+	assert.NilError(t, err)
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
+
+	er := engineapi.EngineResponse{}
+	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
+	er.PolicyResponse.Add(
+		engineapi.ExecutionStats{},
+		*engineapi.RuleFail(
+			"validate-pod",
+			engineapi.Validation,
+			"validation error: Pods must have a label `app`.",
+			nil,
+		),
+	)
+
+	clustered, namespaced := ComputePolicyReports(false, er)
+
+	assert.Equal(t, len(clustered), 0)
+	assert.Equal(t, len(namespaced), 1)
+
+	report := namespaced[0]
+	assert.Equal(t, report.GetNamespace(), policy.GetNamespace())
+	assert.Equal(t, report.Kind, "PolicyReport")
 }

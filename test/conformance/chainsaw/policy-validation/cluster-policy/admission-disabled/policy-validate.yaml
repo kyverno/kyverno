@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: validate
 spec:
-  validationFailureAction: Audit
   admission: false
   background: true
   rules:
@@ -14,4 +13,5 @@ spec:
           kinds:
           - Pod
     validate:
+      failureAction: Audit
       deny: {}

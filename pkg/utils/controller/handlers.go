@@ -54,7 +54,7 @@ func AddEventHandlersT[T any](informer cache.SharedInformer, a addFuncT[T], u up
 	return AddEventHandlers(informer, onAdd, onUpdate, onDelete)
 }
 
-func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
+func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.TypedRateLimitingInterface[any], parseKey keyFunc) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	enqueueFunc := LogError(logger, Parse(parseKey, Queue(queue)))
 	if registration, err := AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc)); err != nil {
 		return nil, nil, err
@@ -63,7 +63,7 @@ func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, qu
 	}
 }
 
-func AddKeyedEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFuncT[K, interface{}]) (EnqueueFuncT[K], cache.ResourceEventHandlerRegistration, error) {
+func AddKeyedEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.TypedRateLimitingInterface[any], parseKey keyFuncT[K, interface{}]) (EnqueueFuncT[K], cache.ResourceEventHandlerRegistration, error) {
 	enqueueFunc := LogError(logger, Parse(parseKey, Queue(queue)))
 	if registration, err := AddEventHandlersT(informer, AddFuncT(logger, enqueueFunc), UpdateFuncT(logger, enqueueFunc), DeleteFuncT(logger, enqueueFunc)); err != nil {
 		return nil, nil, err
@@ -72,7 +72,7 @@ func AddKeyedEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.
 	}
 }
 
-func AddDelayedKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey keyFunc) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
+func AddDelayedKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.TypedRateLimitingInterface[any], delay time.Duration, parseKey keyFunc) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	enqueueFunc := LogError(logger, Parse(parseKey, QueueAfter(queue, delay)))
 	if registration, err := AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc)); err != nil {
 		return nil, nil, err
@@ -81,23 +81,23 @@ func AddDelayedKeyedEventHandlers(logger logr.Logger, informer cache.SharedInfor
 	}
 }
 
-func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
+func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.TypedRateLimitingInterface[any]) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	return AddKeyedEventHandlers(logger, informer, queue, MetaNamespaceKey)
 }
 
-func AddDefaultEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) (EnqueueFuncT[K], cache.ResourceEventHandlerRegistration, error) {
+func AddDefaultEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.TypedRateLimitingInterface[any]) (EnqueueFuncT[K], cache.ResourceEventHandlerRegistration, error) {
 	return AddKeyedEventHandlersT(logger, informer, queue, MetaNamespaceKeyT[K])
 }
 
-func AddDelayedDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
+func AddDelayedDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.TypedRateLimitingInterface[any], delay time.Duration) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	return AddDelayedKeyedEventHandlers(logger, informer, queue, delay, MetaNamespaceKey)
 }
 
-func AddExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey func(K) cache.ExplicitKey) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
+func AddExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.TypedRateLimitingInterface[any], parseKey func(K) cache.ExplicitKey) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	return AddKeyedEventHandlers(logger, informer, queue, ExplicitKey(parseKey))
 }
 
-func AddDelayedExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey func(K) cache.ExplicitKey) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
+func AddDelayedExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.TypedRateLimitingInterface[any], delay time.Duration, parseKey func(K) cache.ExplicitKey) (EnqueueFunc, cache.ResourceEventHandlerRegistration, error) {
 	return AddDelayedKeyedEventHandlers(logger, informer, queue, delay, ExplicitKey(parseKey))
 }
 
@@ -121,14 +121,14 @@ func Parse[K, L any](parseKey keyFuncT[K, L], inner EnqueueFuncT[L]) EnqueueFunc
 	}
 }
 
-func Queue(queue workqueue.RateLimitingInterface) EnqueueFunc {
+func Queue(queue workqueue.TypedRateLimitingInterface[any]) EnqueueFunc {
 	return func(obj interface{}) error {
 		queue.Add(obj)
 		return nil
 	}
 }
 
-func QueueAfter(queue workqueue.RateLimitingInterface, delay time.Duration) EnqueueFunc {
+func QueueAfter(queue workqueue.TypedRateLimitingInterface[any], delay time.Duration) EnqueueFunc {
 	return func(obj interface{}) error {
 		queue.AddAfter(obj, delay)
 		return nil

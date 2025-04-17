@@ -45,7 +45,6 @@ func NewTraceConfig(log logr.Logger, tracerName, address, certs string, kubeClie
 	}
 	res, err := resource.New(
 		ctx,
-		resource.WithSchemaURL(semconv.SchemaURL),
 		resource.WithTelemetrySDK(),
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(tracerName),

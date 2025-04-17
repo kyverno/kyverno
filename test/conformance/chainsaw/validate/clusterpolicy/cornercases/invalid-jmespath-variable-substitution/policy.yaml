@@ -16,7 +16,7 @@ spec:
         variable:
           jmesPath: '{{ request.object.spec.[containers,initContainers, ephemeralContainers][].image[] }}'
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         deny:
           conditions:
             all:

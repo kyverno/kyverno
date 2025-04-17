@@ -28,4 +28,4 @@ spec:
       anyPattern:
       - kind: '!Service'
       message: Can't create a service. Sorry...
-  validationFailureAction: Enforce
+      failureAction: Enforce

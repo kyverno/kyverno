@@ -20,6 +20,14 @@ rules:
       - {{ include "kyverno.config.configMapName" . }}
       - {{ include "kyverno.config.metricsConfigMapName" . }}
   - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - coordination.k8s.io
     resources:
       - leases

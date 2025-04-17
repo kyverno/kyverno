@@ -17,6 +17,7 @@ spec:
     targetPort: https
     protocol: TCP
     name: https
+    appProtocol: https
     {{- if and (eq .Values.cleanupController.service.type "NodePort") (not (empty .Values.cleanupController.service.nodePort)) }}
     nodePort: {{ .Values.cleanupController.service.nodePort }}
     {{- end }}

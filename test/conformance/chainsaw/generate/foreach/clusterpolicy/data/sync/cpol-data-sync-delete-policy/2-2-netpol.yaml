@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-networkpolicy-0-foreach-ns-1
+  namespace: foreach-ns-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

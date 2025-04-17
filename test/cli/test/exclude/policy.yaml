@@ -17,7 +17,6 @@ metadata:
       requests and memory limits.
 spec:
   background: true
-  validationFailureAction: enforce
   rules:
     - name: validate-resources
       match:
@@ -37,6 +36,7 @@ spec:
                 matchLabels:
                   require-requests-limits.kyverno.io/exclude: "true"
       validate:
+        failureAction: Enforce
         message: "CPU and memory resource requests and limits are required."
         pattern:
           spec:

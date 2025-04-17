@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: apply-exception-with-ns-selector
 spec:
   steps:
@@ -22,7 +21,7 @@ spec:
     - script:
         content: kyverno apply policy.yaml --exception exception.yaml --cluster --namespace ns-1
         check:
-          ($stdout): |-
+          (trim_space($stdout)): |-
             Applying 3 policy rule(s) to 1 resource(s) with 1 exception(s)...
 
             pass: 0, fail: 0, warn: 0, error: 0, skip: 1

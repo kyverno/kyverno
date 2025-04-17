@@ -1,0 +1,32 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: emit-success-events-upon-generate-success-events-set-true
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: kubectl patch configmap kyverno -p '{"data":{"generateSuccessEvents":"true"}}' -n kyverno
+    - assert:
+        file: kyverno-configmap-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: resource.yaml
+    - assert:
+        file: resource-assert.yaml
+  - name: step-04
+    try:
+    - script:
+        content: kubectl get event -n default
+        check:
+          # This check ensures that the string 'reason="PolicyApplied"' is not found
+          # in stdout or else fails
+          (contains($stdout, 'PolicyApplied')): true

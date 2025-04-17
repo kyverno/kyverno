@@ -42,75 +42,81 @@ func (a ValidationFailureAction) IsValid() bool {
 
 type ValidationFailureActionOverride struct {
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
-	Action            ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces        []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
-	NamespaceSelector *metav1.LabelSelector   `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
+	Action            ValidationFailureAction `json:"action,omitempty"`
+	Namespaces        []string                `json:"namespaces,omitempty"`
+	NamespaceSelector *metav1.LabelSelector   `json:"namespaceSelector,omitempty"`
 }
 
 // Spec contains a list of Rule instances and other policy controls.
 type Spec struct {
 	// Rules is a list of Rule instances. A Policy contains multiple rules and
 	// each rule can validate, mutate, or generate resources.
-	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
+	Rules []Rule `json:"rules,omitempty"`
 
 	// ApplyRules controls how rules in a policy are applied. Rule are processed in
 	// the order of declaration. When set to `One` processing stops after a rule has
 	// been applied i.e. the rule matches and results in a pass, fail, or error. When
 	// set to `All` all rules in the policy are processed. The default is `All`.
 	// +optional
-	ApplyRules *ApplyRulesType `json:"applyRules,omitempty" yaml:"applyRules,omitempty"`
+	ApplyRules *ApplyRulesType `json:"applyRules,omitempty"`
 
 	// Deprecated, use failurePolicy under the webhookConfiguration instead.
-	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
+	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// Deprecated, use validationFailureAction under the validate rule instead.
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	// +kubebuilder:default=Audit
-	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty"`
 
 	// Deprecated, use validationFailureActionOverrides under the validate rule instead.
-	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty"`
+
+	// EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+	// Enabling this option will extend admission request processing times. The default value is "false".
+	// +optional
+	// +kubebuilder:default=false
+	EmitWarning *bool `json:"emitWarning,omitempty"`
 
 	// Admission controls if rules are applied during admission.
 	// Optional. Default value is "true".
 	// +optional
 	// +kubebuilder:default=true
-	Admission *bool `json:"admission,omitempty" yaml:"admission,omitempty"`
+	Admission *bool `json:"admission,omitempty"`
 
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
 	// +optional
 	// +kubebuilder:default=true
-	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
+	Background *bool `json:"background,omitempty"`
 
 	// Deprecated.
-	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
+	SchemaValidation *bool `json:"schemaValidation,omitempty"`
 
 	// Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.
-	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
+	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty"`
 
 	// Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead
 	// +optional
-	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty"`
 
 	// Deprecated, use generateExisting instead
 	// +optional
-	GenerateExistingOnPolicyUpdate *bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
+	GenerateExistingOnPolicyUpdate *bool `json:"generateExistingOnPolicyUpdate,omitempty"`
 
 	// Deprecated, use generateExisting under the generate rule instead
 	// +optional
-	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+	GenerateExisting bool `json:"generateExisting,omitempty"`
 
 	// UseServerSideApply controls whether to use server-side apply for generate rules
 	// If is set to "true" create & update for generate rules will use apply instead of create/update.
 	// Defaults to "false" if not specified.
 	// +optional
-	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
+	UseServerSideApply bool `json:"useServerSideApply,omitempty"`
 
 	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
 	// +optional
-	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
 }
 
 func (s *Spec) CustomWebhookMatchConditions() bool {
@@ -171,6 +177,19 @@ func (s *Spec) HasValidate() bool {
 	return false
 }
 
+// HasValidateEnforce checks if the policy has any validate rules with enforce action
+func (s *Spec) HasValidateEnforce() bool {
+	for _, rule := range s.Rules {
+		if rule.HasValidate() {
+			action := rule.Validation.FailureAction
+			if action != nil && action.Enforce() {
+				return true
+			}
+		}
+	}
+	return s.ValidationFailureAction.Enforce()
+}
+
 // HasGenerate checks for generate rule types
 func (s *Spec) HasGenerate() bool {
 	for _, rule := range s.Rules {
@@ -228,57 +247,28 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
-// GetValidationFailureAction returns the value of the validationFailureAction
-func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
-	for _, rule := range s.Rules {
-		if rule.HasValidate() {
-			validationFailureAction := rule.Validation.ValidationFailureAction
-			if validationFailureAction != nil {
-				return *validationFailureAction
-			}
-		}
-	}
-	return s.ValidationFailureAction
-}
-
-// GetValidationFailureActionOverrides returns the value of the validationFailureActionOverrides
-func (s *Spec) GetValidationFailureActionOverrides() []ValidationFailureActionOverride {
-	for _, rule := range s.Rules {
-		if rule.HasValidate() {
-			validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
-			if len(validationFailureActionOverrides) != 0 {
-				return validationFailureActionOverrides
-			}
-		}
-	}
-	return s.ValidationFailureActionOverrides
-}
-
-// GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
+// GetMutateExistingOnPolicyUpdate returns true if any of the rules have MutateExistingOnPolicyUpdate set to true
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	for _, rule := range s.Rules {
 		if rule.HasMutate() {
-			isMutateExisting := rule.Mutation.IsMutateExistingOnPolicyUpdate()
-			if isMutateExisting != nil {
-				return *isMutateExisting
+			isMutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+			if isMutateExisting != nil && *isMutateExisting {
+				return true
 			}
 		}
 	}
 	return s.MutateExistingOnPolicyUpdate
 }
 
-// IsGenerateExisting return GenerateExisting set value
+// IsGenerateExisting returns true if any of the generate rules has generateExisting set to true
 func (s *Spec) IsGenerateExisting() bool {
 	for _, rule := range s.Rules {
 		if rule.HasGenerate() {
-			isGenerateExisting := rule.Generation.IsGenerateExisting()
-			if isGenerateExisting != nil {
-				return *isGenerateExisting
+			isGenerateExisting := rule.Generation.GenerateExisting
+			if isGenerateExisting != nil && *isGenerateExisting {
+				return true
 			}
 		}
-	}
-	if s.GenerateExistingOnPolicyUpdate != nil && *s.GenerateExistingOnPolicyUpdate {
-		return true
 	}
 	return s.GenerateExisting
 }
@@ -321,6 +311,10 @@ func (s *Spec) GetApplyRules() ApplyRulesType {
 	return *s.ApplyRules
 }
 
+func (s *Spec) GetRules() []Rule {
+	return s.Rules
+}
+
 // ValidateRuleNames checks if the rule names are unique across a policy
 func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 	names := sets.New[string]()
@@ -353,31 +347,19 @@ func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 		errs = append(errs, field.Forbidden(path.Child("failurePolicy"), "remove the deprecated field and use spec.webhookConfiguration.failurePolicy instead"))
 	}
 
-	for _, rule := range s.Rules {
-		if rule.HasGenerate() && rule.Generation.IsGenerateExisting() != nil {
-			if s.GenerateExistingOnPolicyUpdate != nil {
-				errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
-			}
-			if s.GenerateExisting {
-				errs = append(errs, field.Forbidden(path.Child("generateExisting"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
-			}
-		}
-
-		if rule.HasMutate() && rule.Mutation.IsMutateExistingOnPolicyUpdate() != nil {
-			if s.MutateExistingOnPolicyUpdate {
-				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.mutate[*].mutateExistingOnPolicyUpdate instead"))
-			}
-		}
+	if s.GenerateExistingOnPolicyUpdate != nil {
+		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
 	}
 	return errs
 }
 
 func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
-	if s.GetMutateExistingOnPolicyUpdate() {
-		for i, rule := range s.Rules {
-			if !rule.HasMutate() {
-				continue
-			}
+	for i, rule := range s.Rules {
+		if !rule.HasMutate() {
+			continue
+		}
+		mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+		if s.MutateExistingOnPolicyUpdate || (mutateExisting != nil && *mutateExisting) {
 			if len(rule.Mutation.Targets) == 0 {
 				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), fmt.Sprintf("rules[%v].mutate.targets has to be specified when mutateExistingOnPolicyUpdate is set", i)))
 			}

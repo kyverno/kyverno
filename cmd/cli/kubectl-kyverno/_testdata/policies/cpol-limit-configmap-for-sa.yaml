@@ -56,4 +56,4 @@ spec:
             - CREATE
       message: '{{request.object.metadata.namespace}}/{{request.object.kind}}/{{request.object.metadata.name}}
         resource is protected. Admin or allowed users can change the resource'
-  validationFailureAction: Audit
+      failureAction: Audit

@@ -21,6 +21,7 @@ spec:
           - Pod
     name: require-image-tag
     validate:
+      failureAction: Enforce
       message: An image tag is required
       pattern:
         spec:
@@ -33,10 +34,10 @@ spec:
           - Pod
     name: validate-image-tag
     validate:
+      failureAction: Enforce
       message: Using a mutable image tag e.g. 'latest' is not allowed
       pattern:
         spec:
           containers:
           - image: '!*:latest'
-  validationFailureAction: Enforce
   failurePolicy: Ignore

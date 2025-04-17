@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: block-update-no-label-change
 spec:
-  validationFailureAction: Audit
   background: false
   rules:
     - name: check-label-change
@@ -18,6 +17,7 @@ spec:
             operator: Equals
             value: UPDATE
       validate:
+        failureAction: Audit
         message: Pass only if labels are different
         deny:
           conditions:

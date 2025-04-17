@@ -3,7 +3,6 @@ kind: Policy
 metadata:
   name: verify-image
 spec:
-  validationFailureAction: Audit
   admission: false
   background: true
   rules:
@@ -14,7 +13,8 @@ spec:
           kinds:
           - Pod
     verifyImages:
-    - imageReferences:
+    - failureAction: Audit
+      imageReferences:
       - "ghcr.io/kyverno/test-verify-image:*"
       attestors:
       - entries:

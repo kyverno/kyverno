@@ -212,6 +212,7 @@ var cosignTestPolicy = `{
                         "imageReferences": [
                             "ghcr.io/kyverno/test-verify-image:*"
                         ],
+												"useCache": true,
                         "attestors": [
                             {
                                 "entries": [
@@ -266,6 +267,7 @@ var cosignTestPolicyUpdated = `{
                         "imageReferences": [
                             "ghcr.io/kyverno/test-verify-image:*"
                         ],
+												"useCache": true,
                         "attestors": [
                             {
                                 "entries": [
@@ -322,6 +324,7 @@ func testVerifyAndPatchImages(
 		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
+		nil,
 	)
 	return e.VerifyAndPatchImages(
 		ctx,
@@ -363,10 +366,16 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))
 	assert.NilError(t, err)
 
+	operation := kyvernov1.Create
+	if len(resource) != 0 && len(oldResource) != 0 {
+		operation = kyvernov1.Update
+	} else if len(resource) == 0 && len(oldResource) != 0 {
+		operation = kyvernov1.Delete
+	}
 	policyContext, err := policycontext.NewPolicyContext(
 		jp,
 		*resourceUnstructured,
-		kyvernov1.Create,
+		operation,
 		nil,
 		cfg,
 	)
@@ -837,7 +846,6 @@ var testNestedAttestorPolicy = `
 `
 
 func Test_NestedAttestors(t *testing.T) {
-
 	policy := strings.Replace(testNestedAttestorPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
@@ -919,28 +927,6 @@ func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS boo
 		entries = append(entries, attestor)
 	}
 	return kyvernov1.AttestorSet{Entries: entries}
-}
-
-func Test_ChangedAnnotation(t *testing.T) {
-	annotationKey := kyverno.AnnotationImageVerify
-	annotationNew := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "true")
-	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
-
-	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
-
-	hasChanged := internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
-	assert.Equal(t, hasChanged, false)
-
-	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
-	assert.Equal(t, hasChanged, true)
-
-	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
-	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
-
-	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
-	assert.Equal(t, hasChanged, true)
 }
 
 func Test_MarkImageVerified(t *testing.T) {
@@ -1074,6 +1060,7 @@ func testImageVerifyCache(
 		ivCache,
 		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
+		nil,
 	)
 	return e.VerifyAndPatchImages(
 		ctx,
@@ -1110,6 +1097,30 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+}
+
+func Test_ImageVerifyCacheDisabled(t *testing.T) {
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(false),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24 * time.Hour),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
+
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache is disabled, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
@@ -1193,6 +1204,7 @@ var verifyImageNotaryPolicy = `{
 						"imageReferences": [
 							"ghcr.io/kyverno/test-verify-image*"
 						],
+						"useCache": true,
 						"attestors": [
 							{
 								"count": 1,
@@ -1242,6 +1254,7 @@ var verifyImageNotaryUpdatedPolicy = `{
 						"imageReferences": [
 							"ghcr.io/kyverno/test-verify-image*"
 						],
+						"useCache": true,
 						"attestors": [
 							{
 								"count": 1,
@@ -1463,6 +1476,232 @@ var excludeVerifyImageNotaryResourceSkip = `{
 
 func Test_SkipImageReferences(t *testing.T) {
 	policyContextPass := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourcePass, "")
+
+	// Passes as image is included and not excluded
+	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)
+	assert.Equal(t, len(erPass.PolicyResponse.Rules), 1)
+	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, erPass.PolicyResponse.Rules[0].Status(), erPass.PolicyResponse.Rules[0].Message()))
+	assert.Equal(t, ivm.IsEmpty(), false)
+
+	policyContextSkip := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourceSkip, "")
+
+	// Skipped as image is excluded
+	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextSkip, cfg)
+	assert.Equal(t, len(erSkip.PolicyResponse.Rules), 1)
+	assert.Equal(t, erSkip.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, erSkip.PolicyResponse.Rules[0].Status(), erSkip.PolicyResponse.Rules[0].Message()))
+}
+
+var multipleImageVerificationAttestationPolicyPass = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "check-image-attestation"
+    },
+    "spec": {
+        "validationFailureAction": "Enforce",
+        "webhookTimeoutSeconds": 30,
+        "failurePolicy": "Fail",
+        "rules": [
+            {
+                "name": "verify-attestation-notary",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Pod"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "context": [
+                    {
+                        "name": "keys",
+                        "configMap": {
+                            "name": "keys",
+                            "namespace": "notary-verify-attestation"
+                        }
+                    }
+                ],
+                "verifyImages": [
+                    {
+                        "type": "Notary",
+                        "imageReferences": [
+                            "ghcr.io/kyverno/test-verify-image*"
+                        ],
+                        "attestations": [
+                            {
+                                "type": "sbom/cyclone-dx",
+                                "name": "sbom",
+                                "attestors": [
+                                    {
+                                        "entries": [
+                                            {
+                                                "certificates": {
+                                                    "cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "vulnerability-scan",
+                                "name": "scan",
+                                "attestors": [
+                                    {
+                                        "entries": [
+                                            {
+                                                "certificates": {
+                                                    "cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                        "validate": {
+                            "deny": {
+                                "conditions": {
+                                    "any": [
+                                        {
+                                            "key": "{{ time_after('{{ sbom.metadata.timestamp }}', '{{ scan.descriptor.timestamp }}' ) }}",
+                                            "operator": "Equals",
+                                            "value": "False"
+                                        }
+                                    ]
+                                }
+                            },
+                            "message": "Sample Validation"
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}`
+
+var multipleImageVerificationAttestationPolicyFail = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "check-image-attestation"
+    },
+    "spec": {
+        "validationFailureAction": "Enforce",
+        "webhookTimeoutSeconds": 30,
+        "failurePolicy": "Fail",
+        "rules": [
+            {
+                "name": "verify-attestation-notary",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Pod"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "context": [
+                    {
+                        "name": "keys",
+                        "configMap": {
+                            "name": "keys",
+                            "namespace": "notary-verify-attestation"
+                        }
+                    }
+                ],
+                "verifyImages": [
+                    {
+                        "type": "Notary",
+                        "imageReferences": [
+                            "ghcr.io/kyverno/test-verify-image*"
+                        ],
+                        "attestations": [
+                            {
+                                "type": "sbom/cyclone-dx",
+                                "name": "sbom",
+                                "attestors": [
+                                    {
+                                        "entries": [
+                                            {
+                                                "certificates": {
+                                                    "cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "vulnerability-scan",
+                                "name": "scan",
+                                "attestors": [
+                                    {
+                                        "entries": [
+                                            {
+                                                "certificates": {
+                                                    "cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                        "validate": {
+                            "deny": {
+                                "conditions": {
+                                    "any": [
+                                        {
+                                            "key": "{{ time_after('{{ sbom.metadata.timestamp }}', '{{ scan.descriptor.timestamp }}' ) }}",
+                                            "operator": "Equals",
+                                            "value": "True"
+                                        }
+                                    ]
+                                }
+                            },
+                            "message": "Sample Validation"
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}`
+
+func Test_MultipleImageVerificationAttestationPass(t *testing.T) {
+	policyContextPass := buildContext(t, multipleImageVerificationAttestationPolicyPass, excludeVerifyImageNotaryResourcePass, "")
+
+	// Passes as image is included and not excluded
+	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)
+	assert.Equal(t, len(erPass.PolicyResponse.Rules), 1)
+	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, erPass.PolicyResponse.Rules[0].Status(), erPass.PolicyResponse.Rules[0].Message()))
+	assert.Equal(t, ivm.IsEmpty(), false)
+
+	policyContextSkip := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourceSkip, "")
+
+	// Skipped as image is excluded
+	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextSkip, cfg)
+	assert.Equal(t, len(erSkip.PolicyResponse.Rules), 1)
+	assert.Equal(t, erSkip.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, erSkip.PolicyResponse.Rules[0].Status(), erSkip.PolicyResponse.Rules[0].Message()))
+}
+
+func Test_MultipleImageVerificationAttestationFail(t *testing.T) {
+	policyContextPass := buildContext(t, multipleImageVerificationAttestationPolicyFail, excludeVerifyImageNotaryResourcePass, "")
 
 	// Passes as image is included and not excluded
 	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)

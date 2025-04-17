@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: cpol-data-sync-to-nosync-delete-rule
 spec:
-  generateExisting: false
   rules:
   - name: k-kafka-address
     match:
@@ -20,6 +19,7 @@ spec:
           - kube-public
           - kyverno
     generate:
+      generateExisting: false
       synchronize: true
       apiVersion: v1
       kind: ConfigMap
@@ -48,6 +48,7 @@ spec:
           - kube-public
           - kyverno
     generate:
+      generateExisting: false
       synchronize: true
       apiVersion: v1
       kind: Secret

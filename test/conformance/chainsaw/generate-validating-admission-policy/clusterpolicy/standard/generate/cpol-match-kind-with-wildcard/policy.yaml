@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-label-app4
 spec:
-  validationFailureAction: Audit
   background: false
   rules:
     - name: check-label-app
@@ -16,6 +15,8 @@ spec:
             - production
             - staging
       validate:
+        failureAction: Audit
         cel:
+          generate: true
           expressions:
             - expression: "'app' in object.metadata.labels"

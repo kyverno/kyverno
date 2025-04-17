@@ -11,6 +11,7 @@
                 "--kubeconfig=${userHome}/.kube/config",
                 "--serverIP=<SERVER-IP>:9443",
                 "--backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller",
+                "--reportsServiceAccountName=system:serviceaccount:kyverno:kyverno-reports-controller",
                 "-v=2",
                 "--caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca",
                 "--tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair",

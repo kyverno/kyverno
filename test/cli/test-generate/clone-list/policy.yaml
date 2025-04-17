@@ -34,4 +34,3 @@ spec:
           kinds:
           - Namespace
     name: clone-list-labelled-secrets
-  validationFailureAction: Audit

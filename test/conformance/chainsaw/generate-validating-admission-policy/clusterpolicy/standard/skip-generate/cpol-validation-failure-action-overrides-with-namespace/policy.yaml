@@ -3,11 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-label-app1
 spec:
-  validationFailureAction: Audit
-  validationFailureActionOverrides:
-    - action: Enforce
-      namespaces: 
-        - default
   rules:
     - name: check-label-app
       match:
@@ -16,8 +11,12 @@ spec:
             kinds:
             - Pod
       validate:
-        message: "The label `app` is required."
-        pattern:
-          metadata:
-            labels:
-              app: "?*"
+        failureAction: Audit
+        failureActionOverrides:
+          - action: Enforce
+            namespaces: 
+              - default
+        cel:
+          generate: true
+          expressions:
+            - expression: "'app' in object.metadata.labels"

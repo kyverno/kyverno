@@ -1,7 +1,0 @@
----
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: check-invalid-attestors-in-attestations
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: none

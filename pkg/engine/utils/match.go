@@ -209,7 +209,7 @@ func MatchesResourceDescription(
 	}
 
 	// check exlude conditions only if match succeeds
-	if len(reasonsForFailure) == 0 {
+	if len(reasonsForFailure) == 0 && rule.ExcludeResources != nil {
 		if len(rule.ExcludeResources.Any) > 0 {
 			// exclude the object if ANY of the criteria match
 			for _, rer := range rule.ExcludeResources.Any {
@@ -244,7 +244,7 @@ func MatchesResourceDescription(
 	}
 
 	if len(reasonsForFailure) > 0 {
-		return fmt.Errorf(errorMessage)
+		return fmt.Errorf(errorMessage) //nolint:govet,staticcheck
 	}
 
 	return nil

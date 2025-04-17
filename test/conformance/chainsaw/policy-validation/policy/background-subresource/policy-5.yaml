@@ -3,7 +3,6 @@ kind: Policy
 metadata:
   name: deny
 spec:
-  validationFailureAction: Audit
   background: true
   rules:
     - name: deny
@@ -13,4 +12,5 @@ spec:
               kinds:
                 - '*/status'
       validate:
+        failureAction: Audit
         deny: {}

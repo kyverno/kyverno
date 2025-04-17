@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: existing-basic-add-rule-data
 spec:
-  generateExisting: true
   rules:
   - name: existing-basic-create-rule
     match:
@@ -15,6 +14,7 @@ spec:
             matchLabels:
               color: blue
     generate:
+      generateExisting: true
       kind: NetworkPolicy
       apiVersion: networking.k8s.io/v1
       name: default-deny
@@ -39,6 +39,7 @@ spec:
             matchLabels:
               color: yellow
     generate:
+      generateExisting: true
       kind: NetworkPolicy
       apiVersion: networking.k8s.io/v1
       name: default-deny

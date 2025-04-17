@@ -17,6 +17,6 @@ spec:
           - namespace2
     name: disallow
     validate:
+      failureAction: Enforce
       deny: {}
       message: This resource is protected and changes are not allowed.
-  validationFailureAction: Enforce

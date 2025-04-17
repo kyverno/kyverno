@@ -1,0 +1,49 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: update-deployment
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: require-multiple-replicas
+  - name: step-02
+    try:
+    - apply:
+        file: deployment.yaml
+    - assert:
+        file: deployment.yaml
+  - name: step-03
+    try:
+    - sleep:
+        duration: 5s
+  - name: step-04
+    try:
+    - assert:
+        file: report-assert.yaml
+  - name: step-05
+    try:
+    - apply:
+        file: update-deployment.yaml
+    - assert:
+        file: update-deployment.yaml
+  - name: step-06
+    try:
+    - sleep:
+        duration: 5s
+  - name: step-07
+    try:
+    - assert:
+        file: report-assert.yaml

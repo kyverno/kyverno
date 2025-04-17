@@ -8,7 +8,6 @@ kind: ClusterPolicy
 metadata:
   name: check-image
 spec:
-  validationFailureAction: Enforce
   background: false
   webhookTimeoutSeconds: 30
   failurePolicy: Fail
@@ -22,6 +21,7 @@ spec:
       verifyImages:
       - imageReferences:
         - "ghcr.io/kyverno*"
+        failureAction: Enforce
         attestors:
         - count: 1
           entries:

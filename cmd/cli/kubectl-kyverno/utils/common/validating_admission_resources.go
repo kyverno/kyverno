@@ -5,13 +5,14 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type ValidatingAdmissionResources struct {
-	policies []admissionregistrationv1alpha1.ValidatingAdmissionPolicy
+	policies             []admissionregistrationv1.ValidatingAdmissionPolicy
+	clusterWideResources bool
 }
 
 func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths []string, dClient dclient.Interface, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
@@ -23,7 +24,7 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(out io.Writer, r
 
 	for _, policy := range r.policies {
 		var resourceTypesInRule map[schema.GroupVersionKind]bool
-		resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(policy, dClient)
+		resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(policy, dClient, r.clusterWideResources)
 		if err != nil {
 			return resources, err
 		}

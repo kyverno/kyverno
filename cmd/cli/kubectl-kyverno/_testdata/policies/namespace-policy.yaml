@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-namespace-labels
+  namespace: test
+spec:
+  rules:
+  - name: check-for-label
+    match:
+      resources:
+        kinds:
+        - Namespace
+    validate:
+      message: "Namespaces must have the label `purpose`."
+      pattern:
+        metadata:
+          labels:
+            purpose: "?*"

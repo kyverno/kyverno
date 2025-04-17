@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: block-pod
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
   - name: block-pod
@@ -19,4 +18,5 @@ spec:
           name: '?*'
           namespace: '?*'
     validate:
+      failureAction: Enforce
       deny: {}

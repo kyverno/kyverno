@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -46,7 +45,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			if mutateResp.Status == engineapi.RuleStatusPass {
 				f.resource.unstructured = mutateResp.PatchedResource
 			}
-			f.logger.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
+			f.logger.V(3).Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
 			if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
 				f.logger.Error(err, "failed to update resource in context")
 			}
@@ -70,7 +69,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 	reverse := false
 	// if it's a patch strategic merge, reverse by default
-	if foreach.RawPatchStrategicMerge != nil {
+	if foreach.GetPatchStrategicMerge() != nil {
 		reverse = true
 	}
 	if foreach.Order != nil {
@@ -105,23 +104,19 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		}
 
 		if !preconditionsPassed {
-			f.logger.Info("mutate.foreach.preconditions not met", "elementIndex", index, "message", msg)
+			f.logger.V(3).Info("mutate.foreach.preconditions not met", "elementIndex", index, "message", msg)
 			continue
 		}
 
 		var mutateResp *mutate.Response
-		if foreach.ForEachMutation != nil {
-			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](foreach.ForEachMutation)
-			if err != nil {
-				return mutate.NewErrorResponse("failed to deserialize foreach", err)
-			}
-
+		fem := foreach.GetForEachMutation()
+		if len(fem) > 0 {
 			m := &forEachMutator{
 				rule:          f.rule,
 				policyContext: f.policyContext,
 				resource:      patchedResource,
 				logger:        f.logger,
-				foreach:       nestedForEach,
+				foreach:       fem,
 				nesting:       f.nesting + 1,
 				contextLoader: f.contextLoader,
 			}
@@ -157,6 +152,7 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 		engineapi.Mutation,
 		message,
 		mutateResp.Status,
+		rule.ReportProperties,
 	)
 	if mutateResp.Status == engineapi.RuleStatusPass {
 		if len(rule.Mutation.Targets) != 0 {

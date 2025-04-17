@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/d4f"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
@@ -40,7 +40,8 @@ type imageVerificationHandler struct {
 	admissionReports bool
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
-	reportsBreaker   d4f.Breaker
+	reportConfig     reportutils.ReportingConfiguration
+	reportsBreaker   breaker.Breaker
 }
 
 func NewImageVerificationHandler(
@@ -51,7 +52,8 @@ func NewImageVerificationHandler(
 	admissionReports bool,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
-	reportsBreaker d4f.Breaker,
+	reportConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -61,6 +63,7 @@ func NewImageVerificationHandler(
 		admissionReports: admissionReports,
 		cfg:              cfg,
 		nsLister:         nsLister,
+		reportConfig:     reportConfig,
 		reportsBreaker:   reportsBreaker,
 	}
 }
@@ -71,7 +74,7 @@ func (h *imageVerificationHandler) Handle(
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) ([]byte, []string, error) {
-	ok, message, imagePatches, warnings := h.handleVerifyImages(ctx, h.log, request, policyContext, policies)
+	ok, message, imagePatches, warnings := h.handleVerifyImages(ctx, h.log, request, policyContext, policies, h.cfg)
 	if !ok {
 		return nil, nil, errors.New(message)
 	}
@@ -85,6 +88,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	request admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 	policies []kyvernov1.PolicyInterface,
+	cfg config.Configuration,
 ) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
 		return true, "", nil, nil
@@ -106,7 +110,12 @@ func (h *imageVerificationHandler) handleVerifyImages(
 
 				policyContext := policyContext.WithPolicy(policy)
 				if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-					policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
+					namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, []kyvernov1.PolicyInterface{policy}, h.log)
+					if err != nil {
+						h.log.Error(err, "failed to get namespace labels for policy", "policy", policy.GetName())
+						return
+					}
+					policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 				}
 
 				resp, ivm := h.engine.VerifyAndPatchImages(ctx, policyContext)
@@ -121,7 +130,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	}
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	events := webhookutils.GenerateEvents(engineResponses, blocked)
+	events := webhookutils.GenerateEvents(engineResponses, blocked, cfg)
 	h.eventGen.Add(events...)
 
 	if blocked {
@@ -160,6 +169,9 @@ func (v *imageVerificationHandler) handleAudit(
 	engineResponses ...engineapi.EngineResponse,
 ) {
 	createReport := v.admissionReports
+	if !v.reportConfig.ImageVerificationReportsEnabled() {
+		createReport = false
+	}
 	if admissionutils.IsDryRun(request) {
 		createReport = false
 	}

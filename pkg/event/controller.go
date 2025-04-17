@@ -41,7 +41,7 @@ type controller struct {
 	logger               logr.Logger
 	eventsClient         v1.EventsV1Interface
 	omitEvents           sets.Set[string]
-	queue                workqueue.RateLimitingInterface
+	queue                workqueue.TypedRateLimitingInterface[any]
 	clock                clock.Clock
 	hostname             string
 	droppedEventsCounter metric.Int64Counter
@@ -61,10 +61,13 @@ func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, ma
 		logger.Error(err, "failed to register metric kyverno_events_dropped")
 	}
 	return &controller{
-		logger:               logger,
-		eventsClient:         eventsClient,
-		omitEvents:           sets.New(omitEvents...),
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		logger:       logger,
+		eventsClient: eventsClient,
+		omitEvents:   sets.New(omitEvents...),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+		),
 		clock:                clock,
 		hostname:             hostname,
 		droppedEventsCounter: droppedEventsCounter,
@@ -87,19 +90,19 @@ func (gen *controller) Add(infos ...Info) {
 			continue
 		}
 		if gen.omitEvents.Has(string(info.Reason)) {
-			logger.V(6).Info("omitting event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason)
+			logger.V(6).Info("omitting event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
 			continue
 		}
 		gen.emitEvent(info)
-		logger.V(6).Info("creating event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason)
+		logger.V(6).Info("creating event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
 	}
 }
 
 // Run begins generator
 func (gen *controller) Run(ctx context.Context, workers int) {
 	logger := gen.logger
-	logger.Info("start")
-	defer logger.Info("terminated")
+	logger.V(2).Info("start")
+	defer logger.V(2).Info("terminated")
 	defer utilruntime.HandleCrash()
 	var waitGroup wait.Group
 	for i := 0; i < workers; i++ {

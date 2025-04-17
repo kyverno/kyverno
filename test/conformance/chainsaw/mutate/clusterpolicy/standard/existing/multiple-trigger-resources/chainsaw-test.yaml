@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: multiple-trigger-resources
 spec:
   steps:
@@ -17,12 +16,20 @@ spec:
     try:
     - apply:
         file: pod.yaml
-  - name: step-04
-    try:
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-ready.yaml
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: org-label-inheritance-existing-1
   - name: step-05
     try:
     - assert:
@@ -37,5 +44,5 @@ spec:
         content: kubectl get updaterequests -n kyverno
         check:
           # This check ensures the contents of stderr are exactly as shown.
-          ($stderr): |-
+          (trim_space($stderr)): |-
             No resources found in kyverno namespace.

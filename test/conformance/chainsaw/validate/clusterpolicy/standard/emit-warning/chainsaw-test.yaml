@@ -1,0 +1,21 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-emit-warning
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - script:
+        content: > 
+          kubectl apply -f pod.yaml 2>&1 | grep -q "Warning: policy check-label-app.check-label-app: validation error: The label 'app' is required. rule check-label-app failed at path /metadata/labels/"
+  - name: cleanup
+    try:
+    - script:
+        content: "kubectl delete -f pod.yaml"

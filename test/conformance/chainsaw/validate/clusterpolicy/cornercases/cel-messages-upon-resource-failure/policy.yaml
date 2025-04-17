@@ -17,7 +17,7 @@ spec:
               - CREATE
               - UPDATE
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: "hostPort must either be unset or set to 0"
         cel:
           expressions:

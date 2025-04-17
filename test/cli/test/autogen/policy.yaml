@@ -14,10 +14,10 @@ spec:
           - Pod
     name: check-for-labels
     validate:
+      failureAction: Enforce
       message: Both `app` and `owner` labels must be set on all workloads
       pattern:
         metadata:
           labels:
             app: ?*
             owner: ?*
-  validationFailureAction: Enforce

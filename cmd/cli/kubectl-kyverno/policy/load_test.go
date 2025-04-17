@@ -6,7 +6,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 func TestLoad(t *testing.T) {
@@ -85,7 +85,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 		resourcePath string
 		paths        []string
 		wantErr      bool
-		checks       func(*testing.T, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy)
+		checks       func(*testing.T, []kyvernov1.PolicyInterface, []admissionregistrationv1.ValidatingAdmissionPolicy)
 	}{{
 		name:         "cpol-limit-configmap-for-sa",
 		fs:           nil,
@@ -104,13 +104,13 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 		resourcePath: "",
 		paths:        []string{"../_testdata/policies/check-image.yaml"},
 		wantErr:      false,
-		checks: func(t *testing.T, policies []kyvernov1.PolicyInterface, vaps []v1alpha1.ValidatingAdmissionPolicy) {
+		checks: func(t *testing.T, policies []kyvernov1.PolicyInterface, vaps []admissionregistrationv1.ValidatingAdmissionPolicy) {
 			assert.Len(t, policies, 1)
 			policy := policies[0]
 			assert.NotNil(t, policy)
 			spec := policy.GetSpec()
 			assert.NotNil(t, spec)
-			assert.True(t, spec.GetValidationFailureAction().Audit())
+			assert.True(t, spec.ValidationFailureAction.Audit())
 			assert.NotNil(t, spec.Background)
 			assert.True(t, *spec.Background)
 			assert.NotNil(t, spec.Admission)

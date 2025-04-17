@@ -41,7 +41,7 @@ type Interface interface {
 	// Access items using []Items
 	ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error)
 	// DeleteResource deletes the specified resource
-	DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool) error
+	DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool, options metav1.DeleteOptions) error
 	// CreateResource creates object for the specified resource/namespace
 	CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 	// UpdateResource updates object for the specified resource/namespace
@@ -183,8 +183,7 @@ func (c *client) ListResource(ctx context.Context, apiVersion string, kind strin
 }
 
 // DeleteResource deletes the specified resource
-func (c *client) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool) error {
-	options := metav1.DeleteOptions{}
+func (c *client) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool, options metav1.DeleteOptions) error {
 	if dryRun {
 		options = metav1.DeleteOptions{DryRun: []string{metav1.DryRunAll}}
 	}

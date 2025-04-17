@@ -31,7 +31,7 @@ func TestGetWarningMessages(t *testing.T) {
 			engineapi.EngineResponse{
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
-						*engineapi.NewRuleResponse("rule", engineapi.Validation, "message warn", engineapi.RuleStatusWarn),
+						*engineapi.NewRuleResponse("rule", engineapi.Validation, "message warn", engineapi.RuleStatusWarn, nil),
 					},
 				},
 			}.WithPolicy(engineapi.NewKyvernoPolicy(&v1.ClusterPolicy{
@@ -49,11 +49,11 @@ func TestGetWarningMessages(t *testing.T) {
 			engineapi.EngineResponse{
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
-						*engineapi.RulePass("rule-pass", engineapi.Validation, "message pass"),
-						*engineapi.NewRuleResponse("rule-warn", engineapi.Validation, "message warn", engineapi.RuleStatusWarn),
-						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail"),
-						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil),
-						*engineapi.RuleSkip("rule-skip", engineapi.Validation, "message skip"),
+						*engineapi.RulePass("rule-pass", engineapi.Validation, "message pass", nil),
+						*engineapi.NewRuleResponse("rule-warn", engineapi.Validation, "message warn", engineapi.RuleStatusWarn, nil),
+						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail", nil),
+						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil, nil),
+						*engineapi.RuleSkip("rule-skip", engineapi.Validation, "message skip", nil),
 					},
 				},
 			}.WithPolicy(engineapi.NewKyvernoPolicy(&v1.ClusterPolicy{

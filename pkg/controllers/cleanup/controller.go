@@ -47,7 +47,7 @@ type controller struct {
 	nsLister   corev1listers.NamespaceLister
 
 	// queue
-	queue   workqueue.RateLimitingInterface
+	queue   workqueue.TypedRateLimitingInterface[any]
 	enqueue controllerutils.EnqueueFuncT[kyvernov2.CleanupPolicyInterface]
 
 	// config
@@ -82,7 +82,10 @@ func NewController(
 	eventGen event.Interface,
 	gctxStore loaders.Store,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+	)
 	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2.CleanupPolicyInterface]
 	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
 	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[kyvernov2.CleanupPolicyInterface] {
@@ -92,7 +95,7 @@ func NewController(
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
 			}
-			logger.Info(operation)
+			logger.V(2).Info(operation)
 			if err := baseEnqueueFunc(obj); err != nil {
 				logger.Error(err, "failed to enqueue object", "obj", obj)
 				return err
@@ -181,10 +184,11 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
-
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: spec.DeletionPropagationPolicy,
+	}
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
-
 	loader := ctxFactory(nil, kyvernov1.Rule{})
 	if err := loader.Load(
 		ctx,
@@ -196,7 +200,6 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	); err != nil {
 		return err
 	}
-
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
 			attribute.String("policy_type", policy.GetKind()),
@@ -219,6 +222,12 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				namespace := resource.GetNamespace()
 				name := resource.GetName()
 				debug := debug.WithValues("name", name, "namespace", namespace)
+				gvk := resource.GroupVersionKind()
+				// Skip if resource matches resourceFilters from config
+				if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
+					debug.Info("skipping resource due to resourceFilters in ConfigMap")
+					continue
+				}
 				// check if the resource is owned by Kyverno
 				if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
 					continue
@@ -302,8 +311,11 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				var labels []attribute.KeyValue
 				labels = append(labels, commonLabels...)
 				labels = append(labels, attribute.String("resource_namespace", namespace))
+				if deleteOptions.PropagationPolicy != nil {
+					labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
+				}
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
+				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
 						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 					}
@@ -315,7 +327,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					if c.metrics.deletedObjectsTotal != nil {
 						c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 					}
-					debug.Info("deleted")
+					debug.Info("resource deleted")
 					e := event.NewCleanupPolicyEvent(policy, resource, nil)
 					c.eventGen.Add(e)
 				}
