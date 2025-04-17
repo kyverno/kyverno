@@ -51,9 +51,9 @@ func (f VPolProviderFunc) CompiledValidationPolicies(ctx context.Context) ([]Com
 	return f(ctx)
 }
 
-type ImageVerifyPolProviderFunc func(context.Context) ([]CompiledImageValidatingPolicy, error)
+type ImageValidatingPolProviderFunc func(context.Context) ([]CompiledImageValidatingPolicy, error)
 
-func (f ImageVerifyPolProviderFunc) ImageVerificationPolicies(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
+func (f ImageValidatingPolProviderFunc) ImageValidatingPolicies(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
 	return f(ctx)
 }
 
@@ -72,10 +72,7 @@ func NewProvider(compiler policy.Compiler, vpolicies []policiesv1alpha1.Validati
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
 		}
-		actions := sets.New(vp.Spec.ValidationAction...)
-		if len(actions) == 0 {
-			actions.Insert(admissionregistrationv1.Deny)
-		}
+		actions := sets.New(vp.Spec.ValidationActions()...)
 		compiled = append(compiled, CompiledValidatingPolicy{
 			Actions:        actions,
 			Policy:         vp,
@@ -212,10 +209,7 @@ func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	actions := sets.New(policy.Spec.ValidationAction...)
-	if len(actions) == 0 {
-		actions.Insert(admissionregistrationv1.Deny)
-	}
+	actions := sets.New(policy.Spec.ValidationActions()...)
 	r.policies[req.NamespacedName.String()] = CompiledValidatingPolicy{
 		Actions:        actions,
 		Policy:         policy,
@@ -289,10 +283,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	actions := sets.New(policy.Spec.ValidationAction...)
-	if len(actions) == 0 {
-		actions.Insert(admissionregistrationv1.Deny)
-	}
+	actions := sets.New(policy.Spec.ValidationActions()...)
 	r.policies[req.NamespacedName.String()] = CompiledImageValidatingPolicy{
 		Policy:     &policy,
 		Exceptions: exceptions,
