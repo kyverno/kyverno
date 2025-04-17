@@ -8,7 +8,7 @@ import (
 	"github.com/google/cel-go/ext"
 )
 
-const libraryName = "kyverno.globalcontext"
+const libraryName = "kyverno.globalContext"
 
 type lib struct{}
 
