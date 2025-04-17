@@ -1,2 +1,4 @@
-ignore:
-- api/**/zz_*.go
+coverage:
+  ignore:
+    - "api/**/zz_*.go"
+    - "pkg/config/mocks/*"
