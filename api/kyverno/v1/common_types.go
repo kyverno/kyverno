@@ -472,9 +472,9 @@ type Validation struct {
 	// FailureAction defines if a validation policy rule violation should block
 	// the admission review request (Enforce), or allow (Audit) the admission review request
 	// and report an error in a policy report. Optional.
-	// Allowed values are Audit or Enforce.
+	// Allowed values are Audit, Enforce, or DeferEnforce.
 	// +optional
-	// +kubebuilder:validation:Enum=Audit;Enforce
+	// +kubebuilder:validation:Enum=Audit;Enforce;DeferEnforce
 	FailureAction *ValidationFailureAction `json:"failureAction,omitempty"`
 
 	// FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
