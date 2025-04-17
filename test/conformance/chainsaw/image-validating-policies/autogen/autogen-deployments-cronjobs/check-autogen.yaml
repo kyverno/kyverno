@@ -37,7 +37,7 @@ status:
               -----END CERTIFICATE-----
             tsaCerts: ""
         failurePolicy: Ignore
-        imageRules:
+        matchImageReferences:
         - cel: ""
           glob: ghcr.io/*
         matchConditions:
@@ -104,7 +104,7 @@ status:
               -----END CERTIFICATE-----
             tsaCerts: ""
         failurePolicy: Ignore
-        imageRules:
+        matchImageReferences:
         - cel: ""
           glob: ghcr.io/*
         matchConditions:

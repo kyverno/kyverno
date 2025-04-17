@@ -136,7 +136,7 @@ func Test_ImageVerification(t *testing.T) {
 	}
 }
 
-func Test_Audit_VerifyImageRule(t *testing.T) {
+func Test_Audit_VerifyMatchImageReference(t *testing.T) {
 	path := field.NewPath("dummy")
 	testCases := []struct {
 		name    string
@@ -193,7 +193,7 @@ func Test_Audit_VerifyImageRule(t *testing.T) {
 	}
 }
 
-func Test_Enforce_VerifyImageRule(t *testing.T) {
+func Test_Enforce_VerifyMatchImageReference(t *testing.T) {
 	path := field.NewPath("dummy")
 	testCases := []struct {
 		name    string

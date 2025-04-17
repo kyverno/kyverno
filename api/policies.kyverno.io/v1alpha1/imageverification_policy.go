@@ -184,12 +184,12 @@ type ImageValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty"`
 
-	// ImagesRules is a list of Glob and CELExpressions to match images.
+	// MatchImageReferences is a list of Glob and CELExpressions to match images.
 	// Any image that matches one of the rules is considered for validation
 	// Any image that does not match a rule is skipped, even when they are passed as arguments to
 	// image verification functions
 	// +optional
-	ImageRules []ImageRule `json:"imageRules"`
+	MatchImageReferences []MatchImageReference `json:"matchImageReferences"`
 
 	// MutateDigest enables replacement of image tags with digests.
 	// Defaults to true.
@@ -239,8 +239,8 @@ type ImageValidatingPolicySpec struct {
 	AutogenConfiguration *ImageValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 }
 
-// ImageRule defines a Glob or a CEL expression for matching images
-type ImageRule struct {
+// MatchImageReference defines a Glob or a CEL expression for matching images
+type MatchImageReference struct {
 	// Glob defines a globbing pattern for matching images
 	// +optional
 	Glob string `json:"glob"`

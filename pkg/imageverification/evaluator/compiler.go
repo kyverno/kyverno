@@ -107,7 +107,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
-	imageRules, errs := match.CompileMatches(path.Child("imageRules"), ivpolicy.Spec.ImageRules)
+	matchImageReferences, errs := match.CompileMatches(path.Child("matchImageReferences"), ivpolicy.Spec.MatchImageReferences)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -158,7 +158,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	return &compiledPolicy{
 		failurePolicy:   ivpolicy.GetFailurePolicy(),
 		matchConditions: matchConditions,
-		imageRules:      imageRules,
+		matchImageReferences: matchImageReferences,
 		verifications:   verifications,
 		imageExtractors: imageExtractors,
 		attestorList:    ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),

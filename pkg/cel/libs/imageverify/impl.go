@@ -36,7 +36,7 @@ func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext
 		return nil, fmt.Errorf("nil image verification policy")
 	}
 
-	imgRules, err := match.CompileMatches(field.NewPath("spec", "imageRules"), ivpol.Spec.ImageRules)
+	imgRules, err := match.CompileMatches(field.NewPath("spec", "matchImageReferences"), ivpol.Spec.MatchImageReferences)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile matches: %v", err.ToAggregate())
 	}

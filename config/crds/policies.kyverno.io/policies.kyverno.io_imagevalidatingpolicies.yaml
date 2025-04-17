@@ -392,24 +392,6 @@ spec:
                 - Ignore
                 - Fail
                 type: string
-              imageRules:
-                description: |-
-                  ImagesRules is a list of Glob and CELExpressions to match images.
-                  Any image that matches one of the rules is considered for validation
-                  Any image that does not match a rule is skipped, even when they are passed as arguments to
-                  image verification functions
-                items:
-                  description: ImageRule defines a Glob or a CEL expression for matching
-                    images
-                  properties:
-                    cel:
-                      description: Cel defines CEL Expressions for matching images
-                      type: string
-                    glob:
-                      description: Glob defines a globbing pattern for matching images
-                      type: string
-                  type: object
-                type: array
               images:
                 description: Images is a list of CEL expression to extract images
                   from the resource
@@ -804,6 +786,24 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
                 x-kubernetes-map-type: atomic
+              matchImageReferences:
+                description: |-
+                  MatchImageReferences is a list of Glob and CELExpressions to match images.
+                  Any image that matches one of the rules is considered for validation
+                  Any image that does not match a rule is skipped, even when they are passed as arguments to
+                  image verification functions
+                items:
+                  description: MatchImageReference defines a Glob or a CEL expression
+                    for matching images
+                  properties:
+                    cel:
+                      description: Cel defines CEL Expressions for matching images
+                      type: string
+                    glob:
+                      description: Glob defines a globbing pattern for matching images
+                      type: string
+                  type: object
+                type: array
               mutateDigest:
                 default: true
                 description: |-
@@ -1333,26 +1333,6 @@ spec:
                               - Ignore
                               - Fail
                               type: string
-                            imageRules:
-                              description: |-
-                                ImagesRules is a list of Glob and CELExpressions to match images.
-                                Any image that matches one of the rules is considered for validation
-                                Any image that does not match a rule is skipped, even when they are passed as arguments to
-                                image verification functions
-                              items:
-                                description: ImageRule defines a Glob or a CEL expression
-                                  for matching images
-                                properties:
-                                  cel:
-                                    description: Cel defines CEL Expressions for matching
-                                      images
-                                    type: string
-                                  glob:
-                                    description: Glob defines a globbing pattern for
-                                      matching images
-                                    type: string
-                                type: object
-                              type: array
                             images:
                               description: Images is a list of CEL expression to extract
                                 images from the resource
@@ -1753,6 +1733,26 @@ spec:
                                   x-kubernetes-list-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
+                            matchImageReferences:
+                              description: |-
+                                MatchImageReferences is a list of Glob and CELExpressions to match images.
+                                Any image that matches one of the rules is considered for validation
+                                Any image that does not match a rule is skipped, even when they are passed as arguments to
+                                image verification functions
+                              items:
+                                description: MatchImageReference defines a Glob or
+                                  a CEL expression for matching images
+                                properties:
+                                  cel:
+                                    description: Cel defines CEL Expressions for matching
+                                      images
+                                    type: string
+                                  glob:
+                                    description: Glob defines a globbing pattern for
+                                      matching images
+                                    type: string
+                                type: object
+                              type: array
                             mutateDigest:
                               default: true
                               description: |-
