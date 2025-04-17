@@ -35,7 +35,7 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 			mapping[config.replacementsRef] = targets
 		}
 	}
-	var rules []policiesv1alpha1.IvpolAutogen
+	rules := make([]policiesv1alpha1.IvpolAutogen, 0, len(mapping))
 	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[replacements]
 		spec := ivpol.Spec.DeepCopy()
