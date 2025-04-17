@@ -2,6 +2,7 @@ package autogen
 
 import (
 	"encoding/json"
+	"fmt"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,8 +47,12 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 				return nil, err
 			}
 		}
+		prefix := "autogen"
+		if replacements != "" {
+			prefix = "autogen-" + replacements
+		}
 		rules = append(rules, policiesv1alpha1.IvpolAutogen{
-			Name: ivpol.GetName(),
+			Name: fmt.Sprintf(`%s-%s`, prefix, ivpol.GetName()),
 			Spec: *spec,
 		})
 	}
