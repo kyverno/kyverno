@@ -111,8 +111,8 @@ func (p *ClusterPolicy) IsReady() bool {
 func (p *ClusterPolicy) Validate(clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	warnings, errors := p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.Namespace, clusterResources)
-	warnings = append(warnings, warnings...)
+	warning, errors := p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.Namespace, clusterResources)
+	warnings = append(warnings, warning...)
 	errs = append(errs, errors...)
 	return warnings, errs
 }

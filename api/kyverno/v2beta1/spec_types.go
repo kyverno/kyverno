@@ -289,8 +289,8 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
-		warnings, errors := rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)
-		warnings = append(warnings, warnings...)
+		warning, errors := rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)
+		warnings = append(warnings, warning...)
 		errs = append(errs, errors...)
 	}
 	return warnings, errs
@@ -340,8 +340,8 @@ func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	if s.WebhookConfiguration != nil && s.WebhookConfiguration.TimeoutSeconds != nil && (*s.WebhookConfiguration.TimeoutSeconds < 1 || *s.WebhookConfiguration.TimeoutSeconds > 30) {
 		errs = append(errs, field.Invalid(path.Child("webhookConfiguration.timeoutSeconds"), s.WebhookConfiguration.TimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
-	warnings, errors := s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)
-	warnings = append(warnings, warnings...)
+	warning, errors := s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)
+	warnings = append(warnings, warning...)
 	errs = append(errs, errors...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))

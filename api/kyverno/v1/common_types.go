@@ -918,7 +918,7 @@ func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyName
 	}
 
 	if err := regex.ObjectHasVariables(newGeneration); err != nil {
-		warnings = append(warnings, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables").Error())
+		warnings = append(warnings, fmt.Sprintf("variables in %s would lead to incorrect synchronization behavior", path.Child("clone/cloneList").String()))
 	}
 
 	if len(g.CloneList.Kinds) == 0 {

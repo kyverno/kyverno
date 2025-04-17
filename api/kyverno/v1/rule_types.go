@@ -466,8 +466,8 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
-	warnings, errors := r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)
-	warnings = append(warnings, warnings...)
+	warning, errors := r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)
+	warnings = append(warnings, warning...)
 	errs = append(errs, errors...)
 	return warnings, errs
 }
