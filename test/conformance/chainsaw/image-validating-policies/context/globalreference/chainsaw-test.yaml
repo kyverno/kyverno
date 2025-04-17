@@ -12,7 +12,7 @@ spec:
     - apply:
         file: gctxentry.yaml
     - sleep:
-        duration: 3s
+        duration: 20s
   - name: create policy
     try:
     - create:
