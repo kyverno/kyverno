@@ -108,7 +108,7 @@ func (p *ClusterPolicy) IsReady() bool {
 // Validate implements programmatic validation
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
-func (p *ClusterPolicy) Validate(clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
+func (p *ClusterPolicy) Validate(clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("name"), p.Name)...)
 	warnings, errors := p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.Namespace, clusterResources)

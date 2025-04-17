@@ -858,7 +858,7 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
-func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
+func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	count := 0
 	if g.GetData() != nil {
 		count++
@@ -889,7 +889,7 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 	}
 }
 
-func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
+func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if namespaced {
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
@@ -903,7 +903,7 @@ func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyName
 			}
 		} else {
 			if g.GetNamespace() != "" {
-				warnings = append(warnings, field.Forbidden(path.Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
+				errs = append(errs, field.Forbidden(path.Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
 			}
 		}
 	}
@@ -918,7 +918,7 @@ func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyName
 	}
 
 	if err := regex.ObjectHasVariables(newGeneration); err != nil {
-		warnings = append(warnings, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+		warnings = append(warnings, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables").Error())
 	}
 
 	if len(g.CloneList.Kinds) == 0 {

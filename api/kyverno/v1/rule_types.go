@@ -450,7 +450,7 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
-func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil, nil
 	}
@@ -459,7 +459,7 @@ func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespa
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
+func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)

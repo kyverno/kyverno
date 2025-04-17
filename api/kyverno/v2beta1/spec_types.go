@@ -286,7 +286,7 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
 		warnings, errors := rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)
@@ -327,7 +327,7 @@ func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings, errs field.ErrorList) {
+func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if err := s.ValidateDeprecatedFields(path); err != nil {
 		errs = append(errs, err...)
 	}

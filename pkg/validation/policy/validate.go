@@ -195,17 +195,22 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		if err != nil {
 			return warnings, err
 		}
-		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+		if warning, errs := policy.Validate(clusterResources); len(errs) != 0 {
 			clusterResources, err = getClusteredResources(true)
+			warnings = append(warnings, warning...)
 			if err != nil {
 				return warnings, err
 			}
-			if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			warning, errs := policy.Validate(clusterResources)
+			warnings = append(warnings, warning...)
+			if len(errs) != 0 {
 				return warnings, errs.ToAggregate()
 			}
 		}
 	} else {
-		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+		warning, errs := policy.Validate(clusterResources)
+		warnings = append(warnings, warning...)
+		if len(errs) != 0 {
 			return warnings, errs.ToAggregate()
 		}
 	}
