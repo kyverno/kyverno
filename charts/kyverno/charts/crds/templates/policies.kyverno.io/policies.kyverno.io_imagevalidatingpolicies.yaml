@@ -827,6 +827,10 @@ spec:
                   Required.
                 items:
                   description: ValidationAction specifies a policy enforcement action.
+                  enum:
+                  - Deny
+                  - Audit
+                  - Warn
                   type: string
                 type: array
                 x-kubernetes-list-type: set
@@ -1778,6 +1782,10 @@ spec:
                               items:
                                 description: ValidationAction specifies a policy enforcement
                                   action.
+                                enum:
+                                - Deny
+                                - Audit
+                                - Warn
                                 type: string
                               type: array
                               x-kubernetes-list-type: set
