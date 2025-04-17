@@ -879,8 +879,8 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 
 	if g.ForEachGeneration != nil {
 		for i, foreach := range g.ForEachGeneration {
-			warnings, err := foreach.GeneratePattern.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
-			warnings = append(warnings, warnings...)
+			warning, err := foreach.GeneratePattern.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			warnings = append(warnings, warning...)
 			errs = append(errs, err...)
 		}
 		return warnings, errs
