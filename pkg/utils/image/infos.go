@@ -39,6 +39,9 @@ func (i *ImageInfo) String() string {
 		image = i.Path
 	}
 	if i.Digest != "" {
+		if i.Tag != "" {
+			return fmt.Sprintf("%s:%s@%s", image, i.Tag, i.Digest)
+		}
 		return fmt.Sprintf("%s@%s", image, i.Digest)
 	} else {
 		return fmt.Sprintf("%s:%s", image, i.Tag)
