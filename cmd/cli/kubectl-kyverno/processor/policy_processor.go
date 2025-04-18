@@ -42,6 +42,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -54,6 +55,8 @@ type PolicyProcessor struct {
 	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
@@ -212,6 +215,35 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, validateResponse)
 		resource = validateResponse.PatchedResource
 	}
+	// Mutate Admission Policies
+
+	mapResponses := make([]engineapi.EngineResponse, 0, len(p.MutatingAdmissionPolicies))
+	for _, mapPolicy := range p.MutatingAdmissionPolicies {
+		policyData := admissionpolicy.NewMutatingPolicyData(mapPolicy)
+
+		for _, binding := range p.MutatingAdmissionPolicyBindings {
+			if binding.Spec.PolicyName == mapPolicy.Name {
+				policyData.AddBinding(binding)
+			}
+		}
+
+		mutateResponse, err := admissionpolicy.Mutate(policyData, resource)
+		if err != nil {
+			log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
+			continue
+		}
+
+		if !mutateResponse.IsEmpty() {
+			mapResponses = append(mapResponses, mutateResponse)
+			p.Rc.AddMutatingAdmissionPolicyResponse(mutateResponse)
+			resource = mutateResponse.PatchedResource
+			if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
+				log.Log.Error(err, "failed to log MAP mutation")
+			}
+		}
+	}
+	responses = append(responses, mapResponses...)
+
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	for _, policy := range p.ValidatingAdmissionPolicies {
@@ -520,11 +552,45 @@ func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineRespo
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
 	p.Rc.addMutateResponse(response)
+
 	err := p.printOutput(response.PatchedResource.Object, response, resourcePath, false)
 	if err != nil {
 		return fmt.Errorf("failed to print mutated result (%w)", err)
 	}
-	fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully.")
+
+	hasPass := false
+	hasSkip := false
+	hasError := false
+	hasFail := false
+
+	for _, rule := range response.PolicyResponse.Rules {
+		if rule.RuleType() == engineapi.Mutation {
+			switch rule.Status() {
+			case "pass":
+				hasPass = true
+			case "skip":
+				hasSkip = true
+			case "error":
+				hasError = true
+			case "fail":
+				hasFail = true
+			}
+		}
+	}
+
+	switch {
+	case hasPass:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully.")
+	case hasSkip:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation was skipped based on policy conditions.")
+	case hasError:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation failed due to an error during evaluation.")
+	case hasFail:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation rule failed to apply.")
+	default:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nNo applicable mutation rules found.")
+	}
+
 	return nil
 }
 

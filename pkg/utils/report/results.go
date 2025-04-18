@@ -159,6 +159,26 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		addPodSecurityProperties(pss, &result)
 	}
 
+	if pol.AsMutatingAdmissionPolicy() != nil {
+		result.Source = "MutatingAdmissionPolicy"
+		if binding := ruleResult.MutatingAdmissionPolicyBinding(); binding != nil {
+			addProperty("binding", binding.Name, &result)
+		}
+	}
+
+	if pol.AsValidatingAdmissionPolicy() != nil {
+		result.Source = SourceValidatingAdmissionPolicy
+		result.Policy = ruleResult.Name()
+		if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
+			addProperty("binding", ruleResult.ValidatingAdmissionPolicyBinding().Name, &result)
+		}
+	}
+	if pol.AsValidatingPolicy() != nil {
+		result.Source = SourceValidatingPolicy
+	}
+	if pol.AsImageValidatingPolicy() != nil {
+		result.Source = SourceImageValidatingPolicy
+	}
 	return result
 }
 
