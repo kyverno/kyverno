@@ -6,17 +6,18 @@ import (
 	"slices"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func ValidatingPolicy(policy *policiesv1alpha1.ValidatingPolicy) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
+func Autogen(policy *policiesv1alpha1.ValidatingPolicy) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
-	if !CanAutoGen(policy.GetSpec().MatchConstraints) {
+	if !autogen.CanAutoGen(policy.Spec.MatchConstraints) {
 		return nil, nil
 	}
-	actualControllers := allConfigs
+	actualControllers := autogen.AllConfigs
 	if policy.Spec.AutogenConfiguration != nil &&
 		policy.Spec.AutogenConfiguration.PodControllers != nil &&
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
@@ -26,12 +27,12 @@ func ValidatingPolicy(policy *policiesv1alpha1.ValidatingPolicy) (map[string]pol
 }
 
 func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
-	mapping := map[string][]target{}
+	mapping := map[string][]autogen.Target{}
 	for config := range configs {
-		if config := configsMap[config]; config != nil {
-			targets := mapping[config.replacementsRef]
-			targets = append(targets, config.target)
-			mapping[config.replacementsRef] = targets
+		if config := autogen.ConfigsMap[config]; config != nil {
+			targets := mapping[config.ReplacementsRef]
+			targets = append(targets, config.Target)
+			mapping[config.ReplacementsRef] = targets
 		}
 	}
 	rules := map[string]policiesv1alpha1.ValidatingPolicyAutogen{}
@@ -39,13 +40,13 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 		targets := mapping[replacements]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-		spec.MatchConstraints = createMatchConstraints(targets, operations)
-		spec.MatchConditions = createMatchConditions(replacements, targets, spec.MatchConditions)
+		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations)
+		spec.MatchConditions = autogen.CreateMatchConditions(replacements, targets, spec.MatchConditions)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err
 		}
-		bytes = updateFields(bytes, replacementsMap[replacements]...)
+		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[replacements]...)
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}

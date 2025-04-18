@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -193,7 +193,7 @@ func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Att
 	}
 
 	// match against autogen rules
-	autogenRules, err := vpolautogen.ValidatingPolicy(&policy.Policy)
+	autogenRules, err := vpolautogen.Autogen(&policy.Policy)
 	if err != nil {
 		return false, nil, err
 	}

@@ -7,12 +7,12 @@ import (
 	"github.com/google/cel-go/common/types"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel"
-	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -181,7 +181,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 
 	// compile autogen rules
 	autogenPath := field.NewPath("status").Child("autogen").Child("rules")
-	autogenRules, err := vpolautogen.ValidatingPolicy(policy)
+	autogenRules, err := vpolautogen.Autogen(policy)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
