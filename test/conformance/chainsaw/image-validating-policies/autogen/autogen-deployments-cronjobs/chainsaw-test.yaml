@@ -6,11 +6,19 @@ metadata:
 spec:
   steps:
   - name: create policy
-    try:
-    - create:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-image-validating-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-autogen-sample
   - name: check autogen policy
     try:
     - assert:

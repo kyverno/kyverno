@@ -32,14 +32,14 @@ type ImageValidatingEngine interface {
 }
 
 type ivengine struct {
-	provider     ImageVerifyPolProviderFunc
+	provider     ImageValidatingPolProviderFunc
 	nsResolver   NamespaceResolver
 	matcher      matching.Matcher
 	lister       k8scorev1.SecretInterface
 	registryOpts []imagedataloader.Option
 }
 
-func NewImageValidatingEngine(provider ImageVerifyPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) ImageValidatingEngine {
+func NewImageValidatingEngine(provider ImageValidatingPolProviderFunc, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) ImageValidatingEngine {
 	return &ivengine{
 		provider:     provider,
 		nsResolver:   nsResolver,
@@ -52,7 +52,7 @@ func NewImageValidatingEngine(provider ImageVerifyPolProviderFunc, nsResolver Na
 func (e *ivengine) HandleValidating(ctx context.Context, request EngineRequest) (eval.ImageVerifyEngineResponse, error) {
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
-	policies, err := e.provider.ImageVerificationPolicies(ctx)
+	policies, err := e.provider.ImageValidatingPolicies(ctx)
 	if err != nil {
 		return response, err
 	}
@@ -102,7 +102,7 @@ func (e *ivengine) HandleValidating(ctx context.Context, request EngineRequest) 
 func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
-	policies, err := e.provider.ImageVerificationPolicies(ctx)
+	policies, err := e.provider.ImageValidatingPolicies(ctx)
 	if err != nil {
 		return response, nil, err
 	}
