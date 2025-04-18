@@ -430,7 +430,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 		var reason string
 		if wantVap {
-			isAutogen := len(pol.GetStatus().Autogen.Rules) > 0
+			isAutogen := len(pol.GetStatus().Autogen.Configs) > 0
 			if isAutogen {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
