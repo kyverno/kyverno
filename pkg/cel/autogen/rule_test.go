@@ -15,7 +15,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		name          string
 		controllers   sets.Set[string]
 		policySpec    []byte
-		generatedRule []policiesv1alpha1.AutogenRule
+		generatedRule map[string]policiesv1alpha1.ValidatingPolicyAutogen
 	}{
 		{
 			name:        "autogen rule for deployments",
@@ -46,30 +46,34 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: []policiesv1alpha1.AutogenRule{{
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{
-									admissionregistrationv1.Create,
-									admissionregistrationv1.Update,
+			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+				"": {
+					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
 								},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"apps"},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"deployments"},
-								},
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 							},
 						},
 					},
 				},
-				Validations: []admissionregistrationv1.Validation{
-					{
-						Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
-					},
-				},
-			}},
+			},
 		},
 		{
 			name:        "autogen rule for deployments and daemonsets",
@@ -100,30 +104,34 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: []policiesv1alpha1.AutogenRule{{
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{
-									admissionregistrationv1.Create,
-									admissionregistrationv1.Update,
+			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+				"": {
+					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"daemonsets", "deployments"},
+										},
+									},
 								},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"apps"},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"daemonsets", "deployments"},
-								},
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 							},
 						},
 					},
 				},
-				Validations: []admissionregistrationv1.Validation{
-					{
-						Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
-					},
-				},
-			}},
+			},
 		},
 		{
 			name:        "autogen rule for deployments, daemonsets, statefulsets and replicasets",
@@ -160,41 +168,45 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: []policiesv1alpha1.AutogenRule{{
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{
-									admissionregistrationv1.Create,
-									admissionregistrationv1.Update,
+			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+				"": {
+					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"daemonsets", "deployments", "replicasets", "statefulsets"},
+										},
+									},
 								},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"apps"},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"daemonsets", "deployments", "replicasets", "statefulsets"},
-								},
+							},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{
+							{
+								Name:       "autogen-only for production",
+								Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 							},
 						},
 					},
 				},
-				MatchConditions: []admissionregistrationv1.MatchCondition{
-					{
-						Name:       "autogen-only for production",
-						Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
-					},
-				},
-				Validations: []admissionregistrationv1.Validation{
-					{
-						Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
-					},
-				},
-			}},
+			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var spec *policiesv1alpha1.ValidatingPolicySpec
+			var spec policiesv1alpha1.ValidatingPolicySpec
 			err := json.Unmarshal(test.policySpec, &spec)
 			assert.NoError(t, err)
 			genRule, err := generateRuleForControllers(spec, test.controllers)
@@ -207,7 +219,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 func TestGenerateCronJobRule(t *testing.T) {
 	tests := []struct {
 		policySpec    []byte
-		generatedRule []policiesv1alpha1.AutogenRule
+		generatedRule map[string]policiesv1alpha1.ValidatingPolicyAutogen
 	}{
 		{
 			policySpec: []byte(`{
@@ -236,30 +248,34 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: []policiesv1alpha1.AutogenRule{{
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{
-									admissionregistrationv1.Create,
-									admissionregistrationv1.Update,
+			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+				"cronjobs": {
+					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"batch"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"cronjobs"},
+										},
+									},
 								},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"batch"},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"cronjobs"},
-								},
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.jobTemplate.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 							},
 						},
 					},
 				},
-				Validations: []admissionregistrationv1.Validation{
-					{
-						Expression: "object.spec.jobTemplate.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
-					},
-				},
-			}},
+			},
 		},
 		{
 			policySpec: []byte(`{
@@ -294,36 +310,40 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: []policiesv1alpha1.AutogenRule{{
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{
-									admissionregistrationv1.Create,
-									admissionregistrationv1.Update,
+			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+				"cronjobs": {
+					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"batch"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"cronjobs"},
+										},
+									},
 								},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"batch"},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"cronjobs"},
-								},
+							},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{
+							{
+								Name:       "autogen-cronjobs-only for production",
+								Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.jobTemplate.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 							},
 						},
 					},
 				},
-				MatchConditions: []admissionregistrationv1.MatchCondition{
-					{
-						Name:       "autogen-cronjobs-only for production",
-						Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
-					},
-				},
-				Validations: []admissionregistrationv1.Validation{
-					{
-						Expression: "object.spec.jobTemplate.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
-					},
-				},
-			}},
+			},
 		},
 		{
 			policySpec: []byte(`{
@@ -359,42 +379,46 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: []policiesv1alpha1.AutogenRule{{
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{
-									admissionregistrationv1.Create,
-									admissionregistrationv1.Update,
+			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+				"cronjobs": {
+					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"batch"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"cronjobs"},
+										},
+									},
 								},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"batch"},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"cronjobs"},
-								},
+							},
+						},
+						Variables: []admissionregistrationv1.Variable{
+							{
+								Name:       "environment",
+								Expression: "has(object.spec.jobTemplate.spec.template.metadata.labels) && 'env' in object.spec.jobTemplate.spec.template.metadata.labels && object.spec.jobTemplate.spec.template.metadata.labels['env'] == 'prod'",
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "variables.environment == true",
+								Message:    "labels must be env=prod",
 							},
 						},
 					},
 				},
-				Variables: []admissionregistrationv1.Variable{
-					{
-						Name:       "environment",
-						Expression: "has(object.spec.jobTemplate.spec.template.metadata.labels) && 'env' in object.spec.jobTemplate.spec.template.metadata.labels && object.spec.jobTemplate.spec.template.metadata.labels['env'] == 'prod'",
-					},
-				},
-				Validations: []admissionregistrationv1.Validation{
-					{
-						Expression: "variables.environment == true",
-						Message:    "labels must be env=prod",
-					},
-				},
-			}},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			var spec *policiesv1alpha1.ValidatingPolicySpec
+			var spec policiesv1alpha1.ValidatingPolicySpec
 			err := json.Unmarshal(tt.policySpec, &spec)
 			assert.NoError(t, err)
 			genRule, err := generateRuleForControllers(spec, sets.New("cronjobs"))
