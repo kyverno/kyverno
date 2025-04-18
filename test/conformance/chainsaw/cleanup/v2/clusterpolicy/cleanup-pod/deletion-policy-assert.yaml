@@ -1,0 +1,7 @@
+apiVersion: kyverno.io/v2
+kind: Pod
+metadata:
+  name: example
+  namespace: default
+status:
+  phase: Deleted
