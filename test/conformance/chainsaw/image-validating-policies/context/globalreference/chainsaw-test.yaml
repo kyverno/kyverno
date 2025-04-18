@@ -9,8 +9,6 @@ spec:
         file: namespace.yaml
     - apply:
         file: main-deployment.yaml
-    - sleep:
-       duration: 7s
     - apply:
         file: gctxentry.yaml
     - assert:
