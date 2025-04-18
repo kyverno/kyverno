@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func NewIVPOLProvider(policies []v1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (ImageVerifyPolProviderFunc, error) {
+func NewIVPOLProvider(policies []v1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (ImageValidatingPolProviderFunc, error) {
 	compiled := make([]CompiledImageValidatingPolicy, 0, len(policies))
 	for _, policy := range policies {
 		p := policy
