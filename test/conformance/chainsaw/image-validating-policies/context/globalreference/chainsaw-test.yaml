@@ -3,7 +3,6 @@ kind: Test
 metadata:
   name: apicall-correct
 spec:
-  skip: true
   steps:
   - try:
     - apply:
@@ -12,6 +11,8 @@ spec:
         file: main-deployment.yaml
     - apply:
         file: gctxentry.yaml
+    - assert:
+        file: gctx-assert.yaml
     - sleep:
         duration: 3s
   - name: create policy
@@ -29,7 +30,7 @@ spec:
         - name: name
           value: ivpol-apicall-correct
   - try:
-    - create:
+    - apply:
         file: new-deployment.yaml
         timeout: 60s
         expect:
