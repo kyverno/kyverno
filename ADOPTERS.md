@@ -49,6 +49,8 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Tigera](https://www.tigera.io/) | Kubernetes Policy and Governance |
 | [kubriX platform](kubrix.io) | Policy enforcement and automation of your kubrix platform using GitOps |
 | [OVHcloud](https://www.ovhcloud.com/) | At OVHcloud, we advise our customers to [deploy Kyverno as a policy engine on their Managed Kubernetes (MKS) clusters](https://help.ovhcloud.com/csm/en-gb-public-cloud-kubernetes-install-kyverno?id=kb_article_view&sysparm_article=KB0049839) and we also use it internally to enforce the security of several of our products. |
+| [X3M Ads](https://x3mads.com/) | At X3M Ads, we primarily use Kyverno for mutating resources, such as changing pod images to our internal Harbor registry, managing topology distribution and adding node metadata to pods for improved observability. |
+| [Tails.com](https://tails.com/) | Big changes start small; we use Kyverno to build up best practices in development environments so that we can easily enforce stringent security measures in our production environments. |
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->

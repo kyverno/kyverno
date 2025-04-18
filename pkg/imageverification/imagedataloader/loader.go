@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -39,9 +40,30 @@ func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, e
 	}, nil
 }
 
+func ParseImageReference(image string, options ...Option) (ImageReference, error) {
+	var img ImageReference
+	nameOpts := nameOptions(options...)
+	ref, err := name.ParseReference(image, nameOpts...)
+	if err != nil {
+		return ImageReference{}, err
+	}
+
+	img.Image = image
+	img.Registry = ref.Context().RegistryStr()
+	img.Repository = ref.Context().RepositoryStr()
+	img.Identifier = ref.Identifier()
+
+	if _, ok := ref.(name.Tag); ok {
+		img.Tag = ref.Identifier()
+	} else {
+		img.Digest = ref.Identifier()
+	}
+
+	return img, nil
+}
+
 func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error) {
 	img := ImageData{
-		Image:         image,
 		referrersData: make(map[string]referrerData),
 	}
 
@@ -51,21 +73,17 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		return nil, err
 	}
 
+	img.ImageReference, err = ParseImageReference(image, options...)
+	if err != nil {
+		return nil, err
+	}
+
 	img.NameOpts = nameOptions(options...)
 	ref, err := name.ParseReference(image, img.NameOpts...)
 	if err != nil {
 		return nil, err
 	}
-
 	img.NameRef = ref
-	img.Registry = ref.Context().RegistryStr()
-	img.Repository = ref.Context().RepositoryStr()
-
-	if _, ok := ref.(name.Tag); ok {
-		img.Tag = ref.Identifier()
-	} else {
-		img.Digest = ref.Identifier()
-	}
 
 	remoteImg, err := remote.Image(ref, img.RemoteOpts...)
 	if err != nil {
@@ -128,26 +146,35 @@ func (i *imagedatafetcher) remoteOptions(ctx context.Context, lister k8scorev1.S
 	return opts, nil
 }
 
+type ImageReference struct {
+	Image         string `json:"image,omitempty"`
+	ResolvedImage string `json:"resolvedImage,omitempty"`
+	Registry      string `json:"registry,omitempty"`
+	Repository    string `json:"repository,omitempty"`
+	Identifier    string `json:"identifier,omitempty"`
+	Tag           string `json:"tag,omitempty"`
+	Digest        string `json:"digest,omitempty"`
+}
+
 type ImageData struct {
 	RemoteOpts []remote.Option
 	NameOpts   []name.Option
 
-	Image         string            `json:"image,omitempty"`
-	ResolvedImage string            `json:"resolvedImage,omitempty"`
-	Registry      string            `json:"registry,omitempty"`
-	Repository    string            `json:"repository,omitempty"`
-	Tag           string            `json:"tag,omitempty"`
-	Digest        string            `json:"digest,omitempty"`
-	ImageIndex    interface{}       `json:"imageIndex,omitempty"`
-	Manifest      *gcrv1.Manifest   `json:"manifest,omitempty"`
-	ConfigData    *gcrv1.ConfigFile `json:"config,omitempty"`
+	ImageDescriptor `json:",inline"`
 
 	NameRef                name.Reference
 	desc                   *remote.Descriptor
 	referrersManifest      *gcrv1.IndexManifest
 	referrersData          map[string]referrerData
-	verifiedReferrers      []gcrv1.Descriptor
+	verifiedReferrers      map[string]gcrv1.Descriptor
 	verifiedIntotoPayloads map[string][]byte
+}
+
+type ImageDescriptor struct {
+	ImageReference `json:",inline"`
+	ImageIndex     interface{}       `json:"imageIndex,omitempty"`
+	Manifest       *gcrv1.Manifest   `json:"manifest,omitempty"`
+	ConfigData     *gcrv1.ConfigFile `json:"config,omitempty"`
 }
 
 type referrerData struct {
@@ -158,6 +185,12 @@ type referrerData struct {
 func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error) {
 	if identifier == i.Digest {
 		return GCRtoOCISpecDesc(i.desc.Descriptor), nil
+	} else if i.referrersManifest != nil {
+		for _, m := range i.referrersManifest.Manifests {
+			if identifier == m.Digest.String() {
+				return GCRtoOCISpecDesc(m), nil
+			}
+		}
 	}
 
 	d, err := remote.Head(i.NameRef.Context().Digest(identifier), i.RemoteOpts...)
@@ -170,6 +203,10 @@ func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error
 
 func (i *ImageData) WithDigest(digest string) string {
 	return i.NameRef.Context().Digest(digest).String()
+}
+
+func (i *ImageData) Data() ImageDescriptor {
+	return i.ImageDescriptor
 }
 
 func (i *ImageData) loadReferrers() error {
@@ -297,10 +334,10 @@ func (i *ImageData) FetchReferrerData(desc gcrv1.Descriptor) ([]byte, *gcrv1.Des
 
 func (i *ImageData) AddVerifiedReferrer(desc gcrv1.Descriptor) {
 	if i.verifiedReferrers == nil {
-		i.verifiedReferrers = make([]gcrv1.Descriptor, 0)
+		i.verifiedReferrers = make(map[string]gcrv1.Descriptor, 0)
 	}
 
-	i.verifiedReferrers = append(i.verifiedReferrers, desc)
+	i.verifiedReferrers[desc.ArtifactType] = desc
 }
 
 func (i *ImageData) AddVerifiedIntotoPayloads(predicateType string, data []byte) {
@@ -309,4 +346,54 @@ func (i *ImageData) AddVerifiedIntotoPayloads(predicateType string, data []byte)
 	}
 
 	i.verifiedIntotoPayloads[predicateType] = data
+}
+
+func (i *ImageData) GetPayload(a v1alpha1.Attestation) (interface{}, error) {
+	var b []byte
+	if a.IsInToto() {
+		var ok bool
+		b, ok = i.verifiedIntotoPayloads[a.InToto.Type]
+		if !ok {
+			// download this using cosign cli
+			return nil, fmt.Errorf("intoto attestation payload cannot be fetch before verifying intoto attestation")
+		}
+	} else if a.IsReferrer() {
+		var err error
+		if i.verifiedReferrers != nil {
+			desc, ok := i.verifiedReferrers[a.Referrer.Type]
+			if ok {
+				b, _, err = i.FetchReferrerData(desc)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		if len(b) == 0 {
+			descs, err := i.FetchRefererrs(a.Referrer.Type)
+			if err != nil {
+				return nil, err
+			}
+			if len(descs) == 0 {
+				return nil, fmt.Errorf("artifact of type %s not found", a.Referrer.Type)
+			}
+
+			b, _, err = i.FetchReferrerData(descs[0])
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if len(b) == 0 {
+		return nil, fmt.Errorf("could not find attestation %s", a.GetKey())
+	}
+
+	var payload interface{}
+
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json for attestation %s", a.GetKey())
+	}
+
+	return payload, nil
 }

@@ -15,9 +15,19 @@ type TestResultBase struct {
 	Rule string `json:"rule,omitempty"`
 
 	// IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
-	// It's required in case policy is a validating admission policy.
+	// It's required in case the policy is a validating admission policy.
 	// +optional
 	IsValidatingAdmissionPolicy bool `json:"isValidatingAdmissionPolicy,omitempty"`
+
+	// IsValidatingPolicy indicates if the policy is a validating policy.
+	// It's required in case the policy is a validating policy.
+	// +optional
+	IsValidatingPolicy bool `json:"isValidatingPolicy,omitempty"`
+
+	// IsImageValidatingPolicy indicates if the policy is an image validating policy.
+	// It's required in case the policy is an image validating policy.
+	// +optional
+	IsImageValidatingPolicy bool `json:"isImageValidatingPolicy,omitempty"`
 
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.

@@ -2613,6 +2613,168 @@ func Test_GenerateFieldsUpdates(t *testing.T) {
 			expectWarning: false,
 		},
 		{
+			name: "update-match-statement-with-synchronizing-rule",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-match"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-match-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}
+			`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-match"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-match-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"ConfigMap"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}
+			`),
+			expectedErr:   true,
+			expectWarning: false,
+		},
+		{
+			name: "update-match-statement-with-no-synchronizing-rule",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-no-sync-modify-match"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-no-sync-modify-match-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": false,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}
+			`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-no-sync-modify-match"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-no-sync-modify-match-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"ConfigMap"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": false,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}
+			`),
+			expectedErr:   false,
+			expectWarning: false,
+		},
+		{
 			name: "update-clone-name",
 			oldPolicy: []byte(`
 			{
@@ -3286,8 +3448,8 @@ func Test_GenerateFieldsUpdates(t *testing.T) {
 		assert.Nil(t, err)
 
 		warning, err := immutableGenerateFields(new, old)
-		golangassert.Assert(t, (warning != "") == test.expectWarning, test.name, err)
-		golangassert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
+		golangassert.Assert(t, (warning != "") == test.expectWarning, "%s: %v", test.name, err)
+		golangassert.Assert(t, (err != nil) == test.expectedErr, "%s: %v", test.name, err)
 
 	}
 }

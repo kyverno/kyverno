@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: with-cel-exception
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-deployment-labels
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 10s
+  - name: check validatingadmissionpolicy
+    try:
+    - assert:
+        file: validatingadmissionpolicy.yaml
+    - sleep:
+        duration: 10s
+  - name: check validatingadmissionpolicybinding
+    try:
+    - assert:
+        file: validatingadmissionpolicybinding.yaml
+    - sleep:
+        duration: 10s
+  - name: create a skipped deployment
+    try:
+    - apply:
+        file: skipped-deployment.yaml
+  - name: create a bad deployment
+    try:
+    - script:
+        content: kubectl apply -f bad-deployment.yaml
+        check:  
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          (trim_space($stderr)): |-
+            The deployments "bad-deployment" is invalid: : ValidatingAdmissionPolicy 'vpol-check-deployment-labels' with binding 'vpol-check-deployment-labels-binding' denied request: Deployment labels must be env=prod
+  - name: check validatingwebhookconfiguration
+    try:
+    - assert:
+        file: validatingwebhookconfiguration.yaml

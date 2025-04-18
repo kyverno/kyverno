@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -14,7 +13,8 @@ const (
 	PolicyConditionTypeRBACPermissionsGranted PolicyConditionType = "RBACPermissionsGranted"
 )
 
-type PolicyStatus struct {
+// ConditionStatus is the shared status across all policy types
+type ConditionStatus struct {
 	// The ready of a policy is a high-level summary of where the policy is in its lifecycle.
 	// The conditions array, the reason and message fields contain more detail about the policy's status.
 	// +optional
@@ -23,25 +23,13 @@ type PolicyStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+	// It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.
 	// +optional
-	Autogen AutogenStatus `json:"autogen"`
+	Message string `json:"message"`
 }
 
-// AutogenStatus contains autogen status information.
-type AutogenStatus struct {
-	// Rules is a list of Rule instances. It contains auto generated rules added for pod controllers
-	Rules []AutogenRule `json:"rules,omitempty"`
-}
-
-type AutogenRule struct {
-	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
-	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
-	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
-	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
-	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
-}
-
-func (status *PolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
+func (status *ConditionStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
 	reason := "Succeeded"
 	if s != metav1.ConditionTrue {
 		reason = "Failed"
@@ -56,7 +44,7 @@ func (status *PolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
 
-func (status *PolicyStatus) IsReady() bool {
+func (status ConditionStatus) IsReady() bool {
 	if status.Ready != nil {
 		return *status.Ready
 	}

@@ -28,9 +28,8 @@ import (
 
 type PoliciesV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	CELPolicyExceptionsGetter
-	ImageVerificationPoliciesGetter
-	MutatingPoliciesGetter
+	ImageValidatingPoliciesGetter
+	PolicyExceptionsGetter
 	ValidatingPoliciesGetter
 }
 
@@ -39,16 +38,12 @@ type PoliciesV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *PoliciesV1alpha1Client) CELPolicyExceptions(namespace string) CELPolicyExceptionInterface {
-	return newCELPolicyExceptions(c, namespace)
+func (c *PoliciesV1alpha1Client) ImageValidatingPolicies() ImageValidatingPolicyInterface {
+	return newImageValidatingPolicies(c)
 }
 
-func (c *PoliciesV1alpha1Client) ImageVerificationPolicies() ImageVerificationPolicyInterface {
-	return newImageVerificationPolicies(c)
-}
-
-func (c *PoliciesV1alpha1Client) MutatingPolicies() MutatingPolicyInterface {
-	return newMutatingPolicies(c)
+func (c *PoliciesV1alpha1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
+	return newPolicyExceptions(c, namespace)
 }
 
 func (c *PoliciesV1alpha1Client) ValidatingPolicies() ValidatingPolicyInterface {

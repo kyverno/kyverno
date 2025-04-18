@@ -25,7 +25,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var policyCheckLabel = `{
@@ -650,7 +650,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 				Raw: []byte(resourceMutateandGenerate),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			DryRun:          pointer.Bool(false),
+			DryRun:          ptr.To(false),
 		},
 	}
 
