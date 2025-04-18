@@ -189,6 +189,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 	clusterResources := sets.New[string]()
 
+	// if the client is nil then we are not in cluster mode, validations are unrequired. see: https://github.com/kyverno/kyverno/issues/10656
 	if client != nil {
 		// if not using a mock, we first try to validate and if it fails we retry with cache invalidation in between
 		if !mock {
@@ -196,17 +197,23 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			if err != nil {
 				return warnings, err
 			}
-			if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			warning, errs := policy.Validate(clusterResources)
+			warnings = append(warnings, warning...)
+			if len(errs) != 0 {
 				clusterResources, err = getClusteredResources(true)
 				if err != nil {
 					return warnings, err
 				}
-				if errs := policy.Validate(clusterResources); len(errs) != 0 {
+				warning, errs := policy.Validate(clusterResources)
+				warnings = append(warnings, warning...)
+				if len(errs) != 0 {
 					return warnings, errs.ToAggregate()
 				}
 			}
 		} else {
-			if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			warning, errs := policy.Validate(clusterResources)
+			warnings = append(warnings, warning...)
+			if len(errs) != 0 {
 				return warnings, errs.ToAggregate()
 			}
 		}
