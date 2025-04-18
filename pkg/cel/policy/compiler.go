@@ -21,7 +21,7 @@ import (
 const (
 	GlobalContextKey   = "globalcontext"
 	HttpKey            = "http"
-	ImageDataKey       = "imagedata"
+	ImageDataKey       = "image"
 	NamespaceObjectKey = "namespaceObject"
 	ObjectKey          = "object"
 	OldObjectKey       = "oldObject"
