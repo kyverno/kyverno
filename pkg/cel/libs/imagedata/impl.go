@@ -10,10 +10,10 @@ type impl struct {
 	types.Adapter
 }
 
-func (c *impl) get_imagedata_string(ctx ref.Val, image ref.Val) ref.Val {
-	if self, err := utils.ConvertToNative[Context](ctx); err != nil {
+func (c *impl) get_imagedata_string(args ...ref.Val) ref.Val {
+	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
-	} else if image, err := utils.ConvertToNative[string](image); err != nil {
+	} else if image, err := utils.ConvertToNative[string](args[1]); err != nil {
 		return types.WrapErr(err)
 	} else {
 		globalRef, err := self.GetImageData(image)
