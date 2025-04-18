@@ -193,7 +193,10 @@ func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Att
 	}
 
 	// match against autogen rules
-	autogenRules := vpolautogen.ComputeRules(&policy.Policy)
+	autogenRules, err := vpolautogen.ComputeRules(&policy.Policy)
+	if err != nil {
+		return false, -1, err
+	}
 	for i, autogenRule := range autogenRules {
 		matches, err := match(autogenRule.MatchConstraints)
 		if err != nil {

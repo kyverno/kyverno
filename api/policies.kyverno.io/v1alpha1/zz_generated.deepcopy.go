@@ -613,13 +613,9 @@ func (in *IvpolAutogenStatus) DeepCopyInto(out *IvpolAutogenStatus) {
 	*out = *in
 	if in.Rules != nil {
 		in, out := &in.Rules, &out.Rules
-		*out = make([]*IvpolAutogen, len(*in))
+		*out = make([]IvpolAutogen, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(IvpolAutogen)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	return
