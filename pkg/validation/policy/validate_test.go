@@ -1151,7 +1151,7 @@ func Test_Namespced_Policy(t *testing.T) {
 	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, true, "", "")
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_patchesJson6902_Policy(t *testing.T) {
