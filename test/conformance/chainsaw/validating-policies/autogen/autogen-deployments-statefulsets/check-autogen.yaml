@@ -6,8 +6,10 @@ status:
   autogen:
     rules:
     - matchConditions:
-      - expression: "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
-          && object.spec.template.metadata.labels.prod == 'true'"
+      - expression: '!((object.apiVersion == ''apps/v1'' && object.kind ==''Deployment'')
+          || (object.apiVersion == ''apps/v1'' && object.kind ==''StatefulSet''))
+          || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
+          && object.spec.template.metadata.labels.prod == ''true'')'
         name: autogen-check-prod-label
       matchConstraints:
         resourceRules:
