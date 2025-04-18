@@ -9,7 +9,7 @@ type ImageValidatingPolicyAutogenStatus struct {
 }
 
 type ImageValidatingPolicyAutogen struct {
-	Spec ImageValidatingPolicySpec `json:"spec"`
+	Spec *ImageValidatingPolicySpec `json:"spec"`
 }
 
 type ValidatingPolicyAutogenStatus struct {
@@ -17,5 +17,5 @@ type ValidatingPolicyAutogenStatus struct {
 }
 
 type ValidatingPolicyAutogen struct {
-	Spec ValidatingPolicySpec `json:"spec"`
+	Spec *ValidatingPolicySpec `json:"spec"`
 }

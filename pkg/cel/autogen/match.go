@@ -62,7 +62,7 @@ func createMatchConditions(replacements string, targets []target, conditions []a
 		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.kind))
 	}
 	precondition := strings.Join(sets.List(preconditions), " || ")
-	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
+	var matchConditions []admissionregistrationv1.MatchCondition
 	prefix := "autogen"
 	if replacements != "" {
 		prefix = "autogen-" + replacements

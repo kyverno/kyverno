@@ -2,7 +2,6 @@ package autogen
 
 import (
 	"encoding/json"
-	"fmt"
 	"maps"
 	"slices"
 
@@ -23,10 +22,10 @@ func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageValidatingPolicy) 
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
 		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return autogenIvPols(policy, actualControllers)
+	return autogenIvPols(policy.Spec, actualControllers)
 }
 
-func autogenIvPols(policy *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+func autogenIvPols(spec policiesv1alpha1.ImageValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
 	mapping := map[string][]target{}
 	for config := range configs {
 		if config := configsMap[config]; config != nil {
@@ -38,10 +37,10 @@ func autogenIvPols(policy *policiesv1alpha1.ImageValidatingPolicy, configs sets.
 	rules := map[string]policiesv1alpha1.ImageValidatingPolicyAutogen{}
 	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[replacements]
-		spec := policy.Spec.DeepCopy()
-		operations := policy.Spec.MatchConstraints.ResourceRules[0].Operations
+		spec := spec.DeepCopy()
+		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = createMatchConstraints(targets, operations)
-		spec.MatchConditions = createMatchConditions(replacements, targets, policy.Spec.MatchConditions)
+		spec.MatchConditions = createMatchConditions(replacements, targets, spec.MatchConditions)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err
@@ -50,12 +49,8 @@ func autogenIvPols(policy *policiesv1alpha1.ImageValidatingPolicy, configs sets.
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		prefix := "autogen"
-		if replacements != "" {
-			prefix = "autogen-" + replacements
-		}
-		rules[fmt.Sprintf(`%s-%s`, prefix, policy.GetName())] = policiesv1alpha1.ImageValidatingPolicyAutogen{
-			Spec: *spec,
+		rules[replacements] = policiesv1alpha1.ImageValidatingPolicyAutogen{
+			Spec: spec,
 		}
 	}
 	return rules, nil

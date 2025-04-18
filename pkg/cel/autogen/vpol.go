@@ -2,7 +2,6 @@ package autogen
 
 import (
 	"encoding/json"
-	"fmt"
 	"maps"
 	"slices"
 
@@ -23,10 +22,10 @@ func ComputeRules(policy *policiesv1alpha1.ValidatingPolicy) (map[string]policie
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
 		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return generateRuleForControllers(policy, actualControllers)
+	return generateRuleForControllers(policy.Spec, actualControllers)
 }
 
-func generateRuleForControllers(policy *policiesv1alpha1.ValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
+func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
 	mapping := map[string][]target{}
 	for config := range configs {
 		if config := configsMap[config]; config != nil {
@@ -38,10 +37,10 @@ func generateRuleForControllers(policy *policiesv1alpha1.ValidatingPolicy, confi
 	rules := map[string]policiesv1alpha1.ValidatingPolicyAutogen{}
 	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[replacements]
-		spec := policy.Spec.DeepCopy()
+		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = createMatchConstraints(targets, operations)
-		spec.MatchConditions = createMatchConditions(replacements, targets, policy.Spec.MatchConditions)
+		spec.MatchConditions = createMatchConditions(replacements, targets, spec.MatchConditions)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err
@@ -50,12 +49,8 @@ func generateRuleForControllers(policy *policiesv1alpha1.ValidatingPolicy, confi
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		prefix := "autogen"
-		if replacements != "" {
-			prefix = "autogen-" + replacements
-		}
-		rules[fmt.Sprintf(`%s-%s`, prefix, policy.GetName())] = policiesv1alpha1.ValidatingPolicyAutogen{
-			Spec: *spec,
+		rules[replacements] = policiesv1alpha1.ValidatingPolicyAutogen{
+			Spec: spec,
 		}
 	}
 	return rules, nil

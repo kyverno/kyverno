@@ -37,7 +37,7 @@ func NewIVPOLProvider(policies []v1alpha1.ImageValidatingPolicy, exceptions []*p
 			compiled = append(compiled, CompiledImageValidatingPolicy{
 				Actions: actions,
 				Policy: &v1alpha1.ImageValidatingPolicy{
-					Spec: ap.Spec,
+					Spec: *ap.Spec,
 				},
 			})
 		}

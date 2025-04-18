@@ -295,7 +295,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		r.policies[namespacedName.String()] = CompiledImageValidatingPolicy{
 			Policy: &policiesv1alpha1.ImageValidatingPolicy{
-				Spec: p.Spec,
+				Spec: *p.Spec,
 			},
 			Exceptions: exceptions,
 			Actions:    actions,
