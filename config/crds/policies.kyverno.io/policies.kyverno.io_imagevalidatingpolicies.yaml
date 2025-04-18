@@ -804,17 +804,6 @@ spec:
                       type: string
                   type: object
                 type: array
-              mutateDigest:
-                default: true
-                description: |-
-                  MutateDigest enables replacement of image tags with digests.
-                  Defaults to true.
-                type: boolean
-              required:
-                default: true
-                description: Required validates that images are verified i.e. have
-                  matched passed a signature or attestation check.
-                type: boolean
               validationActions:
                 description: |-
                   ValidationAction specifies the action to be taken when the matched resource violates the policy.
@@ -970,10 +959,6 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
-              verifyDigest:
-                default: true
-                description: VerifyDigest validates that images have a digest.
-                type: boolean
               webhookConfiguration:
                 description: WebhookConfiguration defines the configuration for the
                   webhook.
@@ -1777,18 +1762,6 @@ spec:
                                     type: string
                                 type: object
                               type: array
-                            mutateDigest:
-                              default: true
-                              description: |-
-                                MutateDigest enables replacement of image tags with digests.
-                                Defaults to true.
-                              type: boolean
-                            required:
-                              default: true
-                              description: Required validates that images are verified
-                                i.e. have matched passed a signature or attestation
-                                check.
-                              type: boolean
                             validationActions:
                               description: |-
                                 ValidationAction specifies the action to be taken when the matched resource violates the policy.
@@ -1961,11 +1934,6 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               type: array
-                            verifyDigest:
-                              default: true
-                              description: VerifyDigest validates that images have
-                                a digest.
-                              type: boolean
                             webhookConfiguration:
                               description: WebhookConfiguration defines the configuration
                                 for the webhook.

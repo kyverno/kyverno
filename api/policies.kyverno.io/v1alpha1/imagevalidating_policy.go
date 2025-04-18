@@ -196,22 +196,6 @@ type ImageValidatingPolicySpec struct {
 	// +optional
 	MatchImageReferences []MatchImageReference `json:"matchImageReferences"`
 
-	// MutateDigest enables replacement of image tags with digests.
-	// Defaults to true.
-	// +kubebuilder:default=true
-	// +optional
-	MutateDigest *bool `json:"mutateDigest"`
-
-	// VerifyDigest validates that images have a digest.
-	// +kubebuilder:default=true
-	// +optional
-	VerifyDigest *bool `json:"verifyDigest"`
-
-	// Required validates that images are verified i.e. have matched passed a signature or attestation check.
-	// +kubebuilder:default=true
-	// +optional
-	Required *bool `json:"required"`
-
 	// Credentials provides credentials that will be used for authentication with registry.
 	// +kubebuilder:validation:Optional
 	Credentials *Credentials `json:"credentials,omitempty"`

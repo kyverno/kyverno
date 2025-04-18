@@ -479,21 +479,6 @@ func (in *ImageValidatingPolicySpec) DeepCopyInto(out *ImageValidatingPolicySpec
 		*out = make([]MatchImageReference, len(*in))
 		copy(*out, *in)
 	}
-	if in.MutateDigest != nil {
-		in, out := &in.MutateDigest, &out.MutateDigest
-		*out = new(bool)
-		**out = **in
-	}
-	if in.VerifyDigest != nil {
-		in, out := &in.VerifyDigest, &out.VerifyDigest
-		*out = new(bool)
-		**out = **in
-	}
-	if in.Required != nil {
-		in, out := &in.Required, &out.Required
-		*out = new(bool)
-		**out = **in
-	}
 	if in.Credentials != nil {
 		in, out := &in.Credentials, &out.Credentials
 		*out = new(Credentials)
