@@ -14,7 +14,10 @@ func TestCanAutoGen(t *testing.T) {
 		match *admissionregistrationv1.MatchResources
 		want  bool
 	}{{
-		name: "match name",
+		name:  "with nil",
+		match: nil,
+	}, {
+		name: "with name",
 		match: &admissionregistrationv1.MatchResources{
 			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 				ResourceNames: []string{"test-pod"},
@@ -67,7 +70,7 @@ func TestCanAutoGen(t *testing.T) {
 			}},
 		},
 	}, {
-		name: "with mixed kinds",
+		name: "with multiple rules",
 		match: &admissionregistrationv1.MatchResources{
 			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -109,6 +112,48 @@ func TestCanAutoGen(t *testing.T) {
 						APIGroups:   []string{"apps"},
 						APIVersions: []string{"v1"},
 						Resources:   []string{"deployments"},
+					},
+				},
+			}},
+		},
+	}, {
+		name: "with invalid group",
+		match: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"foo"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			}},
+		},
+	}, {
+		name: "with invalid version",
+		match: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1alpha1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			}},
+		},
+	}, {
+		name: "with invalid resource",
+		match: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"configmaps"},
 					},
 				},
 			}},
