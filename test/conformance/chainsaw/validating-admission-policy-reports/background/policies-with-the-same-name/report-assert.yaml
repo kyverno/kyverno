@@ -11,16 +11,21 @@ results:
 - message: success
   policy: report-background-sample
   result: pass
+  properties: 
+    process: background scan
   scored: true
   source: KyvernoValidatingPolicy
 - message: failed to verify image with notary cert
   policy: report-background-sample
   result: fail
+  properties:
+    process: background scan
   rule: report-background-sample
   scored: true
   source: KyvernoImageValidatingPolicy
 - policy: report-background-sample
   properties:
+    process: admission review
     binding: report-background-sample-binding
   result: pass
   rule: report-background-sample

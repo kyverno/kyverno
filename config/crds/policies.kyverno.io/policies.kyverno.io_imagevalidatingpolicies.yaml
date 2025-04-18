@@ -305,6 +305,20 @@ spec:
                   - name
                   type: object
                 type: array
+              autogen:
+                description: AutogenConfiguration defines the configuration for the
+                  generation controller.
+                properties:
+                  podControllers:
+                    description: PodControllers specifies whether to generate a pod
+                      controllers rules.
+                    properties:
+                      controllers:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                type: object
               credentials:
                 description: Credentials provides credentials that will be used for
                   authentication with registry.
@@ -374,6 +388,9 @@ spec:
                   FailurePolicy defines how to handle failures for the admission policy. Failures can
                   occur from CEL expression parse errors, type check errors, runtime errors and invalid
                   or mis-configured policy definitions or bindings.
+                enum:
+                - Ignore
+                - Fail
                 type: string
               imageRules:
                 description: |-
@@ -804,6 +821,10 @@ spec:
                   Required.
                 items:
                   description: ValidationAction specifies a policy enforcement action.
+                  enum:
+                  - Deny
+                  - Audit
+                  - Warn
                   type: string
                 type: array
                 x-kubernetes-list-type: set
@@ -1228,6 +1249,20 @@ spec:
                                 - name
                                 type: object
                               type: array
+                            autogen:
+                              description: AutogenConfiguration defines the configuration
+                                for the generation controller.
+                              properties:
+                                podControllers:
+                                  description: PodControllers specifies whether to
+                                    generate a pod controllers rules.
+                                  properties:
+                                    controllers:
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
+                              type: object
                             credentials:
                               description: Credentials provides credentials that will
                                 be used for authentication with registry.
@@ -1298,6 +1333,9 @@ spec:
                                 FailurePolicy defines how to handle failures for the admission policy. Failures can
                                 occur from CEL expression parse errors, type check errors, runtime errors and invalid
                                 or mis-configured policy definitions or bindings.
+                              enum:
+                              - Ignore
+                              - Fail
                               type: string
                             imageRules:
                               description: |-
@@ -1738,6 +1776,10 @@ spec:
                               items:
                                 description: ValidationAction specifies a policy enforcement
                                   action.
+                                enum:
+                                - Deny
+                                - Audit
+                                - Warn
                                 type: string
                               type: array
                               x-kubernetes-list-type: set
