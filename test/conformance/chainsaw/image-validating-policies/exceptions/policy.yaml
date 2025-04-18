@@ -18,7 +18,7 @@ spec:
     - name: "check-prod-label"
       expression: >-
         has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
-  imageRules:
+  matchImageReferences:
     - glob: ghcr.io/*
   attestors:
     - name: notary

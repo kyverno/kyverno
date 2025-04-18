@@ -25,7 +25,7 @@ spec:
     - expression: >-
         images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
       message: failed to verify image with notary cert
-  imageRules:
+  matchImageReferences:
     - glob: ghcr.io/*
   attestors:
     - name: notary

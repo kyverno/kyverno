@@ -48,7 +48,7 @@ var (
 			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{
 				Mode: policiesv1alpha1.EvaluationModeKubernetes,
 			},
-			ImageRules: []policiesv1alpha1.ImageRule{
+			MatchImageReferences: []policiesv1alpha1.MatchImageReference{
 				{
 					Glob: "ghcr.io/*",
 				},

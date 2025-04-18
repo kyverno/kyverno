@@ -21,7 +21,7 @@ spec:
     - expression: >-
          variables.image.config.architecture == "amd64"  
       messageExpression: "'image architecture is not supported: ' + string(variables.image.config.architecture)"
-  imageRules:
+  matchImageReferences:
     - glob: ghcr.io/*
   attestors:
     - name: notary

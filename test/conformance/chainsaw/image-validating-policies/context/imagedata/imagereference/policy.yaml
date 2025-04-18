@@ -20,7 +20,7 @@ spec:
         variables.images.map(i, i.registry() == "ghcr.io" && !i.containsDigest()).all(e, e)
       message: >-
         Deployment must be have images from ghcr and images should be tagged
-  imageRules:
+  matchImageReferences:
     - glob: ghcr.io/*
   attestors:
     - name: notary
