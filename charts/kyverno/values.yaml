@@ -681,7 +681,7 @@ features:
     enabled: true
   validatingAdmissionPolicyReports:
     # -- Enables the feature
-    enabled: false
+    enabled: true
   reporting:
     # -- Enables the feature
     validate: true
@@ -719,7 +719,7 @@ features:
     enabled: false
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
-    enabled: false
+    enabled: true
   dumpPatches:
     # -- Enables the feature
     enabled: false
