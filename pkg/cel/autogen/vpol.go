@@ -10,11 +10,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageValidatingPolicy) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+func ComputeRules(policy *policiesv1alpha1.ValidatingPolicy) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
-	if !CanAutoGen(policy.Spec.MatchConstraints) {
+	if !CanAutoGen(policy.GetSpec().MatchConstraints) {
 		return nil, nil
 	}
 	actualControllers := allConfigs
@@ -23,10 +23,10 @@ func GetAutogenRulesImageVerify(policy *policiesv1alpha1.ImageValidatingPolicy) 
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
 		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return autogenIvPols(policy, actualControllers)
+	return generateRuleForControllers(policy, actualControllers)
 }
 
-func autogenIvPols(policy *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+func generateRuleForControllers(policy *policiesv1alpha1.ValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
 	mapping := map[string][]target{}
 	for config := range configs {
 		if config := configsMap[config]; config != nil {
@@ -35,11 +35,11 @@ func autogenIvPols(policy *policiesv1alpha1.ImageValidatingPolicy, configs sets.
 			mapping[config.replacementsRef] = targets
 		}
 	}
-	rules := map[string]policiesv1alpha1.ImageValidatingPolicyAutogen{}
+	rules := map[string]policiesv1alpha1.ValidatingPolicyAutogen{}
 	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[replacements]
 		spec := policy.Spec.DeepCopy()
-		operations := policy.Spec.MatchConstraints.ResourceRules[0].Operations
+		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = createMatchConstraints(targets, operations)
 		spec.MatchConditions = createMatchConditions(replacements, targets, policy.Spec.MatchConditions)
 		bytes, err := json.Marshal(spec)
@@ -54,7 +54,7 @@ func autogenIvPols(policy *policiesv1alpha1.ImageValidatingPolicy, configs sets.
 		if replacements != "" {
 			prefix = "autogen-" + replacements
 		}
-		rules[fmt.Sprintf(`%s-%s`, prefix, policy.GetName())] = policiesv1alpha1.ImageValidatingPolicyAutogen{
+		rules[fmt.Sprintf(`%s-%s`, prefix, policy.GetName())] = policiesv1alpha1.ValidatingPolicyAutogen{
 			Spec: *spec,
 		}
 	}

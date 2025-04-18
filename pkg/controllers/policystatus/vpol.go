@@ -14,16 +14,8 @@ import (
 func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) error {
 	updateFunc := func(vpol *policiesv1alpha1.ValidatingPolicy) error {
 		p := engineapi.NewValidatingPolicy(vpol)
+		// conditions
 		conditionStatus := c.reconcileConditions(ctx, p)
-
-		status := vpol.GetStatus()
-		status.Autogen.Rules = nil
-		rules, err := vpolautogen.ComputeRules(vpol)
-		if err != nil {
-			return err
-		}
-		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
-
 		ready := true
 		for _, condition := range conditionStatus.Conditions {
 			if condition.Status != metav1.ConditionTrue {
@@ -31,11 +23,24 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 				break
 			}
 		}
-
 		if conditionStatus.Ready == nil || conditionStatus.IsReady() != ready {
 			conditionStatus.Ready = &ready
 		}
-		status.ConditionStatus = *conditionStatus
+		// autogen
+		rules, err := vpolautogen.ComputeRules(vpol)
+		if err != nil {
+			return err
+		}
+		autogenStatus := policiesv1alpha1.ValidatingPolicyAutogenStatus{
+			Configs: rules,
+		}
+		// assign
+		status := vpol.GetStatus()
+		vpol.Status = policiesv1alpha1.ValidatingPolicyStatus{
+			ConditionStatus: *conditionStatus,
+			Autogen:         autogenStatus,
+			Generated:       status.Generated,
+		}
 		return nil
 	}
 

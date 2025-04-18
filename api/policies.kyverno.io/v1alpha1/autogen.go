@@ -1,6 +1,21 @@
 package v1alpha1
 
 type PodControllersGenerationConfiguration struct {
-	// TODO: shall we use GVK/GVR instead of string ?
 	Controllers []string `json:"controllers,omitempty"`
+}
+
+type ImageValidatingPolicyAutogenStatus struct {
+	Configs map[string]ImageValidatingPolicyAutogen `json:"configs,omitempty"`
+}
+
+type ImageValidatingPolicyAutogen struct {
+	Spec ImageValidatingPolicySpec `json:"spec"`
+}
+
+type ValidatingPolicyAutogenStatus struct {
+	Configs map[string]ValidatingPolicyAutogen `json:"configs,omitempty"`
+}
+
+type ValidatingPolicyAutogen struct {
+	Spec ValidatingPolicySpec `json:"spec"`
 }
