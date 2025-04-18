@@ -112,8 +112,6 @@ type ValidatingPolicyList struct {
 type ValidatingPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to validate.
 	// The AdmissionPolicy cares about a request if it matches _all_ Constraints.
-	// However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
-	// ValidatingAdmissionPolicy cannot match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
 	// Required.
 	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints,omitempty"`
 
@@ -128,16 +126,13 @@ type ValidatingPolicySpec struct {
 	// occur from CEL expression parse errors, type check errors, runtime errors and invalid
 	// or mis-configured policy definitions or bindings.
 	//
-	// A policy is invalid if spec.paramKind refers to a non-existent Kind.
-	// A binding is invalid if spec.paramRef.name refers to a non-existent resource.
-	//
 	// failurePolicy does not define how validations that evaluate to false are handled.
 	//
-	// When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding validationActions
-	// define how failures are enforced.
+	// When failurePolicy is set to Fail, the validationActions field define how failures are enforced.
 	//
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
+	// +kubebuilder:validation:Enum=Ignore;Fail
 	FailurePolicy *admissionregistrationv1.FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// auditAnnotations contains CEL expressions which are used to produce audit
@@ -184,13 +179,14 @@ type ValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
-	// GenerationConfiguration defines the configuration for the generation controller.
+	// AutogenConfiguration defines the configuration for the generation controller.
 	// +optional
-	GenerationConfiguration *GenerationConfiguration `json:"generation,omitempty"`
+	AutogenConfiguration *ValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
 	// +listType=set
+	// +kubebuilder:validation:items:Enum=Deny;Audit;Warn
 	ValidationAction []admissionregistrationv1.ValidationAction `json:"validationActions,omitempty"`
 
 	// WebhookConfiguration defines the configuration for the webhook.
@@ -202,31 +198,65 @@ type ValidatingPolicySpec struct {
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
 }
 
+// GenerateValidatingAdmissionPolicyEnabled checks if validating admission policy generation is enabled
+func (s ValidatingPolicySpec) GenerateValidatingAdmissionPolicyEnabled() bool {
+	const defaultValue = false
+	if s.AutogenConfiguration == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.ValidatingAdmissionPolicy == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled == nil {
+		return defaultValue
+	}
+	return *s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled
+}
+
 // AdmissionEnabled checks if admission is set to true
 func (s ValidatingPolicySpec) AdmissionEnabled() bool {
+	const defaultValue = true
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
-		return true
+		return defaultValue
 	}
 	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
 // BackgroundEnabled checks if background is set to true
 func (s ValidatingPolicySpec) BackgroundEnabled() bool {
+	const defaultValue = true
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return true
+		return defaultValue
 	}
 	return *s.EvaluationConfiguration.Background.Enabled
 }
 
 // EvaluationMode returns the evaluation mode of the policy.
 func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
+	const defaultValue = EvaluationModeKubernetes
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
-		return EvaluationModeKubernetes
+		return defaultValue
 	}
 	return s.EvaluationConfiguration.Mode
 }
 
-type GenerationConfiguration struct {
+// ValidationActions returns the validation actions.
+func (s ValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
+	const defaultValue = admissionregistrationv1.Deny
+	if len(s.ValidationAction) == 0 {
+		return []admissionregistrationv1.ValidationAction{defaultValue}
+	}
+	return s.ValidationAction
+}
+
+type ValidatingPolicyAutogenConfiguration struct {
+	// PodControllers specifies whether to generate a pod controllers rules.
+	PodControllers *PodControllersGenerationConfiguration `json:"podControllers,omitempty"`
+	// ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+	ValidatingAdmissionPolicy *VapGenerationConfiguration `json:"validatingAdmissionPolicy,omitempty"`
+}
+
+type VapGenerationConfiguration struct {
 	// Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
 	// Optional. Defaults to "false" if not specified.
 	Enabled *bool `json:"enabled,omitempty"`

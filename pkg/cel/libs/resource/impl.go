@@ -49,3 +49,53 @@ func (c *impl) get_resource_string_string_string_string(args ...ref.Val) ref.Val
 		return c.NativeToValue(res.UnstructuredContent())
 	}
 }
+
+func (c *impl) post_resource_string_string_string_map(args ...ref.Val) ref.Val {
+	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
+		return types.WrapErr(err)
+	} else if apiVersion, err := utils.ConvertToNative[string](args[1]); err != nil {
+		return types.WrapErr(err)
+	} else if resource, err := utils.ConvertToNative[string](args[2]); err != nil {
+		return types.WrapErr(err)
+	} else if namespace, err := utils.ConvertToNative[string](args[3]); err != nil {
+		return types.WrapErr(err)
+	} else if data, err := utils.ConvertToNative[map[string]any](args[4]); err != nil {
+		return types.WrapErr(err)
+	} else {
+		unpacked, err := UnpackData(data)
+		if err != nil {
+			return types.NewErr("failed to unpack the provided data: %v", err)
+		}
+
+		res, err := self.PostResource(apiVersion, resource, namespace, unpacked)
+		if err != nil {
+			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			return types.NewErr("failed to create resource: %v", err)
+		}
+		return c.NativeToValue(res.UnstructuredContent())
+	}
+}
+
+func (c *impl) post_resource_string_string_map(args ...ref.Val) ref.Val {
+	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
+		return types.WrapErr(err)
+	} else if apiVersion, err := utils.ConvertToNative[string](args[1]); err != nil {
+		return types.WrapErr(err)
+	} else if resource, err := utils.ConvertToNative[string](args[2]); err != nil {
+		return types.WrapErr(err)
+	} else if data, err := utils.ConvertToNative[map[string]any](args[3]); err != nil {
+		return types.WrapErr(err)
+	} else {
+		unpacked, err := UnpackData(data)
+		if err != nil {
+			return types.NewErr("failed to unpack the provided data: %v", err)
+		}
+
+		res, err := self.PostResource(apiVersion, resource, "", unpacked)
+		if err != nil {
+			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			return types.NewErr("failed to create resource: %v", err)
+		}
+		return c.NativeToValue(res.UnstructuredContent())
+	}
+}

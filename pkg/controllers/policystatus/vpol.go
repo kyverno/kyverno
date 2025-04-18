@@ -18,7 +18,10 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 
 		status := vpol.GetStatus()
 		status.Autogen.Rules = nil
-		rules := vpolautogen.ComputeRules(vpol)
+		rules, err := vpolautogen.ComputeRules(vpol)
+		if err != nil {
+			return err
+		}
 		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
 
 		ready := true

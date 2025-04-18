@@ -60,6 +60,10 @@ spec:
               else
                 echo "no clusterpolicyreports"
               fi
+          {{- with .Values.policyReportsCleanup.resources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           {{- with .Values.policyReportsCleanup.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

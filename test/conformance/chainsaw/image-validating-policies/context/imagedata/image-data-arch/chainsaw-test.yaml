@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: check-image-arch
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-image-validating-policy-ready
+    use:
+      template: ../../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-image-data-arch-sample
+  - name: create good pod
+    try:
+    - create:
+        file: pod-good.yaml
+    - assert:
+        file: pod-good.yaml
+  - name: create bad pod
+    try:
+    - create:
+        file: pod-bad.yaml
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy ivpol-image-data-arch-sample failed: image architecture is not supported: arm64

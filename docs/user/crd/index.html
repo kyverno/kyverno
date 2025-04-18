@@ -10338,8 +10338,6 @@ Kubernetes admissionregistration/v1.MatchResources
 <td>
 <p>MatchConstraints specifies what resources this policy is designed to validate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
-However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
-ValidatingAdmissionPolicy cannot match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
 Required.</p>
 </td>
 </tr>
@@ -10373,11 +10371,8 @@ Kubernetes admissionregistration/v1.FailurePolicyType
 <p>failurePolicy defines how to handle failures for the admission policy. Failures can
 occur from CEL expression parse errors, type check errors, runtime errors and invalid
 or mis-configured policy definitions or bindings.</p>
-<p>A policy is invalid if spec.paramKind refers to a non-existent Kind.
-A binding is invalid if spec.paramRef.name refers to a non-existent resource.</p>
 <p>failurePolicy does not define how validations that evaluate to false are handled.</p>
-<p>When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding validationActions
-define how failures are enforced.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
 <p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
 </tr>
@@ -10444,16 +10439,16 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
-<code>generation</code><br/>
+<code>autogen</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.GenerationConfiguration">
-GenerationConfiguration
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">
+ValidatingPolicyAutogenConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerationConfiguration defines the configuration for the generation controller.</p>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 <tr>
@@ -11273,37 +11268,6 @@ BackgroundConfiguration
 </p>
 <p>
 </p>
-<h3 id="policies.kyverno.io/v1alpha1.GenerationConfiguration">GenerationConfiguration
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>enabled</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1alpha1.GenericPolicy">GenericPolicy
 </h3>
 <p>
@@ -11728,6 +11692,20 @@ EvaluationConfiguration
 <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">
+ImageValidatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -11743,6 +11721,38 @@ IvpolStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">ImageValidatingPolicyAutogenConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>podControllers</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">
+PodControllersGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>PodControllers specifies whether to generate a pod controllers rules.</p>
 </td>
 </tr>
 </tbody>
@@ -11991,6 +12001,20 @@ EvaluationConfiguration
 <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">
+ImageValidatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -12026,6 +12050,10 @@ string
 <hr />
 <h3 id="policies.kyverno.io/v1alpha1.IvpolAutogen">IvpolAutogen
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.IvpolAutogenStatus">IvpolAutogenStatus</a>)
+</p>
 <p>
 </p>
 <table class="table table-striped">
@@ -12284,6 +12312,20 @@ EvaluationConfiguration
 <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">
+ImageValidatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -12310,8 +12352,8 @@ EvaluationConfiguration
 <td>
 <code>rules</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.*github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1.IvpolAutogen">
-[]*github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1.IvpolAutogen
+<a href="#policies.kyverno.io/v1alpha1.IvpolAutogen">
+[]IvpolAutogen
 </a>
 </em>
 </td>
@@ -12525,6 +12567,37 @@ string
 <td>
 <em>(Optional)</em>
 <p>TSACerts define the cert chain for verifying timestamps of notary signature</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">PodControllersGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">ImageValidatingPolicyAutogenConfiguration</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>controllers</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>TODO: shall we use GVK/GVR instead of string ?</p>
 </td>
 </tr>
 </tbody>
@@ -12804,6 +12877,51 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>podControllers</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">
+PodControllersGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>PodControllers specifies whether to generate a pod controllers rules.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validatingAdmissionPolicy</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.VapGenerationConfiguration">
+VapGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec
 </h3>
 <p>
@@ -12833,8 +12951,6 @@ Kubernetes admissionregistration/v1.MatchResources
 <td>
 <p>MatchConstraints specifies what resources this policy is designed to validate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
-However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
-ValidatingAdmissionPolicy cannot match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
 Required.</p>
 </td>
 </tr>
@@ -12868,11 +12984,8 @@ Kubernetes admissionregistration/v1.FailurePolicyType
 <p>failurePolicy defines how to handle failures for the admission policy. Failures can
 occur from CEL expression parse errors, type check errors, runtime errors and invalid
 or mis-configured policy definitions or bindings.</p>
-<p>A policy is invalid if spec.paramKind refers to a non-existent Kind.
-A binding is invalid if spec.paramRef.name refers to a non-existent resource.</p>
 <p>failurePolicy does not define how validations that evaluate to false are handled.</p>
-<p>When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding validationActions
-define how failures are enforced.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
 <p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
 </tr>
@@ -12939,16 +13052,16 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
-<code>generation</code><br/>
+<code>autogen</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.GenerationConfiguration">
-GenerationConfiguration
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">
+ValidatingPolicyAutogenConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerationConfiguration defines the configuration for the generation controller.</p>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 <tr>
@@ -13048,6 +13161,37 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.VapGenerationConfiguration">VapGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 </tbody>

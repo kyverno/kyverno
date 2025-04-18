@@ -1540,55 +1540,6 @@
           ]
         },
         {
-          "name": "validatingadmissionpolicies",
-          "singularName": "validatingadmissionpolicy",
-          "namespaced": false,
-          "kind": "ValidatingAdmissionPolicy",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "categories": [
-            "api-extensions"
-          ]
-        },
-        {
-          "name": "validatingadmissionpolicies/status",
-          "singularName": "validatingadmissionpolicy",
-          "namespaced": false,
-          "kind": "ValidatingAdmissionPolicy",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
-          ]
-        },
-        {
-          "name": "validatingadmissionpolicybindings",
-          "singularName": "validatingadmissionpolicybinding",
-          "namespaced": false,
-          "kind": "ValidatingAdmissionPolicyBinding",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "categories": [
-            "api-extensions"
-          ]
-        },
-        {
           "name": "validatingwebhookconfigurations",
           "singularName": "validatingwebhookconfiguration",
           "namespaced": false,
@@ -2439,43 +2390,6 @@
   },
   {
     "Group": {
-      "name": "policies.kyverno.io",
-      "versions": [
-        {
-          "groupVersion": "policies.kyverno.io/v1alpha1",
-          "version": "v1alpha1"
-        }
-      ],
-      "preferredVersion": {
-        "groupVersion": "policies.kyverno.io/v1alpha1",
-        "version": "v1alpha1"
-      }
-    },
-    "VersionedResources": {
-      "v1alpha1": [
-        {
-          "name": "policyexceptions",
-          "singularName": "policyexception",
-          "namespaced": true,
-          "group": "policies.kyverno.io",
-          "version": "v1alpha1",
-          "kind": "PolicyException",
-          "verbs": [
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "create",
-            "update",
-            "watch"
-          ]
-        }
-      ]
-    }
-  },
-  {
-    "Group": {
       "name": "reports.kyverno.io",
       "versions": [
         {
@@ -2536,6 +2450,92 @@
           ],
           "categories": [
             "kyverno"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "security.nirmata.io",
+      "versions": [
+        {
+          "groupVersion": "security.nirmata.io/v1alpha1",
+          "version": "v1alpha1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "security.nirmata.io/v1alpha1",
+        "version": "v1alpha1"
+      }
+    },
+    "VersionedResources": {
+      "v1alpha1": [
+        {
+          "name": "kyvernoconfigs",
+          "singularName": "kyvernoconfig",
+          "namespaced": true,
+          "group": "security.nirmata.io",
+          "version": "v1alpha1",
+          "kind": "KyvernoConfig",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "kycfg",
+            "kyvernocfg",
+            "kyvernoconf"
+          ]
+        },
+        {
+          "name": "kyvernoconfigs/status",
+          "singularName": "kyvernoconfig",
+          "namespaced": true,
+          "group": "security.nirmata.io",
+          "version": "v1alpha1",
+          "kind": "KyvernoConfig",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "policysets",
+          "singularName": "policyset",
+          "namespaced": true,
+          "group": "security.nirmata.io",
+          "version": "v1alpha1",
+          "kind": "PolicySet",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "policysets/status",
+          "singularName": "policyset",
+          "namespaced": true,
+          "group": "security.nirmata.io",
+          "version": "v1alpha1",
+          "kind": "PolicySet",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
           ]
         }
       ]

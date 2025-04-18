@@ -43,7 +43,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 		if vpol := pol.AsValidatingPolicy(); vpol != nil {
 			p = vpol
 			matchResource = vpol.Spec.MatchConstraints
-		} else if ivpol := pol.AsImageVerificationPolicy(); ivpol != nil {
+		} else if ivpol := pol.AsImageValidatingPolicy(); ivpol != nil {
 			p = ivpol
 			matchResource = ivpol.Spec.MatchConstraints
 		}
@@ -63,7 +63,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 		fineGrainedWebhook := false
 		if p.GetMatchConditions() != nil {
 			for _, m := range p.GetMatchConditions() {
-				if ok, _ := autogen.CanAutoGen(matchResource); ok {
+				if ok := autogen.CanAutoGen(matchResource); ok {
 					webhook.MatchConditions = append(webhook.MatchConditions, admissionregistrationv1.MatchCondition{
 						Name:       m.Name,
 						Expression: "!(object.kind == 'Pod') || " + m.Expression,
@@ -84,7 +84,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 		}
 
 		if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
-			for _, rule := range autogen.ComputeRules(vpol) {
+			rules, _ := autogen.ComputeRules(vpol)
+			for _, rule := range rules {
 				webhook.MatchConditions = append(webhook.MatchConditions, rule.MatchConditions...)
 				for _, match := range rule.MatchConstraints.ResourceRules {
 					webhook.Rules = append(webhook.Rules, match.RuleWithOperations)

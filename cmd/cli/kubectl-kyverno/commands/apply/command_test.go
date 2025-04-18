@@ -634,9 +634,9 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/good-pod.yaml",
-					"../../../../../test/conformance/chainsaw/imagevalidatingpolicies/match-conditions/bad-pod.yaml"},
+				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml"},
 				PolicyReport: true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
@@ -661,6 +661,23 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/resources.yaml"},
+				Exception:     []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/exception.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  1,
+					Skip:  1,
 					Error: 0,
 					Warn:  0,
 				},
@@ -754,6 +771,20 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	expected := `Error: unknown flag: --xxx`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+}
+
+func TestCommandWithJsonAndResource(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{"--json", "foo", "--resource", "bar", "policy"})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	expected := `Error: both resource and json files can not be used together, use one or the other`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
