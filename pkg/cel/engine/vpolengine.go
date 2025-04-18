@@ -193,7 +193,7 @@ func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Att
 	}
 
 	// match against autogen rules
-	autogenRules, err := vpolautogen.ComputeRules(&policy.Policy)
+	autogenRules, err := vpolautogen.ValidatingPolicy(&policy.Policy)
 	if err != nil {
 		return false, nil, err
 	}

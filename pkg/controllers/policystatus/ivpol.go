@@ -28,7 +28,7 @@ func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1alph
 			conditionStatus.Ready = &ready
 		}
 		// autogen
-		rules, err := celautogen.GetAutogenRulesImageVerify(ivpol)
+		rules, err := celautogen.ImageValidatingPolicy(ivpol)
 		if err != nil {
 			return fmt.Errorf("failed to build autogen rules for ivpol %s: %v", ivpol.GetName(), err)
 		}

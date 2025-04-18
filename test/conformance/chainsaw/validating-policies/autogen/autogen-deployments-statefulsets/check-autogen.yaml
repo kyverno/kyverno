@@ -5,7 +5,7 @@ metadata:
 status:
   autogen:
     configs:
-      autogen-disallow-privilege-escalation:
+      "":
         spec:
           autogen:
             podControllers:

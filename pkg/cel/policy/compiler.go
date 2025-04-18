@@ -181,7 +181,7 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 
 	// compile autogen rules
 	autogenPath := field.NewPath("status").Child("autogen").Child("rules")
-	autogenRules, err := vpolautogen.ComputeRules(policy)
+	autogenRules, err := vpolautogen.ValidatingPolicy(policy)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}

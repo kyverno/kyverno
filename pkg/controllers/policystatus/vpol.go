@@ -27,7 +27,7 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 			conditionStatus.Ready = &ready
 		}
 		// autogen
-		rules, err := vpolautogen.ComputeRules(vpol)
+		rules, err := vpolautogen.ValidatingPolicy(vpol)
 		if err != nil {
 			return err
 		}

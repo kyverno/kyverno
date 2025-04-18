@@ -52,6 +52,9 @@ func createMatchConstraints(targets []target, operations []admissionregistration
 }
 
 func createMatchConditions(replacements string, targets []target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	if len(conditions) == 0 {
+		return conditions
+	}
 	preconditions := sets.New[string]()
 	for _, target := range targets {
 		apiVersion := target.group
@@ -62,7 +65,7 @@ func createMatchConditions(replacements string, targets []target, conditions []a
 		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.kind))
 	}
 	precondition := strings.Join(sets.List(preconditions), " || ")
-	var matchConditions []admissionregistrationv1.MatchCondition
+	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
 	prefix := "autogen"
 	if replacements != "" {
 		prefix = "autogen-" + replacements
