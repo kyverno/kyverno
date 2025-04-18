@@ -37,7 +37,7 @@ type IvpolStatus struct {
 
 type IvpolAutogenStatus struct {
 	// +optional
-	Rules []*IvpolAutogen `json:"rules,omitempty"`
+	Rules []IvpolAutogen `json:"rules,omitempty"`
 }
 
 type IvpolAutogen struct {
@@ -113,6 +113,15 @@ func (s ImageValidatingPolicySpec) BackgroundEnabled() bool {
 	return *s.EvaluationConfiguration.Background.Enabled
 }
 
+// ValidationActions returns the validation actions.
+func (s ImageValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
+	const defaultValue = admissionregistrationv1.Deny
+	if len(s.ValidationAction) == 0 {
+		return []admissionregistrationv1.ValidationAction{defaultValue}
+	}
+	return s.ValidationAction
+}
+
 func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
 	reason := "Succeeded"
 	if s != metav1.ConditionTrue {
@@ -170,6 +179,7 @@ type ImageValidatingPolicySpec struct {
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
 	// +listType=set
+	// +kubebuilder:validation:items:Enum=Deny;Audit;Warn
 	ValidationAction []admissionregistrationv1.ValidationAction `json:"validationActions,omitempty"`
 
 	// MatchConditions is a list of conditions that must be met for a request to be validated.

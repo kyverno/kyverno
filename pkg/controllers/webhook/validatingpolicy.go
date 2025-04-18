@@ -84,7 +84,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 		}
 
 		if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
-			for _, rule := range autogen.ComputeRules(vpol) {
+			rules, _ := autogen.ComputeRules(vpol)
+			for _, rule := range rules {
 				webhook.MatchConditions = append(webhook.MatchConditions, rule.MatchConditions...)
 				for _, match := range rule.MatchConstraints.ResourceRules {
 					webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
