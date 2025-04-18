@@ -973,11 +973,9 @@ spec:
             properties:
               autogen:
                 properties:
-                  rules:
-                    items:
+                  configs:
+                    additionalProperties:
                       properties:
-                        name:
-                          type: string
                         spec:
                           description: ImageValidatingPolicySpec is the specification
                             of the desired behavior of the ImageValidatingPolicy.
@@ -1941,7 +1939,7 @@ spec:
                       required:
                       - spec
                       type: object
-                    type: array
+                    type: object
                 type: object
               conditionStatus:
                 description: ConditionStatus is the shared status across all policy

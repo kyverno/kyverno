@@ -1,6 +1,9 @@
 package autogen
 
 import (
+	"maps"
+	"slices"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -95,4 +98,4 @@ var configsMap = map[string]*config{
 	},
 }
 
-var allConfigs = sets.New("daemonsets", "deployments", "replicasets", "statefulsets", "cronjobs", "jobs")
+var allConfigs = sets.New(slices.Collect(maps.Keys(configsMap))...)
