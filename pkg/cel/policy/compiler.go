@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	GlobalContextKey   = "globalcontext"
+	GlobalContextKey   = "globalContext"
 	HttpKey            = "http"
 	ImageDataKey       = "image"
 	NamespaceObjectKey = "namespaceObject"
