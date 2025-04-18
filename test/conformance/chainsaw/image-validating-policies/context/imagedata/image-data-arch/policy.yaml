@@ -16,7 +16,7 @@ spec:
     - name: imageKey
       expression: variables.imageRef
     - name: image
-      expression: imagedata.Get(variables.imageKey)
+      expression: image.GetMetadata(variables.imageKey)
   validations:
     - expression: >-
          variables.image.config.architecture == "amd64"  

@@ -24,7 +24,7 @@ import (
 const (
 	AttestationKey     = "attestations"
 	AttestorKey        = "attestors"
-	GlobalContextKey   = "globalcontext"
+	GlobalContextKey   = "globalContext"
 	HttpKey            = "http"
 	ImagesKey          = "images"
 	NamespaceObjectKey = "namespaceObject"
