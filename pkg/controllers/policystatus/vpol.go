@@ -49,22 +49,7 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 		c.client.PoliciesV1alpha1().ValidatingPolicies(),
 		updateFunc,
 		func(current, expect *policiesv1alpha1.ValidatingPolicy) bool {
-			if current.GetStatus().GetConditionStatus().Ready == nil || current.GetStatus().GetConditionStatus().IsReady() != expect.GetStatus().GetConditionStatus().IsReady() {
-				return false
-			}
-
-			if len(current.GetStatus().GetConditionStatus().Conditions) != len(expect.GetStatus().GetConditionStatus().Conditions) {
-				return false
-			}
-
-			for _, condition := range current.GetStatus().GetConditionStatus().Conditions {
-				for _, expectCondition := range expect.GetStatus().GetConditionStatus().Conditions {
-					if condition.Type == expectCondition.Type && condition.Status != expectCondition.Status {
-						return false
-					}
-				}
-			}
-			return datautils.DeepEqual(current.GetStatus().Autogen, expect.GetStatus().Autogen)
+			return datautils.DeepEqual(current.Status, expect.Status)
 		},
 	)
 	return err
