@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: testcase-mo2ta--1
+spec:
+  rules:
+  - name: test-rule
+    match:
+      all:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      deny:
+        conditions:
+          all:
+          - key: "{{ type(request.object.spec.integerField1) }}"
+            operator: NotEquals
+            value: 'number'
