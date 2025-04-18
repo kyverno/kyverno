@@ -552,11 +552,45 @@ func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineRespo
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
 	p.Rc.addMutateResponse(response)
+
 	err := p.printOutput(response.PatchedResource.Object, response, resourcePath, false)
 	if err != nil {
 		return fmt.Errorf("failed to print mutated result (%w)", err)
 	}
-	fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully.")
+
+	hasPass := false
+	hasSkip := false
+	hasError := false
+	hasFail := false
+
+	for _, rule := range response.PolicyResponse.Rules {
+		if rule.RuleType() == engineapi.Mutation {
+			switch rule.Status() {
+			case "pass":
+				hasPass = true
+			case "skip":
+				hasSkip = true
+			case "error":
+				hasError = true
+			case "fail":
+				hasFail = true
+			}
+		}
+	}
+
+	switch {
+	case hasPass:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully.")
+	case hasSkip:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation was skipped based on policy conditions.")
+	case hasError:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation failed due to an error during evaluation.")
+	case hasFail:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation rule failed to apply.")
+	default:
+		fmt.Fprintf(p.Out, "\n\nMutation:\nNo applicable mutation rules found.")
+	}
+
 	return nil
 }
 
