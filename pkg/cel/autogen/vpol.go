@@ -9,11 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func ImageValidatingPolicy(policy *policiesv1alpha1.ImageValidatingPolicy) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+func ValidatingPolicy(policy *policiesv1alpha1.ValidatingPolicy) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
-	if !CanAutoGen(policy.Spec.MatchConstraints) {
+	if !CanAutoGen(policy.GetSpec().MatchConstraints) {
 		return nil, nil
 	}
 	actualControllers := allConfigs
@@ -22,10 +22,10 @@ func ImageValidatingPolicy(policy *policiesv1alpha1.ImageValidatingPolicy) (map[
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
 		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return autogenIvPols(policy.Spec, actualControllers)
+	return generateRuleForControllers(policy.Spec, actualControllers)
 }
 
-func autogenIvPols(spec policiesv1alpha1.ImageValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
 	mapping := map[string][]target{}
 	for config := range configs {
 		if config := configsMap[config]; config != nil {
@@ -34,7 +34,7 @@ func autogenIvPols(spec policiesv1alpha1.ImageValidatingPolicySpec, configs sets
 			mapping[config.replacementsRef] = targets
 		}
 	}
-	rules := map[string]policiesv1alpha1.ImageValidatingPolicyAutogen{}
+	rules := map[string]policiesv1alpha1.ValidatingPolicyAutogen{}
 	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[replacements]
 		spec := spec.DeepCopy()
@@ -49,7 +49,7 @@ func autogenIvPols(spec policiesv1alpha1.ImageValidatingPolicySpec, configs sets
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		rules[replacements] = policiesv1alpha1.ImageValidatingPolicyAutogen{
+		rules[replacements] = policiesv1alpha1.ValidatingPolicyAutogen{
 			Spec: spec,
 		}
 	}
