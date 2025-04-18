@@ -24,25 +24,15 @@ type ImageValidatingPolicy struct {
 	Spec              ImageValidatingPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
-	Status IvpolStatus `json:"status,omitempty"`
+	Status ImageValidatingPolicyStatus `json:"status,omitempty"`
 }
 
-type IvpolStatus struct {
+type ImageValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
-	Autogen IvpolAutogenStatus `json:"autogen,omitempty"`
-}
-
-type IvpolAutogenStatus struct {
-	// +optional
-	Rules []IvpolAutogen `json:"rules,omitempty"`
-}
-
-type IvpolAutogen struct {
-	Name string                    `json:"name,omitempty"`
-	Spec ImageValidatingPolicySpec `json:"spec"`
+	Autogen ImageValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
 }
 
 func (s *ImageValidatingPolicy) GetName() string {
@@ -89,7 +79,7 @@ func (s *ImageValidatingPolicy) GetSpec() *ImageValidatingPolicySpec {
 	return &s.Spec
 }
 
-func (s *ImageValidatingPolicy) GetStatus() *IvpolStatus {
+func (s *ImageValidatingPolicy) GetStatus() *ImageValidatingPolicyStatus {
 	return &s.Status
 }
 
@@ -122,7 +112,7 @@ func (s ImageValidatingPolicySpec) ValidationActions() []admissionregistrationv1
 	return s.ValidationAction
 }
 
-func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
+func (status *ImageValidatingPolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
 	reason := "Succeeded"
 	if s != metav1.ConditionTrue {
 		reason = "Failed"
@@ -137,7 +127,7 @@ func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.C
 	meta.SetStatusCondition(&status.ConditionStatus.Conditions, newCondition)
 }
 
-func (status *IvpolStatus) GetConditionStatus() *ConditionStatus {
+func (status *ImageValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {
 	return &status.ConditionStatus
 }
 
