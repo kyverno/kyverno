@@ -171,7 +171,7 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	return response, nil
 }
 
-func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Attributes, namespace runtime.Object) (bool, int, error) {
+func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Attributes, namespace runtime.Object) (bool, *string, error) {
 	match := func(constraints *admissionregistrationv1.MatchResources) (bool, error) {
 		criteria := matchCriteria{constraints: constraints}
 		matches, err := e.matcher.Match(&criteria, attr, namespace)
@@ -185,28 +185,28 @@ func (e *engine) matchPolicy(policy CompiledValidatingPolicy, attr admission.Att
 	if policy.Policy.GetSpec().MatchConstraints != nil {
 		matches, err := match(policy.Policy.Spec.MatchConstraints)
 		if err != nil {
-			return false, -1, err
+			return false, nil, err
 		}
 		if matches {
-			return true, -1, nil
+			return true, nil, nil
 		}
 	}
 
 	// match against autogen rules
-	autogenRules, err := vpolautogen.ComputeRules(&policy.Policy)
+	autogenRules, err := vpolautogen.ValidatingPolicy(&policy.Policy)
 	if err != nil {
-		return false, -1, err
+		return false, nil, err
 	}
-	for i, autogenRule := range autogenRules {
-		matches, err := match(autogenRule.MatchConstraints)
+	for key, autogenRule := range autogenRules {
+		matches, err := match(autogenRule.Spec.MatchConstraints)
 		if err != nil {
-			return false, -1, err
+			return false, nil, err
 		}
 		if matches {
-			return true, i, nil
+			return true, &key, nil
 		}
 	}
-	return false, -1, nil
+	return false, nil, nil
 }
 
 func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPolicy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context policy.ContextInterface) ValidatingPolicyResponse {
@@ -214,24 +214,24 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledValidatingPoli
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
-	autogenIndex := -1
+	var autogenKey *string
 	if e.matcher != nil {
-		matches, index, err := e.matchPolicy(policy, attr, namespace)
+		matches, key, err := e.matchPolicy(policy, attr, namespace)
 		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
 			return response
 		} else if !matches {
 			return response
 		}
-		autogenIndex = index
+		autogenKey = key
 	}
 
 	var result *celpolicy.EvaluationResult
 	var err error
 	if jsonPayload != nil {
-		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context, -1)
+		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context, nil)
 	} else {
-		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context, autogenIndex)
+		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context, autogenKey)
 	}
 
 	// TODO: error is about match conditions here ?

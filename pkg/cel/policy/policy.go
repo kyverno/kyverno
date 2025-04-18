@@ -40,7 +40,7 @@ type ContextInterface interface {
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, any, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, ContextInterface, int) (*EvaluationResult, error)
+	Evaluate(context.Context, any, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, ContextInterface, *string) (*EvaluationResult, error)
 }
 
 type CompiledValidation struct {
@@ -68,7 +68,7 @@ type compiledPolicy struct {
 	variables        map[string]cel.Program
 	validations      []CompiledValidation
 	auditAnnotations map[string]cel.Program
-	autogenRules     []compiledAutogenRule
+	autogenRules     map[string]compiledAutogenRule
 	exceptions       []CompiledException
 }
 
@@ -88,13 +88,13 @@ func (p *compiledPolicy) Evaluate(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context ContextInterface,
-	autogenIndex int,
+	autogenKey *string,
 ) (*EvaluationResult, error) {
 	switch p.mode {
 	case policiesv1alpha1.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
-		return p.evaluateKubernetes(ctx, attr, request, namespace, context, autogenIndex)
+		return p.evaluateKubernetes(ctx, attr, request, namespace, context, autogenKey)
 	}
 }
 
@@ -106,7 +106,7 @@ func (p *compiledPolicy) evaluateJson(
 		Object:    json,
 		Variables: lazy.NewMapValue(VariablesType),
 	}
-	return p.evaluateWithData(ctx, data, -1)
+	return p.evaluateWithData(ctx, data, nil)
 }
 
 func (p *compiledPolicy) evaluateKubernetes(
@@ -115,19 +115,19 @@ func (p *compiledPolicy) evaluateKubernetes(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context ContextInterface,
-	autogenIndex int,
+	autogenKey *string,
 ) (*EvaluationResult, error) {
 	data, err := p.prepareK8sData(attr, request, namespace, context)
 	if err != nil {
 		return nil, err
 	}
-	return p.evaluateWithData(ctx, data, autogenIndex)
+	return p.evaluateWithData(ctx, data, autogenKey)
 }
 
 func (p *compiledPolicy) evaluateWithData(
 	ctx context.Context,
 	data evaluationData,
-	autogenIndex int,
+	autogenKey *string,
 ) (*EvaluationResult, error) {
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
@@ -150,10 +150,10 @@ func (p *compiledPolicy) evaluateWithData(
 	var validations []CompiledValidation
 	var variables map[string]cel.Program
 
-	if autogenIndex != -1 {
-		matchConditions = p.autogenRules[autogenIndex].matchConditions
-		validations = p.autogenRules[autogenIndex].validations
-		variables = p.autogenRules[autogenIndex].variables
+	if autogenKey != nil {
+		matchConditions = p.autogenRules[*autogenKey].matchConditions
+		validations = p.autogenRules[*autogenKey].validations
+		variables = p.autogenRules[*autogenKey].variables
 	} else {
 		matchConditions = p.matchConditions
 		validations = p.validations
