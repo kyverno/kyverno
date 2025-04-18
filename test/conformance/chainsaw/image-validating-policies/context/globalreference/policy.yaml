@@ -18,7 +18,7 @@ spec:
   variables:
     - name: dcount
       expression: >-
-        globalcontext.Get("gctxentry-apicall-projections", "test-globalcontext-apicall-correct-projections_deployment_count")
+        globalContext.Get("gctxentry-apicall-projections", "test-globalcontext-apicall-correct-projections_deployment_count")
   validations:
     - expression: >-
         variables.dcount == 0
