@@ -14,7 +14,7 @@ spec:
   variables:
     - name: image
       expression: >-
-        imagedata.Get("ghcr.io/kyverno/test-verify-image:signed")
+        imagedata.GetMetadata("ghcr.io/kyverno/test-verify-image:signed")
     - name: exist
       expression: >-
         variables.image != null

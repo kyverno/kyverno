@@ -91,7 +91,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 			},
 			Validations: []admissionregistrationv1.Validation{
 				{
-					Expression: "images.containers.map(i, image(i).registry() == \"ghcr.io\" ).all(e, e)",
+					Expression: "images.containers.map(i, ParseReference(i).registry() == \"ghcr.io\" ).all(e, e)",
 					Message:    "images are not from ghcr registry",
 				},
 				{
@@ -103,7 +103,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					Message:    "failed to verify attestation with notary cert",
 				},
 				{
-					Expression: "images.containers.map(image, payload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
+					Expression: "images.containers.map(image, extractPayload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
 					Message:    "sbom is not a cyclone dx sbom",
 				},
 			},
