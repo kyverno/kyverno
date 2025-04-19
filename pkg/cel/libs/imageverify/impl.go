@@ -58,7 +58,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(ctx context.Context)
 	return func(_image ref.Val, _attestors ref.Val) ref.Val {
 		if image, err := utils.ConvertToNative[string](_image); err != nil {
 			return types.WrapErr(err)
-		} else if attestors, err := utils.ConvertToNative[[]string](_attestors); err != nil {
+		} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](_attestors); err != nil {
 			return types.WrapErr(err)
 		} else {
 			count := 0
@@ -68,12 +68,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(ctx context.Context)
 				return f.NativeToValue(count)
 			}
 
-			for _, attr := range attestors {
-				attestor, ok := f.attestorList[attr]
-				if !ok {
-					return types.NewErr("attestor not found in policy: %s", attr)
-				}
-
+			for _, attestor := range attestors {
 				opts := GetRemoteOptsFromPolicy(f.creds)
 				img, err := f.imgCtx.Get(ctx, image, opts...)
 				if err != nil {
@@ -108,7 +103,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 			return types.WrapErr(err)
 		} else if attestation, err := utils.ConvertToNative[string](args[1]); err != nil {
 			return types.WrapErr(err)
-		} else if attestors, err := utils.ConvertToNative[[]string](args[2]); err != nil {
+		} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](args[2]); err != nil {
 			return types.WrapErr(err)
 		} else {
 			count := 0
@@ -118,12 +113,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 				return f.NativeToValue(count)
 			}
 
-			for _, attr := range attestors {
-				attestor, ok := f.attestorList[attr]
-				if !ok {
-					return types.NewErr("attestor not found in policy: %s", attr)
-				}
-
+			for _, attestor := range attestors {
 				attest, ok := f.attestationList[attestation]
 				if !ok {
 					return types.NewErr("attestation not found in policy: %s", attestation)
