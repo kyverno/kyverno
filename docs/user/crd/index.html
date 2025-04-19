@@ -10823,6 +10823,18 @@ string
 </tr>
 <tr>
 <td>
+<code>certCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertificateCEL is a CEL expression that returns the Certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>certChain</code><br/>
 <em>
 string
@@ -10833,6 +10845,18 @@ string
 <p>CertificateChain is the list of CA certificates in PEM format which will be needed
 when building the certificate chain for the signing certificate. Must start with the
 parent intermediate CA certificate of the signing certificate and end with the root certificate</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certChainCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertificateChainCEL is a CEL expression that returns the Certificate Chain.</p>
 </td>
 </tr>
 </tbody>
@@ -12082,6 +12106,18 @@ Kubernetes core/v1.SecretReference
 </tr>
 <tr>
 <td>
+<code>cel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CEL is a CEL expression that returns the Key.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>data</code><br/>
 <em>
 string
@@ -12197,6 +12233,18 @@ string
 </tr>
 <tr>
 <td>
+<code>certCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertificateCEL is a CEL expression that returns the Certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>tsaCerts</code><br/>
 <em>
 string
@@ -12205,6 +12253,18 @@ string
 <td>
 <em>(Optional)</em>
 <p>TSACerts define the cert chain for verifying timestamps of notary signature</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tsaCertCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TSACertificateCEL is a CEL expression that returns the TSA Certificate.</p>
 </td>
 </tr>
 </tbody>

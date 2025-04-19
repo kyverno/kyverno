@@ -328,9 +328,15 @@ type Cosign struct {
 type Notary struct {
 	// Certs define the cert chain for Notary signature verification
 	Certs string `json:"certs"`
+	// CertificateCEL is a CEL expression that returns the Certificate.
+	// +optional
+	CertificateCEL string `json:"certCel,omitempty"`
 	// TSACerts define the cert chain for verifying timestamps of notary signature
 	// +optional
 	TSACerts string `json:"tsaCerts"`
+	// TSACertificateCEL is a CEL expression that returns the TSA Certificate.
+	// +optional
+	TSACertificateCEL string `json:"tsaCertCel,omitempty"`
 }
 
 // TUF defines the configuration to fetch sigstore root
@@ -403,6 +409,9 @@ type Key struct {
 	// SecretRef sets a reference to a secret with the key.
 	// +optional
 	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
+	// CEL is a CEL expression that returns the Key.
+	// +optional
+	CEL string `json:"cel,omitempty"`
 	// Data contains the inline public key
 	// +optional
 	Data string `json:"data,omitempty"`
@@ -432,11 +441,17 @@ type Certificate struct {
 	// Certificate is the to the public certificate for local signature verification.
 	// +optional
 	Certificate string `json:"cert,omitempty"`
+	// CertificateCEL is a CEL expression that returns the Certificate.
+	// +optional
+	CertificateCEL string `json:"certCel,omitempty"`
 	// CertificateChain is the list of CA certificates in PEM format which will be needed
 	// when building the certificate chain for the signing certificate. Must start with the
 	// parent intermediate CA certificate of the signing certificate and end with the root certificate
 	// +optional
 	CertificateChain string `json:"certChain,omitempty"`
+	// CertificateChainCEL is a CEL expression that returns the Certificate Chain.
+	// +optional
+	CertificateChainCEL string `json:"certChainCel,omitempty"`
 }
 
 // Identity may contain the issuer and/or the subject found in the transparency
