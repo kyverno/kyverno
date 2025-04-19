@@ -97,11 +97,7 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, envOpts []cel.E
 
 func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 	if c.keyProg != nil {
-		v, _, err := c.keyProg.Eval(data)
-		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to evaluate compiled attestor: %s, error: %w", c.key, err)
-		}
-		result, err := utils.ConvertToNative[string](v)
+		result, err := evalProgramString(c.key, c.keyProg, data)
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert key in compiled attestor: %s, error: %w", c.key, err)
 		}
@@ -109,11 +105,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 	}
 
 	if c.certProg != nil {
-		v, _, err := c.certProg.Eval(data)
-		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to evaluate compiled attestor: %s, error: %w", c.key, err)
-		}
-		result, err := utils.ConvertToNative[string](v)
+		result, err := evalProgramString(c.key, c.certProg, data)
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert cert in compiled attestor: %s, error: %w", c.key, err)
 		}
@@ -121,11 +113,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 	}
 
 	if c.certChainProg != nil {
-		v, _, err := c.certChainProg.Eval(data)
-		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to evaluate compiled attestor: %s, error: %w", c.key, err)
-		}
-		result, err := utils.ConvertToNative[string](v)
+		result, err := evalProgramString(c.key, c.certChainProg, data)
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert cert chain in compiled attestor: %s, error: %w", c.key, err)
 		}
@@ -133,11 +121,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 	}
 
 	if c.notaryCertProg != nil {
-		v, _, err := c.notaryCertProg.Eval(data)
-		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to evaluate compiled attestor: %s, error: %w", c.key, err)
-		}
-		result, err := utils.ConvertToNative[string](v)
+		result, err := evalProgramString(c.key, c.notaryCertProg, data)
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert notary cert in compiled attestor: %s, error: %w", c.key, err)
 		}
@@ -145,11 +129,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 	}
 
 	if c.notaryTSACertProg != nil {
-		v, _, err := c.notaryTSACertProg.Eval(data)
-		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to evaluate compiled attestor: %s, error: %w", c.key, err)
-		}
-		result, err := utils.ConvertToNative[string](v)
+		result, err := evalProgramString(c.key, c.notaryTSACertProg, data)
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert notary tsa cert in compiled attestor: %s, error: %w", c.key, err)
 		}
@@ -157,4 +137,16 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 	}
 
 	return c.val, nil
+}
+
+func evalProgramString(key string, e cel.Program, data any) (string, error) {
+	v, _, err := e.Eval(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to evaluate compiled attestor: %s, error: %w", key, err)
+	}
+	result, err := utils.ConvertToNative[string](v)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert expression in compiled attestor: %s, error: %w", key, err)
+	}
+	return result, nil
 }
