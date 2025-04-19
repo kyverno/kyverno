@@ -1,0 +1,22 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-http-cel
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: test-server.yaml
+    - assert:
+        file: assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: resources/pod.yaml
+    - assert:
+        file: assert-pod.yaml 
