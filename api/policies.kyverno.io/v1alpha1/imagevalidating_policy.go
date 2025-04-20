@@ -367,13 +367,13 @@ type Notary struct {
 	Certs string `json:"certs"`
 	// CertificateCEL is a CEL expression that returns the Certificate.
 	// +optional
-	CertificateCEL string `json:"certCel,omitempty"`
+	CertificateCEL string `json:"certsCel,omitempty"`
 	// TSACerts define the cert chain for verifying timestamps of notary signature
 	// +optional
 	TSACerts string `json:"tsaCerts"`
 	// TSACertificateCEL is a CEL expression that returns the TSA Certificate.
 	// +optional
-	TSACertificateCEL string `json:"tsaCertCel,omitempty"`
+	TSACertificateCEL string `json:"tsaCertsCel,omitempty"`
 }
 
 // TUF defines the configuration to fetch sigstore root

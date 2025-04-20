@@ -21,7 +21,7 @@ type CompiledAttestor struct {
 
 func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) ([]*CompiledAttestor, field.ErrorList) {
 	var allErrs field.ErrorList
-	var compiledAttestors []*CompiledAttestor
+	compiledAttestors := make([]*CompiledAttestor, 0, len(att))
 	for i, att := range att {
 		path := path.Index(i)
 		compiledAtt := &CompiledAttestor{

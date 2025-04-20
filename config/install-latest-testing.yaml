@@ -48790,21 +48790,21 @@ spec:
                       description: Notary defines attestor configuration for Notary
                         based signatures
                       properties:
-                        certCel:
-                          description: CertificateCEL is a CEL expression that returns
-                            the Certificate.
-                          type: string
                         certs:
                           description: Certs define the cert chain for Notary signature
                             verification
                           type: string
-                        tsaCertCel:
-                          description: TSACertificateCEL is a CEL expression that
-                            returns the TSA Certificate.
+                        certsCel:
+                          description: CertificateCEL is a CEL expression that returns
+                            the Certificate.
                           type: string
                         tsaCerts:
                           description: TSACerts define the cert chain for verifying
                             timestamps of notary signature
+                          type: string
+                        tsaCertsCel:
+                          description: TSACertificateCEL is a CEL expression that
+                            returns the TSA Certificate.
                           type: string
                       required:
                       - certs
@@ -49753,21 +49753,21 @@ spec:
                                     description: Notary defines attestor configuration
                                       for Notary based signatures
                                     properties:
-                                      certCel:
-                                        description: CertificateCEL is a CEL expression
-                                          that returns the Certificate.
-                                        type: string
                                       certs:
                                         description: Certs define the cert chain for
                                           Notary signature verification
                                         type: string
-                                      tsaCertCel:
-                                        description: TSACertificateCEL is a CEL expression
-                                          that returns the TSA Certificate.
+                                      certsCel:
+                                        description: CertificateCEL is a CEL expression
+                                          that returns the Certificate.
                                         type: string
                                       tsaCerts:
                                         description: TSACerts define the cert chain
                                           for verifying timestamps of notary signature
+                                        type: string
+                                      tsaCertsCel:
+                                        description: TSACertificateCEL is a CEL expression
+                                          that returns the TSA Certificate.
                                         type: string
                                     required:
                                     - certs
