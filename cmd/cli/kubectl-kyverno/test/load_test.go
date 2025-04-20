@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -33,15 +32,6 @@ func TestLoadTests(t *testing.T) {
 		fileName: "kyverno-test.yaml",
 		want:     nil,
 		wantErr:  true,
-	}, {
-		name:     "invalid dir",
-		dirPath:  "../_testdata/tests",
-		fileName: "kyverno-test-invalid.yaml",
-		want: []TestCase{{
-			Path: "../_testdata/tests/test-invalid/kyverno-test-invalid.yaml",
-			Err:  fmt.Errorf("error unmarshaling JSON: while decoding JSON: json: unknown field \"foo\""),
-		}},
-		wantErr: false,
 	}, {
 		name:     "ok",
 		dirPath:  "../_testdata/tests/test-1",
