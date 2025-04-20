@@ -253,7 +253,7 @@ func printTestResult(
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1), rule)
 							rows = append(rows, resourceRows...)
 							continue
 						}
@@ -270,7 +270,7 @@ func printTestResult(
 							}
 
 							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1), rule)
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
@@ -278,7 +278,7 @@ func printTestResult(
 								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
 
 								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName(), rule)
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -316,7 +316,7 @@ func printTestResult(
 					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r)
 
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1), *rule)
 					rows = append(rows, resourceRows...)
 				}
 			}
@@ -345,7 +345,7 @@ func printTestResult(
 	return nil
 }
 
-func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
+func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, success bool, message string, reason string, resourceGVKAndName string, rule engineapi.RuleResponse) []table.Row {
 	resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
 	row := table.Row{
@@ -359,17 +359,28 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 		},
 		Message: message,
 	}
-	if success {
+	if test.Result == policyreportv1alpha2.StatusError && rule.Status() == engineapi.RuleStatusError {
 		row.Result = color.ResultPass()
-		if test.Result == policyreportv1alpha2.StatusSkip {
-			rc.Skip++
-		} else {
-			rc.Pass++
-		}
+		row.Reason = "Expected error occurred"
+		rc.Pass++
+	} else if test.Result == policyreportv1alpha2.StatusFail && rule.Status() == engineapi.RuleStatusFail {
+		row.Result = color.ResultPass()
+		row.Reason = "Expected failure occurred"
+		rc.Pass++
+	} else if test.Result == policyreportv1alpha2.StatusPass && rule.Status() == engineapi.RuleStatusPass {
+		row.Result = color.ResultPass()
+		row.Reason = "Expected success occurred"
+		rc.Pass++
+	} else if rule.Status() == engineapi.RuleStatusSkip {
+		row.Result = color.ResultSkip()
+		row.Reason = "Rule was skipped"
+		rc.Skip++
 	} else {
 		row.Result = color.ResultFail()
+		row.Reason = fmt.Sprintf("Expected %s, but got %s", test.Result, rule.Status())
 		rc.Fail++
 	}
+
 	*globalTestCounter++
 	rows = append(rows, row)
 
