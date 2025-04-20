@@ -64,7 +64,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		cel.Variable(ResourceKey, resource.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
-		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(policy.ImageDataKey, imagedata.ContextType),
 	}
@@ -126,6 +126,15 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 	}
 
+	var compiledAttestors []*ivpolvar.CompiledAttestor
+	{
+		path := path.Child("attestors")
+		compiledAttestors, errs = ivpolvar.CompileAttestors(path, ivpolicy.Spec.Attestors, env)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+	}
+
 	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Validations))
 	{
 		path := path.Child("validations")
@@ -161,6 +170,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		imageRules:      imageRules,
 		verifications:   verifications,
 		imageExtractors: imageExtractors,
+		attestors:       compiledAttestors,
 		attestorList:    ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
 		attestationList: ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
 		creds:           ivpolicy.Spec.Credentials,
