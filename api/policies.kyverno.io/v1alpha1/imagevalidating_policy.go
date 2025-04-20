@@ -364,6 +364,7 @@ type Cosign struct {
 // Notary defines attestor configuration for Notary based signatures
 type Notary struct {
 	// Certs define the cert chain for Notary signature verification
+	// +optional
 	Certs string `json:"certs"`
 	// CertificateCEL is a CEL expression that returns the Certificate.
 	// +optional

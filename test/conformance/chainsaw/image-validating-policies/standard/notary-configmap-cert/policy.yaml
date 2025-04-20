@@ -21,13 +21,13 @@ spec:
   variables:
     - name: cm
       expression: >-
-        resource.Get("v1", "configmaps", object.metadata.namespace, "policy-cm")
+        resource.Get("v1", "configmaps", object.metadata.namespace, "keys")
   imageRules:
     - glob: ghcr.io/*
   attestors:
     - name: notary
       notary:
-        certsCel: variables.cm
+        certsCel: variables.cm.data.certificate
   attestations:
     - name: sbom
       referrer:

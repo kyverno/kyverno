@@ -318,8 +318,6 @@ spec:
                           description: TSACertificateCEL is a CEL expression that
                             returns the TSA Certificate.
                           type: string
-                      required:
-                      - certs
                       type: object
                   required:
                   - name
@@ -1281,8 +1279,6 @@ spec:
                                         description: TSACertificateCEL is a CEL expression
                                           that returns the TSA Certificate.
                                         type: string
-                                    required:
-                                    - certs
                                     type: object
                                 required:
                                 - name
