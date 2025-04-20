@@ -1,8 +1,13 @@
 package v1alpha1
 
 import (
+	"fmt"
+	"reflect"
 	"strings"
 
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/api/kyverno"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -283,6 +288,38 @@ type Attestor struct {
 	// Notary defines attestor configuration for Notary based signatures
 	// +optional
 	Notary *Notary `json:"notary,omitempty"`
+}
+
+func (v Attestor) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	if reflect.TypeOf(v).AssignableTo(typeDesc) {
+		return v, nil
+	}
+	return nil, fmt.Errorf("type conversion error from 'Image' to '%v'", typeDesc)
+}
+
+func (v Attestor) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case cel.ObjectType("imageverify.attestor"):
+		return v
+	default:
+		return types.NewErr("type conversion error from '%s' to '%s'", cel.ObjectType("imageverify.attestor"), typeVal)
+	}
+}
+
+func (v Attestor) Equal(other ref.Val) ref.Val {
+	img, ok := other.(Attestor)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(other)
+	}
+	return types.Bool(reflect.DeepEqual(v, img))
+}
+
+func (v Attestor) Type() ref.Type {
+	return cel.ObjectType("imageverify.attestor")
+}
+
+func (v Attestor) Value() any {
+	return v
 }
 
 func (a Attestor) GetKey() string {
