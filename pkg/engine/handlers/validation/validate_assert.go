@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/jmespath-community/go-jmespath/pkg/binding"
-	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -77,7 +76,8 @@ func (h validateAssertHandler) Process(
 	jsonContext.Checkpoint()
 	defer jsonContext.Restore()
 	if err := contextLoader(ctx, rule.Context, jsonContext); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
+		if strings.Contains(err.Error(), "not found in context") {
+
 			logger.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
 			logger.Error(err, "failed to load context")
