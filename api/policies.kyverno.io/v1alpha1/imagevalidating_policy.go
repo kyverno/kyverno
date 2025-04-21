@@ -366,15 +366,15 @@ type Notary struct {
 	// Certs define the cert chain for Notary signature verification
 	// +optional
 	Certs string `json:"certs"`
-	// CertificateCEL is a CEL expression that returns the Certificate.
+	// CertsCEL is a CEL expression that returns the Certificate.
 	// +optional
-	CertificateCEL string `json:"certsCel,omitempty"`
+	CertsCEL string `json:"certsCel,omitempty"`
 	// TSACerts define the cert chain for verifying timestamps of notary signature
 	// +optional
 	TSACerts string `json:"tsaCerts"`
-	// TSACertificateCEL is a CEL expression that returns the TSA Certificate.
+	// TSACertsCEL is a CEL expression that returns the TSA Certificate.
 	// +optional
-	TSACertificateCEL string `json:"tsaCertsCel,omitempty"`
+	TSACertsCEL string `json:"tsaCertsCel,omitempty"`
 }
 
 // TUF defines the configuration to fetch sigstore root
@@ -440,14 +440,9 @@ type CTLog struct {
 	InsecureIgnoreSCT bool `json:"insecureIgnoreSCT,omitempty"`
 }
 
-// This references a public verification key stored in
-// a secret in the kyverno namespace.
-// A Key must specify only one of SecretRef, Data or KMS
+// A Key must specify only one of CEL, Data or KMS
 type Key struct {
-	// SecretRef sets a reference to a secret with the key.
-	// +optional
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
-	// CEL is a CEL expression that returns the Key.
+	// CEL is a CEL expression that returns the public key.
 	// +optional
 	CEL string `json:"cel,omitempty"`
 	// Data contains the inline public key

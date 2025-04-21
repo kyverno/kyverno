@@ -64,8 +64,8 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 				}
 			}
 		} else if att.IsNotary() {
-			if att.Notary.CertificateCEL != "" {
-				ast, iss := env.Compile(att.Notary.CertificateCEL)
+			if att.Notary.CertsCEL != "" {
+				ast, iss := env.Compile(att.Notary.CertsCEL)
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, iss.Err().Error()))
 				}
@@ -75,8 +75,8 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 				}
 				compiledAtt.notaryCertProg = prg
 			}
-			if att.Notary.TSACertificateCEL != "" {
-				ast, iss := env.Compile(att.Notary.TSACertificateCEL)
+			if att.Notary.TSACertsCEL != "" {
+				ast, iss := env.Compile(att.Notary.TSACertsCEL)
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, iss.Err().Error()))
 				}
