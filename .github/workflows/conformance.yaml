@@ -31,7 +31,7 @@ jobs:
         else
           echo 'upgrades=["none"]' >> $GITHUB_OUTPUT
           echo 'k8sVersions=["v1.32.2"]' >> $GITHUB_OUTPUT
-
+        fi
   prepare-images:
     runs-on: ubuntu-latest
     steps:
