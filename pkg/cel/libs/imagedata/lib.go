@@ -8,7 +8,7 @@ import (
 	"github.com/google/cel-go/ext"
 )
 
-const libraryName = "kyverno.imagedata"
+const libraryName = "kyverno.image"
 
 type lib struct{}
 
@@ -39,12 +39,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
-		"Get": {
+		"GetMetadata": {
 			cel.MemberOverload(
 				"imagedata_get_string",
 				[]*cel.Type{ContextType, types.StringType},
 				types.DynType,
-				cel.BinaryBinding(impl.get_imagedata_string),
+				cel.FunctionBinding(impl.get_imagedata_string),
 			),
 		},
 	}
