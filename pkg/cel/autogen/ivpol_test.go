@@ -32,7 +32,7 @@ var (
 					},
 				},
 			},
-			ImageRules: []policiesv1alpha1.ImageRule{
+			MatchImageReferences: []policiesv1alpha1.MatchImageReference{
 				{
 					Glob: "ghcr.io/*",
 				},
