@@ -42,7 +42,7 @@ status:
               - deployments
               - cronjobs
           failurePolicy: Ignore
-          imageRules:
+          matchImageReferences:
           - cel: ""
             glob: ghcr.io/*
           matchConditions:
@@ -60,8 +60,6 @@ status:
               - CREATE
               resources:
               - deployments
-          mutateDigest: true
-          required: true
           validationActions:
           - Deny
           validations:
@@ -74,7 +72,10 @@ status:
           - expression: images.containers.map(image, payload(image, attestations.sbom).bomFormat
               == 'CycloneDX').all(e, e)
             message: sbom is not a cyclone dx sbom
-          verifyDigest: true
+          validationConfigurations:
+            mutateDigest: true
+            required: true
+            verifyDigest: true
           webhookConfiguration:
             timeoutSeconds: 20
       cronjobs:
@@ -114,7 +115,7 @@ status:
               - deployments
               - cronjobs
           failurePolicy: Ignore
-          imageRules:
+          matchImageReferences:
           - cel: ""
             glob: ghcr.io/*
           matchConditions:
@@ -132,8 +133,6 @@ status:
               - CREATE
               resources:
               - cronjobs
-          mutateDigest: true
-          required: true
           validationActions:
           - Deny
           validations:
@@ -146,6 +145,9 @@ status:
           - expression: images.containers.map(image, payload(image, attestations.sbom).bomFormat
               == 'CycloneDX').all(e, e)
             message: sbom is not a cyclone dx sbom
-          verifyDigest: true
+          validationConfigurations:
+            mutateDigest: true
+            required: true
+            verifyDigest: true
           webhookConfiguration:
             timeoutSeconds: 20
