@@ -5,7 +5,7 @@ metadata:
 spec:
   evaluation:
     mode: JSON
-  imageRules:
+  matchImageReferences:
     - glob: ghcr.io/*
   images:
   - name: "bar"

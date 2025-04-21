@@ -10,15 +10,15 @@ import (
 
 func Test_Match(t *testing.T) {
 	tests := []struct {
-		name       string
-		imageRules []v1alpha1.ImageRule
-		image      string
-		wantResult bool
-		wantErr    bool
+		name                 string
+		MatchImageReferences []v1alpha1.MatchImageReference
+		image                string
+		wantResult           bool
+		wantErr              bool
 	}{
 		{
 			name: "standard pass",
-			imageRules: []v1alpha1.ImageRule{
+			MatchImageReferences: []v1alpha1.MatchImageReference{
 				{
 					Glob: "ghcr.io/*",
 				},
@@ -32,7 +32,7 @@ func Test_Match(t *testing.T) {
 		},
 		{
 			name: "standard fail",
-			imageRules: []v1alpha1.ImageRule{
+			MatchImageReferences: []v1alpha1.MatchImageReference{
 				{
 					Glob: "ghcr.io/*",
 				},
@@ -46,7 +46,7 @@ func Test_Match(t *testing.T) {
 		},
 		{
 			name: "second rule matches",
-			imageRules: []v1alpha1.ImageRule{
+			MatchImageReferences: []v1alpha1.MatchImageReference{
 				{
 					Glob: "index.docker.io/*",
 				},
@@ -60,7 +60,7 @@ func Test_Match(t *testing.T) {
 		},
 		{
 			name: "invalid cel expression",
-			imageRules: []v1alpha1.ImageRule{
+			MatchImageReferences: []v1alpha1.MatchImageReference{
 				{
 					CELExpression: "\"foo\"",
 				},
@@ -72,7 +72,7 @@ func Test_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, errList := CompileMatches(field.NewPath("spec", "imageRules"), tt.imageRules)
+			c, errList := CompileMatches(field.NewPath("spec", "MatchImageReferences"), tt.MatchImageReferences)
 			assert.Nil(t, errList)
 			matched, err := Match(c, tt.image)
 			if tt.wantErr {
