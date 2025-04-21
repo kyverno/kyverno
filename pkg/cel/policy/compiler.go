@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	GlobalContextKey   = "globalcontext"
+	GlobalContextKey   = "globalContext"
 	HttpKey            = "http"
-	ImageDataKey       = "imagedata"
+	ImageDataKey       = "image"
 	NamespaceObjectKey = "namespaceObject"
 	ObjectKey          = "object"
 	OldObjectKey       = "oldObject"
@@ -181,17 +181,21 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 
 	// compile autogen rules
 	autogenPath := field.NewPath("status").Child("autogen").Child("rules")
-	autogenRules := vpolautogen.ComputeRules(policy)
-	compiledRules := make([]compiledAutogenRule, 0, len(autogenRules))
-	for i, rule := range autogenRules {
+	autogenRules, err := vpolautogen.ValidatingPolicy(policy)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+	compiledRules := map[string]compiledAutogenRule{}
+	for key, rule := range autogenRules {
+		rule := rule.Spec
 		// compile match conditions
-		matchConditions, errs := CompileMatchConditions(autogenPath.Index(i).Child("matchConditions"), rule.MatchConditions, env)
+		matchConditions, errs := CompileMatchConditions(autogenPath.Key(key).Child("matchConditions"), rule.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		// compile variables
 		variables := map[string]cel.Program{}
-		errs = CompileVariables(autogenPath.Index(i).Child("variables"), rule.Variables, variablesProvider, env, variables)
+		errs = CompileVariables(autogenPath.Key(key).Child("variables"), rule.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -207,16 +211,16 @@ func (c *compiler) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolic
 		}
 		// compile audit annotations
 		auditAnnotations := map[string]cel.Program{}
-		errs = compileAuditAnnotations(autogenPath.Index(i).Child("auditAnnotations"), rule.AuditAnnotation, env, auditAnnotations)
+		errs = compileAuditAnnotations(autogenPath.Key(key).Child("auditAnnotations"), rule.AuditAnnotations, env, auditAnnotations)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
-		compiledRules = append(compiledRules, compiledAutogenRule{
+		compiledRules[key] = compiledAutogenRule{
 			matchConditions: matchConditions,
 			variables:       variables,
 			validations:     validations,
 			auditAnnotation: auditAnnotations,
-		})
+		}
 	}
 
 	// exceptions' match conditions

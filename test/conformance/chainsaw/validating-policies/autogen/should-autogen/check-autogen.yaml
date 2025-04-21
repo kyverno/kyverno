@@ -4,60 +4,68 @@ metadata:
   name: disallow-privilege-escalation
 status:
   autogen:
-    rules:
-    - matchConditions:
-      - expression: "!(object.kind =='CronJob') || has(object.spec.jobTemplate.spec.template.metadata.labels)
-          && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
-          && object.spec.jobTemplate.spec.template.metadata.labels.prod
-          == 'true'"
-        name: autogen-cronjobs-check-prod-label
-      matchConstraints:
-        resourceRules:
-        - apiGroups:
-          - batch
-          apiVersions:
-          - v1
-          operations:
-          - CREATE
-          - UPDATE
-          resources:
-          - cronjobs
-      validations:
-      - expression: object.spec.jobTemplate.spec.template.spec.containers.all(container,
-          has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation)
-          && container.securityContext.allowPrivilegeEscalation == false)
-        message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
-          must be set to `false`.
-    - matchConditions:
-      - expression: "!(object.kind =='Deployment' || object.kind =='ReplicaSet' || object.kind =='StatefulSet' || object.kind =='DaemonSet') || has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
-          && object.spec.template.metadata.labels.prod == 'true'"
-        name: autogen-check-prod-label
-      matchConstraints:
-        resourceRules:
-        - apiGroups:
-          - apps
-          apiVersions:
-          - v1
-          operations:
-          - CREATE
-          - UPDATE
-          resources:
-          - daemonsets
-          - deployments
-          - replicasets
-          - statefulsets
-        - apiGroups:
-          - batch
-          apiVersions:
-          - v1
-          operations:
-          - CREATE
-          - UPDATE
-          resources:
-          - jobs
-      validations:
-      - expression: object.spec.template.spec.containers.all(container, has(container.securityContext)
-          && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation
-          == false)
-        message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
-          must be set to `false`.
+    configs:
+      "":
+        spec:
+          matchConditions:
+          - expression: '!((object.apiVersion == ''apps/v1'' && object.kind ==''DaemonSet'')
+              || (object.apiVersion == ''apps/v1'' && object.kind ==''Deployment'')
+              || (object.apiVersion == ''apps/v1'' && object.kind ==''ReplicaSet'')
+              || (object.apiVersion == ''apps/v1'' && object.kind ==''StatefulSet'')
+              || (object.apiVersion == ''batch/v1'' && object.kind ==''Job'')) ||
+              (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
+              && object.spec.template.metadata.labels.prod == ''true'')'
+            name: autogen-check-prod-label
+          matchConstraints:
+            resourceRules:
+            - apiGroups:
+              - apps
+              apiVersions:
+              - v1
+              operations:
+              - CREATE
+              - UPDATE
+              resources:
+              - daemonsets
+              - deployments
+              - replicasets
+              - statefulsets
+            - apiGroups:
+              - batch
+              apiVersions:
+              - v1
+              operations:
+              - CREATE
+              - UPDATE
+              resources:
+              - jobs
+          validations:
+          - expression: object.spec.template.spec.containers.all(container, has(container.securityContext)
+              && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation
+              == false)
+            message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
+              must be set to `false`.
+      cronjobs:
+        spec:
+          matchConditions:
+          - expression: '!((object.apiVersion == ''batch/v1'' && object.kind ==''CronJob''))
+              || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
+              && object.spec.jobTemplate.spec.template.metadata.labels.prod == ''true'')'
+            name: autogen-cronjobs-check-prod-label
+          matchConstraints:
+            resourceRules:
+            - apiGroups:
+              - batch
+              apiVersions:
+              - v1
+              operations:
+              - CREATE
+              - UPDATE
+              resources:
+              - cronjobs
+          validations:
+          - expression: object.spec.jobTemplate.spec.template.spec.containers.all(container,
+              has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation)
+              && container.securityContext.allowPrivilegeEscalation == false)
+            message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
+              must be set to `false`.
