@@ -51,7 +51,7 @@ func Match(c []*CompiledMatch, image string) (bool, error) {
 	return false, nil
 }
 
-func CompileMatches(path *field.Path, matches []v1alpha1.ImageRule) ([]*CompiledMatch, field.ErrorList) {
+func CompileMatches(path *field.Path, matches []v1alpha1.MatchImageReference) ([]*CompiledMatch, field.ErrorList) {
 	var allErrs field.ErrorList
 	compiledMatches := make([]*CompiledMatch, 0, len(matches))
 	e, err := cel.NewEnv(
