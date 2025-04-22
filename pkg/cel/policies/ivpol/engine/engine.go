@@ -161,7 +161,6 @@ func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, names
 		}
 		return matches, nil
 	}
-
 	// match against main policy constraints
 	matches, err := match(policy.Policy.Spec.MatchConstraints)
 	if err != nil {
@@ -170,7 +169,6 @@ func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, names
 	if matches {
 		return true, nil
 	}
-
 	return false, nil
 }
 
@@ -193,12 +191,10 @@ func (e *engineImpl) handleMutation(ctx context.Context, policies []Policy, attr
 			}
 		}
 	}
-
 	ictx, err := imagedataloader.NewImageContext(e.lister, e.registryOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
 	for _, ivpol := range filteredPolicies {
 		response := eval.ImageVerifyPolicyResponse{
@@ -240,7 +236,6 @@ func (e *engineImpl) handleMutation(ctx context.Context, policies []Policy, attr
 		}
 		results[ivpol.Policy.GetName()] = response
 	}
-
 	ann, err := objectAnnotations(attr)
 	if err != nil {
 		return nil, nil, err
@@ -249,7 +244,6 @@ func (e *engineImpl) handleMutation(ctx context.Context, policies []Policy, attr
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return maps.Values(results), patches, nil
 }
 
@@ -258,12 +252,10 @@ func objectAnnotations(attr admission.Attributes) (map[string]string, error) {
 	if obj == nil || reflect.ValueOf(obj).IsNil() {
 		return nil, nil
 	}
-
 	ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return nil, err
 	}
-
 	u := &unstructured.Unstructured{Object: ret}
 	return u.GetAnnotations(), nil
 }
@@ -277,7 +269,6 @@ func (e *engineImpl) handleValidation(policies []Policy, attr admission.Attribut
 	if len(annotations) == 0 {
 		return nil, fmt.Errorf("annotations not present on object, image verification failed")
 	}
-
 	filteredPolicies := make([]Policy, 0)
 	if e.matcher != nil {
 		for _, pol := range policies {
@@ -295,7 +286,6 @@ func (e *engineImpl) handleValidation(policies []Policy, attr admission.Attribut
 			}
 		}
 	}
-
 	if data, found := annotations[kyverno.AnnotationImageVerifyOutcomes]; !found {
 		return nil, fmt.Errorf("%s annotation not present", kyverno.AnnotationImageVerifyOutcomes)
 	} else {
@@ -303,7 +293,6 @@ func (e *engineImpl) handleValidation(policies []Policy, attr admission.Attribut
 		if err := json.Unmarshal([]byte(data), &outcomes); err != nil {
 			return nil, err
 		}
-
 		for _, pol := range filteredPolicies {
 			resp := eval.ImageVerifyPolicyResponse{
 				Policy:  pol.Policy,

@@ -3,7 +3,6 @@ package compiler
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -19,7 +18,6 @@ import (
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
@@ -178,19 +176,19 @@ func (p *Policy) prepareK8sData(
 	namespace runtime.Object,
 	context policy.ContextInterface,
 ) (policy.EvaluationData, error) {
-	namespaceVal, err := objectToResolveVal(namespace)
+	namespaceVal, err := utils.ObjectToResolveVal(namespace)
 	if err != nil {
 		return policy.EvaluationData{}, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
 	}
-	objectVal, err := objectToResolveVal(attr.GetObject())
+	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
 	if err != nil {
 		return policy.EvaluationData{}, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
 	}
-	oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
+	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
 	if err != nil {
 		return policy.EvaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
-	requestVal, err := convertObjectToUnstructured(request)
+	requestVal, err := utils.ConvertObjectToUnstructured(request)
 	if err != nil {
 		return policy.EvaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
@@ -245,26 +243,4 @@ func (p *Policy) match(
 	} else {
 		return false, err
 	}
-}
-
-func convertObjectToUnstructured(obj any) (*unstructured.Unstructured, error) {
-	if obj == nil || reflect.ValueOf(obj).IsNil() {
-		return &unstructured.Unstructured{Object: nil}, nil
-	}
-	ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, err
-	}
-	return &unstructured.Unstructured{Object: ret}, nil
-}
-
-func objectToResolveVal(r runtime.Object) (any, error) {
-	if r == nil || reflect.ValueOf(r).IsNil() {
-		return nil, nil
-	}
-	v, err := convertObjectToUnstructured(r)
-	if err != nil {
-		return nil, err
-	}
-	return v.Object, nil
 }

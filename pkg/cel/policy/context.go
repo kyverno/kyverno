@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -71,7 +72,7 @@ func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return getValue(data.Data())
+	return utils.GetValue(data.Data())
 }
 
 func isLikelyKubernetesObject(data any) bool {
