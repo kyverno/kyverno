@@ -59,7 +59,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 		"verifyImageSignatures": {
 			cel.Overload(
 				"verify_image_signature_string_stringarray",
-				[]*cel.Type{types.StringType, types.NewListType(types.StringType)},
+				[]*cel.Type{types.StringType, types.NewListType(types.DynType)},
 				types.IntType,
 				cel.BinaryBinding(impl.verify_image_signature_string_stringarray(context.TODO())),
 			),
@@ -67,7 +67,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 		"verifyAttestationSignatures": {
 			cel.Overload(
 				"verify_image_attestations_string_string_stringarray",
-				[]*cel.Type{types.StringType, types.StringType, types.NewListType(types.StringType)},
+				[]*cel.Type{types.StringType, types.StringType, types.NewListType(types.DynType)},
 				types.IntType,
 				cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray(context.TODO())),
 			),
@@ -80,7 +80,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				cel.UnaryBinding(impl.get_image_data_string(context.TODO())),
 			),
 		},
-		"payload": {
+		"extractPayload": {
 			cel.Overload(
 				"payload_string_string",
 				[]*cel.Type{types.StringType, types.StringType},

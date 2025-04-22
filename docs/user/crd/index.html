@@ -10823,6 +10823,18 @@ string
 </tr>
 <tr>
 <td>
+<code>certCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertificateCEL is a CEL expression that returns the Certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>certChain</code><br/>
 <em>
 string
@@ -10833,6 +10845,18 @@ string
 <p>CertificateChain is the list of CA certificates in PEM format which will be needed
 when building the certificate chain for the signing certificate. Must start with the
 parent intermediate CA certificate of the signing certificate and end with the root certificate</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certChainCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertificateChainCEL is a CEL expression that returns the Certificate Chain.</p>
 </td>
 </tr>
 </tbody>
@@ -11272,50 +11296,6 @@ string
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.ImageRule">ImageRule
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
-</p>
-<p>
-<p>ImageRule defines a Glob or a CEL expression for matching images</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>glob</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Glob defines a globbing pattern for matching images</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>cel</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Cel defines CEL Expressions for matching images</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy
 </h3>
 <p>
@@ -11433,56 +11413,33 @@ Each variable is defined as a named CEL expression.</p>
 </tr>
 <tr>
 <td>
-<code>imageRules</code><br/>
+<code>validationConfigurations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageRule">
-[]ImageRule
+<a href="#policies.kyverno.io/v1alpha1.ValidationConfiguration">
+ValidationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchImageReferences</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MatchImageReference">
+[]MatchImageReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>mutateDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MutateDigest enables replacement of image tags with digests.
-Defaults to true.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>verifyDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>VerifyDigest validates that images have a digest.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>required</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
 <tr>
@@ -11808,56 +11765,33 @@ Each variable is defined as a named CEL expression.</p>
 </tr>
 <tr>
 <td>
-<code>imageRules</code><br/>
+<code>validationConfigurations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageRule">
-[]ImageRule
+<a href="#policies.kyverno.io/v1alpha1.ValidationConfiguration">
+ValidationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchImageReferences</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MatchImageReference">
+[]MatchImageReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>mutateDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MutateDigest enables replacement of image tags with digests.
-Defaults to true.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>verifyDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>VerifyDigest validates that images have a digest.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>required</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
 <tr>
@@ -12054,9 +11988,7 @@ string
 <a href="#policies.kyverno.io/v1alpha1.Cosign">Cosign</a>)
 </p>
 <p>
-<p>This references a public verification key stored in
-a secret in the kyverno namespace.
-A Key must specify only one of SecretRef, Data or KMS</p>
+<p>A Key must specify only one of CEL, Data or KMS</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -12068,16 +12000,14 @@ A Key must specify only one of SecretRef, Data or KMS</p>
 <tbody>
 <tr>
 <td>
-<code>secretRef</code><br/>
+<code>cel</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#secretreference-v1-core">
-Kubernetes core/v1.SecretReference
-</a>
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>SecretRef sets a reference to a secret with the key.</p>
+<p>CEL is a CEL expression that returns the public key.</p>
 </td>
 </tr>
 <tr>
@@ -12167,6 +12097,50 @@ If not provided, the system roots are used.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.MatchImageReference">MatchImageReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+</p>
+<p>
+<p>MatchImageReference defines a Glob or a CEL expression for matching images</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>glob</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Glob defines a globbing pattern for matching images</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Cel defines CEL Expressions for matching images</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.Notary">Notary
 </h3>
 <p>
@@ -12192,7 +12166,20 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Certs define the cert chain for Notary signature verification</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certsCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertsCEL is a CEL expression that returns the Certificate.</p>
 </td>
 </tr>
 <tr>
@@ -12205,6 +12192,18 @@ string
 <td>
 <em>(Optional)</em>
 <p>TSACerts define the cert chain for verifying timestamps of notary signature</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tsaCertsCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TSACertsCEL is a CEL expression that returns the TSA Certificate.</p>
 </td>
 </tr>
 </tbody>
@@ -12865,6 +12864,62 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidationConfiguration">ValidationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>mutateDigest</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MutateDigest enables replacement of image tags with digests.
+Defaults to true.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>verifyDigest</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>VerifyDigest validates that images have a digest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>required</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Required validates that images are verified, i.e., have passed a signature or attestation check.</p>
 </td>
 </tr>
 </tbody>

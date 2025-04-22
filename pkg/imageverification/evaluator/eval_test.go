@@ -26,7 +26,7 @@ var (
 			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{
 				Mode: policiesv1alpha1.EvaluationModeJSON,
 			},
-			ImageRules: []policiesv1alpha1.ImageRule{
+			MatchImageReferences: []policiesv1alpha1.MatchImageReference{
 				{
 					Glob: "ghcr.io/*",
 				},
@@ -82,7 +82,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					Message:    "failed to verify attestation with notary cert",
 				},
 				{
-					Expression: "images.bar.map(image, payload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
+					Expression: "images.bar.map(image, extractPayload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
 					Message:    "sbom is not a cyclone dx sbom",
 				},
 			},
