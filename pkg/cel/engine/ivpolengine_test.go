@@ -149,7 +149,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 func Test_ImageVerifyEngine(t *testing.T) {
 	engine := NewImageValidatingEngine(ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
 	engineRequest := EngineRequest{
-		request: v1.AdmissionRequest{
+		Request: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
@@ -158,7 +158,7 @@ func Test_ImageVerifyEngine(t *testing.T) {
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		},
-		context: &resourcelib.MockCtx{},
+		Context: &resourcelib.MockCtx{},
 	}
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest)
