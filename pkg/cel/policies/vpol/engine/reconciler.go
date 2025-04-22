@@ -3,12 +3,13 @@ package engine
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sync"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,7 +20,7 @@ type reconciler struct {
 	client      client.Client
 	compiler    compiler.Compiler
 	lock        *sync.RWMutex
-	policies    map[string]Policy
+	policies    map[string][]Policy
 	polexLister policiesv1alpha1listers.PolicyExceptionLister
 }
 
@@ -32,7 +33,7 @@ func newReconciler(
 		client:      client,
 		compiler:    compiler,
 		lock:        &sync.RWMutex{},
-		policies:    map[string]Policy{},
+		policies:    map[string][]Policy{},
 		polexLister: polexLister,
 	}
 }
@@ -49,7 +50,6 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	if policy.GetStatus().Generated {
 		r.lock.Lock()
 		defer r.lock.Unlock()
@@ -67,19 +67,42 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// No need to retry it
 		return ctrl.Result{}, nil
 	}
-	r.lock.Lock()
-	defer r.lock.Unlock()
 	actions := sets.New(policy.Spec.ValidationActions()...)
-	r.policies[req.NamespacedName.String()] = Policy{
+	policies := []Policy{Policy{
 		Actions:        actions,
 		Policy:         policy,
 		CompiledPolicy: compiled,
+	}}
+	generated, err := autogen.Autogen(&policy)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+	for _, autogen := range generated {
+		policy.Spec = *autogen.Spec
+		compiled, errs := r.compiler.Compile(&policy, exceptions)
+		if len(errs) > 0 {
+			fmt.Println(errs)
+			// No need to retry it
+			return ctrl.Result{}, nil
+		}
+		policies = append(policies, Policy{
+			Actions:        actions,
+			Policy:         policy,
+			CompiledPolicy: compiled,
+		})
+	}
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.policies[req.NamespacedName.String()] = policies
 	return ctrl.Result{}, nil
 }
 
 func (r *reconciler) Fetch(ctx context.Context) ([]Policy, error) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
-	return maps.Values(r.policies), nil
+	policies := make([]Policy, 0, len(r.policies))
+	for value := range maps.Values(r.policies) {
+		policies = append(policies, value...)
+	}
+	return policies, nil
 }
