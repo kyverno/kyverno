@@ -57,3 +57,8 @@ apis:
     title: kyverno reports (v1)
     package: github.com/kyverno/kyverno
     path: api/reports/v1
+
+  - name: kyverno_cel_policies
+    title: kyverno CEL policies (v1alpha1)
+    package: github.com/kyverno/kyverno
+    path: api/policies.kyverno.io/v1alpha1
