@@ -10823,6 +10823,18 @@ string
 </tr>
 <tr>
 <td>
+<code>certCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertificateCEL is a CEL expression that returns the Certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>certChain</code><br/>
 <em>
 string
@@ -10833,6 +10845,18 @@ string
 <p>CertificateChain is the list of CA certificates in PEM format which will be needed
 when building the certificate chain for the signing certificate. Must start with the
 parent intermediate CA certificate of the signing certificate and end with the root certificate</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certChainCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertificateChainCEL is a CEL expression that returns the Certificate Chain.</p>
 </td>
 </tr>
 </tbody>
@@ -11964,9 +11988,7 @@ string
 <a href="#policies.kyverno.io/v1alpha1.Cosign">Cosign</a>)
 </p>
 <p>
-<p>This references a public verification key stored in
-a secret in the kyverno namespace.
-A Key must specify only one of SecretRef, Data or KMS</p>
+<p>A Key must specify only one of CEL, Data or KMS</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11978,16 +12000,14 @@ A Key must specify only one of SecretRef, Data or KMS</p>
 <tbody>
 <tr>
 <td>
-<code>secretRef</code><br/>
+<code>cel</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#secretreference-v1-core">
-Kubernetes core/v1.SecretReference
-</a>
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>SecretRef sets a reference to a secret with the key.</p>
+<p>CEL is a CEL expression that returns the public key.</p>
 </td>
 </tr>
 <tr>
@@ -12146,7 +12166,20 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Certs define the cert chain for Notary signature verification</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certsCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertsCEL is a CEL expression that returns the Certificate.</p>
 </td>
 </tr>
 <tr>
@@ -12159,6 +12192,18 @@ string
 <td>
 <em>(Optional)</em>
 <p>TSACerts define the cert chain for verifying timestamps of notary signature</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tsaCertsCel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TSACertsCEL is a CEL expression that returns the TSA Certificate.</p>
 </td>
 </tr>
 </tbody>
