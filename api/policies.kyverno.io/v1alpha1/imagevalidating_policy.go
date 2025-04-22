@@ -21,6 +21,7 @@ import (
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type ImageValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -28,6 +29,11 @@ type ImageValidatingPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status ImageValidatingPolicyStatus `json:"status,omitempty"`
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s ImageValidatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
 }
 
 type ImageValidatingPolicyStatus struct {

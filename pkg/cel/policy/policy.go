@@ -12,6 +12,10 @@ import (
 	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
+type Policy interface {
+	Evaluate(context.Context, any, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, libs.Context) (*EvaluationResult, error)
+}
+
 type EvaluationResult struct {
 	Error            error
 	Message          string
@@ -20,10 +24,6 @@ type EvaluationResult struct {
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1alpha1.PolicyException
 	PatchedResource  unstructured.Unstructured
-}
-
-type CompiledPolicy interface {
-	Evaluate(context.Context, any, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, libs.Context, *string) (*EvaluationResult, error)
 }
 
 type EvaluationData struct {
