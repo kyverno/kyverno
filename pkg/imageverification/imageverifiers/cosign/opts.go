@@ -114,12 +114,6 @@ func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
 			}
-		} else if att.Key.SecretRef != nil {
-			key := fmt.Sprintf("k8s://%s/%s", att.Key.SecretRef.Namespace, att.Key.SecretRef.Name)
-			opts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, key, signatureAlgorithmMap[att.Key.HashAlgorithm])
-			if err != nil {
-				return nil, fmt.Errorf("failed to load public key from %s: %w", key, err)
-			}
 		} else if len(att.Key.KMS) != 0 {
 			opts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, att.Key.KMS, signatureAlgorithmMap[att.Key.HashAlgorithm])
 			if err != nil {
