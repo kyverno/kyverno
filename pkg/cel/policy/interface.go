@@ -6,11 +6,5 @@ import (
 )
 
 type Compiler interface {
-	CompileValidating(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
+	CompileValidating(*policiesv1alpha1.ValidatingPolicy, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
-
-func NewCompiler() Compiler {
-	return &compiler{}
-}
-
-type compiler struct{}
