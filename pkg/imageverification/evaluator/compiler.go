@@ -3,14 +3,13 @@ package eval
 import (
 	"github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	engine "github.com/kyverno/kyverno/pkg/cel"
+	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
@@ -66,15 +65,15 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
-		cel.Variable(policy.ImageDataKey, imagedata.ContextType),
+		cel.Variable(engine.ImageDataKey, imagedata.ContextType),
 	}
 
 	if ivpolicy.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
-		options = append(options, cel.Variable(RequestKey, policy.RequestType.CelType()))
-		options = append(options, cel.Variable(NamespaceObjectKey, policy.NamespaceType.CelType()))
+		options = append(options, cel.Variable(RequestKey, engine.RequestType.CelType()))
+		options = append(options, cel.Variable(NamespaceObjectKey, engine.NamespaceType.CelType()))
 		options = append(options, cel.Variable(ObjectKey, cel.DynType))
 		options = append(options, cel.Variable(OldObjectKey, cel.DynType))
-		options = append(options, cel.Variable(policy.VariablesKey, policy.VariablesType))
+		options = append(options, cel.Variable(engine.VariablesKey, engine.VariablesType))
 		options = append(options, cel.Variable(GlobalContextKey, globalcontext.ContextType))
 	} else {
 		options = append(options, cel.Variable(ObjectKey, cel.DynType))
@@ -83,7 +82,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
-	variablesProvider := policy.NewVariablesProvider(base.CELTypeProvider())
+	variablesProvider := engine.NewVariablesProvider(base.CELTypeProvider())
 	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
@@ -101,7 +100,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	matchConditions := make([]cel.Program, 0, len(ivpolicy.Spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := policy.CompileMatchConditions(path, ivpolicy.Spec.MatchConditions, env)
+		programs, errs := engine.CompileMatchConditions(path, ivpolicy.Spec.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -120,7 +119,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	variables := make(map[string]cel.Program, len(ivpolicy.Spec.Variables))
 	{
 		path := path.Child("variables")
-		errs := policy.CompileVariables(path, ivpolicy.Spec.Variables, variablesProvider, env, variables)
+		errs := engine.CompileVariables(path, ivpolicy.Spec.Variables, variablesProvider, env, variables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -135,12 +134,12 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 	}
 
-	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Validations))
+	verifications := make([]engine.Validation, 0, len(ivpolicy.Spec.Validations))
 	{
 		path := path.Child("validations")
 		for i, rule := range ivpolicy.Spec.Validations {
 			path := path.Index(i)
-			program, errs := policy.CompileValidation(path, rule, env)
+			program, errs := engine.CompileValidation(path, rule, env)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -148,13 +147,13 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 	}
 
-	compiledExceptions := make([]policy.CompiledException, 0, len(exceptions))
+	compiledExceptions := make([]engine.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := policy.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
+		polexMatchConditions, errs := engine.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
-		compiledExceptions = append(compiledExceptions, policy.CompiledException{
+		compiledExceptions = append(compiledExceptions, engine.Exception{
 			Exception:       polex,
 			MatchConditions: polexMatchConditions,
 		})

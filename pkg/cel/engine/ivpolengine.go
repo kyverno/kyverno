@@ -57,7 +57,7 @@ func (e *ivengine) HandleValidating(ctx context.Context, request EngineRequest) 
 		return response, err
 	}
 	// load objects
-	object, oldObject, err := admissionutils.ExtractResources(nil, request.request)
+	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {
 		return response, err
 	}
@@ -67,19 +67,19 @@ func (e *ivengine) HandleValidating(ctx context.Context, request EngineRequest) 
 	}
 	// default dry run
 	dryRun := false
-	if request.request.DryRun != nil {
-		dryRun = *request.request.DryRun
+	if request.Request.DryRun != nil {
+		dryRun = *request.Request.DryRun
 	}
 	// create admission attributes
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
-		schema.GroupVersionKind(request.request.Kind),
-		request.request.Namespace,
-		request.request.Name,
-		schema.GroupVersionResource(request.request.Resource),
-		request.request.SubResource,
-		admission.Operation(request.request.Operation),
+		schema.GroupVersionKind(request.Request.Kind),
+		request.Request.Namespace,
+		request.Request.Name,
+		schema.GroupVersionResource(request.Request.Resource),
+		request.Request.SubResource,
+		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
 		// TODO
@@ -87,7 +87,7 @@ func (e *ivengine) HandleValidating(ctx context.Context, request EngineRequest) 
 	)
 	// resolve namespace
 	var namespace runtime.Object
-	if ns := request.request.Namespace; ns != "" {
+	if ns := request.Request.Namespace; ns != "" {
 		namespace = e.nsResolver(ns)
 	}
 	// evaluate policies
@@ -107,7 +107,7 @@ func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (e
 		return response, nil, err
 	}
 	// load objects
-	object, oldObject, err := admissionutils.ExtractResources(nil, request.request)
+	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {
 		return response, nil, err
 	}
@@ -117,19 +117,19 @@ func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (e
 	}
 	// default dry run
 	dryRun := false
-	if request.request.DryRun != nil {
-		dryRun = *request.request.DryRun
+	if request.Request.DryRun != nil {
+		dryRun = *request.Request.DryRun
 	}
 	// create admission attributes
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
-		schema.GroupVersionKind(request.request.Kind),
-		request.request.Namespace,
-		request.request.Name,
-		schema.GroupVersionResource(request.request.Resource),
-		request.request.SubResource,
-		admission.Operation(request.request.Operation),
+		schema.GroupVersionKind(request.Request.Kind),
+		request.Request.Namespace,
+		request.Request.Name,
+		schema.GroupVersionResource(request.Request.Resource),
+		request.Request.SubResource,
+		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
 		// TODO
@@ -137,11 +137,11 @@ func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (e
 	)
 	// resolve namespace
 	var namespace runtime.Object
-	if ns := request.request.Namespace; ns != "" {
+	if ns := request.Request.Namespace; ns != "" {
 		namespace = e.nsResolver(ns)
 	}
 	// evaluate policies
-	responses, patches, err := e.handleMutation(ctx, policies, attr, &request.request, namespace, request.context)
+	responses, patches, err := e.handleMutation(ctx, policies, attr, &request.Request, namespace, request.Context)
 	if err != nil {
 		return response, nil, err
 	}
@@ -151,7 +151,7 @@ func (e *ivengine) HandleMutating(ctx context.Context, request EngineRequest) (e
 
 func (e *ivengine) matchPolicy(policy CompiledImageValidatingPolicy, attr admission.Attributes, namespace runtime.Object) (bool, error) {
 	match := func(constraints *admissionregistrationv1.MatchResources) (bool, error) {
-		criteria := matchCriteria{constraints: constraints}
+		criteria := matching.MatchCriteria{Constraints: constraints}
 		matches, err := e.matcher.Match(&criteria, attr, namespace)
 		if err != nil {
 			return false, err

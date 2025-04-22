@@ -3,12 +3,10 @@ package v1alpha1
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/api/kyverno"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -38,20 +36,6 @@ type ImageValidatingPolicyStatus struct {
 
 	// +optional
 	Autogen ImageValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
-}
-
-func (s *ImageValidatingPolicy) GetName() string {
-	name := s.Name
-	if s.Annotations == nil {
-		if _, found := s.Annotations[kyverno.AnnotationAutogenControllers]; found {
-			if strings.HasPrefix(name, "autogen-cronjobs-") {
-				return strings.TrimPrefix(name, "autogen-cronjobs-")
-			} else if strings.HasPrefix(name, "autogen-") {
-				return strings.TrimPrefix(name, "autogen-")
-			}
-		}
-	}
-	return name
 }
 
 func (s *ImageValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
