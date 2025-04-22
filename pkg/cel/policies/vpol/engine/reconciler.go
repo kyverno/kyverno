@@ -68,7 +68,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 	actions := sets.New(policy.Spec.ValidationActions()...)
-	policies := []Policy{Policy{
+	policies := []Policy{{
 		Actions:        actions,
 		Policy:         policy,
 		CompiledPolicy: compiled,
