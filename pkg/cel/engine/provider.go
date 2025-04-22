@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -266,6 +268,17 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.lock.Lock()
 		defer r.lock.Unlock()
 		delete(r.policies, req.NamespacedName.String())
+		_, polName, err := cache.SplitMetaNamespaceKey(req.NamespacedName.String())
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		for name, _ := range r.policies {
+			if strings.Contains(name, polName) {
+				delete(r.policies, name)
+			}
+		}
+
 		return ctrl.Result{}, nil
 	}
 	if err != nil {

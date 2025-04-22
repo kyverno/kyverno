@@ -24,15 +24,20 @@ type config struct {
 	replacementsRef string
 }
 
+const (
+	AutogenDefaults = "autogen-defaults"
+	AutogenCronjobs = "autogen-cronjobs"
+)
+
 var replacementsMap = map[string][]replacement{
-	"": {{
+	AutogenDefaults: {{
 		from: "spec",
 		to:   "spec.template.spec",
 	}, {
 		from: "metadata",
 		to:   "spec.template.metadata",
 	}},
-	"cronjobs": {{
+	AutogenCronjobs: {{
 		from: "spec",
 		to:   "spec.jobTemplate.spec.template.spec",
 	}, {
@@ -49,7 +54,7 @@ var configsMap = map[string]*config{
 			resource: "daemonsets",
 			kind:     "DaemonSet",
 		},
-		replacementsRef: "",
+		replacementsRef: AutogenDefaults,
 	},
 	"deployments": {
 		target: target{
@@ -58,7 +63,7 @@ var configsMap = map[string]*config{
 			resource: "deployments",
 			kind:     "Deployment",
 		},
-		replacementsRef: "",
+		replacementsRef: AutogenDefaults,
 	},
 	"replicasets": {
 		target: target{
@@ -67,7 +72,7 @@ var configsMap = map[string]*config{
 			resource: "replicasets",
 			kind:     "ReplicaSet",
 		},
-		replacementsRef: "",
+		replacementsRef: AutogenDefaults,
 	},
 	"statefulsets": {
 		target: target{
@@ -76,7 +81,7 @@ var configsMap = map[string]*config{
 			resource: "statefulsets",
 			kind:     "StatefulSet",
 		},
-		replacementsRef: "",
+		replacementsRef: AutogenDefaults,
 	},
 	"jobs": {
 		target: target{
@@ -85,7 +90,7 @@ var configsMap = map[string]*config{
 			resource: "jobs",
 			kind:     "Job",
 		},
-		replacementsRef: "",
+		replacementsRef: AutogenDefaults,
 	},
 	"cronjobs": {
 		target: target{
@@ -94,7 +99,7 @@ var configsMap = map[string]*config{
 			resource: "cronjobs",
 			kind:     "CronJob",
 		},
-		replacementsRef: "cronjobs",
+		replacementsRef: AutogenCronjobs,
 	},
 }
 
