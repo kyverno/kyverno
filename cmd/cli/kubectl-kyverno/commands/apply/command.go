@@ -32,6 +32,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -438,7 +439,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := celengine.NewIVPOLProvider(ivps, celExceptions)
+	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +448,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
 	}
-	engine := celengine.NewImageValidatingEngine(
+	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),

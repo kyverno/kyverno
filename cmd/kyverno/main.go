@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
@@ -614,7 +615,7 @@ func main() {
 			os.Exit(1)
 		}
 		var vpolEngine celengine.Engine
-		var ivpolEngine celengine.ImageValidatingEngine
+		var ivpolEngine ivpolengine.Engine
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
@@ -631,15 +632,15 @@ func main() {
 			}
 			// create compiler
 			compiler := vpolcompiler.NewCompiler()
-			// create provider
-			provider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			// create vpolProvider
+			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
 			if err != nil {
-				setup.Logger.Error(err, "failed to create policy provider")
+				setup.Logger.Error(err, "failed to create vpol provider")
 				os.Exit(1)
 			}
-			ivpolProvider, err := celengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
 			if err != nil {
-				setup.Logger.Error(err, "failed to create policy provider")
+				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
 			}
 			// create a cancellable context
@@ -659,7 +660,7 @@ func main() {
 				os.Exit(1)
 			}
 			vpolEngine = vpolengine.NewEngine(
-				provider,
+				vpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {
@@ -669,8 +670,8 @@ func main() {
 				},
 				matching.NewMatcher(),
 			)
-			ivpolEngine = celengine.NewImageValidatingEngine(
-				ivpolProvider.ImageVerificationPolicies,
+			ivpolEngine = ivpolengine.NewEngine(
+				ivpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {

@@ -12,14 +12,13 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
 )
 
-type NamespaceResolver = func(string) *corev1.Namespace
+type NamespaceResolver = engine.NamespaceResolver
 
 type engineImpl struct {
 	provider   Provider

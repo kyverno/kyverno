@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -110,8 +111,8 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 		},
 	}
 
-	ivfunc = func(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
-		return []CompiledImageValidatingPolicy{
+	providerFunc = func(ctx context.Context) ([]Policy, error) {
+		return []Policy{
 			{
 				Policy:  ivpol,
 				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
@@ -147,8 +148,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_ImageVerifyEngine(t *testing.T) {
-	engine := NewImageValidatingEngine(ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
-	engineRequest := EngineRequest{
+	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
@@ -160,6 +160,7 @@ func Test_ImageVerifyEngine(t *testing.T) {
 		},
 		Context: &resourcelib.MockCtx{},
 	}
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest)
 	assert.NoError(t, err)
