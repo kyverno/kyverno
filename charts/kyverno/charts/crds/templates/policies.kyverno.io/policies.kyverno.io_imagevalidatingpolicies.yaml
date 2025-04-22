@@ -118,11 +118,19 @@ spec:
                               description: Certificate is the to the public certificate
                                 for local signature verification.
                               type: string
+                            certCel:
+                              description: CertificateCEL is a CEL expression that
+                                returns the Certificate.
+                              type: string
                             certChain:
                               description: |-
                                 CertificateChain is the list of CA certificates in PEM format which will be needed
                                 when building the certificate chain for the signing certificate. Must start with the
                                 parent intermediate CA certificate of the signing certificate and end with the root certificate
+                              type: string
+                            certChainCel:
+                              description: CertificateChainCEL is a CEL expression
+                                that returns the Certificate Chain.
                               type: string
                           type: object
                         ctlog:
@@ -162,6 +170,10 @@ spec:
                           description: Key defines the type of key to validate the
                             image.
                           properties:
+                            cel:
+                              description: CEL is a CEL expression that returns the
+                                public key.
+                              type: string
                             data:
                               description: Data contains the inline public key
                               type: string
@@ -175,20 +187,6 @@ spec:
                                 KMS contains the KMS url of the public key
                                 Supported formats differ based on the KMS system used.
                               type: string
-                            secretRef:
-                              description: SecretRef sets a reference to a secret
-                                with the key.
-                              properties:
-                                name:
-                                  description: name is unique within a namespace to
-                                    reference a secret resource.
-                                  type: string
-                                namespace:
-                                  description: namespace defines the space within
-                                    which the secret name must be unique.
-                                  type: string
-                              type: object
-                              x-kubernetes-map-type: atomic
                           type: object
                         keyless:
                           description: Keyless sets the configuration to verify the
@@ -300,12 +298,18 @@ spec:
                           description: Certs define the cert chain for Notary signature
                             verification
                           type: string
+                        certsCel:
+                          description: CertsCEL is a CEL expression that returns the
+                            Certificate.
+                          type: string
                         tsaCerts:
                           description: TSACerts define the cert chain for verifying
                             timestamps of notary signature
                           type: string
-                      required:
-                      - certs
+                        tsaCertsCel:
+                          description: TSACertsCEL is a CEL expression that returns
+                            the TSA Certificate.
+                          type: string
                       type: object
                   required:
                   - name
@@ -1057,11 +1061,20 @@ spec:
                                               public certificate for local signature
                                               verification.
                                             type: string
+                                          certCel:
+                                            description: CertificateCEL is a CEL expression
+                                              that returns the Certificate.
+                                            type: string
                                           certChain:
                                             description: |-
                                               CertificateChain is the list of CA certificates in PEM format which will be needed
                                               when building the certificate chain for the signing certificate. Must start with the
                                               parent intermediate CA certificate of the signing certificate and end with the root certificate
+                                            type: string
+                                          certChainCel:
+                                            description: CertificateChainCEL is a
+                                              CEL expression that returns the Certificate
+                                              Chain.
                                             type: string
                                         type: object
                                       ctlog:
@@ -1102,6 +1115,10 @@ spec:
                                         description: Key defines the type of key to
                                           validate the image.
                                         properties:
+                                          cel:
+                                            description: CEL is a CEL expression that
+                                              returns the public key.
+                                            type: string
                                           data:
                                             description: Data contains the inline
                                               public key
@@ -1116,22 +1133,6 @@ spec:
                                               KMS contains the KMS url of the public key
                                               Supported formats differ based on the KMS system used.
                                             type: string
-                                          secretRef:
-                                            description: SecretRef sets a reference
-                                              to a secret with the key.
-                                            properties:
-                                              name:
-                                                description: name is unique within
-                                                  a namespace to reference a secret
-                                                  resource.
-                                                type: string
-                                              namespace:
-                                                description: namespace defines the
-                                                  space within which the secret name
-                                                  must be unique.
-                                                type: string
-                                            type: object
-                                            x-kubernetes-map-type: atomic
                                         type: object
                                       keyless:
                                         description: Keyless sets the configuration
@@ -1249,12 +1250,18 @@ spec:
                                         description: Certs define the cert chain for
                                           Notary signature verification
                                         type: string
+                                      certsCel:
+                                        description: CertsCEL is a CEL expression
+                                          that returns the Certificate.
+                                        type: string
                                       tsaCerts:
                                         description: TSACerts define the cert chain
                                           for verifying timestamps of notary signature
                                         type: string
-                                    required:
-                                    - certs
+                                      tsaCertsCel:
+                                        description: TSACertsCEL is a CEL expression
+                                          that returns the TSA Certificate.
+                                        type: string
                                     type: object
                                 required:
                                 - name

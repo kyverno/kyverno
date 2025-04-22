@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -37,7 +37,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		warnings, err := celpolicy.Validate(vpol)
+		warnings, err := vpolvalidation.Validate(vpol)
 		if err != nil {
 			logger.Error(err, "validating policy validation errors")
 		}
