@@ -44,13 +44,13 @@ type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	matchConditions      []cel.Program
 	matchImageReferences []*match.CompiledMatch
-	verifications        []policy.CompiledValidation
+	verifications        []engine.Validation
 	imageExtractors      []*variables.CompiledImageExtractor
 	attestors            []*variables.CompiledAttestor
 	attestorList         map[string]string
 	attestationList      map[string]string
 	creds                *v1alpha1.Credentials
-	exceptions           []policy.CompiledException
+	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 }
 

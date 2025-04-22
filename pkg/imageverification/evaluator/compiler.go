@@ -134,7 +134,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 	}
 
-	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Validations))
+	verifications := make([]engine.Validation, 0, len(ivpolicy.Spec.Validations))
 	{
 		path := path.Child("validations")
 		for i, rule := range ivpolicy.Spec.Validations {
