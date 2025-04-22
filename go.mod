@@ -24,6 +24,7 @@ require (
 	github.com/go-git/go-git/v5 v5.16.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zerologr v1.2.3
+	github.com/golang/mock v1.6.0
 	github.com/google/gnostic-models v0.6.9
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20250225234217-098045d5e61f
@@ -71,7 +72,7 @@ require (
 	golang.org/x/crypto v0.37.0
 	golang.org/x/text v0.24.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
-	google.golang.org/grpc v1.71.0
+	google.golang.org/grpc v1.72.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -96,13 +97,12 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/go-piv/piv-go v1.11.0 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/xanzy/go-gitlab v0.109.0 // indirect
 	go.step.sm/crypto v0.60.0 // indirect
 )
 
 require (
-	cel.dev/expr v0.19.1 // indirect
+	cel.dev/expr v0.20.0 // indirect
 	cloud.google.com/go v0.118.3 // indirect
 	cloud.google.com/go/auth v0.15.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect

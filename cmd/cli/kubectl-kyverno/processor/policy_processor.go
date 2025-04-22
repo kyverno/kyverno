@@ -22,6 +22,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -260,8 +262,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// validating policies
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
-		compiler := celpolicy.NewCompiler()
-		provider, err := celengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
+		compiler := vpolcompiler.NewCompiler()
+		provider, err := vpolengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -310,7 +312,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			contextProvider = fakeContextProvider
 		}
 		if resource.Object != nil {
-			eng := celengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
+			eng := vpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
 			// get gvk from resource
 			gvk := resource.GroupVersionKind()
 			// map gvk to gvr
@@ -357,7 +359,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 		}
 		if p.JsonPayload.Object != nil {
-			eng := celengine.NewEngine(provider, nil, nil)
+			eng := vpolengine.NewEngine(provider, nil, nil)
 			request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
 			reps, err := eng.Handle(ctx, request)
 			if err != nil {

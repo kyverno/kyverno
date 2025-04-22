@@ -1,9 +1,12 @@
 package v1alpha1
 
 import (
-	"strings"
+	"fmt"
+	"reflect"
 
-	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -24,39 +27,15 @@ type ImageValidatingPolicy struct {
 	Spec              ImageValidatingPolicySpec `json:"spec"`
 	// Status contains policy runtime data.
 	// +optional
-	Status IvpolStatus `json:"status,omitempty"`
+	Status ImageValidatingPolicyStatus `json:"status,omitempty"`
 }
 
-type IvpolStatus struct {
+type ImageValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
-	Autogen IvpolAutogenStatus `json:"autogen,omitempty"`
-}
-
-type IvpolAutogenStatus struct {
-	// +optional
-	Rules []*IvpolAutogen `json:"rules,omitempty"`
-}
-
-type IvpolAutogen struct {
-	Name string                    `json:"name,omitempty"`
-	Spec ImageValidatingPolicySpec `json:"spec"`
-}
-
-func (s *ImageValidatingPolicy) GetName() string {
-	name := s.Name
-	if s.Annotations == nil {
-		if _, found := s.Annotations[kyverno.AnnotationAutogenControllers]; found {
-			if strings.HasPrefix(name, "autogen-cronjobs-") {
-				return strings.TrimPrefix(name, "autogen-cronjobs-")
-			} else if strings.HasPrefix(name, "autogen-") {
-				return strings.TrimPrefix(name, "autogen-")
-			}
-		}
-	}
-	return name
+	Autogen ImageValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
 }
 
 func (s *ImageValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -89,7 +68,7 @@ func (s *ImageValidatingPolicy) GetSpec() *ImageValidatingPolicySpec {
 	return &s.Spec
 }
 
-func (s *ImageValidatingPolicy) GetStatus() *IvpolStatus {
+func (s *ImageValidatingPolicy) GetStatus() *ImageValidatingPolicyStatus {
 	return &s.Status
 }
 
@@ -122,7 +101,7 @@ func (s ImageValidatingPolicySpec) ValidationActions() []admissionregistrationv1
 	return s.ValidationAction
 }
 
-func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
+func (status *ImageValidatingPolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
 	reason := "Succeeded"
 	if s != metav1.ConditionTrue {
 		reason = "Failed"
@@ -137,7 +116,7 @@ func (status *IvpolStatus) SetReadyByCondition(c PolicyConditionType, s metav1.C
 	meta.SetStatusCondition(&status.ConditionStatus.Conditions, newCondition)
 }
 
-func (status *IvpolStatus) GetConditionStatus() *ConditionStatus {
+func (status *ImageValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {
 	return &status.ConditionStatus
 }
 
@@ -194,28 +173,17 @@ type ImageValidatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty"`
 
-	// ImagesRules is a list of Glob and CELExpressions to match images.
+	// ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.
+	// +optional
+	// +kubebuilder:default={}
+	ValidationConfigurations ValidationConfiguration `json:"validationConfigurations"`
+
+	// MatchImageReferences is a list of Glob and CELExpressions to match images.
 	// Any image that matches one of the rules is considered for validation
 	// Any image that does not match a rule is skipped, even when they are passed as arguments to
 	// image verification functions
 	// +optional
-	ImageRules []ImageRule `json:"imageRules"`
-
-	// MutateDigest enables replacement of image tags with digests.
-	// Defaults to true.
-	// +kubebuilder:default=true
-	// +optional
-	MutateDigest *bool `json:"mutateDigest"`
-
-	// VerifyDigest validates that images have a digest.
-	// +kubebuilder:default=true
-	// +optional
-	VerifyDigest *bool `json:"verifyDigest"`
-
-	// Required validates that images are verified i.e. have matched passed a signature or attestation check.
-	// +kubebuilder:default=true
-	// +optional
-	Required *bool `json:"required"`
+	MatchImageReferences []MatchImageReference `json:"matchImageReferences"`
 
 	// Credentials provides credentials that will be used for authentication with registry.
 	// +kubebuilder:validation:Optional
@@ -249,14 +217,32 @@ type ImageValidatingPolicySpec struct {
 	AutogenConfiguration *ImageValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 }
 
-// ImageRule defines a Glob or a CEL expression for matching images
-type ImageRule struct {
+// MatchImageReference defines a Glob or a CEL expression for matching images
+type MatchImageReference struct {
 	// Glob defines a globbing pattern for matching images
 	// +optional
 	Glob string `json:"glob"`
 	// Cel defines CEL Expressions for matching images
 	// +optional
 	CELExpression string `json:"cel"`
+}
+
+type ValidationConfiguration struct {
+	// MutateDigest enables replacement of image tags with digests.
+	// Defaults to true.
+	// +kubebuilder:default=true
+	// +optional
+	MutateDigest *bool `json:"mutateDigest"`
+
+	// VerifyDigest validates that images have a digest.
+	// +kubebuilder:default=true
+	// +optional
+	VerifyDigest *bool `json:"verifyDigest"`
+
+	// Required validates that images are verified, i.e., have passed a signature or attestation check.
+	// +kubebuilder:default=true
+	// +optional
+	Required *bool `json:"required"`
 }
 
 type Image struct {
@@ -293,6 +279,38 @@ type Attestor struct {
 	// Notary defines attestor configuration for Notary based signatures
 	// +optional
 	Notary *Notary `json:"notary,omitempty"`
+}
+
+func (v Attestor) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	if reflect.TypeOf(v).AssignableTo(typeDesc) {
+		return v, nil
+	}
+	return nil, fmt.Errorf("type conversion error from 'Image' to '%v'", typeDesc)
+}
+
+func (v Attestor) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case cel.ObjectType("imageverify.attestor"):
+		return v
+	default:
+		return types.NewErr("type conversion error from '%s' to '%s'", cel.ObjectType("imageverify.attestor"), typeVal)
+	}
+}
+
+func (v Attestor) Equal(other ref.Val) ref.Val {
+	img, ok := other.(Attestor)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(other)
+	}
+	return types.Bool(reflect.DeepEqual(v, img))
+}
+
+func (v Attestor) Type() ref.Type {
+	return cel.ObjectType("imageverify.attestor")
+}
+
+func (v Attestor) Value() any {
+	return v
 }
 
 func (a Attestor) GetKey() string {
@@ -337,10 +355,17 @@ type Cosign struct {
 // Notary defines attestor configuration for Notary based signatures
 type Notary struct {
 	// Certs define the cert chain for Notary signature verification
+	// +optional
 	Certs string `json:"certs"`
+	// CertsCEL is a CEL expression that returns the Certificate.
+	// +optional
+	CertsCEL string `json:"certsCel,omitempty"`
 	// TSACerts define the cert chain for verifying timestamps of notary signature
 	// +optional
 	TSACerts string `json:"tsaCerts"`
+	// TSACertsCEL is a CEL expression that returns the TSA Certificate.
+	// +optional
+	TSACertsCEL string `json:"tsaCertsCel,omitempty"`
 }
 
 // TUF defines the configuration to fetch sigstore root
@@ -406,13 +431,11 @@ type CTLog struct {
 	InsecureIgnoreSCT bool `json:"insecureIgnoreSCT,omitempty"`
 }
 
-// This references a public verification key stored in
-// a secret in the kyverno namespace.
-// A Key must specify only one of SecretRef, Data or KMS
+// A Key must specify only one of CEL, Data or KMS
 type Key struct {
-	// SecretRef sets a reference to a secret with the key.
+	// CEL is a CEL expression that returns the public key.
 	// +optional
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
+	CEL string `json:"cel,omitempty"`
 	// Data contains the inline public key
 	// +optional
 	Data string `json:"data,omitempty"`
@@ -442,11 +465,17 @@ type Certificate struct {
 	// Certificate is the to the public certificate for local signature verification.
 	// +optional
 	Certificate string `json:"cert,omitempty"`
+	// CertificateCEL is a CEL expression that returns the Certificate.
+	// +optional
+	CertificateCEL string `json:"certCel,omitempty"`
 	// CertificateChain is the list of CA certificates in PEM format which will be needed
 	// when building the certificate chain for the signing certificate. Must start with the
 	// parent intermediate CA certificate of the signing certificate and end with the root certificate
 	// +optional
 	CertificateChain string `json:"certChain,omitempty"`
+	// CertificateChainCEL is a CEL expression that returns the Certificate Chain.
+	// +optional
+	CertificateChainCEL string `json:"certChainCel,omitempty"`
 }
 
 // Identity may contain the issuer and/or the subject found in the transparency
