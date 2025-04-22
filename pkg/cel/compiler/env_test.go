@@ -1,4 +1,4 @@
-package cel
+package compiler
 
 import (
 	"testing"
