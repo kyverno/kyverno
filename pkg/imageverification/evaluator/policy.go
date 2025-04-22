@@ -10,6 +10,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
@@ -43,13 +44,13 @@ type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	matchConditions      []cel.Program
 	matchImageReferences []*match.CompiledMatch
-	verifications        []policy.CompiledValidation
+	verifications        []engine.Validation
 	imageExtractors      []*variables.CompiledImageExtractor
 	attestors            []*variables.CompiledAttestor
 	attestorList         map[string]string
 	attestationList      map[string]string
 	creds                *v1alpha1.Credentials
-	exceptions           []policy.CompiledException
+	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 }
 
@@ -61,7 +62,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if !matched {
 		return nil, nil
 	}
-
 	// check if the resource matches an exception
 	if len(c.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
@@ -78,9 +78,8 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
-
 	data := map[string]any{}
-	vars := lazy.NewMapValue(policy.VariablesType)
+	vars := lazy.NewMapValue(engine.VariablesType)
 	for name, variable := range c.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, data)
@@ -93,7 +92,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			return nil
 		})
 	}
-
 	if isK8s {
 		namespaceVal, err := objectToResolveVal(namespace)
 		if err != nil {
@@ -115,21 +113,19 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[RequestKey] = requestVal.Object
 		data[ObjectKey] = objectVal
 		data[OldObjectKey] = oldObjectVal
-		data[policy.VariablesKey] = vars
-		data[policy.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
-		data[policy.ImageDataKey] = imagedata.Context{ContextInterface: context}
-		data[policy.ResourceKey] = resource.Context{ContextInterface: context}
+		data[engine.VariablesKey] = vars
+		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
+		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context}
+		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
 		data[ObjectKey] = request
 	}
-
 	images, err := variables.ExtractImages(c.imageExtractors, data)
 	if err != nil {
 		return nil, err
 	}
 	data[ImagesKey] = images
 	data[AttestationKey] = c.attestationList
-
 	attestors := make(map[string]policiesv1alpha1.Attestor)
 	for _, att := range c.attestors {
 		data, err := att.Evaluate(data)
@@ -150,17 +146,14 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			}
 		}
 	}
-
 	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
 		return nil, err
 	}
-
 	for i, v := range c.verifications {
 		out, _, err := v.Program.ContextEval(ctx, data)
 		if err != nil {
 			return nil, err
 		}
-
 		// evaluate only when rule fails
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := v.Message
@@ -173,7 +166,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 					message = msg
 				}
 			}
-
 			return &EvaluationResult{
 				Result:  outcome,
 				Message: message,
@@ -219,7 +211,6 @@ func (p *compiledPolicy) match(
 	} else {
 		data[ObjectKey] = request
 	}
-
 	var errs []error
 	for _, matchCondition := range matchConditions {
 		// evaluate the condition

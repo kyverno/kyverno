@@ -1,4 +1,4 @@
-package policy
+package compiler
 
 // import (
 // 	"testing"
