@@ -1,9 +1,12 @@
-package policy
+package libs
 
 import (
 	"context"
 	"errors"
 
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -17,7 +20,11 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-type Context = ContextInterface
+type Context interface {
+	globalcontext.ContextInterface
+	imagedata.ContextInterface
+	resource.ContextInterface
+}
 
 type contextProvider struct {
 	dclient   dynamic.Interface
@@ -50,7 +57,6 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	if err != nil {
 		return nil, err
 	}
-
 	if isLikelyKubernetesObject(data) {
 		out, err := kubeutils.ObjToUnstructured(data)
 		if err != nil {
@@ -73,24 +79,6 @@ func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
 		return nil, err
 	}
 	return utils.GetValue(data.Data())
-}
-
-func isLikelyKubernetesObject(data any) bool {
-	if data == nil {
-		return false
-	}
-
-	if m, ok := data.(map[string]any); ok {
-		_, hasAPIVersion := m["apiVersion"]
-		_, hasKind := m["kind"]
-		return hasAPIVersion && hasKind
-	}
-
-	if _, ok := data.(runtime.Object); ok {
-		return true
-	}
-
-	return false
 }
 
 func (cp *contextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
@@ -127,4 +115,19 @@ func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, r
 	} else {
 		return client
 	}
+}
+
+func isLikelyKubernetesObject(data any) bool {
+	if data == nil {
+		return false
+	}
+	if m, ok := data.(map[string]any); ok {
+		_, hasAPIVersion := m["apiVersion"]
+		_, hasKind := m["kind"]
+		return hasAPIVersion && hasKind
+	}
+	if _, ok := data.(runtime.Object); ok {
+		return true
+	}
+	return false
 }

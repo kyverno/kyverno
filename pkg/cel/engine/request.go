@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,17 +14,17 @@ import (
 type EngineRequest struct {
 	JsonPayload *unstructured.Unstructured
 	Request     admissionv1.AdmissionRequest
-	Context     policy.ContextInterface
+	Context     libs.Context
 }
 
-func RequestFromAdmission(context policy.ContextInterface, request admissionv1.AdmissionRequest) EngineRequest {
+func RequestFromAdmission(context libs.Context, request admissionv1.AdmissionRequest) EngineRequest {
 	return EngineRequest{
 		Request: request,
 		Context: context,
 	}
 }
 
-func RequestFromJSON(context policy.ContextInterface, jsonPayload *unstructured.Unstructured) EngineRequest {
+func RequestFromJSON(context libs.Context, jsonPayload *unstructured.Unstructured) EngineRequest {
 	return EngineRequest{
 		JsonPayload: jsonPayload,
 		Context:     context,
@@ -32,7 +32,7 @@ func RequestFromJSON(context policy.ContextInterface, jsonPayload *unstructured.
 }
 
 func Request(
-	context policy.ContextInterface,
+	context libs.Context,
 	gvk schema.GroupVersionKind,
 	gvr schema.GroupVersionResource,
 	subResource string,

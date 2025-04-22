@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -90,7 +91,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest) (
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context celpolicy.ContextInterface) engine.ValidatingPolicyResponse {
+func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context) engine.ValidatingPolicyResponse {
 	response := engine.ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,

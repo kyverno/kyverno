@@ -9,6 +9,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
@@ -39,7 +40,7 @@ func (p *Policy) Evaluate(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context policy.ContextInterface,
+	context libs.Context,
 ) (*policy.EvaluationResult, error) {
 	switch p.mode {
 	case policiesv1alpha1.EvaluationModeJSON:
@@ -65,7 +66,7 @@ func (p *Policy) evaluateKubernetes(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context policy.ContextInterface,
+	context libs.Context,
 ) (*policy.EvaluationResult, error) {
 	data, err := p.prepareK8sData(attr, request, namespace, context)
 	if err != nil {
@@ -174,7 +175,7 @@ func (p *Policy) prepareK8sData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
-	context policy.ContextInterface,
+	context libs.Context,
 ) (policy.EvaluationData, error) {
 	namespaceVal, err := utils.ObjectToResolveVal(namespace)
 	if err != nil {

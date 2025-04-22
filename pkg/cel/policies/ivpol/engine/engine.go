@@ -9,8 +9,8 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -29,7 +29,7 @@ import (
 
 type Engine interface {
 	HandleMutating(context.Context, engine.EngineRequest) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error)
-	HandleValidating(ctx context.Context, request engine.EngineRequest) (eval.ImageVerifyEngineResponse, error)
+	HandleValidating(context.Context, engine.EngineRequest) (eval.ImageVerifyEngineResponse, error)
 }
 
 type NamespaceResolver = engine.NamespaceResolver
@@ -42,7 +42,13 @@ type engineImpl struct {
 	registryOpts []imagedataloader.Option
 }
 
-func NewEngine(provider Provider, nsResolver NamespaceResolver, matcher matching.Matcher, lister k8scorev1.SecretInterface, registryOpts []imagedataloader.Option) Engine {
+func NewEngine(
+	provider Provider,
+	nsResolver NamespaceResolver,
+	matcher matching.Matcher,
+	lister k8scorev1.SecretInterface,
+	registryOpts []imagedataloader.Option,
+) Engine {
 	return &engineImpl{
 		provider:     provider,
 		nsResolver:   nsResolver,
@@ -102,7 +108,10 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request engine.Engine
 	return response, nil
 }
 
-func (e *engineImpl) HandleMutating(ctx context.Context, request engine.EngineRequest) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
+func (e *engineImpl) HandleMutating(
+	ctx context.Context,
+	request engine.EngineRequest,
+) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -172,7 +181,14 @@ func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, names
 	return false, nil
 }
 
-func (e *engineImpl) handleMutation(ctx context.Context, policies []Policy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context policy.ContextInterface) ([]eval.ImageVerifyPolicyResponse, []jsonpatch.JsonPatchOperation, error) {
+func (e *engineImpl) handleMutation(
+	ctx context.Context,
+	policies []Policy,
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	context libs.Context,
+) ([]eval.ImageVerifyPolicyResponse, []jsonpatch.JsonPatchOperation, error) {
 	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
 	filteredPolicies := make([]Policy, 0)
 	if e.matcher != nil {
@@ -202,7 +218,6 @@ func (e *engineImpl) handleMutation(ctx context.Context, policies []Policy, attr
 			Actions:    ivpol.Actions,
 			Exceptions: ivpol.Exceptions,
 		}
-
 		if p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions); errList != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 		} else {
@@ -260,7 +275,11 @@ func objectAnnotations(attr admission.Attributes) (map[string]string, error) {
 	return u.GetAnnotations(), nil
 }
 
-func (e *engineImpl) handleValidation(policies []Policy, attr admission.Attributes, namespace runtime.Object) ([]eval.ImageVerifyPolicyResponse, error) {
+func (e *engineImpl) handleValidation(
+	policies []Policy,
+	attr admission.Attributes,
+	namespace runtime.Object,
+) ([]eval.ImageVerifyPolicyResponse, error) {
 	responses := make(map[string]eval.ImageVerifyPolicyResponse)
 	annotations, err := objectAnnotations(attr)
 	if err != nil {

@@ -9,11 +9,11 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -163,7 +163,7 @@ func (s *scanner) ScanResource(
 			)
 			gctxStore := gctxstore.New()
 			// create context provider
-			context, err := celpolicy.NewContextProvider(
+			context, err := libs.NewContextProvider(
 				s.client,
 				nil,
 				// TODO
@@ -220,7 +220,7 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			// create context provider
-			context, err := celpolicy.NewContextProvider(s.client, nil, gctxstore.New())
+			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New())
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
