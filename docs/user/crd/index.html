@@ -11296,50 +11296,6 @@ string
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.ImageRule">ImageRule
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
-</p>
-<p>
-<p>ImageRule defines a Glob or a CEL expression for matching images</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>glob</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Glob defines a globbing pattern for matching images</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>cel</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Cel defines CEL Expressions for matching images</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy
 </h3>
 <p>
@@ -11457,56 +11413,33 @@ Each variable is defined as a named CEL expression.</p>
 </tr>
 <tr>
 <td>
-<code>imageRules</code><br/>
+<code>validationConfigurations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageRule">
-[]ImageRule
+<a href="#policies.kyverno.io/v1alpha1.ValidationConfiguration">
+ValidationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchImageReferences</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MatchImageReference">
+[]MatchImageReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>mutateDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MutateDigest enables replacement of image tags with digests.
-Defaults to true.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>verifyDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>VerifyDigest validates that images have a digest.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>required</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
 <tr>
@@ -11832,56 +11765,33 @@ Each variable is defined as a named CEL expression.</p>
 </tr>
 <tr>
 <td>
-<code>imageRules</code><br/>
+<code>validationConfigurations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageRule">
-[]ImageRule
+<a href="#policies.kyverno.io/v1alpha1.ValidationConfiguration">
+ValidationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchImageReferences</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MatchImageReference">
+[]MatchImageReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>mutateDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MutateDigest enables replacement of image tags with digests.
-Defaults to true.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>verifyDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>VerifyDigest validates that images have a digest.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>required</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
 <tr>
@@ -12182,6 +12092,50 @@ string
 <td>
 <p>Roots is an optional set of PEM encoded trusted root certificates.
 If not provided, the system roots are used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MatchImageReference">MatchImageReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+</p>
+<p>
+<p>MatchImageReference defines a Glob or a CEL expression for matching images</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>glob</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Glob defines a globbing pattern for matching images</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Cel defines CEL Expressions for matching images</p>
 </td>
 </tr>
 </tbody>
@@ -12910,6 +12864,62 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidationConfiguration">ValidationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>mutateDigest</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MutateDigest enables replacement of image tags with digests.
+Defaults to true.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>verifyDigest</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>VerifyDigest validates that images have a digest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>required</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Required validates that images are verified, i.e., have passed a signature or attestation check.</p>
 </td>
 </tr>
 </tbody>

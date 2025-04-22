@@ -40,17 +40,17 @@ type CompiledPolicy interface {
 }
 
 type compiledPolicy struct {
-	failurePolicy   admissionregistrationv1.FailurePolicyType
-	matchConditions []cel.Program
-	imageRules      []*match.CompiledMatch
-	verifications   []policy.CompiledValidation
-	imageExtractors []*variables.CompiledImageExtractor
-	attestors       []*variables.CompiledAttestor
-	attestorList    map[string]string
-	attestationList map[string]string
-	creds           *v1alpha1.Credentials
-	exceptions      []policy.CompiledException
-	variables       map[string]cel.Program
+	failurePolicy        admissionregistrationv1.FailurePolicyType
+	matchConditions      []cel.Program
+	MatchImageReferences []*match.CompiledMatch
+	verifications        []policy.CompiledValidation
+	imageExtractors      []*variables.CompiledImageExtractor
+	attestors            []*variables.CompiledAttestor
+	attestorList         map[string]string
+	attestationList      map[string]string
+	creds                *v1alpha1.Credentials
+	exceptions           []policy.CompiledException
+	variables            map[string]cel.Program
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context policy.ContextInterface) (*EvaluationResult, error) {
@@ -143,7 +143,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	imgList := []string{}
 	for _, v := range images {
 		for _, img := range v {
-			if apply, err := match.Match(c.imageRules, img); err != nil {
+			if apply, err := match.Match(c.MatchImageReferences, img); err != nil {
 				return nil, err
 			} else if apply {
 				imgList = append(imgList, img)

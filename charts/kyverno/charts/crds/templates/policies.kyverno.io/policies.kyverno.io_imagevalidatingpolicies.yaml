@@ -402,24 +402,6 @@ spec:
                 - Ignore
                 - Fail
                 type: string
-              imageRules:
-                description: |-
-                  ImagesRules is a list of Glob and CELExpressions to match images.
-                  Any image that matches one of the rules is considered for validation
-                  Any image that does not match a rule is skipped, even when they are passed as arguments to
-                  image verification functions
-                items:
-                  description: ImageRule defines a Glob or a CEL expression for matching
-                    images
-                  properties:
-                    cel:
-                      description: Cel defines CEL Expressions for matching images
-                      type: string
-                    glob:
-                      description: Glob defines a globbing pattern for matching images
-                      type: string
-                  type: object
-                type: array
               images:
                 description: Images is a list of CEL expression to extract images
                   from the resource
@@ -814,17 +796,24 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
                 x-kubernetes-map-type: atomic
-              mutateDigest:
-                default: true
+              matchImageReferences:
                 description: |-
-                  MutateDigest enables replacement of image tags with digests.
-                  Defaults to true.
-                type: boolean
-              required:
-                default: true
-                description: Required validates that images are verified i.e. have
-                  matched passed a signature or attestation check.
-                type: boolean
+                  MatchImageReferences is a list of Glob and CELExpressions to match images.
+                  Any image that matches one of the rules is considered for validation
+                  Any image that does not match a rule is skipped, even when they are passed as arguments to
+                  image verification functions
+                items:
+                  description: MatchImageReference defines a Glob or a CEL expression
+                    for matching images
+                  properties:
+                    cel:
+                      description: Cel defines CEL Expressions for matching images
+                      type: string
+                    glob:
+                      description: Glob defines a globbing pattern for matching images
+                      type: string
+                  type: object
+                type: array
               validationActions:
                 description: |-
                   ValidationAction specifies the action to be taken when the matched resource violates the policy.
@@ -838,6 +827,28 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              validationConfigurations:
+                default: {}
+                description: ValidationConfigurations defines settings for mutating
+                  and verifying image digests, and enforcing image verification through
+                  signatures.
+                properties:
+                  mutateDigest:
+                    default: true
+                    description: |-
+                      MutateDigest enables replacement of image tags with digests.
+                      Defaults to true.
+                    type: boolean
+                  required:
+                    default: true
+                    description: Required validates that images are verified, i.e.,
+                      have passed a signature or attestation check.
+                    type: boolean
+                  verifyDigest:
+                    default: true
+                    description: VerifyDigest validates that images have a digest.
+                    type: boolean
+                type: object
               validations:
                 description: Validations contain CEL expressions which is used to
                   apply the image validation checks.
@@ -958,10 +969,6 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
-              verifyDigest:
-                default: true
-                description: VerifyDigest validates that images have a digest.
-                type: boolean
               webhookConfiguration:
                 description: WebhookConfiguration defines the configuration for the
                   webhook.
@@ -1348,26 +1355,6 @@ spec:
                               - Ignore
                               - Fail
                               type: string
-                            imageRules:
-                              description: |-
-                                ImagesRules is a list of Glob and CELExpressions to match images.
-                                Any image that matches one of the rules is considered for validation
-                                Any image that does not match a rule is skipped, even when they are passed as arguments to
-                                image verification functions
-                              items:
-                                description: ImageRule defines a Glob or a CEL expression
-                                  for matching images
-                                properties:
-                                  cel:
-                                    description: Cel defines CEL Expressions for matching
-                                      images
-                                    type: string
-                                  glob:
-                                    description: Glob defines a globbing pattern for
-                                      matching images
-                                    type: string
-                                type: object
-                              type: array
                             images:
                               description: Images is a list of CEL expression to extract
                                 images from the resource
@@ -1768,18 +1755,26 @@ spec:
                                   x-kubernetes-list-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
-                            mutateDigest:
-                              default: true
+                            matchImageReferences:
                               description: |-
-                                MutateDigest enables replacement of image tags with digests.
-                                Defaults to true.
-                              type: boolean
-                            required:
-                              default: true
-                              description: Required validates that images are verified
-                                i.e. have matched passed a signature or attestation
-                                check.
-                              type: boolean
+                                MatchImageReferences is a list of Glob and CELExpressions to match images.
+                                Any image that matches one of the rules is considered for validation
+                                Any image that does not match a rule is skipped, even when they are passed as arguments to
+                                image verification functions
+                              items:
+                                description: MatchImageReference defines a Glob or
+                                  a CEL expression for matching images
+                                properties:
+                                  cel:
+                                    description: Cel defines CEL Expressions for matching
+                                      images
+                                    type: string
+                                  glob:
+                                    description: Glob defines a globbing pattern for
+                                      matching images
+                                    type: string
+                                type: object
+                              type: array
                             validationActions:
                               description: |-
                                 ValidationAction specifies the action to be taken when the matched resource violates the policy.
@@ -1794,6 +1789,30 @@ spec:
                                 type: string
                               type: array
                               x-kubernetes-list-type: set
+                            validationConfigurations:
+                              default: {}
+                              description: ValidationConfigurations defines settings
+                                for mutating and verifying image digests, and enforcing
+                                image verification through signatures.
+                              properties:
+                                mutateDigest:
+                                  default: true
+                                  description: |-
+                                    MutateDigest enables replacement of image tags with digests.
+                                    Defaults to true.
+                                  type: boolean
+                                required:
+                                  default: true
+                                  description: Required validates that images are
+                                    verified, i.e., have passed a signature or attestation
+                                    check.
+                                  type: boolean
+                                verifyDigest:
+                                  default: true
+                                  description: VerifyDigest validates that images
+                                    have a digest.
+                                  type: boolean
+                              type: object
                             validations:
                               description: Validations contain CEL expressions which
                                 is used to apply the image validation checks.
@@ -1928,11 +1947,6 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               type: array
-                            verifyDigest:
-                              default: true
-                              description: VerifyDigest validates that images have
-                                a digest.
-                              type: boolean
                             webhookConfiguration:
                               description: WebhookConfiguration defines the configuration
                                 for the webhook.

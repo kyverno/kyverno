@@ -80,7 +80,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				cel.UnaryBinding(impl.get_image_data_string(context.TODO())),
 			),
 		},
-		"payload": {
+		"extractPayload": {
 			cel.Overload(
 				"payload_string_string",
 				[]*cel.Type{types.StringType, types.StringType},
