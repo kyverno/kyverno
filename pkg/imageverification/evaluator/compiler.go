@@ -63,7 +63,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		cel.Variable(ResourceKey, resource.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
-		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(engine.ImageDataKey, imagedata.ContextType),
 	}
@@ -106,7 +106,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
-	imageRules, errs := match.CompileMatches(path.Child("imageRules"), ivpolicy.Spec.ImageRules)
+	matchImageReferences, errs := match.CompileMatches(path.Child("matchImageReferences"), ivpolicy.Spec.MatchImageReferences)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -125,7 +125,16 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 	}
 
-	verifications := make([]engine.Validation, 0, len(ivpolicy.Spec.Validations))
+	var compiledAttestors []*ivpolvar.CompiledAttestor
+	{
+		path := path.Child("attestors")
+		compiledAttestors, errs = ivpolvar.CompileAttestors(path, ivpolicy.Spec.Attestors, env)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+	}
+
+	verifications := make([]policy.CompiledValidation, 0, len(ivpolicy.Spec.Validations))
 	{
 		path := path.Child("validations")
 		for i, rule := range ivpolicy.Spec.Validations {
@@ -155,15 +164,16 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	}
 
 	return &compiledPolicy{
-		failurePolicy:   ivpolicy.GetFailurePolicy(),
-		matchConditions: matchConditions,
-		imageRules:      imageRules,
-		verifications:   verifications,
-		imageExtractors: imageExtractors,
-		attestorList:    ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
-		attestationList: ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
-		creds:           ivpolicy.Spec.Credentials,
-		exceptions:      compiledExceptions,
-		variables:       variables,
+		failurePolicy:        ivpolicy.GetFailurePolicy(),
+		matchConditions:      matchConditions,
+		matchImageReferences: matchImageReferences,
+		verifications:        verifications,
+		imageExtractors:      imageExtractors,
+		attestors:            compiledAttestors,
+		attestorList:         ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
+		attestationList:      ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
+		creds:                ivpolicy.Spec.Credentials,
+		exceptions:           compiledExceptions,
+		variables:            variables,
 	}, nil
 }

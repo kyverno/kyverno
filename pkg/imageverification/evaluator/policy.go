@@ -41,16 +41,17 @@ type CompiledPolicy interface {
 }
 
 type compiledPolicy struct {
-	failurePolicy   admissionregistrationv1.FailurePolicyType
-	matchConditions []cel.Program
-	imageRules      []*match.CompiledMatch
-	verifications   []engine.Validation
-	imageExtractors []*variables.CompiledImageExtractor
-	attestorList    map[string]string
-	attestationList map[string]string
-	creds           *v1alpha1.Credentials
-	exceptions      []engine.Exception
-	variables       map[string]cel.Program
+	failurePolicy        admissionregistrationv1.FailurePolicyType
+	matchConditions      []cel.Program
+	matchImageReferences []*match.CompiledMatch
+	verifications        []policy.CompiledValidation
+	imageExtractors      []*variables.CompiledImageExtractor
+	attestors            []*variables.CompiledAttestor
+	attestorList         map[string]string
+	attestationList      map[string]string
+	creds                *v1alpha1.Credentials
+	exceptions           []policy.CompiledException
+	variables            map[string]cel.Program
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context policy.ContextInterface) (*EvaluationResult, error) {
@@ -128,13 +129,22 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return nil, err
 	}
 	data[ImagesKey] = images
-	data[AttestorKey] = c.attestorList
 	data[AttestationKey] = c.attestationList
+
+	attestors := make(map[string]policiesv1alpha1.Attestor)
+	for _, att := range c.attestors {
+		data, err := att.Evaluate(data)
+		if err != nil {
+			return nil, err
+		}
+		attestors[data.Name] = data
+	}
+	data[AttestorKey] = attestors
 
 	imgList := []string{}
 	for _, v := range images {
 		for _, img := range v {
-			if apply, err := match.Match(c.imageRules, img); err != nil {
+			if apply, err := match.Match(c.matchImageReferences, img); err != nil {
 				return nil, err
 			} else if apply {
 				imgList = append(imgList, img)
