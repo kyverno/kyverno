@@ -42,9 +42,10 @@ type CompiledPolicy interface {
 type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	matchConditions      []cel.Program
-	MatchImageReferences []*match.CompiledMatch
+	matchImageReferences []*match.CompiledMatch
 	verifications        []policy.CompiledValidation
 	imageExtractors      []*variables.CompiledImageExtractor
+	attestors            []*variables.CompiledAttestor
 	attestorList         map[string]string
 	attestationList      map[string]string
 	creds                *v1alpha1.Credentials
@@ -127,13 +128,22 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return nil, err
 	}
 	data[ImagesKey] = images
-	data[AttestorKey] = c.attestorList
 	data[AttestationKey] = c.attestationList
+
+	attestors := make(map[string]policiesv1alpha1.Attestor)
+	for _, att := range c.attestors {
+		data, err := att.Evaluate(data)
+		if err != nil {
+			return nil, err
+		}
+		attestors[data.Name] = data
+	}
+	data[AttestorKey] = attestors
 
 	imgList := []string{}
 	for _, v := range images {
 		for _, img := range v {
-			if apply, err := match.Match(c.MatchImageReferences, img); err != nil {
+			if apply, err := match.Match(c.matchImageReferences, img); err != nil {
 				return nil, err
 			} else if apply {
 				imgList = append(imgList, img)
