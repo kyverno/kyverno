@@ -64,7 +64,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		cel.Variable(ResourceKey, resource.ContextType),
 		cel.Variable(HttpKey, http.HTTPType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
-		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(policy.ImageDataKey, imagedata.ContextType),
 	}
@@ -107,7 +107,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
-	MatchImageReferences, errs := match.CompileMatches(path.Child("MatchImageReferences"), ivpolicy.Spec.MatchImageReferences)
+	matchImageReferences, errs := match.CompileMatches(path.Child("matchImageReferences"), ivpolicy.Spec.MatchImageReferences)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -121,6 +121,15 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	{
 		path := path.Child("variables")
 		errs := policy.CompileVariables(path, ivpolicy.Spec.Variables, variablesProvider, env, variables)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+	}
+
+	var compiledAttestors []*ivpolvar.CompiledAttestor
+	{
+		path := path.Child("attestors")
+		compiledAttestors, errs = ivpolvar.CompileAttestors(path, ivpolicy.Spec.Attestors, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -158,9 +167,10 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	return &compiledPolicy{
 		failurePolicy:        ivpolicy.GetFailurePolicy(),
 		matchConditions:      matchConditions,
-		MatchImageReferences: MatchImageReferences,
+		matchImageReferences: matchImageReferences,
 		verifications:        verifications,
 		imageExtractors:      imageExtractors,
+		attestors:            compiledAttestors,
 		attestorList:         ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
 		attestationList:      ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
 		creds:                ivpolicy.Spec.Credentials,
