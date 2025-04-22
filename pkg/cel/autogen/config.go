@@ -25,8 +25,8 @@ type config struct {
 }
 
 const (
-	AutogenDefaults = "autogen-defaults"
-	AutogenCronjobs = "autogen-cronjobs"
+	AutogenDefaults = "defaults"
+	AutogenCronjobs = "cronjobs"
 )
 
 var replacementsMap = map[string][]replacement{

@@ -273,7 +273,7 @@ func (r *ivpolpolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, err
 		}
 
-		for name, _ := range r.policies {
+		for name := range r.policies {
 			if strings.Contains(name, polName) {
 				delete(r.policies, name)
 			}
