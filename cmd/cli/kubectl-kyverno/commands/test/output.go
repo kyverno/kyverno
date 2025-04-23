@@ -422,7 +422,7 @@ func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResu
 }
 
 func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Table, detailedResults bool) {
-	var output []interface{}
+	output := make([]interface{}, 0, len(resultTable.RawRows))
 	failedTests := 0
 	for _, row := range resultTable.RawRows {
 		rowMap := map[string]interface{}{
