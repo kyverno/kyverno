@@ -16,9 +16,10 @@ import (
 )
 
 type maps struct {
-	pol  map[string]policyMapEntry
-	vap  sets.Set[string]
-	vpol sets.Set[string]
+	pol   map[string]policyMapEntry
+	vap   sets.Set[string]
+	vpol  sets.Set[string]
+	ivpol sets.Set[string]
 }
 
 func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
@@ -30,6 +31,15 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 			switch result.Source {
 			case reportutils.SourceValidatingPolicy:
 				if maps.vpol != nil && maps.vpol.Has(result.Policy) {
+					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					if rule, exists := accumulator[key]; !exists {
+						accumulator[key] = result
+					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+						accumulator[key] = result
+					}
+				}
+			case reportutils.SourceImageValidatingPolicy:
+				if maps.ivpol != nil && maps.ivpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result

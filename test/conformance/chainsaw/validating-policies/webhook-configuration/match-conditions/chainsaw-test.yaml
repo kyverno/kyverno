@@ -6,9 +6,19 @@ metadata:
 spec:
   steps:
   - name: create policy
-    try:
-    - create:
-        file: policy.yaml
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-privilege-escalation
   - name: check webhooks
     try:
     - assert:

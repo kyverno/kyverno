@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -19,7 +18,7 @@ func BuildValidatingAdmissionPolicy(
 	discoveryClient dclient.IDiscovery,
 	vap *admissionregistrationv1.ValidatingAdmissionPolicy,
 	policy engineapi.GenericPolicy,
-	exceptions []kyvernov2.PolicyException,
+	exceptions []engineapi.GenericException,
 ) error {
 	var matchResources admissionregistrationv1.MatchResources
 	var matchConditions []admissionregistrationv1.MatchCondition
@@ -75,16 +74,18 @@ func BuildValidatingAdmissionPolicy(
 
 		// convert the exceptions if exist
 		for _, exception := range exceptions {
-			match := exception.Spec.Match
-			if match.Any != nil {
-				if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.Any, false); err != nil {
-					return err
+			if polex := exception.AsException(); polex != nil {
+				match := polex.Spec.Match
+				if match.Any != nil {
+					if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.Any, false); err != nil {
+						return err
+					}
 				}
-			}
 
-			if match.All != nil {
-				if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.All, false); err != nil {
-					return err
+				if match.All != nil {
+					if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.All, false); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -100,6 +101,20 @@ func BuildValidatingAdmissionPolicy(
 		validations = vpol.Spec.Validations
 		auditAnnotations = vpol.Spec.AuditAnnotations
 		variables = vpol.Spec.Variables
+
+		// convert celexceptions if exist
+		for _, exception := range exceptions {
+			if celpolex := exception.AsCELException(); celpolex != nil {
+				for _, matchCondition := range celpolex.Spec.MatchConditions {
+					// negate the match condition
+					expression := "!(" + matchCondition.Expression + ")"
+					matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
+						Name:       matchCondition.Name,
+						Expression: expression,
+					})
+				}
+			}
+		}
 	}
 
 	// set owner reference
@@ -156,7 +171,7 @@ func BuildValidatingAdmissionPolicyBinding(
 		paramRef = rule.Validation.CEL.ParamRef
 		policyName = "cpol-" + cpol.GetName()
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		validationActions = vpol.Spec.ValidationAction
+		validationActions = vpol.Spec.ValidationActions()
 		policyName = "vpol-" + vpol.GetName()
 	}
 

@@ -40,7 +40,7 @@ func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, e
 	}, nil
 }
 
-func (i *imagedatafetcher) ParseImageReference(image string, options ...Option) (ImageReference, error) {
+func ParseImageReference(image string, options ...Option) (ImageReference, error) {
 	var img ImageReference
 	nameOpts := nameOptions(options...)
 	ref, err := name.ParseReference(image, nameOpts...)
@@ -51,6 +51,7 @@ func (i *imagedatafetcher) ParseImageReference(image string, options ...Option) 
 	img.Image = image
 	img.Registry = ref.Context().RegistryStr()
 	img.Repository = ref.Context().RepositoryStr()
+	img.Identifier = ref.Identifier()
 
 	if _, ok := ref.(name.Tag); ok {
 		img.Tag = ref.Identifier()
@@ -72,7 +73,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		return nil, err
 	}
 
-	img.ImageReference, err = i.ParseImageReference(image, options...)
+	img.ImageReference, err = ParseImageReference(image, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -150,6 +151,7 @@ type ImageReference struct {
 	ResolvedImage string `json:"resolvedImage,omitempty"`
 	Registry      string `json:"registry,omitempty"`
 	Repository    string `json:"repository,omitempty"`
+	Identifier    string `json:"identifier,omitempty"`
 	Tag           string `json:"tag,omitempty"`
 	Digest        string `json:"digest,omitempty"`
 }
@@ -158,10 +160,7 @@ type ImageData struct {
 	RemoteOpts []remote.Option
 	NameOpts   []name.Option
 
-	ImageReference `json:",inline"`
-	ImageIndex     interface{}       `json:"imageIndex,omitempty"`
-	Manifest       *gcrv1.Manifest   `json:"manifest,omitempty"`
-	ConfigData     *gcrv1.ConfigFile `json:"config,omitempty"`
+	ImageDescriptor `json:",inline"`
 
 	NameRef                name.Reference
 	desc                   *remote.Descriptor
@@ -169,6 +168,13 @@ type ImageData struct {
 	referrersData          map[string]referrerData
 	verifiedReferrers      map[string]gcrv1.Descriptor
 	verifiedIntotoPayloads map[string][]byte
+}
+
+type ImageDescriptor struct {
+	ImageReference `json:",inline"`
+	ImageIndex     interface{}       `json:"imageIndex,omitempty"`
+	Manifest       *gcrv1.Manifest   `json:"manifest,omitempty"`
+	ConfigData     *gcrv1.ConfigFile `json:"config,omitempty"`
 }
 
 type referrerData struct {
@@ -179,6 +185,12 @@ type referrerData struct {
 func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error) {
 	if identifier == i.Digest {
 		return GCRtoOCISpecDesc(i.desc.Descriptor), nil
+	} else if i.referrersManifest != nil {
+		for _, m := range i.referrersManifest.Manifests {
+			if identifier == m.Digest.String() {
+				return GCRtoOCISpecDesc(m), nil
+			}
+		}
 	}
 
 	d, err := remote.Head(i.NameRef.Context().Digest(identifier), i.RemoteOpts...)
@@ -191,6 +203,10 @@ func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error
 
 func (i *ImageData) WithDigest(digest string) string {
 	return i.NameRef.Context().Digest(digest).String()
+}
+
+func (i *ImageData) Data() ImageDescriptor {
+	return i.ImageDescriptor
 }
 
 func (i *ImageData) loadReferrers() error {

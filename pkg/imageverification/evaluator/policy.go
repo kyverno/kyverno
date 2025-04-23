@@ -6,44 +6,55 @@ import (
 	"reflect"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/imageverification/imageverifierfunctions"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
 	"go.uber.org/multierr"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
 type EvaluationResult struct {
-	Error   error
-	Message string
-	Index   int
-	Result  bool
+	Error      error
+	Message    string
+	Index      int
+	Result     bool
+	Exceptions []*policiesv1alpha1.PolicyException
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object) (*EvaluationResult, error)
+	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
 }
 
 type compiledPolicy struct {
-	failurePolicy   admissionregistrationv1.FailurePolicyType
-	matchConditions []cel.Program
-	imageRules      []*match.CompiledMatch
-	verifications   []policy.CompiledValidation
-	imageExtractors []*variables.CompiledImageExtractor
-	attestorList    map[string]string
-	attestationList map[string]string
-	creds           *v1alpha1.Credentials
+	failurePolicy        admissionregistrationv1.FailurePolicyType
+	matchConditions      []cel.Program
+	matchImageReferences []*match.CompiledMatch
+	verifications        []engine.Validation
+	imageExtractors      []*variables.CompiledImageExtractor
+	attestors            []*variables.CompiledAttestor
+	attestorList         map[string]string
+	attestationList      map[string]string
+	creds                *v1alpha1.Credentials
+	exceptions           []engine.Exception
+	variables            map[string]cel.Program
 }
 
-func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object) (*EvaluationResult, error) {
+func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
 	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -51,8 +62,37 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if !matched {
 		return nil, nil
 	}
+	// check if the resource matches an exception
+	if len(c.exceptions) > 0 {
+		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+		for _, polex := range c.exceptions {
+			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+			if err != nil {
+				return nil, err
+			}
+			if match {
+				matchedExceptions = append(matchedExceptions, polex.Exception)
+			}
+		}
+		if len(matchedExceptions) > 0 {
+			return &EvaluationResult{Exceptions: matchedExceptions}, nil
+		}
+	}
 	data := map[string]any{}
-	if isK8s(request) {
+	vars := lazy.NewMapValue(engine.VariablesType)
+	for name, variable := range c.variables {
+		vars.Append(name, func(*lazy.MapValue) ref.Val {
+			out, _, err := variable.ContextEval(ctx, data)
+			if out != nil {
+				return out
+			}
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return nil
+		})
+	}
+	if isK8s {
 		namespaceVal, err := objectToResolveVal(namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
@@ -73,39 +113,47 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[RequestKey] = requestVal.Object
 		data[ObjectKey] = objectVal
 		data[OldObjectKey] = oldObjectVal
+		data[engine.VariablesKey] = vars
+		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
+		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context}
+		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
-		data[RequestKey] = request
+		data[ObjectKey] = request
 	}
-
-	images, err := variables.ExtractImages(c.imageExtractors, request)
+	images, err := variables.ExtractImages(c.imageExtractors, data)
 	if err != nil {
 		return nil, err
 	}
 	data[ImagesKey] = images
-	data[AttestorKey] = c.attestorList
 	data[AttestationKey] = c.attestationList
+	attestors := make(map[string]policiesv1alpha1.Attestor)
+	for _, att := range c.attestors {
+		data, err := att.Evaluate(data)
+		if err != nil {
+			return nil, err
+		}
+		attestors[data.Name] = data
+	}
+	data[AttestorKey] = attestors
 
 	imgList := []string{}
 	for _, v := range images {
 		for _, img := range v {
-			if apply, err := match.Match(c.imageRules, img); err != nil {
+			if apply, err := match.Match(c.matchImageReferences, img); err != nil {
 				return nil, err
 			} else if apply {
 				imgList = append(imgList, img)
 			}
 		}
 	}
-
-	if err := ictx.AddImages(ctx, imgList, imageverifierfunctions.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
 		return nil, err
 	}
-
 	for i, v := range c.verifications {
 		out, _, err := v.Program.ContextEval(ctx, data)
 		if err != nil {
 			return nil, err
 		}
-
 		// evaluate only when rule fails
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := v.Message
@@ -118,7 +166,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 					message = msg
 				}
 			}
-
 			return &EvaluationResult{
 				Result:  outcome,
 				Message: message,
@@ -149,12 +196,21 @@ func (p *compiledPolicy) match(
 		if err != nil {
 			return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 		}
+		objectVal, err := objectToResolveVal(attr.GetObject())
+		if err != nil {
+			return false, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+		}
+		oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
+		if err != nil {
+			return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		}
 		data[NamespaceObjectKey] = namespaceVal
 		data[RequestKey] = requestVal.Object
+		data[ObjectKey] = objectVal
+		data[OldObjectKey] = oldObjectVal
 	} else {
-		data[RequestKey] = request
+		data[ObjectKey] = request
 	}
-
 	var errs []error
 	for _, matchCondition := range matchConditions {
 		// evaluate the condition
@@ -183,11 +239,6 @@ func (p *compiledPolicy) match(
 	} else {
 		return false, err
 	}
-}
-
-func isK8s(request interface{}) bool {
-	_, ok := request.(*admissionv1.AdmissionRequest)
-	return ok
 }
 
 func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {

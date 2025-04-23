@@ -17,6 +17,7 @@ spec:
       validate:
         failureAction: Audit
         cel:
+          generate: true
           expressions:
             - expression: "!has(object.spec.template.spec.volumes) || object.spec.template.spec.volumes.all(volume, !has(volume.hostPath))"
               message: "HostPath volumes are forbidden. The field spec.template.spec.volumes[*].hostPath must be unset."

@@ -78,9 +78,7 @@ func TestConvertObjectToUnstructured(t *testing.T) {
 				"status": map[string]any{},
 			},
 		},
-	},
-	// TODO: Add test cases.
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ConvertObjectToUnstructured(tt.obj)

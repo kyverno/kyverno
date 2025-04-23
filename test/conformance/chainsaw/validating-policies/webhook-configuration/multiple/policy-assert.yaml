@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-deployment-labels
+status:
+  conditionStatus:
+    conditions:
+    - message: Webhook configured.
+      reason: Succeeded
+      status: "True"
+      type: WebhookConfigured
+    - message: 'Policy is not ready for reporting, missing permissions: get apps/v1,
+        Resource=configmaps: ; list apps/v1, Resource=configmaps: ; watch apps/v1,
+        Resource=configmaps: .'
+      reason: Failed
+      status: "False"
+      type: RBACPermissionsGranted

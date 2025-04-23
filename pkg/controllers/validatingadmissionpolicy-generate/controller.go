@@ -2,6 +2,7 @@ package validatingadmissionpolicygenerate
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -53,6 +54,7 @@ type controller struct {
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
+	celpolexLister   policiesv1alpha1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 
@@ -70,6 +72,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
+	celpolexInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
@@ -86,6 +89,7 @@ func NewController(
 		cpolLister:       cpolInformer.Lister(),
 		vpolLister:       vpolInformer.Lister(),
 		polexLister:      polexInformer.Lister(),
+		celpolexLister:   celpolexInformer.Lister(),
 		vapLister:        vapInformer.Lister(),
 		vapbindingLister: vapbindingInformer.Lister(),
 		queue:            queue,
@@ -105,6 +109,11 @@ func NewController(
 
 	// Set up an event handler for when policy exceptions change
 	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+
+	// Set up an event handler for when cel policy exceptions change
+	if _, err := controllerutils.AddEventHandlersT(celpolexInformer.Informer(), c.addCELException, c.updateCELException, c.deleteCELException); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 
@@ -152,6 +161,38 @@ func (c *controller) enqueueVP(obj *policiesv1alpha1.ValidatingPolicy) {
 		return
 	}
 	c.queue.Add("ValidatingPolicy/" + key)
+}
+
+func (c *controller) addCELException(obj *policiesv1alpha1.PolicyException) {
+	logger.V(2).Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	c.enqueueCELException(obj)
+}
+
+func (c *controller) updateCELException(old, obj *policiesv1alpha1.PolicyException) {
+	if datautils.DeepEqual(old.Spec, obj.Spec) {
+		return
+	}
+	logger.V(2).Info("policy exception updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	c.enqueueCELException(obj)
+}
+
+func (c *controller) deleteCELException(obj *policiesv1alpha1.PolicyException) {
+	polex := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.PolicyException)
+
+	logger.V(2).Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
+	c.enqueueCELException(obj)
+}
+
+func (c *controller) enqueueCELException(obj *policiesv1alpha1.PolicyException) {
+	for _, policy := range obj.Spec.PolicyRefs {
+		if policy.Kind == "ValidatingPolicy" {
+			vpol, err := c.getValidatingPolicy(policy.Name)
+			if err != nil {
+				return
+			}
+			c.enqueueVP(vpol)
+		}
+	}
 }
 
 func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
@@ -299,9 +340,8 @@ func (c *controller) enqueueVAPbinding(vb *admissionregistrationv1.ValidatingAdm
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	var policy engineapi.GenericPolicy
-	var exceptions []kyvernov2.PolicyException
-	var err error
 	var vapName string
+	genericExceptions := make([]engineapi.GenericException, 0)
 
 	polType := strings.Split(key, "/")[0]
 	if polType == "ClusterPolicy" {
@@ -353,12 +393,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	// in case of clusterpolicies, check if we can generate a VAP from it.
 	if polType == "ClusterPolicy" {
 		spec := policy.AsKyvernoPolicy().GetSpec()
-		exceptions, err = c.getExceptions(name, spec.Rules[0].Name)
+		exceptions, err := c.getExceptions(name, spec.Rules[0].Name)
 		if err != nil {
 			return err
 		}
 
-		if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions); !ok {
+		if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions, false); !ok {
 			// delete the ValidatingAdmissionPolicy if exist
 			if vapErr == nil {
 				err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
@@ -380,12 +420,45 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.updatePolicyStatus(ctx, policy, false, msg)
 			return nil
 		}
+		for _, exception := range exceptions {
+			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
+		}
+	} else {
+		pol := policy.AsValidatingPolicy()
+		wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
+		shouldDelete := !wantVap
+
+		var reason string
+		if wantVap {
+			isAutogen := len(pol.GetStatus().Autogen.Configs) > 0
+			if isAutogen {
+				shouldDelete = true
+				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
+			}
+		} else {
+			reason = "skip generating ValidatingAdmissionPolicy: not enabled."
+		}
+		if shouldDelete {
+			// delete the ValidatingAdmissionPolicy if exist
+			if vapErr == nil {
+				if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+			// delete the ValidatingAdmissionPolicyBinding if exist
+			if vapBindingErr == nil {
+				if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+			c.updatePolicyStatus(ctx, policy, false, reason)
+			return nil
+		}
 	}
 
 	if vapErr != nil {
 		if !apierrors.IsNotFound(vapErr) {
-			c.updatePolicyStatus(ctx, policy, false, vapErr.Error())
-			return vapErr
+			return fmt.Errorf("failed to get validatingadmissionpolicy %s: %v", vapName, vapErr)
 		}
 		observedVAP = &admissionregistrationv1.ValidatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -395,8 +468,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	if vapBindingErr != nil {
 		if !apierrors.IsNotFound(vapBindingErr) {
-			c.updatePolicyStatus(ctx, policy, false, vapBindingErr.Error())
-			return vapBindingErr
+			return fmt.Errorf("failed to get validatingadmissionpolicybinding %s: %v", vapBindingName, vapBindingErr)
 		}
 		observedVAPbinding = &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -405,16 +477,22 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 	}
 
+	celexceptions, err := c.getCELExceptions(name)
+	if err != nil {
+		return fmt.Errorf("failed to get celexceptions by name %s: %v", name, err)
+	}
+	for _, exception := range celexceptions {
+		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
+	}
+
 	if observedVAP.ResourceVersion == "" {
-		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, exceptions)
+		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, genericExceptions)
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to build validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
 		_, err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{})
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to create validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
 	} else {
 		_, err := controllerutils.Update(
@@ -422,24 +500,21 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			observedVAP,
 			c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1.ValidatingAdmissionPolicy) error {
-				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, exceptions)
+				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, genericExceptions)
 			})
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to update validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
 	}
 
 	if observedVAPbinding.ResourceVersion == "" {
 		err := admissionpolicy.BuildValidatingAdmissionPolicyBinding(observedVAPbinding, policy)
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to build validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
 		_, err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(ctx, observedVAPbinding, metav1.CreateOptions{})
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to create validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
 	} else {
 		_, err := controllerutils.Update(
@@ -450,8 +525,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				return admissionpolicy.BuildValidatingAdmissionPolicyBinding(observed, policy)
 			})
 		if err != nil {
-			c.updatePolicyStatus(ctx, policy, false, err.Error())
-			return err
+			return fmt.Errorf("failed to update validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
 	}
 
@@ -469,14 +543,21 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		latest.Status.ValidatingAdmissionPolicy.Generated = generated
 		latest.Status.ValidatingAdmissionPolicy.Message = msg
 
-		new, _ := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			logging.Error(err, "failed to update cluster policy status", cpol.GetName(), "status", new.Status)
+		}
 		logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "status", new.Status)
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		latest := vpol.DeepCopy()
 		latest.Status.Generated = generated
-		latest.Status.Message = msg
+		latest.Status.GetConditionStatus().Message = msg
 
-		new, _ := c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			logging.Error(err, "failed to update validating policy status", vpol.GetName(), "status", new.Status)
+		}
+
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
 	}
 }
