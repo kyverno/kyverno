@@ -85,12 +85,19 @@ type verificationInfo struct {
 }
 
 func getVerificationInfo(image *imagedataloader.ImageData, att *policiesv1alpha1.Notary) (*verificationInfo, error) {
-	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(att.Certs.Value)))
+	var certsData, tsaCertsData string
+	if att.Certs != nil {
+		certsData = att.Certs.Value
+	}
+	if att.TSACerts != nil {
+		tsaCertsData = att.TSACerts.Value
+	}
+	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsData)))
 	if err != nil {
 		return nil, err
 	}
 
-	tsacerts, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(att.TSACerts.Value)))
+	tsacerts, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(tsaCertsData)))
 	if err != nil {
 		return nil, err
 	}
