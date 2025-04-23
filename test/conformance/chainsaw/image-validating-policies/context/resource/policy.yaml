@@ -23,7 +23,7 @@ spec:
         variables.environment == true
       message: >-
         Deployment labels must be env=prod
-  imageRules:
+  matchImageReferences:
     - glob: ghcr.io/*
   attestors:
     - name: notary

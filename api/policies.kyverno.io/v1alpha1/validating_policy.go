@@ -30,30 +30,21 @@ type ValidatingPolicy struct {
 	Status ValidatingPolicyStatus `json:"status,omitempty"`
 }
 
+// BackgroundEnabled checks if background is set to true
+func (s ValidatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
 type ValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
-	Autogen AutogenStatus `json:"autogen"`
+	Autogen ValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
 
 	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
-}
-
-// AutogenStatus contains autogen status information.
-type AutogenStatus struct {
-	// Rules is a list of Rule instances. It contains auto generated rules added for pod controllers
-	Rules []AutogenRule `json:"rules,omitempty"`
-}
-
-type AutogenRule struct {
-	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
-	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
-	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
-	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
-	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
 }
 
 func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -240,9 +231,10 @@ func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
 	return s.EvaluationConfiguration.Mode
 }
 
+// ValidationActions returns the validation actions.
 func (s ValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
 	const defaultValue = admissionregistrationv1.Deny
-	if s.ValidationAction == nil {
+	if len(s.ValidationAction) == 0 {
 		return []admissionregistrationv1.ValidationAction{defaultValue}
 	}
 	return s.ValidationAction
