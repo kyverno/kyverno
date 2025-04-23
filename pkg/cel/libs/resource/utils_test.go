@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/common/types/ref"
-	engine "github.com/kyverno/kyverno/pkg/cel"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUnpack(t *testing.T) {
-	base, err := engine.NewEnv()
+	base, err := compiler.NewEnv()
 	if err != nil {
 		t.Fatalf("failed to create engine: %v", err)
 	}

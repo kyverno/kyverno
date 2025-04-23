@@ -16,6 +16,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -628,9 +630,14 @@ func main() {
 				os.Exit(1)
 			}
 			// create compiler
-			compiler := celpolicy.NewCompiler()
+			compiler := vpolcompiler.NewCompiler()
 			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			provider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			if err != nil {
+				setup.Logger.Error(err, "failed to create policy provider")
+				os.Exit(1)
+			}
+			ivpolProvider, err := celengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
@@ -651,8 +658,8 @@ func main() {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
 			}
-			vpolEngine = celengine.NewEngine(
-				provider.CompiledValidationPolicies,
+			vpolEngine = vpolengine.NewEngine(
+				provider,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {
@@ -663,7 +670,7 @@ func main() {
 				matching.NewMatcher(),
 			)
 			ivpolEngine = celengine.NewImageValidatingEngine(
-				provider.ImageVerificationPolicies,
+				ivpolProvider.ImageVerificationPolicies,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {

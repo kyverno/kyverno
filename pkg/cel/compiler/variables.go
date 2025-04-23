@@ -1,4 +1,4 @@
-package policy
+package compiler
 
 import (
 	"github.com/google/cel-go/common/types"

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -47,7 +48,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				]
 			}`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				AutogenDefaults: {
+				autogen.AutogenDefaults: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -105,7 +106,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				]
 			}`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				AutogenDefaults: {
+				autogen.AutogenDefaults: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -169,7 +170,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				]
 			}`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				AutogenDefaults: {
+				autogen.AutogenDefaults: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -249,7 +250,7 @@ func TestGenerateCronJobRule(t *testing.T) {
     ]
 }`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				AutogenCronjobs: {
+				autogen.AutogenCronjobs: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -311,7 +312,7 @@ func TestGenerateCronJobRule(t *testing.T) {
     ]
 }`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				AutogenCronjobs: {
+				autogen.AutogenCronjobs: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -380,7 +381,7 @@ func TestGenerateCronJobRule(t *testing.T) {
     ]
 }`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				AutogenCronjobs: {
+				autogen.AutogenCronjobs: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -425,53 +426,5 @@ func TestGenerateCronJobRule(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.generatedRule, genRule)
 		})
-	}
-}
-
-func TestUpdateGenRuleByte(t *testing.T) {
-	tests := []struct {
-		pbyte  []byte
-		config string
-		want   []byte
-	}{
-		{
-			pbyte:  []byte("object.spec"),
-			config: "deployments",
-			want:   []byte("object.spec.template.spec"),
-		},
-		{
-			pbyte:  []byte("oldObject.spec"),
-			config: "deployments",
-			want:   []byte("oldObject.spec.template.spec"),
-		},
-		{
-			pbyte:  []byte("object.spec"),
-			config: "cronjobs",
-			want:   []byte("object.spec.jobTemplate.spec.template.spec"),
-		},
-		{
-			pbyte:  []byte("oldObject.spec"),
-			config: "cronjobs",
-			want:   []byte("oldObject.spec.jobTemplate.spec.template.spec"),
-		},
-		{
-			pbyte:  []byte("object.metadata"),
-			config: "deployments",
-			want:   []byte("object.spec.template.metadata"),
-		},
-		{
-			pbyte:  []byte("object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
-			config: "cronjobs",
-			want:   []byte("object.spec.jobTemplate.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
-		},
-		{
-			pbyte:  []byte("object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
-			config: "deployments",
-			want:   []byte("object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
-		},
-	}
-	for _, tt := range tests {
-		got := updateFields(tt.pbyte, replacementsMap[configsMap[tt.config].replacementsRef]...)
-		assert.Equal(t, tt.want, got)
 	}
 }
