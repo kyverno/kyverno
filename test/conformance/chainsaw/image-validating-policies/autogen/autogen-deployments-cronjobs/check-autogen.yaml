@@ -5,7 +5,7 @@ metadata:
 status:
   autogen:
     configs:
-      "":
+      defaults-ivpol-autogen-sample:
         spec:
           attestations:
           - name: sbom
@@ -42,14 +42,14 @@ status:
               - deployments
               - cronjobs
           failurePolicy: Ignore
-          imageRules:
+          matchImageReferences:
           - cel: ""
             glob: ghcr.io/*
           matchConditions:
           - expression: '!((object.apiVersion == ''apps/v1'' && object.kind ==''Deployment''))
               || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
               && object.spec.template.metadata.labels.prod == ''true'')'
-            name: autogen-check-prod-label
+            name: autogen-defaults-check-prod-label
           matchConstraints:
             resourceRules:
             - apiGroups:
@@ -60,8 +60,6 @@ status:
               - CREATE
               resources:
               - deployments
-          mutateDigest: true
-          required: true
           validationActions:
           - Deny
           validations:
@@ -71,13 +69,16 @@ status:
           - expression: images.containers.map(image, verifyAttestationSignatures(image,
               attestations.sbom ,[attestors.notary])).all(e, e > 0)
             message: failed to verify attestation with notary cer
-          - expression: images.containers.map(image, payload(image, attestations.sbom).bomFormat
+          - expression: images.containers.map(image, extractPayload(image, attestations.sbom).bomFormat
               == 'CycloneDX').all(e, e)
             message: sbom is not a cyclone dx sbom
-          verifyDigest: true
+          validationConfigurations:
+            mutateDigest: true
+            required: true
+            verifyDigest: true
           webhookConfiguration:
             timeoutSeconds: 20
-      cronjobs:
+      cronjobs-ivpol-autogen-sample:
         spec:
           attestations:
           - name: sbom
@@ -114,7 +115,7 @@ status:
               - deployments
               - cronjobs
           failurePolicy: Ignore
-          imageRules:
+          matchImageReferences:
           - cel: ""
             glob: ghcr.io/*
           matchConditions:
@@ -132,8 +133,6 @@ status:
               - CREATE
               resources:
               - cronjobs
-          mutateDigest: true
-          required: true
           validationActions:
           - Deny
           validations:
@@ -143,9 +142,12 @@ status:
           - expression: images.containers.map(image, verifyAttestationSignatures(image,
               attestations.sbom ,[attestors.notary])).all(e, e > 0)
             message: failed to verify attestation with notary cer
-          - expression: images.containers.map(image, payload(image, attestations.sbom).bomFormat
+          - expression: images.containers.map(image, extractPayload(image, attestations.sbom).bomFormat
               == 'CycloneDX').all(e, e)
             message: sbom is not a cyclone dx sbom
-          verifyDigest: true
+          validationConfigurations:
+            mutateDigest: true
+            required: true
+            verifyDigest: true
           webhookConfiguration:
             timeoutSeconds: 20
