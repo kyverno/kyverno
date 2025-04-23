@@ -24,7 +24,7 @@ webhooks:
       && object.kind ==''StatefulSet'') || (object.apiVersion == ''batch/v1'' && object.kind
       ==''Job'')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
       && object.spec.template.metadata.labels.prod == ''true'')'
-    name: autogen-check-prod-label
+    name: autogen-defaults-check-prod-label
   - expression: '!((object.apiVersion == ''batch/v1'' && object.kind ==''CronJob''))
       || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
       && object.spec.jobTemplate.spec.template.metadata.labels.prod == ''true'')'
