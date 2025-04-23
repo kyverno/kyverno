@@ -15,6 +15,7 @@ var (
 	// logging
 	loggingFormat   string
 	loggingTsFormat string
+	disableLogColor bool
 	// profiling
 	profilingEnabled bool
 	profilingAddress string
@@ -68,6 +69,7 @@ var (
 func initLoggingFlags() {
 	logging.InitFlags(nil)
 	flag.StringVar(&loggingFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.BoolVar(&disableLogColor, "disableLogColor", false, "Disable colored output in logs.")
 	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
 }

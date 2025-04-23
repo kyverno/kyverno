@@ -21,8 +21,10 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -228,17 +230,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// validating policies
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
-		compiler := celpolicy.NewCompiler()
-		provider, err := celengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
+		compiler := vpolcompiler.NewCompiler()
+		provider, err := vpolengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
 		// TODO: mock when no cluster provided
 		gctxStore := gctxstore.New()
 		var restMapper meta.RESTMapper
-		var contextProvider celpolicy.Context
+		var contextProvider libs.Context
 		if p.Client != nil && p.Cluster {
-			contextProvider, err = celpolicy.NewContextProvider(
+			contextProvider, err = libs.NewContextProvider(
 				p.Client,
 				// TODO
 				[]imagedataloader.Option{imagedataloader.WithLocalCredentials(true)},
@@ -258,7 +260,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, err
 			}
 			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-			fakeContextProvider := celpolicy.NewFakeContextProvider()
+			fakeContextProvider := libs.NewFakeContextProvider()
 			if p.ContextPath != "" {
 				ctx, err := clicontext.Load(nil, p.ContextPath)
 				if err != nil {
@@ -278,7 +280,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			contextProvider = fakeContextProvider
 		}
 		if resource.Object != nil {
-			eng := celengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
+			eng := vpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
 			// get gvk from resource
 			gvk := resource.GroupVersionKind()
 			// map gvk to gvr
@@ -325,7 +327,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 		}
 		if p.JsonPayload.Object != nil {
-			eng := celengine.NewEngine(provider, nil, nil)
+			eng := vpolengine.NewEngine(provider, nil, nil)
 			request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
 			reps, err := eng.Handle(ctx, request)
 			if err != nil {

@@ -37,7 +37,7 @@ TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
 KIND_VERSION                       ?= v0.27.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.17.2
+CONTROLLER_GEN_VERSION             ?= v0.17.3
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
@@ -572,7 +572,10 @@ codegen-helm-docs: ## Generate helm docs
 	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 
 .PHONY: codegen-api-docs
-codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate API docs
+codegen-api-docs: ## Generate API docs
+codegen-api-docs: $(PACKAGE_SHIM)
+codegen-api-docs: $(GEN_CRD_API_REFERENCE_DOCS)
+codegen-api-docs: $(GENREF)
 	@echo Generate api docs... >&2
 	@rm -rf docs/user/crd && mkdir -p docs/user/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
@@ -592,7 +595,10 @@ codegen-api-group-resources: $(API_GROUP_RESOURCES)
 	@$(API_GROUP_RESOURCES) > cmd/cli/kubectl-kyverno/data/api-group-resources.json
 
 .PHONY: codegen-cli-api-docs
-codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate CLI API docs
+codegen-cli-api-docs: ## Generate CLI API docs
+codegen-cli-api-docs: $(PACKAGE_SHIM)
+codegen-cli-api-docs: $(GEN_CRD_API_REFERENCE_DOCS)
+codegen-cli-api-docs: $(GENREF)
 	@echo Generate CLI api docs... >&2
 	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
@@ -606,7 +612,8 @@ codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ##
 		-f html
 
 .PHONY: codegen-cli-docs
-codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
+codegen-cli-docs: ## Generate CLI docs
+codegen-cli-docs: $(CLI_BIN)
 	@echo Generate cli docs... >&2
 	@rm -rf docs/user/cli/commands && mkdir -p docs/user/cli/commands
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli/commands --autogenTag=false

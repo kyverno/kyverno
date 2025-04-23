@@ -23,5 +23,5 @@ spec:
      - expression: >-
           variables.sa.Namespace == "default"
        message: >-
-          ServiceAccount must in default namespace
+          ServiceAccount must be in default namespace
       

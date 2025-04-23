@@ -6,7 +6,6 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	celautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
@@ -415,11 +414,11 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 						},
 						{
 							Name:       "autogen-check-prod-label",
-							Expression: celautogen.PodControllersMatchConditionExpression + "has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
+							Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet') || (object.apiVersion == 'batch/v1' && object.kind =='Job')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
 						},
 						{
 							Name:       "autogen-cronjobs-check-prod-label",
-							Expression: celautogen.CronJobMatchConditionExpression + "has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
+							Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
 						},
 					},
 				},
