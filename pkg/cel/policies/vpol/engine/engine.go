@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -19,15 +19,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type NamespaceResolver = engine.NamespaceResolver
-
 type engineImpl struct {
 	provider   Provider
-	nsResolver NamespaceResolver
+	nsResolver engine.NamespaceResolver
 	matcher    matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver NamespaceResolver, matcher matching.Matcher) engine.Engine {
+func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) engine.Engine {
 	return &engineImpl{
 		provider:   provider,
 		nsResolver: nsResolver,
@@ -105,7 +103,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			return response
 		}
 	}
-	var result *celpolicy.EvaluationResult
+	var result *compiler.EvaluationResult
 	var err error
 	if jsonPayload != nil {
 		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context)

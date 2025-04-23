@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -41,7 +40,7 @@ func (p *Policy) Evaluate(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context libs.Context,
-) (*policy.EvaluationResult, error) {
+) (*EvaluationResult, error) {
 	switch p.mode {
 	case policiesv1alpha1.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
@@ -53,8 +52,8 @@ func (p *Policy) Evaluate(
 func (p *Policy) evaluateJson(
 	ctx context.Context,
 	json any,
-) (*policy.EvaluationResult, error) {
-	data := policy.EvaluationData{
+) (*EvaluationResult, error) {
+	data := evaluationData{
 		Object:    json,
 		Variables: lazy.NewMapValue(compiler.VariablesType),
 	}
@@ -67,8 +66,8 @@ func (p *Policy) evaluateKubernetes(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context libs.Context,
-) (*policy.EvaluationResult, error) {
-	data, err := p.prepareK8sData(attr, request, namespace, context)
+) (*EvaluationResult, error) {
+	data, err := prepareK8sData(attr, request, namespace, context)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +76,8 @@ func (p *Policy) evaluateKubernetes(
 
 func (p *Policy) evaluateWithData(
 	ctx context.Context,
-	data policy.EvaluationData,
-) (*policy.EvaluationResult, error) {
+	data evaluationData,
+) (*EvaluationResult, error) {
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
@@ -92,7 +91,7 @@ func (p *Policy) evaluateWithData(
 			}
 		}
 		if len(matchedExceptions) > 0 {
-			return &policy.EvaluationResult{Exceptions: matchedExceptions}, nil
+			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
 	match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, p.matchConditions)
@@ -156,7 +155,7 @@ func (p *Policy) evaluateWithData(
 					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
 				}
 			}
-			return &policy.EvaluationResult{
+			return &EvaluationResult{
 				Result:           outcome,
 				Message:          message,
 				Index:            index,
@@ -164,42 +163,11 @@ func (p *Policy) evaluateWithData(
 				AuditAnnotations: auditAnnotations,
 			}, nil
 		} else if err != nil {
-			return &policy.EvaluationResult{Error: err}, nil
+			return &EvaluationResult{Error: err}, nil
 		}
 	}
 
-	return &policy.EvaluationResult{Result: true}, nil
-}
-
-func (p *Policy) prepareK8sData(
-	attr admission.Attributes,
-	request *admissionv1.AdmissionRequest,
-	namespace runtime.Object,
-	context libs.Context,
-) (policy.EvaluationData, error) {
-	namespaceVal, err := utils.ObjectToResolveVal(namespace)
-	if err != nil {
-		return policy.EvaluationData{}, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-	}
-	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
-	if err != nil {
-		return policy.EvaluationData{}, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return policy.EvaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-	requestVal, err := utils.ConvertObjectToUnstructured(request)
-	if err != nil {
-		return policy.EvaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-	}
-	return policy.EvaluationData{
-		Namespace: namespaceVal,
-		Object:    objectVal,
-		OldObject: oldObjectVal,
-		Request:   requestVal.Object,
-		Context:   context,
-	}, nil
+	return &EvaluationResult{Result: true}, nil
 }
 
 func (p *Policy) match(
