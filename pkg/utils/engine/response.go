@@ -16,11 +16,15 @@ func IsResponseSuccessful(engineReponses []engineapi.EngineResponse) bool {
 }
 
 // BlockRequest returns true when:
-// 1. a policy fails (i.e. creates a violation) and validationFailureAction is set to 'enforce'
+// 1. a policy fails (i.e. creates a violation) and validationFailureAction is set to 'enforce' or 'deferEnforce'
 // 2. a policy has a processing error and failurePolicy is set to 'Fail`
 func BlockRequest(er engineapi.EngineResponse, failurePolicy kyvernov1.FailurePolicyType) bool {
-	if er.IsFailed() && er.GetValidationFailureAction().Enforce() {
-		return true
+	if er.IsFailed() {
+		action := er.GetValidationFailureAction()
+		// If action is DeferEnforce, we'll handle it separately in the webhook handler
+		if action.Enforce() && !action.DeferEnforce() {
+			return true
+		}
 	}
 	if er.IsError() && failurePolicy == kyvernov1.Fail {
 		return true

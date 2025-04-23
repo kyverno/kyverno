@@ -54,6 +54,8 @@ Kyverno installation and reference documents are available at [kyverno.io](https
 
 👉 **[Sample Policies](https://kyverno.io/policies/)**
 
+👉 **[Validation Failure Actions](docs/user/validation-failure-action.md)**
+
 ## 🎯 Popular Use Cases
 
 Kyverno helps platform teams enforce best practices and security policies. Here are some common use cases:
@@ -112,7 +114,7 @@ Thanks for your interest in contributing to Kyverno! Here are some steps to help
 
 ## Software Bill of Materials
 
-All Kyverno images include a Software Bill of Materials (SBOM) in [CycloneDX](https://cyclonedx.org/) JSON format. SBOMs for Kyverno images are stored in a separate repository at `ghcr.io/kyverno/sbom`. More information on this is available at [Fetching the SBOM for Kyverno](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno). 
+All Kyverno images include a Software Bill of Materials (SBOM) in [CycloneDX](https://cyclonedx.org/) JSON format. SBOMs for Kyverno images are stored in a separate repository at `ghcr.io/kyverno/sbom`. More information on this is available at [Fetching the SBOM for Kyverno](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno).
 
 ## Contributors
 

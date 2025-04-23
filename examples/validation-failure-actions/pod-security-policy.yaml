@@ -1,0 +1,70 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-security-best-practices
+  annotations:
+    policies.kyverno.io/title: Pod Security Best Practices
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      This policy enforces best practices for Pod security.
+      It uses DeferEnforce to provide comprehensive feedback on all violations at once.
+spec:
+  validationFailureAction: DeferEnforce
+  background: true
+  rules:
+    - name: require-resource-limits
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "CPU and memory resource limits are required for all containers."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  limits:
+                    memory: "?*"
+                    cpu: "?*"
+    
+    - name: require-security-context
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "Security context with runAsNonRoot: true is required for all containers."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  runAsNonRoot: true
+    
+    - name: disallow-privileged-containers
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "Privileged containers are not allowed."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  privileged: false
+    
+    - name: require-labels
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "Required labels (app, team, environment) are missing."
+        pattern:
+          metadata:
+            labels:
+              app: "?*"
+              team: "?*"
+              environment: "?*"

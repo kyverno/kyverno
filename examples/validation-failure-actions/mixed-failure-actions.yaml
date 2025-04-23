@@ -1,0 +1,62 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mixed-failure-actions
+  annotations:
+    policies.kyverno.io/title: Mixed Validation Failure Actions
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      This policy demonstrates how to mix different validation failure actions
+      within a single policy to balance security and user experience.
+spec:
+  validationFailureAction: Audit  # Default is Audit (report only)
+  background: true
+  rules:
+    - name: critical-security-check
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        failureAction: Enforce  # Critical security check - fail immediately
+        message: "Critical security violation: privileged containers are not allowed."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  privileged: false
+    
+    - name: important-requirements
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        failureAction: DeferEnforce  # Important but provide comprehensive feedback
+        message: "Pod must have resource limits and run as non-root."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  limits:
+                    memory: "?*"
+                    cpu: "?*"
+                securityContext:
+                  runAsNonRoot: true
+    
+    - name: recommended-labels
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        # Uses default Audit from policy level
+        message: "Recommended: Add app, team, and environment labels."
+        pattern:
+          metadata:
+            labels:
+              app: "?*"
+              team: "?*"
+              environment: "?*"

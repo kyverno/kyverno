@@ -26,22 +26,28 @@ const (
 	Enforce ValidationFailureAction = "Enforce"
 	// Audit doesn't block the request on failure
 	Audit ValidationFailureAction = "Audit"
+	// DeferEnforce blocks the request on failure but only after evaluating all rules
+	DeferEnforce ValidationFailureAction = "DeferEnforce"
 )
 
 func (a ValidationFailureAction) Enforce() bool {
-	return a == Enforce || a == enforceOld
+	return a == Enforce || a == enforceOld || a == DeferEnforce
 }
 
 func (a ValidationFailureAction) Audit() bool {
 	return !a.Enforce()
 }
 
+func (a ValidationFailureAction) DeferEnforce() bool {
+	return a == DeferEnforce
+}
+
 func (a ValidationFailureAction) IsValid() bool {
-	return a == enforceOld || a == auditOld || a == Enforce || a == Audit
+	return a == enforceOld || a == auditOld || a == Enforce || a == Audit || a == DeferEnforce
 }
 
 type ValidationFailureActionOverride struct {
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce;DeferEnforce
 	Action            ValidationFailureAction `json:"action,omitempty"`
 	Namespaces        []string                `json:"namespaces,omitempty"`
 	NamespaceSelector *metav1.LabelSelector   `json:"namespaceSelector,omitempty"`
@@ -64,7 +70,7 @@ type Spec struct {
 	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// Deprecated, use validationFailureAction under the validate rule instead.
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce;DeferEnforce
 	// +kubebuilder:default=Audit
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty"`
 

@@ -24,6 +24,22 @@ func getAction(hasViolations bool, i int) string {
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func BlockRequest(engineResponses []engineapi.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
+	// First check for any DeferEnforce policies
+	hasFailedDeferEnforce := false
+	for _, er := range engineResponses {
+		if er.IsFailed() && er.GetValidationFailureAction().DeferEnforce() {
+			hasFailedDeferEnforce = true
+			log.V(2).Info("found failed policy with DeferEnforce action", "policy", er.Policy().GetName())
+		}
+	}
+
+	// If we have any DeferEnforce policies that failed, block the request after evaluating all policies
+	if hasFailedDeferEnforce {
+		log.V(2).Info("blocking admission request due to DeferEnforce policy")
+		return true
+	}
+
+	// Check for regular blocking policies
 	for _, er := range engineResponses {
 		if engineutils.BlockRequest(er, failurePolicy) {
 			log.V(2).Info("blocking admission request", "policy", er.Policy().GetName())
