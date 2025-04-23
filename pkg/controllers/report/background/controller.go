@@ -12,7 +12,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
@@ -610,7 +610,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if err != nil {
 			return err
 		}
-		for _, vpol := range policy.RemoveNoneBackgroundValidatingPolicies(vpols) {
+		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
 			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
 		}
 	}
@@ -620,7 +620,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if err != nil {
 			return err
 		}
-		for _, vpol := range policy.RemoveNoneBackgroundImageVerificationPolicies(ivpols) {
+		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
 			policies = append(policies, engineapi.NewImageValidatingPolicy(&vpol))
 		}
 	}
