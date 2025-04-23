@@ -7,15 +7,20 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+const (
+	AutogenDefaults = "defaults"
+	AutogenCronjobs = "cronjobs"
+)
+
 var ReplacementsMap = map[string][]Replacement{
-	"": {{
+	AutogenDefaults: {{
 		From: "spec",
 		To:   "spec.template.spec",
 	}, {
 		From: "metadata",
 		To:   "spec.template.metadata",
 	}},
-	"cronjobs": {{
+	AutogenCronjobs: {{
 		From: "spec",
 		To:   "spec.jobTemplate.spec.template.spec",
 	}, {
@@ -32,7 +37,7 @@ var ConfigsMap = map[string]*Config{
 			Resource: "daemonsets",
 			Kind:     "DaemonSet",
 		},
-		ReplacementsRef: "",
+		ReplacementsRef: AutogenDefaults,
 	},
 	"deployments": {
 		Target: Target{
@@ -41,7 +46,7 @@ var ConfigsMap = map[string]*Config{
 			Resource: "deployments",
 			Kind:     "Deployment",
 		},
-		ReplacementsRef: "",
+		ReplacementsRef: AutogenDefaults,
 	},
 	"replicasets": {
 		Target: Target{
@@ -50,7 +55,7 @@ var ConfigsMap = map[string]*Config{
 			Resource: "replicasets",
 			Kind:     "ReplicaSet",
 		},
-		ReplacementsRef: "",
+		ReplacementsRef: AutogenDefaults,
 	},
 	"statefulsets": {
 		Target: Target{
@@ -59,7 +64,7 @@ var ConfigsMap = map[string]*Config{
 			Resource: "statefulsets",
 			Kind:     "StatefulSet",
 		},
-		ReplacementsRef: "",
+		ReplacementsRef: AutogenDefaults,
 	},
 	"jobs": {
 		Target: Target{
@@ -68,7 +73,7 @@ var ConfigsMap = map[string]*Config{
 			Resource: "jobs",
 			Kind:     "Job",
 		},
-		ReplacementsRef: "",
+		ReplacementsRef: AutogenDefaults,
 	},
 	"cronjobs": {
 		Target: Target{
@@ -77,7 +82,7 @@ var ConfigsMap = map[string]*Config{
 			Resource: "cronjobs",
 			Kind:     "CronJob",
 		},
-		ReplacementsRef: "cronjobs",
+		ReplacementsRef: AutogenCronjobs,
 	},
 }
 

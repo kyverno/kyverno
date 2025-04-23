@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -47,7 +48,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				]
 			}`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				"": {
+				autogen.AutogenDefaults: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -105,7 +106,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				]
 			}`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				"": {
+				autogen.AutogenDefaults: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -169,7 +170,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				]
 			}`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				"": {
+				autogen.AutogenDefaults: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -190,7 +191,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						},
 						MatchConditions: []admissionregistrationv1.MatchCondition{
 							{
-								Name:       "autogen-only for production",
+								Name:       "autogen-defaults-only for production",
 								Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
 							},
 						},
@@ -249,7 +250,7 @@ func TestGenerateCronJobRule(t *testing.T) {
     ]
 }`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				"cronjobs": {
+				autogen.AutogenCronjobs: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -311,7 +312,7 @@ func TestGenerateCronJobRule(t *testing.T) {
     ]
 }`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				"cronjobs": {
+				autogen.AutogenCronjobs: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -380,7 +381,7 @@ func TestGenerateCronJobRule(t *testing.T) {
     ]
 }`),
 			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
-				"cronjobs": {
+				autogen.AutogenCronjobs: {
 					Spec: &policiesv1alpha1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{

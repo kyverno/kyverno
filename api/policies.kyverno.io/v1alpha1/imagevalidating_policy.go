@@ -31,6 +31,11 @@ type ImageValidatingPolicy struct {
 	Status ImageValidatingPolicyStatus `json:"status,omitempty"`
 }
 
+// BackgroundEnabled checks if background is set to true
+func (s ImageValidatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
 type ImageValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`

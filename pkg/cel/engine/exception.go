@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func listExceptions(polexLister policiesv1alpha1listers.PolicyExceptionLister, policyName, policyKind string) ([]*policiesv1alpha1.PolicyException, error) {
+func ListExceptions(polexLister policiesv1alpha1listers.PolicyExceptionLister, policyName, policyKind string) ([]*policiesv1alpha1.PolicyException, error) {
 	polexList, err := polexLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
