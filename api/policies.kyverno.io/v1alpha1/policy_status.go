@@ -40,7 +40,6 @@ func (status *ConditionStatus) SetReadyByCondition(c PolicyConditionType, s meta
 		Status:  s,
 		Message: message,
 	}
-
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
 
