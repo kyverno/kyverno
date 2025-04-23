@@ -5,7 +5,7 @@ metadata:
 status:
   autogen:
     configs:
-      "":
+      defaults-ivpol-autogen-sample:
         spec:
           attestations:
           - name: sbom
@@ -49,7 +49,7 @@ status:
           - expression: '!((object.apiVersion == ''apps/v1'' && object.kind ==''Deployment''))
               || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
               && object.spec.template.metadata.labels.prod == ''true'')'
-            name: autogen-check-prod-label
+            name: autogen-defaults-check-prod-label
           matchConstraints:
             resourceRules:
             - apiGroups:
@@ -78,7 +78,7 @@ status:
             verifyDigest: true
           webhookConfiguration:
             timeoutSeconds: 20
-      cronjobs:
+      cronjobs-ivpol-autogen-sample:
         spec:
           attestations:
           - name: sbom
