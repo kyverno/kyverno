@@ -205,14 +205,14 @@ type ImageValidatingPolicySpec struct {
 
 // MatchImageReference defines a Glob or a CEL expression for matching images
 // +kubebuilder:oneOf:={required:{glob}}
-// +kubebuilder:oneOf:={required:{cel}}
+// +kubebuilder:oneOf:={required:{expression}}
 type MatchImageReference struct {
 	// Glob defines a globbing pattern for matching images
 	// +optional
 	Glob string `json:"glob,omitempty"`
-	// Cel defines CEL Expressions for matching images
+	// Expression defines CEL Expressions for matching images
 	// +optional
-	CELExpression string `json:"cel,omitempty"`
+	Expression string `json:"expression,omitempty"`
 }
 
 type ValidationConfiguration struct {
@@ -340,20 +340,26 @@ type Cosign struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
+// StringOrExpression contains either a raw string input or a CEL expression
+// +kubebuilder:oneOf:={required:{value}}
+// +kubebuilder:oneOf:={required:{expression}}
+type StringOrExpression struct {
+	// Value defines the raw string input.
+	// +optional
+	Value string `json:"value,omitempty"`
+	// Expression defines the a CEL expression input.
+	// +optional
+	Expression string `json:"expression,omitempty"`
+}
+
 // Notary defines attestor configuration for Notary based signatures
 type Notary struct {
 	// Certs define the cert chain for Notary signature verification
 	// +optional
-	Certs string `json:"certs"`
-	// CertsCEL is a CEL expression that returns the Certificate.
-	// +optional
-	CertsCEL string `json:"certsCel,omitempty"`
+	Certs *StringOrExpression `json:"certs,omitempty"`
 	// TSACerts define the cert chain for verifying timestamps of notary signature
 	// +optional
-	TSACerts string `json:"tsaCerts"`
-	// TSACertsCEL is a CEL expression that returns the TSA Certificate.
-	// +optional
-	TSACertsCEL string `json:"tsaCertsCel,omitempty"`
+	TSACerts *StringOrExpression `json:"tsaCerts,omitempty"`
 }
 
 // TUF defines the configuration to fetch sigstore root
@@ -421,9 +427,6 @@ type CTLog struct {
 
 // A Key must specify only one of CEL, Data or KMS
 type Key struct {
-	// CEL is a CEL expression that returns the public key.
-	// +optional
-	CEL string `json:"cel,omitempty"`
 	// Data contains the inline public key
 	// +optional
 	Data string `json:"data,omitempty"`
@@ -435,6 +438,9 @@ type Key struct {
 	// sha224, sha256, sha384 and sha512. Defaults to sha256.
 	// +optional
 	HashAlgorithm string `json:"hashAlgorithm,omitempty"`
+	// Expression is a Expression expression that returns the public key.
+	// +optional
+	Expression string `json:"expression,omitempty"`
 }
 
 // Keyless contains location of the validating certificate and the identities
@@ -452,18 +458,12 @@ type Keyless struct {
 type Certificate struct {
 	// Certificate is the to the public certificate for local signature verification.
 	// +optional
-	Certificate string `json:"cert,omitempty"`
-	// CertificateCEL is a CEL expression that returns the Certificate.
-	// +optional
-	CertificateCEL string `json:"certCel,omitempty"`
+	Certificate *StringOrExpression `json:"cert,omitempty"`
 	// CertificateChain is the list of CA certificates in PEM format which will be needed
 	// when building the certificate chain for the signing certificate. Must start with the
 	// parent intermediate CA certificate of the signing certificate and end with the root certificate
 	// +optional
-	CertificateChain string `json:"certChain,omitempty"`
-	// CertificateChainCEL is a CEL expression that returns the Certificate Chain.
-	// +optional
-	CertificateChainCEL string `json:"certChainCel,omitempty"`
+	CertificateChain *StringOrExpression `json:"certChain,omitempty"`
 }
 
 // Identity may contain the issuer and/or the subject found in the transparency
