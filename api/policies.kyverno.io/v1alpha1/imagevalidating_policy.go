@@ -9,7 +9,6 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -105,25 +104,6 @@ func (s ImageValidatingPolicySpec) ValidationActions() []admissionregistrationv1
 		return []admissionregistrationv1.ValidationAction{defaultValue}
 	}
 	return s.ValidationAction
-}
-
-func (status *ImageValidatingPolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
-	reason := "Succeeded"
-	if s != metav1.ConditionTrue {
-		reason = "Failed"
-	}
-	newCondition := metav1.Condition{
-		Type:    string(c),
-		Reason:  reason,
-		Status:  s,
-		Message: message,
-	}
-
-	meta.SetStatusCondition(&status.ConditionStatus.Conditions, newCondition)
-}
-
-func (status *ImageValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {
-	return &status.ConditionStatus
 }
 
 // +kubebuilder:object:root=true
@@ -224,13 +204,15 @@ type ImageValidatingPolicySpec struct {
 }
 
 // MatchImageReference defines a Glob or a CEL expression for matching images
+// +kubebuilder:oneOf:={required:{glob}}
+// +kubebuilder:oneOf:={required:{cel}}
 type MatchImageReference struct {
 	// Glob defines a globbing pattern for matching images
 	// +optional
-	Glob string `json:"glob"`
+	Glob string `json:"glob,omitempty"`
 	// Cel defines CEL Expressions for matching images
 	// +optional
-	CELExpression string `json:"cel"`
+	CELExpression string `json:"cel,omitempty"`
 }
 
 type ValidationConfiguration struct {
@@ -238,17 +220,17 @@ type ValidationConfiguration struct {
 	// Defaults to true.
 	// +kubebuilder:default=true
 	// +optional
-	MutateDigest *bool `json:"mutateDigest"`
+	MutateDigest *bool `json:"mutateDigest,omitempty"`
 
 	// VerifyDigest validates that images have a digest.
 	// +kubebuilder:default=true
 	// +optional
-	VerifyDigest *bool `json:"verifyDigest"`
+	VerifyDigest *bool `json:"verifyDigest,omitempty"`
 
 	// Required validates that images are verified, i.e., have passed a signature or attestation check.
 	// +kubebuilder:default=true
 	// +optional
-	Required *bool `json:"required"`
+	Required *bool `json:"required,omitempty"`
 }
 
 type Image struct {

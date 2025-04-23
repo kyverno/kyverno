@@ -805,6 +805,11 @@ spec:
                 items:
                   description: MatchImageReference defines a Glob or a CEL expression
                     for matching images
+                  oneOf:
+                  - required:
+                    - glob
+                  - required:
+                    - cel
                   properties:
                     cel:
                       description: Cel defines CEL Expressions for matching images
@@ -1764,6 +1769,11 @@ spec:
                               items:
                                 description: MatchImageReference defines a Glob or
                                   a CEL expression for matching images
+                                oneOf:
+                                - required:
+                                  - glob
+                                - required:
+                                  - cel
                                 properties:
                                   cel:
                                     description: Cel defines CEL Expressions for matching
