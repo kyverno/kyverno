@@ -7,7 +7,8 @@ import (
 
 	"github.com/go-logr/logr"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
@@ -19,13 +20,13 @@ import (
 )
 
 type handler struct {
-	context celpolicy.Context
-	engine  celengine.ImageValidatingEngine
+	context libs.Context
+	engine  ivpolengine.Engine
 }
 
 func New(
-	engine celengine.ImageValidatingEngine,
-	context celpolicy.Context,
+	engine ivpolengine.Engine,
+	context libs.Context,
 ) *handler {
 	return &handler{
 		context: context,

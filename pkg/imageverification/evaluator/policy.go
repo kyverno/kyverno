@@ -11,11 +11,11 @@ import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/match"
@@ -37,7 +37,7 @@ type EvaluationResult struct {
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, policy.ContextInterface) (*EvaluationResult, error)
+	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
 }
 
 type compiledPolicy struct {
@@ -54,7 +54,7 @@ type compiledPolicy struct {
 	variables            map[string]cel.Program
 }
 
-func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context policy.ContextInterface) (*EvaluationResult, error) {
+func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
 	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
 	if err != nil {
 		return nil, err
