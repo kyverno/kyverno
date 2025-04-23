@@ -5,29 +5,27 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
 )
 
-type NamespaceResolver = func(string) *corev1.Namespace
-
 type engineImpl struct {
 	provider   Provider
-	nsResolver NamespaceResolver
+	nsResolver engine.NamespaceResolver
 	matcher    matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver NamespaceResolver, matcher matching.Matcher) engine.Engine {
+func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) engine.Engine {
 	return &engineImpl{
 		provider:   provider,
 		nsResolver: nsResolver,
@@ -91,7 +89,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest) (
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context celpolicy.ContextInterface) engine.ValidatingPolicyResponse {
+func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context) engine.ValidatingPolicyResponse {
 	response := engine.ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
@@ -105,7 +103,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			return response
 		}
 	}
-	var result *celpolicy.EvaluationResult
+	var result *compiler.EvaluationResult
 	var err error
 	if jsonPayload != nil {
 		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context)
