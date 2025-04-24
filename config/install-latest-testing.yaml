@@ -48599,21 +48599,39 @@ spec:
                             cert:
                               description: Certificate is the to the public certificate
                                 for local signature verification.
-                              type: string
-                            certCel:
-                              description: CertificateCEL is a CEL expression that
-                                returns the Certificate.
-                              type: string
+                              oneOf:
+                              - required:
+                                - value
+                              - required:
+                                - expression
+                              properties:
+                                expression:
+                                  description: Expression defines the a CEL expression
+                                    input.
+                                  type: string
+                                value:
+                                  description: Value defines the raw string input.
+                                  type: string
+                              type: object
                             certChain:
                               description: |-
                                 CertificateChain is the list of CA certificates in PEM format which will be needed
                                 when building the certificate chain for the signing certificate. Must start with the
                                 parent intermediate CA certificate of the signing certificate and end with the root certificate
-                              type: string
-                            certChainCel:
-                              description: CertificateChainCEL is a CEL expression
-                                that returns the Certificate Chain.
-                              type: string
+                              oneOf:
+                              - required:
+                                - value
+                              - required:
+                                - expression
+                              properties:
+                                expression:
+                                  description: Expression defines the a CEL expression
+                                    input.
+                                  type: string
+                                value:
+                                  description: Value defines the raw string input.
+                                  type: string
+                              type: object
                           type: object
                         ctlog:
                           description: CTLog sets the configuration to verify the
@@ -48652,12 +48670,12 @@ spec:
                           description: Key defines the type of key to validate the
                             image.
                           properties:
-                            cel:
-                              description: CEL is a CEL expression that returns the
-                                public key.
-                              type: string
                             data:
                               description: Data contains the inline public key
+                              type: string
+                            expression:
+                              description: Expression is a Expression expression that
+                                returns the public key.
                               type: string
                             hashAlgorithm:
                               description: |-
@@ -48779,19 +48797,37 @@ spec:
                         certs:
                           description: Certs define the cert chain for Notary signature
                             verification
-                          type: string
-                        certsCel:
-                          description: CertsCEL is a CEL expression that returns the
-                            Certificate.
-                          type: string
+                          oneOf:
+                          - required:
+                            - value
+                          - required:
+                            - expression
+                          properties:
+                            expression:
+                              description: Expression defines the a CEL expression
+                                input.
+                              type: string
+                            value:
+                              description: Value defines the raw string input.
+                              type: string
+                          type: object
                         tsaCerts:
                           description: TSACerts define the cert chain for verifying
                             timestamps of notary signature
-                          type: string
-                        tsaCertsCel:
-                          description: TSACertsCEL is a CEL expression that returns
-                            the TSA Certificate.
-                          type: string
+                          oneOf:
+                          - required:
+                            - value
+                          - required:
+                            - expression
+                          properties:
+                            expression:
+                              description: Expression defines the a CEL expression
+                                input.
+                              type: string
+                            value:
+                              description: Value defines the raw string input.
+                              type: string
+                          type: object
                       type: object
                   required:
                   - name
@@ -49287,9 +49323,15 @@ spec:
                 items:
                   description: MatchImageReference defines a Glob or a CEL expression
                     for matching images
+                  oneOf:
+                  - required:
+                    - glob
+                  - required:
+                    - expression
                   properties:
-                    cel:
-                      description: Cel defines CEL Expressions for matching images
+                    expression:
+                      description: Expression defines CEL Expressions for matching
+                        images
                       type: string
                     glob:
                       description: Glob defines a globbing pattern for matching images
@@ -49542,22 +49584,41 @@ spec:
                                             description: Certificate is the to the
                                               public certificate for local signature
                                               verification.
-                                            type: string
-                                          certCel:
-                                            description: CertificateCEL is a CEL expression
-                                              that returns the Certificate.
-                                            type: string
+                                            oneOf:
+                                            - required:
+                                              - value
+                                            - required:
+                                              - expression
+                                            properties:
+                                              expression:
+                                                description: Expression defines the
+                                                  a CEL expression input.
+                                                type: string
+                                              value:
+                                                description: Value defines the raw
+                                                  string input.
+                                                type: string
+                                            type: object
                                           certChain:
                                             description: |-
                                               CertificateChain is the list of CA certificates in PEM format which will be needed
                                               when building the certificate chain for the signing certificate. Must start with the
                                               parent intermediate CA certificate of the signing certificate and end with the root certificate
-                                            type: string
-                                          certChainCel:
-                                            description: CertificateChainCEL is a
-                                              CEL expression that returns the Certificate
-                                              Chain.
-                                            type: string
+                                            oneOf:
+                                            - required:
+                                              - value
+                                            - required:
+                                              - expression
+                                            properties:
+                                              expression:
+                                                description: Expression defines the
+                                                  a CEL expression input.
+                                                type: string
+                                              value:
+                                                description: Value defines the raw
+                                                  string input.
+                                                type: string
+                                            type: object
                                         type: object
                                       ctlog:
                                         description: CTLog sets the configuration
@@ -49597,13 +49658,13 @@ spec:
                                         description: Key defines the type of key to
                                           validate the image.
                                         properties:
-                                          cel:
-                                            description: CEL is a CEL expression that
-                                              returns the public key.
-                                            type: string
                                           data:
                                             description: Data contains the inline
                                               public key
+                                            type: string
+                                          expression:
+                                            description: Expression is a Expression
+                                              expression that returns the public key.
                                             type: string
                                           hashAlgorithm:
                                             description: |-
@@ -49731,19 +49792,39 @@ spec:
                                       certs:
                                         description: Certs define the cert chain for
                                           Notary signature verification
-                                        type: string
-                                      certsCel:
-                                        description: CertsCEL is a CEL expression
-                                          that returns the Certificate.
-                                        type: string
+                                        oneOf:
+                                        - required:
+                                          - value
+                                        - required:
+                                          - expression
+                                        properties:
+                                          expression:
+                                            description: Expression defines the a
+                                              CEL expression input.
+                                            type: string
+                                          value:
+                                            description: Value defines the raw string
+                                              input.
+                                            type: string
+                                        type: object
                                       tsaCerts:
                                         description: TSACerts define the cert chain
                                           for verifying timestamps of notary signature
-                                        type: string
-                                      tsaCertsCel:
-                                        description: TSACertsCEL is a CEL expression
-                                          that returns the TSA Certificate.
-                                        type: string
+                                        oneOf:
+                                        - required:
+                                          - value
+                                        - required:
+                                          - expression
+                                        properties:
+                                          expression:
+                                            description: Expression defines the a
+                                              CEL expression input.
+                                            type: string
+                                          value:
+                                            description: Value defines the raw string
+                                              input.
+                                            type: string
+                                        type: object
                                     type: object
                                 required:
                                 - name
@@ -50246,10 +50327,15 @@ spec:
                               items:
                                 description: MatchImageReference defines a Glob or
                                   a CEL expression for matching images
+                                oneOf:
+                                - required:
+                                  - glob
+                                - required:
+                                  - expression
                                 properties:
-                                  cel:
-                                    description: Cel defines CEL Expressions for matching
-                                      images
+                                  expression:
+                                    description: Expression defines CEL Expressions
+                                      for matching images
                                     type: string
                                   glob:
                                     description: Glob defines a globbing pattern for
