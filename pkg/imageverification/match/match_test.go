@@ -23,7 +23,7 @@ func Test_Match(t *testing.T) {
 					Glob: "ghcr.io/*",
 				},
 				{
-					CELExpression: "ref == \"ghcr.io/kyverno/kyverno\"",
+					Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
 				},
 			},
 			image:      "ghcr.io/kyverno/kyverno",
@@ -37,7 +37,7 @@ func Test_Match(t *testing.T) {
 					Glob: "ghcr.io/*",
 				},
 				{
-					CELExpression: "ref == \"ghcr.io/kyverno/kyverno\"",
+					Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
 				},
 			},
 			image:      "kyverno/kyverno",
@@ -51,7 +51,7 @@ func Test_Match(t *testing.T) {
 					Glob: "index.docker.io/*",
 				},
 				{
-					CELExpression: "ref == \"ghcr.io/kyverno/kyverno\"",
+					Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
 				},
 			},
 			image:      "ghcr.io/kyverno/kyverno",
@@ -62,7 +62,7 @@ func Test_Match(t *testing.T) {
 			name: "invalid cel expression",
 			MatchImageReferences: []v1alpha1.MatchImageReference{
 				{
-					CELExpression: "\"foo\"",
+					Expression: "\"foo\"",
 				},
 			},
 			image:      "ghcr.io/kyverno/kyverno",
