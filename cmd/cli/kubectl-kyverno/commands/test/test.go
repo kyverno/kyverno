@@ -27,8 +27,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -351,7 +352,7 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := celengine.NewIVPOLProvider(ivps, celExceptions)
+	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +360,7 @@ func applyImageValidatingPolicies(
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
 	}
-	engine := celengine.NewImageValidatingEngine(
+	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
@@ -372,9 +373,9 @@ func applyImageValidatingPolicies(
 	}
 	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	gctxStore := gctxstore.New()
-	var contextProvider celpolicy.Context
+	var contextProvider libs.Context
 	if dclient != nil {
-		contextProvider, err = celpolicy.NewContextProvider(
+		contextProvider, err = libs.NewContextProvider(
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 			gctxStore,
@@ -383,7 +384,7 @@ func applyImageValidatingPolicies(
 			return nil, err
 		}
 	} else {
-		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		fakeContextProvider := libs.NewFakeContextProvider()
 		if contextPath != "" {
 			ctx, err := clicontext.Load(nil, contextPath)
 			if err != nil {
