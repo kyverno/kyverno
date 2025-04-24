@@ -15,7 +15,7 @@ spec:
     {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
   tolerations:
-    {{- toYaml .Values.global.tolerations | nindent 4 }}
+    {{- toYaml .Values.test.tolerations | nindent 4 }}
   containers:
     - name: test
       image: {{ template "kyverno.test.image" . }}
