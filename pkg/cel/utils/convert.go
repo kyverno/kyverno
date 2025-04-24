@@ -32,11 +32,11 @@ func ConvertObjectToUnstructured(obj any) (*unstructured.Unstructured, error) {
 	return &unstructured.Unstructured{Object: ret}, nil
 }
 
-func ObjectToResolveVal(r runtime.Object) (any, error) {
-	if r == nil || reflect.ValueOf(r).IsNil() {
+func ObjectToResolveVal(obj runtime.Object) (any, error) {
+	if obj == nil || reflect.ValueOf(obj).IsNil() {
 		return nil, nil
 	}
-	v, err := ConvertObjectToUnstructured(r)
+	v, err := ConvertObjectToUnstructured(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +49,7 @@ func GetValue(data any) (map[string]any, error) {
 		return nil, err
 	}
 	var apiData map[string]any
-	err = json.Unmarshal(raw, &apiData)
-	if err != nil {
+	if err := json.Unmarshal(raw, &apiData); err != nil {
 		return nil, err
 	}
 	return apiData, nil
