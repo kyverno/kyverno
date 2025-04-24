@@ -22,6 +22,9 @@ const (
 )
 
 func CompileMatchConditions(path *field.Path, matchConditions []admissionregistrationv1.MatchCondition, env *cel.Env) ([]cel.Program, field.ErrorList) {
+	if len(matchConditions) == 0 {
+		return nil, nil
+	}
 	var allErrs field.ErrorList
 	result := make([]cel.Program, 0, len(matchConditions))
 	for i, matchCondition := range matchConditions {
@@ -88,7 +91,7 @@ func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation
 		Message: rule.Message,
 	}
 	{
-		path = path.Child("expression")
+		path := path.Child("expression")
 		ast, issues := env.Compile(rule.Expression)
 		if err := issues.Err(); err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
@@ -104,7 +107,7 @@ func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation
 		compiled.Program = program
 	}
 	if rule.MessageExpression != "" {
-		path = path.Child("messageExpression")
+		path := path.Child("messageExpression")
 		ast, issues := env.Compile(rule.MessageExpression)
 		if err := issues.Err(); err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
