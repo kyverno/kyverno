@@ -29,8 +29,8 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 			val: att,
 		}
 		if att.IsCosign() {
-			if att.Cosign.Key != nil && att.Cosign.Key.CEL != "" {
-				ast, iss := env.Compile(att.Cosign.Key.CEL)
+			if att.Cosign.Key != nil && att.Cosign.Key.Expression != "" {
+				ast, iss := env.Compile(att.Cosign.Key.Expression)
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.Key, iss.Err().Error()))
 				}
@@ -40,8 +40,8 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 				}
 				compiledAtt.keyProg = prg
 			} else if att.Cosign.Certificate != nil {
-				if att.Cosign.Certificate.CertificateCEL != "" {
-					ast, iss := env.Compile(att.Cosign.Certificate.CertificateCEL)
+				if att.Cosign.Certificate.Certificate != nil && att.Cosign.Certificate.Certificate.Expression != "" {
+					ast, iss := env.Compile(att.Cosign.Certificate.Certificate.Expression)
 					if iss.Err() != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, iss.Err().Error()))
 					}
@@ -51,8 +51,8 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 					}
 					compiledAtt.certProg = prg
 				}
-				if att.Cosign.Certificate.CertificateChainCEL != "" {
-					ast, iss := env.Compile(att.Cosign.Certificate.CertificateChainCEL)
+				if att.Cosign.Certificate.CertificateChain != nil && att.Cosign.Certificate.CertificateChain.Expression != "" {
+					ast, iss := env.Compile(att.Cosign.Certificate.CertificateChain.Expression)
 					if iss.Err() != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, iss.Err().Error()))
 					}
@@ -64,8 +64,8 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 				}
 			}
 		} else if att.IsNotary() {
-			if att.Notary.CertsCEL != "" {
-				ast, iss := env.Compile(att.Notary.CertsCEL)
+			if att.Notary.Certs != nil && att.Notary.Certs.Expression != "" {
+				ast, iss := env.Compile(att.Notary.Certs.Expression)
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, iss.Err().Error()))
 				}
@@ -75,8 +75,8 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 				}
 				compiledAtt.notaryCertProg = prg
 			}
-			if att.Notary.TSACertsCEL != "" {
-				ast, iss := env.Compile(att.Notary.TSACertsCEL)
+			if att.Notary.TSACerts != nil && att.Notary.TSACerts.Expression != "" {
+				ast, iss := env.Compile(att.Notary.TSACerts.Expression)
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, iss.Err().Error()))
 				}
@@ -106,7 +106,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert cert in compiled attestor: %s, error: %w", c.key, err)
 		}
-		c.val.Cosign.Certificate.Certificate = result
+		c.val.Cosign.Certificate.Certificate.Value = result
 	}
 
 	if c.certChainProg != nil {
@@ -114,7 +114,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert cert chain in compiled attestor: %s, error: %w", c.key, err)
 		}
-		c.val.Cosign.Certificate.CertificateChain = result
+		c.val.Cosign.Certificate.CertificateChain.Value = result
 	}
 
 	if c.notaryCertProg != nil {
@@ -122,7 +122,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert notary cert in compiled attestor: %s, error: %w", c.key, err)
 		}
-		c.val.Notary.Certs = result
+		c.val.Notary.Certs.Value = result
 	}
 
 	if c.notaryTSACertProg != nil {
@@ -130,7 +130,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 		if err != nil {
 			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert notary tsa cert in compiled attestor: %s, error: %w", c.key, err)
 		}
-		c.val.Notary.TSACerts = result
+		c.val.Notary.TSACerts.Value = result
 	}
 
 	return c.val, nil
