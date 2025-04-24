@@ -118,6 +118,18 @@ func TestCompileValidation(t *testing.T) {
 			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo' (in container '')\n | foo()\n | ...^",
 		}},
 	}, {
+		name: "invalid",
+		rule: admissionregistrationv1.Validation{
+			Expression: `"foo"`,
+		},
+		wantProg: false,
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "expression",
+			BadValue: `"foo"`,
+			Detail:   "output is expected to be of type bool",
+		}},
+	}, {
 		name: "with message",
 		rule: admissionregistrationv1.Validation{
 			Message:    "test",
