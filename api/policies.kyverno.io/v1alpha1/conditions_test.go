@@ -9,7 +9,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func TestPolicyStatus_IsReady(t *testing.T) {
+func TestConditionStatus_IsReady(t *testing.T) {
 	tests := []struct {
 		name   string
 		status ValidatingPolicyStatus
@@ -43,7 +43,7 @@ func TestPolicyStatus_IsReady(t *testing.T) {
 	}
 }
 
-func TestPolicyStatus_SetReadyByCondition_True(t *testing.T) {
+func TestConditionStatus_SetReadyByCondition_True(t *testing.T) {
 	var status ConditionStatus
 	status.SetReadyByCondition(PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "dummy")
 	got := meta.FindStatusCondition(status.Conditions, string(PolicyConditionTypeWebhookConfigured))
@@ -54,7 +54,7 @@ func TestPolicyStatus_SetReadyByCondition_True(t *testing.T) {
 	assert.Equal(t, "dummy", got.Message)
 }
 
-func TestPolicyStatus_SetReadyByCondition_False(t *testing.T) {
+func TestConditionStatus_SetReadyByCondition_False(t *testing.T) {
 	var status ConditionStatus
 	status.SetReadyByCondition(PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "dummy")
 	got := meta.FindStatusCondition(status.Conditions, string(PolicyConditionTypeWebhookConfigured))
