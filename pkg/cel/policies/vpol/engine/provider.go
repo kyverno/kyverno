@@ -46,13 +46,18 @@ func NewProvider(
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 		}
+		out = append(out, Policy{
+			Actions:        actions,
+			Policy:         policy,
+			CompiledPolicy: compiled,
+		})
 		generated, err := autogen.Autogen(&policy)
 		if err != nil {
 			return nil, err
 		}
 		for _, autogen := range generated {
 			policy.Spec = *autogen.Spec
-			compiled, errs := compiler.Compile(&policy, exceptions)
+			compiled, errs := compiler.Compile(&policy, matchedExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 			}
@@ -62,11 +67,6 @@ func NewProvider(
 				CompiledPolicy: compiled,
 			})
 		}
-		out = append(out, Policy{
-			Actions:        actions,
-			Policy:         policy,
-			CompiledPolicy: compiled,
-		})
 	}
 	return func(context.Context) ([]Policy, error) {
 		return out, nil
