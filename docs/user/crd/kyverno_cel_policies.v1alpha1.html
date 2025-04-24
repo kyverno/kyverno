@@ -1864,7 +1864,9 @@ timestamp. Default is false. Set to true if this was opted out during signing.</
           
           
             
-              <span style="font-family: monospace">string</span>
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
             
           
         </td>
@@ -1884,33 +1886,6 @@ timestamp. Default is false. Set to true if this was opted out during signing.</
     
     
       <tr>
-        <td><code>certCel</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>CertificateCEL is a CEL expression that returns the Certificate.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
         <td><code>certChain</code>
           
           </br>
@@ -1918,7 +1893,9 @@ timestamp. Default is false. Set to true if this was opted out during signing.</
           
           
             
-              <span style="font-family: monospace">string</span>
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
             
           
         </td>
@@ -1928,33 +1905,6 @@ timestamp. Default is false. Set to true if this was opted out during signing.</
           <p>CertificateChain is the list of CA certificates in PEM format which will be needed
 when building the certificate chain for the signing certificate. Must start with the
 parent intermediate CA certificate of the signing certificate and end with the root certificate</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>certChainCel</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>CertificateChainCEL is a CEL expression that returns the Certificate Chain.</p>
 
 
           
@@ -3714,33 +3664,6 @@ image verification functions</p>
     
     
       <tr>
-        <td><code>cel</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>CEL is a CEL expression that returns the public key.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
         <td><code>data</code>
           
           </br>
@@ -3812,6 +3735,33 @@ Supported formats differ based on the KMS system used.</p>
 
           <p>HashAlgorithm specifues signature algorithm for public keys. Supported values are
 sha224, sha256, sha384 and sha512. Defaults to sha256.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression is a Expression expression that returns the public key.</p>
 
 
           
@@ -3985,7 +3935,7 @@ If not provided, the system roots are used.</p>
     
     
       <tr>
-        <td><code>cel</code>
+        <td><code>expression</code>
           
           </br>
 
@@ -3999,7 +3949,7 @@ If not provided, the system roots are used.</p>
         <td>
           
 
-          <p>Cel defines CEL Expressions for matching images</p>
+          <p>Expression defines CEL Expressions for matching images</p>
 
 
           
@@ -4055,7 +4005,9 @@ If not provided, the system roots are used.</p>
           
           
             
-              <span style="font-family: monospace">string</span>
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
             
           
         </td>
@@ -4075,33 +4027,6 @@ If not provided, the system roots are used.</p>
     
     
       <tr>
-        <td><code>certsCel</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>CertsCEL is a CEL expression that returns the Certificate.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
         <td><code>tsaCerts</code>
           
           </br>
@@ -4109,7 +4034,9 @@ If not provided, the system roots are used.</p>
           
           
             
-              <span style="font-family: monospace">string</span>
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
             
           
         </td>
@@ -4117,33 +4044,6 @@ If not provided, the system roots are used.</p>
           
 
           <p>TSACerts define the cert chain for verifying timestamps of notary signature</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>tsaCertsCel</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>TSACertsCEL is a CEL expression that returns the TSA Certificate.</p>
 
 
           
@@ -4580,6 +4480,97 @@ used by this Source.</p>
           <p>TagPrefix is an optional prefix that signature and attestations have.
 This is the 'tag based discovery' and in the future once references are
 fully supported that should likely be the preferred way to handle these.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-StringOrExpression">StringOrExpression
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Certificate">Certificate</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-Notary">Notary</a>)
+    </p>
+  
+
+  <p><p>StringOrExpression contains either a raw string input or a CEL expression</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>value</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Value defines the raw string input.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression defines the a CEL expression input.</p>
 
 
           
