@@ -9,10 +9,11 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -162,7 +163,7 @@ func (s *scanner) ScanResource(
 			)
 			gctxStore := gctxstore.New()
 			// create context provider
-			context, err := celpolicy.NewContextProvider(
+			context, err := libs.NewContextProvider(
 				s.client,
 				nil,
 				// TODO
@@ -204,14 +205,14 @@ func (s *scanner) ScanResource(
 	for i, policy := range ivpols {
 		if pol := policy.AsImageValidatingPolicy(); pol != nil {
 			// create provider
-			provider, err := celengine.NewIVPOLProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol}, exceptions)
+			provider, err := ivpolengine.NewProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			// create engine
-			engine := celengine.NewImageValidatingEngine(
+			engine := ivpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
@@ -219,7 +220,7 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			// create context provider
-			context, err := celpolicy.NewContextProvider(s.client, nil, gctxstore.New())
+			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New())
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
 				results[&ivpols[i]] = ScanResult{nil, err}

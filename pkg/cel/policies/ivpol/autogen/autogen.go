@@ -23,10 +23,10 @@ func Autogen(policy *policiesv1alpha1.ImageValidatingPolicy) (map[string]policie
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
 		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return autogenIvPols(policy.Spec, actualControllers)
+	return autogenIvPols(policy, actualControllers)
 }
 
-func autogenIvPols(spec policiesv1alpha1.ImageValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
 	mapping := map[string][]autogen.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
@@ -35,6 +35,7 @@ func autogenIvPols(spec policiesv1alpha1.ImageValidatingPolicySpec, configs sets
 			mapping[config.ReplacementsRef] = targets
 		}
 	}
+	spec := ivpol.Spec
 	rules := map[string]policiesv1alpha1.ImageValidatingPolicyAutogen{}
 	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[replacements]
@@ -50,9 +51,13 @@ func autogenIvPols(spec policiesv1alpha1.ImageValidatingPolicySpec, configs sets
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		rules[replacements] = policiesv1alpha1.ImageValidatingPolicyAutogen{
+		rules[ControllerKeys(replacements, ivpol.GetName())] = policiesv1alpha1.ImageValidatingPolicyAutogen{
 			Spec: spec,
 		}
 	}
 	return rules, nil
+}
+
+func ControllerKeys(prefix, polName string) string {
+	return prefix + "-" + polName
 }
