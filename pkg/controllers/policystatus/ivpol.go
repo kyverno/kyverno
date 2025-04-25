@@ -42,28 +42,12 @@ func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1alph
 		}
 		return nil
 	}
-
 	err := controllerutils.UpdateStatus(ctx,
 		ivpol,
 		c.client.PoliciesV1alpha1().ImageValidatingPolicies(),
 		updateFunc,
 		func(current, expect *policiesv1alpha1.ImageValidatingPolicy) bool {
-			if current.GetStatus().GetConditionStatus().Ready == nil || current.GetStatus().GetConditionStatus().IsReady() != expect.GetStatus().GetConditionStatus().IsReady() {
-				return false
-			}
-
-			if len(current.GetStatus().GetConditionStatus().Conditions) != len(expect.GetStatus().GetConditionStatus().Conditions) {
-				return false
-			}
-
-			for _, condition := range current.GetStatus().GetConditionStatus().Conditions {
-				for _, expectCondition := range expect.GetStatus().GetConditionStatus().Conditions {
-					if condition.Type == expectCondition.Type && condition.Status != expectCondition.Status {
-						return false
-					}
-				}
-			}
-			return datautils.DeepEqual(current.GetStatus().Autogen, expect.GetStatus().Autogen)
+			return datautils.DeepEqual(current.Status, expect.Status)
 		},
 	)
 	return err

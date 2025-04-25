@@ -21,10 +21,10 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -238,9 +238,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		// TODO: mock when no cluster provided
 		gctxStore := gctxstore.New()
 		var restMapper meta.RESTMapper
-		var contextProvider celpolicy.Context
+		var contextProvider libs.Context
 		if p.Client != nil && p.Cluster {
-			contextProvider, err = celpolicy.NewContextProvider(
+			contextProvider, err = libs.NewContextProvider(
 				p.Client,
 				// TODO
 				[]imagedataloader.Option{imagedataloader.WithLocalCredentials(true)},
@@ -260,7 +260,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, err
 			}
 			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-			fakeContextProvider := celpolicy.NewFakeContextProvider()
+			fakeContextProvider := libs.NewFakeContextProvider()
 			if p.ContextPath != "" {
 				ctx, err := clicontext.Load(nil, p.ContextPath)
 				if err != nil {

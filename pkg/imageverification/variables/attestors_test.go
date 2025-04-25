@@ -25,15 +25,19 @@ func Test_Attestors(t *testing.T) {
 				{
 					Name: "notary",
 					Notary: &v1alpha1.Notary{
-						CertsCEL:    "data.foo[0]",
-						TSACertsCEL: "data.foo[1]",
+						Certs: &v1alpha1.StringOrExpression{
+							Expression: "data.foo[0]",
+						},
+						TSACerts: &v1alpha1.StringOrExpression{
+							Expression: "data.foo[1]",
+						},
 					},
 				},
 				{
 					Name: "cosign-keyed",
 					Cosign: &v1alpha1.Cosign{
 						Key: &v1alpha1.Key{
-							CEL: "data.foo[0]",
+							Expression: "data.foo[0]",
 						},
 					},
 				},
@@ -41,8 +45,12 @@ func Test_Attestors(t *testing.T) {
 					Name: "cosign-cert",
 					Cosign: &v1alpha1.Cosign{
 						Certificate: &v1alpha1.Certificate{
-							CertificateCEL:      "data.foo[0]",
-							CertificateChainCEL: "data.foo[1]",
+							Certificate: &v1alpha1.StringOrExpression{
+								Expression: "data.foo[0]",
+							},
+							CertificateChain: &v1alpha1.StringOrExpression{
+								Expression: "data.foo[1]",
+							},
 						},
 					},
 				},
@@ -62,18 +70,22 @@ func Test_Attestors(t *testing.T) {
 				{
 					Name: "notary",
 					Notary: &v1alpha1.Notary{
-						Certs:       "bar",
-						TSACerts:    "baz",
-						CertsCEL:    "data.foo[0]",
-						TSACertsCEL: "data.foo[1]",
+						Certs: &v1alpha1.StringOrExpression{
+							Value:      "bar",
+							Expression: "data.foo[0]",
+						},
+						TSACerts: &v1alpha1.StringOrExpression{
+							Value:      "baz",
+							Expression: "data.foo[1]",
+						},
 					},
 				},
 				{
 					Name: "cosign-keyed",
 					Cosign: &v1alpha1.Cosign{
 						Key: &v1alpha1.Key{
-							CEL:  "data.foo[0]",
-							Data: "bar",
+							Data:       "bar",
+							Expression: "data.foo[0]",
 						},
 					},
 				},
@@ -81,10 +93,14 @@ func Test_Attestors(t *testing.T) {
 					Name: "cosign-cert",
 					Cosign: &v1alpha1.Cosign{
 						Certificate: &v1alpha1.Certificate{
-							Certificate:         "bar",
-							CertificateCEL:      "data.foo[0]",
-							CertificateChain:    "baz",
-							CertificateChainCEL: "data.foo[1]",
+							Certificate: &v1alpha1.StringOrExpression{
+								Value:      "bar",
+								Expression: "data.foo[0]",
+							},
+							CertificateChain: &v1alpha1.StringOrExpression{
+								Value:      "baz",
+								Expression: "data.foo[1]",
+							},
 						},
 					},
 				},
@@ -97,7 +113,9 @@ func Test_Attestors(t *testing.T) {
 				{
 					Name: "notary",
 					Notary: &v1alpha1.Notary{
-						CertsCEL: "data.foo",
+						Certs: &v1alpha1.StringOrExpression{
+							Expression: "data.foo",
+						},
 					},
 				},
 			},

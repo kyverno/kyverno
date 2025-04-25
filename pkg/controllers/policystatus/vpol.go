@@ -43,7 +43,6 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 		}
 		return nil
 	}
-
 	err := controllerutils.UpdateStatus(ctx,
 		vpol,
 		c.client.PoliciesV1alpha1().ValidatingPolicies(),

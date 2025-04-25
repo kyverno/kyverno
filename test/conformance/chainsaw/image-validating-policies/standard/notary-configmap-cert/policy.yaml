@@ -27,7 +27,8 @@ spec:
   attestors:
     - name: notary
       notary:
-        certsCel: variables.cm.data.certificate
+        certs:
+          expression: variables.cm.data.certificate
   attestations:
     - name: sbom
       referrer:

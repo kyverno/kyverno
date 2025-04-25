@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -58,7 +59,8 @@ var (
 				{
 					Name: "notary",
 					Notary: &policiesv1alpha1.Notary{
-						Certs: `-----BEGIN CERTIFICATE-----
+						Certs: &policiesv1alpha1.StringOrExpression{
+							Value: `-----BEGIN CERTIFICATE-----
 MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
 BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
 Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
@@ -78,6 +80,7 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`,
+						},
 					},
 				},
 			},
@@ -110,8 +113,8 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 		},
 	}
 
-	ivfunc = func(ctx context.Context) ([]CompiledImageValidatingPolicy, error) {
-		return []CompiledImageValidatingPolicy{
+	providerFunc = func(ctx context.Context) ([]Policy, error) {
+		return []Policy{
 			{
 				Policy:  ivpol,
 				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
@@ -147,8 +150,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_ImageVerifyEngine(t *testing.T) {
-	engine := NewImageValidatingEngine(ivfunc, nsResolver, matching.NewMatcher(), nil, nil)
-	engineRequest := EngineRequest{
+	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
@@ -160,6 +162,7 @@ func Test_ImageVerifyEngine(t *testing.T) {
 		},
 		Context: &resourcelib.MockCtx{},
 	}
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest)
 	assert.NoError(t, err)
