@@ -97,7 +97,7 @@ $(OPENAPI_GEN):
 
 $(REGISTER_GEN):
 	@echo Install register-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/register-gen@$(CODE_GEN_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/register-gen@$(DEEPCOPY_GEN_VERSION)
 
 $(DEEPCOPY_GEN):
 	@echo Install deepcopy-gen... >&2
@@ -480,12 +480,9 @@ codegen-client-wrappers: $(CLIENT_WRAPPER)
 
 .PHONY: codegen-register
 codegen-register: ## Generate types registrations
-codegen-register: $(PACKAGE_SHIM)
 codegen-register: $(REGISTER_GEN)
 	@echo Generate registration... >&2
-	@GOPATH=$(GOPATH_SHIM) $(REGISTER_GEN) \
-		--go-header-file=./scripts/boilerplate.go.txt \
-		--input-dirs=$(INPUT_DIRS)
+	@$(REGISTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --output-file zz_generated.register.go ./api/...
 
 .PHONY: codegen-deepcopy
 codegen-deepcopy: ## Generate deep copy functions
