@@ -37,7 +37,9 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 				{
 					Name: "notary",
 					Notary: &v1alpha1.Notary{
-						Certs: cert,
+						Certs: &v1alpha1.StringOrExpression{
+							Value: cert,
+						},
 					},
 				},
 			},
@@ -76,7 +78,9 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 		"notary": {
 			Name: "notary",
 			Notary: &v1alpha1.Notary{
-				Certs: cert,
+				Certs: &v1alpha1.StringOrExpression{
+					Value: cert,
+				},
 			},
 		},
 	}
@@ -113,7 +117,9 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 		"notary": {
 			Name: "notary",
 			Notary: &v1alpha1.Notary{
-				Certs: cert,
+				Certs: &v1alpha1.StringOrExpression{
+					Value: cert,
+				},
 			},
 		},
 	}

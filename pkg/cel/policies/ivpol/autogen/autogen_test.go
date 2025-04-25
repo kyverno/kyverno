@@ -48,7 +48,9 @@ var (
 				{
 					Name: "notary",
 					Notary: &policiesv1alpha1.Notary{
-						Certs: `-----BEGIN CERTIFICATE----------END CERTIFICATE-----`,
+						Certs: &policiesv1alpha1.StringOrExpression{
+							Value: `-----BEGIN CERTIFICATE----------END CERTIFICATE-----`,
+						},
 					},
 				},
 			},
