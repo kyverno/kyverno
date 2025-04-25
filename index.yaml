@@ -11,6 +11,55 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.14.0
+    created: "2025-04-25T00:40:40.623753681Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.4.0
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.4.0
+    description: Kubernetes Native Policy Management
+    digest: 6a44b52a2e296f3b6e2ad94f1214cba86a5b86a9d4aded4dbde421616d928519
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.4.0.tgz
+    version: 3.4.0
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Add toggle for enabeling/disabling aggregating the user-facing roles with the kyverno rbac.
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.14.0-rc.1
     created: "2025-04-02T14:48:52.431506322Z"
     dependencies:
@@ -13560,4 +13609,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2025-04-25T00:39:51.062946339Z"
+generated: "2025-04-25T00:40:40.608569614Z"
