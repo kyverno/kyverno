@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	AutogenDefaults = ""
+	AutogenDefaults = "defaults"
 	AutogenCronjobs = "cronjobs"
 )
 
