@@ -44,6 +44,7 @@ INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
+DEEPCOPY_GEN_VERSION               ?= v0.32.4
 DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
 CODE_GEN_VERSION                   ?= v0.28.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
@@ -101,7 +102,7 @@ $(REGISTER_GEN):
 
 $(DEEPCOPY_GEN):
 	@echo Install deepcopy-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/deepcopy-gen@$(CODE_GEN_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/deepcopy-gen@$(DEEPCOPY_GEN_VERSION)
 
 $(DEFAULTER_GEN):
 	@echo Install defaulter-gen... >&2
@@ -493,13 +494,9 @@ codegen-register: $(REGISTER_GEN)
 
 .PHONY: codegen-deepcopy
 codegen-deepcopy: ## Generate deep copy functions
-codegen-deepcopy: $(PACKAGE_SHIM)
 codegen-deepcopy: $(DEEPCOPY_GEN)
 	@echo Generate deep copy functions... >&2
-	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
-		--go-header-file=./scripts/boilerplate.go.txt \
-		--input-dirs=$(INPUT_DIRS) \
-		--output-file-base=zz_generated.deepcopy
+	@$(DEEPCOPY_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-file zz_generated.deepcopy.go ./api/...
 
 .PHONY: codegen-defaulters
 codegen-defaulters: ## Generate defaulters
