@@ -6,6 +6,7 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -30,28 +31,45 @@ func NewProvider(
 	policies []policiesv1alpha1.ValidatingPolicy,
 	exceptions []*policiesv1alpha1.PolicyException,
 ) (ProviderFunc, error) {
-	compiled := make([]Policy, 0, len(policies))
-	for _, vp := range policies {
+	out := make([]Policy, 0, len(policies))
+	for _, policy := range policies {
+		actions := sets.New(policy.Spec.ValidationActions()...)
 		var matchedExceptions []*policiesv1alpha1.PolicyException
 		for _, polex := range exceptions {
 			for _, ref := range polex.Spec.PolicyRefs {
-				if ref.Name == vp.GetName() && ref.Kind == vp.GetKind() {
+				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
 					matchedExceptions = append(matchedExceptions, polex)
 				}
 			}
 		}
-		policy, err := compiler.Compile(&vp, matchedExceptions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
+		compiled, errs := compiler.Compile(&policy, matchedExceptions)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 		}
-		compiled = append(compiled, Policy{
-			Actions:        sets.New(vp.Spec.ValidationActions()...),
-			Policy:         vp,
-			CompiledPolicy: policy,
+		out = append(out, Policy{
+			Actions:        actions,
+			Policy:         policy,
+			CompiledPolicy: compiled,
 		})
+		generated, err := autogen.Autogen(&policy)
+		if err != nil {
+			return nil, err
+		}
+		for _, autogen := range generated {
+			policy.Spec = *autogen.Spec
+			compiled, errs := compiler.Compile(&policy, matchedExceptions)
+			if len(errs) > 0 {
+				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
+			}
+			out = append(out, Policy{
+				Actions:        actions,
+				Policy:         policy,
+				CompiledPolicy: compiled,
+			})
+		}
 	}
 	return func(context.Context) ([]Policy, error) {
-		return compiled, nil
+		return out, nil
 	}, nil
 }
 
