@@ -41,11 +41,9 @@ CONTROLLER_GEN_VERSION             ?= v0.17.3
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
-OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
-DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
-CODE_GEN_VERSION                   ?= v0.28.0
+CODE_GEN_VERSION                   ?= v0.32.4
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
@@ -63,7 +61,7 @@ KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -91,10 +89,6 @@ $(INFORMER_GEN):
 	@echo Install informer-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/informer-gen@$(CODE_GEN_VERSION)
 
-$(OPENAPI_GEN):
-	@echo Install openapi-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/openapi-gen@$(CODE_GEN_VERSION)
-
 $(REGISTER_GEN):
 	@echo Install register-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/register-gen@$(CODE_GEN_VERSION)
@@ -102,10 +96,6 @@ $(REGISTER_GEN):
 $(DEEPCOPY_GEN):
 	@echo Install deepcopy-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/deepcopy-gen@$(CODE_GEN_VERSION)
-
-$(DEFAULTER_GEN):
-	@echo Install defaulter-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/defaulter-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@echo Install gen-crd-api-reference-docs... >&2
@@ -437,40 +427,55 @@ $(PACKAGE_SHIM): $(GOPATH_SHIM)
 
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
-codegen-client-clientset: $(PACKAGE_SHIM)
 codegen-client-clientset: $(CLIENT_GEN)
 	@echo Generate clientset... >&2
-	@rm -rf $(CLIENTSET_PACKAGE) && mkdir -p $(CLIENTSET_PACKAGE)
-	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
+	@rm -rf ./pkg/client/clientset && mkdir -p ./pkg/client/clientset
+	$(CLIENT_GEN) -v 12 \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--clientset-name versioned \
-		--output-package $(CLIENTSET_PACKAGE) \
-		--input-base "" \
-		--input $(CLIENT_INPUT_DIRS)
+		--output-dir ./pkg/client/clientset \
+		--output-pkg $(CLIENTSET_PACKAGE) \
+		--input-base github.com/kyverno/kyverno \
+		--input ./api/kyverno/v1 \
+		--input ./api/kyverno/v2 \
+		--input ./api/kyverno/v2alpha1 \
+		--input ./api/reports/v1 \
+		--input ./api/policyreport/v1alpha2 \
+		--input ./api/policies.kyverno.io/v1alpha1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
-codegen-client-listers: $(PACKAGE_SHIM)
 codegen-client-listers: $(LISTER_GEN)
 	@echo Generate listers... >&2
-	@rm -rf $(LISTERS_PACKAGE) && mkdir -p $(LISTERS_PACKAGE)
-	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
+	@rm -rf ./pkg/client/listers && mkdir -p ./pkg/client/listers
+	@$(LISTER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
-		--output-package $(LISTERS_PACKAGE) \
-		--input-dirs $(CLIENT_INPUT_DIRS)
+		--output-dir ./pkg/client/listers \
+		--output-pkg $(LISTERS_PACKAGE) \
+		./api/kyverno/v1 \
+		./api/kyverno/v2 \
+		./api/kyverno/v2alpha1 \
+		./api/reports/v1 \
+		./api/policyreport/v1alpha2 \
+		./api/policies.kyverno.io/v1alpha1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
-codegen-client-informers: $(PACKAGE_SHIM)
 codegen-client-informers: $(INFORMER_GEN)
 	@echo Generate informers... >&2
-	@rm -rf $(INFORMERS_PACKAGE) && mkdir -p $(INFORMERS_PACKAGE)
-	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) \
+	@rm -rf ./pkg/client/informers && mkdir -p ./pkg/client/informers
+	@$(INFORMER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
-		--output-package $(INFORMERS_PACKAGE) \
-		--input-dirs $(CLIENT_INPUT_DIRS) \
+		--output-dir ./pkg/client/informers \
+		--output-pkg $(INFORMERS_PACKAGE) \
 		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
-		--listers-package $(LISTERS_PACKAGE)
+		--listers-package $(LISTERS_PACKAGE) \
+		./api/kyverno/v1 \
+		./api/kyverno/v2 \
+		./api/kyverno/v2alpha1 \
+		./api/reports/v1 \
+		./api/policyreport/v1alpha2 \
+		./api/policies.kyverno.io/v1alpha1
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: ## Generate client wrappers
@@ -484,35 +489,20 @@ codegen-client-wrappers: $(CLIENT_WRAPPER)
 
 .PHONY: codegen-register
 codegen-register: ## Generate types registrations
-codegen-register: $(PACKAGE_SHIM)
 codegen-register: $(REGISTER_GEN)
 	@echo Generate registration... >&2
-	@GOPATH=$(GOPATH_SHIM) $(REGISTER_GEN) \
-		--go-header-file=./scripts/boilerplate.go.txt \
-		--input-dirs=$(INPUT_DIRS)
+	@$(REGISTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --output-file zz_generated.register.go ./api/...
 
 .PHONY: codegen-deepcopy
 codegen-deepcopy: ## Generate deep copy functions
-codegen-deepcopy: $(PACKAGE_SHIM)
 codegen-deepcopy: $(DEEPCOPY_GEN)
 	@echo Generate deep copy functions... >&2
-	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
-		--go-header-file=./scripts/boilerplate.go.txt \
-		--input-dirs=$(INPUT_DIRS) \
-		--output-file-base=zz_generated.deepcopy
-
-.PHONY: codegen-defaulters
-codegen-defaulters: ## Generate defaulters
-codegen-defaulters: $(PACKAGE_SHIM)
-codegen-defaulters: $(DEFAULTER_GEN)
-	@echo Generate defaulters... >&2
-	@GOPATH=$(GOPATH_SHIM) $(DEFAULTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --input-dirs=$(INPUT_DIRS)
+	@$(DEEPCOPY_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-file zz_generated.deepcopy.go ./api/...
 
 .PHONY: codegen-client-all
 codegen-client-all: ## Generate clientset, listers and informers
 codegen-client-all: codegen-register
 codegen-client-all: codegen-deepcopy
-codegen-client-all: codegen-defaulters
 codegen-client-all: codegen-client-clientset
 codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
