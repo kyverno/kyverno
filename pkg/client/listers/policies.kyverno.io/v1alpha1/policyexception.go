@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // PolicyExceptionLister helps list PolicyExceptions.
@@ -30,7 +30,7 @@ import (
 type PolicyExceptionLister interface {
 	// List lists all PolicyExceptions in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.PolicyException, err error)
+	List(selector labels.Selector) (ret []*policieskyvernoiov1alpha1.PolicyException, err error)
 	// PolicyExceptions returns an object that can list and get PolicyExceptions.
 	PolicyExceptions(namespace string) PolicyExceptionNamespaceLister
 	PolicyExceptionListerExpansion
@@ -38,25 +38,17 @@ type PolicyExceptionLister interface {
 
 // policyExceptionLister implements the PolicyExceptionLister interface.
 type policyExceptionLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*policieskyvernoiov1alpha1.PolicyException]
 }
 
 // NewPolicyExceptionLister returns a new PolicyExceptionLister.
 func NewPolicyExceptionLister(indexer cache.Indexer) PolicyExceptionLister {
-	return &policyExceptionLister{indexer: indexer}
-}
-
-// List lists all PolicyExceptions in the indexer.
-func (s *policyExceptionLister) List(selector labels.Selector) (ret []*v1alpha1.PolicyException, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PolicyException))
-	})
-	return ret, err
+	return &policyExceptionLister{listers.New[*policieskyvernoiov1alpha1.PolicyException](indexer, policieskyvernoiov1alpha1.Resource("policyexception"))}
 }
 
 // PolicyExceptions returns an object that can list and get PolicyExceptions.
 func (s *policyExceptionLister) PolicyExceptions(namespace string) PolicyExceptionNamespaceLister {
-	return policyExceptionNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return policyExceptionNamespaceLister{listers.NewNamespaced[*policieskyvernoiov1alpha1.PolicyException](s.ResourceIndexer, namespace)}
 }
 
 // PolicyExceptionNamespaceLister helps list and get PolicyExceptions.
@@ -64,36 +56,15 @@ func (s *policyExceptionLister) PolicyExceptions(namespace string) PolicyExcepti
 type PolicyExceptionNamespaceLister interface {
 	// List lists all PolicyExceptions in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.PolicyException, err error)
+	List(selector labels.Selector) (ret []*policieskyvernoiov1alpha1.PolicyException, err error)
 	// Get retrieves the PolicyException from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.PolicyException, error)
+	Get(name string) (*policieskyvernoiov1alpha1.PolicyException, error)
 	PolicyExceptionNamespaceListerExpansion
 }
 
 // policyExceptionNamespaceLister implements the PolicyExceptionNamespaceLister
 // interface.
 type policyExceptionNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all PolicyExceptions in the indexer for a given namespace.
-func (s policyExceptionNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.PolicyException, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PolicyException))
-	})
-	return ret, err
-}
-
-// Get retrieves the PolicyException from the indexer for a given namespace and name.
-func (s policyExceptionNamespaceLister) Get(name string) (*v1alpha1.PolicyException, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("policyexception"), name)
-	}
-	return obj.(*v1alpha1.PolicyException), nil
+	listers.ResourceIndexer[*policieskyvernoiov1alpha1.PolicyException]
 }
