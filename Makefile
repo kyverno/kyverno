@@ -84,7 +84,7 @@ $(CLIENT_GEN):
 
 $(LISTER_GEN):
 	@echo Install lister-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/lister-gen@$(CODE_GEN_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/lister-gen@$(DEEPCOPY_GEN_VERSION)
 
 $(INFORMER_GEN):
 	@echo Install informer-gen... >&2
@@ -441,14 +441,19 @@ codegen-client-clientset: $(CLIENT_GEN)
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
-codegen-client-listers: $(PACKAGE_SHIM)
 codegen-client-listers: $(LISTER_GEN)
 	@echo Generate listers... >&2
-	@rm -rf $(LISTERS_PACKAGE) && mkdir -p $(LISTERS_PACKAGE)
-	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
+	@rm -rf ./pkg/client/listers && mkdir -p ./pkg/client/listers
+	@$(LISTER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
-		--output-package $(LISTERS_PACKAGE) \
-		--input-dirs $(CLIENT_INPUT_DIRS)
+		--output-dir ./pkg/client/listers \
+		--output-pkg $(LISTERS_PACKAGE) \
+		./api/kyverno/v1 \
+		./api/kyverno/v2 \
+		./api/kyverno/v2alpha1 \
+		./api/reports/v1 \
+		./api/policyreport/v1alpha2 \
+		./api/policies.kyverno.io/v1alpha1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
