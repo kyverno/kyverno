@@ -80,7 +80,7 @@ $(CONTROLLER_GEN):
 
 $(CLIENT_GEN):
 	@echo Install client-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/client-gen@$(CODE_GEN_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/client-gen@$(DEEPCOPY_GEN_VERSION)
 
 $(LISTER_GEN):
 	@echo Install lister-gen... >&2
@@ -428,16 +428,21 @@ $(PACKAGE_SHIM): $(GOPATH_SHIM)
 
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
-codegen-client-clientset: $(PACKAGE_SHIM)
 codegen-client-clientset: $(CLIENT_GEN)
 	@echo Generate clientset... >&2
-	@rm -rf $(CLIENTSET_PACKAGE) && mkdir -p $(CLIENTSET_PACKAGE)
-	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
+	@rm -rf ./pkg/client/clientset && mkdir -p ./pkg/client/clientset
+	$(CLIENT_GEN) -v 12 \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--clientset-name versioned \
-		--output-package $(CLIENTSET_PACKAGE) \
-		--input-base "" \
-		--input $(CLIENT_INPUT_DIRS)
+		--output-dir ./pkg/client/clientset \
+		--output-pkg $(CLIENTSET_PACKAGE) \
+		--input-base github.com/kyverno/kyverno \
+		--input ./api/kyverno/v1 \
+		--input ./api/kyverno/v2 \
+		--input ./api/kyverno/v2alpha1 \
+		--input ./api/reports/v1 \
+		--input ./api/policyreport/v1alpha2 \
+		--input ./api/policies.kyverno.io/v1alpha1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers

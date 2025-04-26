@@ -19,114 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeValidatingPolicies implements ValidatingPolicyInterface
-type FakeValidatingPolicies struct {
+// fakeValidatingPolicies implements ValidatingPolicyInterface
+type fakeValidatingPolicies struct {
+	*gentype.FakeClientWithList[*v1alpha1.ValidatingPolicy, *v1alpha1.ValidatingPolicyList]
 	Fake *FakePoliciesV1alpha1
 }
 
-var validatingpoliciesResource = v1alpha1.SchemeGroupVersion.WithResource("validatingpolicies")
-
-var validatingpoliciesKind = v1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
-
-// Get takes name of the validatingPolicy, and returns the corresponding validatingPolicy object, and an error if there is any.
-func (c *FakeValidatingPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ValidatingPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(validatingpoliciesResource, name), &v1alpha1.ValidatingPolicy{})
-	if obj == nil {
-		return nil, err
+func newFakeValidatingPolicies(fake *FakePoliciesV1alpha1) policieskyvernoiov1alpha1.ValidatingPolicyInterface {
+	return &fakeValidatingPolicies{
+		gentype.NewFakeClientWithList[*v1alpha1.ValidatingPolicy, *v1alpha1.ValidatingPolicyList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("validatingpolicies"),
+			v1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"),
+			func() *v1alpha1.ValidatingPolicy { return &v1alpha1.ValidatingPolicy{} },
+			func() *v1alpha1.ValidatingPolicyList { return &v1alpha1.ValidatingPolicyList{} },
+			func(dst, src *v1alpha1.ValidatingPolicyList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.ValidatingPolicyList) []*v1alpha1.ValidatingPolicy {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.ValidatingPolicyList, items []*v1alpha1.ValidatingPolicy) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.ValidatingPolicy), err
-}
-
-// List takes label and field selectors, and returns the list of ValidatingPolicies that match those selectors.
-func (c *FakeValidatingPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ValidatingPolicyList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(validatingpoliciesResource, validatingpoliciesKind, opts), &v1alpha1.ValidatingPolicyList{})
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.ValidatingPolicyList{ListMeta: obj.(*v1alpha1.ValidatingPolicyList).ListMeta}
-	for _, item := range obj.(*v1alpha1.ValidatingPolicyList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested validatingPolicies.
-func (c *FakeValidatingPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(validatingpoliciesResource, opts))
-}
-
-// Create takes the representation of a validatingPolicy and creates it.  Returns the server's representation of the validatingPolicy, and an error, if there is any.
-func (c *FakeValidatingPolicies) Create(ctx context.Context, validatingPolicy *v1alpha1.ValidatingPolicy, opts v1.CreateOptions) (result *v1alpha1.ValidatingPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(validatingpoliciesResource, validatingPolicy), &v1alpha1.ValidatingPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ValidatingPolicy), err
-}
-
-// Update takes the representation of a validatingPolicy and updates it. Returns the server's representation of the validatingPolicy, and an error, if there is any.
-func (c *FakeValidatingPolicies) Update(ctx context.Context, validatingPolicy *v1alpha1.ValidatingPolicy, opts v1.UpdateOptions) (result *v1alpha1.ValidatingPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(validatingpoliciesResource, validatingPolicy), &v1alpha1.ValidatingPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ValidatingPolicy), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeValidatingPolicies) UpdateStatus(ctx context.Context, validatingPolicy *v1alpha1.ValidatingPolicy, opts v1.UpdateOptions) (*v1alpha1.ValidatingPolicy, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(validatingpoliciesResource, "status", validatingPolicy), &v1alpha1.ValidatingPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ValidatingPolicy), err
-}
-
-// Delete takes name of the validatingPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeValidatingPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(validatingpoliciesResource, name, opts), &v1alpha1.ValidatingPolicy{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeValidatingPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(validatingpoliciesResource, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.ValidatingPolicyList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched validatingPolicy.
-func (c *FakeValidatingPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ValidatingPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(validatingpoliciesResource, name, pt, data, subresources...), &v1alpha1.ValidatingPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ValidatingPolicy), err
 }
