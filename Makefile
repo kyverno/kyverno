@@ -409,7 +409,7 @@ CLIENT_INPUT_DIRS           := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/
 CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
-CRDS_PATH                   := ${PWD}/config/crds
+CRDS_PATH                   := ./config/crds
 INSTALL_MANIFEST_PATH       := ${PWD}/config/install-latest-testing.yaml
 KYVERNO_CHART_VERSION       ?= v0.0.0
 POLICIES_CHART_VERSION      ?= v0.0.0
@@ -510,43 +510,57 @@ codegen-client-all: codegen-client-wrappers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: ## Generate kyverno CRDs
-codegen-crds-kyverno: $(PACKAGE_SHIM)
 codegen-crds-kyverno: $(CONTROLLER_GEN)
 	@echo Generate kyverno crds... >&2
 	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/kyverno/v1/... paths=./api/kyverno/v1beta1/... paths=./api/kyverno/v2/... paths=./api/kyverno/v2alpha1/... paths=./api/kyverno/v2beta1/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/kyverno
+	@$(CONTROLLER_GEN) \
+		paths=./api/kyverno/v1/... \
+		paths=./api/kyverno/v1beta1/... \
+		paths=./api/kyverno/v2/... \
+		paths=./api/kyverno/v2alpha1/... \
+		paths=./api/kyverno/v2beta1/... \
+		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
+		output:dir=$(CRDS_PATH)/kyverno
 
 .PHONY: codegen-crds-policies
 codegen-crds-policies: ## Generate policies CRDs
-codegen-crds-policies: $(PACKAGE_SHIM)
 codegen-crds-policies: $(CONTROLLER_GEN)
 	@echo Generate policies crds... >&2
 	@rm -rf $(CRDS_PATH)/policies.kyverno.io && mkdir -p $(CRDS_PATH)/policies.kyverno.io
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/policies.kyverno.io/v1alpha1/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/policies.kyverno.io
+	@$(CONTROLLER_GEN) \
+		paths=./api/policies.kyverno.io/v1alpha1/... \
+		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
+		output:dir=$(CRDS_PATH)/policies.kyverno.io
 
 .PHONY: codegen-crds-policyreport
 codegen-crds-policyreport: ## Generate policy reports CRDs
-codegen-crds-policyreport: $(PACKAGE_SHIM)
 codegen-crds-policyreport: $(CONTROLLER_GEN)
 	@echo Generate policy reports crds... >&2
 	@rm -rf $(CRDS_PATH)/policyreport && mkdir -p $(CRDS_PATH)/policyreport
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/policyreport/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/policyreport
+	@$(CONTROLLER_GEN) \
+		paths=./api/policyreport/... \
+		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
+		output:dir=$(CRDS_PATH)/policyreport
 
 .PHONY: codegen-crds-reports
 codegen-crds-reports: ## Generate reports CRDs
-codegen-crds-reports: $(PACKAGE_SHIM)
 codegen-crds-reports: $(CONTROLLER_GEN)
 	@echo Generate reports crds... >&2
 	@rm -rf $(CRDS_PATH)/reports && mkdir -p $(CRDS_PATH)/reports
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/reports/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/reports
+	@$(CONTROLLER_GEN) \
+		paths=./api/reports/... \
+		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
+		output:dir=$(CRDS_PATH)/reports
 
 .PHONY: codegen-crds-cli
 codegen-crds-cli: ## Generate CLI CRDs
-codegen-crds-cli: $(PACKAGE_SHIM)
 codegen-crds-cli: $(CONTROLLER_GEN)
 	@echo Generate cli crds... >&2
-	@rm -rf ${PWD}/cmd/cli/kubectl-kyverno/config/crds && mkdir -p ${PWD}/cmd/cli/kubectl-kyverno/config/crds
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
+	@rm -rf ./cmd/cli/kubectl-kyverno/config/crds && mkdir -p ./cmd/cli/kubectl-kyverno/config/crds
+	@$(CONTROLLER_GEN) \
+		paths=./cmd/cli/kubectl-kyverno/apis/... \
+		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
+		output:dir=./cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
 codegen-crds-all: ## Generate all CRDs
