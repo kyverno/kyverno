@@ -8,6 +8,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/namespace"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/object"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/rules"
 )
 
@@ -62,16 +63,16 @@ func (e *matcher) Match(criteria matching.MatchCriteria, attr admission.Attribut
 }
 
 func matchNamespace(provider namespace.NamespaceSelectorProvider, namespace runtime.Object) (bool, error) {
-	if namespace == nil {
-		// If the request is about a cluster scoped resource, and it is not a
-		// namespace, it is never exempted.
-		return true, nil
-	}
 	selector, err := provider.GetParsedNamespaceSelector()
 	if err != nil {
 		return false, err
 	}
 	if selector.Empty() {
+		return true, nil
+	}
+	if namespace == nil {
+		// If the request is about a cluster scoped resource, and it is not a
+		// namespace, it is never exempted.
 		return true, nil
 	}
 	accessor, err := meta.Accessor(namespace)
@@ -92,8 +93,8 @@ func _matchObject(obj runtime.Object, selector labels.Selector) bool {
 	return selector.Matches(labels.Set(accessor.GetLabels()))
 }
 
-func matchObject(provider namespace.NamespaceSelectorProvider, attr admission.Attributes) (bool, error) {
-	selector, err := provider.GetParsedNamespaceSelector()
+func matchObject(provider object.ObjectSelectorProvider, attr admission.Attributes) (bool, error) {
+	selector, err := provider.GetParsedObjectSelector()
 	if err != nil {
 		return false, err
 	}
