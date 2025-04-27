@@ -33,7 +33,6 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}
@@ -43,7 +42,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			cel.MemberOverload(
 				"resource_list_string_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType},
-				types.DynType,
+				types.NewListType(types.NewMapType(types.StringType, types.DynType)),
 				cel.FunctionBinding(impl.list_resources_string_string_string),
 			),
 		},
@@ -51,7 +50,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			cel.MemberOverload(
 				"resource_get_string_string_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType},
-				types.DynType,
+				types.NewMapType(types.StringType, types.DynType),
 				cel.FunctionBinding(impl.get_resource_string_string_string_string),
 			),
 		},
@@ -59,13 +58,13 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			cel.MemberOverload(
 				"resource_post_string_string_string_map",
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
-				types.DynType,
+				types.NewMapType(types.StringType, types.DynType),
 				cel.FunctionBinding(impl.post_resource_string_string_string_map),
 			),
 			cel.MemberOverload(
 				"resource_post_string_string_map",
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
-				types.DynType,
+				types.NewMapType(types.StringType, types.DynType),
 				cel.FunctionBinding(impl.post_resource_string_string_map),
 			),
 		},

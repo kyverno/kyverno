@@ -47,7 +47,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	}
 
 	options := []cel.EnvOption{
-		cel.Variable(compiler.ObjectKey, cel.DynType),
+		cel.Variable(compiler.ObjectKey, cel.MapType(cel.StringType, cel.DynType)),
 	}
 
 	options = append(options, declOptions...)
@@ -110,8 +110,8 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		cel.Variable(compiler.HttpKey, http.HTTPType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
-		cel.Variable(compiler.ObjectKey, cel.DynType),
-		cel.Variable(compiler.OldObjectKey, cel.DynType),
+		cel.Variable(compiler.ObjectKey, cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable(compiler.OldObjectKey, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
