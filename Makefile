@@ -55,7 +55,7 @@ GOIMPORTS_VERSION                  ?= latest
 HELM                               ?= $(TOOLS_DIR)/helm
 HELM_VERSION                       ?= v3.17.3
 HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
-HELM_DOCS_VERSION                  ?= v1.11.0
+HELM_DOCS_VERSION                  ?= v1.14.2
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
@@ -560,7 +560,7 @@ codegen-crds-all: codegen-cli-crds
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
 	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
+	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION) -s file
 
 .PHONY: codegen-api-docs
 codegen-api-docs: ## Generate API docs
