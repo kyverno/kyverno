@@ -401,36 +401,23 @@ image-build-all: $(BUILD_WITH)-build-all
 # CODEGEN #
 ###########
 
-GOPATH_SHIM                 := ${PWD}/.gopath
-PACKAGE_SHIM                := $(GOPATH_SHIM)/src/$(PACKAGE)
-OUT_PACKAGE                 := $(PACKAGE)/pkg/client
-INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policies.kyverno.io/v1alpha1
-CLIENT_INPUT_DIRS           := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2,$(PACKAGE)/api/policies.kyverno.io/v1alpha1
-CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
-LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
-INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
+CLIENT_PACKAGE              := $(PACKAGE)/pkg/client
+CLIENTSET_PACKAGE           := $(CLIENT_PACKAGE)/clientset
+LISTERS_PACKAGE             := $(CLIENT_PACKAGE)/listers
+INFORMERS_PACKAGE           := $(CLIENT_PACKAGE)/informers
 CRDS_PATH                   := ./config/crds
-INSTALL_MANIFEST_PATH       := ${PWD}/config/install-latest-testing.yaml
+INSTALL_MANIFEST_PATH       := ./config/install-latest-testing.yaml
 KYVERNO_CHART_VERSION       ?= v0.0.0
 POLICIES_CHART_VERSION      ?= v0.0.0
 APP_CHART_VERSION           ?= latest
 KUBE_CHART_VERSION          ?= ">=1.25.0-0"
-
-$(GOPATH_SHIM):
-	@echo Create gopath shim... >&2
-	@mkdir -p $(GOPATH_SHIM)
-
-.INTERMEDIATE: $(PACKAGE_SHIM)
-$(PACKAGE_SHIM): $(GOPATH_SHIM)
-	@echo Create package shim... >&2
-	@mkdir -p $(GOPATH_SHIM)/src/github.com/kyverno && ln -s -f ${PWD} $(PACKAGE_SHIM)
 
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
 codegen-client-clientset: $(CLIENT_GEN)
 	@echo Generate clientset... >&2
 	@rm -rf ./pkg/client/clientset && mkdir -p ./pkg/client/clientset
-	$(CLIENT_GEN) -v 12 \
+	@$(CLIENT_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--clientset-name versioned \
 		--output-dir ./pkg/client/clientset \
@@ -581,7 +568,7 @@ codegen-api-docs: $(GEN_CRD_API_REFERENCE_DOCS)
 codegen-api-docs: $(GENREF)
 	@echo Generate api docs... >&2
 	@rm -rf docs/user/crd && mkdir -p docs/user/crd
-	@$(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+	@$(GEN_CRD_API_REFERENCE_DOCS) \
 		-api-dir $(PACKAGE)/api \
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
@@ -603,7 +590,7 @@ codegen-cli-api-docs: $(GEN_CRD_API_REFERENCE_DOCS)
 codegen-cli-api-docs: $(GENREF)
 	@echo Generate CLI api docs... >&2
 	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
-	@$(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+	@$(GEN_CRD_API_REFERENCE_DOCS) \
 		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis \
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
@@ -702,6 +689,7 @@ codegen-helm-all: codegen-helm-docs
 codegen-manifest-install-latest: ## Create install_latest manifest
 codegen-manifest-install-latest: $(HELM)
 	@echo Generate latest install manifest... >&2
+	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
@@ -711,7 +699,7 @@ codegen-manifest-install-latest: $(HELM)
 		--set reportsController.image.tag=latest \
 		--set backgroundController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
-		> ./config/install-latest-testing.yaml
+		> $(INSTALL_MANIFEST_PATH)
 
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: ## Create debug manifest
@@ -998,38 +986,6 @@ release-notes: ## Generate release notes
 .PHONY: debug-deploy
 debug-deploy: codegen-manifest-debug ## Install debug manifests
 	@kubectl create -f ./.manifest/debug.yaml || kubectl replace -f ./.manifest/debug.yaml
-
-#############
-# PERF TEST #
-#############
-
-PERF_TEST_NODE_COUNT		?= 3
-PERF_TEST_MEMORY_REQUEST	?= "1Gi"
-
-.PHONY: test-perf
-test-perf: $(PACKAGE_SHIM) ## Run perf tests
-	GO111MODULE=off GOPATH=$(GOPATH_SHIM) go get k8s.io/perf-tests || true
-	cd $(GOPATH_SHIM)/src/k8s.io/perf-tests && \
-	GOPATH=$(GOPATH_SHIM) ./run-e2e.sh cluster-loader2 \
-		--testconfig=./testing/load/config.yaml \
-		--provider=kind \
-		--kubeconfig=${HOME}/.kube/config \
-		--nodes=$(PERF_TEST_NODE_COUNT) \
-		--prometheus-memory-request=$(PERF_TEST_MEMORY_REQUEST) \
-		--enable-prometheus-server=true \
-		--tear-down-prometheus-server=true \
-		--prometheus-apiserver-scrape-port=6443 \
-		--prometheus-scrape-kubelets=true \
-		--prometheus-scrape-master-kubelets=true \
-		--prometheus-scrape-etcd=true \
-		--prometheus-scrape-kube-proxy=true \
-		--prometheus-kube-proxy-selector-key=k8s-app \
-		--prometheus-scrape-node-exporter=false \
-		--prometheus-scrape-kube-state-metrics=true \
-		--prometheus-scrape-metrics-server=true \
-		--prometheus-pvc-storage-class=standard \
-		--v=2 \
-		--report-dir=.
 
 ##########
 # DOCKER #
