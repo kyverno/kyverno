@@ -563,17 +563,16 @@ codegen-helm-docs: ## Generate helm docs
 
 .PHONY: codegen-api-docs
 codegen-api-docs: ## Generate API docs
-codegen-api-docs: $(PACKAGE_SHIM)
 codegen-api-docs: $(GEN_CRD_API_REFERENCE_DOCS)
 codegen-api-docs: $(GENREF)
 	@echo Generate api docs... >&2
 	@rm -rf docs/user/crd && mkdir -p docs/user/crd
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+	@$(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
 		-api-dir $(PACKAGE)/api \
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/crd/index.html
-	@cd ./docs/user && GOPATH=$(GOPATH_SHIM) $(GENREF) \
+	@cd ./docs/user && $(GENREF) \
 		-c config-api.yaml \
 		-o crd \
 		-f html
@@ -586,17 +585,16 @@ codegen-api-group-resources: $(API_GROUP_RESOURCES)
 
 .PHONY: codegen-cli-api-docs
 codegen-cli-api-docs: ## Generate CLI API docs
-codegen-cli-api-docs: $(PACKAGE_SHIM)
 codegen-cli-api-docs: $(GEN_CRD_API_REFERENCE_DOCS)
 codegen-cli-api-docs: $(GENREF)
 	@echo Generate CLI api docs... >&2
 	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+	@$(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
 		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis \
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/cli/crd/index.html
-	@cd ./docs/user && GOPATH=$(GOPATH_SHIM) $(GENREF) \
+	@cd ./docs/user && $(GENREF) \
 		-c config-cli-api.yaml \
 		-o cli/crd \
 		-f html
