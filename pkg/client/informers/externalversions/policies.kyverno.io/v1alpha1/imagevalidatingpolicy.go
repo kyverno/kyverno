@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	apipolicieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ImageValidatingPolicies.
 type ImageValidatingPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ImageValidatingPolicyLister
+	Lister() policieskyvernoiov1alpha1.ImageValidatingPolicyLister
 }
 
 type imageValidatingPolicyInformer struct {
@@ -70,7 +70,7 @@ func NewFilteredImageValidatingPolicyInformer(client versioned.Interface, resync
 				return client.PoliciesV1alpha1().ImageValidatingPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&policieskyvernoiov1alpha1.ImageValidatingPolicy{},
+		&apipolicieskyvernoiov1alpha1.ImageValidatingPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +81,9 @@ func (f *imageValidatingPolicyInformer) defaultInformer(client versioned.Interfa
 }
 
 func (f *imageValidatingPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policieskyvernoiov1alpha1.ImageValidatingPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apipolicieskyvernoiov1alpha1.ImageValidatingPolicy{}, f.defaultInformer)
 }
 
-func (f *imageValidatingPolicyInformer) Lister() v1alpha1.ImageValidatingPolicyLister {
-	return v1alpha1.NewImageValidatingPolicyLister(f.Informer().GetIndexer())
+func (f *imageValidatingPolicyInformer) Lister() policieskyvernoiov1alpha1.ImageValidatingPolicyLister {
+	return policieskyvernoiov1alpha1.NewImageValidatingPolicyLister(f.Informer().GetIndexer())
 }

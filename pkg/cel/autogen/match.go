@@ -13,6 +13,12 @@ import (
 )
 
 func CreateMatchConstraints(targets []Target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
+	if len(targets) == 0 {
+		return nil
+	}
+	if len(operations) == 0 {
+		return nil
+	}
 	rulesMap := map[schema.GroupVersion]sets.Set[string]{}
 	for _, target := range targets {
 		gv := schema.GroupVersion{Group: target.Group, Version: target.Version}
@@ -52,6 +58,9 @@ func CreateMatchConstraints(targets []Target, operations []admissionregistration
 }
 
 func CreateMatchConditions(replacements string, targets []Target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	if len(targets) == 0 {
+		return nil
+	}
 	if len(conditions) == 0 {
 		return conditions
 	}
