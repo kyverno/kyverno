@@ -128,7 +128,8 @@ $(CLIENT_WRAPPER):
 	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
 
 .PHONY: install-tools
-install-tools: $(TOOLS) ## Install tools
+install-tools: ## Install tools
+install-tools: $(TOOLS)
 
 .PHONY: clean-tools
 clean-tools: ## Remove installed tools
@@ -198,55 +199,61 @@ unused-package-check:
 		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
 	fi
 
-$(KYVERNOPRE_BIN): fmt vet
-	@echo Build kyvernopre binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
-
-$(KYVERNO_BIN): fmt vet
-	@echo Build kyverno binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
-
-$(CLI_BIN): fmt vet
-	@echo Build cli binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
+$(BACKGROUND_BIN): fmt vet
+	@echo Build background controller binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
 $(CLEANUP_BIN): fmt vet
 	@echo Build cleanup controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
+
+$(CLI_BIN): fmt vet
+	@echo Build cli binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
+
+$(KYVERNO_BIN): fmt vet
+	@echo Build kyverno binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
+
+$(KYVERNOPRE_BIN): fmt vet
+	@echo Build kyvernopre binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
 $(REPORTS_BIN): fmt vet
 	@echo Build reports controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
-
-$(BACKGROUND_BIN): fmt vet
-	@echo Build background controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
-
-.PHONY: build-kyverno-init
-build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
-
-.PHONY: build-kyverno
-build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
-
-.PHONY: build-cli
-build-cli: $(CLI_BIN) ## Build cli binary
-
-.PHONY: build-cleanup-controller
-build-cleanup-controller: $(CLEANUP_BIN) ## Build cleanup controller binary
-
-.PHONY: build-reports-controller
-build-reports-controller: $(REPORTS_BIN) ## Build reports controller binary
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
 .PHONY: build-background-controller
-build-background-controller: $(BACKGROUND_BIN) ## Build background controller binary
+build-background-controller: ## Build background controller binary
+build-background-controller: $(BACKGROUND_BIN)
 
-build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller build-reports-controller build-background-controller ## Build all binaries
+.PHONY: build-cleanup-controller
+build-cleanup-controller: ## Build cleanup controller binary
+build-cleanup-controller: $(CLEANUP_BIN)
+
+.PHONY: build-cli
+build-cli: ## Build cli binary
+build-cli: $(CLI_BIN)
+
+.PHONY: build-kyverno
+build-kyverno: ## Build kyverno binary
+build-kyverno: $(KYVERNO_BIN)
+
+.PHONY: build-kyverno-init
+build-kyverno-init: ## Build kyvernopre binary
+build-kyverno-init: $(KYVERNOPRE_BIN)
+
+.PHONY: build-reports-controller
+build-reports-controller: ## Build reports controller binary
+build-reports-controller: $(REPORTS_BIN)
+
+build-all: ## Build all binaries
+build-all: build-background-controller
+build-all: build-cleanup-controller
+build-all: build-cli
+build-all: build-kyverno
+build-all: build-kyverno-init
+build-all: build-reports-controller
 
 ##############
 # BUILD (KO) #
