@@ -7,8 +7,8 @@ permissions: {}
 on:
   pull_request:
     branches:
-      - main
-      - release-*
+    - main
+    - release-*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,18 +18,18 @@ jobs:
   verify-codegen:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          build-cache-key: verify-codegen
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-      - name: Create cluster
-        run: make kind-create-cluster
-      - name: Verify generated code is up to date
-        run: make verify-codegen
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Setup caches
+      uses: ./.github/actions/setup-caches
+      timeout-minutes: 5
+      continue-on-error: true
+      with:
+        build-cache-key: verify-codegen
+    - name: Setup build env
+      uses: ./.github/actions/setup-build-env
+      timeout-minutes: 10
+    - name: Create cluster
+      run: make kind-create-cluster
+    - name: Verify generated code is up to date
+      run: make verify-codegen
