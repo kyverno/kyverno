@@ -58,7 +58,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 	// get exceptions that match the policy
-	exceptions, err := engine.ListExceptions(r.polexLister, policy.GetName(), policy.GetKind())
+	exceptions, err := engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
