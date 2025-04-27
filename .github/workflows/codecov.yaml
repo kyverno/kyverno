@@ -36,7 +36,7 @@ jobs:
         with:
           free-disk-space: false
       - name: Generate Code Coverage Report
-        run: make code-cov-report
+        run: make test-unit
       - name: Upload coverage
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

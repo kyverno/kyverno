@@ -48,8 +48,6 @@ GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
 GENREF_VERSION                     ?= master
-GO_ACC                             ?= $(TOOLS_DIR)/go-acc
-GO_ACC_VERSION                     ?= latest
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  ?= latest
 HELM                               ?= $(TOOLS_DIR)/helm
@@ -61,7 +59,7 @@ KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -105,10 +103,6 @@ $(GENREF):
 	@echo Install genref... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/kubernetes-sigs/reference-docs/genref@$(GENREF_VERSION)
 
-$(GO_ACC):
-	@echo Install go-acc... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/ory/go-acc@$(GO_ACC_VERSION)
-
 $(GOIMPORTS):
 	@echo Install goimports... >&2
 	@GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
@@ -134,7 +128,8 @@ $(CLIENT_WRAPPER):
 	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
 
 .PHONY: install-tools
-install-tools: $(TOOLS) ## Install tools
+install-tools: ## Install tools
+install-tools: $(TOOLS)
 
 .PHONY: clean-tools
 clean-tools: ## Remove installed tools
@@ -204,55 +199,61 @@ unused-package-check:
 		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
 	fi
 
-$(KYVERNOPRE_BIN): fmt vet
-	@echo Build kyvernopre binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
-
-$(KYVERNO_BIN): fmt vet
-	@echo Build kyverno binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
-
-$(CLI_BIN): fmt vet
-	@echo Build cli binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
+$(BACKGROUND_BIN): fmt vet
+	@echo Build background controller binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
 $(CLEANUP_BIN): fmt vet
 	@echo Build cleanup controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
+
+$(CLI_BIN): fmt vet
+	@echo Build cli binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
+
+$(KYVERNO_BIN): fmt vet
+	@echo Build kyverno binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
+
+$(KYVERNOPRE_BIN): fmt vet
+	@echo Build kyvernopre binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
 $(REPORTS_BIN): fmt vet
 	@echo Build reports controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
-
-$(BACKGROUND_BIN): fmt vet
-	@echo Build background controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
-		go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
-
-.PHONY: build-kyverno-init
-build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
-
-.PHONY: build-kyverno
-build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
-
-.PHONY: build-cli
-build-cli: $(CLI_BIN) ## Build cli binary
-
-.PHONY: build-cleanup-controller
-build-cleanup-controller: $(CLEANUP_BIN) ## Build cleanup controller binary
-
-.PHONY: build-reports-controller
-build-reports-controller: $(REPORTS_BIN) ## Build reports controller binary
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
 .PHONY: build-background-controller
-build-background-controller: $(BACKGROUND_BIN) ## Build background controller binary
+build-background-controller: ## Build background controller binary
+build-background-controller: $(BACKGROUND_BIN)
 
-build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller build-reports-controller build-background-controller ## Build all binaries
+.PHONY: build-cleanup-controller
+build-cleanup-controller: ## Build cleanup controller binary
+build-cleanup-controller: $(CLEANUP_BIN)
+
+.PHONY: build-cli
+build-cli: ## Build cli binary
+build-cli: $(CLI_BIN)
+
+.PHONY: build-kyverno
+build-kyverno: ## Build kyverno binary
+build-kyverno: $(KYVERNO_BIN)
+
+.PHONY: build-kyverno-init
+build-kyverno-init: ## Build kyvernopre binary
+build-kyverno-init: $(KYVERNOPRE_BIN)
+
+.PHONY: build-reports-controller
+build-reports-controller: ## Build reports controller binary
+build-reports-controller: $(REPORTS_BIN)
+
+build-all: ## Build all binaries
+build-all: build-background-controller
+build-all: build-cleanup-controller
+build-all: build-cli
+build-all: build-kyverno
+build-all: build-kyverno-init
+build-all: build-reports-controller
 
 ##############
 # BUILD (KO) #
@@ -864,11 +865,7 @@ verify-codegen: verify-cli-crds
 ##############
 
 CODE_COVERAGE_FILE      := coverage
-CODE_COVERAGE_FILE_TXT  := $(CODE_COVERAGE_FILE).txt
-CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
-
-.PHONY: test
-test: test-clean test-unit ## Clean tests cache then run unit tests
+CODE_COVERAGE_FILE_OUT  := $(CODE_COVERAGE_FILE).out
 
 .PHONY: test-clean
 test-clean: ## Clean tests cache
@@ -876,16 +873,10 @@ test-clean: ## Clean tests cache
 	@go clean -testcache
 
 .PHONY: test-unit
-test-unit: test-clean $(GO_ACC) ## Run unit tests
+test-unit: ## Run unit tests
+test-unit: test-clean
 	@echo Running unit tests... >&2
-	@$(GO_ACC) ./... -o $(CODE_COVERAGE_FILE_TXT)
-
-.PHONY: code-cov-report
-code-cov-report: test-clean ## Generate code coverage report
-	@echo Generating code coverage report... >&2
-	@GO111MODULE=on go test -v -coverprofile=coverage.out ./...
-	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
-	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
+	@go test -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
 #############
 # CLI TESTS #
