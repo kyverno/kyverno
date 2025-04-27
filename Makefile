@@ -48,8 +48,6 @@ GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
 GENREF_VERSION                     ?= master
-GO_ACC                             ?= $(TOOLS_DIR)/go-acc
-GO_ACC_VERSION                     ?= latest
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  ?= latest
 HELM                               ?= $(TOOLS_DIR)/helm
@@ -61,7 +59,7 @@ KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -104,10 +102,6 @@ $(GEN_CRD_API_REFERENCE_DOCS):
 $(GENREF):
 	@echo Install genref... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/kubernetes-sigs/reference-docs/genref@$(GENREF_VERSION)
-
-$(GO_ACC):
-	@echo Install go-acc... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/ory/go-acc@$(GO_ACC_VERSION)
 
 $(GOIMPORTS):
 	@echo Install goimports... >&2
@@ -864,11 +858,7 @@ verify-codegen: verify-cli-crds
 ##############
 
 CODE_COVERAGE_FILE      := coverage
-CODE_COVERAGE_FILE_TXT  := $(CODE_COVERAGE_FILE).txt
-CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
-
-.PHONY: test
-test: test-clean test-unit ## Clean tests cache then run unit tests
+CODE_COVERAGE_FILE_OUT  := $(CODE_COVERAGE_FILE).out
 
 .PHONY: test-clean
 test-clean: ## Clean tests cache
@@ -876,16 +866,10 @@ test-clean: ## Clean tests cache
 	@go clean -testcache
 
 .PHONY: test-unit
-test-unit: test-clean $(GO_ACC) ## Run unit tests
+test-unit: ## Run unit tests
+test-unit: test-clean
 	@echo Running unit tests... >&2
-	@$(GO_ACC) ./... -o $(CODE_COVERAGE_FILE_TXT)
-
-.PHONY: code-cov-report
-code-cov-report: test-clean ## Generate code coverage report
-	@echo Generating code coverage report... >&2
-	@GO111MODULE=on go test -v -coverprofile=coverage.out ./...
-	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
-	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
+	@go test -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
 #############
 # CLI TESTS #
