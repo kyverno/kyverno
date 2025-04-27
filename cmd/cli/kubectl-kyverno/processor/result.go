@@ -84,39 +84,25 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 }
 
 func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) bool {
-	genericPolicy := response.Policy()
-	if genericPolicy.AsKyvernoPolicy() == nil {
-		return false
-	}
-	policy := genericPolicy.AsKyvernoPolicy()
-	var policyHasMutate bool
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
-		if rule.HasMutate() {
-			policyHasMutate = true
+	printed := false
+	// for each rule in the response, if it's a mutation, tally it
+	for _, rule := range response.PolicyResponse.Rules {
+		if rule.RuleType() != engineapi.Mutation {
+			continue
+		}
+		switch rule.Status() {
+		case engineapi.RuleStatusPass:
+			rc.Pass++
+			printed = true
+		case engineapi.RuleStatusFail:
+			rc.Fail++
+		case engineapi.RuleStatusError:
+			rc.Error++
+		case engineapi.RuleStatusSkip:
+			rc.Skip++
 		}
 	}
-	if !policyHasMutate {
-		return false
-	}
-	printMutatedRes := false
-	for _, policyRule := range autogen.Default.ComputeRules(policy, "") {
-		for _, mutateResponseRule := range response.PolicyResponse.Rules {
-			if policyRule.Name == mutateResponseRule.Name() {
-				if mutateResponseRule.Status() == engineapi.RuleStatusPass {
-					rc.Pass++
-					printMutatedRes = true
-				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
-					rc.Skip++
-				} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
-					rc.Error++
-				} else {
-					rc.Fail++
-				}
-				continue
-			}
-		}
-	}
-	return printMutatedRes
+	return printed
 }
 
 func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.EngineResponse) {
@@ -140,23 +126,6 @@ func (rc *ResultCounts) AddValidatingPolicyResponse(engineResponse engineapi.Eng
 		} else if ruleResp.Status() == engineapi.RuleStatusError {
 			rc.Error++
 		} else if ruleResp.Status() == engineapi.RuleStatusSkip {
-			rc.Skip++
-		}
-	}
-}
-
-func (rc *ResultCounts) AddMutatingAdmissionPolicyResponse(engineResponse engineapi.EngineResponse) {
-	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
-		switch ruleResp.Status() {
-		case engineapi.RuleStatusPass:
-			rc.Pass++
-		case engineapi.RuleStatusFail:
-			rc.Fail++
-		case engineapi.RuleStatusError:
-			rc.Error++
-		case engineapi.RuleStatusWarn:
-			rc.Warn++
-		case engineapi.RuleStatusSkip:
 			rc.Skip++
 		}
 	}

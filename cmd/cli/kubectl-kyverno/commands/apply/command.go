@@ -196,7 +196,6 @@ func Command() *cobra.Command {
 }
 
 func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
-	fmt.Fprintln(os.Stderr, "[DEBUG] applyCommandHelper starting") // adding debug
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	err := c.checkArguments()
 	if err != nil {
@@ -239,7 +238,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	resources, jsonPayloads, err := c.loadResources(out, c.ResourcePaths, policies, vaps, dClient)
-	fmt.Fprintf(os.Stderr, "[DEBUG] loaded %d MAP(s): %v\n", len(maps), maps) // adding new
+
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}

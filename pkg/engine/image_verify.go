@@ -2,8 +2,6 @@ package engine
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -36,23 +34,6 @@ func (e *engine) verifyAndPatchImages(
 		handlerFactory := func() (handlers.Handler, error) {
 			if !rule.HasVerifyImages() {
 				return nil, nil
-			}
-
-			// Resolve CEL expressions in attestor keys
-			for viIndex, vi := range rule.VerifyImages {
-				for ai, att := range vi.Attestors {
-					for ei, entry := range att.Entries {
-						if entry.Keys != nil {
-							if expr := entry.Keys.PublicKeys; expr != "" && strings.Contains(expr, "{{") {
-								raw, err := policyContext.JSONContext().Query(expr)
-								if err == nil {
-									entry.Keys.PublicKeys = fmt.Sprintf("%v", raw)
-								}
-								rule.VerifyImages[viIndex].Attestors[ai].Entries[ei].Keys.PublicKeys = entry.Keys.PublicKeys
-							}
-						}
-					}
-				}
 			}
 			return mutation.NewMutateImageHandler(
 				policyContext,

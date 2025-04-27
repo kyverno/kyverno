@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/stretchr/testify/assert"
 )
@@ -721,10 +720,6 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 	// Call applyCommandHelper and capture EngineResponses.
 	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
 	assert.NoError(t, err, desc)
-
-	// **** STEP 2: Debugging MAP Mutation Responses ****
-	// Loop over the responses and print details. This helps you see what mutate.MutateResource returned.
-	fmt.Println("DEBUG: Engine Responses from applyCommandHelper:")
 	for i, resp := range responses {
 		policyName := "unknown"
 		if resp.Policy() != nil {
@@ -736,14 +731,10 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 			i, policyName, namespace, name, resp.PolicyResponse)
 	}
 
-	// **** STEP 3: Debugging Report Aggregation ****
-	// Compute and log the aggregated (cluster) reports.
 	clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
-	fmt.Printf("DEBUG: Clustered reports (pre-merge): %+v\n", clustered)
 	combined := []policyreportv1alpha2.ClusterPolicyReport{
 		report.MergeClusterReports(clustered),
 	}
-	fmt.Printf("DEBUG: Combined Cluster Policy Report summary: %+v\n", combined)
 
 	// Now compare the aggregated summary with the expected one.
 	assert.Equal(t, len(combined), len(tc.expectedPolicyReports), "Number of combined reports does not match expected: "+desc)
@@ -849,13 +840,14 @@ func TestCommandHelp(t *testing.T) {
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
 func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
+	// each entry here drives one t.Run
 	testcases := []*TestCase{
+		// plain MutatingAdmissionPolicy
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/policy.yaml"},
 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/resource.yaml"},
 				PolicyReport:  true,
-				Variables:     []string{"request.operation=CREATE"},
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
@@ -867,34 +859,12 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 				},
 			}},
 		},
-	}
-
-	for _, tc := range testcases {
-		t.Run("MAP test", func(t *testing.T) {
-			verifyTestcase(t, tc, compareSummary)
-		})
-	}
-}
-
-func Test_LoadMAPFile(t *testing.T) {
-	loaderResults, err := policy.Load(nil, "", "../../../../../test/cli/test-mutating-admission-policy/policy.yaml")
-	if err != nil {
-		t.Fatalf("Error loading policy file: %v", err)
-	}
-	if loaderResults == nil || len(loaderResults.MAPs) == 0 {
-		t.Fatalf("Expected at least one MAP, but got 0")
-	}
-	t.Logf("Loaded MAPs: %+v", loaderResults.MAPs)
-}
-
-func Test_Apply_MutatingAdmissionPolicy_WithBinding(t *testing.T) {
-	testcases := []*TestCase{
+		// MutatingAdmissionPolicy + Binding
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy-binding/policy.yaml"},
 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy-binding/resource.yaml"},
 				PolicyReport:  true,
-				Variables:     []string{"request.operation=CREATE"},
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
@@ -909,7 +879,9 @@ func Test_Apply_MutatingAdmissionPolicy_WithBinding(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		t.Run("MAP with MAPB test", func(t *testing.T) {
+		// you can give a custom name here if you like, e.g.
+		// t.Run("plain MAP", ...) and t.Run("MAP with binding", ...)
+		t.Run("", func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}

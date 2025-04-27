@@ -42,10 +42,8 @@ var (
 	KubectlValidateLoader = kubectlValidateLoader
 	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
 		if experimental.UseKubectlValidate() {
-			fmt.Println("Using KubectlLoader")
 			return KubectlValidateLoader(path, bytes)
 		} else {
-			fmt.Println("Using LegacyLoader")
 			return LegacyLoader(path, bytes)
 
 		}
@@ -93,7 +91,6 @@ func (l *LoaderResults) addError(path string, err error) {
 type loader = func(string, []byte) (*LoaderResults, error)
 
 func Load(fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
-	fmt.Println(" DEBUG: defaultLoader")
 	return LoadWithLoader(defaultLoader, fs, resourcePath, paths...)
 }
 
@@ -147,10 +144,8 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 
-		fmt.Printf("DEBUG: Loaded document GVK: %s/%s, Kind: %s\n", gvk.Group, gvk.Version, gvk.Kind)
-
 		if gvk == mapV1alpha1 {
-			fmt.Println(" This is a MAP document")
+
 		}
 		if err != nil {
 			msg := err.Error()
