@@ -7,6 +7,8 @@ on:
     branches:
     - main
     types:
+    - opened
+    - reopened
     - labeled
     - unlabeled
 
