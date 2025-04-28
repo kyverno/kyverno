@@ -9,6 +9,7 @@ on:
     types:
     - opened
     - reopened
+    - synchronize
     - labeled
     - unlabeled
 
