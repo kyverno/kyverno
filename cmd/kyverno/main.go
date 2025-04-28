@@ -230,7 +230,7 @@ func createrLeaderControllers(
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"policies.kyverno.io"},
 				APIVersions: []string{"v1alpha1"},
-				Resources:   []string{"PolicyExceptions"},
+				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Create,
@@ -633,12 +633,12 @@ func main() {
 			// create compiler
 			compiler := vpolcompiler.NewCompiler()
 			// create vpolProvider
-			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create vpol provider")
 				os.Exit(1)
 			}
-			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
@@ -733,8 +733,7 @@ func main() {
 			Namespace: internal.ExceptionNamespace(),
 		})
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
-			Enabled:   internal.PolicyExceptionEnabled(),
-			Namespace: internal.ExceptionNamespace(),
+			Enabled: internal.PolicyExceptionEnabled(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(
