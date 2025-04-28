@@ -30,7 +30,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		defer wg.Done()
 	}
 
-	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
+	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request, policies)
 	if err != nil {
 		logger.Error(err, "failed to create policy context")
 		return
@@ -100,7 +100,7 @@ func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logge
 		defer wg.Done()
 	}
 
-	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
+	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request, generatePolicies)
 	if err != nil {
 		logger.Error(err, "failed to create policy context")
 		return
