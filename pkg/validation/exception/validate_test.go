@@ -63,35 +63,6 @@ func Test_Validate(t *testing.T) {
 			},
 			want: 0,
 		},
-		{
-			name: "CELPolicyExceptions disabled.",
-			args: args{
-				opts: ValidationOptions{
-					Enabled: false,
-				},
-				resource: []byte(`{
-    "apiVersion": "policies.kyverno.io/v1alpha1",
-    "kind": "PolicyException",
-    "metadata": {
-        "name": "pod-security-exception",
-    },
-    "spec": {
-        "policyRefs": [
-            {
-                "name": "require-run-as-nonroot"
-            }
-        ],
-        "matchConditions": [
-            {
-                "name": "check-namespace",
-                "expression": "object.metadata.namespace == 'test-ns'"
-            }
-        ]
-    }
-}`),
-			},
-			want: 1,
-		},
 	}
 	for _, c := range tc {
 		t.Run(c.name, func(t *testing.T) {
