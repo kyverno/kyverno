@@ -1,8 +1,7 @@
-# policy.yaml
 apiVersion: admissionregistration.k8s.io/v1alpha1
 kind: MutatingAdmissionPolicy
 metadata:
-  name: set-replicas
+  name: set-replicas-color-red
 spec:
   matchConstraints:
     resourceRules:
@@ -11,6 +10,9 @@ spec:
       operations: [ "CREATE" ]
       resources: [ "deployments" ]
   failurePolicy: Fail
+  matchConditions:
+  - name: check-color
+    expression: "object.metadata.labels['color'] == 'red'"
   mutations:
   - patchType: JSONPatch
     jsonPatch:
@@ -19,18 +21,6 @@ spec:
           JSONPatch{
             op: "replace",
             path: "/spec/replicas",
-            value: object.spec.replicas + 2
+            value: object.spec.replicas + 5
           }
         ]
----
-# binding.yaml
-apiVersion: admissionregistration.k8s.io/v1alpha1
-kind: MutatingAdmissionPolicyBinding
-metadata:
-  name: set-replicas-binding
-spec:
-  policyName: set-replicas
-  matchResources:
-    namespaceSelector:
-      matchLabels:
-        env: test

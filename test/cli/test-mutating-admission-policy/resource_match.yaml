@@ -1,9 +1,9 @@
-# deployment-in-test-ns.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-test
-  namespace: test-ns
+  name: nginx-no-color
+  labels:
+    app: nginx
 spec:
   replicas: 1
   selector:
