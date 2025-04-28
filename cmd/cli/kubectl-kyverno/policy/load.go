@@ -15,7 +15,6 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
@@ -28,6 +27,15 @@ import (
 )
 
 var (
+	policyV1              = kyvernov1.SchemeGroupVersion.WithKind("Policy")
+	policyV2              = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
+	clusterPolicyV1       = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
+	clusterPolicyV2       = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
+	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
+	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
+	vpV1alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	ivpV1alpha1           = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	defaultLoader         = kubectlValidateLoader
 	policyV1              = kyvernov1.SchemeGroupVersion.WithKind("Policy")
 	policyV2              = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
 	clusterPolicyV1       = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
