@@ -77,6 +77,7 @@ func NewKubeProvider(
 	compiler vpolcompiler.Compiler,
 	mgr ctrl.Manager,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexEnabled bool,
 ) (Provider, error) {
 	exceptionHandlerFuncs := &handler.Funcs{
 		CreateFunc: func(
@@ -122,7 +123,7 @@ func NewKubeProvider(
 			}
 		},
 	}
-	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister)
+	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&policiesv1alpha1.ValidatingPolicy{}).
 		Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs).

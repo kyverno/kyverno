@@ -66,6 +66,7 @@ func NewProvider(policies []v1alpha1.ImageValidatingPolicy, exceptions []*polici
 func NewKubeProvider(
 	mgr ctrl.Manager,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexEnabled bool,
 ) (Provider, error) {
 	exceptionHandlerFuncs := &handler.Funcs{
 		CreateFunc: func(
@@ -111,7 +112,7 @@ func NewKubeProvider(
 			}
 		},
 	}
-	reconciler := newReconciler(mgr.GetClient(), polexLister)
+	reconciler := newReconciler(mgr.GetClient(), polexLister, polexEnabled)
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&policiesv1alpha1.ImageValidatingPolicy{}).
 		Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs).

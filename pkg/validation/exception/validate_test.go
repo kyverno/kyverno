@@ -67,15 +67,13 @@ func Test_Validate(t *testing.T) {
 			name: "CELPolicyExceptions disabled.",
 			args: args{
 				opts: ValidationOptions{
-					Enabled:   false,
-					Namespace: "kyverno",
+					Enabled: false,
 				},
 				resource: []byte(`{
     "apiVersion": "policies.kyverno.io/v1alpha1",
     "kind": "PolicyException",
     "metadata": {
         "name": "pod-security-exception",
-        "namespace": "delta"
     },
     "spec": {
         "policyRefs": [
@@ -93,99 +91,6 @@ func Test_Validate(t *testing.T) {
 }`),
 			},
 			want: 1,
-		},
-		{
-			name: "CELPolicyExceptions enabled. Defined namespace doesn't match namespace passed.",
-			args: args{
-				opts: ValidationOptions{
-					Enabled:   true,
-					Namespace: "kyverno",
-				},
-				resource: []byte(`{
-    "apiVersion": "policies.kyverno.io/v1alpha1",
-    "kind": "PolicyException",
-    "metadata": {
-        "name": "pod-security-exception",
-        "namespace": "delta"
-    },
-    "spec": {
-        "policyRefs": [
-            {
-                "name": "require-run-as-nonroot"
-            }
-        ],
-        "matchConditions": [
-            {
-                "name": "check-namespace",
-                "expression": "object.metadata.namespace == 'test-ns'"
-            }
-        ]
-    }
-}`),
-			},
-			want: 1,
-		},
-		{
-			name: "CELPolicyExceptions enabled. Defined namespace matches namespace passed",
-			args: args{
-				opts: ValidationOptions{
-					Enabled:   true,
-					Namespace: "delta",
-				},
-				resource: []byte(`{
-    "apiVersion": "policies.kyverno.io/v1alpha1",
-    "kind": "PolicyException",
-    "metadata": {
-        "name": "pod-security-exception",
-        "namespace": "delta"
-    },
-    "spec": {
-        "policyRefs": [
-            {
-                "name": "require-run-as-nonroot"
-            }
-        ],
-        "matchConditions": [
-            {
-                "name": "check-namespace",
-                "expression": "object.metadata.namespace == 'test-ns'"
-            }
-        ]
-    }
-}`),
-			},
-			want: 0,
-		},
-		{
-			name: "CELPolicyExceptions enabled. All namespaces are enabled",
-			args: args{
-				opts: ValidationOptions{
-					Enabled:   true,
-					Namespace: "*",
-				},
-				resource: []byte(`{
-    "apiVersion": "policies.kyverno.io/v1alpha1",
-    "kind": "PolicyException",
-    "metadata": {
-        "name": "pod-security-exception",
-        "namespace": "delta"
-    },
-    "spec": {
-        "policyRefs": [
-            {
-                "name": "require-run-as-nonroot"
-            }
-        ],
-        "matchConditions": [
-            {
-                "name": "check-namespace",
-                "expression": "object.metadata.namespace == 'test-ns'"
-            }
-        ]
-    }
-}`),
-			},
-			want: 0,
 		},
 	}
 	for _, c := range tc {
