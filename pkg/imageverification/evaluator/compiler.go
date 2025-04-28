@@ -116,14 +116,9 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		return nil, append(allErrs, errs...)
 	}
 
-	variables := make(map[string]cel.Program, len(ivpolicy.Spec.Variables))
-	{
-		path := path.Child("variables")
-		compiled, errs := engine.CompileVariables(path, env, variablesProvider, ivpolicy.Spec.Variables...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		variables = compiled
+	variables, errs := engine.CompileVariables(path.Child("variables"), env, variablesProvider, ivpolicy.Spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 
 	var compiledAttestors []*ivpolvar.CompiledAttestor

@@ -67,14 +67,9 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
-	variables := map[string]cel.Program{}
-	{
-		path := path.Child("variables")
-		compiled, errs := compiler.CompileVariables(path, env, variablesProvider, policy.Spec.Variables...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		variables = compiled
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 	validations := make([]compiler.Validation, 0, len(policy.Spec.Validations))
 	{
@@ -144,14 +139,9 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
-	variables := map[string]cel.Program{}
-	{
-		path := path.Child("variables")
-		compiled, errs := compiler.CompileVariables(path, env, variablesProvider, policy.Spec.Variables...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		variables = compiled
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 	validations := make([]compiler.Validation, 0, len(policy.Spec.Validations))
 	{
@@ -165,14 +155,9 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 			validations = append(validations, program)
 		}
 	}
-	auditAnnotations := map[string]cel.Program{}
-	{
-		path := path.Child("auditAnnotations")
-		compiled, errs := compiler.CompileAuditAnnotations(path, env, policy.Spec.AuditAnnotations...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		auditAnnotations = compiled
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, policy.Spec.AuditAnnotations...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))

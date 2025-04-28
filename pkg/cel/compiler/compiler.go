@@ -76,7 +76,7 @@ func CompileVariables(path *field.Path, env *cel.Env, variablesProvider *variabl
 	if len(variables) == 0 {
 		return nil, nil
 	}
-	result = map[string]cel.Program{}
+	result = make(map[string]cel.Program, len(variables))
 	for i, variable := range variables {
 		prog, errs := CompileVariable(path.Index(i), env, variablesProvider, variable)
 		allErrs = append(allErrs, errs...)
@@ -111,7 +111,7 @@ func CompileAuditAnnotations(path *field.Path, env *cel.Env, auditAnnotations ..
 	if len(auditAnnotations) == 0 {
 		return nil, nil
 	}
-	result = map[string]cel.Program{}
+	result = make(map[string]cel.Program, len(auditAnnotations))
 	for i, auditAnnotation := range auditAnnotations {
 		prog, errs := CompileAuditAnnotation(path.Index(i), env, auditAnnotation)
 		allErrs = append(allErrs, errs...)
