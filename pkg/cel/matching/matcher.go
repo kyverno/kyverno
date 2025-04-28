@@ -2,7 +2,7 @@ package matching
 
 import (
 	"github.com/kyverno/kyverno/pkg/cel/matching/predicates/namespace"
-	v1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
@@ -72,9 +72,9 @@ func (m *matcher) Match(criteria matching.MatchCriteria, attr admission.Attribut
 	return true, nil
 }
 
-func matchesResourceRules(namedRules []v1.NamedRuleWithOperations, attr admission.Attributes) (bool, error) {
+func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOperations, attr admission.Attributes) (bool, error) {
 	for _, namedRule := range namedRules {
-		rule := v1.RuleWithOperations(namedRule.RuleWithOperations)
+		rule := namedRule.RuleWithOperations
 		ruleMatcher := rules.Matcher{
 			Rule: rule,
 			Attr: attr,
