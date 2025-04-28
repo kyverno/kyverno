@@ -413,6 +413,40 @@ POLICIES_CHART_VERSION      ?= v0.0.0
 APP_CHART_VERSION           ?= latest
 KUBE_CHART_VERSION          ?= ">=1.25.0-0"
 
+.PHONY: codegen-api-register
+codegen-api-register: ## Generate API types registrations
+codegen-api-register: $(REGISTER_GEN)
+	@echo Generate registration... >&2
+	@$(REGISTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --output-file zz_generated.register.go ./api/...
+
+.PHONY: codegen-api-deepcopy
+codegen-api-deepcopy: ## Generate API deep copy functions
+codegen-api-deepcopy: $(DEEPCOPY_GEN)
+	@echo Generate deep copy functions... >&2
+	@$(DEEPCOPY_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-file zz_generated.deepcopy.go ./api/...
+
+.PHONY: codegen-api-docs
+codegen-api-docs: ## Generate API docs
+codegen-api-docs: $(GEN_CRD_API_REFERENCE_DOCS)
+codegen-api-docs: $(GENREF)
+	@echo Generate api docs... >&2
+	@rm -rf docs/user/crd && mkdir -p docs/user/crd
+	@$(GEN_CRD_API_REFERENCE_DOCS) \
+		-api-dir $(PACKAGE)/api \
+		-config docs/user/config.json \
+		-template-dir docs/user/template \
+		-out-file docs/user/crd/index.html
+	@cd ./docs/user && $(GENREF) \
+		-c config-api.yaml \
+		-o crd \
+		-f html
+
+.PHONY: codegen-api-all
+codegen-api-all: ## Generate API related code
+codegen-api-all: codegen-api-register
+codegen-api-all: codegen-api-deepcopy
+codegen-api-all: codegen-api-docs
+
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
 codegen-client-clientset: $(CLIENT_GEN)
@@ -475,22 +509,8 @@ codegen-client-wrappers: $(CLIENT_WRAPPER)
 	@$(GOIMPORTS) -w ./pkg/clients
 	@go fmt ./pkg/clients/...
 
-.PHONY: codegen-register
-codegen-register: ## Generate types registrations
-codegen-register: $(REGISTER_GEN)
-	@echo Generate registration... >&2
-	@$(REGISTER_GEN) --go-header-file=./scripts/boilerplate.go.txt --output-file zz_generated.register.go ./api/...
-
-.PHONY: codegen-deepcopy
-codegen-deepcopy: ## Generate deep copy functions
-codegen-deepcopy: $(DEEPCOPY_GEN)
-	@echo Generate deep copy functions... >&2
-	@$(DEEPCOPY_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-file zz_generated.deepcopy.go ./api/...
-
 .PHONY: codegen-client-all
 codegen-client-all: ## Generate clientset, listers and informers
-codegen-client-all: codegen-register
-codegen-client-all: codegen-deepcopy
 codegen-client-all: codegen-client-clientset
 codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
@@ -556,34 +576,35 @@ codegen-crds-all: codegen-crds-kyverno
 codegen-crds-all: codegen-crds-policyreport
 codegen-crds-all: codegen-crds-reports
 codegen-crds-all: codegen-crds-policies
-codegen-crds-all: codegen-cli-crds
+codegen-crds-all: codegen-crds-cli
 
-.PHONY: codegen-helm-docs
-codegen-helm-docs: ## Generate helm docs
-	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION) -s file
-
-.PHONY: codegen-api-docs
-codegen-api-docs: ## Generate API docs
-codegen-api-docs: $(GEN_CRD_API_REFERENCE_DOCS)
-codegen-api-docs: $(GENREF)
-	@echo Generate api docs... >&2
-	@rm -rf docs/user/crd && mkdir -p docs/user/crd
-	@$(GEN_CRD_API_REFERENCE_DOCS) \
-		-api-dir $(PACKAGE)/api \
-		-config docs/user/config.json \
-		-template-dir docs/user/template \
-		-out-file docs/user/crd/index.html
-	@cd ./docs/user && $(GENREF) \
-		-c config-api.yaml \
-		-o crd \
-		-f html
-
-.PHONY: codegen-api-group-resources
-codegen-api-group-resources: ## Generate API group resources
-codegen-api-group-resources: $(API_GROUP_RESOURCES)
+.PHONY: codegen-cli-api-group-resources
+codegen-cli-api-group-resources: ## Generate API group resources
+codegen-cli-api-group-resources: $(API_GROUP_RESOURCES)
 	@echo Generate API group resources... >&2
 	@$(API_GROUP_RESOURCES) > cmd/cli/kubectl-kyverno/data/api-group-resources.json
+
+.PHONY: codegen-cli-crds
+codegen-cli-crds: ## Copy generated CRDs to embed in the CLI
+codegen-cli-crds: codegen-crds-kyverno
+codegen-cli-crds: codegen-crds-policies
+codegen-cli-crds: codegen-crds-cli
+	@echo Copy generated CRDs to embed in the CLI... >&2
+	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_imagevalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
+
+.PHONY: codegen-cli-docs
+codegen-cli-docs: ## Generate CLI docs
+codegen-cli-docs: $(CLI_BIN)
+	@echo Generate cli docs... >&2
+	@rm -rf docs/user/cli/commands && mkdir -p docs/user/cli/commands
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli/commands --autogenTag=false
 
 .PHONY: codegen-cli-api-docs
 codegen-cli-api-docs: ## Generate CLI API docs
@@ -601,49 +622,12 @@ codegen-cli-api-docs: $(GENREF)
 		-o cli/crd \
 		-f html
 
-.PHONY: codegen-cli-docs
-codegen-cli-docs: ## Generate CLI docs
-codegen-cli-docs: $(CLI_BIN)
-	@echo Generate cli docs... >&2
-	@rm -rf docs/user/cli/commands && mkdir -p docs/user/cli/commands
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli/commands --autogenTag=false
-
-.PHONY: codegen-cli-crds
-codegen-cli-crds: ## Copy generated CRDs to embed in the CLI
-codegen-cli-crds: codegen-crds-kyverno
-codegen-cli-crds: codegen-crds-policies
-codegen-cli-crds: codegen-crds-cli
-	@echo Copy generated CRDs to embed in the CLI... >&2
-	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/policies.kyverno.io/policies.kyverno.io_imagevalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
-
-.PHONY: codegen-docs-all
-codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs codegen-cli-api-docs ## Generate all docs
-
-.PHONY: codegen-fix-tests
-codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
-	@echo Fix CLI test files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test . --save --compress --force
-
-.PHONY: codegen-fix-policies
-codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
-	@echo Fix CLI policy files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy . --save
-
 .PHONY: codegen-cli-all
 codegen-cli-all: ## Generate all CLI related code and docs
+codegen-cli-all: codegen-cli-api-group-resources
 codegen-cli-all: codegen-cli-crds
-codegen-cli-all: codegen-api-group-resources
-codegen-cli-all: codegen-cli-api-docs
 codegen-cli-all: codegen-cli-docs
 codegen-cli-all: codegen-cli-api-docs
-codegen-cli-all: codegen-fix-tests
 
 define generate_crd
 	@echo "{{- if .Values.groups.$(4).$(5) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
@@ -680,6 +664,11 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports)
 	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports)
+
+.PHONY: codegen-helm-docs
+codegen-helm-docs: ## Generate helm docs
+	@echo Generate helm docs... >&2
+	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION) -s file
 
 .PHONY: codegen-helm-all
 codegen-helm-all: ## Generate helm docs and CRDs
@@ -738,6 +727,33 @@ codegen-manifest-all: ## Create all manifests
 codegen-manifest-all: codegen-manifest-install-latest
 codegen-manifest-all: codegen-manifest-debug
 
+.PHONY: codegen-fix-tests
+codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
+	@echo Fix CLI test files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test . --save --compress --force
+
+.PHONY: codegen-fix-policies
+codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
+	@echo Fix CLI policy files... >&2
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy . --save
+
+.PHONY: codegen-fix-all
+codegen-fix-all: ## Fixes files
+codegen-fix-all: codegen-fix-tests
+# TODO: fix this target
+# codegen-fix-all: codegen-fix-policies
+
+.PHONY: codegen-all
+codegen-all: ## Generate all generated code
+codegen-all: codegen-api-all
+codegen-all: codegen-client-all
+codegen-all: codegen-crds-all
+codegen-all: codegen-cli-all
+codegen-all: codegen-helm-all
+codegen-all: codegen-manifest-all
+codegen-all: codegen-fix-all
+
+# TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
 	@echo Updating Chart.yaml files... >&2
@@ -754,111 +770,17 @@ codegen-helm-update-versions: ## Update helm charts versions
 	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 
-.PHONY: codegen-quick
-codegen-quick: ## Generate all generated code except client
-codegen-quick: codegen-deepcopy
-codegen-quick: codegen-crds-all
-codegen-quick: codegen-docs-all
-codegen-quick: codegen-helm-all
-codegen-quick: codegen-manifest-all
-
-.PHONY: codegen-slow
-codegen-slow: ## Generate client code
-codegen-slow: codegen-client-all
-
-.PHONY: codegen-all
-codegen-all: ## Generate all generated code
-codegen-all: codegen-quick
-codegen-all: codegen-slow
-
 ##################
 # VERIFY CODEGEN #
 ##################
 
-.PHONY: verify-crds
-verify-crds: ## Check CRDs are up to date
-verify-crds: codegen-crds-all
-	@echo Checking crds are up to date... >&2
-	@git --no-pager diff $(CRDS_PATH)
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
-	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code $(CRDS_PATH)
-
-.PHONY: verify-client
-verify-client: ## Check client is up to date
-verify-client: codegen-client-all
-	@echo Checking client is up to date... >&2
-	@git --no-pager diff --ignore-space-change pkg/client
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".' >&2
-	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.' >&2
-	@git diff --ignore-space-change --quiet --exit-code pkg/client
-	@git --no-pager diff --ignore-space-change pkg/clients
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".' >&2
-	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.' >&2
-	@git diff --ignore-space-change --quiet --exit-code pkg/clients
-
-.PHONY: verify-deepcopy
-verify-deepcopy: ## Check deepcopy functions are up to date
-verify-deepcopy: codegen-deepcopy
-	@echo Checking deepcopy functions are up to date... >&2
-	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy".' >&2
-	@echo 'To correct this, locally run "make codegen-deepcopy", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code api
-
-.PHONY: verify-docs
-verify-docs: ## Check docs are up to date
-verify-docs: codegen-docs-all
-	@echo Checking docs are up to date... >&2
-	@git --no-pager diff docs/user
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-docs-all".' >&2
-	@echo 'To correct this, locally run "make codegen-docs-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code docs/user
-
-.PHONY: verify-helm
-verify-helm: ## Check Helm charts are up to date
-verify-helm: codegen-helm-all
-	@echo Checking helm charts are up to date... >&2
-	@git --no-pager diff charts
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
-	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code charts
-
-.PHONY: verify-manifests
-verify-manifests: ## Check manifests are up to date
-verify-manifests: codegen-manifest-all
-	@echo Checking manifests are up to date... >&2
-	@git --no-pager diff ${INSTALL_MANIFEST_PATH}
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-manifest-all".' >&2
-	@echo 'To correct this, locally run "make codegen-manifest-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code ${INSTALL_MANIFEST_PATH}
-
-.PHONY: verify-cli-crds
-verify-cli-crds: ## Check generated CRDs to be embedded in the CLI are up to date
-verify-cli-crds: codegen-cli-crds
-	@echo Checking generated CRDs to be embedded in the CLI are up to date... >&2
-	@git --no-pager diff cmd/cli/kubectl-kyverno/data/crds
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-cli-crds".' >&2
-	@echo 'To correct this, locally run "make codegen-cli-crds", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code cmd/cli/kubectl-kyverno/data/crds
-
-.PHONY: verify-cli-tests
-verify-cli-tests: ## Check CLI test files are up to date
-	@echo Checking CLI test files are up to date... >&2
-	@git --no-pager diff test/cli
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
-	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code test/cli
-
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
-verify-codegen: verify-crds
-verify-codegen: verify-client
-verify-codegen: verify-deepcopy
-verify-codegen: verify-docs
-verify-codegen: verify-helm
-verify-codegen: verify-manifests
-verify-codegen: verify-cli-crds
+verify-codegen: codegen-all
+	@echo Checking git diff... >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
+	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
+	@git diff --exit-code
 
 ##############
 # UNIT TESTS #
