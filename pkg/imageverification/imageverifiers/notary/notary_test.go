@@ -42,7 +42,9 @@ func Test_ImageSignatureVerificationStandard(t *testing.T) {
 	attestor := &v1alpha1.Attestor{
 		Name: "test",
 		Notary: &v1alpha1.Notary{
-			Certs: cert,
+			Certs: &v1alpha1.StringOrExpression{
+				Value: cert,
+			},
 		},
 	}
 
@@ -60,7 +62,9 @@ func Test_ImageSignatureVerificationUnsigned(t *testing.T) {
 	attestor := &v1alpha1.Attestor{
 		Name: "test",
 		Notary: &v1alpha1.Notary{
-			Certs: cert,
+			Certs: &v1alpha1.StringOrExpression{
+				Value: cert,
+			},
 		},
 	}
 
@@ -78,7 +82,9 @@ func Test_ImageAttestationVerificationStandard(t *testing.T) {
 	attestor := &v1alpha1.Attestor{
 		Name: "test",
 		Notary: &v1alpha1.Notary{
-			Certs: cert,
+			Certs: &v1alpha1.StringOrExpression{
+				Value: cert,
+			},
 		},
 	}
 
@@ -103,7 +109,9 @@ func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
 	attestor := &v1alpha1.Attestor{
 		Name: "test",
 		Notary: &v1alpha1.Notary{
-			Certs: cert,
+			Certs: &v1alpha1.StringOrExpression{
+				Value: cert,
+			},
 		},
 	}
 
@@ -128,7 +136,9 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 	attestor := &v1alpha1.Attestor{
 		Name: "test",
 		Notary: &v1alpha1.Notary{
-			Certs: cert,
+			Certs: &v1alpha1.StringOrExpression{
+				Value: cert,
+			},
 		},
 	}
 
@@ -153,7 +163,9 @@ func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
 	attestor := &v1alpha1.Attestor{
 		Name: "test",
 		Notary: &v1alpha1.Notary{
-			Certs: cert,
+			Certs: &v1alpha1.StringOrExpression{
+				Value: cert,
+			},
 		},
 	}
 

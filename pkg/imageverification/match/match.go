@@ -51,7 +51,7 @@ func Match(c []*CompiledMatch, image string) (bool, error) {
 	return false, nil
 }
 
-func CompileMatches(path *field.Path, matches []v1alpha1.ImageRule) ([]*CompiledMatch, field.ErrorList) {
+func CompileMatches(path *field.Path, matches []v1alpha1.MatchImageReference) ([]*CompiledMatch, field.ErrorList) {
 	var allErrs field.ErrorList
 	compiledMatches := make([]*CompiledMatch, 0, len(matches))
 	e, err := cel.NewEnv(
@@ -70,15 +70,15 @@ func CompileMatches(path *field.Path, matches []v1alpha1.ImageRule) ([]*Compiled
 				return nil, append(allErrs, field.Invalid(path, m.Glob, err.Error()))
 			}
 			c.g = g
-		} else if m.CELExpression != "" {
+		} else if m.Expression != "" {
 			path := path.Index(i).Child("expression")
-			ast, iss := e.Compile(m.CELExpression)
+			ast, iss := e.Compile(m.Expression)
 			if iss.Err() != nil {
-				return nil, append(allErrs, field.Invalid(path, m.CELExpression, iss.Err().Error()))
+				return nil, append(allErrs, field.Invalid(path, m.Expression, iss.Err().Error()))
 			}
 			prg, err := e.Program(ast)
 			if err != nil {
-				return nil, append(allErrs, field.Invalid(path, m.CELExpression, err.Error()))
+				return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
 			}
 			c.e = prg
 		}

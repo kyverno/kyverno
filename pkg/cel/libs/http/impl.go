@@ -13,7 +13,7 @@ type impl struct {
 }
 
 func (c *impl) get_request_with_client_string(args ...ref.Val) ref.Val {
-	if request, err := utils.ConvertToNative[HTTP](args[0]); err != nil {
+	if request, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
 	} else if url, err := utils.ConvertToNative[string](args[1]); err != nil {
 		return types.WrapErr(err)
@@ -38,7 +38,7 @@ func (c *impl) get_request_with_headers_string(args ...ref.Val) ref.Val {
 }
 
 func (c *impl) post_request_string_with_client(args ...ref.Val) ref.Val {
-	if request, err := utils.ConvertToNative[HTTP](args[0]); err != nil {
+	if request, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
 	} else if url, err := utils.ConvertToNative[string](args[1]); err != nil {
 		return types.WrapErr(err)
@@ -58,7 +58,7 @@ func (c *impl) post_request_string_with_client(args ...ref.Val) ref.Val {
 
 func (c *impl) http_client_string(request, caBundle ref.Val) ref.Val {
 	fmt.Println("http_client_string")
-	if request, err := utils.ConvertToNative[HTTP](request); err != nil {
+	if request, err := utils.ConvertToNative[Context](request); err != nil {
 		fmt.Println("conv request")
 		return types.WrapErr(err)
 	} else if caBundle, err := utils.ConvertToNative[string](caBundle); err != nil {

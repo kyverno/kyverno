@@ -17,7 +17,7 @@ spec:
         has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'
     - name: dcount
       expression: >-
-        globalcontext.Get("gctxentry-apicall-correct", "test-globalcontext-apicall-correct-projections_deployment_count")
+        globalContext.Get("gctxentry-apicall-correct", "test-globalcontext-apicall-correct-projections_deployment_count")
   validations:
     - expression: >-
         variables.environment == true

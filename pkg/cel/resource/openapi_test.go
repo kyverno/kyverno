@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	engine "github.com/kyverno/kyverno/pkg/cel"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/resource"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -121,7 +121,7 @@ func TestOpenAPITypeResolver(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	env, err := engine.NewEnv()
+	env, err := compiler.NewEnv()
 	opts, err := provider.EnvOptions(env.CELTypeProvider())
 
 	rootType, ok := provider.FindDeclType(typeName)

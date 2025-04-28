@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ClusterPolicyReportLister helps list ClusterPolicyReports.
@@ -30,39 +30,19 @@ import (
 type ClusterPolicyReportLister interface {
 	// List lists all ClusterPolicyReports in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.ClusterPolicyReport, err error)
+	List(selector labels.Selector) (ret []*policyreportv1alpha2.ClusterPolicyReport, err error)
 	// Get retrieves the ClusterPolicyReport from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.ClusterPolicyReport, error)
+	Get(name string) (*policyreportv1alpha2.ClusterPolicyReport, error)
 	ClusterPolicyReportListerExpansion
 }
 
 // clusterPolicyReportLister implements the ClusterPolicyReportLister interface.
 type clusterPolicyReportLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*policyreportv1alpha2.ClusterPolicyReport]
 }
 
 // NewClusterPolicyReportLister returns a new ClusterPolicyReportLister.
 func NewClusterPolicyReportLister(indexer cache.Indexer) ClusterPolicyReportLister {
-	return &clusterPolicyReportLister{indexer: indexer}
-}
-
-// List lists all ClusterPolicyReports in the indexer.
-func (s *clusterPolicyReportLister) List(selector labels.Selector) (ret []*v1alpha2.ClusterPolicyReport, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.ClusterPolicyReport))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterPolicyReport from the index for a given name.
-func (s *clusterPolicyReportLister) Get(name string) (*v1alpha2.ClusterPolicyReport, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("clusterpolicyreport"), name)
-	}
-	return obj.(*v1alpha2.ClusterPolicyReport), nil
+	return &clusterPolicyReportLister{listers.New[*policyreportv1alpha2.ClusterPolicyReport](indexer, policyreportv1alpha2.Resource("clusterpolicyreport"))}
 }

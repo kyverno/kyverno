@@ -26,8 +26,8 @@ type GenericPolicy interface {
 	AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy
 	// AsValidatingPolicy returns the validating policy
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
-	// AsImageVerificationPolicy returns the imageverificationpolicy
-	AsImageVerificationPolicy() *policiesv1alpha1.ImageValidatingPolicy
+	// AsImageValidatingPolicy returns the imageverificationpolicy
+	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
 }
 
 type genericPolicy struct {
@@ -55,7 +55,7 @@ func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy 
 	return p.ValidatingPolicy
 }
 
-func (p *genericPolicy) AsImageVerificationPolicy() *policiesv1alpha1.ImageValidatingPolicy {
+func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy {
 	return p.ImageValidatingPolicy
 }
 
@@ -127,7 +127,7 @@ func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
 	}
 }
 
-func NewImageVerificationPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) GenericPolicy {
+func NewImageValidatingPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                pol,
 		ImageValidatingPolicy: pol,

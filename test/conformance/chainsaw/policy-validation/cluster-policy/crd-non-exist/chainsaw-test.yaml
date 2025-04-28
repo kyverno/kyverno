@@ -1,0 +1,18 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: admission-disabled
+spec:
+  steps:
+  - name: create policy for non-existing CRD
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-notready-assert.yaml
+  - name: create CRD
+    try:
+    - create:
+        file: https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/refs/heads/main/package/crds/eks.aws.upbound.io_nodegroups.yaml
+    - assert:
+        file: policy-ready-assert.yaml

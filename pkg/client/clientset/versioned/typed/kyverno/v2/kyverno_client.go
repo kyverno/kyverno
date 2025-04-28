@@ -19,10 +19,10 @@ limitations under the License.
 package v2
 
 import (
-	"net/http"
+	http "net/http"
 
-	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -100,10 +100,10 @@ func New(c rest.Interface) *KyvernoV2Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v2.SchemeGroupVersion
+	gv := kyvernov2.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

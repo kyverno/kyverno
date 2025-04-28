@@ -8,7 +8,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -132,7 +132,12 @@ func Test_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, errList := CompileImageExtractors(field.NewPath("spec", "images"), tt.imageExtractor, tt.gvr, []cel.EnvOption{cel.Variable(policy.RequestKey, types.DynType), cel.Variable(policy.ObjectKey, types.DynType)})
+			c, errList := CompileImageExtractors(
+				field.NewPath("spec", "images"),
+				tt.imageExtractor,
+				tt.gvr,
+				[]cel.EnvOption{cel.Variable(compiler.RequestKey, types.DynType), cel.Variable(compiler.ObjectKey, types.DynType)},
+			)
 			assert.Nil(t, errList)
 			images, err := ExtractImages(c, tt.request)
 			if tt.wantErr {

@@ -19,12 +19,12 @@ func Test_impl_get_string_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("globalcontext", ContextType),
+		cel.Variable("globalContext", ContextType),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`globalcontext.Get("foo", "bar")`)
+	ast, issues := env.Compile(`globalContext.Get("foo", "bar")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -62,7 +62,7 @@ func Test_impl_get_string_string(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockStore := &resource.MockGctxStore{Data: tt.gctxStoreData}
 			data := map[string]any{
-				"globalcontext": Context{&resource.MockCtx{
+				"globalContext": Context{&resource.MockCtx{
 					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
 						ent, ok := mockStore.Get(name)
 						if !ok {

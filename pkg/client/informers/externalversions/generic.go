@@ -19,7 +19,7 @@ limitations under the License.
 package externalversions
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"

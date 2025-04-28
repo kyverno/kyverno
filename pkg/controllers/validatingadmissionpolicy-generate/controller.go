@@ -424,9 +424,21 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
 		}
 	} else {
-		spec := policy.AsValidatingPolicy().GetSpec()
-		wantVap := spec.GenerateValidatingAdmissionPolicyEnabled()
-		if !wantVap {
+		pol := policy.AsValidatingPolicy()
+		wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
+		shouldDelete := !wantVap
+
+		var reason string
+		if wantVap {
+			isAutogen := len(pol.GetStatus().Autogen.Configs) > 0
+			if isAutogen {
+				shouldDelete = true
+				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
+			}
+		} else {
+			reason = "skip generating ValidatingAdmissionPolicy: not enabled."
+		}
+		if shouldDelete {
 			// delete the ValidatingAdmissionPolicy if exist
 			if vapErr == nil {
 				if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil {
@@ -439,7 +451,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 					return err
 				}
 			}
-			c.updatePolicyStatus(ctx, policy, false, "skip generating ValidatingAdmissionPolicy: not enabled.")
+			c.updatePolicyStatus(ctx, policy, false, reason)
 			return nil
 		}
 	}

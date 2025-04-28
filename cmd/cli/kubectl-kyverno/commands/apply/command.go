@@ -31,8 +31,9 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -290,9 +291,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses1, err
+		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
@@ -432,12 +433,13 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	ivps []policiesv1alpha1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
+	celExceptions []*policiesv1alpha1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := celengine.NewIVPOLProvider(ivps)
+	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +448,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
 	}
-	engine := celengine.NewImageValidatingEngine(
+	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
@@ -456,9 +458,9 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 	gctxStore := gctxstore.New()
 	var restMapper meta.RESTMapper
-	var contextProvider celpolicy.Context
+	var contextProvider libs.Context
 	if dclient != nil {
-		contextProvider, err = celpolicy.NewContextProvider(
+		contextProvider, err = libs.NewContextProvider(
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			gctxStore,
@@ -477,7 +479,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			return nil, err
 		}
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		fakeContextProvider := libs.NewFakeContextProvider()
 		if c.ContextPath != "" {
 			ctx, err := clicontext.Load(nil, c.ContextPath)
 			if err != nil {
@@ -542,18 +544,18 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 
-	ivpols := make([]*eval.CompiledImageVerificationPolicy, 0)
+	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageVerificationPolicy{Policy: &p})
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -582,7 +584,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageVerificationPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
@@ -663,7 +665,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
+				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -679,7 +681,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				ivps = append(ivps, loaderResults.ImageVerificationPolicies...)
+				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 			}
 		}
 		for _, policy := range policies {

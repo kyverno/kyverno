@@ -91,7 +91,7 @@ func NewServer(
 	registerWebhookHandlersWithAll(
 		mux,
 		"IVPOL-MUTATE",
-		config.PolicyServicePath+config.ImageVerificationPolicyServicePath+config.MutatingWebhookServicePath,
+		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.MutatingWebhookServicePath,
 		resourceHandlers.ImageVerificationPoliciesMutation,
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
@@ -140,7 +140,7 @@ func NewServer(
 	registerWebhookHandlers(
 		mux,
 		"IVPOL-VALIDATE",
-		config.PolicyServicePath+config.ImageVerificationPolicyServicePath+config.ValidatingWebhookServicePath,
+		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
 		resourceHandlers.ImageVerificationPolicies,
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
