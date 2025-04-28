@@ -100,7 +100,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	matchConditions := make([]cel.Program, 0, len(ivpolicy.Spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := engine.CompileMatchConditions(path, ivpolicy.Spec.MatchConditions, env)
+		programs, errs := engine.CompileMatchConditions(path, env, ivpolicy.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -119,10 +119,11 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	variables := make(map[string]cel.Program, len(ivpolicy.Spec.Variables))
 	{
 		path := path.Child("variables")
-		errs := engine.CompileVariables(path, ivpolicy.Spec.Variables, variablesProvider, env, variables)
+		compiled, errs := engine.CompileVariables(path, env, variablesProvider, ivpolicy.Spec.Variables...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
+		variables = compiled
 	}
 
 	var compiledAttestors []*ivpolvar.CompiledAttestor
@@ -149,7 +150,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 
 	compiledExceptions := make([]engine.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := engine.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
+		polexMatchConditions, errs := engine.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}

@@ -61,7 +61,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, policy.Spec.MatchConditions, env)
+		programs, errs := compiler.CompileMatchConditions(path, env, policy.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -70,10 +70,11 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		errs := compiler.CompileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		compiled, errs := compiler.CompileVariables(path, env, variablesProvider, policy.Spec.Variables...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
+		variables = compiled
 	}
 	validations := make([]compiler.Validation, 0, len(policy.Spec.Validations))
 	{
@@ -137,7 +138,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, policy.Spec.MatchConditions, env)
+		programs, errs := compiler.CompileMatchConditions(path, env, policy.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -146,10 +147,11 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	variables := map[string]cel.Program{}
 	{
 		path := path.Child("variables")
-		errs := compiler.CompileVariables(path, policy.Spec.Variables, variablesProvider, env, variables)
+		compiled, errs := compiler.CompileVariables(path, env, variablesProvider, policy.Spec.Variables...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
+		variables = compiled
 	}
 	validations := make([]compiler.Validation, 0, len(policy.Spec.Validations))
 	{
@@ -166,58 +168,16 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	auditAnnotations := map[string]cel.Program{}
 	{
 		path := path.Child("auditAnnotations")
-		errs := compiler.CompileAuditAnnotations(path, policy.Spec.AuditAnnotations, env, auditAnnotations)
+		compiled, errs := compiler.CompileAuditAnnotations(path, env, policy.Spec.AuditAnnotations...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
+		auditAnnotations = compiled
 	}
-	// // compile autogen rules
-	// autogenPath := field.NewPath("status").Child("autogen").Child("rules")
-	// autogenRules, err := vpolautogen.Autogen(policy)
-	// if err != nil {
-	// 	return nil, append(allErrs, field.InternalError(nil, err))
-	// }
-	// compiledRules := map[string]compiledAutogenRule{}
-	// for key, rule := range autogenRules {
-	// 	rule := rule.Spec
-	// 	// compile match conditions
-	// 	matchConditions, errs := compiler.CompileMatchConditions(autogenPath.Key(key).Child("matchConditions"), rule.MatchConditions, env)
-	// 	if errs != nil {
-	// 		return nil, append(allErrs, errs...)
-	// 	}
-	// 	// compile variables
-	// 	variables := map[string]cel.Program{}
-	// 	errs = compiler.CompileVariables(autogenPath.Key(key).Child("variables"), rule.Variables, variablesProvider, env, variables)
-	// 	if errs != nil {
-	// 		return nil, append(allErrs, errs...)
-	// 	}
-	// 	// compile validations
-	// 	validations := make([]compiler.Validation, 0, len(rule.Validations))
-	// 	for j, rule := range rule.Validations {
-	// 		path := autogenPath.Index(j).Child("validations")
-	// 		program, errs := compiler.CompileValidation(path, rule, env)
-	// 		if errs != nil {
-	// 			return nil, append(allErrs, errs...)
-	// 		}
-	// 		validations = append(validations, program)
-	// 	}
-	// 	// compile audit annotations
-	// 	auditAnnotations := map[string]cel.Program{}
-	// 	errs = compiler.CompileAuditAnnotations(autogenPath.Key(key).Child("auditAnnotations"), rule.AuditAnnotations, env, auditAnnotations)
-	// 	if errs != nil {
-	// 		return nil, append(allErrs, errs...)
-	// 	}
-	// 	compiledRules[key] = compiledAutogenRule{
-	// 		matchConditions: matchConditions,
-	// 		variables:       variables,
-	// 		validations:     validations,
-	// 		auditAnnotation: auditAnnotations,
-	// 	}
-	// }
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), polex.Spec.MatchConditions, env)
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}

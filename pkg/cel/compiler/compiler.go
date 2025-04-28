@@ -21,14 +21,10 @@ const (
 	VariablesKey       = "variables"
 )
 
-func CompileMatchConditions(path *field.Path, matchConditions []admissionregistrationv1.MatchCondition, env *cel.Env) ([]cel.Program, field.ErrorList) {
-	if len(matchConditions) == 0 {
-		return nil, nil
-	}
+func CompileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
-	result := make([]cel.Program, 0, len(matchConditions))
-	for i, matchCondition := range matchConditions {
-		path := path.Index(i).Child("expression")
+	{
+		path := path.Child("expression")
 		ast, issues := env.Compile(matchCondition.Expression)
 		if err := issues.Err(); err != nil {
 			return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
@@ -41,55 +37,94 @@ func CompileMatchConditions(path *field.Path, matchConditions []admissionregistr
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 		}
-		result = append(result, prog)
+		return prog, allErrs
 	}
-	return result, nil
 }
 
-func CompileVariables(path *field.Path, variables []admissionregistrationv1.Variable, variablesProvider *variablesProvider, env *cel.Env, result map[string]cel.Program) field.ErrorList {
+func CompileMatchConditions(path *field.Path, env *cel.Env, matchConditions ...admissionregistrationv1.MatchCondition) (result []cel.Program, allErrs field.ErrorList) {
+	if len(matchConditions) == 0 {
+		return nil, nil
+	}
+	for i, matchCondition := range matchConditions {
+		prog, errs := CompileMatchCondition(path.Index(i), env, matchCondition)
+		allErrs = append(allErrs, errs...)
+		if prog != nil {
+			result = append(result, prog)
+		}
+	}
+	return result, allErrs
+}
+
+func CompileVariable(path *field.Path, env *cel.Env, variablesProvider *variablesProvider, variable admissionregistrationv1.Variable) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
-	for i, variable := range variables {
-		path := path.Index(i).Child("expression")
+	{
+		path := path.Child("expression")
 		ast, issues := env.Compile(variable.Expression)
 		if err := issues.Err(); err != nil {
-			return append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
+			return nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
 		variablesProvider.RegisterField(variable.Name, ast.OutputType())
 		prog, err := env.Program(ast)
 		if err != nil {
-			return append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
+			return nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
-		result[variable.Name] = prog
+		return prog, allErrs
 	}
-	return nil
 }
 
-func CompileAuditAnnotations(path *field.Path, auditAnnotations []admissionregistrationv1.AuditAnnotation, env *cel.Env, result map[string]cel.Program) field.ErrorList {
+func CompileVariables(path *field.Path, env *cel.Env, variablesProvider *variablesProvider, variables ...admissionregistrationv1.Variable) (result map[string]cel.Program, allErrs field.ErrorList) {
+	if len(variables) == 0 {
+		return nil, nil
+	}
+	result = map[string]cel.Program{}
+	for i, variable := range variables {
+		prog, errs := CompileVariable(path.Index(i), env, variablesProvider, variable)
+		allErrs = append(allErrs, errs...)
+		if prog != nil {
+			result[variable.Name] = prog
+		}
+	}
+	return result, allErrs
+}
+
+func CompileAuditAnnotation(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
-	for i, auditAnnotation := range auditAnnotations {
-		path := path.Index(i).Child("valueExpression")
+	{
+		path := path.Child("valueExpression")
 		ast, issues := env.Compile(auditAnnotation.ValueExpression)
 		if err := issues.Err(); err != nil {
-			return append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
+			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.StringType) && !ast.OutputType().IsExactType(types.NullType) {
 			msg := fmt.Sprintf("output is expected to be either of type %s or %s", types.StringType.TypeName(), types.NullType.TypeName())
-			return append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
+			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
 		}
 		prog, err := env.Program(ast)
 		if err != nil {
-			return append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
+			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 		}
-		result[auditAnnotation.Key] = prog
+		return prog, allErrs
 	}
-	return nil
+}
+
+func CompileAuditAnnotations(path *field.Path, env *cel.Env, auditAnnotations ...admissionregistrationv1.AuditAnnotation) (result map[string]cel.Program, allErrs field.ErrorList) {
+	if len(auditAnnotations) == 0 {
+		return nil, nil
+	}
+	result = map[string]cel.Program{}
+	for i, auditAnnotation := range auditAnnotations {
+		prog, errs := CompileAuditAnnotation(path.Index(i), env, auditAnnotation)
+		allErrs = append(allErrs, errs...)
+		if prog != nil {
+			result[auditAnnotation.Key] = prog
+		}
+	}
+	return result, allErrs
 }
 
 func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (Validation, field.ErrorList) {
 	var allErrs field.ErrorList
-	compiled := Validation{
-		Message: rule.Message,
-	}
+	compiled := Validation{Message: rule.Message}
 	{
 		path := path.Child("expression")
 		ast, issues := env.Compile(rule.Expression)
@@ -122,5 +157,5 @@ func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation
 		}
 		compiled.MessageExpression = program
 	}
-	return compiled, nil
+	return compiled, allErrs
 }
