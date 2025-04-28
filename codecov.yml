@@ -1,2 +1,5 @@
 ignore:
 - api/**/zz_*.go
+- docs
+- hack
+- litmuschaos
