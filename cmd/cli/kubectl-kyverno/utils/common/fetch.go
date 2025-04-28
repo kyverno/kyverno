@@ -12,10 +12,8 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
-	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,7 +26,6 @@ import (
 func GetResources(
 	out io.Writer,
 	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	resourcePaths []string,
 	dClient dclient.Interface,
 	cluster bool,
@@ -43,18 +40,6 @@ func GetResources(
 		if len(policies) > 0 {
 			matchedResources := &KyvernoResources{
 				policies:             policies,
-				clusterWideResources: clusterWideResources,
-			}
-
-			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
-			if err != nil {
-				return resources, err
-			}
-		}
-
-		if len(validatingAdmissionPolicies) > 0 {
-			matchedResources := &ValidatingAdmissionResources{
-				policies:             validatingAdmissionPolicies,
 				clusterWideResources: clusterWideResources,
 			}
 
@@ -241,18 +226,6 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface, clusterWide
 			}
 		}
 	}
-	return resourceTypesMap, subresourceMap
-}
-
-func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1.ValidatingAdmissionPolicy, client dclient.Interface, clusterWideResources bool) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
-	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
-	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
-
-	kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
-	for _, kind := range kinds {
-		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
-	}
-
 	return resourceTypesMap, subresourceMap
 }
 

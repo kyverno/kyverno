@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,7 +29,6 @@ func GetResourceAccordingToResourcePath(
 	resourcePaths []string,
 	cluster bool,
 	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
@@ -79,7 +77,7 @@ func GetResourceAccordingToResourcePath(
 				}
 			}
 			if clusterWideResources {
-				resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, "", policyReport, clusterWideResources)
+				resources, err = GetResources(out, policies, resourcePaths, dClient, cluster, "", policyReport, clusterWideResources)
 				if err != nil {
 					return resources, err
 				}
@@ -87,7 +85,7 @@ func GetResourceAccordingToResourcePath(
 					return resources, nil
 				}
 			}
-			namespaceResources, err := GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport, false)
+			namespaceResources, err := GetResources(out, policies, resourcePaths, dClient, cluster, namespace, policyReport, false)
 			if err != nil {
 				return resources, err
 			}
