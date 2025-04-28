@@ -104,7 +104,7 @@ func (p *Policy) evaluateWithData(
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew := map[string]any{
 		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
-		compiler.HttpKey:            http.NewHTTP(),
+		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
 		compiler.ImageDataKey:       imagedata.Context{ContextInterface: data.Context},
 		compiler.NamespaceObjectKey: data.Namespace,
 		compiler.ObjectKey:          data.Object,

@@ -107,7 +107,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
 	options := []cel.EnvOption{
 		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.HTTPType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
