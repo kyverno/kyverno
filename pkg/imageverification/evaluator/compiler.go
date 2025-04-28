@@ -61,7 +61,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	declTypes = append(declTypes, imageverify.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(ResourceKey, resource.ContextType),
-		cel.Variable(HttpKey, http.HTTPType),
+		cel.Variable(HttpKey, http.ContextType),
 		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
