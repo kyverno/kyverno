@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -16,16 +17,19 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
-func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time, wg *wait.Group) {
-	wg.Start(func() { h.handleMutateExisting(ctx, logger, request, mutatePolicies, ts) })
-	wg.Start(func() { h.handleGenerate(ctx, logger, request, generatePolicies, ts) })
+func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time, wg *sync.WaitGroup) {
+	go h.handleMutateExisting(ctx, logger, request, mutatePolicies, ts, wg)
+	go h.handleGenerate(ctx, logger, request, generatePolicies, ts, wg)
 }
 
-func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface, admissionRequestTimestamp time.Time) {
+func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface, admissionRequestTimestamp time.Time, wg *sync.WaitGroup) {
+	if wg != nil { // for unit testing purposes
+		defer wg.Done()
+	}
+
 	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request, policies)
 	if err != nil {
 		logger.Error(err, "failed to create policy context")
@@ -50,7 +54,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 
 		// skip rules that don't specify the DELETE operation in case the admission request is of type DELETE
 		var skipped []string
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			if request.AdmissionRequest.Operation == admissionv1.Delete && !webhookutils.MatchDeleteOperation(rule) {
 				skipped = append(skipped, rule.Name)
 			}
@@ -91,7 +95,11 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 	}
 }
 
-func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
+func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, ts time.Time, wg *sync.WaitGroup) {
+	if wg != nil { // for unit testing purposes
+		defer wg.Done()
+	}
+
 	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request, generatePolicies)
 	if err != nil {
 		logger.Error(err, "failed to create policy context")
