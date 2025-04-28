@@ -79,57 +79,66 @@ func NewKubeProvider(
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) (Provider, error) {
-	exceptionHandlerFuncs := &handler.Funcs{
-		CreateFunc: func(
-			ctx context.Context,
-			tce event.TypedCreateEvent[client.Object],
-			trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-		) {
-			polex := tce.Object.(*policiesv1alpha1.PolicyException)
-			for _, ref := range polex.Spec.PolicyRefs {
-				trli.Add(reconcile.Request{
-					NamespacedName: client.ObjectKey{
-						Name: ref.Name,
-					},
-				})
-			}
-		},
-		UpdateFunc: func(
-			ctx context.Context,
-			tue event.TypedUpdateEvent[client.Object],
-			trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-		) {
-			polex := tue.ObjectNew.(*policiesv1alpha1.PolicyException)
-			for _, ref := range polex.Spec.PolicyRefs {
-				trli.Add(reconcile.Request{
-					NamespacedName: client.ObjectKey{
-						Name: ref.Name,
-					},
-				})
-			}
-		},
-		DeleteFunc: func(
-			ctx context.Context,
-			tde event.TypedDeleteEvent[client.Object],
-			trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-		) {
-			polex := tde.Object.(*policiesv1alpha1.PolicyException)
-			for _, ref := range polex.Spec.PolicyRefs {
-				trli.Add(reconcile.Request{
-					NamespacedName: client.ObjectKey{
-						Name: ref.Name,
-					},
-				})
-			}
-		},
-	}
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
-	err := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1alpha1.ValidatingPolicy{}).
-		Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs).
-		Complete(reconciler)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct controller: %w", err)
+	if polexEnabled {
+		exceptionHandlerFuncs := &handler.Funcs{
+			CreateFunc: func(
+				ctx context.Context,
+				tce event.TypedCreateEvent[client.Object],
+				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
+			) {
+				polex := tce.Object.(*policiesv1alpha1.PolicyException)
+				for _, ref := range polex.Spec.PolicyRefs {
+					trli.Add(reconcile.Request{
+						NamespacedName: client.ObjectKey{
+							Name: ref.Name,
+						},
+					})
+				}
+			},
+			UpdateFunc: func(
+				ctx context.Context,
+				tue event.TypedUpdateEvent[client.Object],
+				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
+			) {
+				polex := tue.ObjectNew.(*policiesv1alpha1.PolicyException)
+				for _, ref := range polex.Spec.PolicyRefs {
+					trli.Add(reconcile.Request{
+						NamespacedName: client.ObjectKey{
+							Name: ref.Name,
+						},
+					})
+				}
+			},
+			DeleteFunc: func(
+				ctx context.Context,
+				tde event.TypedDeleteEvent[client.Object],
+				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
+			) {
+				polex := tde.Object.(*policiesv1alpha1.PolicyException)
+				for _, ref := range polex.Spec.PolicyRefs {
+					trli.Add(reconcile.Request{
+						NamespacedName: client.ObjectKey{
+							Name: ref.Name,
+						},
+					})
+				}
+			},
+		}
+		err := ctrl.NewControllerManagedBy(mgr).
+			For(&policiesv1alpha1.ValidatingPolicy{}).
+			Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs).
+			Complete(reconciler)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct controller: %w", err)
+		}
+	} else {
+		err := ctrl.NewControllerManagedBy(mgr).
+			For(&policiesv1alpha1.ValidatingPolicy{}).
+			Complete(reconciler)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct controller: %w", err)
+		}
 	}
 	return reconciler, nil
 }
