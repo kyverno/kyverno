@@ -49,7 +49,6 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
 	if err != nil {
 		return nil, err
@@ -76,7 +75,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			cel.Overload(
 				"get_image_data_string",
 				[]*cel.Type{types.StringType},
-				types.DynType,
+				types.StringType,
 				cel.UnaryBinding(impl.get_image_data_string(context.TODO())),
 			),
 		},
@@ -84,7 +83,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			cel.Overload(
 				"payload_string_string",
 				[]*cel.Type{types.StringType, types.StringType},
-				types.DynType,
+				types.StringType,
 				cel.BinaryBinding(impl.payload_string_string(context.TODO())),
 			),
 		},

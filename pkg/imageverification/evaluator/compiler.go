@@ -71,12 +71,12 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	if ivpolicy.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
 		options = append(options, cel.Variable(RequestKey, engine.RequestType.CelType()))
 		options = append(options, cel.Variable(NamespaceObjectKey, engine.NamespaceType.CelType()))
-		options = append(options, cel.Variable(ObjectKey, cel.DynType))
-		options = append(options, cel.Variable(OldObjectKey, cel.DynType))
+		options = append(options, cel.Variable(ObjectKey, cel.MapType(cel.StringType, cel.DynType)))
+		options = append(options, cel.Variable(OldObjectKey, cel.MapType(cel.StringType, cel.DynType)))
 		options = append(options, cel.Variable(engine.VariablesKey, engine.VariablesType))
 		options = append(options, cel.Variable(GlobalContextKey, globalcontext.ContextType))
 	} else {
-		options = append(options, cel.Variable(ObjectKey, cel.DynType))
+		options = append(options, cel.Variable(ObjectKey, cel.MapType(cel.StringType, cel.DynType)))
 	}
 
 	for _, declType := range declTypes {
