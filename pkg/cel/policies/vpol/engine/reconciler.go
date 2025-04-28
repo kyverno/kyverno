@@ -18,24 +18,27 @@ import (
 )
 
 type reconciler struct {
-	client      client.Client
-	compiler    compiler.Compiler
-	lock        *sync.RWMutex
-	policies    map[string][]Policy
-	polexLister policiesv1alpha1listers.PolicyExceptionLister
+	client       client.Client
+	compiler     compiler.Compiler
+	lock         *sync.RWMutex
+	policies     map[string][]Policy
+	polexLister  policiesv1alpha1listers.PolicyExceptionLister
+	polexEnabled bool
 }
 
 func newReconciler(
 	compiler compiler.Compiler,
 	client client.Client,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{
-		client:      client,
-		compiler:    compiler,
-		lock:        &sync.RWMutex{},
-		policies:    map[string][]Policy{},
-		polexLister: polexLister,
+		client:       client,
+		compiler:     compiler,
+		lock:         &sync.RWMutex{},
+		policies:     map[string][]Policy{},
+		polexLister:  polexLister,
+		polexEnabled: polexEnabled,
 	}
 }
 
@@ -58,9 +61,12 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 	// get exceptions that match the policy
-	exceptions, err := engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
-	if err != nil {
-		return ctrl.Result{}, err
+	var exceptions []*policiesv1alpha1.PolicyException
+	if r.polexEnabled {
+		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	compiled, errs := r.compiler.Compile(&policy, exceptions)
 	if len(errs) > 0 {
