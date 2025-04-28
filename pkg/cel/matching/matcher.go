@@ -1,19 +1,17 @@
 package matching
 
 import (
+	"github.com/kyverno/kyverno/pkg/cel/matching/predicates/namespace"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
-	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/namespace"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/object"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/rules"
 )
 
 type Matcher interface {
-	Match(criteria matching.MatchCriteria, attr admission.Attributes, namespace runtime.Object) (bool, error)
+	Match(matching.MatchCriteria, admission.Attributes, runtime.Object) (bool, error)
 }
 
 type matcher struct {
@@ -26,21 +24,27 @@ func NewMatcher() Matcher {
 	}
 }
 
-func (m *matcher) Match(criteria matching.MatchCriteria, attr admission.Attributes, namespace runtime.Object) (bool, error) {
-	matches, matchNsErr := matchNamespace(criteria, namespace)
+func (m *matcher) Match(criteria matching.MatchCriteria, attr admission.Attributes, ns runtime.Object) (bool, error) {
+	nsMatcher := namespace.Matcher{
+		Namespace: ns,
+	}
+	matches, matchNsErr := nsMatcher.MatchNamespaceSelector(criteria, attr)
 	// Should not return an error here for policy which do not apply to the request, even if err is an unexpected scenario.
 	if !matches && matchNsErr == nil {
 		return false, nil
 	}
+
 	matches, matchObjErr := m.objectMatcher.MatchObjectSelector(criteria, attr)
 	// Should not return an error here for policy which do not apply to the request, even if err is an unexpected scenario.
 	if !matches && matchObjErr == nil {
 		return false, nil
 	}
+
 	matchResources := criteria.GetMatchResources()
 	if isExcluded, err := matchesResourceRules(matchResources.ExcludeResourceRules, attr); isExcluded || err != nil {
 		return false, err
 	}
+
 	var (
 		isMatch  bool
 		matchErr error
@@ -56,6 +60,7 @@ func (m *matcher) Match(criteria matching.MatchCriteria, attr admission.Attribut
 	if !isMatch {
 		return false, nil
 	}
+
 	// now that we know this applies to this request otherwise, if there were selector errors, return them
 	if matchNsErr != nil {
 		return false, matchNsErr
@@ -63,33 +68,15 @@ func (m *matcher) Match(criteria matching.MatchCriteria, attr admission.Attribut
 	if matchObjErr != nil {
 		return false, matchObjErr
 	}
-	return true, nil
-}
 
-func matchNamespace(provider namespace.NamespaceSelectorProvider, namespace runtime.Object) (bool, error) {
-	selector, err := provider.GetParsedNamespaceSelector()
-	if err != nil {
-		return false, err
-	}
-	if selector.Empty() {
-		return true, nil
-	}
-	if namespace == nil {
-		// If the request is about a cluster scoped resource, and it is not a
-		// namespace, it is never exempted.
-		return true, nil
-	}
-	accessor, err := meta.Accessor(namespace)
-	if err != nil {
-		return false, err
-	}
-	return selector.Matches(labels.Set(accessor.GetLabels())), nil
+	return true, nil
 }
 
 func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOperations, attr admission.Attributes) (bool, error) {
 	for _, namedRule := range namedRules {
+		rule := namedRule.RuleWithOperations
 		ruleMatcher := rules.Matcher{
-			Rule: namedRule.RuleWithOperations,
+			Rule: rule,
 			Attr: attr,
 		}
 		if !ruleMatcher.Matches() {
