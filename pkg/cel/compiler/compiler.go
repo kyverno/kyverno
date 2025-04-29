@@ -176,7 +176,7 @@ func CompileMatchImageReference(path *field.Path, env *cel.Env, match v1alpha1.M
 		}
 		return &matchCel{Program: prog}, nil
 	}
-	return nil, nil
+	return nil, append(allErrs, field.Invalid(path, match, "either glob or expression must be set"))
 }
 
 func CompileMatchImageReferences(path *field.Path, env *cel.Env, matches ...v1alpha1.MatchImageReference) (result []MatchImageReference, allErrs field.ErrorList) {
