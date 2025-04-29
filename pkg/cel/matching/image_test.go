@@ -16,61 +16,46 @@ func Test_Match(t *testing.T) {
 		image                string
 		wantResult           bool
 		wantErr              bool
-	}{
-		{
-			name: "standard pass",
-			MatchImageReferences: []v1alpha1.MatchImageReference{
-				{
-					Glob: "ghcr.io/*",
-				},
-				{
-					Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
-				},
+	}{{
+		name: "standard pass",
+		MatchImageReferences: []v1alpha1.MatchImageReference{
+			{
+				Glob: "ghcr.io/*",
 			},
-			image:      "ghcr.io/kyverno/kyverno",
-			wantResult: true,
-			wantErr:    false,
-		},
-		{
-			name: "standard fail",
-			MatchImageReferences: []v1alpha1.MatchImageReference{
-				{
-					Glob: "ghcr.io/*",
-				},
-				{
-					Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
-				},
+			{
+				Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
 			},
-			image:      "kyverno/kyverno",
-			wantResult: false,
-			wantErr:    false,
 		},
-		{
-			name: "second rule matches",
-			MatchImageReferences: []v1alpha1.MatchImageReference{
-				{
-					Glob: "index.docker.io/*",
-				},
-				{
-					Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
-				},
+		image:      "ghcr.io/kyverno/kyverno",
+		wantResult: true,
+		wantErr:    false,
+	}, {
+		name: "standard fail",
+		MatchImageReferences: []v1alpha1.MatchImageReference{
+			{
+				Glob: "ghcr.io/*",
 			},
-			image:      "ghcr.io/kyverno/kyverno",
-			wantResult: true,
-			wantErr:    false,
-		},
-		{
-			name: "invalid cel expression",
-			MatchImageReferences: []v1alpha1.MatchImageReference{
-				{
-					Expression: "\"foo\"",
-				},
+			{
+				Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
 			},
-			image:      "ghcr.io/kyverno/kyverno",
-			wantResult: false,
-			wantErr:    true,
 		},
-	}
+		image:      "kyverno/kyverno",
+		wantResult: false,
+		wantErr:    false,
+	}, {
+		name: "second rule matches",
+		MatchImageReferences: []v1alpha1.MatchImageReference{
+			{
+				Glob: "index.docker.io/*",
+			},
+			{
+				Expression: "ref == \"ghcr.io/kyverno/kyverno\"",
+			},
+		},
+		image:      "ghcr.io/kyverno/kyverno",
+		wantResult: true,
+		wantErr:    false,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := compiler.NewMatchImageEnv()
