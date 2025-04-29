@@ -217,7 +217,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	for _, policy := range p.ValidatingAdmissionPolicies {
-		policyData := admissionpolicy.NewPolicyData(policy)
+		policyData := engineapi.NewValidatingAdmissionPolicyData(&policy)
 		for _, binding := range p.ValidatingAdmissionPolicyBindings {
 			if binding.Spec.PolicyName == policy.Name {
 				policyData.AddBinding(binding)

@@ -437,7 +437,7 @@ func (c *controller) reconcileReport(
 			if policy.AsKyvernoPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsKyvernoPolicy()).String()
 			} else if policy.AsValidatingAdmissionPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy()).String()
+				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy().GetDefinition()).String()
 			} else if policy.AsValidatingPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
 			} else if policy.AsImageValidatingPolicy() != nil {
