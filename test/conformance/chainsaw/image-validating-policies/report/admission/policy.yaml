@@ -23,6 +23,10 @@ spec:
     - expression: >-
         images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
       message: failed to verify image with notary cert
+  auditAnnotations:
+    - key: label
+      valueExpression: >-
+        has(object.metadata.labels) && 'env' in object.metadata.labels ? string(object.metadata.labels['env']) : ''
   webhookConfiguration:
     timeoutSeconds: 20
   failurePolicy: Ignore
