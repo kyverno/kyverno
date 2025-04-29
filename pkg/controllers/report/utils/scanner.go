@@ -261,7 +261,7 @@ func (s *scanner) ScanResource(
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := admissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
+			res, err := admissionpolicy.Validate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, false)
 			results[&vaps[i]] = ScanResult{&res, err}
 		}
 	}
