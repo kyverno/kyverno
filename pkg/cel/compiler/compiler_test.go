@@ -395,6 +395,66 @@ func TestCompileVariables(t *testing.T) {
 	}
 }
 
+func TestCompileMatchImageReference(t *testing.T) {
+	tests := []struct {
+		name      string
+		match     policiesv1alpgha1.MatchImageReference
+		wantMatch bool
+		wantErrs  field.ErrorList
+	}{{
+		name: "glob",
+		match: policiesv1alpgha1.MatchImageReference{
+			Glob: "ghcr.io/*",
+		},
+		wantMatch: true,
+	}, {
+		name: "cel",
+		match: policiesv1alpgha1.MatchImageReference{
+			Expression: "true",
+		},
+		wantMatch: true,
+	}, {
+		name: "cel error",
+		match: policiesv1alpgha1.MatchImageReference{
+			Expression: "bar()",
+		},
+		wantMatch: false,
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "test.expression",
+			BadValue: "bar()",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar' (in container '')\n | bar()\n | ...^",
+		}},
+	}, {
+		name: "cel not bool",
+		match: policiesv1alpgha1.MatchImageReference{
+			Expression: `"bar"`,
+		},
+		wantMatch: false,
+	}, {
+		name:      "unknown",
+		match:     policiesv1alpgha1.MatchImageReference{},
+		wantMatch: false,
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "test",
+			BadValue: policiesv1alpgha1.MatchImageReference{},
+			Detail:   "either glob or expression must be set",
+		}},
+	},
+	// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, err := NewMatchImageEnv()
+			assert.NoError(t, err)
+			got, gotErrs := CompileMatchImageReference(field.NewPath("test"), env, tt.match)
+			assert.Equal(t, tt.wantErrs, gotErrs)
+			assert.Equal(t, tt.wantMatch, got != nil)
+		})
+	}
+}
+
 func TestCompileMatchImageReferences(t *testing.T) {
 	tests := []struct {
 		name        string
