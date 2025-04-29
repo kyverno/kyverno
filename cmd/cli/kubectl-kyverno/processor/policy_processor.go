@@ -14,7 +14,6 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
@@ -46,10 +45,8 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/restmapper"
 )
 
 type PolicyProcessor struct {
@@ -217,6 +214,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, validateResponse)
 		resource = validateResponse.PatchedResource
 	}
+
 	// Mutate Admission Policies
 	for _, mapPolicy := range p.MutatingAdmissionPolicies {
 		// build the policy+binding data
@@ -248,18 +246,30 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, mutateResponse)
 	}
 
+	restMapper, err := getRESTMapper(p.Client, !p.Cluster)
+	if err != nil {
+		return nil, err
+	}
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
-	for _, policy := range p.ValidatingAdmissionPolicies {
-		policyData := engineapi.NewValidatingAdmissionPolicyData(&policy)
-		for _, binding := range p.ValidatingAdmissionPolicyBindings {
-			if binding.Spec.PolicyName == policy.Name {
-				policyData.AddBinding(binding)
-			}
+	if len(p.ValidatingAdmissionPolicies) != 0 {
+		// map gvk to gvr
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		}
-		validateResponse, _ := admissionpolicy.Validate(policyData, resource, p.NamespaceSelectorMap, p.Client)
-		vapResponses = append(vapResponses, validateResponse)
-		p.Rc.addValidatingAdmissionResponse(validateResponse)
+		gvr := mapping.Resource
+		for _, policy := range p.ValidatingAdmissionPolicies {
+			policyData := engineapi.NewValidatingAdmissionPolicyData(&policy)
+			for _, binding := range p.ValidatingAdmissionPolicyBindings {
+				if binding.Spec.PolicyName == policy.Name {
+					policyData.AddBinding(binding)
+				}
+			}
+			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster)
+			vapResponses = append(vapResponses, validateResponse)
+			p.Rc.addValidatingAdmissionResponse(validateResponse)
+		}
 	}
 	// validating policies
 	if len(p.ValidatingPolicies) != 0 {
@@ -271,7 +281,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		// TODO: mock when no cluster provided
 		gctxStore := gctxstore.New()
-		var restMapper meta.RESTMapper
 		var contextProvider libs.Context
 		if p.Client != nil && p.Cluster {
 			contextProvider, err = libs.NewContextProvider(
@@ -283,17 +292,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if err != nil {
 				return nil, err
 			}
-			apiGroupResources, err := restmapper.GetAPIGroupResources(p.Client.GetKubeClient().Discovery())
-			if err != nil {
-				return nil, err
-			}
-			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 		} else {
-			apiGroupResources, err := data.APIGroupResources()
-			if err != nil {
-				return nil, err
-			}
-			restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 			fakeContextProvider := libs.NewFakeContextProvider()
 			if p.ContextPath != "" {
 				ctx, err := clicontext.Load(nil, p.ContextPath)
@@ -315,8 +314,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		if resource.Object != nil {
 			eng := vpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
-			// get gvk from resource
-			gvk := resource.GroupVersionKind()
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {

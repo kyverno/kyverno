@@ -16,9 +16,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -44,7 +44,7 @@ type CompiledPolicy interface {
 type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	matchConditions      []cel.Program
-	matchImageReferences []*match.CompiledMatch
+	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
 	imageExtractors      []*variables.CompiledImageExtractor
 	attestors            []*variables.CompiledAttestor
@@ -111,23 +111,23 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 		}
-		data[NamespaceObjectKey] = namespaceVal
-		data[RequestKey] = requestVal.Object
-		data[ObjectKey] = objectVal
-		data[OldObjectKey] = oldObjectVal
+		data[engine.NamespaceObjectKey] = namespaceVal
+		data[engine.RequestKey] = requestVal.Object
+		data[engine.ObjectKey] = objectVal
+		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
 		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
 		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context}
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
-		data[ObjectKey] = request
+		data[engine.ObjectKey] = request
 	}
 	images, err := variables.ExtractImages(c.imageExtractors, data)
 	if err != nil {
 		return nil, err
 	}
-	data[ImagesKey] = images
-	data[AttestationKey] = c.attestationList
+	data[engine.ImagesKey] = images
+	data[engine.AttestationKey] = c.attestationList
 	attestors := make(map[string]policiesv1alpha1.Attestor)
 	for _, att := range c.attestors {
 		data, err := att.Evaluate(data)
@@ -136,12 +136,12 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 		attestors[data.Name] = data
 	}
-	data[AttestorKey] = attestors
+	data[engine.AttestorKey] = attestors
 
 	imgList := []string{}
 	for _, v := range images {
 		for _, img := range v {
-			if apply, err := match.Match(c.matchImageReferences, img); err != nil {
+			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
 				return nil, err
 			} else if apply {
 				imgList = append(imgList, img)
@@ -220,12 +220,12 @@ func (p *compiledPolicy) match(
 		if err != nil {
 			return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 		}
-		data[NamespaceObjectKey] = namespaceVal
-		data[RequestKey] = requestVal.Object
-		data[ObjectKey] = objectVal
-		data[OldObjectKey] = oldObjectVal
+		data[engine.NamespaceObjectKey] = namespaceVal
+		data[engine.RequestKey] = requestVal.Object
+		data[engine.ObjectKey] = objectVal
+		data[engine.OldObjectKey] = oldObjectVal
 	} else {
-		data[ObjectKey] = request
+		data[engine.ObjectKey] = request
 	}
 	var errs []error
 	for _, matchCondition := range matchConditions {
