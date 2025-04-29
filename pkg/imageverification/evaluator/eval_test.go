@@ -41,7 +41,8 @@ var (
 				{
 					Name: "notary",
 					Notary: &policiesv1alpha1.Notary{
-						Certs: `-----BEGIN CERTIFICATE-----
+						Certs: &policiesv1alpha1.StringOrExpression{
+							Value: `-----BEGIN CERTIFICATE-----
 MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
 BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
 Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
@@ -61,6 +62,7 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`,
+						},
 					},
 				},
 			},
@@ -82,7 +84,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					Message:    "failed to verify attestation with notary cert",
 				},
 				{
-					Expression: "images.bar.map(image, payload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
+					Expression: "images.bar.map(image, extractPayload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
 					Message:    "sbom is not a cyclone dx sbom",
 				},
 			},

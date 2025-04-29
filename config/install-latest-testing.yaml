@@ -48599,13 +48599,39 @@ spec:
                             cert:
                               description: Certificate is the to the public certificate
                                 for local signature verification.
-                              type: string
+                              oneOf:
+                              - required:
+                                - value
+                              - required:
+                                - expression
+                              properties:
+                                expression:
+                                  description: Expression defines the a CEL expression
+                                    input.
+                                  type: string
+                                value:
+                                  description: Value defines the raw string input.
+                                  type: string
+                              type: object
                             certChain:
                               description: |-
                                 CertificateChain is the list of CA certificates in PEM format which will be needed
                                 when building the certificate chain for the signing certificate. Must start with the
                                 parent intermediate CA certificate of the signing certificate and end with the root certificate
-                              type: string
+                              oneOf:
+                              - required:
+                                - value
+                              - required:
+                                - expression
+                              properties:
+                                expression:
+                                  description: Expression defines the a CEL expression
+                                    input.
+                                  type: string
+                                value:
+                                  description: Value defines the raw string input.
+                                  type: string
+                              type: object
                           type: object
                         ctlog:
                           description: CTLog sets the configuration to verify the
@@ -48647,6 +48673,10 @@ spec:
                             data:
                               description: Data contains the inline public key
                               type: string
+                            expression:
+                              description: Expression is a Expression expression that
+                                returns the public key.
+                              type: string
                             hashAlgorithm:
                               description: |-
                                 HashAlgorithm specifues signature algorithm for public keys. Supported values are
@@ -48657,20 +48687,6 @@ spec:
                                 KMS contains the KMS url of the public key
                                 Supported formats differ based on the KMS system used.
                               type: string
-                            secretRef:
-                              description: SecretRef sets a reference to a secret
-                                with the key.
-                              properties:
-                                name:
-                                  description: name is unique within a namespace to
-                                    reference a secret resource.
-                                  type: string
-                                namespace:
-                                  description: namespace defines the space within
-                                    which the secret name must be unique.
-                                  type: string
-                              type: object
-                              x-kubernetes-map-type: atomic
                           type: object
                         keyless:
                           description: Keyless sets the configuration to verify the
@@ -48781,13 +48797,37 @@ spec:
                         certs:
                           description: Certs define the cert chain for Notary signature
                             verification
-                          type: string
+                          oneOf:
+                          - required:
+                            - value
+                          - required:
+                            - expression
+                          properties:
+                            expression:
+                              description: Expression defines the a CEL expression
+                                input.
+                              type: string
+                            value:
+                              description: Value defines the raw string input.
+                              type: string
+                          type: object
                         tsaCerts:
                           description: TSACerts define the cert chain for verifying
                             timestamps of notary signature
-                          type: string
-                      required:
-                      - certs
+                          oneOf:
+                          - required:
+                            - value
+                          - required:
+                            - expression
+                          properties:
+                            expression:
+                              description: Expression defines the a CEL expression
+                                input.
+                              type: string
+                            value:
+                              description: Value defines the raw string input.
+                              type: string
+                          type: object
                       type: object
                   required:
                   - name
@@ -49283,9 +49323,15 @@ spec:
                 items:
                   description: MatchImageReference defines a Glob or a CEL expression
                     for matching images
+                  oneOf:
+                  - required:
+                    - glob
+                  - required:
+                    - expression
                   properties:
-                    cel:
-                      description: Cel defines CEL Expressions for matching images
+                    expression:
+                      description: Expression defines CEL Expressions for matching
+                        images
                       type: string
                     glob:
                       description: Glob defines a globbing pattern for matching images
@@ -49538,13 +49584,41 @@ spec:
                                             description: Certificate is the to the
                                               public certificate for local signature
                                               verification.
-                                            type: string
+                                            oneOf:
+                                            - required:
+                                              - value
+                                            - required:
+                                              - expression
+                                            properties:
+                                              expression:
+                                                description: Expression defines the
+                                                  a CEL expression input.
+                                                type: string
+                                              value:
+                                                description: Value defines the raw
+                                                  string input.
+                                                type: string
+                                            type: object
                                           certChain:
                                             description: |-
                                               CertificateChain is the list of CA certificates in PEM format which will be needed
                                               when building the certificate chain for the signing certificate. Must start with the
                                               parent intermediate CA certificate of the signing certificate and end with the root certificate
-                                            type: string
+                                            oneOf:
+                                            - required:
+                                              - value
+                                            - required:
+                                              - expression
+                                            properties:
+                                              expression:
+                                                description: Expression defines the
+                                                  a CEL expression input.
+                                                type: string
+                                              value:
+                                                description: Value defines the raw
+                                                  string input.
+                                                type: string
+                                            type: object
                                         type: object
                                       ctlog:
                                         description: CTLog sets the configuration
@@ -49588,6 +49662,10 @@ spec:
                                             description: Data contains the inline
                                               public key
                                             type: string
+                                          expression:
+                                            description: Expression is a Expression
+                                              expression that returns the public key.
+                                            type: string
                                           hashAlgorithm:
                                             description: |-
                                               HashAlgorithm specifues signature algorithm for public keys. Supported values are
@@ -49598,22 +49676,6 @@ spec:
                                               KMS contains the KMS url of the public key
                                               Supported formats differ based on the KMS system used.
                                             type: string
-                                          secretRef:
-                                            description: SecretRef sets a reference
-                                              to a secret with the key.
-                                            properties:
-                                              name:
-                                                description: name is unique within
-                                                  a namespace to reference a secret
-                                                  resource.
-                                                type: string
-                                              namespace:
-                                                description: namespace defines the
-                                                  space within which the secret name
-                                                  must be unique.
-                                                type: string
-                                            type: object
-                                            x-kubernetes-map-type: atomic
                                         type: object
                                       keyless:
                                         description: Keyless sets the configuration
@@ -49730,13 +49792,39 @@ spec:
                                       certs:
                                         description: Certs define the cert chain for
                                           Notary signature verification
-                                        type: string
+                                        oneOf:
+                                        - required:
+                                          - value
+                                        - required:
+                                          - expression
+                                        properties:
+                                          expression:
+                                            description: Expression defines the a
+                                              CEL expression input.
+                                            type: string
+                                          value:
+                                            description: Value defines the raw string
+                                              input.
+                                            type: string
+                                        type: object
                                       tsaCerts:
                                         description: TSACerts define the cert chain
                                           for verifying timestamps of notary signature
-                                        type: string
-                                    required:
-                                    - certs
+                                        oneOf:
+                                        - required:
+                                          - value
+                                        - required:
+                                          - expression
+                                        properties:
+                                          expression:
+                                            description: Expression defines the a
+                                              CEL expression input.
+                                            type: string
+                                          value:
+                                            description: Value defines the raw string
+                                              input.
+                                            type: string
+                                        type: object
                                     type: object
                                 required:
                                 - name
@@ -50239,10 +50327,15 @@ spec:
                               items:
                                 description: MatchImageReference defines a Glob or
                                   a CEL expression for matching images
+                                oneOf:
+                                - required:
+                                  - glob
+                                - required:
+                                  - expression
                                 properties:
-                                  cel:
-                                    description: Cel defines CEL Expressions for matching
-                                      images
+                                  expression:
+                                    description: Expression defines CEL Expressions
+                                      for matching images
                                     type: string
                                   glob:
                                     description: Glob defines a globbing pattern for

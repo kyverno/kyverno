@@ -15,8 +15,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -227,7 +230,7 @@ func createrLeaderControllers(
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"policies.kyverno.io"},
 				APIVersions: []string{"v1alpha1"},
-				Resources:   []string{"PolicyExceptions"},
+				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Create,
@@ -601,7 +604,7 @@ func main() {
 			reportsServiceAccountName,
 		)
 
-		contextProvider, err := celpolicy.NewContextProvider(
+		contextProvider, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
 			nil,
 			gcstore,
@@ -612,7 +615,7 @@ func main() {
 			os.Exit(1)
 		}
 		var vpolEngine celengine.Engine
-		var ivpolEngine celengine.ImageValidatingEngine
+		var ivpolEngine ivpolengine.Engine
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
@@ -628,11 +631,16 @@ func main() {
 				os.Exit(1)
 			}
 			// create compiler
-			compiler := celpolicy.NewCompiler()
-			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			compiler := vpolcompiler.NewCompiler()
+			// create vpolProvider
+			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 			if err != nil {
-				setup.Logger.Error(err, "failed to create policy provider")
+				setup.Logger.Error(err, "failed to create vpol provider")
+				os.Exit(1)
+			}
+			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			if err != nil {
+				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
 			}
 			// create a cancellable context
@@ -651,8 +659,8 @@ func main() {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
 			}
-			vpolEngine = celengine.NewEngine(
-				provider.CompiledValidationPolicies,
+			vpolEngine = vpolengine.NewEngine(
+				vpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {
@@ -662,8 +670,8 @@ func main() {
 				},
 				matching.NewMatcher(),
 			)
-			ivpolEngine = celengine.NewImageValidatingEngine(
-				provider.ImageVerificationPolicies,
+			ivpolEngine = ivpolengine.NewEngine(
+				ivpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {
@@ -725,8 +733,7 @@ func main() {
 			Namespace: internal.ExceptionNamespace(),
 		})
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
-			Enabled:   internal.PolicyExceptionEnabled(),
-			Namespace: internal.ExceptionNamespace(),
+			Enabled: internal.PolicyExceptionEnabled(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(

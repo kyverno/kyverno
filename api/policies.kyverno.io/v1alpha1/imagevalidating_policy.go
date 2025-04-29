@@ -1,12 +1,14 @@
 package v1alpha1
 
 import (
-	"strings"
+	"fmt"
+	"reflect"
 
-	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -18,6 +20,7 @@ import (
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type ImageValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -27,26 +30,17 @@ type ImageValidatingPolicy struct {
 	Status ImageValidatingPolicyStatus `json:"status,omitempty"`
 }
 
+// BackgroundEnabled checks if background is set to true
+func (s ImageValidatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
 type ImageValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
 	Autogen ImageValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
-}
-
-func (s *ImageValidatingPolicy) GetName() string {
-	name := s.Name
-	if s.Annotations == nil {
-		if _, found := s.Annotations[kyverno.AnnotationAutogenControllers]; found {
-			if strings.HasPrefix(name, "autogen-cronjobs-") {
-				return strings.TrimPrefix(name, "autogen-cronjobs-")
-			} else if strings.HasPrefix(name, "autogen-") {
-				return strings.TrimPrefix(name, "autogen-")
-			}
-		}
-	}
-	return name
 }
 
 func (s *ImageValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -110,25 +104,6 @@ func (s ImageValidatingPolicySpec) ValidationActions() []admissionregistrationv1
 		return []admissionregistrationv1.ValidationAction{defaultValue}
 	}
 	return s.ValidationAction
-}
-
-func (status *ImageValidatingPolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
-	reason := "Succeeded"
-	if s != metav1.ConditionTrue {
-		reason = "Failed"
-	}
-	newCondition := metav1.Condition{
-		Type:    string(c),
-		Reason:  reason,
-		Status:  s,
-		Message: message,
-	}
-
-	meta.SetStatusCondition(&status.ConditionStatus.Conditions, newCondition)
-}
-
-func (status *ImageValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {
-	return &status.ConditionStatus
 }
 
 // +kubebuilder:object:root=true
@@ -229,13 +204,15 @@ type ImageValidatingPolicySpec struct {
 }
 
 // MatchImageReference defines a Glob or a CEL expression for matching images
+// +kubebuilder:oneOf:={required:{glob}}
+// +kubebuilder:oneOf:={required:{expression}}
 type MatchImageReference struct {
 	// Glob defines a globbing pattern for matching images
 	// +optional
-	Glob string `json:"glob"`
-	// Cel defines CEL Expressions for matching images
+	Glob string `json:"glob,omitempty"`
+	// Expression defines CEL Expressions for matching images
 	// +optional
-	CELExpression string `json:"cel"`
+	Expression string `json:"expression,omitempty"`
 }
 
 type ValidationConfiguration struct {
@@ -243,17 +220,17 @@ type ValidationConfiguration struct {
 	// Defaults to true.
 	// +kubebuilder:default=true
 	// +optional
-	MutateDigest *bool `json:"mutateDigest"`
+	MutateDigest *bool `json:"mutateDigest,omitempty"`
 
 	// VerifyDigest validates that images have a digest.
 	// +kubebuilder:default=true
 	// +optional
-	VerifyDigest *bool `json:"verifyDigest"`
+	VerifyDigest *bool `json:"verifyDigest,omitempty"`
 
 	// Required validates that images are verified, i.e., have passed a signature or attestation check.
 	// +kubebuilder:default=true
 	// +optional
-	Required *bool `json:"required"`
+	Required *bool `json:"required,omitempty"`
 }
 
 type Image struct {
@@ -290,6 +267,38 @@ type Attestor struct {
 	// Notary defines attestor configuration for Notary based signatures
 	// +optional
 	Notary *Notary `json:"notary,omitempty"`
+}
+
+func (v Attestor) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	if reflect.TypeOf(v).AssignableTo(typeDesc) {
+		return v, nil
+	}
+	return nil, fmt.Errorf("type conversion error from 'Image' to '%v'", typeDesc)
+}
+
+func (v Attestor) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case cel.ObjectType("imageverify.attestor"):
+		return v
+	default:
+		return types.NewErr("type conversion error from '%s' to '%s'", cel.ObjectType("imageverify.attestor"), typeVal)
+	}
+}
+
+func (v Attestor) Equal(other ref.Val) ref.Val {
+	img, ok := other.(Attestor)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(other)
+	}
+	return types.Bool(reflect.DeepEqual(v, img))
+}
+
+func (v Attestor) Type() ref.Type {
+	return cel.ObjectType("imageverify.attestor")
+}
+
+func (v Attestor) Value() any {
+	return v
 }
 
 func (a Attestor) GetKey() string {
@@ -331,13 +340,26 @@ type Cosign struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
+// StringOrExpression contains either a raw string input or a CEL expression
+// +kubebuilder:oneOf:={required:{value}}
+// +kubebuilder:oneOf:={required:{expression}}
+type StringOrExpression struct {
+	// Value defines the raw string input.
+	// +optional
+	Value string `json:"value,omitempty"`
+	// Expression defines the a CEL expression input.
+	// +optional
+	Expression string `json:"expression,omitempty"`
+}
+
 // Notary defines attestor configuration for Notary based signatures
 type Notary struct {
 	// Certs define the cert chain for Notary signature verification
-	Certs string `json:"certs"`
+	// +optional
+	Certs *StringOrExpression `json:"certs,omitempty"`
 	// TSACerts define the cert chain for verifying timestamps of notary signature
 	// +optional
-	TSACerts string `json:"tsaCerts"`
+	TSACerts *StringOrExpression `json:"tsaCerts,omitempty"`
 }
 
 // TUF defines the configuration to fetch sigstore root
@@ -403,13 +425,8 @@ type CTLog struct {
 	InsecureIgnoreSCT bool `json:"insecureIgnoreSCT,omitempty"`
 }
 
-// This references a public verification key stored in
-// a secret in the kyverno namespace.
-// A Key must specify only one of SecretRef, Data or KMS
+// A Key must specify only one of CEL, Data or KMS
 type Key struct {
-	// SecretRef sets a reference to a secret with the key.
-	// +optional
-	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 	// Data contains the inline public key
 	// +optional
 	Data string `json:"data,omitempty"`
@@ -421,6 +438,9 @@ type Key struct {
 	// sha224, sha256, sha384 and sha512. Defaults to sha256.
 	// +optional
 	HashAlgorithm string `json:"hashAlgorithm,omitempty"`
+	// Expression is a Expression expression that returns the public key.
+	// +optional
+	Expression string `json:"expression,omitempty"`
 }
 
 // Keyless contains location of the validating certificate and the identities
@@ -438,12 +458,12 @@ type Keyless struct {
 type Certificate struct {
 	// Certificate is the to the public certificate for local signature verification.
 	// +optional
-	Certificate string `json:"cert,omitempty"`
+	Certificate *StringOrExpression `json:"cert,omitempty"`
 	// CertificateChain is the list of CA certificates in PEM format which will be needed
 	// when building the certificate chain for the signing certificate. Must start with the
 	// parent intermediate CA certificate of the signing certificate and end with the root certificate
 	// +optional
-	CertificateChain string `json:"certChain,omitempty"`
+	CertificateChain *StringOrExpression `json:"certChain,omitempty"`
 }
 
 // Identity may contain the issuer and/or the subject found in the transparency

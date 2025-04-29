@@ -4,7 +4,7 @@ import (
 	"context"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -27,7 +27,7 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 			conditionStatus.Ready = &ready
 		}
 		// autogen
-		rules, err := vpolautogen.ValidatingPolicy(vpol)
+		rules, err := vpolautogen.Autogen(vpol)
 		if err != nil {
 			return err
 		}
@@ -43,7 +43,6 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 		}
 		return nil
 	}
-
 	err := controllerutils.UpdateStatus(ctx,
 		vpol,
 		c.client.PoliciesV1alpha1().ValidatingPolicies(),
