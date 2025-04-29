@@ -9,7 +9,7 @@ import (
 )
 
 func TestUnpack(t *testing.T) {
-	base, err := compiler.NewEnv()
+	base, err := compiler.NewBaseEnv()
 	if err != nil {
 		t.Fatalf("failed to create engine: %v", err)
 	}

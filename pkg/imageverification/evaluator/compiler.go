@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"github.com/kyverno/kyverno/pkg/imageverification/variables"
 	ivpolvar "github.com/kyverno/kyverno/pkg/imageverification/variables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +39,7 @@ type compiler struct {
 
 func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
-	base, err := engine.NewEnv()
+	base, err := engine.NewBaseEnv()
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -93,7 +92,11 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
-	matchImageReferences, errs := match.CompileMatches(path.Child("matchImageReferences"), ivpolicy.Spec.MatchImageReferences)
+	matchImageEnv, err := engine.NewMatchImageEnv()
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+	matchImageReferences, errs := engine.CompileMatchImageReferences(path.Child("matchImageReferences"), matchImageEnv, ivpolicy.Spec.MatchImageReferences...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -122,7 +125,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		path := path.Child("validations")
 		for i, rule := range ivpolicy.Spec.Validations {
 			path := path.Index(i)
-			program, errs := engine.CompileValidation(path, rule, env)
+			program, errs := engine.CompileValidation(path, env, rule)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
