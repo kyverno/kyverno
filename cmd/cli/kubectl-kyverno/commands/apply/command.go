@@ -579,7 +579,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 				}
 			} else {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
+					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, rslt.AuditAnnotations),
 				}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
