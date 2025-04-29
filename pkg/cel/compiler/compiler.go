@@ -9,18 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-const (
-	GlobalContextKey   = "globalContext"
-	HttpKey            = "http"
-	ImageDataKey       = "image"
-	NamespaceObjectKey = "namespaceObject"
-	ObjectKey          = "object"
-	OldObjectKey       = "oldObject"
-	RequestKey         = "request"
-	ResourceKey        = "resource"
-	VariablesKey       = "variables"
-)
-
 func CompileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
 	{

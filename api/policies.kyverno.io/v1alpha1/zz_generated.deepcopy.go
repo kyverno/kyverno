@@ -468,6 +468,11 @@ func (in *ImageValidatingPolicySpec) DeepCopyInto(out *ImageValidatingPolicySpec
 		*out = new(admissionregistrationv1.FailurePolicyType)
 		**out = **in
 	}
+	if in.AuditAnnotations != nil {
+		in, out := &in.AuditAnnotations, &out.AuditAnnotations
+		*out = make([]admissionregistrationv1.AuditAnnotation, len(*in))
+		copy(*out, *in)
+	}
 	if in.ValidationAction != nil {
 		in, out := &in.ValidationAction, &out.ValidationAction
 		*out = make([]admissionregistrationv1.ValidationAction, len(*in))
