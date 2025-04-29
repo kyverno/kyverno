@@ -166,6 +166,10 @@ func CompileMatchImageReference(path *field.Path, env *cel.Env, match v1alpha1.M
 		if err := issues.Err(); err != nil {
 			return nil, append(allErrs, field.Invalid(path, match.Expression, err.Error()))
 		}
+		if !ast.OutputType().IsExactType(types.BoolType) {
+			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
+			return nil, append(allErrs, field.Invalid(path, match.Expression, msg))
+		}
 		prog, err := env.Program(ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, match.Expression, err.Error()))
