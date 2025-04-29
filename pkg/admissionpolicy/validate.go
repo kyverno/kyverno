@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -105,7 +106,14 @@ func Validate(
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 	if len(bindings) == 0 {
-		isMatch, err := matches(a, namespaceSelectorMap, *policy.Spec.MatchConstraints)
+		matcher := celmatching.NewMatcher()
+		isMatch, err := matcher.Match(
+			&celmatching.MatchCriteria{
+				Constraints: policy.Spec.MatchConstraints,
+			},
+			a,
+			namespace,
+		)
 		if err != nil {
 			return engineResponse, err
 		}
@@ -157,13 +165,23 @@ func Validate(
 			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	} else {
+		matcher := celmatching.NewMatcher()
 		for i, binding := range bindings {
-			isMatch, err := matches(a, namespaceSelectorMap, *binding.Spec.MatchResources)
-			if err != nil {
-				return engineResponse, err
-			}
-			if !isMatch {
-				continue
+			// check if the binding matches the incoming resource
+			if binding.Spec.MatchResources != nil {
+				bindingMatches, err := matcher.Match(
+					&celmatching.MatchCriteria{
+						Constraints: binding.Spec.MatchResources,
+					},
+					a,
+					namespace,
+				)
+				if err != nil {
+					return engineResponse, err
+				}
+				if !bindingMatches {
+					continue
+				}
 			}
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 			return validateResource(policy, &bindings[i], resource, namespace, a)
