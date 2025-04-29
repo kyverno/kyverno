@@ -34,7 +34,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.ValidatingPolicy, except
 
 func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	base, err := compiler.NewEnv()
+	base, err := compiler.NewBaseEnv()
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -76,7 +76,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 		path := path.Child("validations")
 		for i, rule := range policy.Spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, rule, env)
+			program, errs := compiler.CompileValidation(path, env, rule)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -95,7 +95,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 
 func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	base, err := compiler.NewEnv()
+	base, err := compiler.NewBaseEnv()
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -148,7 +148,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		path := path.Child("validations")
 		for i, rule := range policy.Spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, rule, env)
+			program, errs := compiler.CompileValidation(path, env, rule)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
