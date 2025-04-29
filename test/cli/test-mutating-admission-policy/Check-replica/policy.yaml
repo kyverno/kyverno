@@ -11,20 +11,12 @@ spec:
       - v1
       operations:
       - CREATE
+      - UPDATE
       resources:
       - deployments
   failurePolicy: Fail
+  reinvocationPolicy: Never # <-- ADD THIS LINE
   mutations:
-  - patchType: JSONPatch
-    jsonPatch:
-      expression: |
-        [
-          JSONPatch{
-              op: "replace",
-              path: "/spec/replicas",
-              value: object.spec.replicas + 10
-          }
-        ]
   - patchType: JSONPatch
     jsonPatch:
       expression: |

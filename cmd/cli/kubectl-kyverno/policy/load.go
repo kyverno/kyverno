@@ -27,36 +27,17 @@ import (
 )
 
 var (
-	policyV1              = kyvernov1.SchemeGroupVersion.WithKind("Policy")
-	policyV2              = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
-	clusterPolicyV1       = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
-	clusterPolicyV2       = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
-	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
-	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	vpV1alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
-	ivpV1alpha1           = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
-	defaultLoader         = kubectlValidateLoader
-	policyV1              = kyvernov1.SchemeGroupVersion.WithKind("Policy")
-	policyV2              = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
-	clusterPolicyV1       = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
-	clusterPolicyV2       = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
-	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
-	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	vpV1alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
-	mapV1alpha1           = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
-	mapBindingV1alpha1    = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
-	ivpV1alpha1           = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
-	LegacyLoader          = legacyLoader
-	KubectlValidateLoader = kubectlValidateLoader
-	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
-		if experimental.UseKubectlValidate() {
-			return KubectlValidateLoader(path, bytes)
-		} else {
-			return LegacyLoader(path, bytes)
-
-		}
-	}
-	//defaultLoader = LegacyLoader
+	policyV1           = kyvernov1.SchemeGroupVersion.WithKind("Policy")
+	policyV2           = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
+	clusterPolicyV1    = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
+	clusterPolicyV2    = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
+	vapV1              = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
+	vapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
+	vpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
+	defaultLoader      = kubectlValidateLoader
 )
 
 type LoaderError struct {
@@ -99,7 +80,7 @@ func (l *LoaderResults) addError(path string, err error) {
 type loader = func(string, []byte) (*LoaderResults, error)
 
 func Load(fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
-	return LoadWithLoader(defaultLoader, fs, resourcePath, paths...)
+	return LoadWithLoader(nil, fs, resourcePath, paths...)
 }
 
 func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
