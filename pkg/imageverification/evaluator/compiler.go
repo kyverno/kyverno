@@ -130,7 +130,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		}
 	}
 
-	verifications := make([]engine.Validation, 0, len(ivpolicy.Spec.Validations))
+	validations := make([]engine.Validation, 0, len(ivpolicy.Spec.Validations))
 	{
 		path := path.Child("validations")
 		for i, rule := range ivpolicy.Spec.Validations {
@@ -139,7 +139,20 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
-			verifications = append(verifications, program)
+			validations = append(validations, program)
+		}
+	}
+
+	auditAnnotations := make(map[string]cel.Program, len(ivpolicy.Spec.AuditAnnotations))
+	{
+		path := path.Child("auditAnnotations")
+		for i, auditAnnotation := range ivpolicy.Spec.AuditAnnotations {
+			path := path.Index(i)
+			program, errs := engine.CompileAuditAnnotation(path, env, auditAnnotation)
+			if errs != nil {
+				return nil, append(allErrs, errs...)
+			}
+			auditAnnotations[auditAnnotation.Key] = program
 		}
 	}
 
@@ -163,7 +176,8 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		failurePolicy:        ivpolicy.GetFailurePolicy(),
 		matchConditions:      matchConditions,
 		matchImageReferences: matchImageReferences,
-		verifications:        verifications,
+		validations:          validations,
+		auditAnnotations:     auditAnnotations,
 		imageExtractors:      imageExtractors,
 		attestors:            compiledAttestors,
 		attestorList:         ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
