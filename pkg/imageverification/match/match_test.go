@@ -75,7 +75,7 @@ func Test_Match(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := compiler.NewMatchImageEnv()
 			assert.NoError(t, err)
-			c, errList := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, tt.MatchImageReferences...)
+			c, errList := compiler.CompileMatchImageReferences(field.NewPath("spec", "matchImageReferences"), env, tt.MatchImageReferences...)
 			assert.Nil(t, errList)
 			matched, err := Match(tt.image, c...)
 			if tt.wantErr {
