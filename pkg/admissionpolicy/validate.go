@@ -68,15 +68,15 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
 }
 
 func Validate(
-	policyData PolicyData,
+	policyData *engineapi.ValidatingAdmissionPolicyData,
 	resource unstructured.Unstructured,
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
 ) (engineapi.EngineResponse, error) {
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	policy := policyData.definition
-	bindings := policyData.bindings
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(&policy), nil)
+	policy := policyData.GetDefinition()
+	bindings := policyData.GetBindings()
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 
 	gvk := resource.GroupVersionKind()
 	gvr := schema.GroupVersionResource{
@@ -129,7 +129,7 @@ func Validate(
 
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(&policy))
+		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
 		if err != nil {
 			return engineResponse, err
 		}
@@ -174,7 +174,7 @@ func Validate(
 }
 
 func validateResource(
-	policy admissionregistrationv1.ValidatingAdmissionPolicy,
+	policy *admissionregistrationv1.ValidatingAdmissionPolicy,
 	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
 	namespace *corev1.Namespace,
@@ -182,7 +182,7 @@ func validateResource(
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(&policy), nil)
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 	policyResp := engineapi.NewPolicyResponse()
 	var ruleResp *engineapi.RuleResponse
 
