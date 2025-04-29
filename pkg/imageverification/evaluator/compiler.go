@@ -20,19 +20,6 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-const (
-	AttestationKey     = "attestations"
-	AttestorKey        = "attestors"
-	GlobalContextKey   = "globalContext"
-	HttpKey            = "http"
-	ImagesKey          = "images"
-	NamespaceObjectKey = "namespaceObject"
-	ObjectKey          = "object"
-	OldObjectKey       = "oldObject"
-	RequestKey         = "request"
-	ResourceKey        = "resource"
-)
-
 type Compiler interface {
 	Compile(*policiesv1alpha1.ImageValidatingPolicy, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
@@ -60,23 +47,23 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	var declTypes []*apiservercel.DeclType
 	declTypes = append(declTypes, imageverify.Types()...)
 	options := []cel.EnvOption{
-		cel.Variable(ResourceKey, resource.ContextType),
-		cel.Variable(HttpKey, http.ContextType),
-		cel.Variable(ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
-		cel.Variable(AttestorKey, cel.MapType(cel.StringType, cel.DynType)),
-		cel.Variable(AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(engine.ResourceKey, resource.ContextType),
+		cel.Variable(engine.HttpKey, http.ContextType),
+		cel.Variable(engine.ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
+		cel.Variable(engine.AttestorKey, cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable(engine.AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(engine.ImageDataKey, imagedata.ContextType),
 	}
 
 	if ivpolicy.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
-		options = append(options, cel.Variable(RequestKey, engine.RequestType.CelType()))
-		options = append(options, cel.Variable(NamespaceObjectKey, engine.NamespaceType.CelType()))
-		options = append(options, cel.Variable(ObjectKey, cel.DynType))
-		options = append(options, cel.Variable(OldObjectKey, cel.DynType))
+		options = append(options, cel.Variable(engine.RequestKey, engine.RequestType.CelType()))
+		options = append(options, cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()))
+		options = append(options, cel.Variable(engine.ObjectKey, cel.DynType))
+		options = append(options, cel.Variable(engine.OldObjectKey, cel.DynType))
 		options = append(options, cel.Variable(engine.VariablesKey, engine.VariablesType))
-		options = append(options, cel.Variable(GlobalContextKey, globalcontext.ContextType))
+		options = append(options, cel.Variable(engine.GlobalContextKey, globalcontext.ContextType))
 	} else {
-		options = append(options, cel.Variable(ObjectKey, cel.DynType))
+		options = append(options, cel.Variable(engine.ObjectKey, cel.DynType))
 	}
 
 	for _, declType := range declTypes {
