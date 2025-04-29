@@ -121,7 +121,7 @@ func TestOpenAPITypeResolver(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	env, err := compiler.NewEnv()
+	env, err := compiler.NewBaseEnv()
 	opts, err := provider.EnvOptions(env.CELTypeProvider())
 
 	rootType, ok := provider.FindDeclType(typeName)

@@ -1,9 +1,10 @@
-package match
+package matching
 
 import (
 	"testing"
 
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -72,9 +73,11 @@ func Test_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, errList := CompileMatches(field.NewPath("spec", "MatchImageReferences"), tt.MatchImageReferences)
+			env, err := compiler.NewMatchImageEnv()
+			assert.NoError(t, err)
+			c, errList := compiler.CompileMatchImageReferences(field.NewPath("spec", "matchImageReferences"), env, tt.MatchImageReferences...)
 			assert.Nil(t, errList)
-			matched, err := Match(c, tt.image)
+			matched, err := MatchImage(tt.image, c...)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

@@ -3,8 +3,10 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/gobwas/glob"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -110,7 +112,7 @@ func CompileAuditAnnotations(path *field.Path, env *cel.Env, auditAnnotations ..
 	return result, allErrs
 }
 
-func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (Validation, field.ErrorList) {
+func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistrationv1.Validation) (Validation, field.ErrorList) {
 	var allErrs field.ErrorList
 	compiled := Validation{Message: rule.Message}
 	{
@@ -146,4 +148,44 @@ func CompileValidation(path *field.Path, rule admissionregistrationv1.Validation
 		compiled.MessageExpression = program
 	}
 	return compiled, allErrs
+}
+
+func CompileMatchImageReference(path *field.Path, env *cel.Env, match v1alpha1.MatchImageReference) (MatchImageReference, field.ErrorList) {
+	var allErrs field.ErrorList
+	if match.Glob != "" {
+		path := path.Child("glob")
+		g, err := glob.Compile(match.Glob)
+		if err != nil {
+			return nil, append(allErrs, field.Invalid(path, match.Glob, err.Error()))
+		}
+		return &matchGlob{Glob: g}, nil
+	}
+	if match.Expression != "" {
+		path := path.Child("expression")
+		ast, issues := env.Compile(match.Expression)
+		if err := issues.Err(); err != nil {
+			return nil, append(allErrs, field.Invalid(path, match.Expression, err.Error()))
+		}
+		prog, err := env.Program(ast)
+		if err != nil {
+			return nil, append(allErrs, field.Invalid(path, match.Expression, err.Error()))
+		}
+		return &matchCel{Program: prog}, nil
+	}
+	return nil, nil
+}
+
+func CompileMatchImageReferences(path *field.Path, env *cel.Env, matches ...v1alpha1.MatchImageReference) (result []MatchImageReference, allErrs field.ErrorList) {
+	if len(matches) == 0 {
+		return nil, nil
+	}
+	result = make([]MatchImageReference, 0, len(matches))
+	for i, match := range matches {
+		match, errs := CompileMatchImageReference(path.Index(i), env, match)
+		allErrs = append(allErrs, errs...)
+		if match != nil {
+			result = append(result, match)
+		}
+	}
+	return result, allErrs
 }

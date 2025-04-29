@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewEnv(t *testing.T) {
-	got, err := NewEnv()
+	got, err := NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, got)
 }
