@@ -29,11 +29,12 @@ import (
 )
 
 type EvaluationResult struct {
-	Error      error
-	Message    string
-	Index      int
-	Result     bool
-	Exceptions []*policiesv1alpha1.PolicyException
+	Error            error
+	Message          string
+	Index            int
+	Result           bool
+	AuditAnnotations map[string]string
+	Exceptions       []*policiesv1alpha1.PolicyException
 }
 
 type CompiledPolicy interface {
@@ -44,11 +45,12 @@ type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	matchConditions      []cel.Program
 	matchImageReferences []*match.CompiledMatch
-	verifications        []engine.Validation
+	validations          []engine.Validation
 	imageExtractors      []*variables.CompiledImageExtractor
 	attestors            []*variables.CompiledAttestor
 	attestorList         map[string]string
 	attestationList      map[string]string
+	auditAnnotations     map[string]cel.Program
 	creds                *v1alpha1.Credentials
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
@@ -149,7 +151,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
 		return nil, err
 	}
-	for i, v := range c.verifications {
+	for i, v := range c.validations {
 		out, _, err := v.Program.ContextEval(ctx, data)
 		if err != nil {
 			return nil, err
@@ -166,11 +168,25 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 					message = msg
 				}
 			}
+			auditAnnotations := make(map[string]string, 0)
+			for key, annotation := range c.auditAnnotations {
+				out, _, err := annotation.ContextEval(ctx, data)
+				if err != nil {
+					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
+				}
+				// evaluate only when rule fails
+				if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+					auditAnnotations[key] = outcome
+				} else if err != nil {
+					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
+				}
+			}
 			return &EvaluationResult{
-				Result:  outcome,
-				Message: message,
-				Index:   i,
-				Error:   err,
+				Result:           outcome,
+				Message:          message,
+				AuditAnnotations: auditAnnotations,
+				Index:            i,
+				Error:            err,
 			}, nil
 		} else if err != nil {
 			return &EvaluationResult{Error: err}, nil
