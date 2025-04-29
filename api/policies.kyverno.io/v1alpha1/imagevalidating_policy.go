@@ -141,6 +141,14 @@ type ImageValidatingPolicySpec struct {
 	// +kubebuilder:validation:Enum=Ignore;Fail
 	FailurePolicy *admissionregistrationv1.FailurePolicyType `json:"failurePolicy"`
 
+	// auditAnnotations contains CEL expressions which are used to produce audit
+	// annotations for the audit event of the API request.
+	// validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+	// required.
+	// +listType=atomic
+	// +optional
+	AuditAnnotations []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
+
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
 	// Required.
 	// +listType=set
