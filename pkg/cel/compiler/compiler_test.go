@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	policiesv1alpgha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -172,9 +173,7 @@ func TestCompileValidation(t *testing.T) {
 			BadValue: "foo()",
 			Detail:   "ERROR: <input>:1:4: undeclared reference to 'foo' (in container '')\n | foo()\n | ...^",
 		}},
-	},
-	// TODO: Add test cases.
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := NewBaseEnv()
@@ -378,9 +377,7 @@ func TestCompileVariables(t *testing.T) {
 			BadValue: "bar()",
 			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar' (in container '')\n | bar()\n | ...^",
 		}},
-	},
-	// TODO: Add test cases.
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := NewBaseEnv()
@@ -394,6 +391,74 @@ func TestCompileVariables(t *testing.T) {
 			gotProgs, gotAllErrs := CompileVariables(nil, env, provider, tt.variables...)
 			assert.Equal(t, tt.wantAllErrs, gotAllErrs)
 			assert.Equal(t, tt.wantProgs, len(gotProgs))
+		})
+	}
+}
+
+func TestCompileMatchImageReferences(t *testing.T) {
+	tests := []struct {
+		name        string
+		matches     []policiesv1alpgha1.MatchImageReference
+		wantResults int
+		wantAllErrs field.ErrorList
+	}{{
+		name:        "nil",
+		matches:     nil,
+		wantResults: 0,
+	}, {
+		name:        "empty",
+		matches:     []policiesv1alpgha1.MatchImageReference{},
+		wantResults: 0,
+	}, {
+		name: "single",
+		matches: []policiesv1alpgha1.MatchImageReference{{
+			Expression: `true`,
+		}},
+		wantResults: 1,
+	}, {
+		name: "multiple",
+		matches: []policiesv1alpgha1.MatchImageReference{{
+			Expression: `true`,
+		}, {
+			Expression: `false`,
+		}},
+		wantResults: 2,
+	}, {
+		name: "with error",
+		matches: []policiesv1alpgha1.MatchImageReference{{
+			Expression: `true`,
+		}, {
+			Expression: `bar()`,
+		}},
+		wantResults: 1,
+		wantAllErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "[1].expression",
+			BadValue: "bar()",
+			Detail:   "ERROR: <input>:1:4: undeclared reference to 'bar' (in container '')\n | bar()\n | ...^",
+		}},
+	}, {
+		name: "not bool",
+		matches: []policiesv1alpgha1.MatchImageReference{{
+			Expression: `true`,
+		}, {
+			Expression: `"bar"`,
+		}},
+		wantResults: 1,
+		wantAllErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "[1].expression",
+			BadValue: `"bar"`,
+			Detail:   "output is expected to be of type bool",
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, err := NewMatchImageEnv()
+			assert.NoError(t, err)
+			gotResults, gotAllErrs := CompileMatchImageReferences(nil, env, tt.matches...)
+			assert.Equal(t, tt.wantAllErrs, gotAllErrs)
+			assert.Equal(t, tt.wantResults, len(gotResults))
 		})
 	}
 }
