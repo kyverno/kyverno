@@ -8,11 +8,12 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/cosign"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/notary"
-	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -23,7 +24,7 @@ type ivfuncs struct {
 	logger          logr.Logger
 	imgCtx          imagedataloader.ImageContext
 	creds           *v1alpha1.Credentials
-	imgRules        []*match.CompiledMatch
+	imgRules        []compiler.MatchImageReference
 	attestorList    map[string]v1alpha1.Attestor
 	attestationList map[string]v1alpha1.Attestation
 	lister          k8scorev1.SecretInterface
@@ -35,10 +36,13 @@ func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
 	}
-
-	imgRules, err := match.CompileMatches(field.NewPath("spec", "MatchImageReferences"), ivpol.Spec.MatchImageReferences)
+	env, err := compiler.NewMatchImageEnv()
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile matches: %v", err.ToAggregate())
+		return nil, fmt.Errorf("failed to create CEL image verification env: %v", err)
+	}
+	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, ivpol.Spec.MatchImageReferences...)
+	if errs != nil {
+		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
 
 	return &ivfuncs{
@@ -62,7 +66,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(ctx context.Context)
 			return types.WrapErr(err)
 		} else {
 			count := 0
-			if match, err := match.Match(f.imgRules, image); err != nil {
+			if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 				return types.WrapErr(err)
 			} else if !match {
 				return f.NativeToValue(count)
@@ -107,7 +111,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 			return types.WrapErr(err)
 		} else {
 			count := 0
-			if match, err := match.Match(f.imgRules, image); err != nil {
+			if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 				return types.WrapErr(err)
 			} else if !match {
 				return f.NativeToValue(count)
