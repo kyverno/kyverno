@@ -6,6 +6,7 @@ const (
 	GlobalContextKey   = "globalContext"
 	HttpKey            = "http"
 	ImageDataKey       = "image"
+	ImageRefKey        = "ref"
 	ImagesKey          = "images"
 	NamespaceObjectKey = "namespaceObject"
 	ObjectKey          = "object"
