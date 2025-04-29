@@ -431,6 +431,12 @@ func TestCompileMatchImageReference(t *testing.T) {
 			Expression: `"bar"`,
 		},
 		wantMatch: false,
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "test.expression",
+			BadValue: `"bar"`,
+			Detail:   "output is expected to be of type bool",
+		}},
 	}, {
 		name:      "unknown",
 		match:     policiesv1alpgha1.MatchImageReference{},
@@ -441,9 +447,7 @@ func TestCompileMatchImageReference(t *testing.T) {
 			BadValue: policiesv1alpgha1.MatchImageReference{},
 			Detail:   "either glob or expression must be set",
 		}},
-	},
-	// TODO: Add test cases.
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := NewMatchImageEnv()
