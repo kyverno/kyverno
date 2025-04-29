@@ -73,7 +73,7 @@ func TestCompileMatchConditions(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := NewEnv()
+			env, err := NewBaseEnv()
 			assert.NoError(t, err)
 			got, errs := CompileMatchConditions(nil, env, tt.matchConditions...)
 			assert.Equal(t, tt.wantErrs, errs)
@@ -177,9 +177,9 @@ func TestCompileValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := NewEnv()
+			env, err := NewBaseEnv()
 			assert.NoError(t, err)
-			got, errs := CompileValidation(nil, tt.rule, env)
+			got, errs := CompileValidation(nil, env, tt.rule)
 			assert.Equal(t, tt.wantErrs, errs)
 			assert.Equal(t, tt.wantMessage, got.Message)
 			assert.Equal(t, tt.wantMessageExpr, got.MessageExpression != nil)
@@ -237,7 +237,7 @@ func TestCompileAuditAnnotation(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := NewEnv()
+			env, err := NewBaseEnv()
 			assert.NoError(t, err)
 			got, errs := CompileAuditAnnotation(nil, env, tt.auditAnnotation)
 			assert.Equal(t, tt.wantErrs, errs)
@@ -296,7 +296,7 @@ func TestCompileAuditAnnotations(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := NewEnv()
+			env, err := NewBaseEnv()
 			assert.NoError(t, err)
 			gotProgs, gotAllErrs := CompileAuditAnnotations(nil, env, tt.auditAnnotations...)
 			assert.Equal(t, tt.wantAllErrs, gotAllErrs)
@@ -383,7 +383,7 @@ func TestCompileVariables(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := NewEnv()
+			env, err := NewBaseEnv()
 			assert.NoError(t, err)
 			provider := NewVariablesProvider(env.CELTypeProvider())
 			env, err = env.Extend(
