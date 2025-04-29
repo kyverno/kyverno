@@ -1,10 +1,10 @@
-package match
+package matching
 
 import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 )
 
-func Match(image string, c ...compiler.MatchImageReference) (bool, error) {
+func MatchImage(image string, c ...compiler.MatchImageReference) (bool, error) {
 	if len(c) == 0 {
 		return true, nil
 	}

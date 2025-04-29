@@ -9,11 +9,11 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/cosign"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/notary"
-	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -66,7 +66,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(ctx context.Context)
 			return types.WrapErr(err)
 		} else {
 			count := 0
-			if match, err := match.Match(image, f.imgRules...); err != nil {
+			if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 				return types.WrapErr(err)
 			} else if !match {
 				return f.NativeToValue(count)
@@ -111,7 +111,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 			return types.WrapErr(err)
 		} else {
 			count := 0
-			if match, err := match.Match(image, f.imgRules...); err != nil {
+			if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 				return types.WrapErr(err)
 			} else if !match {
 				return f.NativeToValue(count)

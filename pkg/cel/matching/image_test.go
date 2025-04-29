@@ -1,4 +1,4 @@
-package match
+package matching
 
 import (
 	"testing"
@@ -77,7 +77,7 @@ func Test_Match(t *testing.T) {
 			assert.NoError(t, err)
 			c, errList := compiler.CompileMatchImageReferences(field.NewPath("spec", "matchImageReferences"), env, tt.MatchImageReferences...)
 			assert.Nil(t, errList)
-			matched, err := Match(tt.image, c...)
+			matched, err := MatchImage(tt.image, c...)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
