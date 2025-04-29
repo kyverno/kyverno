@@ -70,20 +70,16 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
 func Validate(
 	policyData *engineapi.ValidatingAdmissionPolicyData,
 	resource unstructured.Unstructured,
+	gvk schema.GroupVersionKind,
+	gvr schema.GroupVersionResource,
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
+	isFake bool,
 ) (engineapi.EngineResponse, error) {
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	policy := policyData.GetDefinition()
 	bindings := policyData.GetBindings()
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
-
-	gvk := resource.GroupVersionKind()
-	gvr := schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: strings.ToLower(gvk.Kind) + "s",
-	}
 
 	var namespace *corev1.Namespace
 	namespaceName := resource.GetNamespace()
@@ -102,7 +98,7 @@ func Validate(
 		}
 	}
 
-	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 	if len(bindings) == 0 {
 		isMatch, err := matches(a, namespaceSelectorMap, *policy.Spec.MatchConstraints)
@@ -116,16 +112,9 @@ func Validate(
 		return validateResource(policy, nil, resource, namespace, a)
 	}
 
-	if client != nil {
+	if client != nil && !isFake {
 		nsLister := NewCustomNamespaceLister(client)
 		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
-
-		// construct admission attributes
-		gvr, err := client.Discovery().GetGVRFromGVK(gvk)
-		if err != nil {
-			return engineResponse, err
-		}
-		a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
