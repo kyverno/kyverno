@@ -8,6 +8,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Everything someone might need to validate a single ValidatingAdmissionPolicy
+// against all of its registered bindings.
+type ValidatingAdmissionPolicyData struct {
+	definition *admissionregistrationv1.ValidatingAdmissionPolicy
+	bindings   []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+}
+
+func (p *ValidatingAdmissionPolicyData) AddBinding(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
+	p.bindings = append(p.bindings, binding)
+}
+
+func (p *ValidatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1.ValidatingAdmissionPolicy {
+	return p.definition
+}
+
+func (p *ValidatingAdmissionPolicyData) GetBindings() []admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+	return p.bindings
+}
+
+func NewValidatingAdmissionPolicyData(
+	policy *admissionregistrationv1.ValidatingAdmissionPolicy,
+	bindings ...admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+) *ValidatingAdmissionPolicyData {
+	return &ValidatingAdmissionPolicyData{
+		definition: policy,
+		bindings:   bindings,
+	}
+}
+
 // GenericPolicy abstracts the policy type (ClusterPolicy/Policy, ValidatingPolicy, ValidatingAdmissionPolicy and MutatingAdmissionPolicy)
 // It is intended to be used in EngineResponse
 type GenericPolicy interface {
@@ -22,8 +51,8 @@ type GenericPolicy interface {
 	AsObject() any
 	// AsKyvernoPolicy returns the kyverno policy
 	AsKyvernoPolicy() kyvernov1.PolicyInterface
-	// AsValidatingAdmissionPolicy returns the validating admission policy
-	AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy
+	// AsValidatingAdmissionPolicy returns the validating admission policy with its bindings
+	AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData
 	// AsValidatingPolicy returns the validating policy
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
@@ -34,7 +63,7 @@ type GenericPolicy interface {
 type genericPolicy struct {
 	metav1.Object
 	PolicyInterface           kyvernov1.PolicyInterface
-	ValidatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy
+	ValidatingAdmissionPolicy *ValidatingAdmissionPolicyData
 	MutatingAdmissionPolicy   *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
 	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
@@ -48,7 +77,7 @@ func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 	return p.PolicyInterface
 }
 
-func (p *genericPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy {
+func (p *genericPolicy) AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData {
 	return p.ValidatingAdmissionPolicy
 }
 func (p *genericPolicy) AsMutatingAdmissionPolicy() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
@@ -113,7 +142,14 @@ func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) GenericPolicy {
 func NewValidatingAdmissionPolicy(pol *admissionregistrationv1.ValidatingAdmissionPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                    pol,
-		ValidatingAdmissionPolicy: pol,
+		ValidatingAdmissionPolicy: NewValidatingAdmissionPolicyData(pol),
+	}
+}
+
+func NewValidatingAdmissionPolicyWithBindings(pol *admissionregistrationv1.ValidatingAdmissionPolicy, bindings ...admissionregistrationv1.ValidatingAdmissionPolicyBinding) GenericPolicy {
+	return &genericPolicy{
+		Object:                    pol,
+		ValidatingAdmissionPolicy: NewValidatingAdmissionPolicyData(pol, bindings...),
 	}
 }
 
