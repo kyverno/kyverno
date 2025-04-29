@@ -29,6 +29,10 @@ import (
 
 func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
 	var kindList []string
+	if matchResources == nil {
+		return kindList
+	}
+
 	for _, rule := range matchResources.ResourceRules {
 		if len(rule.APIGroups) == 0 || len(rule.APIVersions) == 0 {
 			continue
