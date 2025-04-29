@@ -1,8 +1,6 @@
 package compiler
 
 import (
-	"log"
-
 	"github.com/gobwas/glob"
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
@@ -26,10 +24,10 @@ type matchCel struct {
 
 func (m *matchCel) Match(image string) (bool, error) {
 	out, _, err := m.Program.Eval(map[string]any{
-		"ref": image,
+		ImageRefKey: image,
 	})
 	if err != nil {
-		log.Fatalf("runtime error: %s\n", err)
+		return false, err
 	}
 	result, err := utils.ConvertToNative[bool](out)
 	if err != nil {
