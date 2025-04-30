@@ -16,8 +16,8 @@ func Validate(vpol *v1alpha1.ValidatingPolicy) ([]string, error) {
 		err = errList
 	}
 
-	if vpol.Spec.MatchConditions == nil || len(vpol.Spec.MatchConditions) == 0 {
-		err = append(err, field.Required(field.NewPath("spec").Child("matchConditions"), "at least one match condition is required"))
+	if vpol.Spec.MatchConstraints == nil || len(vpol.Spec.MatchConstraints.ResourceRules) == 0 {
+		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
 	if len(err) == 0 {
