@@ -1,8 +1,8 @@
 package compiler
 
 const (
-	AttestationKey     = "attestations"
-	AttestorKey        = "attestors"
+	AttestationsKey    = "attestations"
+	AttestorsKey       = "attestors"
 	GlobalContextKey   = "globalContext"
 	HttpKey            = "http"
 	ImageDataKey       = "image"
