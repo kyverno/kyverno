@@ -39,7 +39,7 @@ runs:
       id: helm
       uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
     - name: Install Cosign
-      uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
+      uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
     - name: Install chainsaw
       uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
       with:
@@ -54,7 +54,7 @@ runs:
         config: ${{ inputs.kind-config }}
     # deploy kyverno
     - name: Download kyverno images archive
-      uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
       with:
         name: kyverno.tar
     - name: Load kyverno images archive in kind cluster

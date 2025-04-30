@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -29,7 +30,15 @@ import (
 
 func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
 	var kindList []string
+	if matchResources == nil {
+		return kindList
+	}
+
 	for _, rule := range matchResources.ResourceRules {
+		if len(rule.APIGroups) == 0 || len(rule.APIVersions) == 0 {
+			continue
+		}
+
 		group := rule.APIGroups[0]
 		version := rule.APIVersions[0]
 		for _, resource := range rule.Resources {
@@ -64,22 +73,18 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
 }
 
 func Validate(
-	policyData PolicyData,
+	policyData *engineapi.ValidatingAdmissionPolicyData,
 	resource unstructured.Unstructured,
+	gvk schema.GroupVersionKind,
+	gvr schema.GroupVersionResource,
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
+	isFake bool,
 ) (engineapi.EngineResponse, error) {
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	policy := policyData.definition
-	bindings := policyData.bindings
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(&policy), nil)
-
-	gvk := resource.GroupVersionKind()
-	gvr := schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: strings.ToLower(gvk.Kind) + "s",
-	}
+	policy := policyData.GetDefinition()
+	bindings := policyData.GetBindings()
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 
 	var namespace *corev1.Namespace
 	namespaceName := resource.GetNamespace()
@@ -98,10 +103,17 @@ func Validate(
 		}
 	}
 
-	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 	if len(bindings) == 0 {
-		isMatch, err := matches(a, namespaceSelectorMap, *policy.Spec.MatchConstraints)
+		matcher := celmatching.NewMatcher()
+		isMatch, err := matcher.Match(
+			&celmatching.MatchCriteria{
+				Constraints: policy.Spec.MatchConstraints,
+			},
+			a,
+			namespace,
+		)
 		if err != nil {
 			return engineResponse, err
 		}
@@ -112,20 +124,13 @@ func Validate(
 		return validateResource(policy, nil, resource, namespace, a)
 	}
 
-	if client != nil {
+	if client != nil && !isFake {
 		nsLister := NewCustomNamespaceLister(client)
 		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 
-		// construct admission attributes
-		gvr, err := client.Discovery().GetGVRFromGVK(gvk)
-		if err != nil {
-			return engineResponse, err
-		}
-		a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(&policy))
+		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
 		if err != nil {
 			return engineResponse, err
 		}
@@ -153,13 +158,23 @@ func Validate(
 			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	} else {
+		matcher := celmatching.NewMatcher()
 		for i, binding := range bindings {
-			isMatch, err := matches(a, namespaceSelectorMap, *binding.Spec.MatchResources)
-			if err != nil {
-				return engineResponse, err
-			}
-			if !isMatch {
-				continue
+			// check if the binding matches the incoming resource
+			if binding.Spec.MatchResources != nil {
+				bindingMatches, err := matcher.Match(
+					&celmatching.MatchCriteria{
+						Constraints: binding.Spec.MatchResources,
+					},
+					a,
+					namespace,
+				)
+				if err != nil {
+					return engineResponse, err
+				}
+				if !bindingMatches {
+					continue
+				}
 			}
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 			return validateResource(policy, &bindings[i], resource, namespace, a)
@@ -170,7 +185,7 @@ func Validate(
 }
 
 func validateResource(
-	policy admissionregistrationv1.ValidatingAdmissionPolicy,
+	policy *admissionregistrationv1.ValidatingAdmissionPolicy,
 	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
 	namespace *corev1.Namespace,
@@ -178,7 +193,7 @@ func validateResource(
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(&policy), nil)
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 	policyResp := engineapi.NewPolicyResponse()
 	var ruleResp *engineapi.RuleResponse
 

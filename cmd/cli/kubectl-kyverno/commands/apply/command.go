@@ -31,8 +31,9 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -438,16 +439,18 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := celengine.NewIVPOLProvider(ivps, celExceptions)
+	if len(ivps) == 0 {
+		return nil, nil
+	}
+	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
-
 	var lister k8scorev1.SecretInterface
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
 	}
-	engine := celengine.NewImageValidatingEngine(
+	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
@@ -457,9 +460,9 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 	gctxStore := gctxstore.New()
 	var restMapper meta.RESTMapper
-	var contextProvider celpolicy.Context
+	var contextProvider libs.Context
 	if dclient != nil {
-		contextProvider, err = celpolicy.NewContextProvider(
+		contextProvider, err = libs.NewContextProvider(
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			gctxStore,
@@ -478,7 +481,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			return nil, err
 		}
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-		fakeContextProvider := celpolicy.NewFakeContextProvider()
+		fakeContextProvider := libs.NewFakeContextProvider()
 		if c.ContextPath != "" {
 			ctx, err := clicontext.Load(nil, c.ContextPath)
 			if err != nil {
@@ -580,7 +583,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 				}
 			} else {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
+					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, rslt.AuditAnnotations),
 				}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))

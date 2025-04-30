@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	apipolicieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // PolicyExceptions.
 type PolicyExceptionInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.PolicyExceptionLister
+	Lister() policieskyvernoiov1alpha1.PolicyExceptionLister
 }
 
 type policyExceptionInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredPolicyExceptionInformer(client versioned.Interface, namespace st
 				return client.PoliciesV1alpha1().PolicyExceptions(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&policieskyvernoiov1alpha1.PolicyException{},
+		&apipolicieskyvernoiov1alpha1.PolicyException{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *policyExceptionInformer) defaultInformer(client versioned.Interface, re
 }
 
 func (f *policyExceptionInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policieskyvernoiov1alpha1.PolicyException{}, f.defaultInformer)
+	return f.factory.InformerFor(&apipolicieskyvernoiov1alpha1.PolicyException{}, f.defaultInformer)
 }
 
-func (f *policyExceptionInformer) Lister() v1alpha1.PolicyExceptionLister {
-	return v1alpha1.NewPolicyExceptionLister(f.Informer().GetIndexer())
+func (f *policyExceptionInformer) Lister() policieskyvernoiov1alpha1.PolicyExceptionLister {
+	return policieskyvernoiov1alpha1.NewPolicyExceptionLister(f.Informer().GetIndexer())
 }
