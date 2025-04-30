@@ -519,7 +519,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			if c.ContinueOnFail {
 				continue
 			}
-			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		}
 		gvr := mapping.Resource
 		var user authenticationv1.UserInfo

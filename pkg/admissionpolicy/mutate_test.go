@@ -2,11 +2,13 @@ package admissionpolicy
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func Test_MutateResource(t *testing.T) {
@@ -568,7 +570,14 @@ func Test_MutateResource(t *testing.T) {
 			resource, err := kubeutils.BytesToUnstructured(tt.rawResource)
 			assert.NilError(t, err)
 
-			response, err := MutateResource(policy, nil, *resource)
+			gvk := resource.GroupVersionKind()
+			gvr := schema.GroupVersionResource{
+				Group:    gvk.Group,
+				Version:  gvk.Version,
+				Resource: strings.ToLower(gvk.Kind) + "s", // simplified GVR logic for test
+			}
+
+			response, err := MutateResource(policy, nil, *resource, gvr)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)

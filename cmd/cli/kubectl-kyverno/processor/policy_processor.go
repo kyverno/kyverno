@@ -215,18 +215,30 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
+	restMapper, err := getRESTMapper(p.Client, !p.Cluster)
+	if err != nil {
+		return nil, err
+	}
+
 	// Mutate Admission Policies
 	for _, mapPolicy := range p.MutatingAdmissionPolicies {
 		// build the policy+binding data
-		data := admissionpolicy.NewMutatingPolicyData(mapPolicy)
+		data := engineapi.NewMutatingPolicyData(&mapPolicy)
 		for _, b := range p.MutatingAdmissionPolicyBindings {
 			if b.Spec.PolicyName == mapPolicy.Name {
 				data.AddBinding(b)
 			}
 		}
 
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			log.Log.Error(err, "failed to map gvk to gvr", "gvk", gvk)
+			continue
+		}
+		gvr := mapping.Resource
+
 		// apply the MAP
-		mutateResponse, err := admissionpolicy.Mutate(data, resource, p.Client, p.NamespaceSelectorMap)
+		mutateResponse, err := admissionpolicy.Mutate(*data, resource, gvr, p.Client, p.NamespaceSelectorMap)
 
 		if err != nil {
 			log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
@@ -246,10 +258,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, mutateResponse)
 	}
 
-	restMapper, err := getRESTMapper(p.Client, !p.Cluster)
-	if err != nil {
-		return nil, err
-	}
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	if len(p.ValidatingAdmissionPolicies) != 0 {
@@ -550,50 +558,6 @@ func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineRespo
 	}
 	return nil
 }
-
-// func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-// 	p.Rc.addMutateResponse(response)
-
-// 	err := p.printOutput(response.PatchedResource.Object, response, resourcePath, false)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to print mutated result (%w)", err)
-// 	}
-
-// 	hasPass := false
-// 	hasSkip := false
-// 	hasError := false
-// 	hasFail := false
-
-// 	for _, rule := range response.PolicyResponse.Rules {
-// 		if rule.RuleType() == engineapi.Mutation {
-// 			switch rule.Status() {
-// 			case "pass":
-// 				hasPass = true
-// 			case "skip":
-// 				hasSkip = true
-// 			case "error":
-// 				hasError = true
-// 			case "fail":
-// 				hasFail = true
-// 			}
-// 		}
-// 	}
-
-// 	switch {
-// 	case hasPass:
-// 		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully.")
-// 	case hasSkip:
-// 		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation was skipped based on policy conditions.")
-// 	case hasError:
-// 		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation failed due to an error during evaluation.")
-// 	case hasFail:
-// 		fmt.Fprintf(p.Out, "\n\nMutation:\nMutation rule failed to apply.")
-// 	default:
-// 		fmt.Fprintf(p.Out, "\n\nMutation:\nNo applicable mutation rules found.")
-// 	}
-
-// 	return nil
-// }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
 	// Record in the counters

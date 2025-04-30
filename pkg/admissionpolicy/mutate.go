@@ -3,9 +3,9 @@ package admissionpolicy
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
+	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
 	celutils "github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -17,12 +17,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/generic"
 	k8smatching "k8s.io/apiserver/pkg/admission/plugin/policy/matching"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
@@ -32,6 +32,7 @@ func MutateResource(
 	policy admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
+	gvr schema.GroupVersionResource,
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
@@ -39,11 +40,11 @@ func MutateResource(
 	policyResp := engineapi.NewPolicyResponse()
 
 	gvk := resource.GroupVersionKind()
-	gvr := schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: strings.ToLower(gvk.Kind) + "s",
-	}
+	// gvr := schema.GroupVersionResource{
+	// 	Group:    gvk.Group,
+	// 	Version:  gvk.Version,
+	// 	Resource: strings.ToLower(gvk.Kind) + "s",
+	// }
 
 	var namespace *corev1.Namespace
 	namespaceName := resource.GetNamespace()
@@ -165,48 +166,49 @@ func MutateResource(
 	return engineResponse, nil
 }
 
-// MutatingPolicyData holds a MAP and its associated MAPBs
-type MutatingPolicyData struct {
-	definition admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
-}
+// // MutatingPolicyData holds a MAP and its associated MAPBs
+// type MutatingPolicyData struct {
+// 	definition admissionregistrationv1alpha1.MutatingAdmissionPolicy
+// 	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+// }
 
-// NewMutatingPolicyData initializes a MAP wrapper with no bindings
-func NewMutatingPolicyData(p admissionregistrationv1alpha1.MutatingAdmissionPolicy) MutatingPolicyData {
-	return MutatingPolicyData{definition: p}
-}
+// // NewMutatingPolicyData initializes a MAP wrapper with no bindings
+// func NewMutatingPolicyData(p admissionregistrationv1alpha1.MutatingAdmissionPolicy) MutatingPolicyData {
+// 	return MutatingPolicyData{definition: p}
+// }
 
-// AddBinding appends a MAPB to the policy data
-func (m *MutatingPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
-	m.bindings = append(m.bindings, b)
-}
+// // AddBinding appends a MAPB to the policy data
+// func (m *MutatingPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+// 	m.bindings = append(m.bindings, b)
+// }
 
-func toGVR(gvk schema.GroupVersionKind) schema.GroupVersionResource {
-	return schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: strings.ToLower(gvk.Kind) + "s",
-	}
-}
+// func toGVR(gvk schema.GroupVersionKind) schema.GroupVersionResource {
+// 	return schema.GroupVersionResource{
+// 		Group:    gvk.Group,
+// 		Version:  gvk.Version,
+// 		Resource: strings.ToLower(gvk.Kind) + "s",
+// 	}
+// }
 
 func Mutate(
-	data MutatingPolicyData,
+	data engineapi.MutatingPolicyData,
 	resource unstructured.Unstructured,
+	gvr schema.GroupVersionResource,
 	client dclient.Interface,
 	namespaceSelectorMap map[string]map[string]string,
 ) (engineapi.EngineResponse, error) {
 	var emptyResp engineapi.EngineResponse
 
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	policy := data.definition
-	bindings := data.bindings
+	policy := data.GetDefinition()
+	bindings := data.GetBindings()
 
 	gvk := resource.GroupVersionKind()
-	gvr := schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: strings.ToLower(gvk.Kind) + "s",
-	}
+	// gvr := schema.GroupVersionResource{
+	// 	Group:    gvk.Group,
+	// 	Version:  gvk.Version,
+	// 	Resource: strings.ToLower(gvk.Kind) + "s",
+	// }
 
 	a := admission.NewAttributesRecord(
 		resource.DeepCopyObject(), nil,
@@ -215,23 +217,40 @@ func Mutate(
 		gvr, "", admission.Create, nil, false, nil,
 	)
 
-	// no bindings
-	if len(bindings) == 0 {
-		//admissionregistrationv1.MatchResources(*policy.Spec.MatchConstraints)
-		isMatch, err := matches(a, namespaceSelectorMap, convertMatchResources(*policy.Spec.MatchConstraints))
-
-		if err != nil {
-			return emptyResp, err
+	var namespace *corev1.Namespace
+	if labels, ok := namespaceSelectorMap[resource.GetNamespace()]; ok {
+		namespace = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   resource.GetNamespace(),
+				Labels: labels,
+			},
 		}
-		if !isMatch {
-			return emptyResp, nil
-		}
-
-		logger.V(3).Info("mutate resource %s against policy %s", resPath, policy.GetName())
-		return MutateResource(policy, nil, resource)
 	}
 
-	// bindings exist
+	matcher := celmatching.NewMatcher()
+
+	// no bindings: offline CEL matcher
+	if len(bindings) == 0 {
+		if policy.Spec.MatchConstraints != nil {
+			// 1) convert into a local var
+			pr := convertMatchResources(*policy.Spec.MatchConstraints)
+			// 2) take its address, then call Match
+			isMatch, err := matcher.Match(
+				&celmatching.MatchCriteria{Constraints: &pr},
+				a,
+				namespace,
+			)
+			if err != nil {
+				return emptyResp, err
+			}
+			if !isMatch {
+				return emptyResp, nil
+			}
+		}
+		return MutateResource(*policy, nil, resource, gvr)
+	}
+
+	//bindings exist
 	if client != nil {
 		nsLister := NewCustomNamespaceLister(client)
 		matcher := generic.NewPolicyMatcher(k8smatching.NewMatcher(nsLister, client.GetKubeClient()))
@@ -251,7 +270,7 @@ func Mutate(
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 
 		// match policy
-		isPolicyMatch, _, _, err := matcher.DefinitionMatches(a, o, NewMutatingAdmissionPolicyAccessor(&policy))
+		isPolicyMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(policy))
 		if err != nil {
 			return emptyResp, err
 		}
@@ -261,7 +280,7 @@ func Mutate(
 
 		// match bindings
 		for i, binding := range bindings {
-			isBindingMatch, err := matcher.BindingMatches(a, o, NewMutatingAdmissionPolicyBindingAccessor(&binding))
+			isBindingMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
 			if err != nil {
 				return emptyResp, err
 			}
@@ -270,71 +289,54 @@ func Mutate(
 			}
 
 			logger.V(3).Info("mutate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return MutateResource(policy, &bindings[i], resource)
+			return MutateResource(*policy, &bindings[i], resource, serverGVR)
 		}
 
 		return emptyResp, nil
 	} else {
-		// client == nil → offline matching
-		isPolicyMatch, err := matches(a, namespaceSelectorMap, convertMatchResources(*policy.Spec.MatchConstraints))
-		if err != nil {
-			return emptyResp, err
-		}
-		if !isPolicyMatch {
-			return emptyResp, nil
-		}
+		offline := celmatching.NewMatcher()
 
-		for i, binding := range bindings {
-			isBindingMatch, err := matches(a, namespaceSelectorMap, convertMatchResources(*binding.Spec.MatchResources))
+		// 1) policy-level
+		if policy.Spec.MatchConstraints != nil {
+			pr := convertMatchResources(*policy.Spec.MatchConstraints)
+			ok, err := offline.Match(
+				&celmatching.MatchCriteria{Constraints: &pr},
+				a,
+				namespace,
+			)
 			if err != nil {
 				return emptyResp, err
 			}
-			if !isBindingMatch {
+			if !ok {
+				return emptyResp, nil
+			}
+		}
+
+		// 2) binding-level
+		for i, binding := range bindings {
+			if binding.Spec.MatchResources == nil {
 				continue
 			}
-
-			logger.V(3).Info("mutate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return MutateResource(policy, &bindings[i], resource)
+			pr := convertMatchResources(*binding.Spec.MatchResources)
+			ok, err := offline.Match(
+				&celmatching.MatchCriteria{Constraints: &pr},
+				a,
+				namespace,
+			)
+			if err != nil {
+				return emptyResp, err
+			}
+			if !ok {
+				continue
+			}
+			return MutateResource(*policy, &bindings[i], resource, gvr)
 		}
 
 		return emptyResp, nil
 	}
 }
-func NewMutatingAdmissionPolicyBindingAccessor(binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) generic.BindingAccessor {
-	return &mutatingBindingAccessor{binding}
-}
 
-type mutatingBindingAccessor struct {
-	binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
-}
-
-func (b *mutatingBindingAccessor) GetName() string {
-	return b.binding.Name
-}
-
-func (b *mutatingBindingAccessor) GetNamespace() string {
-	return b.binding.Namespace
-}
-
-func (b *mutatingBindingAccessor) GetMatchResources() *admissionregistrationv1.MatchResources {
-	if b.binding.Spec.MatchResources == nil {
-		return nil
-	}
-	converted := convertMatchResources(*b.binding.Spec.MatchResources)
-	return &converted
-}
-func (b *mutatingBindingAccessor) GetParamRef() *admissionregistrationv1.ParamRef {
-	return nil
-}
-
-func (b *mutatingBindingAccessor) GetPolicyName() types.NamespacedName {
-	return types.NamespacedName{
-		// no explicit policy field, so we can only provide binding's own namespace and empty name
-		Namespace: b.binding.Namespace,
-		Name:      "", // <-- no policy name, because field is missing
-	}
-}
-
+// convertMatchResources turns a v1alpha1.MatchResources into a v1.MatchResources
 func convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admissionregistrationv1.MatchResources {
 	var resourceRules []admissionregistrationv1.NamedRuleWithOperations
 	for _, r := range in.ResourceRules {
@@ -350,10 +352,9 @@ func convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admi
 			},
 		})
 	}
-
-	var excludeResourceRules []admissionregistrationv1.NamedRuleWithOperations
+	var exclude []admissionregistrationv1.NamedRuleWithOperations
 	for _, r := range in.ExcludeResourceRules {
-		excludeResourceRules = append(excludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+		exclude = append(exclude, admissionregistrationv1.NamedRuleWithOperations{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 				Operations: r.Operations,
 				Rule: admissionregistrationv1.Rule{
@@ -365,71 +366,16 @@ func convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admi
 			},
 		})
 	}
-
-	var matchPolicy *admissionregistrationv1.MatchPolicyType
+	var mp *admissionregistrationv1.MatchPolicyType
 	if in.MatchPolicy != nil {
-		mp := admissionregistrationv1.MatchPolicyType(*in.MatchPolicy)
-		matchPolicy = &mp
+		m := admissionregistrationv1.MatchPolicyType(*in.MatchPolicy)
+		mp = &m
 	}
-
 	return admissionregistrationv1.MatchResources{
 		NamespaceSelector:    in.NamespaceSelector,
 		ObjectSelector:       in.ObjectSelector,
 		ResourceRules:        resourceRules,
-		ExcludeResourceRules: excludeResourceRules,
-		MatchPolicy:          matchPolicy,
+		ExcludeResourceRules: exclude,
+		MatchPolicy:          mp,
 	}
-}
-
-func NewMutatingAdmissionPolicyAccessor(policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy) generic.PolicyAccessor {
-	return &mutatingPolicyAccessor{policy}
-}
-
-type mutatingPolicyAccessor struct {
-	policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy
-}
-
-// GetName implements generic.PolicyAccessor.
-func (m *mutatingPolicyAccessor) GetName() string {
-	return m.policy.Name
-}
-
-// GetNamespace implements generic.PolicyAccessor.
-func (m *mutatingPolicyAccessor) GetNamespace() string {
-	return m.policy.Namespace
-}
-
-func (m *mutatingPolicyAccessor) GetParamKind() *admissionregistrationv1.ParamKind {
-	return nil // MAP currently does not use ParamKind in Kubernetes v1.32
-}
-
-func (m *mutatingPolicyAccessor) GetMatchConstraints() *admissionregistrationv1.MatchResources {
-	if m.policy.Spec.MatchConstraints == nil {
-		return nil
-	}
-	converted := convertMatchResources(*m.policy.Spec.MatchConstraints)
-	return &converted
-}
-func (m *mutatingPolicyAccessor) GetFailurePolicy() *admissionregistrationv1.FailurePolicyType {
-	if m.policy.Spec.FailurePolicy == nil {
-		return nil
-	}
-	fp := admissionregistrationv1.FailurePolicyType(*m.policy.Spec.FailurePolicy)
-	return &fp
-}
-
-func (m *mutatingPolicyAccessor) GetVariables() []admissionregistrationv1.Variable {
-	vars := make([]admissionregistrationv1.Variable, len(m.policy.Spec.Variables))
-	for i, v := range m.policy.Spec.Variables {
-		vars[i] = admissionregistrationv1.Variable(v)
-	}
-	return vars
-}
-
-func (m *mutatingPolicyAccessor) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	conds := make([]admissionregistrationv1.MatchCondition, len(m.policy.Spec.MatchConditions))
-	for i, c := range m.policy.Spec.MatchConditions {
-		conds[i] = admissionregistrationv1.MatchCondition(c)
-	}
-	return conds
 }

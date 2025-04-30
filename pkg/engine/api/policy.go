@@ -37,6 +37,36 @@ func NewValidatingAdmissionPolicyData(
 	}
 }
 
+// MutatingPolicyData holds a MAP and its associated MAPBs
+type MutatingPolicyData struct {
+	definition *admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+}
+
+// AddBinding appends a MAPB to the policy data
+func (m *MutatingPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+	m.bindings = append(m.bindings, b)
+}
+
+func (p *MutatingPolicyData) GetDefinition() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
+	return p.definition
+}
+
+func (p *MutatingPolicyData) GetBindings() []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
+	return p.bindings
+}
+
+// NewMutatingPolicyData initializes a MAP wrapper with no bindings
+func NewMutatingPolicyData(
+	policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
+	bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+) *MutatingPolicyData {
+	return &MutatingPolicyData{
+		definition: policy,
+		bindings:   bindings,
+	}
+}
+
 // GenericPolicy abstracts the policy type (ClusterPolicy/Policy, ValidatingPolicy, ValidatingAdmissionPolicy and MutatingAdmissionPolicy)
 // It is intended to be used in EngineResponse
 type GenericPolicy interface {

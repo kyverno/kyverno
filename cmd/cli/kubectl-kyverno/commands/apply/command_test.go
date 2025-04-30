@@ -845,8 +845,8 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		// plain MutatingAdmissionPolicy
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/resource.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/Check-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/Check-replica/resource.yaml"},
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
@@ -862,10 +862,10 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		// MutatingAdmissionPolicy + Binding
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy-binding/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy-binding/resource.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/resource.yaml"},
 				PolicyReport:  true,
-				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy-binding/values.yaml",
+				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/values.yaml",
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
