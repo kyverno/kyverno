@@ -67,6 +67,8 @@ func testCommandExecute(
 	if len(dirPath) == 0 {
 		return fmt.Errorf("a directory is required")
 	}
+	// fetch reource filters
+	resourceFilters := filter.ExtractResourceFilters(testCase)
 	// parse filter
 	filter, errors := filter.ParseFilter(testCase)
 	if len(errors) > 0 {
@@ -116,6 +118,9 @@ func testCommandExecute(
 			var filteredResults []v1alpha1.TestResult
 			for _, res := range test.Test.Results {
 				if filter.Apply(res) {
+					if len(resourceFilters) > 0 {
+						res.Resources = resourceFilters
+					}
 					filteredResults = append(filteredResults, res)
 				}
 			}
