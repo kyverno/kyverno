@@ -20,7 +20,7 @@ import (
 )
 
 func Command() *cobra.Command {
-	var testCase string
+	var testCase, outputFormat string
 	var fileName, gitBranch string
 	var registryAccess, failOnly, removeColor, detailedResults, requireTests bool
 	cmd := &cobra.Command{
@@ -31,13 +31,17 @@ func Command() *cobra.Command {
 		Args:         cobra.MinimumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
+			if len(outputFormat) > 0 {
+				removeColor = true
+			}
 			color.Init(removeColor)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, registryAccess, failOnly, detailedResults, requireTests)
+			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "Test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "policy=*,rule=*,resource=*", "Filter test cases to run")
+	cmd.Flags().StringVarP(&outputFormat, "output-format", "o", "", "Specifies the output format (json, yaml, markdown, junit)")
 	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
@@ -58,6 +62,7 @@ func testCommandExecute(
 	fileName string,
 	gitBranch string,
 	testCase string,
+	outputFormat string,
 	registryAccess bool,
 	failOnly bool,
 	detailedResults bool,
@@ -66,6 +71,18 @@ func testCommandExecute(
 	// check input dir
 	if len(dirPath) == 0 {
 		return fmt.Errorf("a directory is required")
+	}
+	// check correct format output
+	if len(outputFormat) > 0 {
+		validFormats := map[string]bool{
+			"json":     true,
+			"yaml":     true,
+			"markdown": true,
+			"junit":    true,
+		}
+		if !validFormats[outputFormat] {
+			return fmt.Errorf("invalid format, expected (json, yaml, markdown, junit)")
+		}
 	}
 	// parse filter
 	filter, errors := filter.ParseFilter(testCase)
@@ -137,10 +154,14 @@ func testCommandExecute(
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
 			if !failOnly {
-				printer := table.NewTablePrinter(out)
-				fmt.Fprintln(out)
-				printer.Print(resultsTable.Rows(detailedResults))
-				fmt.Fprintln(out)
+				if len(outputFormat) > 0 {
+					printOutputFormats(out, outputFormat, resultsTable, detailedResults)
+				} else {
+					printer := table.NewTablePrinter(out)
+					fmt.Fprintln(out)
+					printer.Print(resultsTable.Rows(detailedResults))
+					fmt.Fprintln(out)
+				}
 			}
 		}
 	}
@@ -152,7 +173,11 @@ func testCommandExecute(
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {
 		if failOnly {
-			printFailedTestResult(out, fullTable, detailedResults)
+			if len(outputFormat) > 0 {
+				printOutputFormats(out, outputFormat, fullTable, detailedResults)
+			} else {
+				printFailedTestResult(out, fullTable, detailedResults)
+			}
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)
 	}

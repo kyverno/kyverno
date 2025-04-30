@@ -450,11 +450,13 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
+	if len(ivps) == 0 {
+		return nil, nil
+	}
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
-
 	var lister k8scorev1.SecretInterface
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")

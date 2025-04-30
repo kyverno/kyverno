@@ -49,8 +49,8 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		cel.Variable(engine.ResourceKey, resource.ContextType),
 		cel.Variable(engine.HttpKey, http.ContextType),
 		cel.Variable(engine.ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
-		cel.Variable(engine.AttestorKey, cel.MapType(cel.StringType, cel.DynType)),
-		cel.Variable(engine.AttestationKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(engine.AttestorsKey, cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable(engine.AttestationsKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(engine.ImageDataKey, imagedata.ContextType),
 	}
 
@@ -101,7 +101,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		return nil, append(allErrs, errs...)
 	}
 
-	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), ivpolicy.Spec.Images, c.reqGVR, options)
+	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), options, c.reqGVR, ivpolicy.Spec.ImageExtractors...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -170,7 +170,6 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		auditAnnotations:     auditAnnotations,
 		imageExtractors:      imageExtractors,
 		attestors:            compiledAttestors,
-		attestorList:         ivpolvar.GetAttestors(ivpolicy.Spec.Attestors),
 		attestationList:      ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
 		creds:                ivpolicy.Spec.Credentials,
 		exceptions:           compiledExceptions,

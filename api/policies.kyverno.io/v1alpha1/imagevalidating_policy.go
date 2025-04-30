@@ -183,9 +183,9 @@ type ImageValidatingPolicySpec struct {
 	// +kubebuilder:validation:Optional
 	Credentials *Credentials `json:"credentials,omitempty"`
 
-	// Images is a list of CEL expression to extract images from the resource
+	// ImageExtractors is a list of CEL expression to extract images from the resource
 	// +optional
-	Images []Image `json:"images,omitempty"`
+	ImageExtractors []ImageExtractor `json:"images,omitempty"`
 
 	// Attestors provides a list of trusted authorities.
 	Attestors []Attestor `json:"attestors"`
@@ -241,7 +241,7 @@ type ValidationConfiguration struct {
 	Required *bool `json:"required,omitempty"`
 }
 
-type Image struct {
+type ImageExtractor struct {
 	// Name is the name for this imageList. It is used to refer to the images in verification block as images.<name>
 	Name string `json:"name"`
 
