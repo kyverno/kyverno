@@ -9,136 +9,118 @@ import (
 )
 
 var (
-	podImageExtractors = []v1alpha1.Image{
-		{
-			Name:       "containers",
-			Expression: "has(object.spec.containers) ? object.spec.containers.map(e, e.image) : []",
-		},
-		{
-			Name:       "initContainers",
-			Expression: "has(object.spec.initContainers) ? object.spec.initContainers.map(e, e.image) : []",
-		},
-		{
-			Name:       "ephemeralContainers",
-			Expression: "has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(e, e.image) : []",
-		},
-	}
-	podControllerImageExtractors = []v1alpha1.Image{
-		{
-			Name:       "containers",
-			Expression: "has(object.spec.template.spec.containers) ? object.spec.template.spec.containers.map(e, e.image) : []",
-		},
-		{
-			Name:       "initContainers",
-			Expression: "has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers.map(e, e.image) : []",
-		},
-		{
-			Name:       "ephemeralContainers",
-			Expression: "has(object.spec.template.spec.ephemeralContainers) ? object.spec.template.spec.ephemeralContainers.map(e, e.image) : []",
-		},
-	}
-	cronJobImageExtractors = []v1alpha1.Image{
-		{
-			Name:       "containers",
-			Expression: "has(object.spec.jobTemplate.spec.template.spec.containers) ? object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image) : []",
-		},
-		{
-			Name:       "initContainers",
-			Expression: "has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers.map(e, e.image) : []",
-		},
-		{
-			Name:       "ephemeralContainers",
-			Expression: "has(object.spec.jobTemplate.spec.template.spec.ephemeralContainers) ? object.spec.jobTemplate.spec.template.spec.ephemeralContainers.map(e, e.image) : []",
-		},
-	}
+	podImageExtractors = []v1alpha1.ImageExtractor{{
+		Name:       "containers",
+		Expression: "has(object.spec.containers) ? object.spec.containers.map(e, e.image) : []",
+	}, {
+		Name:       "initContainers",
+		Expression: "has(object.spec.initContainers) ? object.spec.initContainers.map(e, e.image) : []",
+	}, {
+		Name:       "ephemeralContainers",
+		Expression: "has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(e, e.image) : []",
+	}}
+	podControllerImageExtractors = []v1alpha1.ImageExtractor{{
+		Name:       "containers",
+		Expression: "has(object.spec.template.spec.containers) ? object.spec.template.spec.containers.map(e, e.image) : []",
+	}, {
+		Name:       "initContainers",
+		Expression: "has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers.map(e, e.image) : []",
+	}, {
+		Name:       "ephemeralContainers",
+		Expression: "has(object.spec.template.spec.ephemeralContainers) ? object.spec.template.spec.ephemeralContainers.map(e, e.image) : []",
+	}}
+	cronJobImageExtractors = []v1alpha1.ImageExtractor{{
+		Name:       "containers",
+		Expression: "has(object.spec.jobTemplate.spec.template.spec.containers) ? object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image) : []",
+	}, {
+		Name:       "initContainers",
+		Expression: "has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers.map(e, e.image) : []",
+	}, {
+		Name:       "ephemeralContainers",
+		Expression: "has(object.spec.jobTemplate.spec.template.spec.ephemeralContainers) ? object.spec.jobTemplate.spec.template.spec.ephemeralContainers.map(e, e.image) : []",
+	}}
 )
 
-type CompiledImageExtractor struct {
-	key string
-	e   cel.Program
+var (
+	pods         = metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	jobs         = metav1.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	deployments  = metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	statefulsets = metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
+	daemonsets   = metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
+	replicasets  = metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
+	cronjobs     = metav1.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
+)
+
+// TODO: return compiled version directly
+func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1alpha1.ImageExtractor {
+	switch gvr {
+	case pods:
+		return podImageExtractors
+	case jobs, deployments, statefulsets, daemonsets, replicasets:
+		return podControllerImageExtractors
+	case cronjobs:
+		return cronJobImageExtractors
+	}
+	return nil
 }
 
-func (c *CompiledImageExtractor) GetImages(data map[string]any) (string, []string, error) {
-	out, _, err := c.e.Eval(data)
-	if err != nil {
-		return "", nil, err
-	}
+type CompiledImageExtractor struct {
+	cel.Program
+}
 
+func (c *CompiledImageExtractor) GetImages(data map[string]any) ([]string, error) {
+	out, _, err := c.Eval(data)
+	if err != nil {
+		return nil, err
+	}
 	result, err := utils.ConvertToNative[[]string](out)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-
-	return c.key, result, nil
+	return result, nil
 }
 
-func CompileImageExtractors(path *field.Path, imageExtractors []v1alpha1.Image, gvr *metav1.GroupVersionResource, envOpts []cel.EnvOption) ([]*CompiledImageExtractor, field.ErrorList) {
-	var allErrs field.ErrorList
+func CompileImageExtractors(path *field.Path, envOpts []cel.EnvOption, gvr *metav1.GroupVersionResource, imageExtractors ...v1alpha1.ImageExtractor) (map[string]CompiledImageExtractor, field.ErrorList) {
+	var extractors []v1alpha1.ImageExtractor
 	if gvr != nil {
-		imageExtractors = append(imageExtractors, getExtractorForGVR(gvr)...)
+		extractors = append(extractors, getImageExtractorsFromGVR(*gvr)...)
 	}
-
-	compiledMatches := make([]*CompiledImageExtractor, 0, len(imageExtractors))
-	e, err := cel.NewEnv(envOpts...)
+	extractors = append(extractors, imageExtractors...)
+	if len(extractors) == 0 {
+		return nil, nil
+	}
+	var allErrs field.ErrorList
+	compiled := make(map[string]CompiledImageExtractor, len(extractors))
+	env, err := cel.NewEnv(envOpts...)
 	if err != nil {
-		return nil, append(allErrs, field.Invalid(path, imageExtractors, err.Error()))
+		return nil, append(allErrs, field.InternalError(path, err))
 	}
-
-	for i, m := range imageExtractors {
+	for i, m := range extractors {
 		path := path.Index(i).Child("expression")
-		c := &CompiledImageExtractor{
-			key: m.Name,
-		}
-		ast, iss := e.Compile(m.Expression)
+		ast, iss := env.Compile(m.Expression)
 		if iss.Err() != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, iss.Err().Error()))
 		}
-		prg, err := e.Program(ast)
+		// TODO: check output type
+		prog, err := env.Program(ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
 		}
-		c.e = prg
-		compiledMatches = append(compiledMatches, c)
+		compiled[m.Name] = CompiledImageExtractor{
+			Program: prog,
+		}
 	}
-
-	return compiledMatches, nil
+	return compiled, nil
 }
 
-func ExtractImages(c []*CompiledImageExtractor, data map[string]any) (map[string][]string, error) {
-	result := make(map[string][]string)
-	for _, v := range c {
-		if key, images, err := v.GetImages(data); err != nil {
+func ExtractImages(data map[string]any, extractors map[string]CompiledImageExtractor) (map[string][]string, error) {
+	result := make(map[string][]string, len(extractors))
+	for key, value := range extractors {
+		if images, err := value.GetImages(data); err != nil {
 			return nil, err
 		} else {
 			result[key] = images
 		}
 	}
 	return result, nil
-}
-
-func getExtractorForGVR(gvr *metav1.GroupVersionResource) []v1alpha1.Image {
-	if gvr == nil {
-		return []v1alpha1.Image{}
-	}
-
-	if gvr.Group == "batch" && gvr.Version == "v1" {
-		if gvr.Resource == "jobs" {
-			return podControllerImageExtractors
-		} else if gvr.Resource == "cronjobs" {
-			return cronJobImageExtractors
-		}
-	}
-
-	if gvr.Group == "apps" && gvr.Version == "v1" {
-		r := gvr.Resource
-		if r == "deployments" || r == "statefulsets" || r == "daemonsets" || r == "replicasets" {
-			return podControllerImageExtractors
-		}
-	}
-
-	if gvr.Group == "" && gvr.Version == "v1" && gvr.Resource == "pods" {
-		return podImageExtractors
-	}
-
-	return []v1alpha1.Image{}
 }

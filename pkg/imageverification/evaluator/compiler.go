@@ -101,7 +101,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		return nil, append(allErrs, errs...)
 	}
 
-	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), ivpolicy.Spec.Images, c.reqGVR, options)
+	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), options, c.reqGVR, ivpolicy.Spec.ImageExtractors...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
