@@ -447,6 +447,7 @@ The chart values are organised per component.
 | admissionController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| admissionController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
 | admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
@@ -525,6 +526,7 @@ The chart values are organised per component.
 | backgroundController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | backgroundController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | backgroundController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| backgroundController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | backgroundController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
 | backgroundController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
@@ -609,6 +611,7 @@ The chart values are organised per component.
 | cleanupController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | cleanupController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| cleanupController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | cleanupController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
 | cleanupController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
@@ -691,6 +694,7 @@ The chart values are organised per component.
 | reportsController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| reportsController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | reportsController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | reportsController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
 | reportsController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
