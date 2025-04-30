@@ -20,6 +20,10 @@ func Validate(vpol *v1alpha1.ValidatingPolicy) ([]string, error) {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConditions"), "at least one match condition is required"))
 	}
 
+	if len(err) == 0 {
+		return nil, nil
+	}
+
 	for _, e := range errList.ToAggregate().Errors() {
 		warnings = append(warnings, e.Error())
 	}
