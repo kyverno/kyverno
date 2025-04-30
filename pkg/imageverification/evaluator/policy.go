@@ -46,7 +46,7 @@ type compiledPolicy struct {
 	matchConditions      []cel.Program
 	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
-	imageExtractors      []*variables.CompiledImageExtractor
+	imageExtractors      map[string]variables.CompiledImageExtractor
 	attestors            []*variables.CompiledAttestor
 	attestorList         map[string]string
 	attestationList      map[string]string
@@ -122,7 +122,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	} else {
 		data[engine.ObjectKey] = request
 	}
-	images, err := variables.ExtractImages(c.imageExtractors, data)
+	images, err := variables.ExtractImages(data, c.imageExtractors)
 	if err != nil {
 		return nil, err
 	}
