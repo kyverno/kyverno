@@ -48973,8 +48973,8 @@ spec:
                 - Fail
                 type: string
               images:
-                description: Images is a list of CEL expression to extract images
-                  from the resource
+                description: ImageExtractors is a list of CEL expression to extract
+                  images from the resource
                 items:
                   properties:
                     expression:
@@ -50023,8 +50023,8 @@ spec:
                               - Fail
                               type: string
                             images:
-                              description: Images is a list of CEL expression to extract
-                                images from the resource
+                              description: ImageExtractors is a list of CEL expression
+                                to extract images from the resource
                               items:
                                 properties:
                                   expression:

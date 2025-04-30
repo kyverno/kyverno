@@ -17,7 +17,7 @@ import (
 func Test_Match(t *testing.T) {
 	tests := []struct {
 		name           string
-		imageExtractor []v1alpha1.Image
+		imageExtractor []v1alpha1.ImageExtractor
 		request        map[string]any
 		gvr            *metav1.GroupVersionResource
 		wantResult     map[string][]string
@@ -25,7 +25,7 @@ func Test_Match(t *testing.T) {
 	}{
 		{
 			name: "standard",
-			imageExtractor: []v1alpha1.Image{
+			imageExtractor: []v1alpha1.ImageExtractor{
 				{
 					Name:       "one",
 					Expression: "request.images",
@@ -50,7 +50,7 @@ func Test_Match(t *testing.T) {
 		},
 		{
 			name: "pod image extraction",
-			imageExtractor: []v1alpha1.Image{
+			imageExtractor: []v1alpha1.ImageExtractor{
 				{
 					Name:       "one",
 					Expression: "request.images",
@@ -115,7 +115,7 @@ func Test_Match(t *testing.T) {
 		},
 		{
 			name: "standard fail",
-			imageExtractor: []v1alpha1.Image{
+			imageExtractor: []v1alpha1.ImageExtractor{
 				{
 					Name:       "one",
 					Expression: "request.images",
@@ -134,12 +134,12 @@ func Test_Match(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, errList := CompileImageExtractors(
 				field.NewPath("spec", "images"),
-				tt.imageExtractor,
-				tt.gvr,
 				[]cel.EnvOption{cel.Variable(compiler.RequestKey, types.DynType), cel.Variable(compiler.ObjectKey, types.DynType)},
+				tt.gvr,
+				tt.imageExtractor...,
 			)
 			assert.Nil(t, errList)
-			images, err := ExtractImages(c, tt.request)
+			images, err := ExtractImages(tt.request, c)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
