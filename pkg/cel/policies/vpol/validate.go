@@ -3,17 +3,26 @@ package vpol
 import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func Validate(vpol *v1alpha1.ValidatingPolicy) ([]string, error) {
+	warnings := make([]string, 0)
+	err := make(field.ErrorList, 0)
+
 	compiler := compiler.NewCompiler()
-	_, err := compiler.Compile(vpol, nil)
-	if err == nil {
-		return nil, nil
+	_, errList := compiler.Compile(vpol, nil)
+	if errList != nil {
+		err = errList
 	}
-	warnings := make([]string, 0, len(err.ToAggregate().Errors()))
-	for _, e := range err.ToAggregate().Errors() {
+
+	if vpol.Spec.MatchConditions == nil || len(vpol.Spec.MatchConditions) == 0 {
+		err = append(err, field.Required(field.NewPath("spec").Child("matchConditions"), "at least one match condition is required"))
+	}
+
+	for _, e := range errList.ToAggregate().Errors() {
 		warnings = append(warnings, e.Error())
 	}
+
 	return warnings, err.ToAggregate()
 }
