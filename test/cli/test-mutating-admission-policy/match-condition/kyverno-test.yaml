@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: Test
+metadata:
+  name: test-check-match-condition
+policies:
+- policy.yaml
+resources:
+- resource1.yaml
+- resource2.yaml
+results:
+- policy: set-replicas-color-red
+  resource: nginx-red
+  kind: Deployment
+  result: pass
+- policy: set-replicas-color-red
+  resource: nginx-no-color
+  kind: Deployment
+  result: skip

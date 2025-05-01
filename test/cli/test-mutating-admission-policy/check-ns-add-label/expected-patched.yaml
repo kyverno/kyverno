@@ -1,18 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fail-deploy
-  namespace: default
+  name: dev-deploy
+  namespace: dev
+  labels:
+    managed: "true"
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: fail-case
+      app: nginx
   template:
     metadata:
       labels:
-        app: fail-case
+        app: nginx
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
+        image: nginx

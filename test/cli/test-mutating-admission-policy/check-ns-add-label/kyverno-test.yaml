@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: Test
+metadata:
+  name: test-check-namespace-match
+policies:
+- policy.yaml
+resources:
+- resource1.yaml
+- resource2.yaml
+results:
+- policy: add-label-in-dev
+  resource: dev-deploy
+  kind: Deployment
+  result: pass
+- policy: add-label-in-dev
+  resource: prod-deploy
+  kind: Deployment
+  result: skip
