@@ -10,7 +10,6 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -36,6 +35,7 @@ import (
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -44,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/restmapper"
 )
 
 type TestResponse struct {
@@ -363,11 +362,10 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
-	apiGroupResources, err := data.APIGroupResources()
+	restMapper, err := utils.GetRESTMapper(dclient, true)
 	if err != nil {
 		return nil, err
 	}
-	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	gctxStore := gctxstore.New()
 	var contextProvider libs.Context
 	if dclient != nil {
