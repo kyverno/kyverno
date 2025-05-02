@@ -161,8 +161,9 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 			}
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
-					return newGenResources, err
+					return newGenResources, fmt.Errorf("failed to create generate target resource %s/%s: %w", targetMeta.GetNamespace(), targetMeta.GetName(), err)
 				}
+				logger.V(2).Info("resource already exists, skipping creation", "resource", targetMeta.String())
 			}
 			logger.V(2).Info("created generate target resource")
 			newGenResources = append(newGenResources, targetMeta)
@@ -206,8 +207,12 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 					_, err = g.client.UpdateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
 				}
 				if err != nil {
+					if apierrors.IsConflict(err) {
+						logger.V(2).Info("conflict detected while updating resource, resource may have been modified", "resource", targetMeta.String())
+						return newGenResources, fmt.Errorf("conflict detected while updating resource %s/%s: %w", targetMeta.GetNamespace(), targetMeta.GetName(), err)
+					}
 					logger.Error(err, "failed to update resource")
-					return newGenResources, err
+					return newGenResources, fmt.Errorf("failed to update resource %s/%s: %w", targetMeta.GetNamespace(), targetMeta.GetName(), err)
 				}
 			}
 			logger.V(3).Info("updated generate target resource")

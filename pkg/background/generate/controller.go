@@ -124,7 +124,17 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
-			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
+			// Handle nil errors more gracefully with a more descriptive message
+			var errForEvent error
+			if err == nil {
+				errForEvent = fmt.Errorf("resource generation failed with an unknown error")
+			} else if strings.Contains(err.Error(), "object has been modified") {
+				errForEvent = fmt.Errorf("failed to generate resource: resource already exists or has been modified")
+			} else {
+				errForEvent = err
+			}
+
+			events := event.NewBackgroundFailedEvent(errForEvent, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
 				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 			c.eventGen.Add(events...)
 		}
@@ -218,7 +228,6 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 	if err != nil {
 		return nil, err
 	}
-
 	policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, p, &trigger, c.configuration, c.jp, namespaceLabels)
 	if err != nil {
 		return nil, err
@@ -429,6 +438,10 @@ func (c *GenerateController) createReports(
 }
 
 func updateStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {
+	if statusControl == nil {
+		return nil
+	}
+
 	if err != nil {
 		if _, err := statusControl.Failed(ur.GetName(), err.Error(), genResources); err != nil {
 			return err

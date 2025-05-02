@@ -168,10 +168,18 @@ func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule 
 		UID:        policy.GetUID(),
 	}
 	var msg string
-	if rule == "" {
-		msg = fmt.Sprintf("policy %s error: %v", policy.GetName(), err)
+	if err == nil {
+		if rule == "" {
+			msg = fmt.Sprintf("policy %s error: no details available", policy.GetName())
+		} else {
+			msg = fmt.Sprintf("policy %s/%s error: no details available", policy.GetName(), rule)
+		}
 	} else {
-		msg = fmt.Sprintf("policy %s/%s error: %v", policy.GetName(), rule, err)
+		if rule == "" {
+			msg = fmt.Sprintf("policy %s error: %v", policy.GetName(), err)
+		} else {
+			msg = fmt.Sprintf("policy %s/%s error: %v", policy.GetName(), rule, err)
+		}
 	}
 	events = append(events, Info{
 		Regarding: regarding,
@@ -232,58 +240,30 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	exceptions := ruleResp.Exceptions()
 	exceptionNames := make([]string, 0, len(exceptions))
 	events := make([]Info, 0, len(exceptions))
-	policy := engineResponse.Policy()
 
 	// build the events of the policy exceptions
-	if pol := policy.AsKyvernoPolicy(); pol != nil {
-		if pol.GetNamespace() == "" {
-			exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
-		} else {
-			exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
-		}
+	pol := engineResponse.Policy().AsKyvernoPolicy()
+	if pol.GetNamespace() == "" {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
+	} else {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
+	}
 
-		related := engineResponse.GetResourceSpec()
-		for _, exception := range exceptions {
-			ns := exception.GetNamespace()
-			name := exception.GetName()
-			exceptionNames = append(exceptionNames, ns+"/"+name)
+	related := engineResponse.GetResourceSpec()
+	for _, exception := range exceptions {
+		ns := exception.GetNamespace()
+		name := exception.GetName()
+		exceptionNames = append(exceptionNames, ns+"/"+name)
 
-			exceptionEvent := Info{
-				Regarding: corev1.ObjectReference{
-					// TODO: iirc it's not safe to assume api version is set
-					APIVersion: "kyverno.io/v2",
-					Kind:       "PolicyException",
-					Name:       name,
-					Namespace:  ns,
-					UID:        exception.GetUID(),
-				},
-				Related: &corev1.ObjectReference{
-					APIVersion: related.APIVersion,
-					Kind:       related.Kind,
-					Name:       related.Name,
-					Namespace:  related.Namespace,
-					UID:        types.UID(related.UID),
-				},
-				Reason:  PolicySkipped,
-				Message: exceptionMessage,
-				Source:  source,
-				Action:  ResourcePassed,
-			}
-			events = append(events, exceptionEvent)
-		}
-
-		// build the policy events
-		policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exceptions %s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), strings.Join(exceptionNames, ", "))
-		regarding := corev1.ObjectReference{
-			// TODO: iirc it's not safe to assume api version is set
-			APIVersion: "kyverno.io/v1",
-			Kind:       pol.GetKind(),
-			Name:       pol.GetName(),
-			Namespace:  pol.GetNamespace(),
-			UID:        pol.GetUID(),
-		}
-		policyEvent := Info{
-			Regarding: regarding,
+		exceptionEvent := Info{
+			Regarding: corev1.ObjectReference{
+				// TODO: iirc it's not safe to assume api version is set
+				APIVersion: "kyverno.io/v2",
+				Kind:       "PolicyException",
+				Name:       name,
+				Namespace:  ns,
+				UID:        exception.GetUID(),
+			},
 			Related: &corev1.ObjectReference{
 				APIVersion: related.APIVersion,
 				Kind:       related.Kind,
@@ -292,12 +272,38 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 				UID:        types.UID(related.UID),
 			},
 			Reason:  PolicySkipped,
-			Message: policyMessage,
+			Message: exceptionMessage,
 			Source:  source,
 			Action:  ResourcePassed,
 		}
-		events = append(events, policyEvent)
+		events = append(events, exceptionEvent)
 	}
+
+	// build the policy events
+	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exceptions %s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), strings.Join(exceptionNames, ", "))
+	regarding := corev1.ObjectReference{
+		// TODO: iirc it's not safe to assume api version is set
+		APIVersion: "kyverno.io/v1",
+		Kind:       pol.GetKind(),
+		Name:       pol.GetName(),
+		Namespace:  pol.GetNamespace(),
+		UID:        pol.GetUID(),
+	}
+	policyEvent := Info{
+		Regarding: regarding,
+		Related: &corev1.ObjectReference{
+			APIVersion: related.APIVersion,
+			Kind:       related.Kind,
+			Name:       related.Name,
+			Namespace:  related.Namespace,
+			UID:        types.UID(related.UID),
+		},
+		Reason:  PolicySkipped,
+		Message: policyMessage,
+		Source:  source,
+		Action:  ResourcePassed,
+	}
+	events = append(events, policyEvent)
 	return events
 }
 
