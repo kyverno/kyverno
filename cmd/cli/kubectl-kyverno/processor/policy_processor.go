@@ -216,8 +216,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
-
-	restMapper, err := getRESTMapper(p.Client, !p.Cluster)
 	restMapper, err := utils.GetRESTMapper(p.Client, !p.Cluster)
 	if err != nil {
 		return nil, err
