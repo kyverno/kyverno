@@ -1,0 +1,59 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: http-cel-test
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE", "UPDATE"]
+  variables:
+    - name: healthResponse
+      expression: >-
+        http.Get("http://test-server.http-cel-test:8080/health")
+    - name: echoResponse
+      expression: >-
+        http.Get("http://test-server.http-cel-test:8080/echo")
+    - name: authResponse
+      expression: >-
+        http.Get("http://test-server.http-cel-test:8080/auth", {"Authorization": "Bearer test-token"})
+    - name: dataPostResponse
+      expression: >-
+        http.Post("http://test-server.http-cel-test:8080/data", {"key": "value"})
+    - name: dataPostWithHeadersResponse
+      expression: >-
+        http.Post("http://test-server.http-cel-test:8080/data", {"key": "value"}, {"Content-Type": "application/json"})
+  validations:
+    # Health check validation
+    - expression: variables.healthResponse.status == 200
+      message: "HTTP GET health check failed with status code != 200"
+    - expression: variables.healthResponse.body.status == "ok"
+      message: "HTTP GET health check failed with invalid response body"
+    
+    # Echo validation
+    - expression: variables.echoResponse.status == 200
+      message: "HTTP GET echo test failed with status code != 200"
+    - expression: variables.echoResponse.body.method == "GET"
+      message: "HTTP GET echo test failed with incorrect method in response"
+    
+    # Auth validation
+    - expression: variables.authResponse.status == 200
+      message: "HTTP GET auth test failed with status code != 200"
+    - expression: variables.authResponse.body.headers.authorization == "Bearer test-token"
+      message: "HTTP GET auth test failed with incorrect authorization header"
+    
+    # Data POST validation
+    - expression: variables.dataPostResponse.status == 200
+      message: "HTTP POST data test failed with status code != 200"
+    - expression: variables.dataPostResponse.body.method == "POST"
+      message: "HTTP POST data test failed with incorrect method in response"
+    
+    # Data POST with headers validation
+    - expression: variables.dataPostWithHeadersResponse.status == 200
+      message: "HTTP POST with headers data test failed with status code != 200"
+    - expression: variables.dataPostWithHeadersResponse.body.headers["content-type"] == "application/json"
+      message: "HTTP POST with headers data test failed with incorrect content-type header" 
