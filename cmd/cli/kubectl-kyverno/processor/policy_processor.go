@@ -39,6 +39,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -215,7 +216,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
+
 	restMapper, err := getRESTMapper(p.Client, !p.Cluster)
+	restMapper, err := utils.GetRESTMapper(p.Client, !p.Cluster)
 	if err != nil {
 		return nil, err
 	}
