@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	apikyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // Policies.
 type PolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.PolicyLister
+	Lister() kyvernov1.PolicyLister
 }
 
 type policyInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredPolicyInformer(client versioned.Interface, namespace string, res
 				return client.KyvernoV1().Policies(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&kyvernov1.Policy{},
+		&apikyvernov1.Policy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *policyInformer) defaultInformer(client versioned.Interface, resyncPerio
 }
 
 func (f *policyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov1.Policy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apikyvernov1.Policy{}, f.defaultInformer)
 }
 
-func (f *policyInformer) Lister() v1.PolicyLister {
-	return v1.NewPolicyLister(f.Informer().GetIndexer())
+func (f *policyInformer) Lister() kyvernov1.PolicyLister {
+	return kyvernov1.NewPolicyLister(f.Informer().GetIndexer())
 }
