@@ -17,6 +17,8 @@ results:
   result: fail
   scored: true
   source: KyvernoImageValidatingPolicy
+  properties:
+    label: prod
 summary:
   error: 0
   fail: 1
