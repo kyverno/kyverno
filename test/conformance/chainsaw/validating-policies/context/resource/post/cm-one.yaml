@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  name: cm01
+  namespace: subreview-ns

@@ -8,6 +8,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Everything someone might need to validate a single ValidatingAdmissionPolicy
+// against all of its registered bindings.
+type ValidatingAdmissionPolicyData struct {
+	definition *admissionregistrationv1.ValidatingAdmissionPolicy
+	bindings   []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+}
+
+func (p *ValidatingAdmissionPolicyData) AddBinding(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
+	p.bindings = append(p.bindings, binding)
+}
+
+func (p *ValidatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1.ValidatingAdmissionPolicy {
+	return p.definition
+}
+
+func (p *ValidatingAdmissionPolicyData) GetBindings() []admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+	return p.bindings
+}
+
+func NewValidatingAdmissionPolicyData(
+	policy *admissionregistrationv1.ValidatingAdmissionPolicy,
+	bindings ...admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+) *ValidatingAdmissionPolicyData {
+	return &ValidatingAdmissionPolicyData{
+		definition: policy,
+		bindings:   bindings,
+	}
+}
+
 // GenericPolicy abstracts the policy type (ClusterPolicy/Policy, ValidatingPolicy, ValidatingAdmissionPolicy and MutatingAdmissionPolicy)
 // It is intended to be used in EngineResponse
 type GenericPolicy interface {
@@ -22,21 +51,21 @@ type GenericPolicy interface {
 	AsObject() any
 	// AsKyvernoPolicy returns the kyverno policy
 	AsKyvernoPolicy() kyvernov1.PolicyInterface
-	// AsValidatingAdmissionPolicy returns the validating admission policy
-	AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy
+	// AsValidatingAdmissionPolicy returns the validating admission policy with its bindings
+	AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData
 	// AsValidatingPolicy returns the validating policy
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
-	// AsImageVerificationPolicy returns the imageverificationpolicy
-	AsImageVerificationPolicy() *policiesv1alpha1.ImageVerificationPolicy
+	// AsImageValidatingPolicy returns the imageverificationpolicy
+	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
 }
 
 type genericPolicy struct {
 	metav1.Object
 	PolicyInterface           kyvernov1.PolicyInterface
-	ValidatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy
+	ValidatingAdmissionPolicy *ValidatingAdmissionPolicyData
 	MutatingAdmissionPolicy   *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
-	ImageVerificationPolicy   *policiesv1alpha1.ImageVerificationPolicy
+	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -47,7 +76,7 @@ func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 	return p.PolicyInterface
 }
 
-func (p *genericPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy {
+func (p *genericPolicy) AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData {
 	return p.ValidatingAdmissionPolicy
 }
 
@@ -55,8 +84,8 @@ func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy 
 	return p.ValidatingPolicy
 }
 
-func (p *genericPolicy) AsImageVerificationPolicy() *policiesv1alpha1.ImageVerificationPolicy {
-	return p.ImageVerificationPolicy
+func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy {
+	return p.ImageValidatingPolicy
 }
 
 func (p *genericPolicy) GetAPIVersion() string {
@@ -69,7 +98,7 @@ func (p *genericPolicy) GetAPIVersion() string {
 		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
 	case p.ValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
-	case p.ImageVerificationPolicy != nil:
+	case p.ImageValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	}
 	return ""
@@ -85,8 +114,8 @@ func (p *genericPolicy) GetKind() string {
 		return "MutatingAdmissionPolicy"
 	case p.ValidatingPolicy != nil:
 		return "ValidatingPolicy"
-	case p.ImageVerificationPolicy != nil:
-		return "ImageVerificationPolicy"
+	case p.ImageValidatingPolicy != nil:
+		return "ImageValidatingPolicy"
 	}
 	return ""
 }
@@ -109,7 +138,14 @@ func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) GenericPolicy {
 func NewValidatingAdmissionPolicy(pol *admissionregistrationv1.ValidatingAdmissionPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                    pol,
-		ValidatingAdmissionPolicy: pol,
+		ValidatingAdmissionPolicy: NewValidatingAdmissionPolicyData(pol),
+	}
+}
+
+func NewValidatingAdmissionPolicyWithBindings(pol *admissionregistrationv1.ValidatingAdmissionPolicy, bindings ...admissionregistrationv1.ValidatingAdmissionPolicyBinding) GenericPolicy {
+	return &genericPolicy{
+		Object:                    pol,
+		ValidatingAdmissionPolicy: NewValidatingAdmissionPolicyData(pol, bindings...),
 	}
 }
 
@@ -127,9 +163,9 @@ func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
 	}
 }
 
-func NewImageVerificationPolicy(pol *policiesv1alpha1.ImageVerificationPolicy) GenericPolicy {
+func NewImageValidatingPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
-		Object:                  pol,
-		ImageVerificationPolicy: pol,
+		Object:                pol,
+		ImageValidatingPolicy: pol,
 	}
 }

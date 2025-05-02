@@ -8,11 +8,12 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/cosign"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/notary"
-	"github.com/kyverno/kyverno/pkg/imageverification/match"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -23,7 +24,7 @@ type ivfuncs struct {
 	logger          logr.Logger
 	imgCtx          imagedataloader.ImageContext
 	creds           *v1alpha1.Credentials
-	imgRules        []*match.CompiledMatch
+	imgRules        []compiler.MatchImageReference
 	attestorList    map[string]v1alpha1.Attestor
 	attestationList map[string]v1alpha1.Attestation
 	lister          k8scorev1.SecretInterface
@@ -31,14 +32,17 @@ type ivfuncs struct {
 	notaryVerifier  *notary.Verifier
 }
 
-func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageVerificationPolicy, lister k8scorev1.SecretInterface, adapter types.Adapter) (*ivfuncs, error) {
+func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface, adapter types.Adapter) (*ivfuncs, error) {
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
 	}
-
-	imgRules, err := match.CompileMatches(field.NewPath("spec", "imageRules"), ivpol.Spec.ImageRules)
+	env, err := compiler.NewMatchImageEnv()
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile matches: %v", err.ToAggregate())
+		return nil, fmt.Errorf("failed to create CEL image verification env: %v", err)
+	}
+	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, ivpol.Spec.MatchImageReferences...)
+	if errs != nil {
+		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
 
 	return &ivfuncs{
@@ -58,22 +62,17 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(ctx context.Context)
 	return func(_image ref.Val, _attestors ref.Val) ref.Val {
 		if image, err := utils.ConvertToNative[string](_image); err != nil {
 			return types.WrapErr(err)
-		} else if attestors, err := utils.ConvertToNative[[]string](_attestors); err != nil {
+		} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](_attestors); err != nil {
 			return types.WrapErr(err)
 		} else {
 			count := 0
-			if match, err := match.Match(f.imgRules, image); err != nil {
+			if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 				return types.WrapErr(err)
 			} else if !match {
 				return f.NativeToValue(count)
 			}
 
-			for _, attr := range attestors {
-				attestor, ok := f.attestorList[attr]
-				if !ok {
-					return types.NewErr("attestor not found in policy: %s", attr)
-				}
-
+			for _, attestor := range attestors {
 				opts := GetRemoteOptsFromPolicy(f.creds)
 				img, err := f.imgCtx.Get(ctx, image, opts...)
 				if err != nil {
@@ -108,22 +107,17 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 			return types.WrapErr(err)
 		} else if attestation, err := utils.ConvertToNative[string](args[1]); err != nil {
 			return types.WrapErr(err)
-		} else if attestors, err := utils.ConvertToNative[[]string](args[2]); err != nil {
+		} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](args[2]); err != nil {
 			return types.WrapErr(err)
 		} else {
 			count := 0
-			if match, err := match.Match(f.imgRules, image); err != nil {
+			if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 				return types.WrapErr(err)
 			} else if !match {
 				return f.NativeToValue(count)
 			}
 
-			for _, attr := range attestors {
-				attestor, ok := f.attestorList[attr]
-				if !ok {
-					return types.NewErr("attestor not found in policy: %s", attr)
-				}
-
+			for _, attestor := range attestors {
 				attest, ok := f.attestationList[attestation]
 				if !ok {
 					return types.NewErr("attestation not found in policy: %s", attestation)

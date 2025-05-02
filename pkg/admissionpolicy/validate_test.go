@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	"gotest.tools/assert"
 )
 
 func TestGetKinds(t *testing.T) {
@@ -123,11 +124,54 @@ spec:
 `),
 			wantKinds: []string{"v1/Pod", "apps/v1/Deployment", "apps/v1/Replicaset", "apps/v1/Daemonset", "apps/v1/Statefulset", "batch/v1/Job", "batch/v1/Cronjob"},
 		},
+		{
+			name: "skip incomplete resource rules",
+			policy: []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "policy-5"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   []
+        apiVersions: ["v1"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["pods"]
+      - apiGroups:   ["apps"]
+        apiVersions: ["v1"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["deployments", "replicasets", "daemonsets", "statefulsets"]
+      - apiGroups:   ["batch"]
+        apiVersions: []
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["jobs", "cronjobs"]
+  validations:
+    - expression: "object.spec.replicas <= 5"
+`),
+			wantKinds: []string{"apps/v1/Deployment", "apps/v1/Replicaset", "apps/v1/Daemonset", "apps/v1/Statefulset"},
+		},
+		{
+			name: "No matchConstraints",
+			policy: []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "policy-5"
+spec:
+  failurePolicy: Fail
+  validations:
+    - expression: "object.spec.replicas <= 5"
+`),
+			wantKinds: nil,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, policy, _, _, _ := yamlutils.GetPolicy(tt.policy)
+			_, policy, _, _, _, err := yamlutils.GetPolicy(tt.policy)
+			assert.NilError(t, err)
 			kinds := GetKinds(policy[0].Spec.MatchConstraints)
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
 				t.Errorf("Expected %v, got %v", tt.wantKinds, kinds)

@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: deny-commands-in-exec-probe
+spec:
+  validationActions: 
+    - Audit
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  matchConditions:
+        - name: check-liveness-probes-commands-exist
+          expression: >-
+            object.spec.containers.exists(container, size(container.?livenessProbe.?exec.?command.orValue([])) > 0)
+  validations:
+            - expression: >-
+                object.spec.containers.all(container, 
+                !container.?livenessProbe.?exec.?command.orValue([]).exists(command, 
+                command.matches('\\bjcmd\\b') || command.matches('\\bps\\b') || command.matches('\\bls\\b')))
+              message: Cannot use commands `jcmd`, `ps`, or `ls` in liveness probes.

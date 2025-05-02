@@ -39,6 +39,7 @@ kyverno apply [flags]
 ```
       --audit-warn                         If set to true, will flag audit policies as warnings instead of failures
   -c, --cluster                            Checks if policies should be applied to cluster in the current context
+      --cluster-wide-resources             If set to true, will apply policies to cluster-wide resources
       --context string                     The name of the kubeconfig context to use
       --context-file string                File containing context data for CEL policies
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out

@@ -5,15 +5,24 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func Evaluate(ctx context.Context, ivpols []*v1alpha1.ImageVerificationPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
+type CompiledImageValidatingPolicy struct {
+	Policy     *policiesv1alpha1.ImageValidatingPolicy
+	Exceptions []*policiesv1alpha1.PolicyException
+	Actions    sets.Set[admissionregistrationv1.ValidationAction]
+}
+
+func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
 	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
 	if err != nil {
 		return nil, err
@@ -31,16 +40,16 @@ func Evaluate(ctx context.Context, ivpols []*v1alpha1.ImageVerificationPolicy, r
 	c := NewCompiler(ictx, lister, gvr)
 	results := make(map[string]*EvaluationResult, len(policies))
 	for _, ivpol := range policies {
-		p, errList := c.Compile(ivpol)
+		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
 		if errList != nil {
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
-		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace, isAdmissionRequest)
+		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace, isAdmissionRequest, nil)
 		if err != nil {
 			return nil, err
 		}
-		results[ivpol.Name] = result
+		results[ivpol.Policy.Name] = result
 	}
 	return results, nil
 }
@@ -58,17 +67,18 @@ func requestGVR(request *admissionv1.AdmissionRequest) *metav1.GroupVersionResou
 	return request.RequestResource
 }
 
-func filterPolicies(ivpols []*v1alpha1.ImageVerificationPolicy, isK8s bool) []*v1alpha1.ImageVerificationPolicy {
-	filteredPolicies := make([]*v1alpha1.ImageVerificationPolicy, 0)
+func filterPolicies(ivpols []*CompiledImageValidatingPolicy, isK8s bool) []*CompiledImageValidatingPolicy {
+	filteredPolicies := make([]*CompiledImageValidatingPolicy, 0)
 
 	for _, v := range ivpols {
-		if v == nil {
+		if v == nil || v.Policy == nil {
 			continue
 		}
+		pol := v.Policy
 
-		if isK8s && v.Spec.EvaluationMode() == v1alpha1.EvaluationModeKubernetes {
+		if isK8s && pol.Spec.EvaluationMode() == v1alpha1.EvaluationModeKubernetes {
 			filteredPolicies = append(filteredPolicies, v)
-		} else if !isK8s && v.Spec.EvaluationMode() == v1alpha1.EvaluationModeJSON {
+		} else if !isK8s && pol.Spec.EvaluationMode() == v1alpha1.EvaluationModeJSON {
 			filteredPolicies = append(filteredPolicies, v)
 		}
 	}

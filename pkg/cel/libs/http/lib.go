@@ -46,15 +46,40 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"Get": {
-			cel.MemberOverload("get_request_string", []*cel.Type{HTTPType, types.StringType}, types.NewMapType(types.StringType, types.AnyType), cel.BinaryBinding(impl.get_request_string)),
-			cel.MemberOverload("get_request_with_headers_string", []*cel.Type{HTTPType, types.StringType, types.NewMapType(types.StringType, types.StringType)}, types.NewMapType(types.StringType, types.AnyType), cel.FunctionBinding(impl.get_request_with_headers_string)),
+			cel.MemberOverload(
+				"get_request_string",
+				[]*cel.Type{ContextType, types.StringType},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.BinaryBinding(impl.get_request_string),
+			),
+			cel.MemberOverload(
+				"get_request_with_headers_string",
+				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.StringType)},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.get_request_with_headers_string),
+			),
 		},
 		"Post": {
-			cel.MemberOverload("post_request_string", []*cel.Type{HTTPType, types.StringType, types.NewMapType(types.StringType, types.AnyType)}, types.NewMapType(types.StringType, types.AnyType), cel.FunctionBinding(impl.post_request_string)),
-			cel.MemberOverload("post_request__with_headers_string", []*cel.Type{HTTPType, types.StringType, types.NewMapType(types.StringType, types.AnyType), types.NewMapType(types.StringType, types.StringType)}, types.NewMapType(types.StringType, types.AnyType), cel.FunctionBinding(impl.post_request_with_headers_string)),
+			cel.MemberOverload(
+				"post_request_string",
+				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.post_request_string),
+			),
+			cel.MemberOverload(
+				"post_request__with_headers_string",
+				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.AnyType), types.NewMapType(types.StringType, types.StringType)},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.post_request_with_headers_string),
+			),
 		},
 		"Client": {
-			cel.MemberOverload("http_client_string", []*cel.Type{HTTPType, types.StringType}, HTTPType, cel.BinaryBinding(impl.http_client_string)),
+			cel.MemberOverload(
+				"http_client_string",
+				[]*cel.Type{ContextType, types.StringType},
+				ContextType,
+				cel.BinaryBinding(impl.http_client_string),
+			),
 		},
 	}
 	// create env options corresponding to our function overloads

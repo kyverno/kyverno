@@ -9,8 +9,8 @@ spec:
     try:
     - create:
         file: policy.yaml
-    - sleep:
-        duration: 10s
+    - assert:
+        file: policy-assert.yaml
   - name: check validatingadmissionpolicy
     try:
     - assert:
@@ -19,3 +19,7 @@ spec:
     try:
     - assert:
         file: validatingadmissionpolicybinding.yaml
+  - name: check validatingwebhookconfiguration
+    try:
+    - assert:
+        file: validatingwebhookconfiguration.yaml
