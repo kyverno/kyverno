@@ -202,122 +202,96 @@ func printTestResult(
 					}
 				}
 			}
-			for _, resourceSpec := range test.ResourceSpecs {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
-					for resourceGVKAndName := range m {
-						nameParts := strings.Split(resourceGVKAndName, ",")
-						if resourceSpec.Group == "" {
-							if resourceSpec.Version != nameParts[0] {
-								continue
-							}
-						} else {
-							if resourceSpec.Group+"/"+resourceSpec.Version != nameParts[0] {
-								continue
-							}
-						}
-						if resourceSpec.Namespace != nameParts[len(nameParts)-2] {
-							continue
-						}
-						if resourceSpec.Name == nameParts[len(nameParts)-1] {
-							resources = append(resources, resourceGVKAndName)
-						}
-					}
+		}
+		// If no resource is specified, check all resources present in the engine responses
+		if resources == nil {
+			var foundResources []string
+			for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+				for resourceGVKAndName := range m {
+					foundResources = append(foundResources, resourceGVKAndName)
 				}
 			}
-		}
-
-		// The test specifies no resources, check all results
-		if len(resources) == 0 {
-			for r := range responses.Target {
-				resources = append(resources, r)
-			}
-			for r := range responses.Trigger {
-				resources = append(resources, r)
+			if len(foundResources) > 0 {
+				resources = foundResources
 			}
 		}
-
+		var rows []table.Row
+		resourceSkipped := false
 		for _, resource := range resources {
-			var rows []table.Row
-			var resourceSkipped bool
-			if _, ok := responses.Trigger[resource]; ok {
-				for _, response := range responses.Trigger[resource] {
-					polNameNs := strings.Split(test.Policy, "/")
-					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
-						continue
-					}
-					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
-						r := response.Resource
+			var engineResponses []engineapi.EngineResponse
+			// Check if the resource is a target or a trigger or both
+			match := false
+			for resourceType, resourceInfos := range map[string]map[string][]engineapi.EngineResponse{
+				"Target":  responses.Target,
+				"Trigger": responses.Trigger,
+			} {
+				var ok bool
+				var resourceResponses []engineapi.EngineResponse
+				if resourceResponses, ok = resourceInfos[resource]; !ok {
+					continue
+				}
+				match = true
 
-						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy {
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
-							if strings.Contains(message, "not found in manifest") {
-								resourceSkipped = true
-								continue
-							}
-
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
-							rows = append(rows, resourceRows...)
+				// We don't need to use these variables, but keeping the logic to extract them
+				// for potential future use
+				if resourceType == "Target" {
+					resourceSkipped = true
+					continue
+				}
+				if resourceType == "Trigger" {
+					resourceSkipped = true
+					continue
+				}
+				engineResponses = append(engineResponses, resourceResponses...)
+			}
+			if !match {
+				continue
+			}
+			for _, response := range engineResponses {
+				var ruleResponses []engineapi.RuleResponse
+				if test.Rule != "" {
+					ruleResponses = lookupRuleResponses(test, response.PolicyResponse.Rules...)
+				} else {
+					ruleResponses = response.PolicyResponse.Rules
+				}
+				if len(ruleResponses) == 0 {
+					continue
+				}
+				if len(ruleResponses) == 1 {
+					rule := ruleResponses[0]
+					// Check if a particular rule response has generated resources
+					if test.GeneratedResource != "" || test.PatchedResource != "" {
+						generatedResources := rule.GeneratedResources()
+						if len(generatedResources) == 0 {
+							continue
+						}
+						if test.Policy != "" && response.Policy().GetName() != test.Policy {
 							continue
 						}
 
-						if rule.RuleType() != "Generation" {
-							if rule.RuleType() == "Mutation" {
-								r = response.PatchedResource
-							}
-
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
-							if strings.Contains(message, "not found in manifest") {
-								resourceSkipped = true
-								continue
-							}
-
-							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
-							rows = append(rows, resourceRows...)
-						} else {
-							generatedResources := rule.GeneratedResources()
-							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
-
-								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
-								rows = append(rows, resourceRows...)
-							}
+						ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *generatedResources[0])
+						success := (ok && test.Result == policyreportv1alpha2.StatusPass) || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+						rows = append(rows, resourceRows...)
+					} else {
+						if test.Policy != "" && response.Policy().GetName() != test.Policy {
+							continue
 						}
-					}
 
-					// if there are no RuleResponse, the resource has been excluded. This is a pass.
-					if len(rows) == 0 && !resourceSkipped {
-						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
-							},
-							Message: color.Excluded(),
-						}
-						rc.Skip++
-						testCount++
-						rows = append(rows, row)
+						ok, message, reason := checkResult(test, fs, resoucePath, response, rule, response.Resource)
+						success := (ok && test.Result == policyreportv1alpha2.StatusPass) || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+						rows = append(rows, resourceRows...)
 					}
-				}
-			}
-
-			// Check if the resource specified exists in the targets
-			if _, ok := responses.Target[resource]; ok {
-				for _, response := range responses.Target[resource] {
-					// we are doing this twice which is kinda not nice
+				} else {
+					// Check rule which has generated multiple resources
 					nameParts := strings.Split(resource, ",")
 					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
 
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r)
 
-					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+					success := (ok && test.Result == policyreportv1alpha2.StatusPass) || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
@@ -425,6 +399,11 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 	output := make([]interface{}, 0, len(resultTable.RawRows))
 	failedTests := 0
 	for _, row := range resultTable.RawRows {
+		// Only count actual failures, not expected failures
+		if row.IsFailure {
+			failedTests++
+		}
+
 		rowMap := map[string]interface{}{
 			"ID":       row.ID,
 			"POLICY":   row.Policy,
@@ -435,9 +414,6 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 		}
 		if detailedResults {
 			rowMap["Message"] = row.Message
-		}
-		if row.IsFailure {
-			failedTests++
 		}
 		output = append(output, rowMap)
 	}
@@ -484,11 +460,15 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource, policyRow.Result))
 					if detailedResults {
 						b.WriteString(fmt.Sprintf("    Message: %s\n   </failure>\n", policyRow.Message))
+					} else {
+						b.WriteString("\n   </failure>\n")
 					}
 				} else {
 					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource))
 					if detailedResults {
 						b.WriteString(fmt.Sprintf("    Message: %s\n   ]]></system-out>\n", policyRow.Message))
+					} else {
+						b.WriteString("   ]]></system-out>\n")
 					}
 				}
 				b.WriteString("  </testcase>\n")

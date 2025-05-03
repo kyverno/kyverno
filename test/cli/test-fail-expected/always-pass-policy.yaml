@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: always-pass-policy
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: check-label
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: "label missing"
+        pattern:
+          metadata:
+            labels:
+              # This validation will fail because the app label is required but missing
+              app: "*" 
