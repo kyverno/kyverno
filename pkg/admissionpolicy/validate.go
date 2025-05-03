@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
+	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,63 +27,96 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
+func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]string, error) {
+	if matchResources == nil {
+		return nil, nil
+	}
+
 	var kindList []string
 	for _, rule := range matchResources.ResourceRules {
 		if len(rule.APIGroups) == 0 || len(rule.APIVersions) == 0 {
 			continue
 		}
 
-		group := rule.APIGroups[0]
-		version := rule.APIVersions[0]
-		for _, resource := range rule.Resources {
-			isSubresource := kubeutils.IsSubresource(resource)
-			if isSubresource {
-				parts := strings.Split(resource, "/")
-
-				kind := cases.Title(language.English, cases.NoLower).String(parts[0])
-				kind, _ = strings.CutSuffix(kind, "s")
-				subresource := parts[1]
-
-				if group == "" {
-					kindList = append(kindList, strings.Join([]string{version, kind, subresource}, "/"))
-				} else {
-					kindList = append(kindList, strings.Join([]string{group, version, kind, subresource}, "/"))
-				}
-			} else {
-				resource = cases.Title(language.English, cases.NoLower).String(resource)
-				resource, _ = strings.CutSuffix(resource, "s")
-				kind := resource
-
-				if group == "" {
-					kindList = append(kindList, strings.Join([]string{version, kind}, "/"))
-				} else {
-					kindList = append(kindList, strings.Join([]string{group, version, kind}, "/"))
+		for _, group := range rule.APIGroups {
+			for _, version := range rule.APIVersions {
+				for _, resource := range rule.Resources {
+					kinds, err := resolveKinds(group, version, resource, mapper)
+					if err != nil {
+						return kindList, err
+					}
+					kindList = append(kindList, kinds...)
 				}
 			}
 		}
 	}
+	return kindList, nil
+}
 
-	return kindList
+func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
+	var kinds []string
+
+	formatGVK := func(gvk schema.GroupVersionKind, subresource string) string {
+		var parts []string
+		if gvk.Group != "" {
+			parts = append(parts, gvk.Group)
+		}
+		parts = append(parts, gvk.Version, gvk.Kind)
+		if subresource != "" {
+			parts = append(parts, subresource)
+		}
+		return strings.Join(parts, "/")
+	}
+
+	switch {
+	case group == "*" || version == "*" || resource == "*":
+		gvrList, err := mapper.ResourcesFor(schema.GroupVersionResource{
+			Group: group, Version: version, Resource: resource,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list resources failed for %s/%s/%s: %w", group, version, resource, err)
+		}
+		for _, gvr := range gvrList {
+			gvk, err := mapper.KindFor(gvr)
+			if err != nil {
+				return nil, fmt.Errorf("kind lookup failed for %v: %w", gvr, err)
+			}
+			kinds = append(kinds, formatGVK(gvk, ""))
+		}
+	case kubeutils.IsSubresource(resource):
+		parts := strings.SplitN(resource, "/", 2)
+		mainResource, subResource := parts[0], parts[1]
+		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: mainResource}
+		gvk, err := mapper.KindFor(gvr)
+		if err != nil {
+			return nil, fmt.Errorf("mapping gvr %v to gvk failed: %w", gvr, err)
+		}
+		kinds = append(kinds, formatGVK(gvk, subResource))
+	default:
+		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+		gvk, err := mapper.KindFor(gvr)
+		if err != nil {
+			return nil, fmt.Errorf("mapping gvr %v to gvk failed: %w", gvr, err)
+		}
+		kinds = append(kinds, formatGVK(gvk, ""))
+	}
+
+	return kinds, nil
 }
 
 func Validate(
-	policyData PolicyData,
+	policyData *engineapi.ValidatingAdmissionPolicyData,
 	resource unstructured.Unstructured,
+	gvk schema.GroupVersionKind,
+	gvr schema.GroupVersionResource,
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
+	isFake bool,
 ) (engineapi.EngineResponse, error) {
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	policy := policyData.definition
-	bindings := policyData.bindings
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(&policy), nil)
-
-	gvk := resource.GroupVersionKind()
-	gvr := schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: strings.ToLower(gvk.Kind) + "s",
-	}
+	policy := policyData.GetDefinition()
+	bindings := policyData.GetBindings()
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 
 	var namespace *corev1.Namespace
 	namespaceName := resource.GetNamespace()
@@ -102,10 +135,17 @@ func Validate(
 		}
 	}
 
-	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 	if len(bindings) == 0 {
-		isMatch, err := matches(a, namespaceSelectorMap, *policy.Spec.MatchConstraints)
+		matcher := celmatching.NewMatcher()
+		isMatch, err := matcher.Match(
+			&celmatching.MatchCriteria{
+				Constraints: policy.Spec.MatchConstraints,
+			},
+			a,
+			namespace,
+		)
 		if err != nil {
 			return engineResponse, err
 		}
@@ -116,20 +156,13 @@ func Validate(
 		return validateResource(policy, nil, resource, namespace, a)
 	}
 
-	if client != nil {
+	if client != nil && !isFake {
 		nsLister := NewCustomNamespaceLister(client)
 		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 
-		// construct admission attributes
-		gvr, err := client.Discovery().GetGVRFromGVK(gvk)
-		if err != nil {
-			return engineResponse, err
-		}
-		a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(&policy))
+		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
 		if err != nil {
 			return engineResponse, err
 		}
@@ -157,13 +190,23 @@ func Validate(
 			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	} else {
+		matcher := celmatching.NewMatcher()
 		for i, binding := range bindings {
-			isMatch, err := matches(a, namespaceSelectorMap, *binding.Spec.MatchResources)
-			if err != nil {
-				return engineResponse, err
-			}
-			if !isMatch {
-				continue
+			// check if the binding matches the incoming resource
+			if binding.Spec.MatchResources != nil {
+				bindingMatches, err := matcher.Match(
+					&celmatching.MatchCriteria{
+						Constraints: binding.Spec.MatchResources,
+					},
+					a,
+					namespace,
+				)
+				if err != nil {
+					return engineResponse, err
+				}
+				if !bindingMatches {
+					continue
+				}
 			}
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 			return validateResource(policy, &bindings[i], resource, namespace, a)
@@ -174,7 +217,7 @@ func Validate(
 }
 
 func validateResource(
-	policy admissionregistrationv1.ValidatingAdmissionPolicy,
+	policy *admissionregistrationv1.ValidatingAdmissionPolicy,
 	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
 	namespace *corev1.Namespace,
@@ -182,7 +225,7 @@ func validateResource(
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(&policy), nil)
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 	policyResp := engineapi.NewPolicyResponse()
 	var ruleResp *engineapi.RuleResponse
 
