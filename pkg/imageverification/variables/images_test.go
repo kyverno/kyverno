@@ -8,7 +8,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -17,7 +17,7 @@ import (
 func Test_Match(t *testing.T) {
 	tests := []struct {
 		name           string
-		imageExtractor []v1alpha1.Image
+		imageExtractor []v1alpha1.ImageExtractor
 		request        map[string]any
 		gvr            *metav1.GroupVersionResource
 		wantResult     map[string][]string
@@ -25,7 +25,7 @@ func Test_Match(t *testing.T) {
 	}{
 		{
 			name: "standard",
-			imageExtractor: []v1alpha1.Image{
+			imageExtractor: []v1alpha1.ImageExtractor{
 				{
 					Name:       "one",
 					Expression: "request.images",
@@ -50,7 +50,7 @@ func Test_Match(t *testing.T) {
 		},
 		{
 			name: "pod image extraction",
-			imageExtractor: []v1alpha1.Image{
+			imageExtractor: []v1alpha1.ImageExtractor{
 				{
 					Name:       "one",
 					Expression: "request.images",
@@ -115,7 +115,7 @@ func Test_Match(t *testing.T) {
 		},
 		{
 			name: "standard fail",
-			imageExtractor: []v1alpha1.Image{
+			imageExtractor: []v1alpha1.ImageExtractor{
 				{
 					Name:       "one",
 					Expression: "request.images",
@@ -132,9 +132,14 @@ func Test_Match(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, errList := CompileImageExtractors(field.NewPath("spec", "images"), tt.imageExtractor, tt.gvr, []cel.EnvOption{cel.Variable(policy.RequestKey, types.DynType), cel.Variable(policy.ObjectKey, types.DynType)})
+			c, errList := CompileImageExtractors(
+				field.NewPath("spec", "images"),
+				[]cel.EnvOption{cel.Variable(compiler.RequestKey, types.DynType), cel.Variable(compiler.ObjectKey, types.DynType)},
+				tt.gvr,
+				tt.imageExtractor...,
+			)
 			assert.Nil(t, errList)
-			images, err := ExtractImages(c, tt.request)
+			images, err := ExtractImages(tt.request, c)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
