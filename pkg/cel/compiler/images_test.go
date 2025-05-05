@@ -1,4 +1,4 @@
-package variables
+package compiler
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -134,7 +133,7 @@ func Test_Match(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, errList := CompileImageExtractors(
 				field.NewPath("spec", "images"),
-				[]cel.EnvOption{cel.Variable(compiler.RequestKey, types.DynType), cel.Variable(compiler.ObjectKey, types.DynType)},
+				[]cel.EnvOption{cel.Variable(RequestKey, types.DynType), cel.Variable(ObjectKey, types.DynType)},
 				tt.gvr,
 				tt.imageExtractor...,
 			)
@@ -154,7 +153,6 @@ func Test_Match(t *testing.T) {
 					}
 					return true
 				}
-
 				assert.NoError(t, err)
 				assert.True(t, cmp(tt.wantResult, images), fmt.Sprintf("want=%v, got=%v", tt.wantResult, images))
 			}
