@@ -1,4 +1,4 @@
-package variables
+package compiler
 
 import (
 	"github.com/google/cel-go/cel"
@@ -51,7 +51,10 @@ var (
 	cronjobs     = metav1.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
 )
 
-// TODO: return compiled version directly
+type ImageExtractor struct {
+	cel.Program
+}
+
 func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1alpha1.ImageExtractor {
 	switch gvr {
 	case pods:
@@ -64,11 +67,7 @@ func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1alpha1.Image
 	return nil
 }
 
-type CompiledImageExtractor struct {
-	cel.Program
-}
-
-func (c *CompiledImageExtractor) GetImages(data map[string]any) ([]string, error) {
+func (c *ImageExtractor) GetImages(data map[string]any) ([]string, error) {
 	out, _, err := c.Eval(data)
 	if err != nil {
 		return nil, err
@@ -80,7 +79,7 @@ func (c *CompiledImageExtractor) GetImages(data map[string]any) ([]string, error
 	return result, nil
 }
 
-func CompileImageExtractors(path *field.Path, envOpts []cel.EnvOption, gvr *metav1.GroupVersionResource, imageExtractors ...v1alpha1.ImageExtractor) (map[string]CompiledImageExtractor, field.ErrorList) {
+func CompileImageExtractors(path *field.Path, envOpts []cel.EnvOption, gvr *metav1.GroupVersionResource, imageExtractors ...v1alpha1.ImageExtractor) (map[string]ImageExtractor, field.ErrorList) {
 	var extractors []v1alpha1.ImageExtractor
 	if gvr != nil {
 		extractors = append(extractors, getImageExtractorsFromGVR(*gvr)...)
@@ -90,7 +89,7 @@ func CompileImageExtractors(path *field.Path, envOpts []cel.EnvOption, gvr *meta
 		return nil, nil
 	}
 	var allErrs field.ErrorList
-	compiled := make(map[string]CompiledImageExtractor, len(extractors))
+	compiled := make(map[string]ImageExtractor, len(extractors))
 	env, err := cel.NewEnv(envOpts...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(path, err))
@@ -106,14 +105,14 @@ func CompileImageExtractors(path *field.Path, envOpts []cel.EnvOption, gvr *meta
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
 		}
-		compiled[m.Name] = CompiledImageExtractor{
+		compiled[m.Name] = ImageExtractor{
 			Program: prog,
 		}
 	}
 	return compiled, nil
 }
 
-func ExtractImages(data map[string]any, extractors map[string]CompiledImageExtractor) (map[string][]string, error) {
+func ExtractImages(data map[string]any, extractors map[string]ImageExtractor) (map[string][]string, error) {
 	result := make(map[string][]string, len(extractors))
 	for key, value := range extractors {
 		if images, err := value.GetImages(data); err != nil {
