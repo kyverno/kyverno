@@ -19,10 +19,10 @@ limitations under the License.
 package v2
 
 import (
-	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ClusterCleanupPolicyLister helps list ClusterCleanupPolicies.
@@ -30,39 +30,19 @@ import (
 type ClusterCleanupPolicyLister interface {
 	// List lists all ClusterCleanupPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.ClusterCleanupPolicy, err error)
+	List(selector labels.Selector) (ret []*kyvernov2.ClusterCleanupPolicy, err error)
 	// Get retrieves the ClusterCleanupPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.ClusterCleanupPolicy, error)
+	Get(name string) (*kyvernov2.ClusterCleanupPolicy, error)
 	ClusterCleanupPolicyListerExpansion
 }
 
 // clusterCleanupPolicyLister implements the ClusterCleanupPolicyLister interface.
 type clusterCleanupPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*kyvernov2.ClusterCleanupPolicy]
 }
 
 // NewClusterCleanupPolicyLister returns a new ClusterCleanupPolicyLister.
 func NewClusterCleanupPolicyLister(indexer cache.Indexer) ClusterCleanupPolicyLister {
-	return &clusterCleanupPolicyLister{indexer: indexer}
-}
-
-// List lists all ClusterCleanupPolicies in the indexer.
-func (s *clusterCleanupPolicyLister) List(selector labels.Selector) (ret []*v2.ClusterCleanupPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.ClusterCleanupPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterCleanupPolicy from the index for a given name.
-func (s *clusterCleanupPolicyLister) Get(name string) (*v2.ClusterCleanupPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2.Resource("clustercleanuppolicy"), name)
-	}
-	return obj.(*v2.ClusterCleanupPolicy), nil
+	return &clusterCleanupPolicyLister{listers.New[*kyvernov2.ClusterCleanupPolicy](indexer, kyvernov2.Resource("clustercleanuppolicy"))}
 }

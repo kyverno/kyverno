@@ -19,103 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeClusterPolicyReports implements ClusterPolicyReportInterface
-type FakeClusterPolicyReports struct {
+// fakeClusterPolicyReports implements ClusterPolicyReportInterface
+type fakeClusterPolicyReports struct {
+	*gentype.FakeClientWithList[*v1alpha2.ClusterPolicyReport, *v1alpha2.ClusterPolicyReportList]
 	Fake *FakeWgpolicyk8sV1alpha2
 }
 
-var clusterpolicyreportsResource = v1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports")
-
-var clusterpolicyreportsKind = v1alpha2.SchemeGroupVersion.WithKind("ClusterPolicyReport")
-
-// Get takes name of the clusterPolicyReport, and returns the corresponding clusterPolicyReport object, and an error if there is any.
-func (c *FakeClusterPolicyReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.ClusterPolicyReport, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(clusterpolicyreportsResource, name), &v1alpha2.ClusterPolicyReport{})
-	if obj == nil {
-		return nil, err
+func newFakeClusterPolicyReports(fake *FakeWgpolicyk8sV1alpha2) policyreportv1alpha2.ClusterPolicyReportInterface {
+	return &fakeClusterPolicyReports{
+		gentype.NewFakeClientWithList[*v1alpha2.ClusterPolicyReport, *v1alpha2.ClusterPolicyReportList](
+			fake.Fake,
+			"",
+			v1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"),
+			v1alpha2.SchemeGroupVersion.WithKind("ClusterPolicyReport"),
+			func() *v1alpha2.ClusterPolicyReport { return &v1alpha2.ClusterPolicyReport{} },
+			func() *v1alpha2.ClusterPolicyReportList { return &v1alpha2.ClusterPolicyReportList{} },
+			func(dst, src *v1alpha2.ClusterPolicyReportList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha2.ClusterPolicyReportList) []*v1alpha2.ClusterPolicyReport {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha2.ClusterPolicyReportList, items []*v1alpha2.ClusterPolicyReport) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha2.ClusterPolicyReport), err
-}
-
-// List takes label and field selectors, and returns the list of ClusterPolicyReports that match those selectors.
-func (c *FakeClusterPolicyReports) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.ClusterPolicyReportList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(clusterpolicyreportsResource, clusterpolicyreportsKind, opts), &v1alpha2.ClusterPolicyReportList{})
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha2.ClusterPolicyReportList{ListMeta: obj.(*v1alpha2.ClusterPolicyReportList).ListMeta}
-	for _, item := range obj.(*v1alpha2.ClusterPolicyReportList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested clusterPolicyReports.
-func (c *FakeClusterPolicyReports) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(clusterpolicyreportsResource, opts))
-}
-
-// Create takes the representation of a clusterPolicyReport and creates it.  Returns the server's representation of the clusterPolicyReport, and an error, if there is any.
-func (c *FakeClusterPolicyReports) Create(ctx context.Context, clusterPolicyReport *v1alpha2.ClusterPolicyReport, opts v1.CreateOptions) (result *v1alpha2.ClusterPolicyReport, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(clusterpolicyreportsResource, clusterPolicyReport), &v1alpha2.ClusterPolicyReport{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.ClusterPolicyReport), err
-}
-
-// Update takes the representation of a clusterPolicyReport and updates it. Returns the server's representation of the clusterPolicyReport, and an error, if there is any.
-func (c *FakeClusterPolicyReports) Update(ctx context.Context, clusterPolicyReport *v1alpha2.ClusterPolicyReport, opts v1.UpdateOptions) (result *v1alpha2.ClusterPolicyReport, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(clusterpolicyreportsResource, clusterPolicyReport), &v1alpha2.ClusterPolicyReport{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.ClusterPolicyReport), err
-}
-
-// Delete takes name of the clusterPolicyReport and deletes it. Returns an error if one occurs.
-func (c *FakeClusterPolicyReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(clusterpolicyreportsResource, name, opts), &v1alpha2.ClusterPolicyReport{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeClusterPolicyReports) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(clusterpolicyreportsResource, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha2.ClusterPolicyReportList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched clusterPolicyReport.
-func (c *FakeClusterPolicyReports) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.ClusterPolicyReport, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(clusterpolicyreportsResource, name, pt, data, subresources...), &v1alpha2.ClusterPolicyReport{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.ClusterPolicyReport), err
 }
