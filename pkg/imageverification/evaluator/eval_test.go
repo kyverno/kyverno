@@ -31,7 +31,7 @@ var (
 					Glob: "ghcr.io/*",
 				},
 			},
-			Images: []policiesv1alpha1.Image{
+			ImageExtractors: []policiesv1alpha1.ImageExtractor{
 				{
 					Name:       "bar",
 					Expression: "[object.foo.bar]",
