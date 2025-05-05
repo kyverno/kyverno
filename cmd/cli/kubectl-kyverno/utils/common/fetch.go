@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -248,7 +249,16 @@ func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1.Valida
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
 
-	kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+	restMapper, err := utils.GetRESTMapper(client, false)
+	if err != nil {
+		log.Log.V(3).Info("failed to get rest mapper", "error", err)
+		return resourceTypesMap, subresourceMap
+	}
+	kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+	if err != nil {
+		log.Log.V(3).Info("failed to get kinds from validating admission policy", "error", err)
+		return resourceTypesMap, subresourceMap
+	}
 	for _, kind := range kinds {
 		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
 	}

@@ -17,7 +17,6 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -41,20 +40,19 @@ import (
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/restmapper"
 )
 
 type SkippedInvalidPolicies struct {
@@ -439,11 +437,13 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
+	if len(ivps) == 0 {
+		return nil, nil
+	}
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
-
 	var lister k8scorev1.SecretInterface
 	if dclient != nil {
 		lister = dclient.GetKubeClient().CoreV1().Secrets("")
@@ -456,8 +456,11 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 	)
 
+	restMapper, err := utils.GetRESTMapper(dclient, !c.Cluster)
+	if err != nil {
+		return nil, err
+	}
 	gctxStore := gctxstore.New()
-	var restMapper meta.RESTMapper
 	var contextProvider libs.Context
 	if dclient != nil {
 		contextProvider, err = libs.NewContextProvider(
@@ -468,17 +471,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if err != nil {
 			return nil, err
 		}
-		apiGroupResources, err := restmapper.GetAPIGroupResources(dclient.GetKubeClient().Discovery())
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	} else {
-		apiGroupResources, err := data.APIGroupResources()
-		if err != nil {
-			return nil, err
-		}
-		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 		fakeContextProvider := libs.NewFakeContextProvider()
 		if c.ContextPath != "" {
 			ctx, err := clicontext.Load(nil, c.ContextPath)
