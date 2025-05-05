@@ -2,6 +2,7 @@ package eval
 
 import (
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -11,7 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/kyverno/kyverno/pkg/imageverification/variables"
 	ivpolvar "github.com/kyverno/kyverno/pkg/imageverification/variables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -101,7 +101,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		return nil, append(allErrs, errs...)
 	}
 
-	imageExtractors, errs := variables.CompileImageExtractors(path.Child("images"), options, c.reqGVR, ivpolicy.Spec.ImageExtractors...)
+	imageExtractors, errs := engine.CompileImageExtractors(path.Child("images"), options, c.reqGVR, ivpolicy.Spec.ImageExtractors...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -170,9 +170,17 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		auditAnnotations:     auditAnnotations,
 		imageExtractors:      imageExtractors,
 		attestors:            compiledAttestors,
-		attestationList:      ivpolvar.GetAttestations(ivpolicy.Spec.Attestations),
+		attestationList:      getAttestations(ivpolicy.Spec.Attestations),
 		creds:                ivpolicy.Spec.Credentials,
 		exceptions:           compiledExceptions,
 		variables:            variables,
 	}, nil
+}
+
+func getAttestations(att []v1alpha1.Attestation) map[string]string {
+	m := make(map[string]string)
+	for _, v := range att {
+		m[v.Name] = v.Name
+	}
+	return m
 }
