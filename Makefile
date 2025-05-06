@@ -591,8 +591,12 @@ codegen-api-docs: $(GENREF)
 .PHONY: codegen-api-group-resources
 codegen-api-group-resources: ## Generate API group resources
 codegen-api-group-resources: $(API_GROUP_RESOURCES)
+codegen-api-group-resources: $(KIND)
 	@echo Generate API group resources... >&2
+	@$(KIND) delete cluster --name codegen-cli-api-group-resources || true
+	@$(KIND) create cluster --name codegen-cli-api-group-resources --image $(KIND_IMAGE) --config ./scripts/config/kind/codegen.yaml
 	@$(API_GROUP_RESOURCES) > cmd/cli/kubectl-kyverno/data/api-group-resources.json
+	@$(KIND) delete cluster --name codegen-cli-api-group-resources
 
 .PHONY: codegen-cli-api-docs
 codegen-cli-api-docs: ## Generate CLI API docs
