@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
@@ -99,19 +100,14 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
-	var declTypes []*apiservercel.DeclType
-	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
 	options := []cel.EnvOption{
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
-		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
 		cel.Variable(compiler.OldObjectKey, cel.DynType),
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	}
+	var declTypes []*apiservercel.DeclType
+	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
 	for _, declType := range declTypes {
 		options = append(options, cel.Types(declType.CelType()))
 	}
@@ -123,7 +119,6 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		panic(err)
 	}
 	options = append(options, declOptions...)
-	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), resource.Lib(), user.Lib())
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {
@@ -138,6 +133,22 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+	}
+	env, err = env.Extend(
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
+		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+		globalcontext.Lib(),
+		http.Lib(),
+		image.ImageLib(),
+		imagedata.Lib(),
+		resource.Lib(),
+		user.Lib(),
+	)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
 	if errs != nil {
