@@ -27,7 +27,7 @@ func (*imageLibType) Types() []*cel.Type {
 
 func (*imageLibType) declarations() map[string][]cel.FunctionOpt {
 	return map[string][]cel.FunctionOpt{
-		"image": {
+		"ParseImageRef": {
 			cel.Overload(
 				"string_to_image",
 				[]*cel.Type{cel.StringType},
