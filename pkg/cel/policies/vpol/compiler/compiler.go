@@ -52,7 +52,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, resource.Lib(), http.Lib())
+	options = append(options, http.Lib(), image.ImageLib(), resource.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
