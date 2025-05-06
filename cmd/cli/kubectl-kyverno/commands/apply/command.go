@@ -583,8 +583,15 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	return responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
+func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vaps []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(policies)+len(vaps))
+	for _, pol := range policies {
+		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
+	}
+	for _, pol := range vaps {
+		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
+	}
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, genericPolicies, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
