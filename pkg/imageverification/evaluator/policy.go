@@ -13,6 +13,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
@@ -56,7 +57,7 @@ type compiledPolicy struct {
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
-	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
+	matched, err := c.match(ctx, context, attr, request, namespace, c.matchConditions)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +68,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if len(c.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
 		for _, polex := range c.exceptions {
-			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+			match, err := c.match(ctx, context, attr, request, namespace, polex.MatchConditions)
 			if err != nil {
 				return nil, err
 			}
@@ -196,12 +197,19 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 
 func (p *compiledPolicy) match(
 	ctx context.Context,
+	dataCtx libs.Context,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
 	matchConditions []cel.Program,
 ) (bool, error) {
-	data := make(map[string]any)
+	data := map[string]any{
+		engine.GlobalContextKey: globalcontext.Context{ContextInterface: dataCtx},
+		engine.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
+		engine.ImageDataKey:     imagedata.Context{ContextInterface: dataCtx},
+		engine.ResourceKey:      resource.Context{ContextInterface: dataCtx},
+	}
+
 	if isK8s(request) {
 		namespaceVal, err := objectToResolveVal(namespace)
 		if err != nil {

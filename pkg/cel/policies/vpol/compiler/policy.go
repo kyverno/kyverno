@@ -82,7 +82,7 @@ func (p *Policy) evaluateWithData(
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
 		for _, polex := range p.exceptions {
-			match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, polex.MatchConditions)
+			match, err := p.match(ctx, data, polex.MatchConditions)
 			if err != nil {
 				return nil, err
 			}
@@ -94,7 +94,7 @@ func (p *Policy) evaluateWithData(
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
-	match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, p.matchConditions)
+	match, err := p.match(ctx, data, p.matchConditions)
 	if err != nil {
 		return nil, err
 	}
@@ -172,22 +172,23 @@ func (p *Policy) evaluateWithData(
 
 func (p *Policy) match(
 	ctx context.Context,
-	namespaceVal any,
-	objectVal any,
-	oldObjectVal any,
-	requestVal any,
+	data evaluationData,
 	matchConditions []cel.Program,
 ) (bool, error) {
-	data := map[string]any{
-		compiler.NamespaceObjectKey: namespaceVal,
-		compiler.ObjectKey:          objectVal,
-		compiler.OldObjectKey:       oldObjectVal,
-		compiler.RequestKey:         requestVal,
+	dataNew := map[string]any{
+		compiler.NamespaceObjectKey: data.Namespace,
+		compiler.ObjectKey:          data.Object,
+		compiler.OldObjectKey:       data.OldObject,
+		compiler.RequestKey:         data.Request,
+		compiler.ResourceKey:        resource.Context{ContextInterface: data.Context},
+		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
+		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
+		compiler.ImageDataKey:       imagedata.Context{ContextInterface: data.Context},
 	}
 	var errs []error
 	for _, matchCondition := range matchConditions {
 		// evaluate the condition
-		out, _, err := matchCondition.ContextEval(ctx, data)
+		out, _, err := matchCondition.ContextEval(ctx, dataNew)
 		// check error
 		if err != nil {
 			errs = append(errs, err)
