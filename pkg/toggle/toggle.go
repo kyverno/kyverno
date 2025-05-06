@@ -23,9 +23,9 @@ const (
 	defaultEnableDeferredLoading     = true
 	// generate validating admission policies
 	GenerateValidatingAdmissionPolicyFlagName    = "generateValidatingAdmissionPolicy"
-	GenerateValidatingAdmissionPolicyDescription = "Set the flag to 'true', to generate validating admission policies."
+	GenerateValidatingAdmissionPolicyDescription = "Set the flag to 'false', to disable the generation of ValidatingAdmissionPolicies."
 	generateValidatingAdmissionPolicyEnvVar      = "FLAG_GENERATE_VALIDATING_ADMISSION_POLICY"
-	defaultGenerateValidatingAdmissionPolicy     = false
+	defaultGenerateValidatingAdmissionPolicy     = true
 	// dump mutate patches
 	DumpMutatePatchesFlagName    = "dumpPatches"
 	DumpMutatePatchesDescription = "Set the flag to 'true', to dump mutate patches."
