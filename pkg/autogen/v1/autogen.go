@@ -240,7 +240,6 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	nameSet := sets.NewString()
 	var deduped []kyvernov1.Rule
 
-	// 1️⃣ include all original (non-autogen) rules
 	for _, r := range spec.Rules {
 		if !isAutogenRuleName(r.Name) {
 			deduped = append(deduped, r)
@@ -248,7 +247,6 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 		}
 	}
 
-	// 2️⃣ append each generated rule only if its name is new
 	for _, r := range genRules {
 		if !nameSet.Has(r.Name) {
 			deduped = append(deduped, r)
