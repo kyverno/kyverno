@@ -18,7 +18,7 @@ spec:
       - apiGroups: [""]
         apiVersions: ["v1"]
         operations: ["CREATE"]
-        resources: ["deployments"]
+        resources: ["pods"]
   matchConditions:
     - name: "check-prod-label"  
       expression: >- 
