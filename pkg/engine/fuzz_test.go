@@ -43,7 +43,6 @@ var (
 		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(nil),
 		nil,
-		nil,
 	)
 	initter sync.Once
 )
@@ -56,7 +55,7 @@ func buildFuzzContext(ff *fuzz.ConsumeFuzzer) (*PolicyContext, error) {
 	cpol := &kyverno.ClusterPolicy{}
 	cpol.Spec = cpSpec
 
-	if len(autogen.Default.ComputeRules(cpol, "")) == 0 {
+	if len(autogen.ComputeRules(cpol, "")) == 0 {
 		return nil, fmt.Errorf("No rules created")
 	}
 
@@ -127,7 +126,6 @@ func FuzzVerifyImageAndPatchTest(f *testing.F) {
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(nil),
 			nil,
-			nil,
 		)
 
 		_, _ = verifyImageAndPatchEngine.VerifyAndPatchImages(
@@ -147,7 +145,7 @@ func FuzzEngineValidateTest(f *testing.F) {
 		policy := &kyverno.ClusterPolicy{}
 		policy.Spec = cpSpec
 
-		if len(autogen.Default.ComputeRules(policy, "")) == 0 {
+		if len(autogen.ComputeRules(policy, "")) == 0 {
 			return
 		}
 
@@ -243,7 +241,7 @@ func FuzzMutateTest(f *testing.F) {
 		policy := &kyverno.ClusterPolicy{}
 		policy.Spec = cpSpec
 
-		if len(autogen.Default.ComputeRules(policy, "")) == 0 {
+		if len(autogen.ComputeRules(policy, "")) == 0 {
 			return
 		}
 
@@ -272,7 +270,6 @@ func FuzzMutateTest(f *testing.F) {
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(nil), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(nil),
-			nil,
 			nil,
 		)
 		e.Mutate(

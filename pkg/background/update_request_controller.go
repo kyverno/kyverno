@@ -83,17 +83,14 @@ func NewController(
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		engine:        engine,
-		cpolLister:    cpolInformer.Lister(),
-		polLister:     polInformer.Lister(),
-		urLister:      urLister,
-		nsLister:      namespaceInformer.Lister(),
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: "background"},
-		),
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		engine:         engine,
+		cpolLister:     cpolInformer.Lister(),
+		polLister:      polInformer.Lister(),
+		urLister:       urLister,
+		nsLister:       namespaceInformer.Lister(),
+		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), "background"),
 		eventGen:       eventGen,
 		configuration:  configuration,
 		jp:             jp,
@@ -114,8 +111,8 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger.V(4).Info("starting")
-	defer logger.V(4).Info("shutting down")
+	logger.Info("starting")
+	defer logger.Info("shutting down")
 
 	if !cache.WaitForNamedCacheSync("background", ctx.Done(), c.informersSynced...) {
 		return
@@ -243,7 +240,7 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 func (c *controller) reconcileURStatus(ur *kyvernov2.UpdateRequest) (kyvernov2.UpdateRequestState, error) {
 	new, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
 	if err != nil {
-		logger.V(3).Info("cannot fetch latest UR, fallback to the existing one", "reason", err.Error())
+		logger.V(2).Info("cannot fetch latest UR, fallback to the existing one", "reason", err.Error())
 		new = ur
 	}
 

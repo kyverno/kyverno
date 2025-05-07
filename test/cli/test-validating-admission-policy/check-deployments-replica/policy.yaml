@@ -1,7 +1,7 @@
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
-  name: check-deployment-replicas
+  name: "chech-deployment-replicas"
 spec:
   matchConstraints:
     resourceRules:

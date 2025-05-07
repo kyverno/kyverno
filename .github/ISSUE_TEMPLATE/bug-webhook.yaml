@@ -11,13 +11,11 @@ body:
     id: kyverno-version
     attributes:
       label: Kyverno Version
-      description: What version of Kyverno are you running? For prior unsupported versions, please add the version in the description.
+      description: What version of Kyverno are you running?
       options:
-        - 1.11.0
-        - 1.11.1
-        - 1.11.2
-        - 1.11.3
-        - 1.11.4
+        - 1.8.5
+        - 1.9.5
+        - 1.10.6
         - 1.11.5
         - 1.12.0
         - 1.12.1
@@ -25,13 +23,7 @@ body:
         - 1.12.3
         - 1.12.4
         - 1.12.5
-        - 1.12.6
-        - 1.12.7
         - 1.13.0
-        - 1.13.1
-        - 1.13.2
-        - 1.13.3
-        - 1.13.4
     validations:
       required: true
   - type: dropdown
@@ -44,7 +36,6 @@ body:
         - 1.29.x
         - 1.30.x
         - 1.31.x
-        - 1.32.x
     validations:
       required: true
   - type: dropdown

@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -15,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 )
 
 // Validation provides methods to validate a rule
@@ -54,11 +54,11 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 
 		if rule.HasValidateCEL() && toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
 			authCheck := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
-			if !admissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
+			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
 				warnings = append(warnings, "insufficient permissions to generate ValidatingAdmissionPolicies")
 			}
 
-			if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(authCheck) {
+			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyBindingPermission(authCheck) {
 				warnings = append(warnings, "insufficient permissions to generate ValidatingAdmissionPolicies")
 			}
 		}

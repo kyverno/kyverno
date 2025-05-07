@@ -19,14 +19,13 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/rest"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
 	return func() {
 		for i := range sdowns {
 			if sdowns[i] != nil {
-				logger.V(2).Info("shutting down...")
+				logger.Info("shutting down...")
 				defer sdowns[i]()
 			}
 		}
@@ -52,7 +51,6 @@ type SetupResult struct {
 	EventsClient           eventsv1.EventsV1Interface
 	ReportingConfiguration reportutils.ReportingConfiguration
 	ResyncPeriod           time.Duration
-	RestConfig             *rest.Config
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
@@ -114,10 +112,6 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesReporting() {
 		reportingConfig = setupReporting(logger)
 	}
-	var restConfig *rest.Config
-	if config.UsesRestConfig() {
-		restConfig = createClientConfig(logger, clientRateLimitQPS, clientRateLimitBurst)
-	}
 	return ctx,
 		SetupResult{
 			Logger:                 logger,
@@ -138,7 +132,6 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			EventsClient:           eventsClient,
 			ReportingConfiguration: reportingConfig,
 			ResyncPeriod:           resyncPeriod,
-			RestConfig:             restConfig,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }

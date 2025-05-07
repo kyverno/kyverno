@@ -111,7 +111,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
 	}
 	kindStates := map[policyKey]state{}
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		if rule.HasValidate() {
 			action := rule.Validation.FailureAction
 			if action != nil && action.Enforce() {
@@ -210,7 +210,7 @@ func (m *policyMap) get(key PolicyType, gvr schema.GroupVersionResource, subreso
 		isNamespacedPolicy := ns != ""
 		policy := m.policies[policyName]
 		if policy == nil {
-			logger.V(4).Info("nil policy in the cache, this should not happen")
+			logger.Info("nil policy in the cache, this should not happen")
 		}
 		if !isNamespacedPolicy && namespace == "" {
 			result = append(result, policy)

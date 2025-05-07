@@ -29,7 +29,7 @@ func Test_All(t *testing.T) {
 	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -65,7 +65,7 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -98,7 +98,7 @@ func Test_Add_Validate_Audit(t *testing.T) {
 	policy.Spec.ValidationFailureAction = "audit"
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -895,7 +895,7 @@ func Test_Ns_All(t *testing.T) {
 	//add
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
-	rules := autogen.Default.ComputeRules(policy, "")
+	rules := autogen.ComputeRules(policy, "")
 	for _, rule := range rules {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
@@ -932,7 +932,7 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -965,7 +965,7 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 	policy.GetSpec().ValidationFailureAction = "audit"
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1008,7 +1008,7 @@ func Test_GVk_Cache(t *testing.T) {
 	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1046,7 +1046,7 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1087,7 +1087,7 @@ func Test_Mutate_Policy(t *testing.T) {
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1109,7 +1109,7 @@ func Test_Generate_Policy(t *testing.T) {
 	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)

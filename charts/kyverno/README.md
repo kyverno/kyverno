@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
+![Version: 3.3.8](https://img.shields.io/badge/Version-3.3.8-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.13.5](https://img.shields.io/badge/AppVersion-v1.13.5-informational?style=flat-square)
 
 ## About
 
@@ -257,9 +257,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
-| crds.groups.kyverno | object | `{"celpolicyexceptions":true,"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true,"validatingpolicies":true}` | Install CRDs in group `kyverno.io` |
-| crds.groups.policies.validatingpolicies | bool | `true` |  |
-| crds.groups.policies.celpolicyexceptions | bool | `true` |  |
+| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
 | crds.groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
 | crds.groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
@@ -267,7 +265,7 @@ The chart values are organised per component.
 | crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
 | crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `nil` | Image registry |
-| crds.migration.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| crds.migration.image.defaultRegistry | string | `"ghcr.io"` |  |
 | crds.migration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
 | crds.migration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | crds.migration.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -408,7 +406,7 @@ The chart values are organised per component.
 | admissionController.caCertificates.volume | object | `{}` | Volume to be mounted for CA certificates Not used when `.Values.admissionController.caCertificates.data` is defined |
 | admissionController.imagePullSecrets | list | `[]` | Image pull secrets |
 | admissionController.initContainer.image.registry | string | `nil` | Image registry |
-| admissionController.initContainer.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| admissionController.initContainer.image.defaultRegistry | string | `"ghcr.io"` |  |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
 | admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
@@ -418,7 +416,7 @@ The chart values are organised per component.
 | admissionController.initContainer.extraArgs | object | `{}` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `nil` | Image registry |
-| admissionController.container.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| admissionController.container.image.defaultRegistry | string | `"ghcr.io"` |  |
 | admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
 | admissionController.container.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -477,7 +475,7 @@ The chart values are organised per component.
 | backgroundController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | backgroundController.image.registry | string | `nil` | Image registry |
-| backgroundController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| backgroundController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | backgroundController.image.repository | string | `"kyverno/background-controller"` | Image repository |
 | backgroundController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -553,7 +551,7 @@ The chart values are organised per component.
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | cleanupController.image.registry | string | `nil` | Image registry |
-| cleanupController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| cleanupController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
 | cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -637,7 +635,7 @@ The chart values are organised per component.
 | reportsController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | reportsController.image.registry | string | `nil` | Image registry |
-| reportsController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| reportsController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
 | reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -774,7 +772,6 @@ The chart values are organised per component.
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
-| rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
@@ -853,8 +850,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | v0.0.0 |
-|  | grafana | v0.0.0 |
+|  | crds | 3.3.8 |
+|  | grafana | 3.3.8 |
 
 ## Maintainers
 

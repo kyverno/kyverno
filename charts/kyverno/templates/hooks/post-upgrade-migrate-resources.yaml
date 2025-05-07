@@ -87,7 +87,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ template "kyverno.fullname" . }}-migrate-resources
+      serviceAccount: {{ template "kyverno.fullname" . }}-migrate-resources
       {{- with .Values.crds.migration.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}

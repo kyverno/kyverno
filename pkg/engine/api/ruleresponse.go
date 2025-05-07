@@ -3,8 +3,9 @@ package api
 import (
 	"fmt"
 
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
@@ -43,9 +44,9 @@ type RuleResponse struct {
 	// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 	podSecurityChecks *PodSecurityChecks
 	// exceptions are the exceptions applied (if any)
-	exceptions []GenericException
+	exceptions []kyvernov2.PolicyException
 	// binding is the validatingadmissionpolicybinding (if any)
-	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
 	// properties are the additional properties from the rule that will be added to the policy report result
@@ -90,12 +91,12 @@ func RuleFail(name string, ruleType RuleType, msg string, properties map[string]
 	return NewRuleResponse(name, ruleType, msg, RuleStatusFail, properties)
 }
 
-func (r RuleResponse) WithExceptions(exceptions []GenericException) *RuleResponse {
+func (r RuleResponse) WithExceptions(exceptions []kyvernov2.PolicyException) *RuleResponse {
 	r.exceptions = exceptions
 	return &r
 }
 
-func (r RuleResponse) WithBinding(binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) *RuleResponse {
+func (r RuleResponse) WithBinding(binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) *RuleResponse {
 	r.binding = binding
 	return &r
 }
@@ -136,11 +137,11 @@ func (r *RuleResponse) Stats() ExecutionStats {
 	return r.stats
 }
 
-func (r *RuleResponse) Exceptions() []GenericException {
+func (r *RuleResponse) Exceptions() []kyvernov2.PolicyException {
 	return r.exceptions
 }
 
-func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding {
 	return r.binding
 }
 

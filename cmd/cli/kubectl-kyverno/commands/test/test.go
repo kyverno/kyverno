@@ -26,16 +26,9 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type TestResponse struct {
-	Trigger map[string][]engineapi.EngineResponse
-	Target  map[string][]engineapi.EngineResponse
-}
-
-func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engineapi.EngineResponse, error) {
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
@@ -82,34 +75,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
-
-	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
-	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
-	if err != nil {
-		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
-	}
-
-	targets := []runtime.Object{}
-	for _, t := range targetResources {
-		targets = append(targets, t)
-	}
-
-	// this will be a dclient containing all target resources. a policy may not do anything with any targets in these
-	dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targets...)
-	if err != nil {
-		return nil, err
-	}
-	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
 	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
-	polexLoader, err := exception.Load(exceptionFullPath...)
+	exceptions, err := exception.Load(exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
 	}
 	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
-	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
+	if len(results.VAPs) > 0 && len(exceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")
 	}
 	// init store
@@ -124,10 +98,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	policyPlural := pluralize.Pluralize(len(results.Policies)+len(results.VAPs), "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
-	if polexLoader != nil {
-		exceptionCount := len(polexLoader.Exceptions)
-		exceptionCount += len(polexLoader.CELExceptions)
-		exceptionsPlural := pluralize.Pluralize(exceptionCount, "exception", "exceptions")
+	if len(exceptions) > 0 {
+		exceptionCount := len(exceptions)
+		exceptionsPlural := pluralize.Pluralize(len(exceptions), "exception", "exceptions")
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "with", exceptionCount, exceptionsPlural, "...")
 	} else {
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "...")
@@ -136,7 +109,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range results.Policies {
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
 				if res.IsValidatingAdmissionPolicy {
 					continue
@@ -181,7 +154,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
@@ -191,17 +164,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
-	testResponse := TestResponse{
-		Trigger: map[string][]engineapi.EngineResponse{},
-		Target:  map[string][]engineapi.EngineResponse{},
-	}
 	for _, resource := range uniques {
-		// the policy processor is for multiple policies at once
 		processor := processor.PolicyProcessor{
 			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
-			PolicyExceptions:          polexLoader.Exceptions,
+			PolicyExceptions:          exceptions,
 			MutateLogPath:             "",
 			Variables:                 vars,
 			UserInfo:                  userInfo,
@@ -209,28 +177,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:      vars.NamespaceSelectors(),
 			Rc:                        &resultCounts,
 			RuleToCloneSourceResource: ruleToCloneSourceResource,
-			Cluster:                   false,
 			Client:                    dClient,
 			Subresources:              vars.Subresources(),
-			Out:                       io.Discard,
+			Out:                       out,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
-		resourceKey := generateResourceKey(resource)
 		engineResponses = append(engineResponses, ers...)
-		testResponse.Trigger[resourceKey] = ers
 	}
-	for _, targetResource := range targetResources {
-		for _, engineResponse := range engineResponses {
-			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
-				resourceKey := generateResourceKey(targetResource)
-				testResponse.Target[resourceKey] = append(testResponse.Target[resourceKey], engineResponse)
-			}
-		}
-	}
-
 	for _, resource := range uniques {
 		processor := processor.ValidatingAdmissionPolicyProcessor{
 			Policies:             results.VAPs,
@@ -244,13 +200,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
-		resourceKey := generateResourceKey(resource)
-		testResponse.Trigger[resourceKey] = append(testResponse.Trigger[resourceKey], ers...)
+		engineResponses = append(engineResponses, ers...)
 	}
-	// this is an array of responses of all policies, generated by all of their rules
-	return &testResponse, nil
-}
-
-func generateResourceKey(resource *unstructured.Unstructured) string {
-	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
+	return engineResponses, nil
 }

@@ -11,7 +11,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -22,7 +21,7 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 		var errs []error
 		failedDownstreams := []kyvernov1.ResourceSpec{}
 		for _, e := range ur.Status.GeneratedResources {
-			if err := c.client.DeleteResource(context.TODO(), e.GetAPIVersion(), e.GetKind(), e.GetNamespace(), e.GetName(), false, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.client.DeleteResource(context.TODO(), e.GetAPIVersion(), e.GetKind(), e.GetNamespace(), e.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
 				failedDownstreams = append(failedDownstreams, e)
 				errs = append(errs, err)
 			}
@@ -48,7 +47,7 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 
 func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInterface, ruleContext kyvernov2.RuleContext, ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.V(4).WithValues("ur", ur.Name, "policy", ur.Spec.Policy, "rule", ruleContext.Rule)
-	logger.Info("synchronize for non-policy changes")
+	logger.Info("synchronize for none-policy changes")
 	for _, rule := range policy.GetSpec().Rules {
 		if ruleContext.Rule != rule.Name {
 			continue
@@ -74,7 +73,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 		failedDownstreams := []kyvernov1.ResourceSpec{}
 		for _, downstream := range downstreams {
 			spec := common.ResourceSpecFromUnstructured(downstream)
-			if err := c.client.DeleteResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), false, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.client.DeleteResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
 				failedDownstreams = append(failedDownstreams, spec)
 				errs = append(errs, err)
 			} else {

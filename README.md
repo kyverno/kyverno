@@ -30,7 +30,7 @@ Kyverno is a policy engine designed for cloud native platform engineering teams.
 
 ## 📙 Documentation
 
-Kyverno installation and reference documents are available at [kyverno.io](https://kyverno.io).
+Kyverno installation and reference documents are available at [kyverno.io] (https://kyverno.io).
 
 👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
 

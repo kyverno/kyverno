@@ -112,17 +112,6 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
 </tr>
 <tr>
 <td>
-<code>targetResources</code><br/>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>Target Resources are for policies that have mutate existing</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>variables</code><br/>
 <em>
 string
@@ -666,85 +655,6 @@ Kubernetes meta/v1.APIResource
 </tbody>
 </table>
 <hr />
-<h3 id="cli.kyverno.io/v1alpha1.TestResourceSpec">TestResourceSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#cli.kyverno.io/v1alpha1.TestResultData">TestResultData</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>group</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>version</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespace</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>subresource</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="cli.kyverno.io/v1alpha1.TestResult">TestResult
 </h3>
 <p>
@@ -752,7 +662,7 @@ string
 <a href="#cli.kyverno.io/v1alpha1.Test">Test</a>)
 </p>
 <p>
-<p>TestResult declares a test result</p>
+<p>TestResultBase declares a test result</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -794,17 +704,13 @@ TestResultDeprecated
 </tr>
 <tr>
 <td>
-<code>TestResultData</code><br/>
+<code>resources</code><br/>
 <em>
-<a href="#cli.kyverno.io/v1alpha1.TestResultData">
-TestResultData
-</a>
+[]string
 </em>
 </td>
 <td>
-<p>
-(Members of <code>TestResultData</code> are embedded into this type.)
-</p>
+<p>Resources gives us the list of resources on which the policy is going to be applied.</p>
 </td>
 </tr>
 </tbody>
@@ -922,50 +828,6 @@ string
 <td>
 <p>CloneSourceResource takes the resource configuration file in yaml format
 from the user which is meant to be cloned by the generate rule.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="cli.kyverno.io/v1alpha1.TestResultData">TestResultData
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#cli.kyverno.io/v1alpha1.TestResult">TestResult</a>)
-</p>
-<p>
-<p>TestResultData declares a test result data</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>resources</code><br/>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>Resources gives us the list of resources on which the policy is going to be applied.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resourceSpecs</code><br/>
-<em>
-<a href="#cli.kyverno.io/v1alpha1.TestResourceSpec">
-[]TestResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>Resources gives us the list of resources on which the policy is going to be applied.</p>
 </td>
 </tr>
 </tbody>
@@ -1094,19 +956,6 @@ map[string]interface{}
 </td>
 <td>
 <p>NamespaceSelectors are the namespace labels</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespaces</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#namespace-v1-core">
-[]Kubernetes core/v1.Namespace
-</a>
-</em>
-</td>
-<td>
-<p>Namespaces are the namespaces</p>
 </td>
 </tr>
 <tr>

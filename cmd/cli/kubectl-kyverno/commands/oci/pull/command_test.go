@@ -10,7 +10,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +19,7 @@ var keychain = authn.NewMultiKeychain(
 	github.Keychain,
 	authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
 	google.Keychain,
-	imagedataloader.AzureKeychain,
+	registryclient.AzureKeychain,
 )
 
 func TestCommandNoImageRef(t *testing.T) {

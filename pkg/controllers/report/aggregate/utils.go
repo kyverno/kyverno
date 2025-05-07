@@ -15,21 +15,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type maps struct {
-	pol  map[string]policyMapEntry
-	vap  sets.Set[string]
-	vpol sets.Set[string]
-}
-
-func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
+func mergeReports(policyMap map[string]policyMapEntry, vapMap sets.Set[string], accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
 	for _, report := range reports {
 		if report == nil {
 			continue
 		}
 		for _, result := range report.GetResults() {
-			switch result.Source {
-			case reportutils.SourceValidatingPolicy:
-				if maps.vpol != nil && maps.vpol.Has(result.Policy) {
+			if result.Source == "ValidatingAdmissionPolicy" {
+				if vapMap != nil && vapMap.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
@@ -37,17 +30,8 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 						accumulator[key] = result
 					}
 				}
-			case reportutils.SourceValidatingAdmissionPolicy:
-				if maps.vap != nil && maps.vap.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
-				}
-			default:
-				currentPolicy := maps.pol[result.Policy]
+			} else {
+				currentPolicy := policyMap[result.Policy]
 				if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
 					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
