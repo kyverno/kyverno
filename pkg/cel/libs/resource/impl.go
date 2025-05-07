@@ -3,6 +3,7 @@ package resource
 import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type impl struct {
@@ -67,10 +68,10 @@ func (c *impl) post_resource_string_string_string_map(args ...ref.Val) ref.Val {
 		return err
 	} else if namespace, err := getArg[string](args, 3); err != nil {
 		return err
-	} else if data, err := getArg[map[string]any](args, 4); err != nil {
+	} else if data, err := getArg[*structpb.Struct](args, 4); err != nil {
 		return err
 	} else {
-		res, err := self.PostResource(apiVersion, resource, namespace, data)
+		res, err := self.PostResource(apiVersion, resource, namespace, data.AsMap())
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to create resource: %v", err)

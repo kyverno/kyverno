@@ -186,6 +186,57 @@ func Test_impl_list_resources_string_string_string_error(t *testing.T) {
 	}
 }
 
+func Test_post_resource_string_string_string_map(t *testing.T) {
+	base, err := compiler.NewBaseEnv()
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	env, err := base.Extend(
+		cel.Variable("resource", ContextType),
+		Lib(),
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+	ast, issues := env.Compile(`
+resource.Post(
+	"apps/v1",
+	"deployments",
+	"default",
+	{
+		"apiVersion": dyn("apps/v1"),
+		"kind":       dyn("Deployment"),
+		"metadata": dyn({
+			"name":      "name",
+			"namespace": "namespace",
+		}),
+	}
+)`)
+	assert.Nil(t, issues)
+	assert.NotNil(t, ast)
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+	assert.NotNil(t, prog)
+	data := map[string]any{
+		"resource": Context{&MockCtx{
+			PostResourceFunc: func(apiVersion, resource, namespace string, payload map[string]any) (*unstructured.Unstructured, error) {
+				assert.Equal(t, payload["apiVersion"].(string), "apps/v1")
+				assert.Equal(t, payload["kind"].(string), "Deployment")
+				assert.Equal(t, payload["metadata"].(map[string]any)["name"], "name")
+				assert.Equal(t, payload["metadata"].(map[string]any)["namespace"], "namespace")
+				return &unstructured.Unstructured{
+					Object: payload,
+				}, nil
+			},
+		},
+		}}
+	out, _, err := prog.Eval(data)
+	assert.NoError(t, err)
+	object := out.Value().(map[string]any)
+	assert.Equal(t, object["apiVersion"].(string), "apps/v1")
+	assert.Equal(t, object["kind"].(string), "Deployment")
+	assert.Equal(t, object["metadata"].(map[string]any)["name"], "name")
+	assert.Equal(t, object["metadata"].(map[string]any)["namespace"], "namespace")
+}
+
 func Test_impl_post_resource_string_string_string_map_error(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
@@ -223,7 +274,7 @@ func Test_impl_post_resource_string_string_string_map_error(t *testing.T) {
 	}, {
 		name: "bad arg 5",
 		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.String("v1"), types.String("pods"), types.String("ns"), types.Bool(false)},
-		want: types.NewErr("invalid arg 4: type conversion error from bool to 'map[string]interface {}'"),
+		want: types.NewErr("invalid arg 4: type conversion error from bool to '*structpb.Struct'"),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
