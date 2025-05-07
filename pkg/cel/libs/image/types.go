@@ -12,15 +12,16 @@ import (
 var ImageType = types.NewOpaqueType("kyverno.image")
 
 type Image struct {
-	name.Reference
+	Reference name.Reference
 }
 
 func (v Image) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if reflect.TypeOf(v.Reference).AssignableTo(typeDesc) {
-		return v.Reference, nil
+		ret := name.Reference(v.Reference)
+		return ret, nil
 	}
 	if reflect.TypeOf("").AssignableTo(typeDesc) {
-		return v.String(), nil
+		return v.Reference.String(), nil
 	}
 	return nil, fmt.Errorf("type conversion error from 'Image' to '%v'", typeDesc)
 }
