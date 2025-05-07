@@ -41,6 +41,6 @@ func NewMatchImageEnv() (*cel.Env, error) {
 	}
 	return base.Extend(
 		cel.Variable(ImageRefKey, cel.StringType),
-		image.ImageLib(),
+		image.Lib(),
 	)
 }
