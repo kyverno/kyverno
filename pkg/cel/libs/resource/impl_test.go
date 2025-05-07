@@ -28,7 +28,7 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"resource": Context{&MockCtx{
+		"resource": Context{&ContextMock{
 			GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
@@ -116,7 +116,7 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"resource": Context{&MockCtx{
+		"resource": Context{&ContextMock{
 			ListResourcesFunc: func(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{
 					Items: []unstructured.Unstructured{
@@ -216,7 +216,7 @@ resource.Post(
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"resource": Context{&MockCtx{
+		"resource": Context{&ContextMock{
 			PostResourceFunc: func(apiVersion, resource, namespace string, payload map[string]any) (*unstructured.Unstructured, error) {
 				assert.Equal(t, payload["apiVersion"].(string), "apps/v1")
 				assert.Equal(t, payload["kind"].(string), "Deployment")
