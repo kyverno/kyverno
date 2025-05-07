@@ -77,6 +77,7 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    {{- if or .Values.crds.migration.podAnnotations .Values.crds.migration.podLabels }}
     metadata:
       {{- with .Values.crds.migration.podAnnotations }}
       annotations:
@@ -86,6 +87,7 @@ spec:
       labels:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+    {{- end }}
     spec:
       serviceAccountName: {{ template "kyverno.fullname" . }}-migrate-resources
       {{- with .Values.crds.migration.podSecurityContext }}
