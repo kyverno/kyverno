@@ -15,8 +15,8 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,11 +29,11 @@ func GetResourceAccordingToResourcePath(
 	fs billy.Filesystem,
 	resourcePaths []string,
 	cluster bool,
-	policies []engineapi.GenericPolicy,
+	policies []kyvernov1.PolicyInterface,
+	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
-	clusterWideResources bool,
 	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
@@ -77,20 +77,10 @@ func GetResourceAccordingToResourcePath(
 					resourcePaths = listOfFiles
 				}
 			}
-			if clusterWideResources {
-				resources, err = GetResources(out, policies, resourcePaths, dClient, cluster, "", policyReport, clusterWideResources)
-				if err != nil {
-					return resources, err
-				}
-				if namespace == "" {
-					return resources, nil
-				}
-			}
-			namespaceResources, err := GetResources(out, policies, resourcePaths, dClient, cluster, namespace, policyReport, false)
+			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
-			resources = append(resources, namespaceResources...)
 		}
 	}
 	return resources, err

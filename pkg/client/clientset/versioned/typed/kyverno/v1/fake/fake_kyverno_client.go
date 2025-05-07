@@ -29,11 +29,11 @@ type FakeKyvernoV1 struct {
 }
 
 func (c *FakeKyvernoV1) ClusterPolicies() v1.ClusterPolicyInterface {
-	return newFakeClusterPolicies(c)
+	return &FakeClusterPolicies{c}
 }
 
 func (c *FakeKyvernoV1) Policies(namespace string) v1.PolicyInterface {
-	return newFakePolicies(c, namespace)
+	return &FakePolicies{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

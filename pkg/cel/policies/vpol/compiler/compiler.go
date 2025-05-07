@@ -52,7 +52,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, http.Lib(), image.Lib(), resource.Lib())
+	options = append(options, http.Lib(), image.ImageLib(), resource.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -142,7 +142,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 		globalcontext.Lib(),
 		http.Lib(),
-		image.Lib(),
+		image.ImageLib(),
 		imagedata.Lib(),
 		resource.Lib(),
 		user.Lib(),
