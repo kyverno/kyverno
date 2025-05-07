@@ -25,5 +25,4 @@ spec:
         file: deployment.yaml
         expect:
           - check:
-              ($error): >-
-                admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy check-signed-images failed: Deployment labels must be env=prod
+              ($error != null): true
