@@ -7,6 +7,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
@@ -77,7 +78,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), imageverify.Lib(c.ictx, ivpolicy, c.lister), resource.Lib(), user.Lib())
+	options = append(options, globalcontext.Lib(), http.Lib(), image.ImageLib(), imagedata.Lib(), imageverify.Lib(c.ictx, ivpolicy, c.lister), resource.Lib(), user.Lib())
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -101,7 +102,7 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		return nil, append(allErrs, errs...)
 	}
 
-	imageExtractors, errs := engine.CompileImageExtractors(path.Child("images"), options, c.reqGVR, ivpolicy.Spec.ImageExtractors...)
+	imageExtractors, errs := engine.CompileImageExtractors(path.Child("images"), env, c.reqGVR, ivpolicy.Spec.ImageExtractors...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}

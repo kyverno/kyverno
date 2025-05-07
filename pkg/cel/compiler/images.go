@@ -11,33 +11,33 @@ import (
 var (
 	podImageExtractors = []v1alpha1.ImageExtractor{{
 		Name:       "containers",
-		Expression: "has(object.spec.containers) ? object.spec.containers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.?containers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "initContainers",
-		Expression: "has(object.spec.initContainers) ? object.spec.initContainers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.?initContainers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "ephemeralContainers",
-		Expression: "has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}}
 	podControllerImageExtractors = []v1alpha1.ImageExtractor{{
 		Name:       "containers",
-		Expression: "has(object.spec.template.spec.containers) ? object.spec.template.spec.containers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.template.spec.?containers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "initContainers",
-		Expression: "has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.template.spec.?initContainers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "ephemeralContainers",
-		Expression: "has(object.spec.template.spec.ephemeralContainers) ? object.spec.template.spec.ephemeralContainers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}}
 	cronJobImageExtractors = []v1alpha1.ImageExtractor{{
 		Name:       "containers",
-		Expression: "has(object.spec.jobTemplate.spec.template.spec.containers) ? object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?containers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "initContainers",
-		Expression: "has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?initContainers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "ephemeralContainers",
-		Expression: "has(object.spec.jobTemplate.spec.template.spec.ephemeralContainers) ? object.spec.jobTemplate.spec.template.spec.ephemeralContainers.map(e, e.image) : []",
+		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}}
 )
 
@@ -79,7 +79,7 @@ func (c *ImageExtractor) GetImages(data map[string]any) ([]string, error) {
 	return result, nil
 }
 
-func CompileImageExtractors(path *field.Path, envOpts []cel.EnvOption, gvr *metav1.GroupVersionResource, imageExtractors ...v1alpha1.ImageExtractor) (map[string]ImageExtractor, field.ErrorList) {
+func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVersionResource, imageExtractors ...v1alpha1.ImageExtractor) (map[string]ImageExtractor, field.ErrorList) {
 	var extractors []v1alpha1.ImageExtractor
 	if gvr != nil {
 		extractors = append(extractors, getImageExtractorsFromGVR(*gvr)...)
@@ -90,10 +90,6 @@ func CompileImageExtractors(path *field.Path, envOpts []cel.EnvOption, gvr *meta
 	}
 	var allErrs field.ErrorList
 	compiled := make(map[string]ImageExtractor, len(extractors))
-	env, err := cel.NewEnv(envOpts...)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(path, err))
-	}
 	for i, m := range extractors {
 		path := path.Index(i).Child("expression")
 		ast, iss := env.Compile(m.Expression)
