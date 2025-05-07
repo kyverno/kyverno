@@ -13,9 +13,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -30,21 +28,38 @@ import (
 // - the k8s cluster, if given
 func GetResources(
 	out io.Writer,
-	policies []engineapi.GenericPolicy,
+	policies []kyvernov1.PolicyInterface,
+	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	resourcePaths []string,
 	dClient dclient.Interface,
 	cluster bool,
 	namespace string,
 	policyReport bool,
-	clusterWideResources bool,
 ) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 
 	if cluster && dClient != nil {
-		resources, err = fetchResourcesFromPolicy(out, policies, resourcePaths, dClient, namespace, policyReport, clusterWideResources)
-		if err != nil {
-			return resources, err
+		if len(policies) > 0 {
+			matchedResources := &KyvernoResources{
+				policies: policies,
+			}
+
+			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
+			if err != nil {
+				return resources, err
+			}
+		}
+
+		if len(validatingAdmissionPolicies) > 0 {
+			matchedResources := &ValidatingAdmissionResources{
+				policies: validatingAdmissionPolicies,
+			}
+
+			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
+			if err != nil {
+				return resources, err
+			}
 		}
 	} else if len(resourcePaths) > 0 {
 		resources, err = whenClusterIsFalse(out, resourcePaths, policyReport)
@@ -52,50 +67,6 @@ func GetResources(
 			return resources, err
 		}
 	}
-	return resources, err
-}
-
-func fetchResourcesFromPolicy(
-	out io.Writer,
-	policies []engineapi.GenericPolicy,
-	resourcePaths []string,
-	dClient dclient.Interface,
-	namespace string,
-	policyReport bool,
-	clusterWideResources bool,
-) ([]*unstructured.Unstructured, error) {
-	var resources []*unstructured.Unstructured
-	var err error
-
-	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
-	var subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
-
-	for _, policy := range policies {
-		if kpol := policy.AsKyvernoPolicy(); kpol != nil {
-			for _, rule := range autogen.Default.ComputeRules(kpol, "") {
-				var resourceTypesInRule map[schema.GroupVersionKind]bool
-				resourceTypesInRule, subresourceMap = GetKindsFromRule(rule, dClient, clusterWideResources)
-				for resourceKind := range resourceTypesInRule {
-					resourceTypesMap[resourceKind] = true
-				}
-			}
-		} else if vap := policy.AsValidatingAdmissionPolicy(); vap != nil {
-			definition := vap.GetDefinition()
-			var resourceTypesInRule map[schema.GroupVersionKind]bool
-			resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(*definition, dClient, clusterWideResources)
-			for resourceKind := range resourceTypesInRule {
-				resourceTypesMap[resourceKind] = true
-			}
-		}
-	}
-
-	resourceTypes := make([]schema.GroupVersionKind, 0, len(resourceTypesMap))
-	for kind := range resourceTypesMap {
-		resourceTypes = append(resourceTypes, kind)
-	}
-
-	resources, err = whenClusterIsTrue(out, resourceTypes, subresourceMap, dClient, namespace, resourcePaths, policyReport)
-
 	return resources, err
 }
 
@@ -234,31 +205,44 @@ func getResourcesOfTypeFromCluster(out io.Writer, resourceTypes []schema.GroupVe
 	return r, nil
 }
 
+// GetPatchedAndGeneratedResource converts raw bytes to unstructured object
+func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstructured, error) {
+	getResource, err := resource.GetUnstructuredResources(resourceBytes)
+	if err != nil {
+		return unstructured.Unstructured{}, err
+	}
+	if len(getResource) > 0 && getResource[0] != nil {
+		resource := *getResource[0]
+		return resource, nil
+	}
+	return unstructured.Unstructured{}, err
+}
+
 // GetKindsFromRule will return the kinds from policy match block
-func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface, clusterWideResources bool) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
+func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
 	for _, kind := range rule.MatchResources.Kinds {
-		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
+		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 	}
 	if rule.MatchResources.Any != nil {
 		for _, resFilter := range rule.MatchResources.Any {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
-				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
+				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 			}
 		}
 	}
 	if rule.MatchResources.All != nil {
 		for _, resFilter := range rule.MatchResources.All {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
-				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
+				addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 			}
 		}
 	}
 	return resourceTypesMap, subresourceMap
 }
 
-func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1.ValidatingAdmissionPolicy, client dclient.Interface, clusterWideResources bool) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
+func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1.ValidatingAdmissionPolicy, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
 
@@ -273,13 +257,13 @@ func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1.Valida
 		return resourceTypesMap, subresourceMap
 	}
 	for _, kind := range kinds {
-		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client, clusterWideResources)
+		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 	}
 
 	return resourceTypesMap, subresourceMap
 }
 
-func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource, client dclient.Interface, clusterWideResources bool) {
+func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource, client dclient.Interface) {
 	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
@@ -287,10 +271,6 @@ func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVers
 		return
 	}
 	for parent, child := range gvrss {
-		if clusterWideResources && child.Namespaced {
-			continue
-		}
-
 		// The resource is not a subresource
 		if parent.SubResource == "" {
 			resourceTypesMap[parent.GroupVersionKind()] = true

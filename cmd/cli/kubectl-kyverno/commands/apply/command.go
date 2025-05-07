@@ -87,7 +87,6 @@ type ApplyCommandConfig struct {
 	GenerateExceptions    bool
 	GeneratedExceptionTTL time.Duration
 	JSONPaths             []string
-	ClusterWideResources  bool
 }
 
 func Command() *cobra.Command {
@@ -188,7 +187,6 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
-	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
 	return cmd
 }
 
@@ -585,15 +583,8 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	return responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vaps []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(policies)+len(vaps))
-	for _, pol := range policies {
-		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
-	}
-	for _, pol := range vaps {
-		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
-	}
-	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, genericPolicies, dClient, c.Namespace, c.PolicyReport, c.ClusterWideResources, "")
+func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}

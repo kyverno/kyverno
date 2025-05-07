@@ -47,29 +47,29 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"Get": {
 			cel.MemberOverload(
-				"http_get_string",
+				"get_request_string",
 				[]*cel.Type{ContextType, types.StringType},
-				types.AnyType,
+				types.NewMapType(types.StringType, types.AnyType),
 				cel.BinaryBinding(impl.get_request_string),
 			),
 			cel.MemberOverload(
-				"http_get_string_headers",
+				"get_request_with_headers_string",
 				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.StringType)},
-				types.AnyType,
+				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.get_request_with_headers_string),
 			),
 		},
 		"Post": {
 			cel.MemberOverload(
-				"http_post_string_any",
-				[]*cel.Type{ContextType, types.StringType, types.AnyType},
-				types.AnyType,
+				"post_request_string",
+				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
+				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.post_request_string),
 			),
 			cel.MemberOverload(
-				"http_post_string_any_headers",
-				[]*cel.Type{ContextType, types.StringType, types.AnyType, types.NewMapType(types.StringType, types.StringType)},
-				types.AnyType,
+				"post_request__with_headers_string",
+				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.AnyType), types.NewMapType(types.StringType, types.StringType)},
+				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.post_request_with_headers_string),
 			),
 		},

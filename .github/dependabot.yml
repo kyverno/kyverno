@@ -12,9 +12,6 @@ updates:
       kubernetes:
         patterns:
           - k8s.io/*
-      sigstore:
-        patterns:
-          - github.com/sigstore/sigstore/*
       otel:
         patterns:
           - go.opentelemetry.io/*
