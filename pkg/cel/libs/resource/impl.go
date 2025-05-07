@@ -62,12 +62,7 @@ func (c *impl) post_resource_string_string_string_map(args ...ref.Val) ref.Val {
 	} else if data, err := utils.ConvertToNative[map[string]any](args[4]); err != nil {
 		return types.WrapErr(err)
 	} else {
-		unpacked, err := UnpackData(data)
-		if err != nil {
-			return types.NewErr("failed to unpack the provided data: %v", err)
-		}
-
-		res, err := self.PostResource(apiVersion, resource, namespace, unpacked)
+		res, err := self.PostResource(apiVersion, resource, namespace, data)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to create resource: %v", err)
@@ -86,12 +81,7 @@ func (c *impl) post_resource_string_string_map(args ...ref.Val) ref.Val {
 	} else if data, err := utils.ConvertToNative[map[string]any](args[3]); err != nil {
 		return types.WrapErr(err)
 	} else {
-		unpacked, err := UnpackData(data)
-		if err != nil {
-			return types.NewErr("failed to unpack the provided data: %v", err)
-		}
-
-		res, err := self.PostResource(apiVersion, resource, "", unpacked)
+		res, err := self.PostResource(apiVersion, resource, "", data)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to create resource: %v", err)
