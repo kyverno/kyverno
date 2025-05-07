@@ -9,7 +9,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,7 +31,7 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"image": Context{&resource.MockCtx{
+		"image": Context{&ContextMock{
 			GetImageDataFunc: func(image string) (map[string]any, error) {
 				idl, err := imagedataloader.New(nil)
 				assert.NoError(t, err)
