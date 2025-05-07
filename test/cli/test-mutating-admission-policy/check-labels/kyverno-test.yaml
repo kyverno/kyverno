@@ -2,17 +2,17 @@ apiVersion: kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: test-add-default-app-label
-policies:
-- policy.yaml
-resources:
-- resource1.yaml
-- resource2.yaml
+policies: [ "policy.yaml" ]
+resources: [ "resource1.yaml" , "resource2.yaml" ]
 results:
-- policy: add-default-app-label
-  resource: fail-pod
+- isMutatingAdmissionPolicy: true
+  patchedResources: "expected-patched.yaml" 
+  policy: add-default-app-label
+  resource: pass-pod
   kind: Pod
   result: pass
-- policy: add-default-app-label
+- isMutatingAdmissionPolicy: true  
+  policy: add-default-app-label
   resource: skip-pod
   kind: Pod
   result: skip

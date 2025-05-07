@@ -222,22 +222,21 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 
 	// Mutate Admission Policies
+	mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		log.Log.Error(err, "failed to map gvk to gvr", "gvk", gvk)
+		return responses, err
+
+	}
+	gvr := mapping.Resource
 	for _, mapPolicy := range p.MutatingAdmissionPolicies {
 		// build the policy+binding data
-		data := engineapi.NewMutatingPolicyData(&mapPolicy)
+		data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
 		for _, b := range p.MutatingAdmissionPolicyBindings {
 			if b.Spec.PolicyName == mapPolicy.Name {
 				data.AddBinding(b)
 			}
 		}
-
-		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			log.Log.Error(err, "failed to map gvk to gvr", "gvk", gvk)
-			continue
-		}
-		gvr := mapping.Resource
-
 		// apply the MAP
 		mutateResponse, err := admissionpolicy.Mutate(*data, resource, gvr, p.Client, p.NamespaceSelectorMap)
 
@@ -248,7 +247,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if mutateResponse.IsEmpty() {
 			continue
 		}
-
 		// this single call both increments the counter and prints the patch
 		if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
 			log.Log.Error(err, "failed to log MAP mutation")
@@ -561,13 +559,12 @@ func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineRespo
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	// Record in the counters
 	p.Rc.addMutateResponse(response)
-
-	// Print the patched resource
-	if err := p.printOutput(response.PatchedResource.Object, response, resourcePath, false); err != nil {
+	err := p.printOutput(response.PatchedResource.Object, response, resourcePath, false)
+	if err != nil {
 		return fmt.Errorf("failed to print mutated result (%w)", err)
 	}
+	fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully.")
 	return nil
 }
 

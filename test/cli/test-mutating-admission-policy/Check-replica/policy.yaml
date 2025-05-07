@@ -5,17 +5,12 @@ metadata:
 spec:
   matchConstraints:
     resourceRules:
-    - apiGroups:
-      - apps
-      apiVersions:
-      - v1
-      operations:
-      - CREATE
-      - UPDATE
-      resources:
-      - deployments
+    - apiGroups: [ "apps" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE" , "UPDATE"]
+      resources: [ "deployments" ]
   failurePolicy: Fail
-  reinvocationPolicy: Never # <-- ADD THIS LINE
+  reinvocationPolicy: Never 
   mutations:
   - patchType: JSONPatch
     jsonPatch:

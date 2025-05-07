@@ -136,13 +136,6 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		kyvernoPolicy := pol.AsKyvernoPolicy()
 		result.Source = SourceKyverno
 		process = selectProcess(kyvernoPolicy.BackgroundProcessingEnabled(), kyvernoPolicy.AdmissionProcessingEnabled())
-	case pol.AsMutatingAdmissionPolicy() != nil:
-		result.Source = SourceMutatingAdmissionPolicy
-		result.Policy = ruleResult.Name()
-		process = "admission review"
-		if binding := ruleResult.MutatingAdmissionPolicyBinding(); binding != nil {
-			addProperty("binding", binding.Name, &result)
-		}
 
 	}
 	addProperty("process", process, &result)

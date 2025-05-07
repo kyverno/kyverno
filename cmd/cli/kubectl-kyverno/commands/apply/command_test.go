@@ -880,8 +880,6 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		// you can give a custom name here if you like, e.g.
-		// t.Run("plain MAP", ...) and t.Run("MAP with binding", ...)
 		t.Run("", func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
 		})

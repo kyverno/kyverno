@@ -4,8 +4,7 @@ policies:
 resources:
 - resource.yaml
 results:
-- policy: sample-policy
-  rule: ""
-  result: pass
-  isMutatingAdmissionPolicy: true
+- isMutatingAdmissionPolicy: true
   patchedResource: expected-patched.yaml
+  policy: sample-policy
+  result: pass

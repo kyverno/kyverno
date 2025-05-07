@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: fail-pod
+  name: pass-pod
   labels:
     tier: frontend
     app: default

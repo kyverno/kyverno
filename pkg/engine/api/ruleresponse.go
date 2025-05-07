@@ -5,7 +5,6 @@ import (
 
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
@@ -47,8 +46,6 @@ type RuleResponse struct {
 	exceptions []GenericException
 	// binding is the validatingadmissionpolicybinding (if any)
 	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	// mutatingBinding is the mutatingadmissionpolicybinding (if any)
-	mutatingBinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
@@ -103,9 +100,6 @@ func (r RuleResponse) WithBinding(binding *admissionregistrationv1.ValidatingAdm
 	r.binding = binding
 	return &r
 }
-func (r *RuleResponse) MutatingAdmissionPolicyBinding() *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
-	return r.mutatingBinding
-}
 
 func (r RuleResponse) WithPodSecurityChecks(checks PodSecurityChecks) *RuleResponse {
 	r.podSecurityChecks = &checks
@@ -149,10 +143,6 @@ func (r *RuleResponse) Exceptions() []GenericException {
 
 func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
 	return r.binding
-}
-func (r RuleResponse) WithMutatingBinding(binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) *RuleResponse {
-	r.mutatingBinding = binding
-	return &r
 }
 
 func (r *RuleResponse) IsException() bool {

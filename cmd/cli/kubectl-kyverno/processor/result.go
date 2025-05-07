@@ -84,25 +84,58 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 }
 
 func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) bool {
-	printed := false
-	// for each rule in the response, if it's a mutation, tally it
-	for _, rule := range response.PolicyResponse.Rules {
-		if rule.RuleType() != engineapi.Mutation {
-			continue
+	printMutatedRes := false
+	genericPolicy := response.Policy()
+
+	// Handle Kyverno mutate policies
+	if kyvernoPolicy := genericPolicy.AsKyvernoPolicy(); kyvernoPolicy != nil {
+		// Check if it has at least one mutate rule
+		hasMutate := false
+		for _, rule := range autogen.Default.ComputeRules(kyvernoPolicy, "") {
+			if rule.HasMutate() {
+				hasMutate = true
+				break
+			}
 		}
+		if !hasMutate {
+			return false
+		}
+
+		for _, policyRule := range autogen.Default.ComputeRules(kyvernoPolicy, "") {
+			for _, responseRule := range response.PolicyResponse.Rules {
+				if policyRule.Name == responseRule.Name() {
+					switch responseRule.Status() {
+					case engineapi.RuleStatusPass:
+						rc.Pass++
+						printMutatedRes = true
+					case engineapi.RuleStatusFail:
+						rc.Fail++
+					case engineapi.RuleStatusSkip:
+						rc.Skip++
+					case engineapi.RuleStatusError:
+						rc.Error++
+					}
+				}
+			}
+		}
+		return printMutatedRes
+	}
+
+	// Handle native Kubernetes MAPs (no AsKyvernoPolicy)
+	for _, rule := range response.PolicyResponse.Rules {
 		switch rule.Status() {
 		case engineapi.RuleStatusPass:
 			rc.Pass++
-			printed = true
+			printMutatedRes = true
 		case engineapi.RuleStatusFail:
 			rc.Fail++
-		case engineapi.RuleStatusError:
-			rc.Error++
 		case engineapi.RuleStatusSkip:
 			rc.Skip++
+		case engineapi.RuleStatusError:
+			rc.Error++
 		}
 	}
-	return printed
+	return printMutatedRes
 }
 
 func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.EngineResponse) {

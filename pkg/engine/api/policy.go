@@ -38,30 +38,30 @@ func NewValidatingAdmissionPolicyData(
 }
 
 // MutatingPolicyData holds a MAP and its associated MAPBs
-type MutatingPolicyData struct {
+type MutatingAdmissionPolicyData struct {
 	definition *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 }
 
 // AddBinding appends a MAPB to the policy data
-func (m *MutatingPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func (m *MutatingAdmissionPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
 	m.bindings = append(m.bindings, b)
 }
 
-func (p *MutatingPolicyData) GetDefinition() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
+func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
 	return p.definition
 }
 
-func (p *MutatingPolicyData) GetBindings() []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
+func (p *MutatingAdmissionPolicyData) GetBindings() []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
 	return p.bindings
 }
 
 // NewMutatingPolicyData initializes a MAP wrapper with no bindings
-func NewMutatingPolicyData(
+func NewMutatingAdmissionPolicyData(
 	policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
-) *MutatingPolicyData {
-	return &MutatingPolicyData{
+) *MutatingAdmissionPolicyData {
+	return &MutatingAdmissionPolicyData{
 		definition: policy,
 		bindings:   bindings,
 	}
@@ -87,14 +87,13 @@ type GenericPolicy interface {
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
-	AsMutatingAdmissionPolicy() *admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 }
-
 type genericPolicy struct {
 	metav1.Object
 	PolicyInterface           kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicy *ValidatingAdmissionPolicyData
-	MutatingAdmissionPolicy   *admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicy   *MutatingAdmissionPolicyData
 	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
 	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
 }
@@ -110,7 +109,7 @@ func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 func (p *genericPolicy) AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData {
 	return p.ValidatingAdmissionPolicy
 }
-func (p *genericPolicy) AsMutatingAdmissionPolicy() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
+func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData {
 	return p.MutatingAdmissionPolicy
 }
 
@@ -186,7 +185,14 @@ func NewValidatingAdmissionPolicyWithBindings(pol *admissionregistrationv1.Valid
 func NewMutatingAdmissionPolicy(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                  pol,
-		MutatingAdmissionPolicy: pol,
+		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol),
+	}
+}
+
+func NewMutatingAdmissionPolicyWithBindings(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy, bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) GenericPolicy {
+	return &genericPolicy{
+		Object:                  pol,
+		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol, bindings...),
 	}
 }
 
