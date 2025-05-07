@@ -52,6 +52,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [X3M Ads](https://x3mads.com/) | At X3M Ads, we primarily use Kyverno for mutating resources, such as changing pod images to our internal Harbor registry, managing topology distribution and adding node metadata to pods for improved observability. |
 | [Tails.com](https://tails.com/) | Big changes start small; we use Kyverno to build up best practices in development environments so that we can easily enforce stringent security measures in our production environments. |
 | [ONZACK AG](https://www.onzack.com/) | The operator for everything; we use Kyverno to completely automate resource management (limits & requests). |
+| [Finastra](https://www.finastra.com/) | Currently exploring and leveraging Kyverno to enforce our security and compliance for our K8s deployments in a financial context. | 
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->
