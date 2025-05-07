@@ -85,10 +85,17 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
 	}
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
+	for _, pol := range results.Policies {
+		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
+	}
+	for _, pol := range results.VAPs {
+		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
+	}
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
@@ -110,7 +117,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
-	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
+	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
