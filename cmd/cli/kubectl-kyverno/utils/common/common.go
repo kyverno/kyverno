@@ -76,7 +76,16 @@ func GetResourceAccordingToResourcePath(
 					resourcePaths = listOfFiles
 				}
 			}
-			resources, err = GetResources(out, policies, resourcePaths, dClient, cluster, namespace, policyReport)
+			fetcher := &ResourceFetcher{
+				Out:           out,
+				Policies:      policies,
+				ResourcePaths: resourcePaths,
+				Client:        dClient,
+				Cluster:       cluster,
+				Namespace:     namespace,
+				PolicyReport:  policyReport,
+			}
+			resources, err = fetcher.GetResources()
 			if err != nil {
 				return resources, err
 			}
