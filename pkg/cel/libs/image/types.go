@@ -17,8 +17,7 @@ type Image struct {
 
 func (v Image) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if reflect.TypeOf(v.Reference).AssignableTo(typeDesc) {
-		ret := name.Reference(v.Reference)
-		return ret, nil
+		return v.Reference, nil
 	}
 	if reflect.TypeOf("").AssignableTo(typeDesc) {
 		return v.Reference.String(), nil
