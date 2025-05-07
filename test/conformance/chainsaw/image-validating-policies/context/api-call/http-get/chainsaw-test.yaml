@@ -25,7 +25,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: ivpol-apicall-correct
+          value: ivpol-http-get
   - try:
     - apply: 
        file: good-pod.yaml
@@ -34,4 +34,4 @@ spec:
         expect:
           - check:
               ($error): >-
-                admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy vpol-http-get failed: only create pod with labels, variables.get.metadata.labels.app: test
+                admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy ivpol-http-get failed: only create pod with labels, variables.get.metadata.labels.app: test
