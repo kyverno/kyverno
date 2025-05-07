@@ -33,8 +33,8 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: added
-      description: Add toggle for enabeling/disabling aggregating the user-facing roles with the kyverno rbac.
+    - kind: fixed
+      description: Ensure spec.template.metadata isn't null
 dependencies:
   - name: grafana
     version: v0.0.0
