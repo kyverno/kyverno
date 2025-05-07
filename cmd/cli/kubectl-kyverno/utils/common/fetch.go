@@ -81,9 +81,6 @@ func fetchResourcesFromPolicy(
 			definition := vap.GetDefinition()
 			var resourceTypesInRule map[schema.GroupVersionKind]bool
 			resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(*definition, dClient)
-			if err != nil {
-				return resources, err
-			}
 			for resourceKind := range resourceTypesInRule {
 				resourceTypesMap[resourceKind] = true
 			}
@@ -233,19 +230,6 @@ func getResourcesOfTypeFromCluster(out io.Writer, resourceTypes []schema.GroupVe
 		}
 	}
 	return r, nil
-}
-
-// GetPatchedAndGeneratedResource converts raw bytes to unstructured object
-func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstructured, error) {
-	getResource, err := resource.GetUnstructuredResources(resourceBytes)
-	if err != nil {
-		return unstructured.Unstructured{}, err
-	}
-	if len(getResource) > 0 && getResource[0] != nil {
-		resource := *getResource[0]
-		return resource, nil
-	}
-	return unstructured.Unstructured{}, err
 }
 
 // GetKindsFromRule will return the kinds from policy match block
