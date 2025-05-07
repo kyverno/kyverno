@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
@@ -55,4 +57,35 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.NoError(t, err)
 	resolvedImg := out.Value().(string)
 	assert.True(t, strings.HasPrefix(resolvedImg, "ghcr.io/kyverno/kyverno:latest@sha256:"))
+}
+
+func Test_impl_get_imagedata_string_error(t *testing.T) {
+	opts := Lib()
+	base, err := cel.NewEnv(opts)
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	tests := []struct {
+		name string
+		args []ref.Val
+		want ref.Val
+	}{{
+		name: "not enough args",
+		args: nil,
+		want: types.NewErr("expected 2 arguments, got %d", 0),
+	}, {
+		name: "bad arg 1",
+		args: []ref.Val{types.String("foo"), types.String("foo")},
+		want: types.NewErr("unsupported native conversion from string to 'imagedata.Context'"),
+	}, {
+		name: "bad arg 2",
+		args: []ref.Val{base.CELTypeAdapter().NativeToValue(Context{}), types.Bool(false)},
+		want: types.NewErr("type conversion error from bool to 'string'"),
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &impl{}
+			got := c.get_imagedata_string(tt.args...)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

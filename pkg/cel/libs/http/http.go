@@ -31,7 +31,7 @@ func NewHTTP(client ClientInterface) ContextInterface {
 	}
 }
 
-func (r *contextImpl) Get(url string, headers map[string]string) (map[string]any, error) {
+func (r *contextImpl) Get(url string, headers map[string]string) (any, error) {
 	req, err := http.NewRequestWithContext(context.TODO(), "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
@@ -42,7 +42,7 @@ func (r *contextImpl) Get(url string, headers map[string]string) (map[string]any
 	return r.executeRequest(r.client, req)
 }
 
-func (r *contextImpl) Post(url string, data map[string]any, headers map[string]string) (map[string]any, error) {
+func (r *contextImpl) Post(url string, data any, headers map[string]string) (any, error) {
 	body, err := buildRequestData(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode request data: %v", err)
@@ -57,7 +57,7 @@ func (r *contextImpl) Post(url string, data map[string]any, headers map[string]s
 	return r.executeRequest(r.client, req)
 }
 
-func (r *contextImpl) executeRequest(client ClientInterface, req *http.Request) (map[string]any, error) {
+func (r *contextImpl) executeRequest(client ClientInterface, req *http.Request) (any, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %v", err)
@@ -66,7 +66,7 @@ func (r *contextImpl) executeRequest(client ClientInterface, req *http.Request) 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("HTTP %s", resp.Status)
 	}
-	body := make(map[string]any)
+	var body any
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("Unable to decode JSON body %v", err)
 	}
@@ -94,7 +94,7 @@ func (r *contextImpl) Client(caBundle string) (ContextInterface, error) {
 	}, nil
 }
 
-func buildRequestData(data map[string]any) (io.Reader, error) {
+func buildRequestData(data any) (io.Reader, error) {
 	buffer := new(bytes.Buffer)
 	if err := json.NewEncoder(buffer).Encode(data); err != nil {
 		return nil, fmt.Errorf("failed to encode HTTP POST data %v: %w", data, err)

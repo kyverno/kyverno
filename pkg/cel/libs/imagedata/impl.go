@@ -11,6 +11,9 @@ type impl struct {
 }
 
 func (c *impl) get_imagedata_string(args ...ref.Val) ref.Val {
+	if len(args) != 2 {
+		return types.NewErr("expected 2 arguments, got %d", len(args))
+	}
 	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
 	} else if image, err := utils.ConvertToNative[string](args[1]); err != nil {
