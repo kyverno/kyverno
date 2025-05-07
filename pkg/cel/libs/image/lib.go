@@ -6,7 +6,7 @@ import (
 
 const libraryName = "kyverno.image"
 
-func ImageLib() cel.EnvOption {
+func Lib() cel.EnvOption {
 	return cel.Lib(imageLib)
 }
 
