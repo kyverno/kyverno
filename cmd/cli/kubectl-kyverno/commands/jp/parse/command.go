@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/jmespath-community/go-jmespath"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/spf13/cobra"
 )

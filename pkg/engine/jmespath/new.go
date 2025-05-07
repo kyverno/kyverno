@@ -1,42 +1,21 @@
 package jmespath
 
 import (
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/jmespath-community/go-jmespath"
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
-type QueryProxy struct {
-	jmesPath       *gojmespath.JMESPath
-	functionCaller *gojmespath.FunctionCaller
+// newImplementation just returns our no‑frills engine.
+func newImplementation(_ config.Configuration) Interface {
+	return implementation{}
 }
 
-func (q *QueryProxy) Search(data interface{}) (interface{}, error) {
-	return q.jmesPath.Search(data, gojmespath.WithFunctionCaller(q.functionCaller))
+// newJMESPath compiles a JMESPath expression into a Query.
+func newJMESPath(expression string) (Query, error) {
+	return gojmespath.Compile(expression)
 }
 
-func newJMESPath(query string, functionCaller *gojmespath.FunctionCaller) (*QueryProxy, error) {
-	jmesPath, err := gojmespath.Compile(query)
-	if err != nil {
-		return nil, err
-	}
-	return &QueryProxy{
-		jmesPath,
-		functionCaller,
-	}, nil
-}
-
-func newImplementation(configuration config.Configuration) Interface {
-	functionCaller := gojmespath.NewFunctionCaller()
-	functions := GetFunctions(configuration)
-	for _, f := range functions {
-		functionCaller.Register(f.FunctionEntry)
-	}
-
-	return implementation{
-		functionCaller,
-	}
-}
-
-func newExecution(fCall *gojmespath.FunctionCaller, query string, data interface{}) (interface{}, error) {
-	return gojmespath.Search(query, data, gojmespath.WithFunctionCaller(fCall))
+// newExecution runs a one‑off query.
+func newExecution(expression string, data interface{}) (interface{}, error) {
+	return gojmespath.Search(expression, data)
 }

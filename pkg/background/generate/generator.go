@@ -3,9 +3,9 @@ package generate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -279,11 +279,12 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 
 func (g *generator) loadContext(ctx context.Context) error {
 	if err := g.contextLoader(ctx, g.contextEntries, g.policyContext.JSONContext()); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
+		if strings.Contains(err.Error(), "Unknown key") {
 			g.logger.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
 			g.logger.Error(err, "failed to load context")
 		}
+
 		return err
 	}
 	return nil

@@ -3,10 +3,10 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -271,7 +271,7 @@ func (e *engine) invokeRuleHandler(
 				// load rule context
 				contextLoader := e.ContextLoader(policyContext.Policy(), rule)
 				if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
-					if _, ok := err.(gojmespath.NotFoundError); ok {
+					if strings.Contains(err.Error(), "Unknown key") {
 						logger.V(3).Info("failed to load context", "reason", err.Error())
 					} else {
 						logger.Error(err, "failed to load context")

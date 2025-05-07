@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -350,7 +349,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		logger := log.WithValues("rule", rule.Name)
 		contextLoader := c.engine.ContextLoader(policy, rule)
 		if err := contextLoader(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
-			if _, ok := err.(gojmespath.NotFoundError); ok {
+			if strings.Contains(err.Error(), "Unknown key") {
 				logger.V(3).Info("failed to load rule level context", "reason", err.Error())
 			} else {
 				logger.Error(err, "failed to load rule level context")
