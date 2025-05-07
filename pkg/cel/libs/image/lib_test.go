@@ -15,7 +15,7 @@ import (
 
 func testImageLib(t *testing.T, expr string, expectResult ref.Val, expectRuntimeErrPattern string, expectCompileErrs []string) {
 	env, err := cel.NewEnv(
-		image.ImageLib(),
+		image.Lib(),
 	)
 	if err != nil {
 		t.Fatalf("%v", err)
