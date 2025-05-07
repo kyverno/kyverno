@@ -34,7 +34,6 @@ webhooks:
   namespaceSelector: {}
   objectSelector: {}
   rules:
-  rules:
   - apiGroups:
     - ""
     apiVersions:
