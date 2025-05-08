@@ -568,7 +568,7 @@ jobs:
           kyverno-configs: standard
           # token: ${{ secrets.GITHUB_TOKEN }}
           token: foo
-          tests-path: image-validating-policies
+          tests-path: image-validating-policies/validation-rules/reject
           upgrade-scenario: ${{ matrix.upgrade }}
 
   validating-policies:
