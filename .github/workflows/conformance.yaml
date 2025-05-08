@@ -566,7 +566,8 @@ jobs:
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # token: ${{ secrets.GITHUB_TOKEN }}
+          token: foo
           tests-path: image-validating-policies
           upgrade-scenario: ${{ matrix.upgrade }}
 
