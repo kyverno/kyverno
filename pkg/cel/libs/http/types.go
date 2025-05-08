@@ -7,8 +7,8 @@ import (
 var ContextType = types.NewOpaqueType("http.Context")
 
 type ContextInterface interface {
-	Get(url string, headers map[string]string) (map[string]any, error)
-	Post(url string, data map[string]any, headers map[string]string) (map[string]any, error)
+	Get(url string, headers map[string]string) (any, error)
+	Post(url string, data any, headers map[string]string) (any, error)
 	Client(caBundle string) (ContextInterface, error)
 }
 

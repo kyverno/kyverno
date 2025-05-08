@@ -1,11 +1,10 @@
 package http
 
 import (
-	"fmt"
-
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type impl struct {
@@ -24,7 +23,6 @@ func (c *impl) get_request_with_client_string(args ...ref.Val) ref.Val {
 		if err != nil {
 			return types.NewErr("request failed: %v", err)
 		}
-
 		return c.NativeToValue(data)
 	}
 }
@@ -42,7 +40,7 @@ func (c *impl) post_request_string_with_client(args ...ref.Val) ref.Val {
 		return types.WrapErr(err)
 	} else if url, err := utils.ConvertToNative[string](args[1]); err != nil {
 		return types.WrapErr(err)
-	} else if data, err := utils.ConvertToNative[map[string]any](args[2]); err != nil {
+	} else if data, err := utils.ConvertToNative[*structpb.Value](args[2]); err != nil {
 		return types.WrapErr(err)
 	} else if header, err := utils.ConvertToNative[map[string]string](args[3]); err != nil {
 		return types.WrapErr(err)
@@ -51,26 +49,20 @@ func (c *impl) post_request_string_with_client(args ...ref.Val) ref.Val {
 		if err != nil {
 			return types.NewErr("request failed: %v", err)
 		}
-
 		return c.NativeToValue(data)
 	}
 }
 
 func (c *impl) http_client_string(request, caBundle ref.Val) ref.Val {
-	fmt.Println("http_client_string")
 	if request, err := utils.ConvertToNative[Context](request); err != nil {
-		fmt.Println("conv request")
 		return types.WrapErr(err)
 	} else if caBundle, err := utils.ConvertToNative[string](caBundle); err != nil {
-		fmt.Println("conv ca bundle")
 		return types.WrapErr(err)
 	} else {
-		fmt.Println("call client")
 		caRequest, err := request.Client(caBundle)
 		if err != nil {
 			return types.NewErr("request failed: %v", err)
 		}
-
 		return c.NativeToValue(caRequest)
 	}
 }
