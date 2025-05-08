@@ -25,4 +25,5 @@ spec:
         file: deployment.yaml
         expect:
           - check:
-              ($error != null): true
+              ($error): >-
+                admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-check-signed-images" denied the request: Policy  failed: failed to verify image with notary cert
