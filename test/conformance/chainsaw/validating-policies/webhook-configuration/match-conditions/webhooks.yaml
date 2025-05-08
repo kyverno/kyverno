@@ -18,15 +18,17 @@ webhooks:
   - expression: '!(object.kind == ''Pod'') || has(object.metadata.labels) && has(object.metadata.labels.prod)
       && object.metadata.labels.prod == ''true'''
     name: check-prod-label
-  - expression: '!(object.kind ==''Deployment'' || object.kind ==''ReplicaSet'' ||
-      object.kind ==''StatefulSet'' || object.kind ==''DaemonSet'') || has(object.spec.template.metadata.labels)
-      && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod
-      == ''true'''
-    name: autogen-check-prod-label
-  - expression: '!(object.kind ==''CronJob'') || has(object.spec.jobTemplate.spec.template.metadata.labels)
-      && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod
-      == ''true'''
+  - expression: '!((object.apiVersion == ''batch/v1'' && object.kind ==''CronJob''))
+      || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
+      && object.spec.jobTemplate.spec.template.metadata.labels.prod == ''true'')'
     name: autogen-cronjobs-check-prod-label
+  - expression: '!((object.apiVersion == ''apps/v1'' && object.kind ==''DaemonSet'')
+      || (object.apiVersion == ''apps/v1'' && object.kind ==''Deployment'') || (object.apiVersion
+      == ''apps/v1'' && object.kind ==''ReplicaSet'') || (object.apiVersion == ''apps/v1''
+      && object.kind ==''StatefulSet'') || (object.apiVersion == ''batch/v1'' && object.kind
+      ==''Job'')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
+      && object.spec.template.metadata.labels.prod == ''true'')'
+    name: autogen-defaults-check-prod-label
   matchPolicy: Equivalent
   name: vpol.validate.kyverno.svc-fail-finegrained-disallow-privilege-escalation
   namespaceSelector: {}
@@ -41,6 +43,16 @@ webhooks:
     - UPDATE
     resources:
     - pods
+    scope: '*'
+  - apiGroups:
+    - batch
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cronjobs
     scope: '*'
   - apiGroups:
     - apps
@@ -65,15 +77,3 @@ webhooks:
     resources:
     - jobs
     scope: '*'
-  - apiGroups:
-    - batch
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - cronjobs
-    scope: '*'
-  sideEffects: NoneOnDryRun
-  timeoutSeconds: 10

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,12 +38,12 @@ func (t testClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func Test_impl_get_request(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("http", HTTPType),
+		cel.Variable("http", ContextType),
+		Lib(),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -55,7 +56,7 @@ func Test_impl_get_request(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	out, _, err := prog.Eval(map[string]any{
-		"http": HTTP{&httpProvider{
+		"http": Context{&contextImpl{
 			client: testClient{
 				doFunc: func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, req.URL.String(), "http://localhost:8080")
@@ -72,12 +73,12 @@ func Test_impl_get_request(t *testing.T) {
 }
 
 func Test_impl_get_request_with_headers(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("http", HTTPType),
+		cel.Variable("http", ContextType),
+		Lib(),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -90,7 +91,7 @@ func Test_impl_get_request_with_headers(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	out, _, err := prog.Eval(map[string]any{
-		"http": HTTP{&httpProvider{
+		"http": Context{&contextImpl{
 			client: testClient{
 				doFunc: func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, req.URL.String(), "http://localhost:8080")
@@ -108,17 +109,17 @@ func Test_impl_get_request_with_headers(t *testing.T) {
 }
 
 func Test_impl_post_request(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("http", HTTPType),
+		cel.Variable("http", ContextType),
+		Lib(),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`http.Post("http://localhost:8080", {"key": "value"})`)
+	ast, issues := env.Compile(`http.Post("http://localhost:8080", { "key": dyn("value"), "foo": dyn(2) })`)
 	fmt.Println(issues.String())
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
@@ -126,15 +127,17 @@ func Test_impl_post_request(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	out, _, err := prog.Eval(map[string]any{
-		"http": HTTP{&httpProvider{
+		"http": Context{&contextImpl{
 			client: testClient{
 				doFunc: func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, req.URL.String(), "http://localhost:8080")
 					assert.Equal(t, req.Method, "POST")
 
-					data := make(map[string]string, 0)
-					json.NewDecoder(req.Body).Decode(&data)
-					assert.Equal(t, data["key"], "value")
+					var data any
+					err := json.NewDecoder(req.Body).Decode(&data)
+					assert.NoError(t, err)
+					assert.Equal(t, data.(map[string]any)["key"], "value")
+					assert.Equal(t, data.(map[string]any)["foo"], float64(2))
 
 					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"body": "ok"}`))}, nil
 				},
@@ -147,12 +150,12 @@ func Test_impl_post_request(t *testing.T) {
 }
 
 func Test_impl_post_request_with_headers(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("http", HTTPType),
+		cel.Variable("http", ContextType),
+		Lib(),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -165,16 +168,17 @@ func Test_impl_post_request_with_headers(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	out, _, err := prog.Eval(map[string]any{
-		"http": HTTP{&httpProvider{
+		"http": Context{&contextImpl{
 			client: testClient{
 				doFunc: func(req *http.Request) (*http.Response, error) {
 					assert.Equal(t, req.URL.String(), "http://localhost:8080")
 					assert.Equal(t, req.Method, "POST")
 					assert.Equal(t, req.Header.Get("Authorization"), "Bearer token")
 
-					data := make(map[string]string, 0)
-					json.NewDecoder(req.Body).Decode(&data)
-					assert.Equal(t, data["key"], "value")
+					var data any
+					err := json.NewDecoder(req.Body).Decode(&data)
+					assert.NoError(t, err)
+					assert.Equal(t, data.(map[string]any)["key"], "value")
 
 					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"body": "ok"}`))}, nil
 				},
@@ -187,13 +191,13 @@ func Test_impl_post_request_with_headers(t *testing.T) {
 }
 
 func Test_impl_http_client_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("pem", types.StringType),
-		cel.Variable("http", HTTPType),
+		cel.Variable("http", ContextType),
+		Lib(),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -207,9 +211,9 @@ func Test_impl_http_client_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	out, _, err := prog.Eval(map[string]any{
 		"pem":  pemExample,
-		"http": HTTP{&httpProvider{}},
+		"http": Context{&contextImpl{}},
 	})
 	assert.NoError(t, err)
-	reqProvider := out.Value().(*httpProvider)
+	reqProvider := out.Value().(*contextImpl)
 	assert.NotNil(t, reqProvider)
 }

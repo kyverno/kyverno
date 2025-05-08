@@ -6,7 +6,6 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	celautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
@@ -254,7 +253,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
-func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
+func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
 		ivpols           []*policiesv1alpha1.ImageValidatingPolicy
@@ -286,7 +285,7 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name: config.ImageVerificationPolicyValidateWebhookName + "-ignore",
+					Name: config.ImageValidatingPolicyValidateWebhookName + "-ignore",
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -367,7 +366,7 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name:         config.ImageVerificationPolicyValidateWebhookName + "-ignore-finegrained-ivpol-sample",
+					Name:         config.ImageValidatingPolicyValidateWebhookName + "-ignore-finegrained-ivpol-sample",
 					ClientConfig: newClientConfig("", 0, nil, "/policies/ivpol/validate/ignore"+config.FineGrainedWebhookPath+"/ivpol-sample"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
@@ -415,11 +414,11 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 						},
 						{
 							Name:       "autogen-check-prod-label",
-							Expression: celautogen.PodControllersMatchConditionExpression + "has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
+							Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet') || (object.apiVersion == 'batch/v1' && object.kind =='Job')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
 						},
 						{
 							Name:       "autogen-cronjobs-check-prod-label",
-							Expression: celautogen.CronJobMatchConditionExpression + "has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
+							Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
 						},
 					},
 				},
@@ -431,10 +430,10 @@ func TestBuildWebhookRules_ImageVerificationPolicy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var ivpols []engineapi.GenericPolicy
 			for _, ivpol := range tt.ivpols {
-				ivpols = append(ivpols, engineapi.NewImageVerificationPolicy(ivpol))
+				ivpols = append(ivpols, engineapi.NewImageValidatingPolicy(ivpol))
 			}
-			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", config.ImageVerificationPolicyValidateWebhookName,
-				config.PolicyServicePath+config.ImageVerificationPolicyServicePath+config.ValidatingWebhookServicePath, 0, nil, ivpols)
+			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", config.ImageValidatingPolicyValidateWebhookName,
+				config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath, 0, nil, ivpols)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)

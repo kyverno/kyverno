@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"reflect"
 
 	"github.com/google/cel-go/common/types/ref"
@@ -29,4 +30,27 @@ func ConvertObjectToUnstructured(obj any) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 	return &unstructured.Unstructured{Object: ret}, nil
+}
+
+func ObjectToResolveVal(obj runtime.Object) (any, error) {
+	if obj == nil || reflect.ValueOf(obj).IsNil() {
+		return nil, nil
+	}
+	v, err := ConvertObjectToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+	return v.Object, nil
+}
+
+func GetValue(data any) (map[string]any, error) {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	var apiData map[string]any
+	if err := json.Unmarshal(raw, &apiData); err != nil {
+		return nil, err
+	}
+	return apiData, nil
 }

@@ -13,8 +13,11 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,8 +30,7 @@ import (
 // - the k8s cluster, if given
 func GetResources(
 	out io.Writer,
-	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
+	policies []engineapi.GenericPolicy,
 	resourcePaths []string,
 	dClient dclient.Interface,
 	cluster bool,
@@ -39,26 +41,9 @@ func GetResources(
 	var err error
 
 	if cluster && dClient != nil {
-		if len(policies) > 0 {
-			matchedResources := &KyvernoResources{
-				policies: policies,
-			}
-
-			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
-			if err != nil {
-				return resources, err
-			}
-		}
-
-		if len(validatingAdmissionPolicies) > 0 {
-			matchedResources := &ValidatingAdmissionResources{
-				policies: validatingAdmissionPolicies,
-			}
-
-			resources, err = matchedResources.FetchResourcesFromPolicy(out, resourcePaths, dClient, namespace, policyReport)
-			if err != nil {
-				return resources, err
-			}
+		resources, err = fetchResourcesFromPolicy(out, policies, resourcePaths, dClient, namespace, policyReport)
+		if err != nil {
+			return resources, err
 		}
 	} else if len(resourcePaths) > 0 {
 		resources, err = whenClusterIsFalse(out, resourcePaths, policyReport)
@@ -66,6 +51,52 @@ func GetResources(
 			return resources, err
 		}
 	}
+	return resources, err
+}
+
+func fetchResourcesFromPolicy(
+	out io.Writer,
+	policies []engineapi.GenericPolicy,
+	resourcePaths []string,
+	dClient dclient.Interface,
+	namespace string,
+	policyReport bool,
+) ([]*unstructured.Unstructured, error) {
+	var resources []*unstructured.Unstructured
+	var err error
+
+	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
+	var subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
+
+	for _, policy := range policies {
+		if kpol := policy.AsKyvernoPolicy(); kpol != nil {
+			for _, rule := range autogen.Default.ComputeRules(kpol, "") {
+				var resourceTypesInRule map[schema.GroupVersionKind]bool
+				resourceTypesInRule, subresourceMap = GetKindsFromRule(rule, dClient)
+				for resourceKind := range resourceTypesInRule {
+					resourceTypesMap[resourceKind] = true
+				}
+			}
+		} else if vap := policy.AsValidatingAdmissionPolicy(); vap != nil {
+			definition := vap.GetDefinition()
+			var resourceTypesInRule map[schema.GroupVersionKind]bool
+			resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(*definition, dClient)
+			if err != nil {
+				return resources, err
+			}
+			for resourceKind := range resourceTypesInRule {
+				resourceTypesMap[resourceKind] = true
+			}
+		}
+	}
+
+	resourceTypes := make([]schema.GroupVersionKind, 0, len(resourceTypesMap))
+	for kind := range resourceTypesMap {
+		resourceTypes = append(resourceTypes, kind)
+	}
+
+	resources, err = whenClusterIsTrue(out, resourceTypes, subresourceMap, dClient, namespace, resourcePaths, policyReport)
+
 	return resources, err
 }
 
@@ -245,7 +276,16 @@ func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1.Valida
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
 
-	kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+	restMapper, err := utils.GetRESTMapper(client, false)
+	if err != nil {
+		log.Log.V(3).Info("failed to get rest mapper", "error", err)
+		return resourceTypesMap, subresourceMap
+	}
+	kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+	if err != nil {
+		log.Log.V(3).Info("failed to get kinds from validating admission policy", "error", err)
+		return resourceTypesMap, subresourceMap
+	}
 	for _, kind := range kinds {
 		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 	}

@@ -1,0 +1,6 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-autogen-none-sample
+status:
+  autogen: {}

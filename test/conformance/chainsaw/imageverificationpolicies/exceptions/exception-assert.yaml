@@ -1,4 +1,0 @@
-apiVersion: policies.kyverno.io/v1alpha1
-kind: CELPolicyException
-metadata:
-  name: check-name

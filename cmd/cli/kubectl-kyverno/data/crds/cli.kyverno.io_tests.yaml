@@ -113,6 +113,11 @@ spec:
                     GeneratedResource takes a resource configuration file in yaml format from
                     the user to compare it against the Kyverno generated resource configuration.
                   type: string
+                isImageValidatingPolicy:
+                  description: |-
+                    IsImageValidatingPolicy indicates if the policy is an image validating policy.
+                    It's required in case the policy is an image validating policy.
+                  type: boolean
                 isValidatingAdmissionPolicy:
                   description: |-
                     IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.

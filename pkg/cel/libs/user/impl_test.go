@@ -19,11 +19,11 @@ func Test_impl_parse_service_account_string(t *testing.T) {
 	}{{
 		name: "simple",
 		user: "system:serviceaccount:foo:bar",
-		want: ServiceAccount{Namesapce: "foo", Name: "bar"},
+		want: ServiceAccount{Namespace: "foo", Name: "bar"},
 	}, {
 		name: "with :",
 		user: "system:serviceaccount:foo:bar:baz",
-		want: ServiceAccount{Namesapce: "foo", Name: "bar:baz"},
+		want: ServiceAccount{Namespace: "foo", Name: "bar:baz"},
 	}, {
 		name: "not a service account",
 		user: "something-else:123",
@@ -35,7 +35,7 @@ func Test_impl_parse_service_account_string(t *testing.T) {
 			env, err := cel.NewEnv(opts)
 			assert.NoError(t, err)
 			assert.NotNil(t, env)
-			ast, issues := env.Compile(fmt.Sprintf(`user.ParseServiceAccount("%s")`, tt.user))
+			ast, issues := env.Compile(fmt.Sprintf(`parseServiceAccount("%s")`, tt.user))
 			fmt.Println(issues.String())
 			assert.Nil(t, issues)
 			assert.NotNil(t, ast)

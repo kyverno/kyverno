@@ -12,7 +12,7 @@ spec:
   variables:
     - name: image
       expression: >-
-        imagedata.Get("ghcr.io/kyverno/kyverno:latest")
+        image.GetMetadata("ghcr.io/kyverno/kyverno:latest")
     - name: accept
       expression: >-
         variables.image != null

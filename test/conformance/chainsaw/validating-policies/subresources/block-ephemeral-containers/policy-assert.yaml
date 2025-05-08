@@ -1,0 +1,18 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: block-ephemeral-containers
+status:
+  conditionStatus:
+    conditions:
+    - message: Webhook configured.
+      reason: Succeeded
+      status: "True"
+      type: WebhookConfigured
+    - message: 'Policy is not ready for reporting, missing permissions: get /v1,
+        Resource=pods/ephemeralcontainers: ; list /v1, Resource=pods/ephemeralcontainers:
+        ; watch /v1, Resource=pods/ephemeralcontainers: .'
+      reason: Failed
+      status: "False"
+      type: RBACPermissionsGranted
+    # ready: true

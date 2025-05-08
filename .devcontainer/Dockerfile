@@ -7,9 +7,9 @@ RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
 
 # Install Golang
 RUN ARCH="$(dpkg --print-architecture)"; \
-    curl -LO https://dl.google.com/go/go1.21.3.linux-$ARCH.tar.gz \
-    && tar -C /usr/local -xzf go1.21.3.linux-$ARCH.tar.gz \
-    && rm go1.21.3.linux-$ARCH.tar.gz \
+    curl -LO https://dl.google.com/go/go1.23.8.linux-$ARCH.tar.gz \
+    && tar -C /usr/local -xzf go1.23.8.linux-$ARCH.tar.gz \
+    && rm go1.23.8.linux-$ARCH.tar.gz \
     && echo 'export PATH=$PATH:/usr/local/go/bin' >> /etc/profile
 
 # Install Docker

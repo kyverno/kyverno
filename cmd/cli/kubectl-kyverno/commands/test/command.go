@@ -22,7 +22,7 @@ import (
 func Command() *cobra.Command {
 	var testCase string
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor, detailedResults bool
+	var registryAccess, failOnly, removeColor, detailedResults, requireTests bool
 	cmd := &cobra.Command{
 		Use:          "test [local folder or git repository]...",
 		Short:        command.FormatDescription(true, websiteUrl, false, description...),
@@ -32,7 +32,7 @@ func Command() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.Init(removeColor)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, registryAccess, failOnly, detailedResults)
+			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, registryAccess, failOnly, detailedResults, requireTests)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -42,6 +42,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
+	cmd.Flags().BoolVar(&requireTests, "require-tests", false, "If set to true, return an error if no tests are found")
 	return cmd
 }
 
@@ -60,6 +61,7 @@ func testCommandExecute(
 	registryAccess bool,
 	failOnly bool,
 	detailedResults bool,
+	requireTests bool,
 ) (err error) {
 	// check input dir
 	if len(dirPath) == 0 {
@@ -94,6 +96,10 @@ func testCommandExecute(
 		}
 	}
 	if len(tests) == 0 {
+		if requireTests {
+			return fmt.Errorf("no tests found")
+		}
+
 		if len(errors) == 0 {
 			return nil
 		} else {
@@ -130,10 +136,12 @@ func testCommandExecute(
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
-			printer := table.NewTablePrinter(out)
-			fmt.Fprintln(out)
-			printer.Print(resultsTable.Rows(detailedResults))
-			fmt.Fprintln(out)
+			if !failOnly {
+				printer := table.NewTablePrinter(out)
+				fmt.Fprintln(out)
+				printer.Print(resultsTable.Rows(detailedResults))
+				fmt.Fprintln(out)
+			}
 		}
 	}
 	if !failOnly {
@@ -143,7 +151,7 @@ func testCommandExecute(
 	}
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {
-		if !failOnly {
+		if failOnly {
 			printFailedTestResult(out, fullTable, detailedResults)
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)
@@ -190,7 +198,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
-	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy {
+	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy {
 		matches = responses
 	} else {
 		for _, response := range responses {

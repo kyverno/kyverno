@@ -94,7 +94,7 @@ func (v *validationHandler) HandleValidationEnforce(
 		return true, "", nil, nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request, policies)
 	if err != nil {
 		msg := fmt.Sprintf("failed to create policy context: %v", err)
 		return false, msg, nil, nil
@@ -184,7 +184,7 @@ func (v *validationHandler) HandleValidationAudit(
 		return nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request, policies)
 	if err != nil {
 		v.log.Error(err, "failed to build policy context")
 		return nil
@@ -233,14 +233,17 @@ func (v *validationHandler) buildAuditResponses(
 	return responses, nil
 }
 
-func (v *validationHandler) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {
+func (v *validationHandler) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface) (*policycontext.PolicyContext, error) {
 	policyContext, err := v.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 	if err != nil {
 		return nil, err
 	}
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, v.nsLister, logger)
+		namespaceLabels, err = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, v.nsLister, policies, logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	return policyContext, nil
