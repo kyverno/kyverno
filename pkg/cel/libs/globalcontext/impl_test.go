@@ -7,7 +7,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,27 +41,27 @@ func Test_impl_get_string(t *testing.T) {
 	}, {
 		name: "global context entry returns error",
 		gctxStoreData: map[string]store.Entry{
-			"foo": &resource.MockEntry{Err: errors.New("get entry error")},
+			"foo": &MockEntry{Err: errors.New("get entry error")},
 		},
 		expectedError: "get entry error",
 	}, {
 		name: "global context entry returns string",
 		gctxStoreData: map[string]store.Entry{
-			"foo": &resource.MockEntry{Data: "stringValue"},
+			"foo": &MockEntry{Data: "stringValue"},
 		},
 		expectedValue: "stringValue",
 	}, {
 		name: "global context entry returns map",
 		gctxStoreData: map[string]store.Entry{
-			"foo": &resource.MockEntry{Data: map[string]any{"key": "value"}},
+			"foo": &MockEntry{Data: map[string]any{"key": "value"}},
 		},
 		expectedValue: map[string]any{"key": "value"},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := &resource.MockGctxStore{Data: tt.gctxStoreData}
+			mockStore := &MockGctxStore{Data: tt.gctxStoreData}
 			data := map[string]any{
-				"globalContext": Context{&resource.MockCtx{
+				"globalContext": Context{&ContextMock{
 					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
 						ent, ok := mockStore.Get(name)
 						if !ok {
@@ -124,27 +123,27 @@ func Test_impl_get_string_string(t *testing.T) {
 	}, {
 		name: "global context entry returns error",
 		gctxStoreData: map[string]store.Entry{
-			"foo": &resource.MockEntry{Err: errors.New("get entry error")},
+			"foo": &MockEntry{Err: errors.New("get entry error")},
 		},
 		expectedError: "get entry error",
 	}, {
 		name: "global context entry returns string",
 		gctxStoreData: map[string]store.Entry{
-			"foo": &resource.MockEntry{Data: "stringValue"},
+			"foo": &MockEntry{Data: "stringValue"},
 		},
 		expectedValue: "stringValue",
 	}, {
 		name: "global context entry returns map",
 		gctxStoreData: map[string]store.Entry{
-			"foo": &resource.MockEntry{Data: map[string]any{"key": "value"}},
+			"foo": &MockEntry{Data: map[string]any{"key": "value"}},
 		},
 		expectedValue: map[string]any{"key": "value"},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := &resource.MockGctxStore{Data: tt.gctxStoreData}
+			mockStore := &MockGctxStore{Data: tt.gctxStoreData}
 			data := map[string]any{
-				"globalContext": Context{&resource.MockCtx{
+				"globalContext": Context{&ContextMock{
 					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
 						ent, ok := mockStore.Get(name)
 						if !ok {
