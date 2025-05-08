@@ -16,6 +16,7 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
@@ -35,6 +36,9 @@ func New(
 }
 
 func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
+	if admissionRequest.Operation != admissionv1.Create && admissionRequest.Operation != admissionv1.Update {
+		admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
 	response, patches, err := h.engine.HandleMutating(ctx, request)
 	if err != nil {
@@ -45,6 +49,9 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 }
 
 func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
+	if admissionRequest.Operation != admissionv1.Create && admissionRequest.Operation != admissionv1.Update {
+		admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
 	response, err := h.engine.HandleValidating(ctx, request)
 	if err != nil {
