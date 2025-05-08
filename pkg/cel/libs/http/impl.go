@@ -1,8 +1,6 @@
 package http
 
 import (
-	"fmt"
-
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
@@ -56,15 +54,11 @@ func (c *impl) post_request_string_with_client(args ...ref.Val) ref.Val {
 }
 
 func (c *impl) http_client_string(request, caBundle ref.Val) ref.Val {
-	fmt.Println("http_client_string")
 	if request, err := utils.ConvertToNative[Context](request); err != nil {
-		fmt.Println("conv request")
 		return types.WrapErr(err)
 	} else if caBundle, err := utils.ConvertToNative[string](caBundle); err != nil {
-		fmt.Println("conv ca bundle")
 		return types.WrapErr(err)
 	} else {
-		fmt.Println("call client")
 		caRequest, err := request.Client(caBundle)
 		if err != nil {
 			return types.NewErr("request failed: %v", err)
