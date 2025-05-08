@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: deny
+  name: reject
 spec:
   steps:
   - name: create policy
@@ -26,4 +26,4 @@ spec:
         expect:
           - check:
               ($error): >-
-                admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-check-signed-images" denied the request: Policy  failed: failed to verify image with notary cert         
+                admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-check-signed-images" denied the request: Policy  failed: failed to verify image with notary cert
