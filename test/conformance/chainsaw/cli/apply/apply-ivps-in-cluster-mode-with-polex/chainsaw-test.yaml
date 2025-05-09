@@ -14,7 +14,7 @@ spec:
         content: kyverno apply policy.yaml --exception exception.yaml --cluster
         check:
           (trim_space($stdout)): |-
-            Applying 1 policy rule(s) to 18 resource(s) with 1 exception(s)...
+            Applying 1 policy rule(s) to 21 resource(s) with 1 exception(s)...
             policy ivpol-sample -> resource default/Pod/test-pod-bad failed:
             1 - ivpol-sample failed to verify image with notary cert
 
