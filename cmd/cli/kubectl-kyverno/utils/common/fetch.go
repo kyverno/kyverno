@@ -132,8 +132,14 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 			for _, rule := range autogen.Default.ComputeRules(kpol, "") {
 				rf.getKindsFromRule(rule, info)
 			}
-		} else if vap := policy.AsValidatingAdmissionPolicy(); vap != nil {
-			rf.getKindsFromValidatingAdmissionPolicy(*vap.GetDefinition(), info)
+		} else {
+			var matchResources *admissionregistrationv1.MatchResources
+			if vap := policy.AsValidatingAdmissionPolicy(); vap != nil {
+				matchResources = vap.GetDefinition().Spec.MatchConstraints
+			} else if vp := policy.AsValidatingPolicy(); vp != nil {
+				matchResources = vp.Spec.MatchConstraints
+			}
+			rf.getKindsFromPolicy(matchResources, info)
 		}
 	}
 }
@@ -162,9 +168,11 @@ func (rf *ResourceFetcher) getKindsFromRule(
 	}
 }
 
-// getKindsFromValidatingAdmissionPolicy will return the kinds from policy match block
-func (rf *ResourceFetcher) getKindsFromValidatingAdmissionPolicy(
-	policy admissionregistrationv1.ValidatingAdmissionPolicy,
+// getKindsFromPolicy will return the kinds from the following policies match block:
+// 1. K8s ValidatingAdmissionPolicy
+// 2. ValidatingPolicy
+func (rf *ResourceFetcher) getKindsFromPolicy(
+	matchResources *admissionregistrationv1.MatchResources,
 	info *resourceTypeInfo,
 ) {
 	restMapper, err := utils.GetRESTMapper(rf.Client, false)
@@ -172,7 +180,7 @@ func (rf *ResourceFetcher) getKindsFromValidatingAdmissionPolicy(
 		log.Log.V(3).Info("failed to get rest mapper", "error", err)
 		return
 	}
-	kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+	kinds, err := admissionpolicy.GetKinds(matchResources, restMapper)
 	if err != nil {
 		log.Log.V(3).Info("failed to get kinds from validating admission policy", "error", err)
 		return
