@@ -96,6 +96,17 @@ type MutatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1alpha1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
+	// mutations contain operations to perform on matching objects.
+	// mutations may not be empty; a minimum of one mutation is required.
+	// mutations are evaluated in order, and are reinvoked according to
+	// the reinvocationPolicy.
+	// The mutations of a policy are invoked for each binding of this policy
+	// and reinvocation of mutations occurs on a per binding basis.
+	//
+	// +listType=atomic
+	// +optional
+	Mutations []admissionregistrationv1alpha1.Mutation `json:"mutations,omitempty" protobuf:"bytes,4,rep,name=mutations"`
+
 	// WebhookConfiguration defines the configuration for the webhook.
 	// +optional
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
@@ -103,6 +114,18 @@ type MutatingPolicySpec struct {
 	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
+
+	// reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
+	// as part of a single admission evaluation.
+	// Allowed values are "Never" and "IfNeeded".
+	//
+	// Never: These mutations will not be called more than once per binding in a single admission evaluation.
+	//
+	// IfNeeded: These mutations may be invoked more than once per binding for a single admission request and there is no guarantee of
+	// order with respect to other admission plugins, admission webhooks, bindings of this policy and admission policies.  Mutations are only
+	// reinvoked when mutations change the object after this mutation is invoked.
+	// Required.
+	ReinvocationPolicy admissionregistrationv1alpha1.ReinvocationPolicyType `json:"reinvocationPolicy,omitempty" protobuf:"bytes,7,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
 }
 
 // +kubebuilder:object:root=true

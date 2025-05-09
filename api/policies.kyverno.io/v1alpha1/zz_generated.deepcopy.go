@@ -725,6 +725,13 @@ func (in *MutatingPolicySpec) DeepCopyInto(out *MutatingPolicySpec) {
 		*out = make([]admissionregistrationv1alpha1.Variable, len(*in))
 		copy(*out, *in)
 	}
+	if in.Mutations != nil {
+		in, out := &in.Mutations, &out.Mutations
+		*out = make([]admissionregistrationv1alpha1.Mutation, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.WebhookConfiguration != nil {
 		in, out := &in.WebhookConfiguration, &out.WebhookConfiguration
 		*out = new(WebhookConfiguration)
