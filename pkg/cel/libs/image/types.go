@@ -4,32 +4,23 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/go-containerregistry/pkg/name"
 )
 
-var ImageType = cel.ObjectType("kyverno.image")
-
-type ImageReference struct {
-	Image      string `json:"image,omitempty"`
-	Registry   string `json:"registry,omitempty"`
-	Repository string `json:"repository,omitempty"`
-	Identifier string `json:"identifier,omitempty"`
-	Tag        string `json:"tag,omitempty"`
-	Digest     string `json:"digest,omitempty"`
-}
+var ImageType = types.NewOpaqueType("kyverno.image")
 
 type Image struct {
-	ImageReference
+	Reference name.Reference
 }
 
 func (v Image) ConvertToNative(typeDesc reflect.Type) (any, error) {
-	if reflect.TypeOf(v.ImageReference).AssignableTo(typeDesc) {
-		return v.ImageReference, nil
+	if reflect.TypeOf(v.Reference).AssignableTo(typeDesc) {
+		return v.Reference, nil
 	}
 	if reflect.TypeOf("").AssignableTo(typeDesc) {
-		return v.ImageReference.Image, nil
+		return v.Reference.String(), nil
 	}
 	return nil, fmt.Errorf("type conversion error from 'Image' to '%v'", typeDesc)
 }
@@ -48,7 +39,7 @@ func (v Image) Equal(other ref.Val) ref.Val {
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(other)
 	}
-	return types.Bool(reflect.DeepEqual(v.ImageReference, img.ImageReference))
+	return types.Bool(reflect.DeepEqual(v.Reference, img.Reference))
 }
 
 func (v Image) Type() ref.Type {
@@ -56,5 +47,5 @@ func (v Image) Type() ref.Type {
 }
 
 func (v Image) Value() any {
-	return v.ImageReference
+	return v.Reference
 }

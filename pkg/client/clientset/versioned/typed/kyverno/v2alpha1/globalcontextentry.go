@@ -19,15 +19,14 @@ limitations under the License.
 package v2alpha1
 
 import (
-	"context"
-	"time"
+	context "context"
 
-	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // GlobalContextEntriesGetter has a method to return a GlobalContextEntryInterface.
@@ -38,147 +37,34 @@ type GlobalContextEntriesGetter interface {
 
 // GlobalContextEntryInterface has methods to work with GlobalContextEntry resources.
 type GlobalContextEntryInterface interface {
-	Create(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.CreateOptions) (*v2alpha1.GlobalContextEntry, error)
-	Update(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (*v2alpha1.GlobalContextEntry, error)
-	UpdateStatus(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (*v2alpha1.GlobalContextEntry, error)
+	Create(ctx context.Context, globalContextEntry *kyvernov2alpha1.GlobalContextEntry, opts v1.CreateOptions) (*kyvernov2alpha1.GlobalContextEntry, error)
+	Update(ctx context.Context, globalContextEntry *kyvernov2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (*kyvernov2alpha1.GlobalContextEntry, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, globalContextEntry *kyvernov2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (*kyvernov2alpha1.GlobalContextEntry, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.GlobalContextEntry, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2alpha1.GlobalContextEntryList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*kyvernov2alpha1.GlobalContextEntry, error)
+	List(ctx context.Context, opts v1.ListOptions) (*kyvernov2alpha1.GlobalContextEntryList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.GlobalContextEntry, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kyvernov2alpha1.GlobalContextEntry, err error)
 	GlobalContextEntryExpansion
 }
 
 // globalContextEntries implements GlobalContextEntryInterface
 type globalContextEntries struct {
-	client rest.Interface
+	*gentype.ClientWithList[*kyvernov2alpha1.GlobalContextEntry, *kyvernov2alpha1.GlobalContextEntryList]
 }
 
 // newGlobalContextEntries returns a GlobalContextEntries
 func newGlobalContextEntries(c *KyvernoV2alpha1Client) *globalContextEntries {
 	return &globalContextEntries{
-		client: c.RESTClient(),
+		gentype.NewClientWithList[*kyvernov2alpha1.GlobalContextEntry, *kyvernov2alpha1.GlobalContextEntryList](
+			"globalcontextentries",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *kyvernov2alpha1.GlobalContextEntry { return &kyvernov2alpha1.GlobalContextEntry{} },
+			func() *kyvernov2alpha1.GlobalContextEntryList { return &kyvernov2alpha1.GlobalContextEntryList{} },
+		),
 	}
-}
-
-// Get takes name of the globalContextEntry, and returns the corresponding globalContextEntry object, and an error if there is any.
-func (c *globalContextEntries) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.GlobalContextEntry, err error) {
-	result = &v2alpha1.GlobalContextEntry{}
-	err = c.client.Get().
-		Resource("globalcontextentries").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of GlobalContextEntries that match those selectors.
-func (c *globalContextEntries) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.GlobalContextEntryList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v2alpha1.GlobalContextEntryList{}
-	err = c.client.Get().
-		Resource("globalcontextentries").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested globalContextEntries.
-func (c *globalContextEntries) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("globalcontextentries").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a globalContextEntry and creates it.  Returns the server's representation of the globalContextEntry, and an error, if there is any.
-func (c *globalContextEntries) Create(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.CreateOptions) (result *v2alpha1.GlobalContextEntry, err error) {
-	result = &v2alpha1.GlobalContextEntry{}
-	err = c.client.Post().
-		Resource("globalcontextentries").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(globalContextEntry).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a globalContextEntry and updates it. Returns the server's representation of the globalContextEntry, and an error, if there is any.
-func (c *globalContextEntries) Update(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (result *v2alpha1.GlobalContextEntry, err error) {
-	result = &v2alpha1.GlobalContextEntry{}
-	err = c.client.Put().
-		Resource("globalcontextentries").
-		Name(globalContextEntry.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(globalContextEntry).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *globalContextEntries) UpdateStatus(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (result *v2alpha1.GlobalContextEntry, err error) {
-	result = &v2alpha1.GlobalContextEntry{}
-	err = c.client.Put().
-		Resource("globalcontextentries").
-		Name(globalContextEntry.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(globalContextEntry).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the globalContextEntry and deletes it. Returns an error if one occurs.
-func (c *globalContextEntries) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("globalcontextentries").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *globalContextEntries) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("globalcontextentries").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched globalContextEntry.
-func (c *globalContextEntries) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.GlobalContextEntry, err error) {
-	result = &v2alpha1.GlobalContextEntry{}
-	err = c.client.Patch(pt).
-		Resource("globalcontextentries").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

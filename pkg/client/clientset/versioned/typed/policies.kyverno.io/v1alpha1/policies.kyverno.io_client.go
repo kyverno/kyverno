@@ -19,17 +19,17 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"net/http"
+	http "net/http"
 
-	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
 type PoliciesV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	CELPolicyExceptionsGetter
-	ImageVerificationPoliciesGetter
+	ImageValidatingPoliciesGetter
+	PolicyExceptionsGetter
 	ValidatingPoliciesGetter
 }
 
@@ -38,12 +38,12 @@ type PoliciesV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *PoliciesV1alpha1Client) CELPolicyExceptions(namespace string) CELPolicyExceptionInterface {
-	return newCELPolicyExceptions(c, namespace)
+func (c *PoliciesV1alpha1Client) ImageValidatingPolicies() ImageValidatingPolicyInterface {
+	return newImageValidatingPolicies(c)
 }
 
-func (c *PoliciesV1alpha1Client) ImageVerificationPolicies() ImageVerificationPolicyInterface {
-	return newImageVerificationPolicies(c)
+func (c *PoliciesV1alpha1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
+	return newPolicyExceptions(c, namespace)
 }
 
 func (c *PoliciesV1alpha1Client) ValidatingPolicies() ValidatingPolicyInterface {
@@ -95,10 +95,10 @@ func New(c rest.Interface) *PoliciesV1alpha1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v1alpha1.SchemeGroupVersion
+	gv := policieskyvernoiov1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

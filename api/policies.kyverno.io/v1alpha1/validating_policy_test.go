@@ -220,10 +220,10 @@ func TestValidatingPolicy_GetStatus(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ValidatingPolicy
-		want   *VpolStatus
+		want   *ValidatingPolicyStatus
 	}{{
 		policy: &ValidatingPolicy{},
-		want:   &VpolStatus{},
+		want:   &ValidatingPolicyStatus{},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -366,6 +366,143 @@ func TestValidatingPolicySpec_EvaluationMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.policy.Spec.EvaluationMode()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestValidatingPolicySpec_ValidationActions(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *ValidatingPolicy
+		want   []admissionregistrationv1.ValidationAction
+	}{{
+		name:   "nil",
+		policy: &ValidatingPolicy{},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+	}, {
+		name:   "deny",
+		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+	}, {
+		name:   "warn",
+		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
+	}, {
+		name:   "audit",
+		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
+	}, {
+		name:   "multiple",
+		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn},
+	},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.Spec.ValidationActions()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestValidatingPolicy_BackgroundEnabled(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *ValidatingPolicy
+		want   bool
+	}{{
+		name:   "nil",
+		policy: &ValidatingPolicy{},
+		want:   true,
+	}, {
+		name: "true",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Background: &BackgroundConfiguration{
+						Enabled: ptr.To(true),
+					},
+				},
+			},
+		},
+		want: true,
+	}, {
+		name: "false",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Background: &BackgroundConfiguration{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.BackgroundEnabled()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestValidatingPolicySpec_GenerateValidatingAdmissionPolicyEnabled(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *ValidatingPolicy
+		want   bool
+	}{{
+		name:   "nil",
+		policy: &ValidatingPolicy{},
+		want:   false,
+	}, {
+		name: "nil",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				AutogenConfiguration: &ValidatingPolicyAutogenConfiguration{},
+			},
+		},
+		want: false,
+	}, {
+		name: "nil",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				AutogenConfiguration: &ValidatingPolicyAutogenConfiguration{
+					ValidatingAdmissionPolicy: &VapGenerationConfiguration{},
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "false",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				AutogenConfiguration: &ValidatingPolicyAutogenConfiguration{
+					ValidatingAdmissionPolicy: &VapGenerationConfiguration{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "true",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				AutogenConfiguration: &ValidatingPolicyAutogenConfiguration{
+					ValidatingAdmissionPolicy: &VapGenerationConfiguration{
+						Enabled: ptr.To(true),
+					},
+				},
+			},
+		},
+		want: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.Spec.GenerateValidatingAdmissionPolicyEnabled()
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -5,10 +5,14 @@ name: Tests
 permissions: {}
 
 on:
+  push:
+    branches:
+    - main
+    - release-*
   pull_request:
     branches:
-      - main
-      - release-*
+    - main
+    - release-*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,18 +22,45 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          build-cache-key: tests
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          free-disk-space: false
-      - name: Unit test
-        run: make test-unit
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Setup caches
+      uses: ./.github/actions/setup-caches
+      timeout-minutes: 5
+      continue-on-error: true
+      with:
+        build-cache-key: tests
+    - name: Setup build env
+      uses: ./.github/actions/setup-build-env
+      timeout-minutes: 10
+      with:
+        free-disk-space: false
+    - name: Unit test
+      run: make test-unit
+    - name: Upload coverage
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: coverage.out
+        path: coverage.out
+        retention-days: 1
+        if-no-files-found: error
+
+  upload-to-codecov:
+    needs:
+    - tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Download coverage
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      with:
+        name: coverage.out
+    - name: Upload Report to Codecov
+      uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5.4.2
+      with:
+        files: ./coverage.out
+        fail_ci_if_error: true
+        verbose: true
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

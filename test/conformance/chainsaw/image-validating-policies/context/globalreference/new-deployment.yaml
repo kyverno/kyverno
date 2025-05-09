@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: new-deployment
+  namespace: test-globalcontext-apicall-correct
+  labels:
+    app: new-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: new-deployment
+  template:
+    metadata:
+      labels:
+        app: new-deployment
+    spec:
+      containers:
+        - name: pause
+          image: ghcr.io/kyverno/test-verify-image:signed
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+            limits:
+              cpu: 10m
+              memory: 10Mi
+      terminationGracePeriodSeconds: 0

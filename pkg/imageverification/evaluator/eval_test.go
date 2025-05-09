@@ -21,17 +21,17 @@ var (
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
 	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 
-	ivpol = &policiesv1alpha1.ImageVerificationPolicy{
-		Spec: policiesv1alpha1.ImageVerificationPolicySpec{
+	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
+		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{
 				Mode: policiesv1alpha1.EvaluationModeJSON,
 			},
-			ImageRules: []policiesv1alpha1.ImageRule{
+			MatchImageReferences: []policiesv1alpha1.MatchImageReference{
 				{
 					Glob: "ghcr.io/*",
 				},
 			},
-			Images: []policiesv1alpha1.Image{
+			ImageExtractors: []policiesv1alpha1.ImageExtractor{
 				{
 					Name:       "bar",
 					Expression: "[object.foo.bar]",
@@ -41,7 +41,8 @@ var (
 				{
 					Name: "notary",
 					Notary: &policiesv1alpha1.Notary{
-						Certs: `-----BEGIN CERTIFICATE-----
+						Certs: &policiesv1alpha1.StringOrExpression{
+							Value: `-----BEGIN CERTIFICATE-----
 MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
 BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
 Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
@@ -61,6 +62,7 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`,
+						},
 					},
 				},
 			},
@@ -72,7 +74,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					},
 				},
 			},
-			Verifications: []admissionregistrationv1.Validation{
+			Validations: []admissionregistrationv1.Validation{
 				{
 					Expression: "images.bar.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
 					Message:    "failed to verify image with notary cert",
@@ -82,7 +84,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					Message:    "failed to verify attestation with notary cert",
 				},
 				{
-					Expression: "images.bar.map(image, payload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
+					Expression: "images.bar.map(image, extractPayload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)",
 					Message:    "sbom is not a cyclone dx sbom",
 				},
 			},
@@ -91,12 +93,12 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_Eval(t *testing.T) {
-	result, err := Evaluate(context.Background(), []*CompiledImageVerificationPolicy{{Policy: ivpol}}, obj(signedImage), nil, nil, nil)
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: ivpol}}, obj(signedImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
 	assert.True(t, result[ivpol.Name].Result)
 
-	result, err = Evaluate(context.Background(), []*CompiledImageVerificationPolicy{{Policy: ivpol}}, obj(unsignedImage), nil, nil, nil)
+	result, err = Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: ivpol}}, obj(unsignedImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
 	assert.False(t, result[ivpol.Name].Result)

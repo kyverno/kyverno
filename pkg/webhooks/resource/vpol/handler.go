@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -20,7 +20,7 @@ import (
 )
 
 type handler struct {
-	context        celpolicy.Context
+	context        libs.Context
 	engine         celengine.Engine
 	kyvernoClient  versioned.Interface
 	reportsBreaker breaker.Breaker
@@ -28,7 +28,7 @@ type handler struct {
 
 func New(
 	engine celengine.Engine,
-	context celpolicy.Context,
+	context libs.Context,
 	kyvernoClient versioned.Interface,
 	reportsBreaker breaker.Breaker,
 ) *handler {

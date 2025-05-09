@@ -15,7 +15,6 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
@@ -27,23 +26,15 @@ import (
 )
 
 var (
-	policyV1              = kyvernov1.SchemeGroupVersion.WithKind("Policy")
-	policyV2              = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
-	clusterPolicyV1       = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
-	clusterPolicyV2       = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
-	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
-	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	vpV1alpha1            = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
-	ivpV1alpha1           = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageVerificationPolicy")
-	LegacyLoader          = legacyLoader
-	KubectlValidateLoader = kubectlValidateLoader
-	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
-		if experimental.UseKubectlValidate() {
-			return KubectlValidateLoader(path, bytes)
-		} else {
-			return LegacyLoader(path, bytes)
-		}
-	}
+	policyV1        = kyvernov1.SchemeGroupVersion.WithKind("Policy")
+	policyV2        = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
+	clusterPolicyV1 = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
+	clusterPolicyV2 = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
+	vapV1           = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
+	vapBindingV1    = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
+	vpV1alpha1      = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	ivpV1alpha1     = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	defaultLoader   = kubectlValidateLoader
 )
 
 type LoaderError struct {
@@ -52,12 +43,12 @@ type LoaderError struct {
 }
 
 type LoaderResults struct {
-	Policies                  []kyvernov1.PolicyInterface
-	VAPs                      []admissionregistrationv1.ValidatingAdmissionPolicy
-	VAPBindings               []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	ValidatingPolicies        []policiesv1alpha1.ValidatingPolicy
-	ImageVerificationPolicies []policiesv1alpha1.ImageVerificationPolicy
-	NonFatalErrors            []LoaderError
+	Policies                []kyvernov1.PolicyInterface
+	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
+	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
+	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
+	NonFatalErrors          []LoaderError
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {
@@ -68,7 +59,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
 	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
-	l.ImageVerificationPolicies = append(l.ImageVerificationPolicies, results.ImageVerificationPolicies...)
+	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 }
 
@@ -175,11 +166,11 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.ValidatingPolicies = append(results.ValidatingPolicies, *typed)
 		case ivpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.ImageVerificationPolicy](untyped)
+			typed, err := convert.To[policiesv1alpha1.ImageValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
-			results.ImageVerificationPolicies = append(results.ImageVerificationPolicies, *typed)
+			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
 		default:
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}

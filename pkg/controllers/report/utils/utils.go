@@ -163,8 +163,8 @@ func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicy
 	return policies, nil
 }
 
-func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVerificationPolicyLister) ([]policiesv1alpha1.ImageVerificationPolicy, error) {
-	var policies []policiesv1alpha1.ImageVerificationPolicy
+func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister) ([]policiesv1alpha1.ImageValidatingPolicy, error) {
+	var policies []policiesv1alpha1.ImageValidatingPolicy
 	if pols, err := ivpolLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
@@ -175,8 +175,8 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVer
 	return policies, nil
 }
 
-func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.CELPolicyExceptionLister, namespace string) ([]*policiesv1alpha1.CELPolicyException, error) {
-	exceptions, err := celexLister.CELPolicyExceptions(namespace).List(labels.Everything())
+func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.PolicyExceptionLister, namespace string) ([]*policiesv1alpha1.PolicyException, error) {
+	exceptions, err := celexLister.PolicyExceptions(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
