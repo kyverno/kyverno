@@ -11,7 +11,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server, name, path string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
+func buildWebhookRules(cfg config.Configuration, server, name, path string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		var p policiesv1alpha1.GenericPolicy
@@ -154,6 +154,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 			webhookFail.Rules = append(webhookFail.Rules, webhookRules...)
 		}
 	}
+	var webhooks []admissionregistrationv1.ValidatingWebhook
 	if fineGrainedFailList != nil {
 		webhooks = append(webhooks, fineGrainedFailList...)
 	}
@@ -166,5 +167,5 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 	if webhookIgnore.Rules != nil {
 		webhooks = append(webhooks, webhookIgnore)
 	}
-	return
+	return webhooks
 }
