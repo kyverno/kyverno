@@ -7,18 +7,19 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func Test_impl_get_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
+		Lib(),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -95,12 +96,12 @@ func Test_impl_get_string(t *testing.T) {
 }
 
 func Test_impl_get_string_string(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
+		Lib(),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -177,10 +178,16 @@ func Test_impl_get_string_string(t *testing.T) {
 }
 
 func Test_impl_get_string_error(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
+	options := []cel.EnvOption{
+		cel.Variable("globalContext", ContextType),
+		Lib(),
+	}
+	env, err := base.Extend(options...)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
 	tests := []struct {
 		name string
 		args []ref.Val
@@ -191,7 +198,7 @@ func Test_impl_get_string_error(t *testing.T) {
 		want: types.NewErr("unsupported native conversion from string to 'globalcontext.Context'"),
 	}, {
 		name: "bad arg 2",
-		args: []ref.Val{base.CELTypeAdapter().NativeToValue(Context{}), types.Bool(false)},
+		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.Bool(false)},
 		want: types.NewErr("type conversion error from bool to 'string'"),
 	}}
 	for _, tt := range tests {
@@ -204,10 +211,16 @@ func Test_impl_get_string_error(t *testing.T) {
 }
 
 func Test_impl_get_string_string_error(t *testing.T) {
-	opts := Lib()
-	base, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
+	options := []cel.EnvOption{
+		cel.Variable("globalContext", ContextType),
+		Lib(),
+	}
+	env, err := base.Extend(options...)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
 	tests := []struct {
 		name string
 		args []ref.Val
@@ -222,11 +235,11 @@ func Test_impl_get_string_string_error(t *testing.T) {
 		want: types.NewErr("unsupported native conversion from string to 'globalcontext.Context'"),
 	}, {
 		name: "bad arg 2",
-		args: []ref.Val{base.CELTypeAdapter().NativeToValue(Context{}), types.Bool(false), types.String("foo")},
+		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.Bool(false), types.String("foo")},
 		want: types.NewErr("type conversion error from bool to 'string'"),
 	}, {
 		name: "bad arg 3",
-		args: []ref.Val{base.CELTypeAdapter().NativeToValue(Context{}), types.String("foo"), types.Bool(false)},
+		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.String("foo"), types.Bool(false)},
 		want: types.NewErr("type conversion error from bool to 'string'"),
 	}}
 	for _, tt := range tests {
