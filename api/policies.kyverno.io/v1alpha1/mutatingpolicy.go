@@ -41,7 +41,6 @@ type MutatingPolicyStatus struct {
 
 // MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.
 type MutatingPolicySpec struct {
-
 	// MatchConstraints specifies what resources this policy is designed to validate.
 	// The AdmissionPolicy cares about a request if it matches _all_ Constraints.
 	// Required.
