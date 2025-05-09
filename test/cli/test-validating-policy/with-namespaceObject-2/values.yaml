@@ -6,12 +6,12 @@ namespaces:
 - apiVersion: v1
   kind: namespace
   metadata:
-    name: staging
     labels:
       environment: staging
+    name: staging
 - apiVersion: v1
   kind: namespace
   metadata:
-    name: default
     labels:
       environment: default
+    name: default
