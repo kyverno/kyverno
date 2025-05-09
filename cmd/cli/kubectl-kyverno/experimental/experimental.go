@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	ExperimentalEnv = "KYVERNO_EXPERIMENTAL"
+	ExperimentalEnv    = "KYVERNO_EXPERIMENTAL"
+	KubectlValidateEnv = "KYVERNO_KUBECTL_VALIDATE"
 )
 
 func getBool(env string, fallback bool) bool {
@@ -18,4 +19,8 @@ func getBool(env string, fallback bool) bool {
 
 func IsEnabled() bool {
 	return getBool(ExperimentalEnv, false)
+}
+
+func UseKubectlValidate() bool {
+	return getBool(KubectlValidateEnv, true)
 }

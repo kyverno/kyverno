@@ -95,7 +95,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
@@ -117,7 +117,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
-	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir)
+	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
