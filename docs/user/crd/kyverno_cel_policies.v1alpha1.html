@@ -892,6 +892,38 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
+        <td><code>mutations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Mutation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>mutations contain operations to perform on matching objects.
+mutations may not be empty; a minimum of one mutation is required.
+mutations are evaluated in order, and are reinvoked according to
+the reinvocationPolicy.
+The mutations of a policy are invoked for each binding of this policy
+and reinvocation of mutations occurs on a per binding basis.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>webhookConfiguration</code>
           
           </br>
@@ -938,6 +970,42 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
 
           <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>reinvocationPolicy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
+as part of a single admission evaluation.
+Allowed values are &quot;Never&quot; and &quot;IfNeeded&quot;.</p>
+<p>Never: These mutations will not be called more than once per binding in a single admission evaluation.</p>
+<p>IfNeeded: These mutations may be invoked more than once per binding for a single admission request and there is no guarantee of
+order with respect to other admission plugins, admission webhooks, bindings of this policy and admission policies.  Mutations are only
+reinvoked when mutations change the object after this mutation is invoked.
+Required.</p>
 
 
           
@@ -4539,6 +4607,38 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
+        <td><code>mutations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Mutation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>mutations contain operations to perform on matching objects.
+mutations may not be empty; a minimum of one mutation is required.
+mutations are evaluated in order, and are reinvoked according to
+the reinvocationPolicy.
+The mutations of a policy are invoked for each binding of this policy
+and reinvocation of mutations occurs on a per binding basis.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>webhookConfiguration</code>
           
           </br>
@@ -4585,6 +4685,42 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
 
           <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>reinvocationPolicy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
+as part of a single admission evaluation.
+Allowed values are &quot;Never&quot; and &quot;IfNeeded&quot;.</p>
+<p>Never: These mutations will not be called more than once per binding in a single admission evaluation.</p>
+<p>IfNeeded: These mutations may be invoked more than once per binding for a single admission request and there is no guarantee of
+order with respect to other admission plugins, admission webhooks, bindings of this policy and admission policies.  Mutations are only
+reinvoked when mutations change the object after this mutation is invoked.
+Required.</p>
 
 
           
