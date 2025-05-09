@@ -31,7 +31,6 @@ func NewBaseEnv() (*cel.Env, error) {
 		library.Lists(),
 		library.Regex(),
 		library.URLs(),
-		image.ImageLib(),
 	)
 }
 
@@ -42,5 +41,6 @@ func NewMatchImageEnv() (*cel.Env, error) {
 	}
 	return base.Extend(
 		cel.Variable(ImageRefKey, cel.StringType),
+		image.Lib(),
 	)
 }

@@ -41,6 +41,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"Get": {
 			cel.MemberOverload(
+				"globalcontext_get_string",
+				[]*cel.Type{ContextType, types.StringType},
+				types.DynType,
+				cel.BinaryBinding(impl.get_string),
+			),
+			cel.MemberOverload(
 				"globalcontext_get_string_string",
 				[]*cel.Type{ContextType, types.StringType, types.StringType},
 				types.DynType,
