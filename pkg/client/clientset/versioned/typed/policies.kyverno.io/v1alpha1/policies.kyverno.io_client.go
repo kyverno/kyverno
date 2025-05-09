@@ -29,6 +29,7 @@ import (
 type PoliciesV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ImageValidatingPoliciesGetter
+	MutatingPoliciesGetter
 	PolicyExceptionsGetter
 	ValidatingPoliciesGetter
 }
@@ -40,6 +41,10 @@ type PoliciesV1alpha1Client struct {
 
 func (c *PoliciesV1alpha1Client) ImageValidatingPolicies() ImageValidatingPolicyInterface {
 	return newImageValidatingPolicies(c)
+}
+
+func (c *PoliciesV1alpha1Client) MutatingPolicies() MutatingPolicyInterface {
+	return newMutatingPolicies(c)
 }
 
 func (c *PoliciesV1alpha1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {

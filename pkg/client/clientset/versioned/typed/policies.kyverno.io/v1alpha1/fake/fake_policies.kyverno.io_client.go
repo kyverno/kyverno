@@ -32,6 +32,10 @@ func (c *FakePoliciesV1alpha1) ImageValidatingPolicies() v1alpha1.ImageValidatin
 	return newFakeImageValidatingPolicies(c)
 }
 
+func (c *FakePoliciesV1alpha1) MutatingPolicies() v1alpha1.MutatingPolicyInterface {
+	return newFakeMutatingPolicies(c)
+}
+
 func (c *FakePoliciesV1alpha1) PolicyExceptions(namespace string) v1alpha1.PolicyExceptionInterface {
 	return newFakePolicyExceptions(c, namespace)
 }
