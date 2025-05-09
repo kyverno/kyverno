@@ -22,6 +22,10 @@ package v1alpha1
 // GeneratingPolicyLister.
 type GeneratingPolicyListerExpansion interface{}
 
+// DeletingPolicyListerExpansion allows custom methods to be added to
+// DeletingPolicyLister.
+type DeletingPolicyListerExpansion interface{}
+
 // ImageValidatingPolicyListerExpansion allows custom methods to be added to
 // ImageValidatingPolicyLister.
 type ImageValidatingPolicyListerExpansion interface{}

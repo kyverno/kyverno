@@ -20,6 +20,8 @@ package v1alpha1
 
 type GeneratingPolicyExpansion interface{}
 
+type DeletingPolicyExpansion interface{}
+
 type ImageValidatingPolicyExpansion interface{}
 
 type MutatingPolicyExpansion interface{}
