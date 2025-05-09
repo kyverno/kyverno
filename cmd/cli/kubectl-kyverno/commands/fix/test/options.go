@@ -174,6 +174,20 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 				if item, _, _ := unstructured.NestedMap(untyped.UnstructuredContent(), "metadata"); len(item) == 0 {
 					unstructured.RemoveNestedField(untyped.UnstructuredContent(), "metadata")
 				}
+				if namespaces, found, err := unstructured.NestedFieldNoCopy(untyped.UnstructuredContent(), "namespaces"); err != nil {
+					fmt.Fprintf(out, "    ERROR: converting to unstructured: %s\n", err)
+					continue
+				} else if found && namespaces != nil {
+					for _, namespace := range namespaces.([]any) {
+						unstructured.RemoveNestedField(namespace.(map[string]any), "metadata", "creationTimestamp")
+						if item, _, _ := unstructured.NestedMap(namespace.(map[string]any), "spec"); len(item) == 0 {
+							unstructured.RemoveNestedField(namespace.(map[string]any), "spec")
+						}
+						if item, _, _ := unstructured.NestedMap(namespace.(map[string]any), "status"); len(item) == 0 {
+							unstructured.RemoveNestedField(namespace.(map[string]any), "status")
+						}
+					}
+				}
 				jsonBytes, err := untyped.MarshalJSON()
 				if err != nil {
 					fmt.Fprintf(out, "    ERROR: converting to json: %s\n", err)
