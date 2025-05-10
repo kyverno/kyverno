@@ -71,6 +71,20 @@ func NewServer(
 	verifyLogger := logger.WithName("verify")
 	vpolLogger := logger.WithName("vpol")
 	ivpolLogger := logger.WithName("ivpol")
+	// new vpol handler
+	mux.HandlerFunc(
+		"POST",
+		"/vpol/validate/*policies",
+		handlerFunc("VALIDATE", resourceHandlers.ValidatingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(vpolLogger.WithName("validate")).
+			ToHandlerFunc("VPOL"),
+	)
 	registerWebhookHandlersWithAll(
 		mux,
 		"MUTATE",
