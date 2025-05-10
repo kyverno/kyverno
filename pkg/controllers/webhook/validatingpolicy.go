@@ -91,12 +91,12 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 			if p.GetFailurePolicy() == admissionregistrationv1.Ignore {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/validate/vpol/ignore/"+p.GetName())
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/vpol/validate/"+p.GetName())
 				fineGrainedIgnoreList = append(fineGrainedIgnoreList, webhook)
 			} else {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 				webhook.Name = name + "-fail-finegrained-" + p.GetName()
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/validate/vpol/fail/"+p.GetName())
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/vpol/validate/"+p.GetName())
 				fineGrainedFailList = append(fineGrainedFailList, webhook)
 			}
 		}
@@ -117,14 +117,14 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 		dynamicPath := strings.Join(names, "/")
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/validate/vpol/ignore/"+dynamicPath),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/vpol/validate/"+dynamicPath),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/validate/vpol/fail/"+dynamicPath),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/vpol/validate/"+dynamicPath),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},

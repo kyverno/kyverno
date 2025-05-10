@@ -21,7 +21,7 @@ func NewHandlers(validationOptions validation.ValidationOptions) *exceptionHandl
 }
 
 // Validate performs the validation check on policy exception resources
-func (h *exceptionHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, startTime time.Time, _ ...string) handlers.AdmissionResponse {
+func (h *exceptionHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, startTime time.Time) handlers.AdmissionResponse {
 	polex, _, err := admissionutils.GetPolicyExceptions(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policy exceptions from admission request")

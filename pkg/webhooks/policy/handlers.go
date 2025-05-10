@@ -29,7 +29,7 @@ func NewHandlers(client dclient.Interface, backgroundSA, reportsSA string) *poli
 	}
 }
 
-func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time, _ ...string) handlers.AdmissionResponse {
+func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
 	policy, oldPolicy, err := admissionutils.GetPolicies(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
@@ -68,6 +68,6 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	return admissionutils.Response(request.UID, errors.New("failed to convert policy"))
 }
 
-func (h *policyHandlers) Mutate(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time, _ ...string) handlers.AdmissionResponse {
+func (h *policyHandlers) Mutate(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
 	return admissionutils.ResponseSuccess(request.UID)
 }

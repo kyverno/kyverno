@@ -3,9 +3,11 @@ package vpol
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -41,14 +43,16 @@ func New(
 	}
 }
 
-func (h *handler) Validate(
-	ctx context.Context,
-	logger logr.Logger,
-	admissionRequest handlers.AdmissionRequest,
-	failurePolicy string,
-	startTime time.Time,
-	policies ...string,
-) handlers.AdmissionResponse {
+func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	var policies []string
+	if params := httprouter.ParamsFromContext(ctx); params != nil {
+		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
+			policies = params
+		}
+	}
+	for _, policy := range policies {
+		fmt.Println(policy)
+	}
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
 	response, err := h.engine.Handle(ctx, request, vpolengine.MatchNames(policies...))
 	if err != nil {

@@ -16,13 +16,13 @@ type DebugModeOptions struct {
 }
 
 type Handler interface {
-	Execute(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time, ...string) admissionv1.AdmissionResponse
+	Execute(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time) admissionv1.AdmissionResponse
 }
 
-type HandlerFunc func(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time, ...string) admissionv1.AdmissionResponse
+type HandlerFunc func(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time) admissionv1.AdmissionResponse
 
-func (f HandlerFunc) Execute(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time, policies ...string) admissionv1.AdmissionResponse {
-	return f(ctx, logger, request, failurePolicy, startTime, policies...)
+func (f HandlerFunc) Execute(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
+	return f(ctx, logger, request, failurePolicy, startTime)
 }
 
 type CELExceptionHandlers struct {

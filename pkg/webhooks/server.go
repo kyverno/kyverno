@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -72,17 +71,19 @@ func NewServer(
 	verifyLogger := logger.WithName("verify")
 	vpolLogger := logger.WithName("vpol")
 	ivpolLogger := logger.WithName("ivpol")
-	mux.POST(
-		"/validate/vpol/fail/*policies",
-		func(writer http.ResponseWriter, request *http.Request, ps httprouter.Params) {
-			policies := strings.Split(ps.ByName("policies"), "/")
-			if len(policies) > 1 {
-				policies = policies[1:]
-				for _, policy := range policies {
-					fmt.Println(policy)
-				}
-			}
-		},
+	// new vpol handler
+	mux.HandlerFunc(
+		"POST",
+		"/vpol/validate/*policies",
+		handlerFunc("VALIDATE", resourceHandlers.ValidatingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(vpolLogger.WithName("validate")).
+			ToHandlerFunc("VPOL"),
 	)
 	registerWebhookHandlersWithAll(
 		mux,

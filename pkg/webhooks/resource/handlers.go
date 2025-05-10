@@ -114,7 +114,7 @@ func NewHandlers(
 	}
 }
 
-func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time, _ ...string) handlers.AdmissionResponse {
+func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in validating webhook")
@@ -182,7 +182,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
-func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time, _ ...string) handlers.AdmissionResponse {
+func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in mutating webhook")
