@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"slices"
 	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -112,16 +113,18 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 		for _, policy := range basic {
 			names = append(names, policy.GetName())
 		}
+		slices.Sort(names)
+		dynamicPath := strings.Join(names, "/")
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/ignore/"+strings.Join(names, "/")),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/ignore/"+dynamicPath),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/fail/"+strings.Join(names, "/")),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/fail/"+dynamicPath),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
