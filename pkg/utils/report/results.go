@@ -136,6 +136,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		kyvernoPolicy := pol.AsKyvernoPolicy()
 		result.Source = SourceKyverno
 		process = selectProcess(kyvernoPolicy.BackgroundProcessingEnabled(), kyvernoPolicy.AdmissionProcessingEnabled())
+
 	}
 	addProperty("process", process, &result)
 
@@ -158,7 +159,6 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	if pss := ruleResult.PodSecurityChecks(); pss != nil && len(pss.Checks) > 0 {
 		addPodSecurityProperties(pss, &result)
 	}
-
 	return result
 }
 

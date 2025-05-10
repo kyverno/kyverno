@@ -1,0 +1,10 @@
+name: test MAP patch expression
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isMutatingAdmissionPolicy: true
+  patchedResource: expected-patched.yaml
+  policy: sample-policy
+  result: pass

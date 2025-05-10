@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pass-pod
+  labels:
+    tier: frontend
+spec:
+  containers:
+  - name: nginx
