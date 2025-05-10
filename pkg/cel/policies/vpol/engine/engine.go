@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -19,13 +20,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type (
+	EngineRequest  = engine.EngineRequest
+	EngineResponse = engine.EngineResponse
+	Engine         = engine.Engine[policiesv1alpha1.ValidatingPolicy]
+)
+
+type predicate = func(policiesv1alpha1.ValidatingPolicy) bool
+
 type engineImpl struct {
 	provider   Provider
 	nsResolver engine.NamespaceResolver
 	matcher    matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) engine.Engine {
+func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) Engine {
 	return &engineImpl{
 		provider:   provider,
 		nsResolver: nsResolver,
@@ -33,7 +42,7 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 	}
 }
 
-func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest) (engine.EngineResponse, error) {
+func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate predicate) (engine.EngineResponse, error) {
 	var response engine.EngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -84,6 +93,9 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest) (
 	}
 	// evaluate policies
 	for _, policy := range policies {
+		if predicate != nil && !predicate(policy.Policy) {
+			continue
+		}
 		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context))
 	}
 	return response, nil
