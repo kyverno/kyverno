@@ -50,9 +50,6 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 			policies = params
 		}
 	}
-	for _, policy := range policies {
-		fmt.Println(policy)
-	}
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
 	response, err := h.engine.Handle(ctx, request, vpolengine.MatchNames(policies...))
 	if err != nil {
