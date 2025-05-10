@@ -114,14 +114,14 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 		}
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/ignore/"+strings.Join(names, ",")),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/ignore/"+strings.Join(names, "/")),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/fail/"+strings.Join(names, ",")),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path+"/fail/"+strings.Join(names, "/")),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
