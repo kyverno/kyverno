@@ -24,9 +24,8 @@ type (
 	EngineRequest  = engine.EngineRequest
 	EngineResponse = engine.EngineResponse
 	Engine         = engine.Engine[policiesv1alpha1.ValidatingPolicy]
+	Predicate      = func(policiesv1alpha1.ValidatingPolicy) bool
 )
-
-type predicate = func(policiesv1alpha1.ValidatingPolicy) bool
 
 type engineImpl struct {
 	provider   Provider
@@ -42,7 +41,7 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 	}
 }
 
-func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate predicate) (engine.EngineResponse, error) {
+func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (engine.EngineResponse, error) {
 	var response engine.EngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)

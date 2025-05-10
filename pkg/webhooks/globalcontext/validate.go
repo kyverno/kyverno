@@ -17,7 +17,7 @@ func NewHandlers() *gctxHandlers {
 }
 
 // Validate performs the validation check on global context entries
-func (h *gctxHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, startTime time.Time) handlers.AdmissionResponse {
+func (h *gctxHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, startTime time.Time, _ ...string) handlers.AdmissionResponse {
 	gctx, _, err := admissionutils.GetGlobalContextEntry(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal global context entry from admission request")

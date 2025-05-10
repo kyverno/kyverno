@@ -41,9 +41,16 @@ func New(
 	}
 }
 
-func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
+func (h *handler) Validate(
+	ctx context.Context,
+	logger logr.Logger,
+	admissionRequest handlers.AdmissionRequest,
+	failurePolicy string,
+	startTime time.Time,
+	policies ...string,
+) handlers.AdmissionResponse {
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, err := h.engine.Handle(ctx, request, nil)
+	response, err := h.engine.Handle(ctx, request, vpolengine.MatchNames(policies...))
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
