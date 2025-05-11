@@ -237,14 +237,24 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	if len(genRules) == 0 {
 		return spec.Rules
 	}
-	var out []kyvernov1.Rule
-	for _, rule := range spec.Rules {
-		if !isAutogenRuleName(rule.Name) {
-			out = append(out, rule)
+	nameSet := sets.NewString()
+	var deduped []kyvernov1.Rule
+
+	for _, r := range spec.Rules {
+		if !isAutogenRuleName(r.Name) {
+			deduped = append(deduped, r)
+			nameSet.Insert(r.Name)
 		}
 	}
-	out = append(out, genRules...)
-	return out
+
+	for _, r := range genRules {
+		if !nameSet.Has(r.Name) {
+			deduped = append(deduped, r)
+			nameSet.Insert(r.Name)
+		}
+	}
+
+	return deduped
 }
 
 func copyMap(m map[string]any) map[string]any {
