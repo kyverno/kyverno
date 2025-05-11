@@ -866,7 +866,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return nil
 	}
 
-	ivpols, err := c.getImageValidatingPolicy()
+	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
 	}
@@ -1075,7 +1075,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		pols)...)
 
-	ivpols, err := c.getImageValidatingPolicy()
+	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
 	}
@@ -1209,7 +1209,6 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	if err != nil {
 		return nil, err
 	}
-
 	vpols := make([]engineapi.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
 		if vpol.Spec.AdmissionEnabled() && !vpol.GetStatus().Generated {
@@ -1219,12 +1218,11 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	return vpols, nil
 }
 
-func (c *controller) getImageValidatingPolicy() ([]engineapi.GenericPolicy, error) {
+func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, error) {
 	policies, err := c.ivpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-
 	ivpols := make([]engineapi.GenericPolicy, 0)
 	for _, ivpol := range policies {
 		if ivpol.Spec.AdmissionEnabled() {
