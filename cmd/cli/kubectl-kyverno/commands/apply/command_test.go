@@ -863,7 +863,7 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/resource.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/resource1.yaml"},
 				PolicyReport:  true,
 				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/values.yaml",
 			},
