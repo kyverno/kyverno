@@ -21,6 +21,8 @@ spec:
           value: check-signed-images
   - name: create deployment
     try:
+    - sleep:
+        duration: 30s
     - create:
         file: deployment.yaml
         expect:
