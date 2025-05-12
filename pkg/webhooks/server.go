@@ -71,7 +71,7 @@ func NewServer(
 	verifyLogger := logger.WithName("verify")
 	vpolLogger := logger.WithName("vpol")
 	ivpolLogger := logger.WithName("ivpol")
-	// new vpol handler
+	// new vpol and ivpol handlers
 	mux.HandlerFunc(
 		"POST",
 		"/vpol/*policies",
@@ -84,6 +84,33 @@ func NewServer(
 			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(vpolLogger.WithName("validate")).
 			ToHandlerFunc("VPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		"/ivpol/validate/*policies",
+		handlerFunc("IVPOL-VALIDATE", resourceHandlers.ImageVerificationPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(ivpolLogger.WithName("validate")).
+			ToHandlerFunc("IVPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		"/ivpol/mutate/*policies",
+		handlerFunc("IVPOL-MUTATE", resourceHandlers.ImageVerificationPoliciesMutation, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
+			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
+			WithAdmission(resourceLogger.WithName("mutate")).
+			ToHandlerFunc("IVPOL"),
 	)
 	registerWebhookHandlersWithAll(
 		mux,
