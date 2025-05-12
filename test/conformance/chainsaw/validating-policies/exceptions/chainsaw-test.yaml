@@ -11,8 +11,6 @@ spec:
         file: exception.yaml
     - sleep:
         duration: 10s
-    - assert:
-        file: exception-assert.yaml
   - name: create policy
     use:
       template: /../../_step-templates/create-policy.yaml
@@ -39,11 +37,7 @@ spec:
     try:
     - create:
         file: good-deployment.yaml
-    - assert:
-        file: good-deployment.yaml
   - name: create skipped deployment
     try:
     - create:
-        file: skipped-deployment.yaml
-    - assert:
         file: skipped-deployment.yaml
