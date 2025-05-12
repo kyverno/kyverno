@@ -8,10 +8,10 @@ spec:
     - Deny
   matchConstraints:
     resourceRules:
-      - apiGroups: [""]
+      - apiGroups: ["apps"]
         apiVersions: ["v1"]
         operations: ["CREATE"]
-        resources: ["pods"]
+        resources: ["statefulsets"]
   matchConditions:
     - name: "check-prod-label"
       expression: >-

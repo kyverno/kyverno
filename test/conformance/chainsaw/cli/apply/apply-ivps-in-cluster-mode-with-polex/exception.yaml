@@ -8,4 +8,4 @@ spec:
       kind: ImageValidatingPolicy
   matchConditions:
     - name: "check-name"
-      expression: "object.metadata.name == 'skipped-pod'"
+      expression: "object.metadata.name == 'skipped-statefulset'"
