@@ -118,94 +118,94 @@ func TestMatchCriteria_GetMatchResources(t *testing.T) {
 		name        string
 		constraints *admissionregistrationv1.MatchResources
 		want        admissionregistrationv1.MatchResources
-	}{
-		{
-			name:        "nil constraints",
-			constraints: nil,                                      // No constraints
-			want:        admissionregistrationv1.MatchResources{}, // Expecting an empty MatchResources
-		}, {
-			name: "test",
-			constraints: &admissionregistrationv1.MatchResources{
-				NamespaceSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"foo": "bar",
-					},
+	}{{
+		name:        "nil constraints",
+		constraints: nil,                                     
+		want:        admissionregistrationv1.MatchResources{}, 
+
+	}, {
+		name: "test",
+		constraints: &admissionregistrationv1.MatchResources{
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo": "bar",
 				},
-				ObjectSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"foo": "bar",
-					},
-				},
-				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"flop"},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"foos"},
-						},
-					},
-				}, {
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"flop"},
-							APIVersions: []string{"v2"},
-							Resources:   []string{"bars", "foos"},
-						},
-					},
-				}, {
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"foo"},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"bars"},
-						},
-					},
-				}},
 			},
-			want: admissionregistrationv1.MatchResources{
-				NamespaceSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"foo": "bar",
-					},
+			ObjectSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo": "bar",
 				},
-				ObjectSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"foo": "bar",
-					},
-				},
-				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"flop"},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"foos"},
-						},
-					},
-				}, {
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"flop"},
-							APIVersions: []string{"v2"},
-							Resources:   []string{"bars", "foos"},
-						},
-					},
-				}, {
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"foo"},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"bars"},
-						},
-					},
-				}},
 			},
-		}}
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"flop"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"foos"},
+					},
+				},
+			}, {
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"flop"},
+						APIVersions: []string{"v2"},
+						Resources:   []string{"bars", "foos"},
+					},
+				},
+			}, {
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"foo"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"bars"},
+					},
+				},
+			}},
+		},
+		want: admissionregistrationv1.MatchResources{
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			ObjectSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"flop"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"foos"},
+					},
+				},
+			}, {
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"flop"},
+						APIVersions: []string{"v2"},
+						Resources:   []string{"bars", "foos"},
+					},
+				},
+			}, {
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"foo"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"bars"},
+					},
+				},
+			}},
+		},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &MatchCriteria{
