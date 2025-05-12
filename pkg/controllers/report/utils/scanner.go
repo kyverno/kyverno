@@ -240,7 +240,7 @@ func (s *scanner) ScanResource(
 				false,
 				nil,
 			)
-			engineResponse, _, err := engine.HandleMutating(ctx, request)
+			engineResponse, _, err := engine.HandleMutating(ctx, request, nil)
 			response := engineapi.EngineResponse{
 				Resource:       resource,
 				PolicyResponse: engineapi.PolicyResponse{},

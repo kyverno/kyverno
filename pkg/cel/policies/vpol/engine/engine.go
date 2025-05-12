@@ -41,8 +41,8 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 	}
 }
 
-func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (engine.EngineResponse, error) {
-	var response engine.EngineResponse
+func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicate Predicate) (EngineResponse, error) {
+	var response EngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
 	if err != nil {
