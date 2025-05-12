@@ -120,9 +120,8 @@ func TestMatchCriteria_GetMatchResources(t *testing.T) {
 		want        admissionregistrationv1.MatchResources
 	}{{
 		name:        "nil constraints",
-		constraints: nil,                                     
-		want:        admissionregistrationv1.MatchResources{}, 
-
+		constraints: nil,
+		want:        admissionregistrationv1.MatchResources{},
 	}, {
 		name: "test",
 		constraints: &admissionregistrationv1.MatchResources{
