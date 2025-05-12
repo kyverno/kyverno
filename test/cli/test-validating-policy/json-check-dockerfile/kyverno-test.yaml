@@ -1,10 +1,11 @@
 apiVersion: cli.kyverno.io/v1alpha1
-jsonPayload: ./payload.json
 kind: Test
 metadata:
   name: vpol-test-json
 policies:
 - ./policy.yaml
+jsonInputs:
+- ./payload.json
 results:
 - kind: ""
   policy: check-dockerfile-disallow-curl
