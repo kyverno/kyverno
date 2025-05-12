@@ -74,7 +74,7 @@ func NewServer(
 	// new vpol handler
 	mux.HandlerFunc(
 		"POST",
-		"/vpol/validate/*policies",
+		"/vpol/*policies",
 		handlerFunc("VALIDATE", resourceHandlers.ValidatingPolicies, "").
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).

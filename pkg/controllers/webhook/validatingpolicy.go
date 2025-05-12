@@ -1,8 +1,8 @@
 package webhook
 
 import (
+	"path"
 	"slices"
-	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server, name, path string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
+func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		var p policiesv1alpha1.GenericPolicy
@@ -91,12 +91,12 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 			if p.GetFailurePolicy() == admissionregistrationv1.Ignore {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/vpol/validate/"+p.GetName())
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
 				fineGrainedIgnoreList = append(fineGrainedIgnoreList, webhook)
 			} else {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 				webhook.Name = name + "-fail-finegrained-" + p.GetName()
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/vpol/validate/"+p.GetName())
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
 				fineGrainedFailList = append(fineGrainedFailList, webhook)
 			}
 		}
@@ -114,17 +114,17 @@ func buildWebhookRules(cfg config.Configuration, server, name, path string, serv
 			names = append(names, policy.GetName())
 		}
 		slices.Sort(names)
-		dynamicPath := strings.Join(names, "/")
+		dynamicPath := path.Join(names...)
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/vpol/validate/"+dynamicPath),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/vpol/validate/"+dynamicPath),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
