@@ -63,6 +63,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&ImageValidatingPolicy{},
 		&ImageValidatingPolicyList{},
+		&MutatingPolicy{},
+		&MutatingPolicyList{},
 		&PolicyException{},
 		&PolicyExceptionList{},
 		&ValidatingPolicy{},
