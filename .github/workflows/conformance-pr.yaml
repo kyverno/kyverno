@@ -1,0 +1,136 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Conformance (PR)
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      k8sVersions: ${{ steps.matrix.outputs.k8sVersions }}
+      upgrades: ${{ steps.matrix.outputs.upgrades }}
+    steps:
+      - name: Set PR matrix output
+        id: matrix
+        run: |
+             echo 'k8sVersions=["v1.32.2"]' >> $GITHUB_OUTPUT
+             echo 'upgrades=["none"]' >> $GITHUB_OUTPUT
+
+  prepare-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          free-disk-space: false
+      - name: Build Kyverno Docker image
+        run: |
+          VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+
+  prepare-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          free-disk-space: false
+      - name: Build CLI
+        run: |
+          VERSION=${{ github.ref_name }} make build-cli
+      - name: Upload CLI binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubectl-kyverno
+          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
+
+  assert:
+    runs-on: ubuntu-latest
+    needs: [define-matrix, prepare-images]
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8sVersions) }}
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: assert
+          upgrade-scenario: ${{ matrix.upgrade }}
+
+  mutate:
+    runs-on: ubuntu-latest
+    needs: [define-matrix, prepare-images]
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8sVersions) }}
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: mutate
+          upgrade-scenario: ${{ matrix.upgrade }}
+
+  validate:
+    runs-on: ubuntu-latest
+    needs: [define-matrix, prepare-images]
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: ${{ fromJSON(needs.define-matrix.outputs.k8sVersions) }}
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: validate
+          upgrade-scenario: ${{ matrix.upgrade }}
+
+  conformance-required:
+    name: conformance-required
+    runs-on: ubuntu-latest
+    needs:
+      - assert
+      - mutate
+      - validate
+    if: ${{ success() }}
+    steps:
+      - run: echo " All tests passed!"
+
+  conformance-failed:
+    name: conformance-required
+    runs-on: ubuntu-latest
+    needs:
+      - assert
+      - mutate
+      - validate
+    if: ${{ failure() || cancelled() }}
+    steps:
+      - run: exit 1
