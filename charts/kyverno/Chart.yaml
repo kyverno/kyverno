@@ -33,8 +33,8 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: added
-      description: Add toggle for enabeling/disabling aggregating the user-facing roles with the kyverno rbac.
+    - kind: removed
+      description: Remove the `delete` permission for policyexceptions in the admission controller
 dependencies:
   - name: grafana
     version: 3.4.1

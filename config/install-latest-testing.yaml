@@ -53846,7 +53846,33 @@ rules:
       - updaterequests/status
       - globalcontextentries
       - globalcontextentries/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - kyverno.io
+    resources:
       - policyexceptions
+    verbs:
+      - create
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - validatingpolicies
+      - validatingpolicies/status
+      - imagevalidatingpolicies
+      - imagevalidatingpolicies/status
     verbs:
       - create
       - delete
@@ -53859,20 +53885,14 @@ rules:
   - apiGroups:
       - policies.kyverno.io
     resources:
-      - validatingpolicies
-      - validatingpolicies/status
       - policyexceptions
-      - imagevalidatingpolicies
-      - imagevalidatingpolicies/status
     verbs:
       - create
-      - delete
       - get
       - list
       - patch
       - update
       - watch
-      - deletecollection
   - apiGroups:
       - reports.kyverno.io
     resources:
