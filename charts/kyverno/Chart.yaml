@@ -35,6 +35,8 @@ annotations:
   artifacthub.io/changes: |
     - kind: fixed
       description: Ensure spec.template.metadata isn't null
+    - kind: removed
+      description: Remove the `delete` permission for policyexceptions in the admission controller
 dependencies:
   - name: grafana
     version: v0.0.0
