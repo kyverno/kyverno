@@ -108,11 +108,15 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 	}
 	// evaluate policies
 	var relevant []Policy
-	for _, policy := range policies {
-		if predicate != nil && !predicate(*policy.Policy) {
-			continue
+	if predicate != nil {
+		for _, policy := range policies {
+			if !predicate(*policy.Policy) {
+				continue
+			}
+			relevant = append(relevant, policy)
 		}
-		relevant = append(relevant, policy)
+	} else {
+		relevant = policies
 	}
 	responses, err := e.handleValidation(relevant, attr, namespace)
 	if err != nil {
@@ -165,11 +169,15 @@ func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, 
 	}
 	// evaluate policies
 	var relevant []Policy
-	for _, policy := range policies {
-		if predicate != nil && !predicate(*policy.Policy) {
-			continue
+	if predicate != nil {
+		for _, policy := range policies {
+			if !predicate(*policy.Policy) {
+				continue
+			}
+			relevant = append(relevant, policy)
 		}
-		relevant = append(relevant, policy)
+	} else {
+		relevant = policies
 	}
 	responses, patches, err := e.handleMutation(ctx, relevant, attr, &request.Request, namespace, request.Context)
 	if err != nil {
