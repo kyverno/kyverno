@@ -284,6 +284,17 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		resourceKey := generateResourceKey(resource)
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
+
+		for _, res := range ers {
+			if res.Policy().AsMutatingAdmissionPolicy() != nil {
+				for i := range testCase.Test.Results {
+					// match the policy name; ignore rule name for MAP/MAPB
+					if testCase.Test.Results[i].Policy == res.Policy().GetName() {
+						testCase.Test.Results[i].IsMutatingAdmissionPolicy = true
+					}
+				}
+			}
+		}
 	}
 	if json != nil {
 		// the policy processor is for multiple policies at once

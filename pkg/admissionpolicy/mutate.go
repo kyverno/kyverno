@@ -96,7 +96,7 @@ func MutateResource(
 	// compile matchers
 	matcher := matchconditions.NewMatcher(compiler.CompileMatchConditions(optionalVars), &failPolicy, "policy", "mutate", policy.Name)
 	if matcher != nil {
-		matchResults := matcher.Match(context.TODO(), versionedAttributes, nil, nil)
+		matchResults := matcher.Match(context.TODO(), versionedAttributes, namespace, nil)
 
 		// if preconditions are not met, then skip mutations
 		if !matchResults.Matches {
@@ -113,7 +113,7 @@ func MutateResource(
 		return engineResponse.WithPolicyResponse(policyResp), nil
 	}
 	// apply mutations
-	for _, patcher := range patchers {
+	for i, patcher := range patchers {
 		patchRequest := patch.Request{
 			MatchedResource:     gvr,
 			VersionedAttributes: versionedAttributes,
@@ -123,22 +123,25 @@ func MutateResource(
 			TypeConverter:       managedfields.NewDeducedTypeConverter(),
 		}
 		original := versionedAttributes.VersionedObject
+		ruleName := fmt.Sprintf("mutation-%d", i)
 
 		newVersionedObject, err := patcher.Patch(context.TODO(), patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
-			ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil)
+			ruleResp := engineapi.RuleError(ruleName, engineapi.Mutation, err.Error(), nil, nil)
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
-			return engineResponse.WithPolicyResponse(policyResp), nil
+			continue
 		}
 
 		// check if mutation actually changed anything
 		if equality.Semantic.DeepEqual(original, newVersionedObject) {
-			ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Mutation, "mutation had no effect", nil)
+			ruleResp := engineapi.RuleSkip(ruleName, engineapi.Mutation, "mutation had no effect", nil)
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
-			return engineResponse.WithPolicyResponse(policyResp), nil
+			continue
 		}
 
 		versionedAttributes.VersionedObject = newVersionedObject
+		ruleResp := engineapi.RulePass(ruleName, engineapi.Mutation, "", nil)
+		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 
 	}
 
@@ -149,8 +152,10 @@ func MutateResource(
 		return engineResponse.WithPolicyResponse(policyResp), nil
 	}
 
-	ruleResp := engineapi.RulePass(policy.GetName(), engineapi.Mutation, "", nil)
-	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+	//ruleResp := engineapi.RulePass(policy.GetName(), engineapi.Mutation, "", nil)
+	//policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+	patchedResource.SetName(resource.GetName())
+	patchedResource.SetNamespace(resource.GetNamespace())
 	engineResponse = engineResponse.
 		WithPatchedResource(*patchedResource).
 		WithPolicyResponse(policyResp)
