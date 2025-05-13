@@ -49,7 +49,7 @@ require (
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
 	github.com/sigstore/rekor v1.3.10
 	github.com/sigstore/sigstore v1.9.4
-	github.com/sigstore/sigstore-go v0.6.2
+	github.com/sigstore/sigstore-go v1.0.0
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.9.4
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.9.4
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.9.4
@@ -89,17 +89,18 @@ require (
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5
 	sigs.k8s.io/kustomize/api v0.19.0
 	sigs.k8s.io/kustomize/kyaml v0.19.0
-	sigs.k8s.io/release-utils v0.11.0
+	sigs.k8s.io/release-utils v0.11.1
 	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/dgryski/go-farm v0.0.0-20240924180020-3414d57e47da // indirect
 	github.com/go-piv/piv-go v1.11.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/xanzy/go-gitlab v0.109.0 // indirect
-	go.step.sm/crypto v0.60.0 // indirect
+	go.step.sm/crypto v0.63.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 )
 
@@ -258,7 +259,7 @@ require (
 	github.com/hashicorp/hcl v1.0.1-vault-5 // indirect
 	github.com/hashicorp/vault/api v1.16.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
-	github.com/in-toto/attestation v1.1.0 // indirect
+	github.com/in-toto/attestation v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267 // indirect
@@ -324,7 +325,7 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sigstore/fulcio v1.6.6 // indirect
 	github.com/sigstore/protobuf-specs v0.4.1 // indirect
-	github.com/sigstore/timestamp-authority v1.2.4 // indirect
+	github.com/sigstore/timestamp-authority v1.2.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
@@ -342,7 +343,7 @@ require (
 	github.com/tektoncd/chains v0.22.0 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
-	github.com/theupdateframework/go-tuf/v2 v2.0.2 // indirect
+	github.com/theupdateframework/go-tuf/v2 v2.1.1 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
@@ -365,13 +366,13 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/net v0.39.0 // indirect
+	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/oauth2 v0.29.0 // indirect
 	golang.org/x/sync v0.14.0
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
-	google.golang.org/api v0.229.0 // indirect
+	google.golang.org/api v0.230.0 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250414145226-207652e42e2e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
