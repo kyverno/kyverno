@@ -153,6 +153,7 @@ spec:
             - --servicePort={{ .Values.admissionController.service.port }}
             - --webhookServerPort={{ .Values.admissionController.webhookServer.port }}
             - --resyncPeriod={{ .Values.admissionController.resyncPeriod | default .Values.global.resyncPeriod }}
+            - --crdWatcher={{ .Values.admissionController.crdWatcher | default .Values.global.crdWatcher }}
             {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
             - --autoDeleteWebhooks
             {{- end }}

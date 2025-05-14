@@ -12,6 +12,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+
+	// "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 // TopLevelApiDescription contains a group/version/resource/subresource reference
@@ -85,6 +90,57 @@ func (c serverResources) Poll(ctx context.Context, resync time.Duration) {
 			logger.V(6).Info("invalidating local client cache for registered resources")
 			c.cachedClient.Invalidate()
 		}
+	}
+}
+
+// CreateCRDWatcher creates a watcher for CRD changes
+// It will invalidate the local cache when a CRD is added, updated or deleted
+func (c serverResources) CreateCRDWatcher(ctx context.Context, dyn dynamic.Interface) {
+	logger := logger.WithName("crd-definition-watcher")
+	logger.Info("Starting CRD definition watcher...")
+	crdGVR := schema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}
+	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dyn, 0, metav1.NamespaceAll, nil)
+	informer := factory.ForResource(crdGVR).Informer()
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			metaObj, ok := obj.(metav1.Object)
+			if !ok {
+				logger.Error(fmt.Errorf("type assertion failed"), "AddFunc: Not a metav1.Object")
+				return
+			}
+			logger.Info("CRD added", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
+			c.cachedClient.Invalidate()
+			logger.Info("Discovery cache invalidated after CRD add")
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			metaObj, ok := oldObj.(metav1.Object)
+			if !ok {
+				logger.Error(fmt.Errorf("type assertion failed"), "UpdateFunc: Not a metav1.Object")
+				return
+			}
+			logger.Info("CRD updated", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
+			c.cachedClient.Invalidate()
+			logger.Info("Discovery cache invalidated after CRD update")
+		},
+		DeleteFunc: func(obj interface{}) {
+			metaObj, ok := obj.(metav1.Object)
+			if !ok {
+				logger.Error(fmt.Errorf("type assertion failed"), "DeleteFunc: Not a metav1.Object")
+				return
+			}
+			logger.Info("CRD deleted", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
+			c.cachedClient.Invalidate()
+			logger.Info("Discovery cache invalidated after CRD delete")
+		},
+	})
+	go informer.Run(ctx.Done())
+	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
+		logger.Info("timed out waiting for caches to sync")
+		return
 	}
 }
 
