@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
 	ImageValidatingPolicies() ImageValidatingPolicyInformer
+	// MutatingPolicies returns a MutatingPolicyInformer.
+	MutatingPolicies() MutatingPolicyInformer
 	// PolicyExceptions returns a PolicyExceptionInformer.
 	PolicyExceptions() PolicyExceptionInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
@@ -46,6 +48,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
 func (v *version) ImageValidatingPolicies() ImageValidatingPolicyInformer {
 	return &imageValidatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// MutatingPolicies returns a MutatingPolicyInformer.
+func (v *version) MutatingPolicies() MutatingPolicyInformer {
+	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyExceptions returns a PolicyExceptionInformer.
