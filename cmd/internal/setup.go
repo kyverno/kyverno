@@ -100,7 +100,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	}
 	var dClient dclient.Interface
 	if config.UsesKyvernoDynamicClient() {
-		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, resyncPeriod)
+		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, resyncPeriod, crdWatcher)
 	}
 	var eventsClient eventsv1.EventsV1Interface
 	if config.UsesEventsClient() {

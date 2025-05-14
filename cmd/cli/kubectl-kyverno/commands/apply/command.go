@@ -720,7 +720,7 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 		if err != nil {
 			return nil, err
 		}
-		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute)
+		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute, false)
 		if err != nil {
 			return nil, err
 		}

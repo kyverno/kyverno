@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -68,6 +69,7 @@ func NewClient(
 	dyn dynamic.Interface,
 	kube kubernetes.Interface,
 	resync time.Duration,
+	crdWatcher bool,
 ) (Interface, error) {
 	disco := kube.Discovery()
 	client := client{
@@ -85,6 +87,12 @@ func NewClient(
 	// If a resource is removed then and cache is not invalidate yet, we will not detect the removal
 	// but the re-sync shall re-evaluate
 	go discoveryClient.Poll(ctx, resync)
+	// If CRD watcher is enabled, then it starts the watcher
+	// This watcher will watch for CRD changes and invalidate the cache on changes on sutomresourcedefinitions
+	if crdWatcher {
+		log.Println("Starting the CRD Watcher...")
+		go discoveryClient.CreateCRDWatcher(ctx, dyn)
+	}
 	client.SetDiscovery(discoveryClient)
 	return &client, nil
 }
