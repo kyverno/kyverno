@@ -1,0 +1,15 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-fail-expected
+policies:
+- always-pass-policy.yaml
+resources:
+- test-pod.yaml
+results:
+- policy: always-pass-policy
+  rule: check-label
+  kind: Pod
+  resources:
+  - default/test-pod
+  result: fail
