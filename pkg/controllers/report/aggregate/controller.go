@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportv1alpha1 "github.com/kyverno/kyverno/api/openreports.io/v1alpha1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -80,8 +80,8 @@ func NewController(
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
-	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
-	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
+	polrInformer := metadataFactory.ForResource(reportv1alpha1.SchemeGroupVersion.WithResource("policyreports"))
+	cpolrInformer := metadataFactory.ForResource(reportv1alpha1.SchemeGroupVersion.WithResource("clusterpolicyreports"))
 	c := controller{
 		client:      client,
 		dclient:     dclient,
@@ -301,7 +301,7 @@ func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, n
 
 func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
 	if namespace == "" {
-		report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
+		report, err := c.client.OpenreportsV1alpha1().ClusterReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -310,7 +310,7 @@ func (c *controller) getReport(ctx context.Context, namespace, name string) (rep
 		}
 		return report, nil
 	} else {
-		report, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		report, err := c.client.OpenreportsV1alpha1().Reports(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -492,9 +492,9 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		ivpol: ivpolMap,
 	}
 	reports = append(reports, ephemeralReports...)
-	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+	merged := map[string]reportv1alpha1.ReportResult{}
 	mergeReports(maps, merged, types.UID(name), reports...)
-	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(merged))
+	results := make([]reportv1alpha1.ReportResult, 0, len(merged))
 	for _, result := range merged {
 		results = append(results, result)
 	}

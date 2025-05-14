@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportv1alpha1 "github.com/kyverno/kyverno/api/openreports.io/v1alpha1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -22,7 +22,7 @@ type maps struct {
 	ivpol sets.Set[string]
 }
 
-func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
+func mergeReports(maps maps, accumulator map[string]reportv1alpha1.ReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
 	for _, report := range reports {
 		if report == nil {
 			continue

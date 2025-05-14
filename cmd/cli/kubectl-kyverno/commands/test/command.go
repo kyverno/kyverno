@@ -215,9 +215,9 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
-		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
+		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
-	return true, result.Message, "Ok"
+	return true, result.Description, "Ok"
 }
 
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {

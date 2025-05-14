@@ -1,7 +1,7 @@
 package report
 
 import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportv1alpha1 "github.com/kyverno/kyverno/api/openreports.io/v1alpha1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -72,14 +72,14 @@ func BuildGenerateReport(namespace string, gvk schema.GroupVersionKind, owner st
 	return report
 }
 
-func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, results ...policyreportv1alpha2.PolicyReportResult) reportsv1.ReportInterface {
+func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, results ...reportv1alpha1.ReportResult) reportsv1.ReportInterface {
 	var report reportsv1.ReportInterface
 	if namespace == "" {
-		report = &policyreportv1alpha2.ClusterPolicyReport{
+		report = &reportv1alpha1.ClusterReport{
 			Scope: scope,
 		}
 	} else {
-		report = &policyreportv1alpha2.PolicyReport{
+		report = &reportv1alpha1.Report{
 			Scope: scope,
 		}
 	}
