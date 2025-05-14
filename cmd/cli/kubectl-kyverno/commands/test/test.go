@@ -10,7 +10,6 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -36,6 +35,7 @@ import (
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -44,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/restmapper"
 )
 
 type TestResponse struct {
@@ -86,10 +85,17 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
 	}
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
+	for _, pol := range results.Policies {
+		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
+	}
+	for _, pol := range results.VAPs {
+		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
+	}
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, results.Policies, results.VAPs, dClient, "", false, false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
@@ -113,7 +119,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
-	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, results.Policies, results.VAPs, dClient, "", false, false, testDir)
+	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
@@ -364,11 +370,10 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
-	apiGroupResources, err := data.APIGroupResources()
+	restMapper, err := utils.GetRESTMapper(dclient, true)
 	if err != nil {
 		return nil, err
 	}
-	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	gctxStore := gctxstore.New()
 	var contextProvider libs.Context
 	if dclient != nil {
