@@ -122,21 +122,21 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
-			}
-
-			// Handle nil errors more gracefully with a more descriptive message
-			var errForEvent error
-			if err == nil {
-				errForEvent = fmt.Errorf("resource generation failed with an unknown error")
-			} else if strings.Contains(err.Error(), "object has been modified") {
-				errForEvent = fmt.Errorf("failed to generate resource: resource already exists or has been modified")
 			} else {
-				errForEvent = err
+				var errForEvent error
+				if strings.Contains(err.Error(), "object has been modified") {
+					errForEvent = fmt.Errorf("failed to generate resource: resource already exists or has been modified")
+				} else {
+					errForEvent = err
+				}
+
+				events := event.NewBackgroundFailedEvent(errForEvent, policy, rule.Rule, event.GeneratePolicyController,
+					kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
+				c.eventGen.Add(events...)
 			}
 
-			events := event.NewBackgroundFailedEvent(errForEvent, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
-				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
-			c.eventGen.Add(events...)
+			failures = append(failures, err)
+			continue
 		}
 	}
 

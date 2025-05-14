@@ -158,6 +158,11 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 }
 
 func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
+	// Skip event generation for nil errors
+	if err == nil {
+		return nil
+	}
+
 	var events []Info
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
@@ -167,20 +172,14 @@ func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule 
 		Namespace:  policy.GetNamespace(),
 		UID:        policy.GetUID(),
 	}
+
 	var msg string
-	if err == nil {
-		if rule == "" {
-			msg = fmt.Sprintf("policy %s error: no details available", policy.GetName())
-		} else {
-			msg = fmt.Sprintf("policy %s/%s error: no details available", policy.GetName(), rule)
-		}
+	if rule == "" {
+		msg = fmt.Sprintf("policy %s error: %v", policy.GetName(), err)
 	} else {
-		if rule == "" {
-			msg = fmt.Sprintf("policy %s error: %v", policy.GetName(), err)
-		} else {
-			msg = fmt.Sprintf("policy %s/%s error: %v", policy.GetName(), rule, err)
-		}
+		msg = fmt.Sprintf("policy %s/%s error: %v", policy.GetName(), rule, err)
 	}
+
 	events = append(events, Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
