@@ -7,6 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
+DEPRECATED_KIND_IMAGE = kindest/node:v1.20.15
 KIND_IMAGE           ?= kindest/node:v1.32.2
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
@@ -583,8 +584,8 @@ codegen-cli-api-group-resources: ## Generate API group resources
 codegen-cli-api-group-resources: $(API_GROUP_RESOURCES)
 codegen-cli-api-group-resources: $(KIND)
 	@echo Generate API group resources... >&2
-	@$(KIND) delete cluster --name codegen-cli-api-group-resources || true
-	@$(KIND) create cluster --name codegen-cli-api-group-resources --image $(KIND_IMAGE) --config ./scripts/config/kind/codegen.yaml
+	@$(KIND) delete cluster --name codegen-cli-api-group-resources || true 
+	@$(KIND) create cluster --name codegen-cli-api-group-resources --image $(DEPRECATED_KIND_IMAGE) --config ./scripts/config/kind/codegen.yaml
 	@$(API_GROUP_RESOURCES) > cmd/cli/kubectl-kyverno/data/api-group-resources.json
 	@$(KIND) delete cluster --name codegen-cli-api-group-resources
 
