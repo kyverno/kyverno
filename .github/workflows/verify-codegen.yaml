@@ -29,12 +29,6 @@ jobs:
     - name: Setup build env
       uses: ./.github/actions/setup-build-env
       timeout-minutes: 10
-    - name: Cleanup conflicting files
-      run: |
-        rm -rf ../../../go/pkg/mod/k8s.io/kubectl@v0.32.3/pkg/cmd/edit/testdata/
-        rm -rf ../../../go/pkg/mod/k8s.io/kubectl@v0.32.3/pkg/cmd/apply/testdata/
-        rm -rf ../../../go/pkg/mod/k8s.io/apimachinery@v0.33.0/pkg/util/proxy/
-
     - name: Create cluster
       run: make kind-create-cluster
     - name: Verify generated code is up to date
