@@ -72,7 +72,7 @@ spec:
           {{- end }}
       {{- with .Values.policyReportsCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.policyReportsCleanup.tolerations | default .Values.global.tolerations}}
       tolerations:
