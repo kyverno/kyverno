@@ -25,6 +25,8 @@
             
             <h3>Resource Types:</h3>
             <ul><li>
+                    <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>
+                  </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy</a>
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>
@@ -36,6 +38,287 @@
 
             
             
+  <H3 id="policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>GeneratingPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">
+                <span style="font-family: monospace">GeneratingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources will trigger this policy.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GenerateConfiguration">
+                <span style="font-family: monospace">GenerateConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generate</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Generation">
+                <span style="font-family: monospace">[]Generation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy
     </H3>
 
@@ -2991,6 +3274,397 @@ Optional. Default value is &quot;Kubernetes&quot;.</p>
 
   <p></p>
 
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GenerateConfiguration">GenerateConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">GeneratingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>generateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateExisting controls whether to trigger the policy for existing resources
+If is set to &quot;true&quot; the policy will be triggered and applied to existing matched resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>synchronize</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Synchronize controls if generated resources should be kept in-sync with their source resource.
+If Synchronize is set to &quot;true&quot; changes to generated resources will be overwritten with resource
+data from Data or the resource specified in the Clone declaration.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>orphanDownstreamOnPolicyDelete</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the policy that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GeneratingPolicySpec">GeneratingPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>)
+    </p>
+  
+
+  <p><p>GeneratingPolicySpec is the specification of the desired behavior of the GeneratingPolicy.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources will trigger this policy.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GenerateConfiguration">
+                <span style="font-family: monospace">GenerateConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generate</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Generation">
+                <span style="font-family: monospace">[]Generation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Generation">Generation
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">GeneratingPolicySpec</a>)
+    </p>
+  
+
+  <p><p>Generation defines the configuration for the generation of resources.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression is a CEL expression that takes a list of resources to be generated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
   
 
   <H3 id="policies-kyverno-io-v1alpha1-Identity">Identity
