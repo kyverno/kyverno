@@ -21,7 +21,11 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 	result := reportutils.ToPolicyReportResult(engineResponse.Policy(), ruleResponse, resorceRef)
 	if result.Result == policyreportv1alpha2.StatusFail {
 		audit := engineResponse.GetValidationFailureAction().Audit()
+		enforce := engineResponse.GetValidationFailureAction().Enforce()
 		if audit && auditWarn {
+			result.Result = policyreportv1alpha2.StatusWarn
+		}
+		if enforce && auditWarn {
 			result.Result = policyreportv1alpha2.StatusWarn
 		}
 	}

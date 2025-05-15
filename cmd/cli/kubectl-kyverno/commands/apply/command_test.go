@@ -63,15 +63,16 @@ func Test_Apply(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
+				AuditWarn:     true,
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
 					Pass:  1,
-					Fail:  1,
+					Fail:  0,
 					Skip:  0,
 					Error: 0,
-					Warn:  0,
+					Warn:  1,
 				},
 			}},
 		},
