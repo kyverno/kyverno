@@ -28,6 +28,10 @@ type FakePoliciesV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakePoliciesV1alpha1) DeletingPolicies() v1alpha1.DeletingPolicyInterface {
+	return newFakeDeletingPolicies(c)
+}
+
 func (c *FakePoliciesV1alpha1) ImageValidatingPolicies() v1alpha1.ImageValidatingPolicyInterface {
 	return newFakeImageValidatingPolicies(c)
 }
