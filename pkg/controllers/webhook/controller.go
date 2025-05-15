@@ -301,9 +301,38 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
 }
 
+func (c *controller) createLease(ctx context.Context, logger logr.Logger) error {
+	_, err := c.leaseClient.Create(ctx, &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kyverno-health",
+			Namespace: config.KyvernoNamespace(),
+			Labels: map[string]string{
+				"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
+			},
+			Annotations: map[string]string{
+				AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		logger.Error(err, "failed to create lease")
+	}
+	return err
+}
+
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
+	_, err := c.getLease()
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			_ = c.createLease(ctx, logger)
+		} else {
+			logger.Error(err, "failed to get lease")
+		}
+	}
+
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -312,33 +341,19 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 			lease, err := c.getLease()
 			if err != nil {
 				if apierrors.IsNotFound(err) {
-					_, err = c.leaseClient.Create(ctx, &coordinationv1.Lease{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "kyverno-health",
-							Namespace: config.KyvernoNamespace(),
-							Labels: map[string]string{
-								"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
-							},
-							Annotations: map[string]string{
-								AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
-							},
-						},
-					}, metav1.CreateOptions{})
-					if err != nil {
-						logger.Error(err, "failed to create lease")
-					}
-				} else {
-					logger.Error(err, "failed to get lease")
+					_ = c.createLease(ctx, logger)
+					continue
 				}
-			} else {
-				lease := lease.DeepCopy()
-				lease.Labels = map[string]string{
-					"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
-				}
-				_, err = c.leaseClient.Update(ctx, lease, metav1.UpdateOptions{})
-				if err != nil {
-					logger.Error(err, "failed to update lease")
-				}
+				logger.Error(err, "failed to get lease during update")
+				continue
+			}
+			leaseCopy := lease.DeepCopy()
+			leaseCopy.Labels = map[string]string{
+				"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
+			}
+			_, err = c.leaseClient.Update(ctx, leaseCopy, metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to update lease")
 			}
 			c.enqueueResourceWebhooks(0)
 		}
