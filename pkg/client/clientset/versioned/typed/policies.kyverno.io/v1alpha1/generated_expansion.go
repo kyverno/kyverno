@@ -22,6 +22,8 @@ type DeletingPolicyExpansion interface{}
 
 type ImageValidatingPolicyExpansion interface{}
 
+type MutatingPolicyExpansion interface{}
+
 type PolicyExceptionExpansion interface{}
 
 type ValidatingPolicyExpansion interface{}

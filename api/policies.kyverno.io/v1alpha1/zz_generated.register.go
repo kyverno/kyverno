@@ -65,6 +65,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&DeletingPolicyList{},
 		&ImageValidatingPolicy{},
 		&ImageValidatingPolicyList{},
+		&MutatingPolicy{},
+		&MutatingPolicyList{},
 		&PolicyException{},
 		&PolicyExceptionList{},
 		&ValidatingPolicy{},

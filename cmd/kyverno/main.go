@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -614,7 +613,7 @@ func main() {
 			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
 		}
-		var vpolEngine celengine.Engine
+		var vpolEngine vpolengine.Engine
 		var ivpolEngine ivpolengine.Engine
 		{
 			// create a controller manager

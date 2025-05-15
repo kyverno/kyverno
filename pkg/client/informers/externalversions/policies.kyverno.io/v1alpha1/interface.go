@@ -28,6 +28,8 @@ type Interface interface {
 	DeletingPolicies() DeletingPolicyInformer
 	// ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
 	ImageValidatingPolicies() ImageValidatingPolicyInformer
+	// MutatingPolicies returns a MutatingPolicyInformer.
+	MutatingPolicies() MutatingPolicyInformer
 	// PolicyExceptions returns a PolicyExceptionInformer.
 	PolicyExceptions() PolicyExceptionInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
@@ -53,6 +55,11 @@ func (v *version) DeletingPolicies() DeletingPolicyInformer {
 // ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
 func (v *version) ImageValidatingPolicies() ImageValidatingPolicyInformer {
 	return &imageValidatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// MutatingPolicies returns a MutatingPolicyInformer.
+func (v *version) MutatingPolicies() MutatingPolicyInformer {
+	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyExceptions returns a PolicyExceptionInformer.
