@@ -434,7 +434,7 @@ func applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request)
+		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
 		if err != nil {
 			if continueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
