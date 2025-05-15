@@ -75,7 +75,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("error: failed to load request info (%s)", err)
 		}
-		deprecations.CheckUserInfo(out, testCase.Test.UserInfo, info)
+		if deprecations.CheckUserInfo(out, testCase.Test.UserInfo, info) {
+			return nil, fmt.Errorf("userInfo file %s uses a deprecated schema — please migrate to the latest format", testCase.Test.UserInfo)
+		}
 		userInfo = &info.RequestInfo
 	}
 	// policies
