@@ -171,9 +171,6 @@ func TestGetGlobalContext(t *testing.T) {
 				}
 			} else {
 				expectedG2 := empty
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
 				if !reflect.DeepEqual(expectedG1, g1) || !reflect.DeepEqual(expectedG2, g2) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedG1, expectedG2, g1, g2)
 				}

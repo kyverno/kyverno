@@ -9,7 +9,6 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/config"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -237,9 +236,9 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 		for _, kind := range ruleSelector.kinds {
 			updated, err := pc.client.ListResource(context.TODO(), "", kind, "", &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					backgroundcommon.GeneratePolicyLabel:          selector.policy,
-					backgroundcommon.GeneratePolicyNamespaceLabel: selector.policyNamespace,
-					backgroundcommon.GenerateRuleLabel:            ruleSelector.rule,
+					common.GeneratePolicyLabel:          selector.policy,
+					common.GeneratePolicyNamespaceLabel: selector.policyNamespace,
+					common.GenerateRuleLabel:            ruleSelector.rule,
 				},
 			},
 			)
@@ -250,9 +249,9 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 
 			for _, obj := range updated.Items {
 				labels := obj.GetLabels()
-				delete(labels, backgroundcommon.GeneratePolicyLabel)
-				delete(labels, backgroundcommon.GeneratePolicyNamespaceLabel)
-				delete(labels, backgroundcommon.GenerateRuleLabel)
+				delete(labels, common.GeneratePolicyLabel)
+				delete(labels, common.GeneratePolicyNamespaceLabel)
+				delete(labels, common.GenerateRuleLabel)
 				obj.SetLabels(labels)
 				_, err = pc.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), &obj, false)
 				if err != nil {
