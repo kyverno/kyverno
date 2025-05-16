@@ -180,7 +180,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		}},
 		want: []admissionregistrationv1.MatchCondition{{
 			Name:       "autogen-foo",
-			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) ? true : something",
 		}},
 	}, {
 		name: "multiple targets",
@@ -201,7 +201,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		}},
 		want: []admissionregistrationv1.MatchCondition{{
 			Name:       "autogen-foo",
-			Expression: "!((object.apiVersion == 'flop/v2' && object.kind =='Foo') || (object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+			Expression: "!((object.apiVersion == 'flop/v2' && object.kind =='Foo') || (object.apiVersion == 'foo/v1' && object.kind =='Bar')) ? true : something",
 		}},
 	}, {
 		name:         "with name",
@@ -218,7 +218,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		}},
 		want: []admissionregistrationv1.MatchCondition{{
 			Name:       "autogen-test-foo",
-			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) ? true : something",
 		}},
 	}}
 	for _, tt := range tests {

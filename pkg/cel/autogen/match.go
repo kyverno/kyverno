@@ -82,7 +82,7 @@ func CreateMatchConditions(replacements string, targets []Target, conditions []a
 	for _, m := range conditions {
 		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
 			Name:       fmt.Sprintf(`%s-%s`, prefix, m.Name),
-			Expression: fmt.Sprintf(`!(%s) || (%s)`, precondition, m.Expression),
+			Expression: fmt.Sprintf(`!(%s) ? true : %s`, precondition, m.Expression),
 		})
 	}
 	return matchConditions

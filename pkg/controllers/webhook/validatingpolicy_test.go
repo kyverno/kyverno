@@ -425,7 +425,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 						},
 						{
 							Name:       "autogen-cronjobs-check-prod-label",
-							Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
+							Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) ? true : has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
 						},
 					},
 				},

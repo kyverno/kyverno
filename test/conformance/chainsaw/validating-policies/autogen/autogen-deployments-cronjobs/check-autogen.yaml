@@ -13,9 +13,12 @@ status:
               - deployments
               - cronjobs
           matchConditions:
-          - expression: '!((object.apiVersion == ''apps/v1'' && object.kind ==''Deployment''))
-              || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
-              && object.spec.template.metadata.labels.prod == ''true'')'
+          - expression: >-
+              !((object.apiVersion == 'apps/v1' && object.kind =='Deployment'))
+              ? true
+              : has(object.spec.template.metadata.labels)
+              && has(object.spec.template.metadata.labels.prod)
+              && object.spec.template.metadata.labels.prod == 'true'
             name: autogen-defaults-check-prod-label
           matchConstraints:
             resourceRules:
@@ -42,9 +45,12 @@ status:
               - deployments
               - cronjobs
           matchConditions:
-          - expression: '!((object.apiVersion == ''batch/v1'' && object.kind ==''CronJob''))
-              || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
-              && object.spec.jobTemplate.spec.template.metadata.labels.prod == ''true'')'
+          - expression: >-
+              !((object.apiVersion == 'batch/v1' && object.kind =='CronJob'))
+              ? true
+              : has(object.spec.jobTemplate.spec.template.metadata.labels)
+              && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
+              && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'
             name: autogen-cronjobs-check-prod-label
           matchConstraints:
             resourceRules:
