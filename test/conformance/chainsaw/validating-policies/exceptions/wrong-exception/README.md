@@ -7,4 +7,4 @@ The policyexceptions should only apply to policies specified and not on all the 
 The policyexception is set for a different policy and not the applied policy.
 
 The good-deployment should pass without any failure.
-The bad-deployment should fail regardless of the fact it is added in the wrongly configured policyexception.
+The skipped-deployment should fail regardless of the fact it is added in the wrongly configured policyexception.

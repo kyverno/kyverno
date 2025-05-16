@@ -8,4 +8,4 @@ spec:
       kind: ValidatingPolicy
   matchConditions:
     - name: "check-name"
-      expression: "object.metadata.name == 'bad-deployment'"
+      expression: "object.metadata.name == 'skipped-deployment'"
