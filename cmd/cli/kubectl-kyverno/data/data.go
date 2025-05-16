@@ -82,7 +82,7 @@ func mergeGroupResources(gr1, gr2 []*restmapper.APIGroupResources) []*restmapper
 		}
 	}
 
-	var merged []*restmapper.APIGroupResources
+	merged := make([]*restmapper.APIGroupResources, 0, len(groupMap))
 	for _, v := range groupMap {
 		merged = append(merged, v)
 	}
