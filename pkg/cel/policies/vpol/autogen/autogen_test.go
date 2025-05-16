@@ -192,7 +192,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						MatchConditions: []admissionregistrationv1.MatchCondition{
 							{
 								Name:       "autogen-defaults-only for production",
-								Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
+								Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet')) ? true : has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
 							},
 						},
 						Validations: []admissionregistrationv1.Validation{
@@ -334,7 +334,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 						MatchConditions: []admissionregistrationv1.MatchCondition{
 							{
 								Name:       "autogen-cronjobs-only for production",
-								Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
+								Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) ? true : has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
 							},
 						},
 						Validations: []admissionregistrationv1.Validation{
