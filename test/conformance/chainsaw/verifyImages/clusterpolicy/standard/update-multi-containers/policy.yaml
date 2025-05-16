@@ -23,7 +23,7 @@ spec:
               HZKwYP5XkHhU436FGDD5Zi2nVFem6AbzXWHssIQRkAI3yJgKkB4J6Qe4OQ==
               -----END PUBLIC KEY-----
       imageReferences:
-        - ghcr.io/seankhliao/*
+        - ghcr.io/stefanprodan/*
       mutateDigest: false
       required: true
       verifyDigest: false
