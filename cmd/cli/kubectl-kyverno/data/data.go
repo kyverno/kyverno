@@ -67,6 +67,20 @@ func mergeGroupResources(gr1, gr2 []*restmapper.APIGroupResources) []*restmapper
 	for _, g := range gr2 {
 		addOrMerge(g, true) // deprecated, ignore preferred version
 	}
+	for _, group := range groupMap {
+		preferred := group.Group.PreferredVersion.Version
+		stableResources, hasStable := group.VersionedResources[preferred]
+		if !hasStable || len(stableResources) == 0 {
+			continue
+		}
+
+		for _, gv := range group.Group.Versions {
+			v := gv.Version
+			if len(group.VersionedResources[v]) == 0 && v != preferred {
+				group.VersionedResources[v] = append([]metav1.APIResource{}, stableResources...)
+			}
+		}
+	}
 
 	var merged []*restmapper.APIGroupResources
 	for _, v := range groupMap {
