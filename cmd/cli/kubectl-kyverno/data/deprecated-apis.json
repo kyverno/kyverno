@@ -1,0 +1,515 @@
+[
+    {
+      "Group": {
+        "name": "events.k8s.io",
+        "versions": [
+          {
+            "groupVersion": "events.k8s.io/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        "v1beta1": [
+          {
+            "name": "events",
+            "singularName": "event",
+            "namespaced": true,
+            "kind": "Event",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ],
+            "shortNames": [
+              "ev"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "autoscaling",
+        "versions": [
+          {
+            "groupVersion": "autoscaling/v2beta2",
+            "version": "v2beta2"
+          }
+        ]
+      },
+      "VersionedResources": {
+        "v2beta2": [
+          {
+            "name": "horizontalpodautoscalers",
+            "singularName": "horizontalpodautoscaler",
+            "namespaced": true,
+            "kind": "HorizontalPodAutoscaler",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ],
+            "shortNames": [
+              "hpa"
+            ],
+            "categories": [
+              "all"
+            ]
+          },
+          {
+            "name": "horizontalpodautoscalers/status",
+            "singularName": "horizontalpodautoscaler",
+            "namespaced": true,
+            "kind": "HorizontalPodAutoscaler",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "batch",
+        "versions": [
+          {
+            "groupVersion": "batch/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        
+        "v1beta1": [
+          {
+            "name": "cronjobs",
+            "singularName": "cronjob",
+            "namespaced": true,
+            "kind": "CronJob",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ],
+            "shortNames": [
+              "cj"
+            ],
+            "categories": [
+              "all"
+            ]
+          },
+          {
+            "name": "cronjobs/status",
+            "singularName": "cronjob",
+            "namespaced": true,
+            "kind": "CronJob",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          },
+          {
+            "name": "jobs",
+            "singularName": "job",
+            "namespaced": true,
+            "kind": "Job",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ],
+            "categories": [
+              "all"
+            ]
+          },
+          {
+            "name": "jobs/status",
+            "singularName": "job",
+            "namespaced": true,
+            "kind": "Job",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          }
+        ]
+      }
+    },  
+    {
+      "Group": {
+        "name": "policy",
+        "versions": [
+ 
+          {
+            "groupVersion": "policy/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        "v1beta1": [
+          {
+            "name": "poddisruptionbudgets",
+            "singularName": "poddisruptionbudget",
+            "namespaced": true,
+            "kind": "PodDisruptionBudget",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ],
+            "shortNames": [
+              "pdb"
+            ]
+          },
+          {
+            "name": "poddisruptionbudgets/status",
+            "singularName": "poddisruptionbudget",
+            "namespaced": true,
+            "kind": "PodDisruptionBudget",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "storage.k8s.io",
+        "versions": [
+          {
+            "groupVersion": "storage.k8s.io/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        
+        "v1beta1": [
+          {
+            "name": "csidrivers",
+            "singularName": "csidriver",
+            "namespaced": false,
+            "kind": "CSIDriver",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          },
+          {
+            "name": "csinodes",
+            "singularName": "csinode",
+            "namespaced": false,
+            "kind": "CSINode",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          },
+          {
+            "name": "csistoragecapacities",
+            "singularName": "csistoragecapacity",
+            "namespaced": true,
+            "kind": "CSIStorageCapacity",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          },
+          {
+            "name": "storageclasses",
+            "singularName": "storageclass",
+            "namespaced": false,
+            "kind": "StorageClass",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ],
+            "shortNames": [
+              "sc"
+            ]
+          },
+          {
+            "name": "volumeattachments",
+            "singularName": "volumeattachment",
+            "namespaced": false,
+            "kind": "VolumeAttachment",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          },
+          {
+            "name": "volumeattachments/status",
+            "singularName": "volumeattachment",
+            "namespaced": false,
+            "kind": "VolumeAttachment",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "node.k8s.io",
+        "versions": [
+          {
+            "groupVersion": "node.k8s.io/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+      
+        "v1beta1": [
+          {
+            "name": "runtimeclasses",
+            "singularName": "runtimeclass",
+            "namespaced": false,
+            "kind": "RuntimeClass",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "discovery.k8s.io",
+        "versions": [
+     
+          {
+            "groupVersion": "discovery.k8s.io/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        "v1beta1": [
+          {
+            "name": "endpointslices",
+            "singularName": "endpointslice",
+            "namespaced": true,
+            "kind": "EndpointSlice",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "flowcontrol.apiserver.k8s.io",
+        "versions": [
+    
+          {
+            "groupVersion": "flowcontrol.apiserver.k8s.io/v1beta1",
+            "version": "v1beta1"
+          },
+          {
+            "groupVersion": "flowcontrol.apiserver.k8s.io/v1beta2",
+            "version": "v1beta2"
+          }
+        ]
+      },
+      "VersionedResources": {
+
+        "v1beta1": [
+          {
+            "name": "flowschemas",
+            "singularName": "flowschema",
+            "namespaced": false,
+            "kind": "FlowSchema",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          },
+          {
+            "name": "flowschemas/status",
+            "singularName": "flowschema",
+            "namespaced": false,
+            "kind": "FlowSchema",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          },
+          {
+            "name": "prioritylevelconfigurations",
+            "singularName": "prioritylevelconfiguration",
+            "namespaced": false,
+            "kind": "PriorityLevelConfiguration",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          },
+          {
+            "name": "prioritylevelconfigurations/status",
+            "singularName": "prioritylevelconfiguration",
+            "namespaced": false,
+            "kind": "PriorityLevelConfiguration",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          }
+        ],
+        "v1beta2": [
+          {
+            "name": "flowschemas",
+            "singularName": "flowschema",
+            "namespaced": false,
+            "kind": "FlowSchema",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          },
+          {
+            "name": "flowschemas/status",
+            "singularName": "flowschema",
+            "namespaced": false,
+            "kind": "FlowSchema",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          },
+          {
+            "name": "prioritylevelconfigurations",
+            "singularName": "prioritylevelconfiguration",
+            "namespaced": false,
+            "kind": "PriorityLevelConfiguration",
+            "verbs": [
+              "create",
+              "delete",
+              "deletecollection",
+              "get",
+              "list",
+              "patch",
+              "update",
+              "watch"
+            ]
+          },
+          {
+            "name": "prioritylevelconfigurations/status",
+            "singularName": "prioritylevelconfiguration",
+            "namespaced": false,
+            "kind": "PriorityLevelConfiguration",
+            "verbs": [
+              "get",
+              "patch",
+              "update"
+            ]
+          }
+        ]
+      }
+    }  
+  ]
+  

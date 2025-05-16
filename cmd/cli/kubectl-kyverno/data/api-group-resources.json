@@ -17,7 +17,7 @@
       "v1": [
         {
           "name": "bindings",
-          "singularName": "",
+          "singularName": "binding",
           "namespaced": true,
           "kind": "Binding",
           "verbs": [
@@ -26,7 +26,7 @@
         },
         {
           "name": "componentstatuses",
-          "singularName": "",
+          "singularName": "componentstatus",
           "namespaced": false,
           "kind": "ComponentStatus",
           "verbs": [
@@ -39,7 +39,7 @@
         },
         {
           "name": "configmaps",
-          "singularName": "",
+          "singularName": "configmap",
           "namespaced": true,
           "kind": "ConfigMap",
           "verbs": [
@@ -54,12 +54,11 @@
           ],
           "shortNames": [
             "cm"
-          ],
-          "storageVersionHash": "qFsyl6wFWjQ="
+          ]
         },
         {
           "name": "endpoints",
-          "singularName": "",
+          "singularName": "endpoints",
           "namespaced": true,
           "kind": "Endpoints",
           "verbs": [
@@ -74,12 +73,11 @@
           ],
           "shortNames": [
             "ep"
-          ],
-          "storageVersionHash": "fWeeMqaN/OA="
+          ]
         },
         {
           "name": "events",
-          "singularName": "",
+          "singularName": "event",
           "namespaced": true,
           "kind": "Event",
           "verbs": [
@@ -94,12 +92,11 @@
           ],
           "shortNames": [
             "ev"
-          ],
-          "storageVersionHash": "r2yiGXH7wu8="
+          ]
         },
         {
           "name": "limitranges",
-          "singularName": "",
+          "singularName": "limitrange",
           "namespaced": true,
           "kind": "LimitRange",
           "verbs": [
@@ -114,12 +111,11 @@
           ],
           "shortNames": [
             "limits"
-          ],
-          "storageVersionHash": "EBKMFVe6cwo="
+          ]
         },
         {
           "name": "namespaces",
-          "singularName": "",
+          "singularName": "namespace",
           "namespaced": false,
           "kind": "Namespace",
           "verbs": [
@@ -133,12 +129,11 @@
           ],
           "shortNames": [
             "ns"
-          ],
-          "storageVersionHash": "Q3oi5N2YM8M="
+          ]
         },
         {
           "name": "namespaces/finalize",
-          "singularName": "",
+          "singularName": "namespace",
           "namespaced": false,
           "kind": "Namespace",
           "verbs": [
@@ -147,7 +142,7 @@
         },
         {
           "name": "namespaces/status",
-          "singularName": "",
+          "singularName": "namespace",
           "namespaced": false,
           "kind": "Namespace",
           "verbs": [
@@ -158,7 +153,7 @@
         },
         {
           "name": "nodes",
-          "singularName": "",
+          "singularName": "node",
           "namespaced": false,
           "kind": "Node",
           "verbs": [
@@ -173,12 +168,11 @@
           ],
           "shortNames": [
             "no"
-          ],
-          "storageVersionHash": "XwShjMxG9Fs="
+          ]
         },
         {
           "name": "nodes/proxy",
-          "singularName": "",
+          "singularName": "node",
           "namespaced": false,
           "kind": "NodeProxyOptions",
           "verbs": [
@@ -191,7 +185,7 @@
         },
         {
           "name": "nodes/status",
-          "singularName": "",
+          "singularName": "node",
           "namespaced": false,
           "kind": "Node",
           "verbs": [
@@ -202,7 +196,7 @@
         },
         {
           "name": "persistentvolumeclaims",
-          "singularName": "",
+          "singularName": "persistentvolumeclaim",
           "namespaced": true,
           "kind": "PersistentVolumeClaim",
           "verbs": [
@@ -217,12 +211,11 @@
           ],
           "shortNames": [
             "pvc"
-          ],
-          "storageVersionHash": "QWTyNDq0dC4="
+          ]
         },
         {
           "name": "persistentvolumeclaims/status",
-          "singularName": "",
+          "singularName": "persistentvolumeclaim",
           "namespaced": true,
           "kind": "PersistentVolumeClaim",
           "verbs": [
@@ -233,7 +226,7 @@
         },
         {
           "name": "persistentvolumes",
-          "singularName": "",
+          "singularName": "persistentvolume",
           "namespaced": false,
           "kind": "PersistentVolume",
           "verbs": [
@@ -248,12 +241,11 @@
           ],
           "shortNames": [
             "pv"
-          ],
-          "storageVersionHash": "HN/zwEC+JgM="
+          ]
         },
         {
           "name": "persistentvolumes/status",
-          "singularName": "",
+          "singularName": "persistentvolume",
           "namespaced": false,
           "kind": "PersistentVolume",
           "verbs": [
@@ -264,7 +256,7 @@
         },
         {
           "name": "pods",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "kind": "Pod",
           "verbs": [
@@ -282,12 +274,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "xPOwRZ+Yhw8="
+          ]
         },
         {
           "name": "pods/attach",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "kind": "PodAttachOptions",
           "verbs": [
@@ -297,7 +288,7 @@
         },
         {
           "name": "pods/binding",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "kind": "Binding",
           "verbs": [
@@ -305,11 +296,22 @@
           ]
         },
         {
+          "name": "pods/ephemeralcontainers",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "Pod",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
           "name": "pods/eviction",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "group": "policy",
-          "version": "v1beta1",
+          "version": "v1",
           "kind": "Eviction",
           "verbs": [
             "create"
@@ -317,7 +319,7 @@
         },
         {
           "name": "pods/exec",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "kind": "PodExecOptions",
           "verbs": [
@@ -327,7 +329,7 @@
         },
         {
           "name": "pods/log",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "kind": "Pod",
           "verbs": [
@@ -336,7 +338,7 @@
         },
         {
           "name": "pods/portforward",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "kind": "PodPortForwardOptions",
           "verbs": [
@@ -346,7 +348,7 @@
         },
         {
           "name": "pods/proxy",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "kind": "PodProxyOptions",
           "verbs": [
@@ -359,7 +361,7 @@
         },
         {
           "name": "pods/status",
-          "singularName": "",
+          "singularName": "pod",
           "namespaced": true,
           "kind": "Pod",
           "verbs": [
@@ -370,7 +372,7 @@
         },
         {
           "name": "podtemplates",
-          "singularName": "",
+          "singularName": "podtemplate",
           "namespaced": true,
           "kind": "PodTemplate",
           "verbs": [
@@ -382,12 +384,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "LIXB2x4IFpk="
+          ]
         },
         {
           "name": "replicationcontrollers",
-          "singularName": "",
+          "singularName": "replicationcontroller",
           "namespaced": true,
           "kind": "ReplicationController",
           "verbs": [
@@ -405,12 +406,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "Jond2If31h0="
+          ]
         },
         {
           "name": "replicationcontrollers/scale",
-          "singularName": "",
+          "singularName": "replicationcontroller",
           "namespaced": true,
           "group": "autoscaling",
           "version": "v1",
@@ -423,7 +423,7 @@
         },
         {
           "name": "replicationcontrollers/status",
-          "singularName": "",
+          "singularName": "replicationcontroller",
           "namespaced": true,
           "kind": "ReplicationController",
           "verbs": [
@@ -434,7 +434,7 @@
         },
         {
           "name": "resourcequotas",
-          "singularName": "",
+          "singularName": "resourcequota",
           "namespaced": true,
           "kind": "ResourceQuota",
           "verbs": [
@@ -449,12 +449,11 @@
           ],
           "shortNames": [
             "quota"
-          ],
-          "storageVersionHash": "8uhSgffRX6w="
+          ]
         },
         {
           "name": "resourcequotas/status",
-          "singularName": "",
+          "singularName": "resourcequota",
           "namespaced": true,
           "kind": "ResourceQuota",
           "verbs": [
@@ -465,7 +464,7 @@
         },
         {
           "name": "secrets",
-          "singularName": "",
+          "singularName": "secret",
           "namespaced": true,
           "kind": "Secret",
           "verbs": [
@@ -477,12 +476,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "S6u1pOWzb84="
+          ]
         },
         {
           "name": "serviceaccounts",
-          "singularName": "",
+          "singularName": "serviceaccount",
           "namespaced": true,
           "kind": "ServiceAccount",
           "verbs": [
@@ -497,12 +495,11 @@
           ],
           "shortNames": [
             "sa"
-          ],
-          "storageVersionHash": "pbx9ZvyFpBE="
+          ]
         },
         {
           "name": "serviceaccounts/token",
-          "singularName": "",
+          "singularName": "serviceaccount",
           "namespaced": true,
           "group": "authentication.k8s.io",
           "version": "v1",
@@ -513,12 +510,13 @@
         },
         {
           "name": "services",
-          "singularName": "",
+          "singularName": "service",
           "namespaced": true,
           "kind": "Service",
           "verbs": [
             "create",
             "delete",
+            "deletecollection",
             "get",
             "list",
             "patch",
@@ -530,12 +528,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "0/CO1lhkEBI="
+          ]
         },
         {
           "name": "services/proxy",
-          "singularName": "",
+          "singularName": "service",
           "namespaced": true,
           "kind": "ServiceProxyOptions",
           "verbs": [
@@ -548,7 +545,7 @@
         },
         {
           "name": "services/status",
-          "singularName": "",
+          "singularName": "service",
           "namespaced": true,
           "kind": "Service",
           "verbs": [
@@ -567,10 +564,6 @@
         {
           "groupVersion": "apiregistration.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "apiregistration.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -582,7 +575,7 @@
       "v1": [
         {
           "name": "apiservices",
-          "singularName": "",
+          "singularName": "apiservice",
           "namespaced": false,
           "kind": "APIService",
           "verbs": [
@@ -597,45 +590,11 @@
           ],
           "categories": [
             "api-extensions"
-          ],
-          "storageVersionHash": "C+s2HXXP47k="
-        },
-        {
-          "name": "apiservices/status",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "APIService",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
           ]
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "apiservices",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "APIService",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "categories": [
-            "api-extensions"
-          ],
-          "storageVersionHash": "C+s2HXXP47k="
         },
         {
           "name": "apiservices/status",
-          "singularName": "",
+          "singularName": "apiservice",
           "namespaced": false,
           "kind": "APIService",
           "verbs": [
@@ -665,7 +624,7 @@
       "v1": [
         {
           "name": "controllerrevisions",
-          "singularName": "",
+          "singularName": "controllerrevision",
           "namespaced": true,
           "kind": "ControllerRevision",
           "verbs": [
@@ -677,12 +636,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "85nkx63pcBU="
+          ]
         },
         {
           "name": "daemonsets",
-          "singularName": "",
+          "singularName": "daemonset",
           "namespaced": true,
           "kind": "DaemonSet",
           "verbs": [
@@ -700,12 +658,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "dd7pWHUlMKQ="
+          ]
         },
         {
           "name": "daemonsets/status",
-          "singularName": "",
+          "singularName": "daemonset",
           "namespaced": true,
           "kind": "DaemonSet",
           "verbs": [
@@ -716,7 +673,7 @@
         },
         {
           "name": "deployments",
-          "singularName": "",
+          "singularName": "deployment",
           "namespaced": true,
           "kind": "Deployment",
           "verbs": [
@@ -734,12 +691,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "8aSe+NMegvE="
+          ]
         },
         {
           "name": "deployments/scale",
-          "singularName": "",
+          "singularName": "deployment",
           "namespaced": true,
           "group": "autoscaling",
           "version": "v1",
@@ -752,7 +708,7 @@
         },
         {
           "name": "deployments/status",
-          "singularName": "",
+          "singularName": "deployment",
           "namespaced": true,
           "kind": "Deployment",
           "verbs": [
@@ -763,7 +719,7 @@
         },
         {
           "name": "replicasets",
-          "singularName": "",
+          "singularName": "replicaset",
           "namespaced": true,
           "kind": "ReplicaSet",
           "verbs": [
@@ -781,12 +737,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "P1RzHs8/mWQ="
+          ]
         },
         {
           "name": "replicasets/scale",
-          "singularName": "",
+          "singularName": "replicaset",
           "namespaced": true,
           "group": "autoscaling",
           "version": "v1",
@@ -799,7 +754,7 @@
         },
         {
           "name": "replicasets/status",
-          "singularName": "",
+          "singularName": "replicaset",
           "namespaced": true,
           "kind": "ReplicaSet",
           "verbs": [
@@ -810,7 +765,7 @@
         },
         {
           "name": "statefulsets",
-          "singularName": "",
+          "singularName": "statefulset",
           "namespaced": true,
           "kind": "StatefulSet",
           "verbs": [
@@ -828,12 +783,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "H+vl74LkKdo="
+          ]
         },
         {
           "name": "statefulsets/scale",
-          "singularName": "",
+          "singularName": "statefulset",
           "namespaced": true,
           "group": "autoscaling",
           "version": "v1",
@@ -846,7 +800,7 @@
         },
         {
           "name": "statefulsets/status",
-          "singularName": "",
+          "singularName": "statefulset",
           "namespaced": true,
           "kind": "StatefulSet",
           "verbs": [
@@ -865,10 +819,6 @@
         {
           "groupVersion": "events.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "events.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -880,7 +830,7 @@
       "v1": [
         {
           "name": "events",
-          "singularName": "",
+          "singularName": "event",
           "namespaced": true,
           "kind": "Event",
           "verbs": [
@@ -895,30 +845,7 @@
           ],
           "shortNames": [
             "ev"
-          ],
-          "storageVersionHash": "r2yiGXH7wu8="
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "events",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Event",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "ev"
-          ],
-          "storageVersionHash": "r2yiGXH7wu8="
+          ]
         }
       ]
     }
@@ -930,10 +857,6 @@
         {
           "groupVersion": "authentication.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "authentication.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -944,19 +867,17 @@
     "VersionedResources": {
       "v1": [
         {
-          "name": "tokenreviews",
-          "singularName": "",
+          "name": "selfsubjectreviews",
+          "singularName": "selfsubjectreview",
           "namespaced": false,
-          "kind": "TokenReview",
+          "kind": "SelfSubjectReview",
           "verbs": [
             "create"
           ]
-        }
-      ],
-      "v1beta1": [
+        },
         {
           "name": "tokenreviews",
-          "singularName": "",
+          "singularName": "tokenreview",
           "namespaced": false,
           "kind": "TokenReview",
           "verbs": [
@@ -973,10 +894,6 @@
         {
           "groupVersion": "authorization.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "authorization.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -988,7 +905,7 @@
       "v1": [
         {
           "name": "localsubjectaccessreviews",
-          "singularName": "",
+          "singularName": "localsubjectaccessreview",
           "namespaced": true,
           "kind": "LocalSubjectAccessReview",
           "verbs": [
@@ -997,7 +914,7 @@
         },
         {
           "name": "selfsubjectaccessreviews",
-          "singularName": "",
+          "singularName": "selfsubjectaccessreview",
           "namespaced": false,
           "kind": "SelfSubjectAccessReview",
           "verbs": [
@@ -1006,7 +923,7 @@
         },
         {
           "name": "selfsubjectrulesreviews",
-          "singularName": "",
+          "singularName": "selfsubjectrulesreview",
           "namespaced": false,
           "kind": "SelfSubjectRulesReview",
           "verbs": [
@@ -1015,45 +932,7 @@
         },
         {
           "name": "subjectaccessreviews",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "SubjectAccessReview",
-          "verbs": [
-            "create"
-          ]
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "localsubjectaccessreviews",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "LocalSubjectAccessReview",
-          "verbs": [
-            "create"
-          ]
-        },
-        {
-          "name": "selfsubjectaccessreviews",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "SelfSubjectAccessReview",
-          "verbs": [
-            "create"
-          ]
-        },
-        {
-          "name": "selfsubjectrulesreviews",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "SelfSubjectRulesReview",
-          "verbs": [
-            "create"
-          ]
-        },
-        {
-          "name": "subjectaccessreviews",
-          "singularName": "",
+          "singularName": "subjectaccessreview",
           "namespaced": false,
           "kind": "SubjectAccessReview",
           "verbs": [
@@ -1068,28 +947,24 @@
       "name": "autoscaling",
       "versions": [
         {
+          "groupVersion": "autoscaling/v2",
+          "version": "v2"
+        },
+        {
           "groupVersion": "autoscaling/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "autoscaling/v2beta1",
-          "version": "v2beta1"
-        },
-        {
-          "groupVersion": "autoscaling/v2beta2",
-          "version": "v2beta2"
         }
       ],
       "preferredVersion": {
-        "groupVersion": "autoscaling/v1",
-        "version": "v1"
+        "groupVersion": "autoscaling/v2",
+        "version": "v2"
       }
     },
     "VersionedResources": {
       "v1": [
         {
           "name": "horizontalpodautoscalers",
-          "singularName": "",
+          "singularName": "horizontalpodautoscaler",
           "namespaced": true,
           "kind": "HorizontalPodAutoscaler",
           "verbs": [
@@ -1107,12 +982,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "oQlkt7f5j/A="
+          ]
         },
         {
           "name": "horizontalpodautoscalers/status",
-          "singularName": "",
+          "singularName": "horizontalpodautoscaler",
           "namespaced": true,
           "kind": "HorizontalPodAutoscaler",
           "verbs": [
@@ -1122,10 +996,10 @@
           ]
         }
       ],
-      "v2beta1": [
+      "v2": [
         {
           "name": "horizontalpodautoscalers",
-          "singularName": "",
+          "singularName": "horizontalpodautoscaler",
           "namespaced": true,
           "kind": "HorizontalPodAutoscaler",
           "verbs": [
@@ -1143,48 +1017,11 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "oQlkt7f5j/A="
-        },
-        {
-          "name": "horizontalpodautoscalers/status",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "HorizontalPodAutoscaler",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
           ]
-        }
-      ],
-      "v2beta2": [
-        {
-          "name": "horizontalpodautoscalers",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "HorizontalPodAutoscaler",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "hpa"
-          ],
-          "categories": [
-            "all"
-          ],
-          "storageVersionHash": "oQlkt7f5j/A="
         },
         {
           "name": "horizontalpodautoscalers/status",
-          "singularName": "",
+          "singularName": "horizontalpodautoscaler",
           "namespaced": true,
           "kind": "HorizontalPodAutoscaler",
           "verbs": [
@@ -1203,10 +1040,6 @@
         {
           "groupVersion": "batch/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "batch/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -1217,41 +1050,8 @@
     "VersionedResources": {
       "v1": [
         {
-          "name": "jobs",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Job",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "categories": [
-            "all"
-          ],
-          "storageVersionHash": "mudhfqk/qZY="
-        },
-        {
-          "name": "jobs/status",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Job",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
-          ]
-        }
-      ],
-      "v1beta1": [
-        {
           "name": "cronjobs",
-          "singularName": "",
+          "singularName": "cronjob",
           "namespaced": true,
           "kind": "CronJob",
           "verbs": [
@@ -1269,14 +1069,43 @@
           ],
           "categories": [
             "all"
-          ],
-          "storageVersionHash": "h/JlFAZkyyY="
+          ]
         },
         {
           "name": "cronjobs/status",
-          "singularName": "",
+          "singularName": "cronjob",
           "namespaced": true,
           "kind": "CronJob",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "jobs",
+          "singularName": "job",
+          "namespaced": true,
+          "kind": "Job",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "jobs/status",
+          "singularName": "job",
+          "namespaced": true,
+          "kind": "Job",
           "verbs": [
             "get",
             "patch",
@@ -1293,10 +1122,6 @@
         {
           "groupVersion": "certificates.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "certificates.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -1308,7 +1133,7 @@
       "v1": [
         {
           "name": "certificatesigningrequests",
-          "singularName": "",
+          "singularName": "certificatesigningrequest",
           "namespaced": false,
           "kind": "CertificateSigningRequest",
           "verbs": [
@@ -1323,12 +1148,11 @@
           ],
           "shortNames": [
             "csr"
-          ],
-          "storageVersionHash": "UQh3YTCDIf0="
+          ]
         },
         {
           "name": "certificatesigningrequests/approval",
-          "singularName": "",
+          "singularName": "certificatesigningrequest",
           "namespaced": false,
           "kind": "CertificateSigningRequest",
           "verbs": [
@@ -1339,51 +1163,7 @@
         },
         {
           "name": "certificatesigningrequests/status",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "CertificateSigningRequest",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
-          ]
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "certificatesigningrequests",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "CertificateSigningRequest",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "csr"
-          ],
-          "storageVersionHash": "UQh3YTCDIf0="
-        },
-        {
-          "name": "certificatesigningrequests/approval",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "CertificateSigningRequest",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
-          ]
-        },
-        {
-          "name": "certificatesigningrequests/status",
-          "singularName": "",
+          "singularName": "certificatesigningrequest",
           "namespaced": false,
           "kind": "CertificateSigningRequest",
           "verbs": [
@@ -1402,10 +1182,6 @@
         {
           "groupVersion": "networking.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "networking.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -1417,7 +1193,7 @@
       "v1": [
         {
           "name": "ingressclasses",
-          "singularName": "",
+          "singularName": "ingressclass",
           "namespaced": false,
           "kind": "IngressClass",
           "verbs": [
@@ -1429,12 +1205,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "6upRfBq0FOI="
+          ]
         },
         {
           "name": "ingresses",
-          "singularName": "",
+          "singularName": "ingress",
           "namespaced": true,
           "kind": "Ingress",
           "verbs": [
@@ -1449,12 +1224,11 @@
           ],
           "shortNames": [
             "ing"
-          ],
-          "storageVersionHash": "ZOAfGflaKd0="
+          ]
         },
         {
           "name": "ingresses/status",
-          "singularName": "",
+          "singularName": "ingress",
           "namespaced": true,
           "kind": "Ingress",
           "verbs": [
@@ -1465,7 +1239,7 @@
         },
         {
           "name": "networkpolicies",
-          "singularName": "",
+          "singularName": "networkpolicy",
           "namespaced": true,
           "kind": "NetworkPolicy",
           "verbs": [
@@ -1480,107 +1254,6 @@
           ],
           "shortNames": [
             "netpol"
-          ],
-          "storageVersionHash": "YpfwF18m1G8="
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "ingressclasses",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "IngressClass",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "6upRfBq0FOI="
-        },
-        {
-          "name": "ingresses",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Ingress",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "ing"
-          ],
-          "storageVersionHash": "ZOAfGflaKd0="
-        },
-        {
-          "name": "ingresses/status",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Ingress",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
-          ]
-        }
-      ]
-    }
-  },
-  {
-    "Group": {
-      "name": "extensions",
-      "versions": [
-        {
-          "groupVersion": "extensions/v1beta1",
-          "version": "v1beta1"
-        }
-      ],
-      "preferredVersion": {
-        "groupVersion": "extensions/v1beta1",
-        "version": "v1beta1"
-      }
-    },
-    "VersionedResources": {
-      "v1beta1": [
-        {
-          "name": "ingresses",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Ingress",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "ing"
-          ],
-          "storageVersionHash": "ZOAfGflaKd0="
-        },
-        {
-          "name": "ingresses/status",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Ingress",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
           ]
         }
       ]
@@ -1591,20 +1264,20 @@
       "name": "policy",
       "versions": [
         {
-          "groupVersion": "policy/v1beta1",
-          "version": "v1beta1"
+          "groupVersion": "policy/v1",
+          "version": "v1"
         }
       ],
       "preferredVersion": {
-        "groupVersion": "policy/v1beta1",
-        "version": "v1beta1"
+        "groupVersion": "policy/v1",
+        "version": "v1"
       }
     },
     "VersionedResources": {
-      "v1beta1": [
+      "v1": [
         {
           "name": "poddisruptionbudgets",
-          "singularName": "",
+          "singularName": "poddisruptionbudget",
           "namespaced": true,
           "kind": "PodDisruptionBudget",
           "verbs": [
@@ -1619,12 +1292,11 @@
           ],
           "shortNames": [
             "pdb"
-          ],
-          "storageVersionHash": "6BGBu0kpHtk="
+          ]
         },
         {
           "name": "poddisruptionbudgets/status",
-          "singularName": "",
+          "singularName": "poddisruptionbudget",
           "namespaced": true,
           "kind": "PodDisruptionBudget",
           "verbs": [
@@ -1632,26 +1304,6 @@
             "patch",
             "update"
           ]
-        },
-        {
-          "name": "podsecuritypolicies",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "PodSecurityPolicy",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "psp"
-          ],
-          "storageVersionHash": "khBLobUXkqA="
         }
       ]
     }
@@ -1663,10 +1315,6 @@
         {
           "groupVersion": "rbac.authorization.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "rbac.authorization.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -1678,7 +1326,7 @@
       "v1": [
         {
           "name": "clusterrolebindings",
-          "singularName": "",
+          "singularName": "clusterrolebinding",
           "namespaced": false,
           "kind": "ClusterRoleBinding",
           "verbs": [
@@ -1690,12 +1338,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "48tpQ8gZHFc="
+          ]
         },
         {
           "name": "clusterroles",
-          "singularName": "",
+          "singularName": "clusterrole",
           "namespaced": false,
           "kind": "ClusterRole",
           "verbs": [
@@ -1707,12 +1354,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "bYE5ZWDrJ44="
+          ]
         },
         {
           "name": "rolebindings",
-          "singularName": "",
+          "singularName": "rolebinding",
           "namespaced": true,
           "kind": "RoleBinding",
           "verbs": [
@@ -1724,12 +1370,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "eGsCzGH6b1g="
+          ]
         },
         {
           "name": "roles",
-          "singularName": "",
+          "singularName": "role",
           "namespaced": true,
           "kind": "Role",
           "verbs": [
@@ -1741,78 +1386,7 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "7FuwZcIIItM="
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "clusterrolebindings",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "ClusterRoleBinding",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "48tpQ8gZHFc="
-        },
-        {
-          "name": "clusterroles",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "ClusterRole",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "bYE5ZWDrJ44="
-        },
-        {
-          "name": "rolebindings",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "RoleBinding",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "eGsCzGH6b1g="
-        },
-        {
-          "name": "roles",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Role",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "7FuwZcIIItM="
+          ]
         }
       ]
     }
@@ -1824,10 +1398,6 @@
         {
           "groupVersion": "storage.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "storage.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -1839,7 +1409,7 @@
       "v1": [
         {
           "name": "csidrivers",
-          "singularName": "",
+          "singularName": "csidriver",
           "namespaced": false,
           "kind": "CSIDriver",
           "verbs": [
@@ -1851,12 +1421,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "Z7aeXSiaYTw="
+          ]
         },
         {
           "name": "csinodes",
-          "singularName": "",
+          "singularName": "csinode",
           "namespaced": false,
           "kind": "CSINode",
           "verbs": [
@@ -1868,12 +1437,27 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "Pe62DkZtjuo="
+          ]
+        },
+        {
+          "name": "csistoragecapacities",
+          "singularName": "csistoragecapacity",
+          "namespaced": true,
+          "kind": "CSIStorageCapacity",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
         },
         {
           "name": "storageclasses",
-          "singularName": "",
+          "singularName": "storageclass",
           "namespaced": false,
           "kind": "StorageClass",
           "verbs": [
@@ -1888,12 +1472,11 @@
           ],
           "shortNames": [
             "sc"
-          ],
-          "storageVersionHash": "K+m6uJwbjGY="
+          ]
         },
         {
           "name": "volumeattachments",
-          "singularName": "",
+          "singularName": "volumeattachment",
           "namespaced": false,
           "kind": "VolumeAttachment",
           "verbs": [
@@ -1905,12 +1488,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "tJx/ezt6UDU="
+          ]
         },
         {
           "name": "volumeattachments/status",
-          "singularName": "",
+          "singularName": "volumeattachment",
           "namespaced": false,
           "kind": "VolumeAttachment",
           "verbs": [
@@ -1918,79 +1500,6 @@
             "patch",
             "update"
           ]
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "csidrivers",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "CSIDriver",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "Z7aeXSiaYTw="
-        },
-        {
-          "name": "csinodes",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "CSINode",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "Pe62DkZtjuo="
-        },
-        {
-          "name": "storageclasses",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "StorageClass",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "sc"
-          ],
-          "storageVersionHash": "K+m6uJwbjGY="
-        },
-        {
-          "name": "volumeattachments",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "VolumeAttachment",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "tJx/ezt6UDU="
         }
       ]
     }
@@ -2002,10 +1511,6 @@
         {
           "groupVersion": "admissionregistration.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "admissionregistration.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -2017,7 +1522,7 @@
       "v1": [
         {
           "name": "mutatingwebhookconfigurations",
-          "singularName": "",
+          "singularName": "mutatingwebhookconfiguration",
           "namespaced": false,
           "kind": "MutatingWebhookConfiguration",
           "verbs": [
@@ -2032,12 +1537,60 @@
           ],
           "categories": [
             "api-extensions"
+          ]
+        },
+        {
+          "name": "validatingadmissionpolicies",
+          "singularName": "validatingadmissionpolicy",
+          "namespaced": false,
+          "kind": "ValidatingAdmissionPolicy",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
           ],
-          "storageVersionHash": "yxW1cpLtfp8="
+          "categories": [
+            "api-extensions"
+          ]
+        },
+        {
+          "name": "validatingadmissionpolicies/status",
+          "singularName": "validatingadmissionpolicy",
+          "namespaced": false,
+          "kind": "ValidatingAdmissionPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "validatingadmissionpolicybindings",
+          "singularName": "validatingadmissionpolicybinding",
+          "namespaced": false,
+          "kind": "ValidatingAdmissionPolicyBinding",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "categories": [
+            "api-extensions"
+          ]
         },
         {
           "name": "validatingwebhookconfigurations",
-          "singularName": "",
+          "singularName": "validatingwebhookconfiguration",
           "namespaced": false,
           "kind": "ValidatingWebhookConfiguration",
           "verbs": [
@@ -2052,50 +1605,7 @@
           ],
           "categories": [
             "api-extensions"
-          ],
-          "storageVersionHash": "P9NhrezfnWE="
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "mutatingwebhookconfigurations",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "MutatingWebhookConfiguration",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "categories": [
-            "api-extensions"
-          ],
-          "storageVersionHash": "yxW1cpLtfp8="
-        },
-        {
-          "name": "validatingwebhookconfigurations",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "ValidatingWebhookConfiguration",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "categories": [
-            "api-extensions"
-          ],
-          "storageVersionHash": "P9NhrezfnWE="
+          ]
         }
       ]
     }
@@ -2107,10 +1617,6 @@
         {
           "groupVersion": "apiextensions.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "apiextensions.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -2122,7 +1628,7 @@
       "v1": [
         {
           "name": "customresourcedefinitions",
-          "singularName": "",
+          "singularName": "customresourcedefinition",
           "namespaced": false,
           "kind": "CustomResourceDefinition",
           "verbs": [
@@ -2141,49 +1647,11 @@
           ],
           "categories": [
             "api-extensions"
-          ],
-          "storageVersionHash": "jfWCUB31mvA="
-        },
-        {
-          "name": "customresourcedefinitions/status",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "CustomResourceDefinition",
-          "verbs": [
-            "get",
-            "patch",
-            "update"
           ]
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "customresourcedefinitions",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "CustomResourceDefinition",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "crd",
-            "crds"
-          ],
-          "categories": [
-            "api-extensions"
-          ],
-          "storageVersionHash": "jfWCUB31mvA="
         },
         {
           "name": "customresourcedefinitions/status",
-          "singularName": "",
+          "singularName": "customresourcedefinition",
           "namespaced": false,
           "kind": "CustomResourceDefinition",
           "verbs": [
@@ -2202,10 +1670,6 @@
         {
           "groupVersion": "scheduling.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "scheduling.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -2217,7 +1681,7 @@
       "v1": [
         {
           "name": "priorityclasses",
-          "singularName": "",
+          "singularName": "priorityclass",
           "namespaced": false,
           "kind": "PriorityClass",
           "verbs": [
@@ -2232,30 +1696,7 @@
           ],
           "shortNames": [
             "pc"
-          ],
-          "storageVersionHash": "1QwjyaZjj3Y="
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "priorityclasses",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "PriorityClass",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "shortNames": [
-            "pc"
-          ],
-          "storageVersionHash": "1QwjyaZjj3Y="
+          ]
         }
       ]
     }
@@ -2267,10 +1708,6 @@
         {
           "groupVersion": "coordination.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "coordination.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -2282,7 +1719,7 @@
       "v1": [
         {
           "name": "leases",
-          "singularName": "",
+          "singularName": "lease",
           "namespaced": true,
           "kind": "Lease",
           "verbs": [
@@ -2294,27 +1731,7 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "/sY7hl8ol1U="
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "leases",
-          "singularName": "",
-          "namespaced": true,
-          "kind": "Lease",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "/sY7hl8ol1U="
+          ]
         }
       ]
     }
@@ -2326,10 +1743,6 @@
         {
           "groupVersion": "node.k8s.io/v1",
           "version": "v1"
-        },
-        {
-          "groupVersion": "node.k8s.io/v1beta1",
-          "version": "v1beta1"
         }
       ],
       "preferredVersion": {
@@ -2341,7 +1754,7 @@
       "v1": [
         {
           "name": "runtimeclasses",
-          "singularName": "",
+          "singularName": "runtimeclass",
           "namespaced": false,
           "kind": "RuntimeClass",
           "verbs": [
@@ -2353,27 +1766,7 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "8nMHWqj34s0="
-        }
-      ],
-      "v1beta1": [
-        {
-          "name": "runtimeclasses",
-          "singularName": "",
-          "namespaced": false,
-          "kind": "RuntimeClass",
-          "verbs": [
-            "create",
-            "delete",
-            "deletecollection",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
-          ],
-          "storageVersionHash": "8nMHWqj34s0="
+          ]
         }
       ]
     }
@@ -2383,20 +1776,20 @@
       "name": "discovery.k8s.io",
       "versions": [
         {
-          "groupVersion": "discovery.k8s.io/v1beta1",
-          "version": "v1beta1"
+          "groupVersion": "discovery.k8s.io/v1",
+          "version": "v1"
         }
       ],
       "preferredVersion": {
-        "groupVersion": "discovery.k8s.io/v1beta1",
-        "version": "v1beta1"
+        "groupVersion": "discovery.k8s.io/v1",
+        "version": "v1"
       }
     },
     "VersionedResources": {
-      "v1beta1": [
+      "v1": [
         {
           "name": "endpointslices",
-          "singularName": "",
+          "singularName": "endpointslice",
           "namespaced": true,
           "kind": "EndpointSlice",
           "verbs": [
@@ -2408,8 +1801,7 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "Nx3SIv6I0mE="
+          ]
         }
       ]
     }
@@ -2419,20 +1811,20 @@
       "name": "flowcontrol.apiserver.k8s.io",
       "versions": [
         {
-          "groupVersion": "flowcontrol.apiserver.k8s.io/v1beta1",
-          "version": "v1beta1"
+          "groupVersion": "flowcontrol.apiserver.k8s.io/v1",
+          "version": "v1"
         }
       ],
       "preferredVersion": {
-        "groupVersion": "flowcontrol.apiserver.k8s.io/v1beta1",
-        "version": "v1beta1"
+        "groupVersion": "flowcontrol.apiserver.k8s.io/v1",
+        "version": "v1"
       }
     },
     "VersionedResources": {
-      "v1beta1": [
+      "v1": [
         {
           "name": "flowschemas",
-          "singularName": "",
+          "singularName": "flowschema",
           "namespaced": false,
           "kind": "FlowSchema",
           "verbs": [
@@ -2444,12 +1836,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "9bSnTLYweJ0="
+          ]
         },
         {
           "name": "flowschemas/status",
-          "singularName": "",
+          "singularName": "flowschema",
           "namespaced": false,
           "kind": "FlowSchema",
           "verbs": [
@@ -2460,7 +1851,7 @@
         },
         {
           "name": "prioritylevelconfigurations",
-          "singularName": "",
+          "singularName": "prioritylevelconfiguration",
           "namespaced": false,
           "kind": "PriorityLevelConfiguration",
           "verbs": [
@@ -2472,12 +1863,11 @@
             "patch",
             "update",
             "watch"
-          ],
-          "storageVersionHash": "BFVwf8eYnsw="
+          ]
         },
         {
           "name": "prioritylevelconfigurations/status",
-          "singularName": "",
+          "singularName": "prioritylevelconfiguration",
           "namespaced": false,
           "kind": "PriorityLevelConfiguration",
           "verbs": [
