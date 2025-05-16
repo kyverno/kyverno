@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	policiesv1alpgha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -523,6 +524,187 @@ func TestCompileMatchImageReferences(t *testing.T) {
 			gotResults, gotAllErrs := CompileMatchImageReferences(nil, env, tt.matches...)
 			assert.Equal(t, tt.wantAllErrs, gotAllErrs)
 			assert.Equal(t, tt.wantResults, len(gotResults))
+		})
+	}
+}
+
+func TestCompileGenerations(t *testing.T) {
+	tests := []struct {
+		name        string
+		generations []policiesv1alpgha1.Generation
+		wantProgs   int
+		wantErrs    field.ErrorList
+	}{{
+		name:        "empty",
+		generations: []policiesv1alpgha1.Generation{},
+		wantProgs:   0,
+	}, {
+		name: "valid",
+		generations: []policiesv1alpgha1.Generation{{
+			Expression: `
+generator.Apply(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}},
+		wantProgs: 1,
+	}, {
+		name: "multiple",
+		generations: []policiesv1alpgha1.Generation{{
+			Expression: `
+generator.Apply(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}, {
+			Expression: `
+generator.Apply(
+	"default",
+	[
+		{
+			"apiVersion": dyn("v1"),
+			"kind":       dyn("ConfigMap"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}},
+		wantProgs: 2,
+	}, {
+		name: "invalid",
+		generations: []policiesv1alpgha1.Generation{{
+			Expression: `
+generator.ApplyAll(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}},
+		wantProgs: 0,
+		wantErrs: field.ErrorList{{
+			Type:  field.ErrorTypeInvalid,
+			Field: "[0].expression",
+			BadValue: `
+generator.ApplyAll(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+			Detail: "ERROR: <input>:2:19: undeclared reference to 'ApplyAll' (in container '')\n | generator.ApplyAll(\n | ..................^",
+		}},
+	}, {
+		name: "multiple invalid",
+		generations: []policiesv1alpgha1.Generation{{
+			Expression: `
+generator.Apply(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}, {
+			Expression: `
+generator.Apply(
+	[
+		{
+			"apiVersion": dyn("v1"),
+			"kind":       dyn("ConfigMap"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}},
+		wantProgs: 1,
+		wantErrs: field.ErrorList{{
+			Type:  field.ErrorTypeInvalid,
+			Field: "[1].expression",
+			BadValue: `
+generator.Apply(
+	[
+		{
+			"apiVersion": dyn("v1"),
+			"kind":       dyn("ConfigMap"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+			Detail: "ERROR: <input>:2:16: found no matching overload for 'Apply' applied to 'generator.Context.(list(map(string, dyn)))'\n | generator.Apply(\n | ...............^",
+		}},
+	}, {
+		name: "bad type",
+		generations: []policiesv1alpgha1.Generation{{
+			Expression: `"foo"`,
+		}},
+		wantProgs: 0,
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "[0].expression",
+			BadValue: `"foo"`,
+			Detail:   "output is expected to be of type null_type",
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base, err := NewBaseEnv()
+			assert.NoError(t, err)
+			env, err := base.Extend(
+				cel.Variable(GeneratorKey, generator.ContextType),
+				generator.Lib(),
+			)
+			assert.NoError(t, err)
+			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)
+			assert.Equal(t, tt.wantErrs, gotErrs)
+			assert.Equal(t, tt.wantProgs, len(gotProgs))
 		})
 	}
 }
