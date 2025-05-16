@@ -301,7 +301,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
 }
 
-func (c *controller) createLease(ctx context.Context, logger logr.Logger) error {
+func (c *controller) createLease(ctx context.Context) error {
 	_, err := c.leaseClient.Create(ctx, &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kyverno-health",
@@ -315,16 +315,18 @@ func (c *controller) createLease(ctx context.Context, logger logr.Logger) error 
 		},
 	}, metav1.CreateOptions{})
 	if err != nil {
-		logger.Error(err, "failed to create lease")
+		return err
 	}
-	return err
+	return nil
 }
 
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 	_, err := c.getLease()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			_ = c.createLease(ctx, logger)
+			if err := c.createLease(ctx); err != nil {
+				logger.Error(err, "failed to create lease at initial setup")
+			}
 		} else {
 			logger.Error(err, "failed to get lease")
 		}
@@ -341,7 +343,9 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 			lease, err := c.getLease()
 			if err != nil {
 				if apierrors.IsNotFound(err) {
-					_ = c.createLease(ctx, logger)
+					if err := c.createLease(ctx); err != nil {
+						logger.Error(err, "failed to create lease")
+					}
 					continue
 				}
 				logger.Error(err, "failed to get lease during update")
@@ -350,6 +354,9 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 			leaseCopy := lease.DeepCopy()
 			leaseCopy.Labels = map[string]string{
 				"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
+			}
+			leaseCopy.Annotations = map[string]string{
+				AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
 			}
 			_, err = c.leaseClient.Update(ctx, leaseCopy, metav1.UpdateOptions{})
 			if err != nil {
