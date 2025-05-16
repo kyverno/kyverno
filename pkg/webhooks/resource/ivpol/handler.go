@@ -3,11 +3,9 @@ package ivpol
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/julienschmidt/httprouter"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -37,14 +35,8 @@ func New(
 }
 
 func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
-	var policies []string
-	if params := httprouter.ParamsFromContext(ctx); params != nil {
-		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
-			policies = params
-		}
-	}
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, patches, err := h.engine.HandleMutating(ctx, request, ivpolengine.MatchNames(policies...))
+	response, patches, err := h.engine.HandleMutating(ctx, request)
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
@@ -53,14 +45,8 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 }
 
 func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
-	var policies []string
-	if params := httprouter.ParamsFromContext(ctx); params != nil {
-		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
-			policies = params
-		}
-	}
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, err := h.engine.HandleValidating(ctx, request, ivpolengine.MatchNames(policies...))
+	response, err := h.engine.HandleValidating(ctx, request)
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}

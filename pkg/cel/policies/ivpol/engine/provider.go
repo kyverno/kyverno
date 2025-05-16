@@ -52,9 +52,7 @@ func NewProvider(policies []v1alpha1.ImageValidatingPolicy, exceptions []*polici
 			compiled = append(compiled, Policy{
 				Actions: actions,
 				Policy: &v1alpha1.ImageValidatingPolicy{
-					TypeMeta:   policy.TypeMeta,
-					ObjectMeta: policy.ObjectMeta,
-					Spec:       *ap.Spec,
+					Spec: *ap.Spec,
 				},
 			})
 		}

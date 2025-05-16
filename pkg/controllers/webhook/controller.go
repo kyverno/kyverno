@@ -874,7 +874,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 	validate := buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyMutateWebhookName,
-		"/ivpol/mutate",
+		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.MutatingWebhookServicePath,
 		c.servicePort,
 		caBundle,
 		ivpols)
@@ -1070,7 +1070,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
 		config.ValidatingPolicyWebhookName,
-		"/vpol",
+		config.PolicyServicePath+config.ValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
 		c.servicePort,
 		caBundle,
 		pols)...)
@@ -1082,7 +1082,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyValidateWebhookName,
-		"/ivpol/validate",
+		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
 		c.servicePort,
 		caBundle,
 		ivpols)...)

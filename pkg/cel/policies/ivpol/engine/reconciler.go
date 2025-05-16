@@ -75,9 +75,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		r.policies[namespacedName.String()] = Policy{
 			Policy: &policiesv1alpha1.ImageValidatingPolicy{
-				TypeMeta:   policy.TypeMeta,
-				ObjectMeta: policy.ObjectMeta,
-				Spec:       *p.Spec,
+				Spec: *p.Spec,
 			},
 			Exceptions: exceptions,
 			Actions:    actions,

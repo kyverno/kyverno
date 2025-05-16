@@ -29,14 +29,13 @@ type resourceTypeInfo struct {
 	subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
 }
 type ResourceFetcher struct {
-	Out                  io.Writer
-	Policies             []engineapi.GenericPolicy
-	ResourcePaths        []string
-	Client               dclient.Interface
-	Cluster              bool
-	Namespace            string
-	PolicyReport         bool
-	ClusterWideResources bool
+	Out           io.Writer
+	Policies      []engineapi.GenericPolicy
+	ResourcePaths []string
+	Client        dclient.Interface
+	Cluster       bool
+	Namespace     string
+	PolicyReport  bool
 }
 
 // GetResources gets matched resources by the given policies
@@ -204,10 +203,6 @@ func (rf *ResourceFetcher) addToresourceTypeInfo(
 	}
 
 	for parent, child := range resourceDefs {
-		if rf.ClusterWideResources && child.Namespaced {
-			continue
-		}
-
 		if parent.SubResource == "" {
 			info.gvkMap[parent.GroupVersionKind()] = true
 		} else {

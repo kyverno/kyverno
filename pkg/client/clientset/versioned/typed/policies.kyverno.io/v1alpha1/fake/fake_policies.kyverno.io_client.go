@@ -28,24 +28,16 @@ type FakePoliciesV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakePoliciesV1alpha1) GeneratingPolicies() v1alpha1.GeneratingPolicyInterface {
-	return newFakeGeneratingPolicies(c)
-}
-
 func (c *FakePoliciesV1alpha1) ImageValidatingPolicies() v1alpha1.ImageValidatingPolicyInterface {
-	return newFakeImageValidatingPolicies(c)
-}
-
-func (c *FakePoliciesV1alpha1) MutatingPolicies() v1alpha1.MutatingPolicyInterface {
-	return newFakeMutatingPolicies(c)
+	return &FakeImageValidatingPolicies{c}
 }
 
 func (c *FakePoliciesV1alpha1) PolicyExceptions(namespace string) v1alpha1.PolicyExceptionInterface {
-	return newFakePolicyExceptions(c, namespace)
+	return &FakePolicyExceptions{c, namespace}
 }
 
 func (c *FakePoliciesV1alpha1) ValidatingPolicies() v1alpha1.ValidatingPolicyInterface {
-	return newFakeValidatingPolicies(c)
+	return &FakeValidatingPolicies{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

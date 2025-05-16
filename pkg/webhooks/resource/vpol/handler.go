@@ -3,15 +3,12 @@ package vpol
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -24,13 +21,13 @@ import (
 
 type handler struct {
 	context        libs.Context
-	engine         vpolengine.Engine
+	engine         celengine.Engine
 	kyvernoClient  versioned.Interface
 	reportsBreaker breaker.Breaker
 }
 
 func New(
-	engine vpolengine.Engine,
+	engine celengine.Engine,
 	context libs.Context,
 	kyvernoClient versioned.Interface,
 	reportsBreaker breaker.Breaker,
@@ -43,15 +40,9 @@ func New(
 	}
 }
 
-func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
-	var policies []string
-	if params := httprouter.ParamsFromContext(ctx); params != nil {
-		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
-			policies = params
-		}
-	}
+func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, err := h.engine.Handle(ctx, request, vpolengine.MatchNames(policies...))
+	response, err := h.engine.Handle(ctx, request)
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
@@ -66,7 +57,7 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 	return h.admissionResponse(request, response)
 }
 
-func (h *handler) admissionResponse(request vpolengine.EngineRequest, response vpolengine.EngineResponse) handlers.AdmissionResponse {
+func (h *handler) admissionResponse(request celengine.EngineRequest, response celengine.EngineResponse) handlers.AdmissionResponse {
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
@@ -94,7 +85,7 @@ func (h *handler) admissionResponse(request vpolengine.EngineRequest, response v
 	return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
 }
 
-func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse) error {
+func (h *handler) admissionReport(ctx context.Context, request celengine.EngineRequest, response celengine.EngineResponse) error {
 	admissionRequest := request.AdmissionRequest()
 	object, oldObject, err := admissionutils.ExtractResources(nil, admissionRequest)
 	if err != nil {
