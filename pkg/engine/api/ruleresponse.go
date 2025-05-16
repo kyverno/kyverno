@@ -46,6 +46,7 @@ type RuleResponse struct {
 	exceptions []GenericException
 	// binding is the validatingadmissionpolicybinding (if any)
 	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding
+
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
 	// properties are the additional properties from the rule that will be added to the policy report result

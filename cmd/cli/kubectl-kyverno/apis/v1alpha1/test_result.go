@@ -19,6 +19,10 @@ type TestResultBase struct {
 	// +optional
 	IsValidatingAdmissionPolicy bool `json:"isValidatingAdmissionPolicy,omitempty"`
 
+	// IsMutatingAdmissionPolicy indicates if the policy is a mutating admission policy.
+	// +optional
+	IsMutatingAdmissionPolicy bool `json:"isMutatingAdmissionPolicy,omitempty"`
+
 	// IsValidatingPolicy indicates if the policy is a validating policy.
 	// It's required in case the policy is a validating policy.
 	// +optional

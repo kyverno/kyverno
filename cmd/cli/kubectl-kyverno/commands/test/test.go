@@ -92,6 +92,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, pol := range results.VAPs {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
 	}
+	for _, pol := range results.MAPs {
+		genericPolicies = append(genericPolicies, engineapi.NewMutatingAdmissionPolicy(&pol))
+	}
+
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
@@ -153,7 +157,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies)
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
@@ -236,6 +240,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
+			MutatingAdmissionPolicies:         results.MAPs,
+			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			Resource:                          *resource,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
@@ -286,6 +292,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
+			MutatingAdmissionPolicies:         results.MAPs,
+			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
 			PolicyExceptions:                  polexLoader.Exceptions,

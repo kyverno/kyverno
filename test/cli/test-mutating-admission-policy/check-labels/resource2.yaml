@@ -1,0 +1,12 @@
+# file: pod-skip.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: skip-pod
+  labels:
+    app: custom
+    tier: frontend
+spec:
+  containers:
+  - name: nginx
+    image: nginx
