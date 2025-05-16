@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportv1alpha1 "github.com/kyverno/kyverno/api/openreports.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,7 +62,7 @@ func TestLoadTests(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
-						Result: policyreportv1alpha2.StatusPass,
+						Result: reportv1alpha1.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
 					TestResultData: v1alpha1.TestResultData{
@@ -95,7 +95,7 @@ func TestLoadTests(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
-						Result:            policyreportv1alpha2.StatusPass,
+						Result:            reportv1alpha1.StatusPass,
 						Rule:              "generate-limitrange",
 						GeneratedResource: "generatedLimitRange.yaml",
 					},
@@ -106,7 +106,7 @@ func TestLoadTests(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
-						Result:            policyreportv1alpha2.StatusPass,
+						Result:            reportv1alpha1.StatusPass,
 						Rule:              "generate-resourcequota",
 						GeneratedResource: "generatedResourceQuota.yaml",
 					},
@@ -137,7 +137,7 @@ func TestLoadTests(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
-						Result: policyreportv1alpha2.StatusPass,
+						Result: reportv1alpha1.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
 					TestResultData: v1alpha1.TestResultData{
@@ -164,7 +164,7 @@ func TestLoadTests(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
-						Result:            policyreportv1alpha2.StatusPass,
+						Result:            reportv1alpha1.StatusPass,
 						Rule:              "generate-limitrange",
 						GeneratedResource: "generatedLimitRange.yaml",
 					},
@@ -175,7 +175,7 @@ func TestLoadTests(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
 						Policy:            "add-ns-quota",
-						Result:            policyreportv1alpha2.StatusPass,
+						Result:            reportv1alpha1.StatusPass,
 						Rule:              "generate-resourcequota",
 						GeneratedResource: "generatedResourceQuota.yaml",
 					},
@@ -243,7 +243,7 @@ func TestLoadTest(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
-						Result: policyreportv1alpha2.StatusPass,
+						Result: reportv1alpha1.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
 					TestResultData: v1alpha1.TestResultData{
@@ -274,7 +274,7 @@ func TestLoadTest(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "images",
-						Result: policyreportv1alpha2.StatusPass,
+						Result: reportv1alpha1.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
 					TestResultData: v1alpha1.TestResultData{

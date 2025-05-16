@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportv1alpha1 "github.com/kyverno/kyverno/api/openreports.io/v1alpha1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
@@ -19,8 +19,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
-	slices.SortFunc(results, func(a policyreportv1alpha2.PolicyReportResult, b policyreportv1alpha2.PolicyReportResult) int {
+func SortReportResults(results []reportv1alpha1.ReportResult) {
+	slices.SortFunc(results, func(a reportv1alpha1.ReportResult, b reportv1alpha1.ReportResult) int {
 		if x := cmp.Compare(a.Policy, b.Policy); x != 0 {
 			return x
 		}
@@ -30,11 +30,11 @@ func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 		if x := cmp.Compare(a.Source, b.Source); x != 0 {
 			return x
 		}
-		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
+		if x := cmp.Compare(len(a.Subjects), len(b.Subjects)); x != 0 {
 			return x
 		}
-		for i := range a.Resources {
-			if x := cmp.Compare(a.Resources[i].UID, b.Resources[i].UID); x != 0 {
+		for i := range a.Subjects {
+			if x := cmp.Compare(a.Subjects[i].UID, b.Subjects[i].UID); x != 0 {
 				return x
 			}
 		}
@@ -42,68 +42,68 @@ func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 	})
 }
 
-func CalculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
+func CalculateSummary(results []reportv1alpha1.ReportResult) (summary reportv1alpha1.ReportSummary) {
 	for _, res := range results {
 		switch res.Result {
-		case policyreportv1alpha2.StatusPass:
+		case reportv1alpha1.StatusPass:
 			summary.Pass++
-		case policyreportv1alpha2.StatusFail:
+		case reportv1alpha1.StatusFail:
 			summary.Fail++
-		case policyreportv1alpha2.StatusWarn:
+		case reportv1alpha1.StatusWarn:
 			summary.Warn++
-		case policyreportv1alpha2.StatusError:
+		case reportv1alpha1.StatusError:
 			summary.Error++
-		case policyreportv1alpha2.StatusSkip:
+		case reportv1alpha1.StatusSkip:
 			summary.Skip++
 		}
 	}
 	return
 }
 
-func toPolicyResult(status engineapi.RuleStatus) policyreportv1alpha2.PolicyResult {
+func toPolicyResult(status engineapi.RuleStatus) reportv1alpha1.Result {
 	switch status {
 	case engineapi.RuleStatusPass:
-		return policyreportv1alpha2.StatusPass
+		return reportv1alpha1.StatusPass
 	case engineapi.RuleStatusFail:
-		return policyreportv1alpha2.StatusFail
+		return reportv1alpha1.StatusFail
 	case engineapi.RuleStatusError:
-		return policyreportv1alpha2.StatusError
+		return reportv1alpha1.StatusError
 	case engineapi.RuleStatusWarn:
-		return policyreportv1alpha2.StatusWarn
+		return reportv1alpha1.StatusWarn
 	case engineapi.RuleStatusSkip:
-		return policyreportv1alpha2.StatusSkip
+		return reportv1alpha1.StatusSkip
 	}
 	return ""
 }
 
-func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
+func SeverityFromString(severity string) reportv1alpha1.ResultSeverity {
 	switch severity {
 	case "critical":
-		return policyreportv1alpha2.SeverityCritical
+		return reportv1alpha1.SeverityCritical
 	case "high":
-		return policyreportv1alpha2.SeverityHigh
+		return reportv1alpha1.SeverityHigh
 	case "medium":
-		return policyreportv1alpha2.SeverityMedium
+		return reportv1alpha1.SeverityMedium
 	case "low":
-		return policyreportv1alpha2.SeverityLow
+		return reportv1alpha1.SeverityLow
 	case "info":
-		return policyreportv1alpha2.SeverityInfo
+		return reportv1alpha1.SeverityInfo
 	}
 	return ""
 }
 
-func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.RuleResponse, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
+func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.RuleResponse, resource *corev1.ObjectReference) reportv1alpha1.ReportResult {
 	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
 	annotations := pol.GetAnnotations()
 
-	result := policyreportv1alpha2.PolicyReportResult{
-		Source:     SourceKyverno,
-		Policy:     policyName,
-		Rule:       ruleResult.Name(),
-		Message:    ruleResult.Message(),
-		Properties: ruleResult.Properties(),
-		Result:     toPolicyResult(ruleResult.Status()),
-		Scored:     annotations[kyverno.AnnotationPolicyScored] != "false",
+	result := reportv1alpha1.ReportResult{
+		Source:      SourceKyverno,
+		Policy:      policyName,
+		Rule:        ruleResult.Name(),
+		Description: ruleResult.Message(),
+		Properties:  ruleResult.Properties(),
+		Result:      toPolicyResult(ruleResult.Status()),
+		Scored:      annotations[kyverno.AnnotationPolicyScored] != "false",
 		Timestamp: metav1.Timestamp{
 			Seconds: time.Now().Unix(),
 		},
@@ -144,7 +144,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	}
 
 	if resource != nil {
-		result.Resources = []corev1.ObjectReference{*resource}
+		result.Subjects = []corev1.ObjectReference{*resource}
 	}
 
 	if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
@@ -162,7 +162,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	return result
 }
 
-func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
+func addProperty(k, v string, result *reportv1alpha1.ReportResult) {
 	if result.Properties == nil {
 		result.Properties = map[string]string{}
 	}
@@ -187,7 +187,7 @@ type Control struct {
 	Images []string
 }
 
-func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyreportv1alpha2.PolicyReportResult) {
+func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *reportv1alpha1.ReportResult) {
 	if pss == nil {
 		return
 	}
@@ -216,8 +216,8 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyre
 	}
 }
 
-func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
-	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
+func EngineResponseToReportResults(response engineapi.EngineResponse) []reportv1alpha1.ReportResult {
+	results := make([]reportv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		results = append(results, result)
@@ -226,8 +226,8 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 	return results
 }
 
-func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
-	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
+func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []reportv1alpha1.ReportResult {
+	results := make([]reportv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
@@ -239,8 +239,8 @@ func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []
 	return results
 }
 
-func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
-	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
+func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []reportv1alpha1.ReportResult {
+	results := make([]reportv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
@@ -256,8 +256,8 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 	return results
 }
 
-func SplitResultsByPolicy(logger logr.Logger, results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
-	resultsMap := map[string][]policyreportv1alpha2.PolicyReportResult{}
+func SplitResultsByPolicy(logger logr.Logger, results []reportv1alpha1.ReportResult) map[string][]reportv1alpha1.ReportResult {
+	resultsMap := map[string][]reportv1alpha1.ReportResult{}
 	keysMap := map[string]string{}
 	for _, result := range results {
 		if keysMap[result.Policy] == "" {
@@ -280,14 +280,14 @@ func SplitResultsByPolicy(logger logr.Logger, results []policyreportv1alpha2.Pol
 	return resultsMap
 }
 
-func SetResults(report reportsv1.ReportInterface, results ...policyreportv1alpha2.PolicyReportResult) {
+func SetResults(report reportsv1.ReportInterface, results ...reportv1alpha1.ReportResult) {
 	SortReportResults(results)
 	report.SetResults(results)
 	report.SetSummary(CalculateSummary(results))
 }
 
 func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	var ruleResults []reportv1alpha1.ReportResult
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
@@ -297,7 +297,7 @@ func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi
 }
 
 func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	var ruleResults []reportv1alpha1.ReportResult
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
@@ -307,7 +307,7 @@ func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...e
 }
 
 func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	var ruleResults []reportv1alpha1.ReportResult
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
