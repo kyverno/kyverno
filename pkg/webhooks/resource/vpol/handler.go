@@ -20,23 +20,26 @@ import (
 )
 
 type handler struct {
-	context        libs.Context
-	engine         celengine.Engine
-	kyvernoClient  versioned.Interface
-	reportsBreaker breaker.Breaker
+	context          libs.Context
+	engine           celengine.Engine
+	kyvernoClient    versioned.Interface
+	admissionReports bool
+	reportsBreaker   breaker.Breaker
 }
 
 func New(
 	engine celengine.Engine,
 	context libs.Context,
 	kyvernoClient versioned.Interface,
+	admissionReports bool,
 	reportsBreaker breaker.Breaker,
 ) *handler {
 	return &handler{
-		context:        context,
-		engine:         engine,
-		kyvernoClient:  kyvernoClient,
-		reportsBreaker: reportsBreaker,
+		context:          context,
+		engine:           engine,
+		kyvernoClient:    kyvernoClient,
+		admissionReports: admissionReports,
+		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -49,9 +52,11 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
-		err := h.admissionReport(ctx, request, response)
-		if err != nil {
-			logger.Error(err, "failed to create report")
+		if h.admissionReports {
+			err := h.admissionReport(ctx, request, response)
+			if err != nil {
+				logger.Error(err, "failed to create report")
+			}
 		}
 	})
 	return h.admissionResponse(request, response)
