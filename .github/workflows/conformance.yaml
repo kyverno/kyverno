@@ -556,7 +556,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
+        k8s-version: [v1.29.14, v1.30.10, v1.31.6, v1.32.2]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
