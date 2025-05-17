@@ -9,9 +9,13 @@ import (
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
 )
 
 // TopLevelApiDescription contains a group/version/resource/subresource reference
@@ -86,6 +90,62 @@ func (c serverResources) Poll(ctx context.Context, resync time.Duration) {
 			c.cachedClient.Invalidate()
 		}
 	}
+}
+
+// CreateCRDWatcher creates a watcher for CRD changes
+// It will invalidate the local cache when a CRD is added, updated or deleted
+func (c serverResources) CreateCRDWatcher(ctx context.Context, dyn dynamic.Interface) error {
+	logger := logger.WithName("crd-definition-watcher")
+	logger.Info("Starting CRD definition watcher...")
+	crdGVR := schema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}
+	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dyn, 0, metav1.NamespaceAll, nil)
+	informer := factory.ForResource(crdGVR).Informer()
+	if _, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			metaObj, err := meta.Accessor(obj)
+			if err != nil {
+				logger.Error(err, "AddFunc: Failed to get metadata from object")
+				return
+			}
+			logger.Info("CRD added", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
+			c.cachedClient.Invalidate()
+			logger.Info("Discovery cache invalidated after CRD add")
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			metaObj, err := meta.Accessor(newObj)
+			if err != nil {
+				logger.Error(err, "UpdateFunc: Failed to get metadata from object")
+				return
+			}
+			logger.Info("CRD updated", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
+			c.cachedClient.Invalidate()
+			logger.Info("Discovery cache invalidated after CRD update")
+		},
+		DeleteFunc: func(obj interface{}) {
+			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = tombstone.Obj
+			}
+			metaObj, err := meta.Accessor(obj)
+			if err != nil {
+				fmt.Printf("Error getting metadata: %v\n", err)
+				return
+			}
+			logger.Info("CRD deleted", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
+			c.cachedClient.Invalidate()
+			logger.Info("Discovery cache invalidated after CRD delete")
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to add event handlers: %w", err)
+	}
+	go informer.Run(ctx.Done())
+	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
+		return fmt.Errorf("timed out waiting for cache sync")
+	}
+	return nil
 }
 
 // OpenAPISchema returns the API server OpenAPI schema document
