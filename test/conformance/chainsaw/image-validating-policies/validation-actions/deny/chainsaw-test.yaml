@@ -26,4 +26,4 @@ spec:
         expect:
           - check:
               ($error): >-
-                admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-check-signed-images" denied the request: Policy  failed: failed to verify image with notary cert
+                admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-check-signed-images" denied the request: Policy check-signed-images failed: failed to verify image with notary cert
