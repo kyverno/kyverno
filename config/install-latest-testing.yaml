@@ -55154,6 +55154,7 @@ spec:
             - --servicePort=443
             - --webhookServerPort=9443
             - --resyncPeriod=15m
+            - --crdWatcher=false
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
