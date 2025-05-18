@@ -4,12 +4,19 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLib(t *testing.T) {
-	opts := Lib()
-	env, err := cel.NewEnv(opts)
+	base, err := compiler.NewBaseEnv()
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	options := []cel.EnvOption{
+		cel.Variable("image", ContextType),
+		Lib(),
+	}
+	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
 }
