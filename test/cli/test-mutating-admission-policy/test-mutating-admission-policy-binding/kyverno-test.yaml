@@ -3,14 +3,19 @@ kind: Test
 metadata:
   name: test-binding
 policies: [ "policy.yaml" ]
-resources: [ "resource1.yaml" ]
+resources: [ "resource1.yaml" , "resource2.yaml" , "test-ns.yaml" ]
 results:
 - isMutatingAdmissionPolicy: true
-  patchedResources: "expected-patched.yaml"
   policy: set-replicas
-  rule: mutation-0   
   resource: nginx-test
   namespace: test-ns
   kind: Deployment
+  patchedResources: expected-patched.yaml
   result: pass
+- isMutatingAdmissionPolicy: true
+  policy: set-replicas
+  resource: nginx-default
+  namespace: default
+  kind: Deployment
+  result: fail
 variables: values.yaml

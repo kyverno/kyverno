@@ -28,12 +28,45 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
+// func getNamespace(
+// 	namespaceName string,
+// 	client dclient.Interface,
+// 	namespaceSelectorMap map[string]map[string]string,
+// 	isFake bool,
+// ) (*corev1.Namespace, error) {
+// 	// Skip for cluster-scoped resources like Namespace itself
+// 	if namespaceName == "" {
+// 		return nil, nil
+// 	}
+
+// 	// If client is available and not fake, fetch from cluster
+// 	if client != nil && !isFake {
+// 		ns, err := client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		return ns, nil
+// 	}
+
+// 	// Offline fallback: use labels from provided map
+// 	return &corev1.Namespace{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:   namespaceName,
+// 			Labels: namespaceSelectorMap[namespaceName],
+// 		},
+// 	}, nil
+// }
+
 func MutateResource(
 	policy admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
 	gvr schema.GroupVersionResource,
+	client dclient.Interface,
+	namespaceSelectorMap map[string]map[string]string,
+	isFake bool,
 ) (engineapi.EngineResponse, error) {
+	//var emptyResp engineapi.EngineResponse
 	startTime := time.Now()
 
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(&policy), nil)
@@ -56,7 +89,6 @@ func MutateResource(
 			},
 		}
 	}
-
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 	versionedAttributes, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
@@ -113,7 +145,7 @@ func MutateResource(
 		return engineResponse.WithPolicyResponse(policyResp), nil
 	}
 	// apply mutations
-	for i, patcher := range patchers {
+	for _, patcher := range patchers {
 		patchRequest := patch.Request{
 			MatchedResource:     gvr,
 			VersionedAttributes: versionedAttributes,
@@ -123,37 +155,50 @@ func MutateResource(
 			TypeConverter:       managedfields.NewDeducedTypeConverter(),
 		}
 		original := versionedAttributes.VersionedObject
-		ruleName := fmt.Sprintf("mutation-%d", i)
+		ruleName := policy.GetName()
 
 		newVersionedObject, err := patcher.Patch(context.TODO(), patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
-			ruleResp := engineapi.RuleError(ruleName, engineapi.Mutation, err.Error(), nil, nil)
+			ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).
+				WithResource(resource.GetNamespace(), resource.GetName(), gvk.Kind)
+
+			if binding != nil {
+				ruleResp = ruleResp.WithMutatingBinding(binding)
+			}
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 			continue
 		}
 
-		// check if mutation actually changed anything
 		if equality.Semantic.DeepEqual(original, newVersionedObject) {
-			ruleResp := engineapi.RuleSkip(ruleName, engineapi.Mutation, "mutation had no effect", nil)
+			ruleResp := engineapi.RuleSkip(ruleName, engineapi.Mutation, "mutation had no effect", nil).
+				WithResource(resource.GetNamespace(), resource.GetName(), gvk.Kind)
+			if binding != nil {
+				ruleResp = ruleResp.WithMutatingBinding(binding)
+			}
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 			continue
 		}
-
 		versionedAttributes.VersionedObject = newVersionedObject
-		ruleResp := engineapi.RulePass(ruleName, engineapi.Mutation, "", nil)
+		ruleResp := engineapi.RulePass(ruleName, engineapi.Mutation, "", nil).
+			WithResource(resource.GetNamespace(), resource.GetName(), gvk.Kind)
+		if binding != nil {
+			ruleResp = ruleResp.WithMutatingBinding(binding)
+		}
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 
 	}
 
 	patchedResource, err := celutils.ConvertObjectToUnstructured(versionedAttributes.VersionedObject)
 	if err != nil {
-		ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil)
+		ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).
+			WithResource(resource.GetNamespace(), resource.GetName(), gvk.Kind)
+		if binding != nil {
+			ruleResp = ruleResp.WithMutatingBinding(binding)
+		}
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 		return engineResponse.WithPolicyResponse(policyResp), nil
 	}
 
-	//ruleResp := engineapi.RulePass(policy.GetName(), engineapi.Mutation, "", nil)
-	//policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	patchedResource.SetName(resource.GetName())
 	patchedResource.SetNamespace(resource.GetNamespace())
 	engineResponse = engineResponse.
@@ -169,13 +214,13 @@ func Mutate(
 	gvr schema.GroupVersionResource,
 	client dclient.Interface,
 	namespaceSelectorMap map[string]map[string]string,
+	isFake bool,
 ) (engineapi.EngineResponse, error) {
 	var emptyResp engineapi.EngineResponse
 
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	policy := data.GetDefinition()
 	bindings := data.GetBindings()
-
 	gvk := resource.GroupVersionKind()
 
 	a := admission.NewAttributesRecord(
@@ -219,11 +264,12 @@ func Mutate(
 			return emptyResp, nil
 		}
 
-		return MutateResource(*policy, nil, resource, gvr)
+		return MutateResource(*policy, nil, resource, gvr, client, namespaceSelectorMap, isFake)
+
 	}
 
 	//bindings exist
-	if client != nil {
+	if client != nil && !isFake {
 		nsLister := NewCustomNamespaceLister(client)
 		policyMatcher := generic.NewPolicyMatcher(k8smatching.NewMatcher(nsLister, client.GetKubeClient()))
 
@@ -240,6 +286,7 @@ func Mutate(
 
 		// match bindings
 		for i, binding := range bindings {
+
 			isBindingMatch, err := policyMatcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
 			if err != nil {
 				return emptyResp, err
@@ -249,11 +296,13 @@ func Mutate(
 			}
 
 			logger.V(3).Info("mutate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return MutateResource(*policy, &bindings[i], resource, gvr)
+			return MutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
+
 		}
 
 		return emptyResp, nil
 	} else {
+
 		offline := celmatching.NewMatcher()
 
 		// 1) policy-level
@@ -287,7 +336,8 @@ func Mutate(
 			if !ok {
 				continue
 			}
-			return MutateResource(*policy, &bindings[i], resource, gvr)
+			return MutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
+
 		}
 
 		return emptyResp, nil

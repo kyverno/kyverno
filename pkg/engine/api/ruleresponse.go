@@ -5,6 +5,7 @@ import (
 
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
@@ -46,11 +47,17 @@ type RuleResponse struct {
 	exceptions []GenericException
 	// binding is the validatingadmissionpolicybinding (if any)
 	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	// mutatingBinding is the mutatingadmissionpolicybinding (if any)
+	mutatingBinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
 	// properties are the additional properties from the rule that will be added to the policy report result
 	properties map[string]string
+
+	resourceNamespace string
+	resourceName      string
+	resourceKind      string
 }
 
 func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus, properties map[string]string) *RuleResponse {
@@ -145,6 +152,11 @@ func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *admissionregistration
 	return r.binding
 }
 
+func (r RuleResponse) WithMutatingBinding(binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) *RuleResponse {
+	r.mutatingBinding = binding
+	return &r
+}
+
 func (r *RuleResponse) IsException() bool {
 	return len(r.exceptions) > 0
 }
@@ -198,4 +210,11 @@ func (r *RuleResponse) HasStatus(status ...RuleStatus) bool {
 // String implements Stringer interface
 func (r *RuleResponse) String() string {
 	return fmt.Sprintf("rule %s (%s): %v", r.name, r.ruleType, r.message)
+}
+
+func (r RuleResponse) WithResource(namespace, name, kind string) *RuleResponse {
+	r.resourceNamespace = namespace
+	r.resourceName = name
+	r.resourceKind = kind
+	return &r
 }

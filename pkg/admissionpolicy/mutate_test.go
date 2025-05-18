@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -557,7 +558,6 @@ func Test_MutateResource(t *testing.T) {
 }`),
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			expectedResource, err := kubeutils.BytesToUnstructured(tt.expectedRawResource)
@@ -577,7 +577,23 @@ func Test_MutateResource(t *testing.T) {
 				Resource: strings.ToLower(gvk.Kind) + "s", // simplified GVR logic for test
 			}
 
-			response, err := MutateResource(policy, nil, *resource, gvr)
+			// 1. Prepare dummy client (can be nil or real fake client)
+			var client dclient.Interface = nil // or use dclient.NewFakeClient(...) if needed
+
+			// 2. Define your fake namespaceSelectorMap
+			namespaceSelectorMap := map[string]map[string]string{
+				"default": {
+					"env": "test",
+				},
+			}
+
+			// 3. Pass `true` for isFake
+			isFake := true
+
+			// 4. Updated call
+			response, err := MutateResource(policy, nil, *resource, gvr, client, namespaceSelectorMap, isFake)
+
+			//response, err := MutateResource(policy, nil, *resource, gvr)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)
