@@ -574,26 +574,21 @@ func Test_MutateResource(t *testing.T) {
 			gvr := schema.GroupVersionResource{
 				Group:    gvk.Group,
 				Version:  gvk.Version,
-				Resource: strings.ToLower(gvk.Kind) + "s", // simplified GVR logic for test
+				Resource: strings.ToLower(gvk.Kind) + "s",
 			}
 
-			// 1. Prepare dummy client (can be nil or real fake client)
-			var client dclient.Interface = nil // or use dclient.NewFakeClient(...) if needed
+			var client dclient.Interface = nil
 
-			// 2. Define your fake namespaceSelectorMap
 			namespaceSelectorMap := map[string]map[string]string{
 				"default": {
 					"env": "test",
 				},
 			}
 
-			// 3. Pass `true` for isFake
 			isFake := true
 
-			// 4. Updated call
 			response, err := MutateResource(policy, nil, *resource, gvr, client, namespaceSelectorMap, isFake)
 
-			//response, err := MutateResource(policy, nil, *resource, gvr)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)

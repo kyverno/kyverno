@@ -87,7 +87,7 @@ type GenericPolicy interface {
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
-  // AsMutatingAdmissionPolicy returns the mutatingadmission policy
+	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
 	AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 	// AsMutatingPolicy returns the mutating policy
 	AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy

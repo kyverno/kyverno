@@ -28,35 +28,6 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-// func getNamespace(
-// 	namespaceName string,
-// 	client dclient.Interface,
-// 	namespaceSelectorMap map[string]map[string]string,
-// 	isFake bool,
-// ) (*corev1.Namespace, error) {
-// 	// Skip for cluster-scoped resources like Namespace itself
-// 	if namespaceName == "" {
-// 		return nil, nil
-// 	}
-
-// 	// If client is available and not fake, fetch from cluster
-// 	if client != nil && !isFake {
-// 		ns, err := client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		return ns, nil
-// 	}
-
-// 	// Offline fallback: use labels from provided map
-// 	return &corev1.Namespace{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:   namespaceName,
-// 			Labels: namespaceSelectorMap[namespaceName],
-// 		},
-// 	}, nil
-// }
-
 func MutateResource(
 	policy admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
@@ -232,8 +203,6 @@ func Mutate(
 
 	var namespace *corev1.Namespace
 	namespaceName := resource.GetNamespace()
-	// Special case, the namespace object has the namespace of itself.
-	// unset it if the incoming object is a namespace
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 	}
