@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -614,7 +613,7 @@ func main() {
 			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
 		}
-		var vpolEngine celengine.Engine
+		var vpolEngine vpolengine.Engine
 		var ivpolEngine ivpolengine.Engine
 		{
 			// create a controller manager
@@ -684,18 +683,26 @@ func main() {
 				nil,
 			)
 		}
-		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
-		if err != nil {
-			setup.Logger.Error(err, "failed to start admission reports watcher")
-			os.Exit(1)
-		}
-		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
-			count, isRunning := ephrs.Count()
-			if !isRunning {
-				return true
+		var reportsBreaker breaker.Breaker
+		if admissionReports {
+			ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+			if err != nil {
+				setup.Logger.Error(err, "failed to start admission reports watcher")
+				os.Exit(1)
 			}
-			return count > maxAdmissionReports
-		})
+			reportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				count, isRunning := ephrs.Count()
+				if !isRunning {
+					return true
+				}
+				return count > maxAdmissionReports
+			})
+		} else {
+			reportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				return true
+			})
+		}
+
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
 			setup.KyvernoDynamicClient,
@@ -722,6 +729,7 @@ func main() {
 			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
+			admissionReports,
 			reportsBreaker,
 		)
 		ivpolHandlers := ivpol.New(

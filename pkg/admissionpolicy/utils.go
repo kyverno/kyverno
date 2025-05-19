@@ -18,13 +18,13 @@ func hasPermissions(resource schema.GroupVersionResource, s checker.AuthChecker)
 // HasValidatingAdmissionPolicyPermission check if the admission controller has the required permissions to generate
 // Kubernetes ValidatingAdmissionPolicy
 func HasValidatingAdmissionPolicyPermission(s checker.AuthChecker) bool {
-	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1beta1", Resource: "validatingadmissionpolicies"}
+	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "validatingadmissionpolicies"}
 	return hasPermissions(gvr, s)
 }
 
 // HasValidatingAdmissionPolicyBindingPermission check if the admission controller has the required permissions to generate
 // Kubernetes ValidatingAdmissionPolicyBinding
 func HasValidatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
-	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1beta1", Resource: "validatingadmissionpolicybindings"}
+	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "validatingadmissionpolicybindings"}
 	return hasPermissions(gvr, s)
 }
