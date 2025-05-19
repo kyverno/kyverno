@@ -30,10 +30,12 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withMetrics) ClusterPolicyReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.ClusterPolicyReportInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterPolicyReport", c.clientType)
 	return clusterpolicyreports.WithMetrics(c.inner.ClusterPolicyReports(), recorder)
 }
+
 func (c *withMetrics) PolicyReports(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.PolicyReportInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PolicyReport", c.clientType)
 	return policyreports.WithMetrics(c.inner.PolicyReports(namespace), recorder)
@@ -47,9 +49,11 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withTracing) ClusterPolicyReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.ClusterPolicyReportInterface {
 	return clusterpolicyreports.WithTracing(c.inner.ClusterPolicyReports(), c.client, "ClusterPolicyReport")
 }
+
 func (c *withTracing) PolicyReports(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.PolicyReportInterface {
 	return policyreports.WithTracing(c.inner.PolicyReports(namespace), c.client, "PolicyReport")
 }
@@ -62,9 +66,11 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withLogging) ClusterPolicyReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.ClusterPolicyReportInterface {
 	return clusterpolicyreports.WithLogging(c.inner.ClusterPolicyReports(), c.logger.WithValues("resource", "ClusterPolicyReports"))
 }
+
 func (c *withLogging) PolicyReports(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.PolicyReportInterface {
 	return policyreports.WithLogging(c.inner.PolicyReports(namespace), c.logger.WithValues("resource", "PolicyReports").WithValues("namespace", namespace))
 }

@@ -463,7 +463,6 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 							assert.Equal(t, expect.MatchConditions[m], webhooks[i].MatchConditions[n])
 						}
 					}
-
 				}
 				if expect.MatchPolicy != nil {
 					assert.Equal(t, expect.MatchPolicy, webhooks[i].MatchPolicy)

@@ -29,6 +29,7 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withMetrics) ClusterTrustBundles() k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterTrustBundle", c.clientType)
 	return clustertrustbundles.WithMetrics(c.inner.ClusterTrustBundles(), recorder)
@@ -42,6 +43,7 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withTracing) ClusterTrustBundles() k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface {
 	return clustertrustbundles.WithTracing(c.inner.ClusterTrustBundles(), c.client, "ClusterTrustBundle")
 }
@@ -54,6 +56,7 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withLogging) ClusterTrustBundles() k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.ClusterTrustBundleInterface {
 	return clustertrustbundles.WithLogging(c.inner.ClusterTrustBundles(), c.logger.WithValues("resource", "ClusterTrustBundles"))
 }

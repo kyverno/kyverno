@@ -29,6 +29,7 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withMetrics) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.LeaseCandidateInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "LeaseCandidate", c.clientType)
 	return leasecandidates.WithMetrics(c.inner.LeaseCandidates(namespace), recorder)
@@ -42,6 +43,7 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withTracing) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.LeaseCandidateInterface {
 	return leasecandidates.WithTracing(c.inner.LeaseCandidates(namespace), c.client, "LeaseCandidate")
 }
@@ -54,6 +56,7 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withLogging) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.LeaseCandidateInterface {
 	return leasecandidates.WithLogging(c.inner.LeaseCandidates(namespace), c.logger.WithValues("resource", "LeaseCandidates").WithValues("namespace", namespace))
 }

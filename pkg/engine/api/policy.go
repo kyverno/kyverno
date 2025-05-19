@@ -116,6 +116,7 @@ func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 func (p *genericPolicy) AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData {
 	return p.ValidatingAdmissionPolicy
 }
+
 func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData {
 	return p.MutatingAdmissionPolicy
 }

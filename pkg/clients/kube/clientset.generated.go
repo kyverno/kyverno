@@ -177,165 +177,219 @@ type clientset struct {
 func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
 	return c.discovery
 }
+
 func (c *clientset) AdmissionregistrationV1() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface {
 	return c.admissionregistrationv1
 }
+
 func (c *clientset) AdmissionregistrationV1alpha1() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.AdmissionregistrationV1alpha1Interface {
 	return c.admissionregistrationv1alpha1
 }
+
 func (c *clientset) AdmissionregistrationV1beta1() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.AdmissionregistrationV1beta1Interface {
 	return c.admissionregistrationv1beta1
 }
+
 func (c *clientset) AppsV1() k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface {
 	return c.appsv1
 }
+
 func (c *clientset) AppsV1beta1() k8s_io_client_go_kubernetes_typed_apps_v1beta1.AppsV1beta1Interface {
 	return c.appsv1beta1
 }
+
 func (c *clientset) AppsV1beta2() k8s_io_client_go_kubernetes_typed_apps_v1beta2.AppsV1beta2Interface {
 	return c.appsv1beta2
 }
+
 func (c *clientset) AuthenticationV1() k8s_io_client_go_kubernetes_typed_authentication_v1.AuthenticationV1Interface {
 	return c.authenticationv1
 }
+
 func (c *clientset) AuthenticationV1alpha1() k8s_io_client_go_kubernetes_typed_authentication_v1alpha1.AuthenticationV1alpha1Interface {
 	return c.authenticationv1alpha1
 }
+
 func (c *clientset) AuthenticationV1beta1() k8s_io_client_go_kubernetes_typed_authentication_v1beta1.AuthenticationV1beta1Interface {
 	return c.authenticationv1beta1
 }
+
 func (c *clientset) AuthorizationV1() k8s_io_client_go_kubernetes_typed_authorization_v1.AuthorizationV1Interface {
 	return c.authorizationv1
 }
+
 func (c *clientset) AuthorizationV1beta1() k8s_io_client_go_kubernetes_typed_authorization_v1beta1.AuthorizationV1beta1Interface {
 	return c.authorizationv1beta1
 }
+
 func (c *clientset) AutoscalingV1() k8s_io_client_go_kubernetes_typed_autoscaling_v1.AutoscalingV1Interface {
 	return c.autoscalingv1
 }
+
 func (c *clientset) AutoscalingV2() k8s_io_client_go_kubernetes_typed_autoscaling_v2.AutoscalingV2Interface {
 	return c.autoscalingv2
 }
+
 func (c *clientset) AutoscalingV2beta1() k8s_io_client_go_kubernetes_typed_autoscaling_v2beta1.AutoscalingV2beta1Interface {
 	return c.autoscalingv2beta1
 }
+
 func (c *clientset) AutoscalingV2beta2() k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.AutoscalingV2beta2Interface {
 	return c.autoscalingv2beta2
 }
+
 func (c *clientset) BatchV1() k8s_io_client_go_kubernetes_typed_batch_v1.BatchV1Interface {
 	return c.batchv1
 }
+
 func (c *clientset) BatchV1beta1() k8s_io_client_go_kubernetes_typed_batch_v1beta1.BatchV1beta1Interface {
 	return c.batchv1beta1
 }
+
 func (c *clientset) CertificatesV1() k8s_io_client_go_kubernetes_typed_certificates_v1.CertificatesV1Interface {
 	return c.certificatesv1
 }
+
 func (c *clientset) CertificatesV1alpha1() k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.CertificatesV1alpha1Interface {
 	return c.certificatesv1alpha1
 }
+
 func (c *clientset) CertificatesV1beta1() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificatesV1beta1Interface {
 	return c.certificatesv1beta1
 }
+
 func (c *clientset) CoordinationV1() k8s_io_client_go_kubernetes_typed_coordination_v1.CoordinationV1Interface {
 	return c.coordinationv1
 }
+
 func (c *clientset) CoordinationV1alpha2() k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.CoordinationV1alpha2Interface {
 	return c.coordinationv1alpha2
 }
+
 func (c *clientset) CoordinationV1beta1() k8s_io_client_go_kubernetes_typed_coordination_v1beta1.CoordinationV1beta1Interface {
 	return c.coordinationv1beta1
 }
+
 func (c *clientset) CoreV1() k8s_io_client_go_kubernetes_typed_core_v1.CoreV1Interface {
 	return c.corev1
 }
+
 func (c *clientset) DiscoveryV1() k8s_io_client_go_kubernetes_typed_discovery_v1.DiscoveryV1Interface {
 	return c.discoveryv1
 }
+
 func (c *clientset) DiscoveryV1beta1() k8s_io_client_go_kubernetes_typed_discovery_v1beta1.DiscoveryV1beta1Interface {
 	return c.discoveryv1beta1
 }
+
 func (c *clientset) EventsV1() k8s_io_client_go_kubernetes_typed_events_v1.EventsV1Interface {
 	return c.eventsv1
 }
+
 func (c *clientset) EventsV1beta1() k8s_io_client_go_kubernetes_typed_events_v1beta1.EventsV1beta1Interface {
 	return c.eventsv1beta1
 }
+
 func (c *clientset) ExtensionsV1beta1() k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ExtensionsV1beta1Interface {
 	return c.extensionsv1beta1
 }
+
 func (c *clientset) FlowcontrolV1() k8s_io_client_go_kubernetes_typed_flowcontrol_v1.FlowcontrolV1Interface {
 	return c.flowcontrolv1
 }
+
 func (c *clientset) FlowcontrolV1beta1() k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta1.FlowcontrolV1beta1Interface {
 	return c.flowcontrolv1beta1
 }
+
 func (c *clientset) FlowcontrolV1beta2() k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta2.FlowcontrolV1beta2Interface {
 	return c.flowcontrolv1beta2
 }
+
 func (c *clientset) FlowcontrolV1beta3() k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta3.FlowcontrolV1beta3Interface {
 	return c.flowcontrolv1beta3
 }
+
 func (c *clientset) InternalV1alpha1() k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.InternalV1alpha1Interface {
 	return c.internalv1alpha1
 }
+
 func (c *clientset) NetworkingV1() k8s_io_client_go_kubernetes_typed_networking_v1.NetworkingV1Interface {
 	return c.networkingv1
 }
+
 func (c *clientset) NetworkingV1alpha1() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.NetworkingV1alpha1Interface {
 	return c.networkingv1alpha1
 }
+
 func (c *clientset) NetworkingV1beta1() k8s_io_client_go_kubernetes_typed_networking_v1beta1.NetworkingV1beta1Interface {
 	return c.networkingv1beta1
 }
+
 func (c *clientset) NodeV1() k8s_io_client_go_kubernetes_typed_node_v1.NodeV1Interface {
 	return c.nodev1
 }
+
 func (c *clientset) NodeV1alpha1() k8s_io_client_go_kubernetes_typed_node_v1alpha1.NodeV1alpha1Interface {
 	return c.nodev1alpha1
 }
+
 func (c *clientset) NodeV1beta1() k8s_io_client_go_kubernetes_typed_node_v1beta1.NodeV1beta1Interface {
 	return c.nodev1beta1
 }
+
 func (c *clientset) PolicyV1() k8s_io_client_go_kubernetes_typed_policy_v1.PolicyV1Interface {
 	return c.policyv1
 }
+
 func (c *clientset) PolicyV1beta1() k8s_io_client_go_kubernetes_typed_policy_v1beta1.PolicyV1beta1Interface {
 	return c.policyv1beta1
 }
+
 func (c *clientset) RbacV1() k8s_io_client_go_kubernetes_typed_rbac_v1.RbacV1Interface {
 	return c.rbacv1
 }
+
 func (c *clientset) RbacV1alpha1() k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RbacV1alpha1Interface {
 	return c.rbacv1alpha1
 }
+
 func (c *clientset) RbacV1beta1() k8s_io_client_go_kubernetes_typed_rbac_v1beta1.RbacV1beta1Interface {
 	return c.rbacv1beta1
 }
+
 func (c *clientset) ResourceV1alpha3() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceV1alpha3Interface {
 	return c.resourcev1alpha3
 }
+
 func (c *clientset) ResourceV1beta1() k8s_io_client_go_kubernetes_typed_resource_v1beta1.ResourceV1beta1Interface {
 	return c.resourcev1beta1
 }
+
 func (c *clientset) SchedulingV1() k8s_io_client_go_kubernetes_typed_scheduling_v1.SchedulingV1Interface {
 	return c.schedulingv1
 }
+
 func (c *clientset) SchedulingV1alpha1() k8s_io_client_go_kubernetes_typed_scheduling_v1alpha1.SchedulingV1alpha1Interface {
 	return c.schedulingv1alpha1
 }
+
 func (c *clientset) SchedulingV1beta1() k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.SchedulingV1beta1Interface {
 	return c.schedulingv1beta1
 }
+
 func (c *clientset) StorageV1() k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Interface {
 	return c.storagev1
 }
+
 func (c *clientset) StorageV1alpha1() k8s_io_client_go_kubernetes_typed_storage_v1alpha1.StorageV1alpha1Interface {
 	return c.storagev1alpha1
 }
+
 func (c *clientset) StorageV1beta1() k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface {
 	return c.storagev1beta1
 }
+
 func (c *clientset) StoragemigrationV1alpha1() k8s_io_client_go_kubernetes_typed_storagemigration_v1alpha1.StoragemigrationV1alpha1Interface {
 	return c.storagemigrationv1alpha1
 }

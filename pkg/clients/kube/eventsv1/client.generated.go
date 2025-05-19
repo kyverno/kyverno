@@ -29,6 +29,7 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withMetrics) Events(namespace string) k8s_io_client_go_kubernetes_typed_events_v1.EventInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Event", c.clientType)
 	return events.WithMetrics(c.inner.Events(namespace), recorder)
@@ -42,6 +43,7 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withTracing) Events(namespace string) k8s_io_client_go_kubernetes_typed_events_v1.EventInterface {
 	return events.WithTracing(c.inner.Events(namespace), c.client, "Event")
 }
@@ -54,6 +56,7 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withLogging) Events(namespace string) k8s_io_client_go_kubernetes_typed_events_v1.EventInterface {
 	return events.WithLogging(c.inner.Events(namespace), c.logger.WithValues("resource", "Events").WithValues("namespace", namespace))
 }

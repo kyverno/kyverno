@@ -16,7 +16,6 @@ func TestRemoveDuplicates(t *testing.T) {
 	baseTestDir := "../_testdata/resources"
 	tests := []*TestCase{
 		{
-
 			testFile:           "with-duplicate.yaml",
 			expectedResources:  6,
 			expectedDuplicates: 1,

@@ -21,9 +21,11 @@ type clientset struct {
 func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
 	return c.discovery
 }
+
 func (c *clientset) ApiregistrationV1() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1.ApiregistrationV1Interface {
 	return c.apiregistrationv1
 }
+
 func (c *clientset) ApiregistrationV1beta1() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1beta1.ApiregistrationV1beta1Interface {
 	return c.apiregistrationv1beta1
 }

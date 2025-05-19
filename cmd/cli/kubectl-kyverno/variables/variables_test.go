@@ -198,7 +198,8 @@ func TestVariables_ComputeVariables(t *testing.T) {
 				"request.operation": "UPDATE",
 			},
 			wantErr: false,
-		}, {
+		},
+		{
 			name: "values",
 			fields: fields{
 				loadValues("../_testdata/values/limit-configmap-for-sa.yaml"),
@@ -215,7 +216,8 @@ func TestVariables_ComputeVariables(t *testing.T) {
 				"request.operation": "CREATE",
 			},
 			wantErr: false,
-		}, {
+		},
+		{
 			name: "values",
 			fields: fields{
 				loadValues("../_testdata/values/global-values.yaml"),
@@ -234,7 +236,8 @@ func TestVariables_ComputeVariables(t *testing.T) {
 				"request.operation": "CREATE",
 			},
 			wantErr: false,
-		}, {
+		},
+		{
 			name: "values and variables",
 			fields: fields{
 				loadValues("../_testdata/values/global-values.yaml"),

@@ -65,11 +65,15 @@ func Test_load(t *testing.T) {
 func Test_SelectFrom(t *testing.T) {
 	resources := toUnstructured(t,
 		&corev1.ConfigMap{TypeMeta: v1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"}},
-		&kyvernov2.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: exceptionV2.Kind, APIVersion: exceptionV2.GroupVersion().String()},
+		&kyvernov2.PolicyException{
+			TypeMeta: v1.TypeMeta{
+				Kind: exceptionV2.Kind, APIVersion: exceptionV2.GroupVersion().String(),
+			},
 		},
-		&kyvernov2beta1.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: exceptionV2beta1.Kind, APIVersion: exceptionV2beta1.GroupVersion().String()},
+		&kyvernov2beta1.PolicyException{
+			TypeMeta: v1.TypeMeta{
+				Kind: exceptionV2beta1.Kind, APIVersion: exceptionV2beta1.GroupVersion().String(),
+			},
 		},
 	)
 	exceptions := SelectFrom(resources)

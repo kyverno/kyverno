@@ -15,40 +15,44 @@ func TestSplitDocuments(t *testing.T) {
 		args          args
 		wantDocuments []string
 		wantErr       bool
-	}{{
-		name: "nil",
-		args: args{
-			nil,
+	}{
+		{
+			name: "nil",
+			args: args{
+				nil,
+			},
+			wantDocuments: nil,
+			wantErr:       false,
 		},
-		wantDocuments: nil,
-		wantErr:       false,
-	}, {
-		name: "empty string",
-		args: args{
-			[]byte(""),
+		{
+			name: "empty string",
+			args: args{
+				[]byte(""),
+			},
+			wantDocuments: nil,
+			wantErr:       false,
 		},
-		wantDocuments: nil,
-		wantErr:       false,
-	}, {
-		name: "single doc",
-		args: args{
-			[]byte("enabled: true"),
+		{
+			name: "single doc",
+			args: args{
+				[]byte("enabled: true"),
+			},
+			wantDocuments: []string{
+				"enabled: true\n",
+			},
+			wantErr: false,
 		},
-		wantDocuments: []string{
-			"enabled: true\n",
+		{
+			name: "two docs",
+			args: args{
+				[]byte("enabled: true\n---\ndisabled: false"),
+			},
+			wantDocuments: []string{
+				"enabled: true\n",
+				"disabled: false\n",
+			},
+			wantErr: false,
 		},
-		wantErr: false,
-	}, {
-		name: "two docs",
-		args: args{
-			[]byte("enabled: true\n---\ndisabled: false"),
-		},
-		wantDocuments: []string{
-			"enabled: true\n",
-			"disabled: false\n",
-		},
-		wantErr: false,
-	},
 		// TODO those tests should fail IMHO
 		{
 			name: "empty doc",

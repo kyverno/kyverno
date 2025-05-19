@@ -15,13 +15,14 @@ func Test_ImageVerification(t *testing.T) {
 		name    string
 		subject ImageVerification
 		errors  func(*ImageVerification) field.ErrorList
-	}{{
-		name: "no attestors",
-		subject: ImageVerification{
-			ImageReferences: []string{"*"},
-			Attestors:       []kyvernov1.AttestorSet{},
+	}{
+		{
+			name: "no attestors",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors:       []kyvernov1.AttestorSet{},
+			},
 		},
-	},
 		{
 			name: "no entries",
 			subject: ImageVerification{

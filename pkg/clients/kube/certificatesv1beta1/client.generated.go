@@ -29,6 +29,7 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withMetrics) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificateSigningRequestInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "CertificateSigningRequest", c.clientType)
 	return certificatesigningrequests.WithMetrics(c.inner.CertificateSigningRequests(), recorder)
@@ -42,6 +43,7 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withTracing) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificateSigningRequestInterface {
 	return certificatesigningrequests.WithTracing(c.inner.CertificateSigningRequests(), c.client, "CertificateSigningRequest")
 }
@@ -54,6 +56,7 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withLogging) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificateSigningRequestInterface {
 	return certificatesigningrequests.WithLogging(c.inner.CertificateSigningRequests(), c.logger.WithValues("resource", "CertificateSigningRequests"))
 }

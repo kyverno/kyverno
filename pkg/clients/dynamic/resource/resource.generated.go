@@ -45,6 +45,7 @@ func (c *withLogging) Apply(arg0 context.Context, arg1 string, arg2 *k8s_io_apim
 	}
 	return ret0, ret1
 }
+
 func (c *withLogging) ApplyStatus(arg0 context.Context, arg1 string, arg2 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "ApplyStatus")
@@ -56,6 +57,7 @@ func (c *withLogging) ApplyStatus(arg0 context.Context, arg1 string, arg2 *k8s_i
 	}
 	return ret0, ret1
 }
+
 func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Create")
@@ -67,6 +69,7 @@ func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg
 	}
 	return ret0, ret1
 }
+
 func (c *withLogging) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg3 ...string) error {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Delete")
@@ -78,6 +81,7 @@ func (c *withLogging) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 	}
 	return ret0
 }
+
 func (c *withLogging) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "DeleteCollection")
@@ -89,6 +93,7 @@ func (c *withLogging) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	}
 	return ret0
 }
+
 func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Get")
@@ -100,6 +105,7 @@ func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	}
 	return ret0, ret1
 }
+
 func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.UnstructuredList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "List")
@@ -111,6 +117,7 @@ func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 	}
 	return ret0, ret1
 }
+
 func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Patch")
@@ -122,6 +129,7 @@ func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	}
 	return ret0, ret1
 }
+
 func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Update")
@@ -133,6 +141,7 @@ func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg
 	}
 	return ret0, ret1
 }
+
 func (c *withLogging) UpdateStatus(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "UpdateStatus")
@@ -144,6 +153,7 @@ func (c *withLogging) UpdateStatus(arg0 context.Context, arg1 *k8s_io_apimachine
 	}
 	return ret0, ret1
 }
+
 func (c *withLogging) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Watch")
@@ -165,42 +175,52 @@ func (c *withMetrics) Apply(arg0 context.Context, arg1 string, arg2 *k8s_io_apim
 	defer c.recorder.RecordWithContext(arg0, "apply")
 	return c.inner.Apply(arg0, arg1, arg2, arg3, arg4...)
 }
+
 func (c *withMetrics) ApplyStatus(arg0 context.Context, arg1 string, arg2 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	defer c.recorder.RecordWithContext(arg0, "apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2, arg3)
 }
+
 func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	defer c.recorder.RecordWithContext(arg0, "create")
 	return c.inner.Create(arg0, arg1, arg2, arg3...)
 }
+
 func (c *withMetrics) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg3 ...string) error {
 	defer c.recorder.RecordWithContext(arg0, "delete")
 	return c.inner.Delete(arg0, arg1, arg2, arg3...)
 }
+
 func (c *withMetrics) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.RecordWithContext(arg0, "delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
+
 func (c *withMetrics) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	defer c.recorder.RecordWithContext(arg0, "get")
 	return c.inner.Get(arg0, arg1, arg2, arg3...)
 }
+
 func (c *withMetrics) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.UnstructuredList, error) {
 	defer c.recorder.RecordWithContext(arg0, "list")
 	return c.inner.List(arg0, arg1)
 }
+
 func (c *withMetrics) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	defer c.recorder.RecordWithContext(arg0, "patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
+
 func (c *withMetrics) Update(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	defer c.recorder.RecordWithContext(arg0, "update")
 	return c.inner.Update(arg0, arg1, arg2, arg3...)
 }
+
 func (c *withMetrics) UpdateStatus(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	defer c.recorder.RecordWithContext(arg0, "update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
+
 func (c *withMetrics) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.RecordWithContext(arg0, "watch")
 	return c.inner.Watch(arg0, arg1)
@@ -233,6 +253,7 @@ func (c *withTracing) Apply(arg0 context.Context, arg1 string, arg2 *k8s_io_apim
 	}
 	return ret0, ret1
 }
+
 func (c *withTracing) ApplyStatus(arg0 context.Context, arg1 string, arg2 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -254,6 +275,7 @@ func (c *withTracing) ApplyStatus(arg0 context.Context, arg1 string, arg2 *k8s_i
 	}
 	return ret0, ret1
 }
+
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -275,6 +297,7 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg
 	}
 	return ret0, ret1
 }
+
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg3 ...string) error {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -296,6 +319,7 @@ func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 	}
 	return ret0
 }
+
 func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -317,6 +341,7 @@ func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	}
 	return ret0
 }
+
 func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -338,6 +363,7 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	}
 	return ret0, ret1
 }
+
 func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.UnstructuredList, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -359,6 +385,7 @@ func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 	}
 	return ret0, ret1
 }
+
 func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -380,6 +407,7 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	}
 	return ret0, ret1
 }
+
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -401,6 +429,7 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg
 	}
 	return ret0, ret1
 }
+
 func (c *withTracing) UpdateStatus(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1_unstructured.Unstructured, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
@@ -422,6 +451,7 @@ func (c *withTracing) UpdateStatus(arg0 context.Context, arg1 *k8s_io_apimachine
 	}
 	return ret0, ret1
 }
+
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {

@@ -15,36 +15,36 @@ func TestExtractVariables(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, len(results.Policies), 1)
 		return results.Policies[0]
-
 	}
 	tests := []struct {
 		name    string
 		policy  kyvernov1.PolicyInterface
 		want    []string
 		wantErr bool
-	}{{
-		name:    "nil",
-		policy:  nil,
-		want:    nil,
-		wantErr: false,
-	}, {
-		name:    "cpol-pod-requirements",
-		policy:  loadPolicy("../_testdata/policies/cpol-pod-requirements.yaml"),
-		want:    nil,
-		wantErr: false,
-	}, {
-		name:   "cpol-limit-configmap-for-sa",
-		policy: loadPolicy("../_testdata/policies/cpol-limit-configmap-for-sa.yaml"),
-		want: []string{
-			"{{request.object.metadata.namespace}}",
-			"{{request.object.metadata.name}}",
-			"{{request.object.metadata.namespace}}",
-			"{{request.object.kind}}",
-			"{{request.object.metadata.name}}",
-			"{{request.operation}}",
+	}{
+		{
+			name:    "nil",
+			policy:  nil,
+			want:    nil,
+			wantErr: false,
+		}, {
+			name:    "cpol-pod-requirements",
+			policy:  loadPolicy("../_testdata/policies/cpol-pod-requirements.yaml"),
+			want:    nil,
+			wantErr: false,
+		}, {
+			name:   "cpol-limit-configmap-for-sa",
+			policy: loadPolicy("../_testdata/policies/cpol-limit-configmap-for-sa.yaml"),
+			want: []string{
+				"{{request.object.metadata.namespace}}",
+				"{{request.object.metadata.name}}",
+				"{{request.object.metadata.namespace}}",
+				"{{request.object.kind}}",
+				"{{request.object.metadata.name}}",
+				"{{request.operation}}",
+			},
+			wantErr: false,
 		},
-		wantErr: false,
-	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

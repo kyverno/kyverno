@@ -33,21 +33,27 @@ type clientset struct {
 func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
 	return c.discovery
 }
+
 func (c *clientset) KyvernoV1() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.KyvernoV1Interface {
 	return c.kyvernov1
 }
+
 func (c *clientset) KyvernoV2() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2.KyvernoV2Interface {
 	return c.kyvernov2
 }
+
 func (c *clientset) KyvernoV2alpha1() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.KyvernoV2alpha1Interface {
 	return c.kyvernov2alpha1
 }
+
 func (c *clientset) PoliciesV1alpha1() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.PoliciesV1alpha1Interface {
 	return c.policiesv1alpha1
 }
+
 func (c *clientset) ReportsV1() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ReportsV1Interface {
 	return c.reportsv1
 }
+
 func (c *clientset) Wgpolicyk8sV1alpha2() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.Wgpolicyk8sV1alpha2Interface {
 	return c.wgpolicyk8sv1alpha2
 }

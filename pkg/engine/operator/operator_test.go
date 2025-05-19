@@ -50,5 +50,4 @@ func TestGetOperatorFromStringPattern_RangeOperator(t *testing.T) {
 
 	assert.Equal(t, GetOperatorFromStringPattern("+0!-+1"), NotInRange)
 	assert.Equal(t, GetOperatorFromStringPattern("+0Mi!-+1024Mi"), NotInRange)
-
 }

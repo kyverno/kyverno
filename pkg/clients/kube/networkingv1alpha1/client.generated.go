@@ -30,10 +30,12 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withMetrics) IPAddresses() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.IPAddressInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "IPAddress", c.clientType)
 	return ipaddresses.WithMetrics(c.inner.IPAddresses(), recorder)
 }
+
 func (c *withMetrics) ServiceCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ServiceCIDRInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ServiceCIDR", c.clientType)
 	return servicecidrs.WithMetrics(c.inner.ServiceCIDRs(), recorder)
@@ -47,9 +49,11 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withTracing) IPAddresses() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.IPAddressInterface {
 	return ipaddresses.WithTracing(c.inner.IPAddresses(), c.client, "IPAddress")
 }
+
 func (c *withTracing) ServiceCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ServiceCIDRInterface {
 	return servicecidrs.WithTracing(c.inner.ServiceCIDRs(), c.client, "ServiceCIDR")
 }
@@ -62,9 +66,11 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withLogging) IPAddresses() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.IPAddressInterface {
 	return ipaddresses.WithLogging(c.inner.IPAddresses(), c.logger.WithValues("resource", "IPAddresses"))
 }
+
 func (c *withLogging) ServiceCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ServiceCIDRInterface {
 	return servicecidrs.WithLogging(c.inner.ServiceCIDRs(), c.logger.WithValues("resource", "ServiceCIDRs"))
 }

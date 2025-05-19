@@ -12,28 +12,26 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
-var (
-	ConditionOperators = []kyverno.ConditionOperator{
-		kyverno.ConditionOperator("Equal"),
-		kyverno.ConditionOperator("Equals"),
-		kyverno.ConditionOperator("NotEqual"),
-		kyverno.ConditionOperator("NotEquals"),
-		kyverno.ConditionOperator("In"),
-		kyverno.ConditionOperator("AnyIn"),
-		kyverno.ConditionOperator("AllIn"),
-		kyverno.ConditionOperator("NotIn"),
-		kyverno.ConditionOperator("AnyNotIn"),
-		kyverno.ConditionOperator("AllNotIn"),
-		kyverno.ConditionOperator("GreaterThanOrEquals"),
-		kyverno.ConditionOperator("GreaterThan"),
-		kyverno.ConditionOperator("LessThanOrEquals"),
-		kyverno.ConditionOperator("LessThan"),
-		kyverno.ConditionOperator("DurationGreaterThanOrEquals"),
-		kyverno.ConditionOperator("DurationGreaterThan"),
-		kyverno.ConditionOperator("DurationLessThanOrEquals"),
-		kyverno.ConditionOperator("DurationLessThan"),
-	}
-)
+var ConditionOperators = []kyverno.ConditionOperator{
+	kyverno.ConditionOperator("Equal"),
+	kyverno.ConditionOperator("Equals"),
+	kyverno.ConditionOperator("NotEqual"),
+	kyverno.ConditionOperator("NotEquals"),
+	kyverno.ConditionOperator("In"),
+	kyverno.ConditionOperator("AnyIn"),
+	kyverno.ConditionOperator("AllIn"),
+	kyverno.ConditionOperator("NotIn"),
+	kyverno.ConditionOperator("AnyNotIn"),
+	kyverno.ConditionOperator("AllNotIn"),
+	kyverno.ConditionOperator("GreaterThanOrEquals"),
+	kyverno.ConditionOperator("GreaterThan"),
+	kyverno.ConditionOperator("LessThanOrEquals"),
+	kyverno.ConditionOperator("LessThan"),
+	kyverno.ConditionOperator("DurationGreaterThanOrEquals"),
+	kyverno.ConditionOperator("DurationGreaterThan"),
+	kyverno.ConditionOperator("DurationLessThanOrEquals"),
+	kyverno.ConditionOperator("DurationLessThan"),
+}
 
 func FuzzEvaluate(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {

@@ -30,10 +30,12 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withMetrics) FlowSchemas() k8s_io_client_go_kubernetes_typed_flowcontrol_v1.FlowSchemaInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "FlowSchema", c.clientType)
 	return flowschemas.WithMetrics(c.inner.FlowSchemas(), recorder)
 }
+
 func (c *withMetrics) PriorityLevelConfigurations() k8s_io_client_go_kubernetes_typed_flowcontrol_v1.PriorityLevelConfigurationInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "PriorityLevelConfiguration", c.clientType)
 	return prioritylevelconfigurations.WithMetrics(c.inner.PriorityLevelConfigurations(), recorder)
@@ -47,9 +49,11 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withTracing) FlowSchemas() k8s_io_client_go_kubernetes_typed_flowcontrol_v1.FlowSchemaInterface {
 	return flowschemas.WithTracing(c.inner.FlowSchemas(), c.client, "FlowSchema")
 }
+
 func (c *withTracing) PriorityLevelConfigurations() k8s_io_client_go_kubernetes_typed_flowcontrol_v1.PriorityLevelConfigurationInterface {
 	return prioritylevelconfigurations.WithTracing(c.inner.PriorityLevelConfigurations(), c.client, "PriorityLevelConfiguration")
 }
@@ -62,9 +66,11 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+
 func (c *withLogging) FlowSchemas() k8s_io_client_go_kubernetes_typed_flowcontrol_v1.FlowSchemaInterface {
 	return flowschemas.WithLogging(c.inner.FlowSchemas(), c.logger.WithValues("resource", "FlowSchemas"))
 }
+
 func (c *withLogging) PriorityLevelConfigurations() k8s_io_client_go_kubernetes_typed_flowcontrol_v1.PriorityLevelConfigurationInterface {
 	return prioritylevelconfigurations.WithLogging(c.inner.PriorityLevelConfigurations(), c.logger.WithValues("resource", "PriorityLevelConfigurations"))
 }

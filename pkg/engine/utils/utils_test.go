@@ -1883,7 +1883,6 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 }
 
 func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
-
 	// slightly simplified ingress controller pod that lives in the ingress-nginx namespace
 	rawResource := []byte(`{
 		"apiVersion": "v1",

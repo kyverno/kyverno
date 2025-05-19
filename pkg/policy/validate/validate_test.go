@@ -22,6 +22,7 @@ func Test_Validate_OverlayPattern_Empty(t *testing.T) {
 		assert.Assert(t, err != nil)
 	}
 }
+
 func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
 	rawValidation := []byte(`
  	{ "message": "Privileged mode is not allowed. Set allowPrivilegeEscalation and privileged to false"
@@ -74,6 +75,7 @@ func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
 		assert.Assert(t, err != nil)
 	}
 }
+
 func Test_Validate_OverlayPattern_Valid(t *testing.T) {
 	rawValidation := []byte(`
 	{
@@ -232,7 +234,6 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
-
 }
 
 func Test_Validate_Validate_ValidAnchor(t *testing.T) {
@@ -378,5 +379,4 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
-
 }

@@ -65,25 +65,28 @@ func testSchema() *spec.Schema {
 					Format:  "int64",
 					Enum:    []any{1, 2, 3},
 				}},
-				"nested": {SchemaProps: spec.SchemaProps{
-					Type: []string{"object"},
-					Properties: map[string]spec.Schema{
-						"subname": *spec.StringProperty(),
-						"flags": {SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Schema: spec.BooleanProperty(),
-							},
-						}},
-						"dates": {SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{Schema: &spec.Schema{
-								SchemaProps: spec.SchemaProps{
-									Type:   []string{"string"},
-									Format: "date-time",
-								}}}}},
+				"nested": {
+					SchemaProps: spec.SchemaProps{
+						Type: []string{"object"},
+						Properties: map[string]spec.Schema{
+							"subname": *spec.StringProperty(),
+							"flags": {SchemaProps: spec.SchemaProps{
+								Type: []string{"object"},
+								AdditionalProperties: &spec.SchemaOrBool{
+									Schema: spec.BooleanProperty(),
+								},
+							}},
+							"dates": {SchemaProps: spec.SchemaProps{
+								Type: []string{"array"},
+								Items: &spec.SchemaOrArray{Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "date-time",
+									},
+								}},
+							}},
+						},
 					},
-				},
 				},
 				"metadata": {SchemaProps: spec.SchemaProps{
 					Type: []string{"object"},
@@ -95,12 +98,15 @@ func testSchema() *spec.Schema {
 								Items: &spec.SchemaOrArray{Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Type: []string{"string"},
-									}}},
+									},
+								}},
 							},
 						},
 					},
 				}},
-			}}}
+			},
+		},
+	}
 }
 
 type TestClient struct{}

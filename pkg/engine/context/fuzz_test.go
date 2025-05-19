@@ -9,9 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
-var (
-	fuzzJp = jmespath.New(config.NewDefaultConfiguration(false))
-)
+var fuzzJp = jmespath.New(config.NewDefaultConfiguration(false))
 
 func FuzzHasChanged(f *testing.F) {
 	f.Fuzz(func(t *testing.T, obj1, obj2, jString string) {

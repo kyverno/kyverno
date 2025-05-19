@@ -23,10 +23,11 @@ func TestGetPolicy(t *testing.T) {
 		MutatingAdmissionPolicies       []policy
 		MutatingAdmissionPolicyBindings []policy
 		wantErr                         bool
-	}{{
-		name: "policy",
-		args: args{
-			[]byte(`
+	}{
+		{
+			name: "policy",
+			args: args{
+				[]byte(`
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
@@ -55,15 +56,16 @@ spec:
         namespace: default
         name: game-demo
 `),
+			},
+			wantPolicies: []policy{
+				{"Policy", "ns-1"},
+			},
+			wantErr: false,
 		},
-		wantPolicies: []policy{
-			{"Policy", "ns-1"},
-		},
-		wantErr: false,
-	}, {
-		name: "policy without ns",
-		args: args{
-			[]byte(`
+		{
+			name: "policy without ns",
+			args: args{
+				[]byte(`
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
@@ -91,15 +93,16 @@ spec:
         namespace: default
         name: game-demo
 `),
+			},
+			wantPolicies: []policy{
+				{"Policy", "default"},
+			},
+			wantErr: false,
 		},
-		wantPolicies: []policy{
-			{"Policy", "default"},
-		},
-		wantErr: false,
-	}, {
-		name: "cluster policy",
-		args: args{
-			[]byte(`
+		{
+			name: "cluster policy",
+			args: args{
+				[]byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -127,15 +130,16 @@ spec:
         namespace: default
         name: game-demo
 `),
+			},
+			wantPolicies: []policy{
+				{"ClusterPolicy", ""},
+			},
+			wantErr: false,
 		},
-		wantPolicies: []policy{
-			{"ClusterPolicy", ""},
-		},
-		wantErr: false,
-	}, {
-		name: "cluster policy with ns",
-		args: args{
-			[]byte(`
+		{
+			name: "cluster policy with ns",
+			args: args{
+				[]byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -164,15 +168,16 @@ spec:
         namespace: default
         name: game-demo
 `),
+			},
+			wantPolicies: []policy{
+				{"ClusterPolicy", ""},
+			},
+			wantErr: false,
 		},
-		wantPolicies: []policy{
-			{"ClusterPolicy", ""},
-		},
-		wantErr: false,
-	}, {
-		name: "policy and cluster policy",
-		args: args{
-			[]byte(`
+		{
+			name: "policy and cluster policy",
+			args: args{
+				[]byte(`
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
@@ -228,16 +233,17 @@ spec:
         namespace: default
         name: game-demo
 `),
+			},
+			wantPolicies: []policy{
+				{"Policy", "ns-1"},
+				{"ClusterPolicy", ""},
+			},
+			wantErr: false,
 		},
-		wantPolicies: []policy{
-			{"Policy", "ns-1"},
-			{"ClusterPolicy", ""},
-		},
-		wantErr: false,
-	}, {
-		name: "policy and cluster policy in list",
-		args: args{
-			[]byte(`
+		{
+			name: "policy and cluster policy in list",
+			args: args{
+				[]byte(`
 apiVersion: v1
 kind: List
 items:
@@ -295,16 +301,17 @@ items:
               namespace: default
               name: game-demo
 `),
+			},
+			wantPolicies: []policy{
+				{"Policy", "ns-1"},
+				{"ClusterPolicy", ""},
+			},
+			wantErr: false,
 		},
-		wantPolicies: []policy{
-			{"Policy", "ns-1"},
-			{"ClusterPolicy", ""},
-		},
-		wantErr: false,
-	}, {
-		name: "ValidatingAdmissionPolicy",
-		args: args{
-			[]byte(`
+		{
+			name: "ValidatingAdmissionPolicy",
+			args: args{
+				[]byte(`
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -320,14 +327,15 @@ spec:
   validations:
     - expression: "object.spec.replicas <= 5"
 `),
-		}, vaps: []policy{
-			{"ValidatingAdmissionPolicy", ""},
+			}, vaps: []policy{
+				{"ValidatingAdmissionPolicy", ""},
+			},
+			wantErr: false,
 		},
-		wantErr: false,
-	}, {
-		name: "ValidatingAdmissionPolicy and Policy",
-		args: args{
-			[]byte(`
+		{
+			name: "ValidatingAdmissionPolicy and Policy",
+			args: args{
+				[]byte(`
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -371,17 +379,18 @@ spec:
         namespace: default
         name: game-demo
 `),
-		}, wantPolicies: []policy{
-			{"Policy", "ns-1"},
+			}, wantPolicies: []policy{
+				{"Policy", "ns-1"},
+			},
+			vaps: []policy{
+				{"ValidatingAdmissionPolicy", ""},
+			},
+			wantErr: false,
 		},
-		vaps: []policy{
-			{"ValidatingAdmissionPolicy", ""},
-		},
-		wantErr: false,
-	}, {
-		name: "ValidatingAdmissionPolicy and ClusterPolicy",
-		args: args{
-			[]byte(`
+		{
+			name: "ValidatingAdmissionPolicy and ClusterPolicy",
+			args: args{
+				[]byte(`
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -424,17 +433,18 @@ spec:
         namespace: default
         name: game-demo
 `),
-		}, wantPolicies: []policy{
-			{"ClusterPolicy", ""},
+			}, wantPolicies: []policy{
+				{"ClusterPolicy", ""},
+			},
+			vaps: []policy{
+				{"ValidatingAdmissionPolicy", ""},
+			},
+			wantErr: false,
 		},
-		vaps: []policy{
-			{"ValidatingAdmissionPolicy", ""},
-		},
-		wantErr: false,
-	}, {
-		name: "ValidatingAdmissionPolicyBinding",
-		args: args{
-			[]byte(`
+		{
+			name: "ValidatingAdmissionPolicyBinding",
+			args: args{
+				[]byte(`
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
@@ -447,14 +457,15 @@ spec:
       matchLabels:
         environment: test
 `),
-		}, vapBindings: []policy{
-			{"ValidatingAdmissionPolicyBinding", ""},
+			}, vapBindings: []policy{
+				{"ValidatingAdmissionPolicyBinding", ""},
+			},
+			wantErr: false,
 		},
-		wantErr: false,
-	}, {
-		name: "ValidatingAdmissionPolicy and its binding",
-		args: args{
-			[]byte(`
+		{
+			name: "ValidatingAdmissionPolicy and its binding",
+			args: args{
+				[]byte(`
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -482,13 +493,13 @@ spec:
       matchLabels:
         environment: test
 `),
-		}, vaps: []policy{
-			{"ValidatingAdmissionPolicy", ""},
-		}, vapBindings: []policy{
-			{"ValidatingAdmissionPolicyBinding", ""},
+			}, vaps: []policy{
+				{"ValidatingAdmissionPolicy", ""},
+			}, vapBindings: []policy{
+				{"ValidatingAdmissionPolicyBinding", ""},
+			},
+			wantErr: false,
 		},
-		wantErr: false,
-	},
 
 		// Mutate Admission Policy
 		{
