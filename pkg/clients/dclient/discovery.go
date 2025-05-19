@@ -8,13 +8,12 @@ import (
 
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
+	metadatainformer "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -94,7 +93,7 @@ func (c serverResources) Poll(ctx context.Context, resync time.Duration) {
 
 // CreateCRDWatcher creates a watcher for CRD changes
 // It will invalidate the local cache when a CRD is added, updated or deleted
-func (c serverResources) CreateCRDWatcher(ctx context.Context, dyn dynamic.Interface) error {
+func (c serverResources) CreateCRDWatcher(ctx context.Context, metadataClient metadataclient.UpstreamInterface) error {
 	logger := logger.WithName("crd-definition-watcher")
 	logger.Info("Starting CRD definition watcher...")
 	crdGVR := schema.GroupVersionResource{
@@ -102,25 +101,17 @@ func (c serverResources) CreateCRDWatcher(ctx context.Context, dyn dynamic.Inter
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
 	}
-	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dyn, 0, metav1.NamespaceAll, nil)
+	factory := metadatainformer.NewSharedInformerFactory(metadataClient, 0)
 	informer := factory.ForResource(crdGVR).Informer()
 	if _, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			metaObj, err := meta.Accessor(obj)
-			if err != nil {
-				logger.Error(err, "AddFunc: Failed to get metadata from object")
-				return
-			}
+			metaObj := obj.(*metav1.PartialObjectMetadata)
 			logger.Info("CRD added", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
 			logger.Info("Discovery cache invalidated after CRD add")
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			metaObj, err := meta.Accessor(newObj)
-			if err != nil {
-				logger.Error(err, "UpdateFunc: Failed to get metadata from object")
-				return
-			}
+			metaObj := newObj.(*metav1.PartialObjectMetadata)
 			logger.Info("CRD updated", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
 			logger.Info("Discovery cache invalidated after CRD update")
@@ -129,11 +120,7 @@ func (c serverResources) CreateCRDWatcher(ctx context.Context, dyn dynamic.Inter
 			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = tombstone.Obj
 			}
-			metaObj, err := meta.Accessor(obj)
-			if err != nil {
-				fmt.Printf("Error getting metadata: %v\n", err)
-				return
-			}
+			metaObj := obj.(*metav1.PartialObjectMetadata)
 			logger.Info("CRD deleted", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
 			logger.Info("Discovery cache invalidated after CRD delete")

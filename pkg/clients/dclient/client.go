@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -69,6 +70,7 @@ func NewClient(
 	kube kubernetes.Interface,
 	resync time.Duration,
 	crdWatcher bool,
+	metadataClient metadataclient.UpstreamInterface,
 ) (Interface, error) {
 	disco := kube.Discovery()
 	client := client{
@@ -90,7 +92,7 @@ func NewClient(
 	// This watcher will watch for CRD changes and invalidate the local cache when changes occur in customresourcedefinitions
 	if crdWatcher {
 		go func() {
-			if err := discoveryClient.CreateCRDWatcher(ctx, dyn); err != nil {
+			if err := discoveryClient.CreateCRDWatcher(ctx, metadataClient); err != nil {
 				logger.Error(err, "CRD watcher failed")
 			}
 		}()
