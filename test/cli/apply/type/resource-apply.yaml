@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: testcase-mo2ta--input
-spec:
-  integerField1: 123

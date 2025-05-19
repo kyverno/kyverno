@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -505,13 +506,11 @@ func generateResourceKey(resource *unstructured.Unstructured) string {
 func convertNumericValuesToFloat64(obj interface{}) interface{} {
 	switch v := obj.(type) {
 	case map[string]interface{}:
-		// Recursively process maps
 		for key, val := range v {
 			v[key] = convertNumericValuesToFloat64(val)
 		}
 		return v
 	case []interface{}:
-		// Recursively process slices
 		newSlice := make([]interface{}, len(v))
 		for i, val := range v {
 			newSlice[i] = convertNumericValuesToFloat64(val)
@@ -524,6 +523,11 @@ func convertNumericValuesToFloat64(obj interface{}) interface{} {
 	case int64:
 		return float64(v)
 	default:
+		rv := reflect.ValueOf(v)
+		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+			elem := rv.Elem().Interface()
+			return convertNumericValuesToFloat64(elem)
+		}
 		return v
 	}
 }

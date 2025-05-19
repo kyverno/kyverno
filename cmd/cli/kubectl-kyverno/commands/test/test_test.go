@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/utils/ptr"
 )
 
 func TestConvertNumericValuesToFloat64(t *testing.T) {
@@ -60,7 +61,7 @@ func TestProcessResources(t *testing.T) {
 		{
 			Object: map[string]interface{}{
 				"spec": map[string]interface{}{
-					"replicas": int64(3),
+					"replicas": ptr.To(int32(3)),
 				},
 			},
 		},

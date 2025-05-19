@@ -373,14 +373,18 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/type/policy-apply.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/type/resource-apply.yaml"},
+				PolicyPaths:   []string{
+					"../../../../../test/cli/apply/type/policy1.yaml",
+					"../../../../../test/cli/apply/type/policy2.yaml",
+					"../../../../../test/cli/apply/type/policy3.yaml",
+				},
+				ResourcePaths: []string{"../../../../../test/cli/apply/type/resource.yaml"},
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
-					Pass:  1,
+					Pass:  3,
 					Fail:  0,
 					Skip:  0,
 					Error: 0,
