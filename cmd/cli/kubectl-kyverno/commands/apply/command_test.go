@@ -373,7 +373,7 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{
+				PolicyPaths: []string{
 					"../../../../../test/cli/apply/type/policy1.yaml",
 					"../../../../../test/cli/apply/type/policy2.yaml",
 					"../../../../../test/cli/apply/type/policy3.yaml",
