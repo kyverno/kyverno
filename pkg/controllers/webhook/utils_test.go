@@ -218,33 +218,32 @@ func Test_less(t *testing.T) {
 		name string
 		do   func() int
 		want int
-	}{
-		{
-			do: func() int {
-				return less([]int{0}, []int{0, 0})
-			},
-			want: -1,
-		}, {
-			do: func() int {
-				return less([]int{0, 0}, []int{0})
-			},
-			want: 1,
-		}, {
-			do: func() int {
-				return less([]int{0}, []int{1})
-			},
-			want: -1,
-		}, {
-			do: func() int {
-				return less([]int{1}, []int{0})
-			},
-			want: 1,
-		}, {
-			do: func() int {
-				return less([]int{0, 0}, []int{0, 0})
-			},
-			want: 0,
+	}{{
+		do: func() int {
+			return less([]int{0}, []int{0, 0})
 		},
+		want: -1,
+	}, {
+		do: func() int {
+			return less([]int{0, 0}, []int{0})
+		},
+		want: 1,
+	}, {
+		do: func() int {
+			return less([]int{0}, []int{1})
+		},
+		want: -1,
+	}, {
+		do: func() int {
+			return less([]int{1}, []int{0})
+		},
+		want: 1,
+	}, {
+		do: func() int {
+			return less([]int{0, 0}, []int{0, 0})
+		},
+		want: 0,
+	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

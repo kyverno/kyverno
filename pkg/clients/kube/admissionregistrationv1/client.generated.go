@@ -32,22 +32,18 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) MutatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.MutatingWebhookConfigurationInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingWebhookConfiguration", c.clientType)
 	return mutatingwebhookconfigurations.WithMetrics(c.inner.MutatingWebhookConfigurations(), recorder)
 }
-
 func (c *withMetrics) ValidatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingAdmissionPolicyInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingAdmissionPolicy", c.clientType)
 	return validatingadmissionpolicies.WithMetrics(c.inner.ValidatingAdmissionPolicies(), recorder)
 }
-
 func (c *withMetrics) ValidatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingAdmissionPolicyBindingInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingAdmissionPolicyBinding", c.clientType)
 	return validatingadmissionpolicybindings.WithMetrics(c.inner.ValidatingAdmissionPolicyBindings(), recorder)
 }
-
 func (c *withMetrics) ValidatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingWebhookConfigurationInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingWebhookConfiguration", c.clientType)
 	return validatingwebhookconfigurations.WithMetrics(c.inner.ValidatingWebhookConfigurations(), recorder)
@@ -61,19 +57,15 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) MutatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.MutatingWebhookConfigurationInterface {
 	return mutatingwebhookconfigurations.WithTracing(c.inner.MutatingWebhookConfigurations(), c.client, "MutatingWebhookConfiguration")
 }
-
 func (c *withTracing) ValidatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingAdmissionPolicyInterface {
 	return validatingadmissionpolicies.WithTracing(c.inner.ValidatingAdmissionPolicies(), c.client, "ValidatingAdmissionPolicy")
 }
-
 func (c *withTracing) ValidatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingAdmissionPolicyBindingInterface {
 	return validatingadmissionpolicybindings.WithTracing(c.inner.ValidatingAdmissionPolicyBindings(), c.client, "ValidatingAdmissionPolicyBinding")
 }
-
 func (c *withTracing) ValidatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingWebhookConfigurationInterface {
 	return validatingwebhookconfigurations.WithTracing(c.inner.ValidatingWebhookConfigurations(), c.client, "ValidatingWebhookConfiguration")
 }
@@ -86,19 +78,15 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) MutatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.MutatingWebhookConfigurationInterface {
 	return mutatingwebhookconfigurations.WithLogging(c.inner.MutatingWebhookConfigurations(), c.logger.WithValues("resource", "MutatingWebhookConfigurations"))
 }
-
 func (c *withLogging) ValidatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingAdmissionPolicyInterface {
 	return validatingadmissionpolicies.WithLogging(c.inner.ValidatingAdmissionPolicies(), c.logger.WithValues("resource", "ValidatingAdmissionPolicies"))
 }
-
 func (c *withLogging) ValidatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingAdmissionPolicyBindingInterface {
 	return validatingadmissionpolicybindings.WithLogging(c.inner.ValidatingAdmissionPolicyBindings(), c.logger.WithValues("resource", "ValidatingAdmissionPolicyBindings"))
 }
-
 func (c *withLogging) ValidatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingWebhookConfigurationInterface {
 	return validatingwebhookconfigurations.WithLogging(c.inner.ValidatingWebhookConfigurations(), c.logger.WithValues("resource", "ValidatingWebhookConfigurations"))
 }

@@ -16,8 +16,7 @@ import (
 )
 
 var (
-	allowedCapabilities = []corev1.Capability{
-		"AUDIT_WRITE",
+	allowedCapabilities = []corev1.Capability{"AUDIT_WRITE",
 		"CHOWN",
 		"DAC_OVERRIDE",
 		"FOWNER",
@@ -29,14 +28,11 @@ var (
 		"SETGID",
 		"SETPCAP",
 		"SETUID",
-		"SYS_CHROOT",
-	}
-	allowedSELinuxTypes = []string{
-		"container_t",
+		"SYS_CHROOT"}
+	allowedSELinuxTypes = []string{"container_t",
 		"container_init_t",
 		"container_kvm_t",
-		"",
-	}
+		""}
 	allowed_sysctls = []string{
 		"kernel.shm_rmid_forced",
 		"net.ipv4.ip_local_port_range",
@@ -93,6 +89,7 @@ func shouldBlockSELinuxRole(opts *corev1.SELinuxOptions) bool {
 }
 
 func shouldAllowBaseline(pod *corev1.Pod) (bool, error) {
+
 	spec := pod.Spec
 
 	if len(spec.Volumes) > 0 {
@@ -367,7 +364,9 @@ func getPod(ff *fuzz.ConsumeFuzzer) (*corev1.Pod, error) {
 	return pod, err
 }
 
-var baselineV124Rule, baselineLatestRule kyvernov1.PodSecurity
+var (
+	baselineV124Rule, baselineLatestRule kyvernov1.PodSecurity
+)
 
 func init() {
 	err := json.Unmarshal(baselineV126Policy, &baselineV124Rule)

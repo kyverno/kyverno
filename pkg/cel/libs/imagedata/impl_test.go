@@ -32,29 +32,27 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"image": Context{
-			&ContextMock{
-				GetImageDataFunc: func(image string) (map[string]any, error) {
-					idl, err := imagedataloader.New(nil)
-					assert.NoError(t, err)
-					data, err := idl.FetchImageData(context.TODO(), image)
-					if err != nil {
-						return nil, err
-					}
-					raw, err := json.Marshal(data.Data())
-					if err != nil {
-						return nil, err
-					}
-					var apiData map[string]any
-					err = json.Unmarshal(raw, &apiData)
-					if err != nil {
-						return nil, err
-					}
-					return apiData, nil
-				},
+		"image": Context{&ContextMock{
+			GetImageDataFunc: func(image string) (map[string]any, error) {
+				idl, err := imagedataloader.New(nil)
+				assert.NoError(t, err)
+				data, err := idl.FetchImageData(context.TODO(), image)
+				if err != nil {
+					return nil, err
+				}
+				raw, err := json.Marshal(data.Data())
+				if err != nil {
+					return nil, err
+				}
+				var apiData map[string]any
+				err = json.Unmarshal(raw, &apiData)
+				if err != nil {
+					return nil, err
+				}
+				return apiData, nil
 			},
 		},
-	}
+		}}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	resolvedImg := out.Value().(string)

@@ -10,7 +10,7 @@ import (
 )
 
 func TestNotAllowedVars_MatchSection(t *testing.T) {
-	policyWithVarInMatch := []byte(`{
+	var policyWithVarInMatch = []byte(`{
     "apiVersion": "kyverno.io/v1",
     "kind": "ClusterPolicy",
     "metadata": {
@@ -62,7 +62,7 @@ func TestNotAllowedVars_MatchSection(t *testing.T) {
 }
 
 func TestNotAllowedVars_ExcludeSection(t *testing.T) {
-	policyWithVarInExclude := []byte(`{
+	var policyWithVarInExclude = []byte(`{
     "apiVersion": "kyverno.io/v1",
     "kind": "ClusterPolicy",
     "metadata": {
@@ -114,7 +114,7 @@ func TestNotAllowedVars_ExcludeSection(t *testing.T) {
 }
 
 func TestNotAllowedVars_ExcludeSection_PositiveCase(t *testing.T) {
-	policyWithVarInExclude := []byte(`{
+	var policyWithVarInExclude = []byte(`{
     "apiVersion": "kyverno.io/v1",
     "kind": "ClusterPolicy",
     "metadata": {
@@ -167,7 +167,7 @@ func TestNotAllowedVars_ExcludeSection_PositiveCase(t *testing.T) {
 }
 
 func TestNotAllowedVars_JSONPatchPath(t *testing.T) {
-	policyWithVarInExclude := []byte(`{
+	var policyWithVarInExclude = []byte(`{
     "apiVersion": "kyverno.io/v1",
     "kind": "ClusterPolicy",
     "metadata": {
@@ -201,7 +201,7 @@ func TestNotAllowedVars_JSONPatchPath(t *testing.T) {
 }
 
 func TestNotAllowedVars_JSONPatchPath_ContextRootPositive(t *testing.T) {
-	policyManifest := []byte(`{
+	var policyManifest = []byte(`{
     "apiVersion": "kyverno.io/v1",
     "kind": "ClusterPolicy",
     "metadata": {
@@ -246,7 +246,7 @@ func TestNotAllowedVars_JSONPatchPath_ContextRootPositive(t *testing.T) {
 }
 
 func TestNotAllowedVars_JSONPatchPath_ContextSubPositive(t *testing.T) {
-	policyManifest := []byte(`{
+	var policyManifest = []byte(`{
     "apiVersion": "kyverno.io/v1",
     "kind": "ClusterPolicy",
     "metadata": {
@@ -289,7 +289,7 @@ func TestNotAllowedVars_JSONPatchPath_ContextSubPositive(t *testing.T) {
 }
 
 func TestNotAllowedVars_JSONPatchPath_PositiveCase(t *testing.T) {
-	policyWithVarInExclude := []byte(`{
+	var policyWithVarInExclude = []byte(`{
     "apiVersion": "kyverno.io/v1",
     "kind": "ClusterPolicy",
     "metadata": {
@@ -323,7 +323,7 @@ func TestNotAllowedVars_JSONPatchPath_PositiveCase(t *testing.T) {
 }
 
 func TestNotAllowedVars_JSONPatchPath_PositiveCaseWithValue(t *testing.T) {
-	policyYAML := []byte(`
+	var policyYAML = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -409,7 +409,7 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		policyYAML := []byte(fmt.Sprintf(`
+		var policyYAML = []byte(fmt.Sprintf(`
     apiVersion: kyverno.io/v1
     kind: ClusterPolicy
     metadata:
@@ -448,7 +448,7 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
 }
 
 func TestNotAllowedVars_Attestations(t *testing.T) {
-	policyYAML := []byte(`
+	var policyYAML = []byte(`
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy

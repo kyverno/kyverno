@@ -42,7 +42,6 @@ func (c *withLogging) OpenAPISchema() (*github_com_google_gnostic_models_openapi
 	}
 	return ret0, ret1
 }
-
 func (c *withLogging) OpenAPIV3() k8s_io_client_go_openapi.Client {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "OpenAPIV3")
@@ -50,7 +49,6 @@ func (c *withLogging) OpenAPIV3() k8s_io_client_go_openapi.Client {
 	logger.Info("OpenAPIV3 done", "duration", time.Since(start))
 	return ret0
 }
-
 func (c *withLogging) RESTClient() k8s_io_client_go_rest.Interface {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "RESTClient")
@@ -58,7 +56,6 @@ func (c *withLogging) RESTClient() k8s_io_client_go_rest.Interface {
 	logger.Info("RESTClient done", "duration", time.Since(start))
 	return ret0
 }
-
 func (c *withLogging) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "ServerGroups")
@@ -70,7 +67,6 @@ func (c *withLogging) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIG
 	}
 	return ret0, ret1
 }
-
 func (c *withLogging) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroup, []*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "ServerGroupsAndResources")
@@ -82,7 +78,6 @@ func (c *withLogging) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_api
 	}
 	return ret0, ret1, ret2
 }
-
 func (c *withLogging) ServerPreferredNamespacedResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "ServerPreferredNamespacedResources")
@@ -94,7 +89,6 @@ func (c *withLogging) ServerPreferredNamespacedResources() ([]*k8s_io_apimachine
 	}
 	return ret0, ret1
 }
-
 func (c *withLogging) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "ServerPreferredResources")
@@ -106,7 +100,6 @@ func (c *withLogging) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_api
 	}
 	return ret0, ret1
 }
-
 func (c *withLogging) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "ServerResourcesForGroupVersion")
@@ -118,7 +111,6 @@ func (c *withLogging) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apima
 	}
 	return ret0, ret1
 }
-
 func (c *withLogging) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "ServerVersion")
@@ -130,7 +122,6 @@ func (c *withLogging) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, er
 	}
 	return ret0, ret1
 }
-
 func (c *withLogging) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "WithLegacy")
@@ -148,47 +139,38 @@ func (c *withMetrics) OpenAPISchema() (*github_com_google_gnostic_models_openapi
 	defer c.recorder.Record("open_api_schema")
 	return c.inner.OpenAPISchema()
 }
-
 func (c *withMetrics) OpenAPIV3() k8s_io_client_go_openapi.Client {
 	defer c.recorder.Record("open_apiv3")
 	return c.inner.OpenAPIV3()
 }
-
 func (c *withMetrics) RESTClient() k8s_io_client_go_rest.Interface {
 	defer c.recorder.Record("rest_client")
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
 	defer c.recorder.Record("server_groups")
 	return c.inner.ServerGroups()
 }
-
 func (c *withMetrics) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroup, []*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	defer c.recorder.Record("server_groups_and_resources")
 	return c.inner.ServerGroupsAndResources()
 }
-
 func (c *withMetrics) ServerPreferredNamespacedResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	defer c.recorder.Record("server_preferred_namespaced_resources")
 	return c.inner.ServerPreferredNamespacedResources()
 }
-
 func (c *withMetrics) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	defer c.recorder.Record("server_preferred_resources")
 	return c.inner.ServerPreferredResources()
 }
-
 func (c *withMetrics) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	defer c.recorder.Record("server_resources_for_group_version")
 	return c.inner.ServerResourcesForGroupVersion(arg0)
 }
-
 func (c *withMetrics) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
 	defer c.recorder.Record("server_version")
 	return c.inner.ServerVersion()
 }
-
 func (c *withMetrics) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
 	defer c.recorder.Record("with_legacy")
 	return c.inner.WithLegacy()
@@ -203,39 +185,30 @@ type withTracing struct {
 func (c *withTracing) OpenAPISchema() (*github_com_google_gnostic_models_openapiv2.Document, error) {
 	return c.inner.OpenAPISchema()
 }
-
 func (c *withTracing) OpenAPIV3() k8s_io_client_go_openapi.Client {
 	return c.inner.OpenAPIV3()
 }
-
 func (c *withTracing) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
 	return c.inner.ServerGroups()
 }
-
 func (c *withTracing) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroup, []*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	return c.inner.ServerGroupsAndResources()
 }
-
 func (c *withTracing) ServerPreferredNamespacedResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	return c.inner.ServerPreferredNamespacedResources()
 }
-
 func (c *withTracing) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	return c.inner.ServerPreferredResources()
 }
-
 func (c *withTracing) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
 	return c.inner.ServerResourcesForGroupVersion(arg0)
 }
-
 func (c *withTracing) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
 	return c.inner.ServerVersion()
 }
-
 func (c *withTracing) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
 	return c.inner.WithLegacy()
 }

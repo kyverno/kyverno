@@ -80,28 +80,27 @@ func TestValidatingPolicy_GetFailurePolicy(t *testing.T) {
 		name   string
 		policy *ValidatingPolicy
 		want   admissionregistrationv1.FailurePolicyType
-	}{
-		{
-			name:   "nil",
-			policy: &ValidatingPolicy{},
-			want:   admissionregistrationv1.Fail,
-		}, {
-			name: "fail",
-			policy: &ValidatingPolicy{
-				Spec: ValidatingPolicySpec{
-					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
-				},
+	}{{
+		name:   "nil",
+		policy: &ValidatingPolicy{},
+		want:   admissionregistrationv1.Fail,
+	}, {
+		name: "fail",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 			},
-			want: admissionregistrationv1.Fail,
-		}, {
-			name: "ignore",
-			policy: &ValidatingPolicy{
-				Spec: ValidatingPolicySpec{
-					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
-				},
-			},
-			want: admissionregistrationv1.Ignore,
 		},
+		want: admissionregistrationv1.Fail,
+	}, {
+		name: "ignore",
+		policy: &ValidatingPolicy{
+			Spec: ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+			},
+		},
+		want: admissionregistrationv1.Ignore,
+	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -377,28 +376,27 @@ func TestValidatingPolicySpec_ValidationActions(t *testing.T) {
 		name   string
 		policy *ValidatingPolicy
 		want   []admissionregistrationv1.ValidationAction
-	}{
-		{
-			name:   "nil",
-			policy: &ValidatingPolicy{},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
-		}, {
-			name:   "deny",
-			policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
-		}, {
-			name:   "warn",
-			policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
-		}, {
-			name:   "audit",
-			policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
-		}, {
-			name:   "multiple",
-			policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn},
-		},
+	}{{
+		name:   "nil",
+		policy: &ValidatingPolicy{},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+	}, {
+		name:   "deny",
+		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+	}, {
+		name:   "warn",
+		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
+	}, {
+		name:   "audit",
+		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
+	}, {
+		name:   "multiple",
+		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn},
+	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

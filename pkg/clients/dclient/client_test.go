@@ -16,7 +16,7 @@ import (
 // CreateResource
 // getGroupVersionMapper (valid and invalid resources)
 
-// NewMockClient creates a mock client
+//NewMockClient creates a mock client
 // - dynamic client
 // - kubernetes client
 // - objects to initialize the client
@@ -87,6 +87,7 @@ func newFixture(t *testing.T) *fixture {
 		client:  client,
 	}
 	return &f
+
 }
 
 func TestCRUDResource(t *testing.T) {

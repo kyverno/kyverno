@@ -100,7 +100,7 @@ func TestCompare(t *testing.T) {
 
 func Test_compare(t *testing.T) {
 	errorMarshaller := func(count int) marshaler {
-		current := 0
+		var current = 0
 		return func(obj *unstructured.Unstructured) ([]byte, error) {
 			if current == count {
 				return nil, errors.New("test")

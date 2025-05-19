@@ -132,6 +132,10 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 	}
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
+
+		if gvk == mapV1alpha1 {
+
+		}
 		if err != nil {
 			msg := err.Error()
 			if strings.Contains(msg, "Invalid value: value provided for unknown field") {

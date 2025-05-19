@@ -16,7 +16,9 @@ func FuzzV2beta1PolicyValidate(f *testing.F) {
 	})
 }
 
-var path = field.NewPath("dummy")
+var (
+	path = field.NewPath("dummy")
+)
 
 func FuzzV2beta1ImageVerification(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {

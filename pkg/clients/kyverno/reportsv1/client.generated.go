@@ -30,12 +30,10 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) ClusterEphemeralReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ClusterEphemeralReportInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterEphemeralReport", c.clientType)
 	return clusterephemeralreports.WithMetrics(c.inner.ClusterEphemeralReports(), recorder)
 }
-
 func (c *withMetrics) EphemeralReports(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.EphemeralReportInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "EphemeralReport", c.clientType)
 	return ephemeralreports.WithMetrics(c.inner.EphemeralReports(namespace), recorder)
@@ -49,11 +47,9 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) ClusterEphemeralReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ClusterEphemeralReportInterface {
 	return clusterephemeralreports.WithTracing(c.inner.ClusterEphemeralReports(), c.client, "ClusterEphemeralReport")
 }
-
 func (c *withTracing) EphemeralReports(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.EphemeralReportInterface {
 	return ephemeralreports.WithTracing(c.inner.EphemeralReports(namespace), c.client, "EphemeralReport")
 }
@@ -66,11 +62,9 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) ClusterEphemeralReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ClusterEphemeralReportInterface {
 	return clusterephemeralreports.WithLogging(c.inner.ClusterEphemeralReports(), c.logger.WithValues("resource", "ClusterEphemeralReports"))
 }
-
 func (c *withLogging) EphemeralReports(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.EphemeralReportInterface {
 	return ephemeralreports.WithLogging(c.inner.EphemeralReports(namespace), c.logger.WithValues("resource", "EphemeralReports").WithValues("namespace", namespace))
 }

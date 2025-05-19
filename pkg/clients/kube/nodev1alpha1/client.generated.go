@@ -29,7 +29,6 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) RuntimeClasses() k8s_io_client_go_kubernetes_typed_node_v1alpha1.RuntimeClassInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "RuntimeClass", c.clientType)
 	return runtimeclasses.WithMetrics(c.inner.RuntimeClasses(), recorder)
@@ -43,7 +42,6 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) RuntimeClasses() k8s_io_client_go_kubernetes_typed_node_v1alpha1.RuntimeClassInterface {
 	return runtimeclasses.WithTracing(c.inner.RuntimeClasses(), c.client, "RuntimeClass")
 }
@@ -56,7 +54,6 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) RuntimeClasses() k8s_io_client_go_kubernetes_typed_node_v1alpha1.RuntimeClassInterface {
 	return runtimeclasses.WithLogging(c.inner.RuntimeClasses(), c.logger.WithValues("resource", "RuntimeClasses"))
 }

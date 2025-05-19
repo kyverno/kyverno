@@ -29,7 +29,6 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) CustomResourceDefinitions() k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1beta1.CustomResourceDefinitionInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "CustomResourceDefinition", c.clientType)
 	return customresourcedefinitions.WithMetrics(c.inner.CustomResourceDefinitions(), recorder)
@@ -43,7 +42,6 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) CustomResourceDefinitions() k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1beta1.CustomResourceDefinitionInterface {
 	return customresourcedefinitions.WithTracing(c.inner.CustomResourceDefinitions(), c.client, "CustomResourceDefinition")
 }
@@ -56,7 +54,6 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) CustomResourceDefinitions() k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1beta1.CustomResourceDefinitionInterface {
 	return customresourcedefinitions.WithLogging(c.inner.CustomResourceDefinitions(), c.logger.WithValues("resource", "CustomResourceDefinitions"))
 }

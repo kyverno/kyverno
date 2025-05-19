@@ -635,10 +635,8 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
-				ResourcePaths: []string{
-					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
-					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml",
-				},
+				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml"},
 				PolicyReport: true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
@@ -654,10 +652,8 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
-				JSONPaths: []string{
-					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
-					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json",
-				},
+				JSONPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
+					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json"},
 				PolicyReport: true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
@@ -809,7 +805,7 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 }
 
 func TestCommandWarnExitCode(t *testing.T) {
-	warnExitCode := 3
+	var warnExitCode = 3
 
 	cmd := Command()
 	cmd.SetArgs([]string{
@@ -843,7 +839,6 @@ func TestCommandHelp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
-
 func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	// each entry here drives one t.Run
 	testcases := []*TestCase{

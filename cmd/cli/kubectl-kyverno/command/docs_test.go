@@ -48,6 +48,7 @@ func TestFormatDescription(t *testing.T) {
 		lines:        []string{"this is one line"},
 		want:         "this is one line",
 	}, {
+
 		name:         "multiple line (short)",
 		short:        true,
 		url:          "",
@@ -90,6 +91,7 @@ func TestFormatDescription(t *testing.T) {
 		lines:        []string{"this is one line"},
 		want:         "this is one line\n\n  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.",
 	}, {
+
 		name:         "multiple line (long)",
 		short:        false,
 		url:          "",

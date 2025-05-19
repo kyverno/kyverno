@@ -139,30 +139,29 @@ func TestGetValue(t *testing.T) {
 		data    any
 		want    map[string]any
 		wantErr bool
-	}{
-		{
-			name: "nil",
-		}, {
-			name: "namespace",
-			data: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
+	}{{
+		name: "nil",
+	}, {
+		name: "namespace",
+		data: &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
 			},
-			want: map[string]any{
-				"metadata": map[string]any{
-					"name":              "test",
-					"creationTimestamp": nil,
-				},
-				"spec":   map[string]any{},
-				"status": map[string]any{},
-			},
-		}, {
-			name:    "error",
-			data:    func() {},
-			wantErr: true,
 		},
-		// TODO: Add test cases.
+		want: map[string]any{
+			"metadata": map[string]any{
+				"name":              "test",
+				"creationTimestamp": nil,
+			},
+			"spec":   map[string]any{},
+			"status": map[string]any{},
+		},
+	}, {
+		name:    "error",
+		data:    func() {},
+		wantErr: true,
+	},
+	// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

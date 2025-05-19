@@ -10,72 +10,74 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var ivpol = &policiesv1alpha1.ImageValidatingPolicy{
-	ObjectMeta: v1.ObjectMeta{
-		Name: "test",
-	},
-	Spec: policiesv1alpha1.ImageValidatingPolicySpec{
-		MatchConstraints: &admissionregistrationv1.MatchResources{
-			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+var (
+	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Update,
+							},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			MatchImageReferences: []policiesv1alpha1.MatchImageReference{
 				{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{
-							admissionregistrationv1.Create,
-							admissionregistrationv1.Update,
-						},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{""},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"pods"},
+					Glob: "ghcr.io/*",
+				},
+			},
+			ImageExtractors: []policiesv1alpha1.ImageExtractor{
+				{
+					Name:       "containers",
+					Expression: "object.spec.containers.map(e, e.image)",
+				},
+			},
+			Attestors: []policiesv1alpha1.Attestor{
+				{
+					Name: "notary",
+					Notary: &policiesv1alpha1.Notary{
+						Certs: &policiesv1alpha1.StringOrExpression{
+							Value: `-----BEGIN CERTIFICATE----------END CERTIFICATE-----`,
 						},
 					},
 				},
 			},
-		},
-		MatchImageReferences: []policiesv1alpha1.MatchImageReference{
-			{
-				Glob: "ghcr.io/*",
+			Attestations: []policiesv1alpha1.Attestation{
+				{
+					Name: "sbom",
+					Referrer: &policiesv1alpha1.Referrer{
+						Type: "sbom/cyclone-dx",
+					},
+				},
 			},
-		},
-		ImageExtractors: []policiesv1alpha1.ImageExtractor{
-			{
-				Name:       "containers",
-				Expression: "object.spec.containers.map(e, e.image)",
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "images.bar.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
+					Message:    "failed to verify image with notary cert",
+				},
 			},
-		},
-		Attestors: []policiesv1alpha1.Attestor{
-			{
-				Name: "notary",
-				Notary: &policiesv1alpha1.Notary{
-					Certs: &policiesv1alpha1.StringOrExpression{
-						Value: `-----BEGIN CERTIFICATE----------END CERTIFICATE-----`,
+			AutogenConfiguration: &policiesv1alpha1.ImageValidatingPolicyAutogenConfiguration{
+				PodControllers: &policiesv1alpha1.PodControllersGenerationConfiguration{
+					Controllers: []string{
+						"cronjobs",
 					},
 				},
 			},
 		},
-		Attestations: []policiesv1alpha1.Attestation{
-			{
-				Name: "sbom",
-				Referrer: &policiesv1alpha1.Referrer{
-					Type: "sbom/cyclone-dx",
-				},
-			},
-		},
-		Validations: []admissionregistrationv1.Validation{
-			{
-				Expression: "images.bar.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
-				Message:    "failed to verify image with notary cert",
-			},
-		},
-		AutogenConfiguration: &policiesv1alpha1.ImageValidatingPolicyAutogenConfiguration{
-			PodControllers: &policiesv1alpha1.PodControllersGenerationConfiguration{
-				Controllers: []string{
-					"cronjobs",
-				},
-			},
-		},
-	},
-}
+	}
+)
 
 func Test_AutogenImageVerify(t *testing.T) {
 	cronRule := []admissionregistrationv1.NamedRuleWithOperations{

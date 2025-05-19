@@ -206,48 +206,47 @@ func Test_composite_Apply(t *testing.T) {
 		filters []Filter
 		result  v1alpha1.TestResult
 		want    bool
-	}{
-		{
-			name:    "nil",
-			filters: nil,
-			result:  v1alpha1.TestResult{},
-			want:    true,
-		}, {
-			name:    "empty",
-			filters: []Filter{},
-			result:  v1alpha1.TestResult{},
-			want:    true,
-		}, {
-			name:    "policy match",
-			filters: []Filter{policy{"test"}},
-			result: v1alpha1.TestResult{
-				TestResultBase: v1alpha1.TestResultBase{Policy: "test"},
-			},
-			want: true,
-		}, {
-			name:    "policy no match",
-			filters: []Filter{policy{"test"}},
-			result: v1alpha1.TestResult{
-				TestResultBase: v1alpha1.TestResultBase{Policy: "not-test"},
-			},
-			want: false,
-		}, {
-			name:    "policy and resource match",
-			filters: []Filter{policy{"test"}, resource{"resource"}},
-			result: v1alpha1.TestResult{
-				TestResultBase:       v1alpha1.TestResultBase{Policy: "test"},
-				TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "resource"},
-			},
-			want: true,
-		}, {
-			name:    "policy match and resource no match",
-			filters: []Filter{policy{"test"}, resource{"resource"}},
-			result: v1alpha1.TestResult{
-				TestResultBase:       v1alpha1.TestResultBase{Policy: "test"},
-				TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "not-resource"},
-			},
-			want: false,
+	}{{
+		name:    "nil",
+		filters: nil,
+		result:  v1alpha1.TestResult{},
+		want:    true,
+	}, {
+		name:    "empty",
+		filters: []Filter{},
+		result:  v1alpha1.TestResult{},
+		want:    true,
+	}, {
+		name:    "policy match",
+		filters: []Filter{policy{"test"}},
+		result: v1alpha1.TestResult{
+			TestResultBase: v1alpha1.TestResultBase{Policy: "test"},
 		},
+		want: true,
+	}, {
+		name:    "policy no match",
+		filters: []Filter{policy{"test"}},
+		result: v1alpha1.TestResult{
+			TestResultBase: v1alpha1.TestResultBase{Policy: "not-test"},
+		},
+		want: false,
+	}, {
+		name:    "policy and resource match",
+		filters: []Filter{policy{"test"}, resource{"resource"}},
+		result: v1alpha1.TestResult{
+			TestResultBase:       v1alpha1.TestResultBase{Policy: "test"},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "resource"},
+		},
+		want: true,
+	}, {
+		name:    "policy match and resource no match",
+		filters: []Filter{policy{"test"}, resource{"resource"}},
+		result: v1alpha1.TestResult{
+			TestResultBase:       v1alpha1.TestResultBase{Policy: "test"},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "not-resource"},
+		},
+		want: false,
+	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

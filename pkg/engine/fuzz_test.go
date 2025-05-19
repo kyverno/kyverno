@@ -233,8 +233,9 @@ func blockRequest(engineResponses []engineapi.EngineResponse) bool {
 
 func FuzzMutateTest(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
+
 		ff := fuzz.NewConsumer(data)
-		// ff.GenerateStruct(policy)
+		//ff.GenerateStruct(policy)
 		cpSpec, err := kyvFuzz.CreatePolicySpec(ff)
 		if err != nil {
 			return

@@ -33,7 +33,7 @@ rules:
 	// Write the template file to the temporary directory
 	err := os.MkdirAll(filepath.Dir(templateFile), os.ModePerm)
 	assert.NoError(t, err)
-	err = os.WriteFile(templateFile, []byte(templateContent), 0o644)
+	err = os.WriteFile(templateFile, []byte(templateContent), 0644)
 	assert.NoError(t, err)
 
 	// Define test cases

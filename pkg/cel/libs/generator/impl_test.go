@@ -40,20 +40,18 @@ generator.Apply(
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"generator": Context{
-			&ContextMock{
-				GenerateResourcesFunc: func(namespace string, dataList []map[string]any) error {
-					assert.Equal(t, "default", namespace)
-					assert.Len(t, dataList, 1)
-					assert.Equal(t, dataList[0]["apiVersion"].(string), "apps/v1")
-					assert.Equal(t, dataList[0]["kind"].(string), "Deployment")
-					assert.Equal(t, dataList[0]["metadata"].(map[string]any)["name"], "name")
-					assert.Equal(t, dataList[0]["metadata"].(map[string]any)["namespace"], "namespace")
-					return nil
-				},
+		"generator": Context{&ContextMock{
+			GenerateResourcesFunc: func(namespace string, dataList []map[string]any) error {
+				assert.Equal(t, "default", namespace)
+				assert.Len(t, dataList, 1)
+				assert.Equal(t, dataList[0]["apiVersion"].(string), "apps/v1")
+				assert.Equal(t, dataList[0]["kind"].(string), "Deployment")
+				assert.Equal(t, dataList[0]["metadata"].(map[string]any)["name"], "name")
+				assert.Equal(t, dataList[0]["metadata"].(map[string]any)["namespace"], "namespace")
+				return nil
 			},
 		},
-	}
+		}}
 	_, _, err = prog.Eval(data)
 	assert.NoError(t, err)
 }

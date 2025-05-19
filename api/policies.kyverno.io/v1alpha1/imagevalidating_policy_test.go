@@ -14,28 +14,27 @@ func TestImageValidatingPolicy_GetFailurePolicy(t *testing.T) {
 		name   string
 		policy *ImageValidatingPolicy
 		want   admissionregistrationv1.FailurePolicyType
-	}{
-		{
-			name:   "nil",
-			policy: &ImageValidatingPolicy{},
-			want:   admissionregistrationv1.Fail,
-		}, {
-			name: "fail",
-			policy: &ImageValidatingPolicy{
-				Spec: ImageValidatingPolicySpec{
-					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
-				},
+	}{{
+		name:   "nil",
+		policy: &ImageValidatingPolicy{},
+		want:   admissionregistrationv1.Fail,
+	}, {
+		name: "fail",
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 			},
-			want: admissionregistrationv1.Fail,
-		}, {
-			name: "ignore",
-			policy: &ImageValidatingPolicy{
-				Spec: ImageValidatingPolicySpec{
-					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
-				},
-			},
-			want: admissionregistrationv1.Ignore,
 		},
+		want: admissionregistrationv1.Fail,
+	}, {
+		name: "ignore",
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+			},
+		},
+		want: admissionregistrationv1.Ignore,
+	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -511,28 +510,27 @@ func TestImageValidatingPolicySpec_ValidationActions(t *testing.T) {
 		name   string
 		policy *ImageValidatingPolicy
 		want   []admissionregistrationv1.ValidationAction
-	}{
-		{
-			name:   "nil",
-			policy: &ImageValidatingPolicy{},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
-		}, {
-			name:   "deny",
-			policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
-		}, {
-			name:   "warn",
-			policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
-		}, {
-			name:   "audit",
-			policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
-		}, {
-			name:   "multiple",
-			policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
-			want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn},
-		},
+	}{{
+		name:   "nil",
+		policy: &ImageValidatingPolicy{},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+	}, {
+		name:   "deny",
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+	}, {
+		name:   "warn",
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
+	}, {
+		name:   "audit",
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
+	}, {
+		name:   "multiple",
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn},
+	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

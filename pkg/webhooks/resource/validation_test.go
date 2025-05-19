@@ -975,8 +975,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			rawResourceNamespaceLabels: map[string]string{
 				"kubernetes.io/metadata.name": "dev",
 			},
-		},
-		{
+		}, {
 			rawPolicy: []byte(`
 				{
 					"apiVersion": "kyverno.io/v1",
@@ -1998,8 +1997,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			rawResourceNamespaceLabels: map[string]string{
 				"kubernetes.io/metadata.name": "dev",
 			},
-		},
-		{
+		}, {
 			rawPolicy: []byte(`
 				{
 					"apiVersion": "kyverno.io/v1",
@@ -2127,7 +2125,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 }
 
 func Test_RuleSelector(t *testing.T) {
-	rawPolicy := []byte(`{
+	var rawPolicy = []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {"name": "check-label-app"},
@@ -2154,7 +2152,7 @@ func Test_RuleSelector(t *testing.T) {
 		}
 	 }`)
 
-	rawResource := []byte(`{
+	var rawResource = []byte(`{
 		"apiVersion": "v1",
 		"kind": "Pod",
 		"metadata": {"name": "test-pod", "namespace": "", "labels": { "app" : "test-pod" }},

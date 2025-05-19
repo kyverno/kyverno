@@ -100,6 +100,7 @@ func TestValidateValueWithStringPattern_Ranges(t *testing.T) {
 
 	assert.Assert(t, validateStringPattern(logr.Discard(), 10, "+0!-+1"))
 	assert.Assert(t, validateStringPattern(logr.Discard(), "1025Mi", "+0Mi!-+1024Mi"))
+
 }
 
 func TestValidateNumberWithStr_LessFloatAndInt(t *testing.T) {
@@ -426,79 +427,78 @@ func Test_convertNumberToString(t *testing.T) {
 		args    args
 		want    string
 		wantErr bool
-	}{
-		{
-			args: args{
-				value: nil,
-			},
-			want: "0",
-		}, {
-			args: args{
-				value: "123",
-			},
-			want: "123",
-		}, {
-			args: args{
-				value: "",
-			},
-			want: "",
-		}, {
-			args: args{
-				value: "abc",
-			},
-			want: "abc",
-		}, {
-			args: args{
-				value: 0.0,
-			},
-			want: "0.000000",
-		}, {
-			args: args{
-				value: 3.10,
-			},
-			want: "3.100000",
-		}, {
-			args: args{
-				value: -3.10,
-			},
-			want: "-3.100000",
-		}, {
-			args: args{
-				value: -3,
-			},
-			want: "-3",
-		}, {
-			args: args{
-				value: 3,
-			},
-			want: "3",
-		}, {
-			args: args{
-				value: 0,
-			},
-			want: "0",
-		}, {
-			args: args{
-				value: int64(-3),
-			},
-			want: "-3",
-		}, {
-			args: args{
-				value: int64(3),
-			},
-			want: "3",
-		}, {
-			args: args{
-				value: int64(0),
-			},
-			want: "0",
-		}, {
-			args: args{
-				value: false,
-			},
-			wantErr: true,
+	}{{
+		args: args{
+			value: nil,
 		},
-		// TODO: Add test cases.
+		want: "0",
+	}, {
+		args: args{
+			value: "123",
+		},
+		want: "123",
+	}, {
+		args: args{
+			value: "",
+		},
+		want: "",
+	}, {
+		args: args{
+			value: "abc",
+		},
+		want: "abc",
+	}, {
+		args: args{
+			value: 0.0,
+		},
+		want: "0.000000",
+	}, {
+		args: args{
+			value: 3.10,
+		},
+		want: "3.100000",
+	}, {
+		args: args{
+			value: -3.10,
+		},
+		want: "-3.100000",
+	}, {
+		args: args{
+			value: -3,
+		},
+		want: "-3",
+	}, {
+		args: args{
+			value: 3,
+		},
+		want: "3",
+	}, {
+		args: args{
+			value: 0,
+		},
+		want: "0",
+	}, {
+		args: args{
+			value: int64(-3),
+		},
+		want: "-3",
+	}, {
+		args: args{
+			value: int64(3),
+		},
+		want: "3",
+	}, {
+		args: args{
+			value: int64(0),
+		},
+		want: "0",
+	}, {
+		args: args{
+			value: false,
+		},
+		wantErr: true,
+	},
+	// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

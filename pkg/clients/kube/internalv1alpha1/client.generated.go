@@ -29,7 +29,6 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) StorageVersions() k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.StorageVersionInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "StorageVersion", c.clientType)
 	return storageversions.WithMetrics(c.inner.StorageVersions(), recorder)
@@ -43,7 +42,6 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) StorageVersions() k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.StorageVersionInterface {
 	return storageversions.WithTracing(c.inner.StorageVersions(), c.client, "StorageVersion")
 }
@@ -56,7 +54,6 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) StorageVersions() k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.StorageVersionInterface {
 	return storageversions.WithLogging(c.inner.StorageVersions(), c.logger.WithValues("resource", "StorageVersions"))
 }

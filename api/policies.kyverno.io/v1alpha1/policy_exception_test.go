@@ -39,59 +39,58 @@ func TestCELPolicyExceptionSpec_Validate(t *testing.T) {
 		name     string
 		policy   *PolicyException
 		wantErrs field.ErrorList
-	}{
-		{
-			name:   "no refs",
-			policy: &PolicyException{},
-			wantErrs: field.ErrorList{{
-				Type:     field.ErrorTypeInvalid,
-				Field:    "spec.policyRefs",
-				BadValue: []PolicyRef(nil),
-				Detail:   "must specify at least one policy ref",
-			}},
-		}, {
-			name: "one ref",
-			policy: &PolicyException{
-				Spec: PolicyExceptionSpec{
-					PolicyRefs: []PolicyRef{{
-						Name: "foo",
-						Kind: "Foo",
-					}},
-				},
+	}{{
+		name:   "no refs",
+		policy: &PolicyException{},
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "spec.policyRefs",
+			BadValue: []PolicyRef(nil),
+			Detail:   "must specify at least one policy ref",
+		}},
+	}, {
+		name: "one ref",
+		policy: &PolicyException{
+			Spec: PolicyExceptionSpec{
+				PolicyRefs: []PolicyRef{{
+					Name: "foo",
+					Kind: "Foo",
+				}},
 			},
-			wantErrs: nil,
-		}, {
-			name: "ref no kind",
-			policy: &PolicyException{
-				Spec: PolicyExceptionSpec{
-					PolicyRefs: []PolicyRef{{
-						Name: "foo",
-					}},
-				},
-			},
-			wantErrs: field.ErrorList{{
-				Type:     field.ErrorTypeInvalid,
-				Field:    "spec.policyRefs[0].kind",
-				BadValue: "",
-				Detail:   "must specify policy kind",
-			}},
-		}, {
-			name: "ref no name",
-			policy: &PolicyException{
-				Spec: PolicyExceptionSpec{
-					PolicyRefs: []PolicyRef{{
-						Kind: "Foo",
-					}},
-				},
-			},
-			wantErrs: field.ErrorList{{
-				Type:     field.ErrorTypeInvalid,
-				Field:    "spec.policyRefs[0].name",
-				BadValue: "",
-				Detail:   "must specify policy name",
-			}},
 		},
-		// TODO: Add test cases.
+		wantErrs: nil,
+	}, {
+		name: "ref no kind",
+		policy: &PolicyException{
+			Spec: PolicyExceptionSpec{
+				PolicyRefs: []PolicyRef{{
+					Name: "foo",
+				}},
+			},
+		},
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "spec.policyRefs[0].kind",
+			BadValue: "",
+			Detail:   "must specify policy kind",
+		}},
+	}, {
+		name: "ref no name",
+		policy: &PolicyException{
+			Spec: PolicyExceptionSpec{
+				PolicyRefs: []PolicyRef{{
+					Kind: "Foo",
+				}},
+			},
+		},
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "spec.policyRefs[0].name",
+			BadValue: "",
+			Detail:   "must specify policy name",
+		}},
+	},
+	// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

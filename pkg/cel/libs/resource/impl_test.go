@@ -28,21 +28,20 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"resource": Context{
-			&ContextMock{
-				GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-					return &unstructured.Unstructured{
-						Object: map[string]any{
-							"apiVersion": "apps/v1",
-							"kind":       "Deployment",
-							"metadata": map[string]any{
-								"name":      name,
-								"namespace": namespace,
-							},
+		"resource": Context{&ContextMock{
+			GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+				return &unstructured.Unstructured{
+					Object: map[string]any{
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"metadata": map[string]any{
+							"name":      name,
+							"namespace": namespace,
 						},
-					}, nil
-				},
+					},
+				}, nil
 			},
+		},
 		},
 	}
 	out, _, err := prog.Eval(data)
@@ -117,27 +116,25 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"resource": Context{
-			&ContextMock{
-				ListResourcesFunc: func(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-					return &unstructured.UnstructuredList{
-						Items: []unstructured.Unstructured{
-							{
-								Object: map[string]any{
-									"apiVersion": "apps/v1",
-									"kind":       "Deployment",
-									"metadata": map[string]any{
-										"name":      "nginx",
-										"namespace": namespace,
-									},
+		"resource": Context{&ContextMock{
+			ListResourcesFunc: func(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+				return &unstructured.UnstructuredList{
+					Items: []unstructured.Unstructured{
+						{
+							Object: map[string]any{
+								"apiVersion": "apps/v1",
+								"kind":       "Deployment",
+								"metadata": map[string]any{
+									"name":      "nginx",
+									"namespace": namespace,
 								},
 							},
 						},
-					}, nil
-				},
+					},
+				}, nil
 			},
 		},
-	}
+		}}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	object := out.Value().(map[string]any)
@@ -219,20 +216,18 @@ resource.Post(
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 	data := map[string]any{
-		"resource": Context{
-			&ContextMock{
-				PostResourceFunc: func(apiVersion, resource, namespace string, payload map[string]any) (*unstructured.Unstructured, error) {
-					assert.Equal(t, payload["apiVersion"].(string), "apps/v1")
-					assert.Equal(t, payload["kind"].(string), "Deployment")
-					assert.Equal(t, payload["metadata"].(map[string]any)["name"], "name")
-					assert.Equal(t, payload["metadata"].(map[string]any)["namespace"], "namespace")
-					return &unstructured.Unstructured{
-						Object: payload,
-					}, nil
-				},
+		"resource": Context{&ContextMock{
+			PostResourceFunc: func(apiVersion, resource, namespace string, payload map[string]any) (*unstructured.Unstructured, error) {
+				assert.Equal(t, payload["apiVersion"].(string), "apps/v1")
+				assert.Equal(t, payload["kind"].(string), "Deployment")
+				assert.Equal(t, payload["metadata"].(map[string]any)["name"], "name")
+				assert.Equal(t, payload["metadata"].(map[string]any)["namespace"], "namespace")
+				return &unstructured.Unstructured{
+					Object: payload,
+				}, nil
 			},
 		},
-	}
+		}}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	object := out.Value().(map[string]any)

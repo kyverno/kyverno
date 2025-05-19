@@ -29,7 +29,6 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) CronJobs(namespace string) k8s_io_client_go_kubernetes_typed_batch_v1beta1.CronJobInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "CronJob", c.clientType)
 	return cronjobs.WithMetrics(c.inner.CronJobs(namespace), recorder)
@@ -43,7 +42,6 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) CronJobs(namespace string) k8s_io_client_go_kubernetes_typed_batch_v1beta1.CronJobInterface {
 	return cronjobs.WithTracing(c.inner.CronJobs(namespace), c.client, "CronJob")
 }
@@ -56,7 +54,6 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) CronJobs(namespace string) k8s_io_client_go_kubernetes_typed_batch_v1beta1.CronJobInterface {
 	return cronjobs.WithLogging(c.inner.CronJobs(namespace), c.logger.WithValues("resource", "CronJobs").WithValues("namespace", namespace))
 }

@@ -29,7 +29,6 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) PriorityClasses() k8s_io_client_go_kubernetes_typed_scheduling_v1.PriorityClassInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "PriorityClass", c.clientType)
 	return priorityclasses.WithMetrics(c.inner.PriorityClasses(), recorder)
@@ -43,7 +42,6 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) PriorityClasses() k8s_io_client_go_kubernetes_typed_scheduling_v1.PriorityClassInterface {
 	return priorityclasses.WithTracing(c.inner.PriorityClasses(), c.client, "PriorityClass")
 }
@@ -56,7 +54,6 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) PriorityClasses() k8s_io_client_go_kubernetes_typed_scheduling_v1.PriorityClassInterface {
 	return priorityclasses.WithLogging(c.inner.PriorityClasses(), c.logger.WithValues("resource", "PriorityClasses"))
 }

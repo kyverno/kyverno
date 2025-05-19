@@ -8,7 +8,8 @@ import (
 )
 
 func TestTestCase_Dir(t *testing.T) {
-	type fields struct{}
+	type fields struct {
+	}
 	tests := []struct {
 		name string
 		Path string

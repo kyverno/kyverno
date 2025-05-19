@@ -29,7 +29,6 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) APIServices() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1.APIServiceInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "APIService", c.clientType)
 	return apiservices.WithMetrics(c.inner.APIServices(), recorder)
@@ -43,7 +42,6 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) APIServices() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1.APIServiceInterface {
 	return apiservices.WithTracing(c.inner.APIServices(), c.client, "APIService")
 }
@@ -56,7 +54,6 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) APIServices() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1.APIServiceInterface {
 	return apiservices.WithLogging(c.inner.APIServices(), c.logger.WithValues("resource", "APIServices"))
 }

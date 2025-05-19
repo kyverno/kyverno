@@ -29,16 +29,13 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 		}, {
 			Name: "deny-privileged-disallowpriviligedescalation",
 			MatchResources: MatchResources{
-				Any: kyvernov1.ResourceFilters{
-					{
-						ResourceDescription: kyvernov1.ResourceDescription{
-							Kinds: []string{
-								"Pod",
-							},
+				Any: kyvernov1.ResourceFilters{{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds: []string{
+							"Pod",
 						},
-					},
-				},
-			},
+					}},
+				}},
 			Validation: &Validation{
 				Message:       "message",
 				RawAnyPattern: kyverno.ToAny("{"),

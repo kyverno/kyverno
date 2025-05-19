@@ -32,22 +32,18 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) MutatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.MutatingAdmissionPolicyInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingAdmissionPolicy", c.clientType)
 	return mutatingadmissionpolicies.WithMetrics(c.inner.MutatingAdmissionPolicies(), recorder)
 }
-
 func (c *withMetrics) MutatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.MutatingAdmissionPolicyBindingInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingAdmissionPolicyBinding", c.clientType)
 	return mutatingadmissionpolicybindings.WithMetrics(c.inner.MutatingAdmissionPolicyBindings(), recorder)
 }
-
 func (c *withMetrics) ValidatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.ValidatingAdmissionPolicyInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingAdmissionPolicy", c.clientType)
 	return validatingadmissionpolicies.WithMetrics(c.inner.ValidatingAdmissionPolicies(), recorder)
 }
-
 func (c *withMetrics) ValidatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.ValidatingAdmissionPolicyBindingInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingAdmissionPolicyBinding", c.clientType)
 	return validatingadmissionpolicybindings.WithMetrics(c.inner.ValidatingAdmissionPolicyBindings(), recorder)
@@ -61,19 +57,15 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) MutatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.MutatingAdmissionPolicyInterface {
 	return mutatingadmissionpolicies.WithTracing(c.inner.MutatingAdmissionPolicies(), c.client, "MutatingAdmissionPolicy")
 }
-
 func (c *withTracing) MutatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.MutatingAdmissionPolicyBindingInterface {
 	return mutatingadmissionpolicybindings.WithTracing(c.inner.MutatingAdmissionPolicyBindings(), c.client, "MutatingAdmissionPolicyBinding")
 }
-
 func (c *withTracing) ValidatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.ValidatingAdmissionPolicyInterface {
 	return validatingadmissionpolicies.WithTracing(c.inner.ValidatingAdmissionPolicies(), c.client, "ValidatingAdmissionPolicy")
 }
-
 func (c *withTracing) ValidatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.ValidatingAdmissionPolicyBindingInterface {
 	return validatingadmissionpolicybindings.WithTracing(c.inner.ValidatingAdmissionPolicyBindings(), c.client, "ValidatingAdmissionPolicyBinding")
 }
@@ -86,19 +78,15 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) MutatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.MutatingAdmissionPolicyInterface {
 	return mutatingadmissionpolicies.WithLogging(c.inner.MutatingAdmissionPolicies(), c.logger.WithValues("resource", "MutatingAdmissionPolicies"))
 }
-
 func (c *withLogging) MutatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.MutatingAdmissionPolicyBindingInterface {
 	return mutatingadmissionpolicybindings.WithLogging(c.inner.MutatingAdmissionPolicyBindings(), c.logger.WithValues("resource", "MutatingAdmissionPolicyBindings"))
 }
-
 func (c *withLogging) ValidatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.ValidatingAdmissionPolicyInterface {
 	return validatingadmissionpolicies.WithLogging(c.inner.ValidatingAdmissionPolicies(), c.logger.WithValues("resource", "ValidatingAdmissionPolicies"))
 }
-
 func (c *withLogging) ValidatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1alpha1.ValidatingAdmissionPolicyBindingInterface {
 	return validatingadmissionpolicybindings.WithLogging(c.inner.ValidatingAdmissionPolicyBindings(), c.logger.WithValues("resource", "ValidatingAdmissionPolicyBindings"))
 }

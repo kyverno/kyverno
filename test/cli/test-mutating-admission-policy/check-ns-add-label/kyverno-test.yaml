@@ -2,22 +2,17 @@ apiVersion: kyverno.io/v1
 kind: Test
 metadata:
   name: test-check-namespace-match
-policies:
-- policy.yaml
-resources:
-- resource1.yaml
-- resource2.yaml
+policies: [ "policy.yaml" ]
+resources: [ "resource1.yaml" , "resource2.yaml" ]
 results:
 - isMutatingAdmissionPolicy: true
-  kind: Deployment
-  patchedResources: expected-patched.yaml
+  patchedResources: "expected-patched.yaml"
   policy: add-label-in-dev
-  resources:
-  - dev-deploy
+  resource: dev-deploy
+  kind: Deployment
   result: pass
 - isMutatingAdmissionPolicy: true
-  kind: Deployment
   policy: add-label-in-dev
-  resources:
-  - prod-deploy
+  resource: prod-deploy
+  kind: Deployment
   result: skip

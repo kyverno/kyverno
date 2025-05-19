@@ -1,13 +1,10 @@
-apiVersion: cli.kyverno.io/v1alpha1
-kind: Test
-metadata:
-  name: test MAP patch expression
+name: test MAP patch expression
 policies:
 - policy.yaml
 resources:
 - resource.yaml
 results:
 - isMutatingAdmissionPolicy: true
-  kind: ""
+  patchedResource: expected-patched.yaml
   policy: sample-policy
   result: pass

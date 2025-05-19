@@ -31,28 +31,27 @@ func TestRemoveNoneBackgroundPolicies(t *testing.T) {
 		name     string
 		policies []v1alpha1.ValidatingPolicy
 		want     []v1alpha1.ValidatingPolicy
-	}{
-		{
-			name:     "nil",
-			policies: nil,
-			want:     []v1alpha1.ValidatingPolicy{},
-		}, {
-			name:     "empty",
-			policies: []v1alpha1.ValidatingPolicy{},
-			want:     []v1alpha1.ValidatingPolicy{},
-		}, {
-			name:     "only no",
-			policies: []v1alpha1.ValidatingPolicy{no},
-			want:     []v1alpha1.ValidatingPolicy{},
-		}, {
-			name:     "only yes",
-			policies: []v1alpha1.ValidatingPolicy{yes},
-			want:     []v1alpha1.ValidatingPolicy{yes},
-		}, {
-			name:     "both",
-			policies: []v1alpha1.ValidatingPolicy{yes, no},
-			want:     []v1alpha1.ValidatingPolicy{yes},
-		},
+	}{{
+		name:     "nil",
+		policies: nil,
+		want:     []v1alpha1.ValidatingPolicy{},
+	}, {
+		name:     "empty",
+		policies: []v1alpha1.ValidatingPolicy{},
+		want:     []v1alpha1.ValidatingPolicy{},
+	}, {
+		name:     "only no",
+		policies: []v1alpha1.ValidatingPolicy{no},
+		want:     []v1alpha1.ValidatingPolicy{},
+	}, {
+		name:     "only yes",
+		policies: []v1alpha1.ValidatingPolicy{yes},
+		want:     []v1alpha1.ValidatingPolicy{yes},
+	}, {
+		name:     "both",
+		policies: []v1alpha1.ValidatingPolicy{yes, no},
+		want:     []v1alpha1.ValidatingPolicy{yes},
+	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

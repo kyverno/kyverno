@@ -214,7 +214,6 @@ func parseImageValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha
 	}
 	return &out, nil
 }
-
 func parseMutatingAdmissionPolicy(obj unstructured.Unstructured) (*admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
 	var out admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	if err := runtime.DefaultUnstructuredConverter.

@@ -37,7 +37,7 @@ func MutateResource(
 	namespaceSelectorMap map[string]map[string]string,
 	isFake bool,
 ) (engineapi.EngineResponse, error) {
-	// var emptyResp engineapi.EngineResponse
+	//var emptyResp engineapi.EngineResponse
 	startTime := time.Now()
 
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(&policy), nil)
@@ -237,7 +237,7 @@ func Mutate(
 
 	}
 
-	// bindings exist
+	//bindings exist
 	if client != nil && !isFake {
 		nsLister := NewCustomNamespaceLister(client)
 		policyMatcher := generic.NewPolicyMatcher(k8smatching.NewMatcher(nsLister, client.GetKubeClient()))
@@ -315,7 +315,7 @@ func Mutate(
 
 // convertMatchResources turns a v1alpha1.MatchResources into a v1.MatchResources
 func convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admissionregistrationv1.MatchResources {
-	resourceRules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(in.ResourceRules))
+	var resourceRules []admissionregistrationv1.NamedRuleWithOperations
 	for _, r := range in.ResourceRules {
 		resourceRules = append(resourceRules, admissionregistrationv1.NamedRuleWithOperations{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -329,7 +329,7 @@ func convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admi
 			},
 		})
 	}
-	exclude := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(in.ExcludeResourceRules))
+	var exclude []admissionregistrationv1.NamedRuleWithOperations
 	for _, r := range in.ExcludeResourceRules {
 		exclude = append(exclude, admissionregistrationv1.NamedRuleWithOperations{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{

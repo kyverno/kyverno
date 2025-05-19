@@ -29,7 +29,6 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withMetrics) SelfSubjectReviews() k8s_io_client_go_kubernetes_typed_authentication_v1alpha1.SelfSubjectReviewInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "SelfSubjectReview", c.clientType)
 	return selfsubjectreviews.WithMetrics(c.inner.SelfSubjectReviews(), recorder)
@@ -43,7 +42,6 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withTracing) SelfSubjectReviews() k8s_io_client_go_kubernetes_typed_authentication_v1alpha1.SelfSubjectReviewInterface {
 	return selfsubjectreviews.WithTracing(c.inner.SelfSubjectReviews(), c.client, "SelfSubjectReview")
 }
@@ -56,7 +54,6 @@ type withLogging struct {
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
-
 func (c *withLogging) SelfSubjectReviews() k8s_io_client_go_kubernetes_typed_authentication_v1alpha1.SelfSubjectReviewInterface {
 	return selfsubjectreviews.WithLogging(c.inner.SelfSubjectReviews(), c.logger.WithValues("resource", "SelfSubjectReviews"))
 }
