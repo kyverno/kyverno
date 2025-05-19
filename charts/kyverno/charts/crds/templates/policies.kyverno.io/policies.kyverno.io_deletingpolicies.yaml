@@ -1,4 +1,4 @@
-{{- if .Values.groups.policies.cleanuppolicies }}
+{{- if .Values.groups.policies.deletingpolicies }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -10,18 +10,18 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.17.3
-  name: cleanuppolicies.policies.kyverno.io
+  name: deletingpolicies.policies.kyverno.io
 spec:
   group: policies.kyverno.io
   names:
     categories:
     - kyverno
-    kind: CleanupPolicy
-    listKind: CleanupPolicyList
-    plural: cleanuppolicies
+    kind: DeletingPolicy
+    listKind: DeletingPolicyList
+    plural: deletingpolicies
     shortNames:
-    - vpol
-    singular: cleanuppolicy
+    - dpol
+    singular: deletingpolicy
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -53,100 +53,22 @@ spec:
           metadata:
             type: object
           spec:
-            description: CleanupPolicySpec is the specification of the desired behavior
-              of the CleanupPolicy.
+            description: DeletingPolicySpec is the specification of the desired behavior
+              of the DeletingPolicy.
             properties:
-              auditAnnotations:
+              conditions:
                 description: |-
-                  auditAnnotations contains CEL expressions which are used to produce audit
-                  annotations for the audit event of the API request.
-                  validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
-                  required.
-                items:
-                  description: AuditAnnotation describes how to produce an audit annotation
-                    for an API request.
-                  properties:
-                    key:
-                      description: |-
-                        key specifies the audit annotation key. The audit annotation keys of
-                        a ValidatingAdmissionPolicy must be unique. The key must be a qualified
-                        name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
-
-                        The key is combined with the resource name of the
-                        ValidatingAdmissionPolicy to construct an audit annotation key:
-                        "{ValidatingAdmissionPolicy name}/{key}".
-
-                        If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
-                        and the same audit annotation key, the annotation key will be identical.
-                        In this case, the first annotation written with the key will be included
-                        in the audit event and all subsequent annotations with the same key
-                        will be discarded.
-
-                        Required.
-                      type: string
-                    valueExpression:
-                      description: |-
-                        valueExpression represents the expression which is evaluated by CEL to
-                        produce an audit annotation value. The expression must evaluate to either
-                        a string or null value. If the expression evaluates to a string, the
-                        audit annotation is included with the string value. If the expression
-                        evaluates to null or empty string the audit annotation will be omitted.
-                        The valueExpression may be no longer than 5kb in length.
-                        If the result of the valueExpression is more than 10kb in length, it
-                        will be truncated to 10kb.
-
-                        If multiple ValidatingAdmissionPolicyBinding resources match an
-                        API request, then the valueExpression will be evaluated for
-                        each binding. All unique values produced by the valueExpressions
-                        will be joined together in a comma-separated list.
-
-                        Required.
-                      type: string
-                  required:
-                  - key
-                  - valueExpression
-                  type: object
-                type: array
-                x-kubernetes-list-type: atomic
-              deletionPropagationPolicy:
-                description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background, Orphan).
-                enum:
-                - Foreground
-                - Background
-                - Orphan
-                type: string
-              failurePolicy:
-                description: |-
-                  failurePolicy defines how to handle failures for the admission policy. Failures can
-                  occur from CEL expression parse errors, type check errors, runtime errors and invalid
-                  or mis-configured policy definitions or bindings.
-
-                  failurePolicy does not define how validations that evaluate to false are handled.
-
-                  When failurePolicy is set to Fail, the validationActions field define how failures are enforced.
-
-                  Allowed values are Ignore or Fail. Defaults to Fail.
-                enum:
-                - Ignore
-                - Fail
-                type: string
-              matchConditions:
-                description: |-
-                  MatchConditions is a list of conditions that must be met for a request to be validated.
-                  Match conditions filter requests that have already been matched by the rules,
-                  namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
-                  There are a maximum of 64 match conditions allowed.
+                  Conditions is a list of conditions that must be met for a resource to be deleted.
+                  Conditions filter resources that have already been matched by the match constraints,
+                  namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
+                  There are a maximum of 64 conditions allowed.
 
                   If a parameter object is provided, it can be accessed via the `params` handle in the same
                   manner as validation expressions.
 
                   The exact matching logic is (in order):
-                    1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
-                    2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
-                    3. If any matchCondition evaluates to an error (but none are FALSE):
-                       - If failurePolicy=Fail, reject the request
-                       - If failurePolicy=Ignore, the policy is skipped
+                    1. If ANY condition evaluates to FALSE, the policy is skipped.
+                    2. If ALL conditions evaluate to TRUE, the policy is executed.
                 items:
                   description: MatchCondition represents a condition which must by
                     fulfilled for a request to be sent to a webhook.
@@ -187,6 +109,14 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               matchConstraints:
                 description: |-
                   MatchConstraints specifies what resources this policy is designed to validate.
