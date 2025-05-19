@@ -536,8 +536,8 @@ metadata:
 apiVersion: admissionregistration.k8s.io/v1alpha1
 kind: MutatingAdmissionPolicyBinding
 metadata:
-      name: mapb-demo
-    spec:
+  name: mapb-demo
+spec:
       policyName: my-mutation
       matchResources:
         namespaceSelector:
