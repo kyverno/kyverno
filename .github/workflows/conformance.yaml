@@ -1130,6 +1130,7 @@ jobs:
       - globalcontext
       - lease
       - mutate
+      - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
       - rbac
@@ -1170,6 +1171,7 @@ jobs:
       - globalcontext
       - lease
       - mutate
+      - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
       - rbac
