@@ -20,7 +20,7 @@ spec:
         bindings:
         - name: file
           value: policy.yaml
-  - name: wait-image-validating-policy-ready
+  - name: wait policy ready
     use:
       template: /../../../_step-templates/image-validating-policy-ready.yaml
       with:
