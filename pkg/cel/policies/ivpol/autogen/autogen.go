@@ -27,7 +27,7 @@ func Autogen(policy *policiesv1alpha1.ImageValidatingPolicy) (map[string]policie
 }
 
 func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
-	mapping := map[string][]autogen.Target{}
+	mapping := map[string][]policiesv1alpha1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
 			targets := mapping[config.ReplacementsRef]

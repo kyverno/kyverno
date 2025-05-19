@@ -27,7 +27,7 @@ func Autogen(policy *policiesv1alpha1.ValidatingPolicy) (map[string]policiesv1al
 }
 
 func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
-	mapping := map[string][]autogen.Target{}
+	mapping := map[string][]policiesv1alpha1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
 			targets := mapping[config.ReplacementsRef]
