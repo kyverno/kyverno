@@ -42,7 +42,7 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations)
-		spec.MatchConditions = autogen.CreateMatchConditions(replacements, targets, spec.MatchConditions)
+		// spec.MatchConditions = autogen.CreateMatchConditions(replacements, targets, spec.MatchConditions)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err
