@@ -222,7 +222,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	var store store.Store
 
 	kpols, vaps, vapBindings, maps, mapBindings, vps, ivps, err := c.loadPolicies()
-
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -252,7 +251,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 
 	resources, jsonPayloads, err := c.loadResources(out, c.ResourcePaths, genericPolicies, dClient)
-
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}

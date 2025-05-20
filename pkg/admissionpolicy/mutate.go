@@ -152,7 +152,6 @@ func MutateResource(
 			ruleResp = ruleResp.WithMutatingBinding(binding)
 		}
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
-
 	}
 
 	patchedResource, err := celutils.ConvertObjectToUnstructured(versionedAttributes.VersionedObject)
@@ -230,7 +229,6 @@ func Mutate(
 		}
 
 		return MutateResource(*policy, nil, resource, gvr, client, namespaceSelectorMap, isFake)
-
 	}
 
 	// bindings exist
@@ -251,7 +249,6 @@ func Mutate(
 
 		// match bindings
 		for i, binding := range bindings {
-
 			isBindingMatch, err := policyMatcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
 			if err != nil {
 				return emptyResp, err
@@ -262,14 +259,10 @@ func Mutate(
 
 			logger.V(3).Info("mutate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 			return MutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
-
 		}
-
 		return emptyResp, nil
 	} else {
-
 		offline := celmatching.NewMatcher()
-
 		// 1) policy-level
 		pr := convertMatchResources(*policy.Spec.MatchConstraints)
 		ok, err := offline.Match(
