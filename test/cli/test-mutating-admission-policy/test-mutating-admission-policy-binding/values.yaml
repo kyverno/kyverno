@@ -3,6 +3,6 @@ kind: Value
 metadata:
   name: values
 namespaceSelector:
-- name: test-ns
-  labels:
+- labels:
     env: test
+  name: test-ns

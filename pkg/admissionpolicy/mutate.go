@@ -37,7 +37,6 @@ func MutateResource(
 	namespaceSelectorMap map[string]map[string]string,
 	isFake bool,
 ) (engineapi.EngineResponse, error) {
-	//var emptyResp engineapi.EngineResponse
 	startTime := time.Now()
 
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(&policy), nil)
@@ -47,8 +46,6 @@ func MutateResource(
 
 	var namespace *corev1.Namespace
 	namespaceName := resource.GetNamespace()
-	// Special case, the namespace object has the namespace of itself.
-	// unset it if the incoming object is a namespace
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 	}
@@ -101,7 +98,6 @@ func MutateResource(
 	if matcher != nil {
 		matchResults := matcher.Match(context.TODO(), versionedAttributes, namespace, nil)
 
-		// if preconditions are not met, then skip mutations
 		if !matchResults.Matches {
 			ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Mutation, "match conditions not met", nil)
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
@@ -237,7 +233,7 @@ func Mutate(
 
 	}
 
-	//bindings exist
+	// bindings exist
 	if client != nil && !isFake {
 		nsLister := NewCustomNamespaceLister(client)
 		policyMatcher := generic.NewPolicyMatcher(k8smatching.NewMatcher(nsLister, client.GetKubeClient()))
@@ -315,7 +311,7 @@ func Mutate(
 
 // convertMatchResources turns a v1alpha1.MatchResources into a v1.MatchResources
 func convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admissionregistrationv1.MatchResources {
-	var resourceRules []admissionregistrationv1.NamedRuleWithOperations
+	resourceRules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(in.ResourceRules))
 	for _, r := range in.ResourceRules {
 		resourceRules = append(resourceRules, admissionregistrationv1.NamedRuleWithOperations{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -329,7 +325,7 @@ func convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admi
 			},
 		})
 	}
-	var exclude []admissionregistrationv1.NamedRuleWithOperations
+	exclude := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(in.ExcludeResourceRules))
 	for _, r := range in.ExcludeResourceRules {
 		exclude = append(exclude, admissionregistrationv1.NamedRuleWithOperations{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{

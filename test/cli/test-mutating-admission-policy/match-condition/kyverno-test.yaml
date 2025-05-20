@@ -9,13 +9,15 @@ resources:
 - resource2.yaml
 results:
 - isMutatingAdmissionPolicy: true
-  patchedResources: "expected-patched.yaml"
-  policy: set-replicas-color-red
-  resource: nginx-red
   kind: Deployment
+  patchedResources: expected-patched.yaml
+  policy: set-replicas-color-red
+  resources:
+  - nginx-red
   result: pass
 - isMutatingAdmissionPolicy: true
-  policy: set-replicas-color-red
-  resource: nginx-no-color
   kind: Deployment
+  policy: set-replicas-color-red
+  resources:
+  - nginx-no-color
   result: skip

@@ -136,7 +136,6 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		kyvernoPolicy := pol.AsKyvernoPolicy()
 		result.Source = SourceKyverno
 		process = selectProcess(kyvernoPolicy.BackgroundProcessingEnabled(), kyvernoPolicy.AdmissionProcessingEnabled())
-
 	}
 	addProperty("process", process, &result)
 
