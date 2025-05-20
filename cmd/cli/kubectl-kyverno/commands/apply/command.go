@@ -690,7 +690,6 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				maps = append(maps, loaderResults.MAPs...) // Assuming policy.Load returns MAP
 				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)

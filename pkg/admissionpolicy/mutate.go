@@ -295,7 +295,6 @@ func Mutate(
 				continue
 			}
 			return MutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
-
 		}
 
 		return emptyResp, nil
