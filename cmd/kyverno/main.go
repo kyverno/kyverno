@@ -31,7 +31,6 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
-	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -140,7 +139,7 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	stateRecorder webhook.StateRecorder,
+	stateRecorder webhookcontroller.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -435,7 +434,7 @@ func main() {
 		)
 		policyCache := policycache.NewCache()
 		notifyChan := make(chan string)
-		stateRecorder := webhook.NewStateRecorder(notifyChan)
+		stateRecorder := webhookcontroller.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -683,18 +682,26 @@ func main() {
 				nil,
 			)
 		}
-		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
-		if err != nil {
-			setup.Logger.Error(err, "failed to start admission reports watcher")
-			os.Exit(1)
-		}
-		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
-			count, isRunning := ephrs.Count()
-			if !isRunning {
-				return true
+		var reportsBreaker breaker.Breaker
+		if admissionReports {
+			ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+			if err != nil {
+				setup.Logger.Error(err, "failed to start admission reports watcher")
+				os.Exit(1)
 			}
-			return count > maxAdmissionReports
-		})
+			reportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				count, isRunning := ephrs.Count()
+				if !isRunning {
+					return true
+				}
+				return count > maxAdmissionReports
+			})
+		} else {
+			reportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				return true
+			})
+		}
+
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
 			setup.KyvernoDynamicClient,
@@ -721,6 +728,7 @@ func main() {
 			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
+			admissionReports,
 			reportsBreaker,
 		)
 		ivpolHandlers := ivpol.New(
