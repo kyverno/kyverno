@@ -49,7 +49,7 @@ status:
               has(object.spec.template.metadata.labels)
               && has(object.spec.template.metadata.labels.prod)
               && object.spec.template.metadata.labels.prod == 'true'
-            name: autogen-defaults-check-prod-label
+            name: check-prod-label
           matchConstraints:
             resourceRules:
             - apiGroups:
@@ -122,7 +122,7 @@ status:
               has(object.spec.jobTemplate.spec.template.metadata.labels)
               && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
               && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'
-            name: autogen-cronjobs-check-prod-label
+            name: check-prod-label
           matchConstraints:
             resourceRules:
             - apiGroups:

@@ -46,7 +46,7 @@ status:
               has(object.spec.template.metadata.labels)
               && has(object.spec.template.metadata.labels.prod)
               && object.spec.template.metadata.labels.prod == 'true'
-            name: autogen-defaults-check-prod-label
+            name: check-prod-label
           matchConstraints:
             resourceRules:
             - apiGroups:
