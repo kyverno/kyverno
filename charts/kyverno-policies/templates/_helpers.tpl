@@ -91,3 +91,10 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
   {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/* Custom annotations */}}
+{{- define "kyverno-policies.customAnnotations" -}}
+{{- if .Values.customAnnotations }}
+{{ toYaml .Values.customAnnotations}}
+{{- end }}
+{{- end -}}
