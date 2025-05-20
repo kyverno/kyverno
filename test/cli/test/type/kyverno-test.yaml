@@ -3,27 +3,27 @@ kind: Test
 metadata:
   name: testing-type
 policies:
-  - ./policy1.yaml
-  - ./policy2.yaml
-  - ./policy3.yaml
+- ./policy1.yaml
+- ./policy2.yaml
+- ./policy3.yaml
 resources:
-  - ./resource.yaml
+- ./resource.yaml
 results:
-  - policy: testcase-1
-    rule: test-rule
-    resources:
-      - testing
-    kind: Deployment
-    result: pass
-  - policy: testcase-2
-    rule: test-rule
-    resources:
-      - testing
-    kind: Deployment
-    result: pass
-  - policy: testcase-3
-    rule: test-rule
-    resources:
-      - testing
-    kind: Deployment
-    result: pass
+- kind: Deployment
+  policy: testcase-1
+  resources:
+  - testing
+  result: pass
+  rule: test-rule
+- kind: Deployment
+  policy: testcase-2
+  resources:
+  - testing
+  result: pass
+  rule: test-rule
+- kind: Deployment
+  policy: testcase-3
+  resources:
+  - testing
+  result: pass
+  rule: test-rule
