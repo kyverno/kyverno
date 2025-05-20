@@ -28,6 +28,8 @@ import (
 
 type PoliciesV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	DeletingPoliciesGetter
+	GeneratingPoliciesGetter
 	ImageValidatingPoliciesGetter
 	MutatingPoliciesGetter
 	PolicyExceptionsGetter
@@ -37,6 +39,14 @@ type PoliciesV1alpha1Interface interface {
 // PoliciesV1alpha1Client is used to interact with features provided by the policies.kyverno.io group.
 type PoliciesV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *PoliciesV1alpha1Client) DeletingPolicies() DeletingPolicyInterface {
+	return newDeletingPolicies(c)
+}
+
+func (c *PoliciesV1alpha1Client) GeneratingPolicies() GeneratingPolicyInterface {
+	return newGeneratingPolicies(c)
 }
 
 func (c *PoliciesV1alpha1Client) ImageValidatingPolicies() ImageValidatingPolicyInterface {

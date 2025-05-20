@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// DeletingPolicyListerExpansion allows custom methods to be added to
+// DeletingPolicyLister.
+type DeletingPolicyListerExpansion interface{}
+
+// GeneratingPolicyListerExpansion allows custom methods to be added to
+// GeneratingPolicyLister.
+type GeneratingPolicyListerExpansion interface{}
+
 // ImageValidatingPolicyListerExpansion allows custom methods to be added to
 // ImageValidatingPolicyLister.
 type ImageValidatingPolicyListerExpansion interface{}
