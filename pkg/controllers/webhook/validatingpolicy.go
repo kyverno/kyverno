@@ -1,11 +1,11 @@
 package webhook
 
 import (
-	"fmt"
 	"path"
 	"slices"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -59,20 +59,10 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					continue
 				}
 				for config, policy := range policies {
-					for _, match := range policy.Spec.MatchConditions {
-						prefix := "autogen"
-						if config != "" {
-							prefix = "autogen-" + config
-						}
-						// TODO: rewrite
-						webhook.MatchConditions = append(
-							webhook.MatchConditions,
-							admissionregistrationv1.MatchCondition{
-								Name:       fmt.Sprintf(`%s-%s`, prefix, match.Name),
-								Expression: match.Expression,
-							},
-						)
-					}
+					webhook.MatchConditions = append(
+						webhook.MatchConditions,
+						autogen.CreateMatchConditions(config, policy.Targets, policy.Spec.MatchConditions)...,
+					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 					}
@@ -84,20 +74,10 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					continue
 				}
 				for config, policy := range policies {
-					for _, match := range policy.Spec.MatchConditions {
-						prefix := "autogen"
-						if config != "" {
-							prefix = "autogen-" + config
-						}
-						// TODO: rewrite
-						webhook.MatchConditions = append(
-							webhook.MatchConditions,
-							admissionregistrationv1.MatchCondition{
-								Name:       fmt.Sprintf(`%s-%s`, prefix, match.Name),
-								Expression: match.Expression,
-							},
-						)
-					}
+					webhook.MatchConditions = append(
+						webhook.MatchConditions,
+						autogen.CreateMatchConditions(config, policy.Targets, policy.Spec.MatchConditions)...,
+					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 					}

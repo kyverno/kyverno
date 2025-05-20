@@ -2,8 +2,10 @@ package autogen
 
 import (
 	"cmp"
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -56,33 +58,33 @@ func CreateMatchConstraints(targets []policiesv1alpha1.Target, operations []admi
 	}
 }
 
-// func CreateMatchConditions(replacements string, targets []Target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
-// 	if len(targets) == 0 {
-// 		return nil
-// 	}
-// 	if len(conditions) == 0 {
-// 		return conditions
-// 	}
-// 	preconditions := sets.New[string]()
-// 	for _, target := range targets {
-// 		apiVersion := target.Group
-// 		if apiVersion != "" {
-// 			apiVersion += "/"
-// 		}
-// 		apiVersion += target.Version
-// 		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.Kind))
-// 	}
-// 	precondition := strings.Join(sets.List(preconditions), " || ")
-// 	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
-// 	prefix := "autogen"
-// 	if replacements != "" {
-// 		prefix = "autogen-" + replacements
-// 	}
-// 	for _, m := range conditions {
-// 		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
-// 			Name:       fmt.Sprintf(`%s-%s`, prefix, m.Name),
-// 			Expression: fmt.Sprintf(`!(%s) || (%s)`, precondition, m.Expression),
-// 		})
-// 	}
-// 	return matchConditions
-// }
+func CreateMatchConditions(config string, targets []policiesv1alpha1.Target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	if len(targets) == 0 {
+		return nil
+	}
+	if len(conditions) == 0 {
+		return conditions
+	}
+	preconditions := sets.New[string]()
+	for _, target := range targets {
+		apiVersion := target.Group
+		if apiVersion != "" {
+			apiVersion += "/"
+		}
+		apiVersion += target.Version
+		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.Kind))
+	}
+	precondition := strings.Join(sets.List(preconditions), " || ")
+	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
+	prefix := "autogen"
+	if config != "" {
+		prefix = "autogen-" + config
+	}
+	for _, m := range conditions {
+		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
+			Name:       fmt.Sprintf(`%s-%s`, prefix, m.Name),
+			Expression: fmt.Sprintf(`!(%s) || (%s)`, precondition, m.Expression),
+		})
+	}
+	return matchConditions
+}

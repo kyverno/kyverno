@@ -126,106 +126,106 @@ func TestCreateMatchConstraints(t *testing.T) {
 	}
 }
 
-// func TestCreateMatchConditions(t *testing.T) {
-// 	tests := []struct {
-// 		name         string
-// 		replacements string
-// 		targets      []Target
-// 		conditions   []admissionregistrationv1.MatchCondition
-// 		want         []admissionregistrationv1.MatchCondition
-// 	}{{
-// 		name: "nil targets",
-// 		conditions: []admissionregistrationv1.MatchCondition{{
-// 			Name:       "foo",
-// 			Expression: "something",
-// 		}},
-// 		want: nil,
-// 	}, {
-// 		name:    "empty targets",
-// 		targets: []Target{},
-// 		conditions: []admissionregistrationv1.MatchCondition{{
-// 			Name:       "foo",
-// 			Expression: "something",
-// 		}},
-// 		want: nil,
-// 	}, {
-// 		name: "nil conditions",
-// 		targets: []Target{{
-// 			Group:    "foo",
-// 			Version:  "v1",
-// 			Resource: "bars",
-// 			Kind:     "Bar",
-// 		}},
-// 		want: nil,
-// 	}, {
-// 		name: "empty conditions",
-// 		targets: []Target{{
-// 			Group:    "foo",
-// 			Version:  "v1",
-// 			Resource: "bars",
-// 			Kind:     "Bar",
-// 		}},
-// 		conditions: []admissionregistrationv1.MatchCondition{},
-// 		want:       []admissionregistrationv1.MatchCondition{},
-// 	}, {
-// 		name: "single target",
-// 		targets: []Target{{
-// 			Group:    "foo",
-// 			Version:  "v1",
-// 			Resource: "bars",
-// 			Kind:     "Bar",
-// 		}},
-// 		conditions: []admissionregistrationv1.MatchCondition{{
-// 			Name:       "foo",
-// 			Expression: "something",
-// 		}},
-// 		want: []admissionregistrationv1.MatchCondition{{
-// 			Name:       "autogen-foo",
-// 			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
-// 		}},
-// 	}, {
-// 		name: "multiple targets",
-// 		targets: []Target{{
-// 			Group:    "foo",
-// 			Version:  "v1",
-// 			Resource: "bars",
-// 			Kind:     "Bar",
-// 		}, {
-// 			Group:    "flop",
-// 			Version:  "v2",
-// 			Resource: "foos",
-// 			Kind:     "Foo",
-// 		}},
-// 		conditions: []admissionregistrationv1.MatchCondition{{
-// 			Name:       "foo",
-// 			Expression: "something",
-// 		}},
-// 		want: []admissionregistrationv1.MatchCondition{{
-// 			Name:       "autogen-foo",
-// 			Expression: "!((object.apiVersion == 'flop/v2' && object.kind =='Foo') || (object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
-// 		}},
-// 	}, {
-// 		name:         "with name",
-// 		replacements: "test",
-// 		targets: []Target{{
-// 			Group:    "foo",
-// 			Version:  "v1",
-// 			Resource: "bars",
-// 			Kind:     "Bar",
-// 		}},
-// 		conditions: []admissionregistrationv1.MatchCondition{{
-// 			Name:       "foo",
-// 			Expression: "something",
-// 		}},
-// 		want: []admissionregistrationv1.MatchCondition{{
-// 			Name:       "autogen-test-foo",
-// 			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
-// 		}},
-// 	}}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			got := CreateMatchConditions(tt.replacements, tt.targets, tt.conditions)
-// 			assert.Equal(t, tt.want, got)
-// 		})
-// 	}
-// }
+func TestCreateMatchConditions(t *testing.T) {
+	tests := []struct {
+		name         string
+		replacements string
+		targets      []policiesv1alpha1.Target
+		conditions   []admissionregistrationv1.MatchCondition
+		want         []admissionregistrationv1.MatchCondition
+	}{{
+		name: "nil targets",
+		conditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "foo",
+			Expression: "something",
+		}},
+		want: nil,
+	}, {
+		name:    "empty targets",
+		targets: []policiesv1alpha1.Target{},
+		conditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "foo",
+			Expression: "something",
+		}},
+		want: nil,
+	}, {
+		name: "nil conditions",
+		targets: []policiesv1alpha1.Target{{
+			Group:    "foo",
+			Version:  "v1",
+			Resource: "bars",
+			Kind:     "Bar",
+		}},
+		want: nil,
+	}, {
+		name: "empty conditions",
+		targets: []policiesv1alpha1.Target{{
+			Group:    "foo",
+			Version:  "v1",
+			Resource: "bars",
+			Kind:     "Bar",
+		}},
+		conditions: []admissionregistrationv1.MatchCondition{},
+		want:       []admissionregistrationv1.MatchCondition{},
+	}, {
+		name: "single target",
+		targets: []policiesv1alpha1.Target{{
+			Group:    "foo",
+			Version:  "v1",
+			Resource: "bars",
+			Kind:     "Bar",
+		}},
+		conditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "foo",
+			Expression: "something",
+		}},
+		want: []admissionregistrationv1.MatchCondition{{
+			Name:       "autogen-foo",
+			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+		}},
+	}, {
+		name: "multiple targets",
+		targets: []policiesv1alpha1.Target{{
+			Group:    "foo",
+			Version:  "v1",
+			Resource: "bars",
+			Kind:     "Bar",
+		}, {
+			Group:    "flop",
+			Version:  "v2",
+			Resource: "foos",
+			Kind:     "Foo",
+		}},
+		conditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "foo",
+			Expression: "something",
+		}},
+		want: []admissionregistrationv1.MatchCondition{{
+			Name:       "autogen-foo",
+			Expression: "!((object.apiVersion == 'flop/v2' && object.kind =='Foo') || (object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+		}},
+	}, {
+		name:         "with name",
+		replacements: "test",
+		targets: []policiesv1alpha1.Target{{
+			Group:    "foo",
+			Version:  "v1",
+			Resource: "bars",
+			Kind:     "Bar",
+		}},
+		conditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "foo",
+			Expression: "something",
+		}},
+		want: []admissionregistrationv1.MatchCondition{{
+			Name:       "autogen-test-foo",
+			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CreateMatchConditions(tt.replacements, tt.targets, tt.conditions)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
