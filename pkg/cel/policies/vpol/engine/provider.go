@@ -80,8 +80,7 @@ func NewKubeProvider(
 	polexEnabled bool,
 ) (Provider, error) {
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
-	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1alpha1.ValidatingPolicy{})
+	builder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1alpha1.ValidatingPolicy{})
 	if polexEnabled {
 		exceptionHandlerFuncs := &handler.Funcs{
 			CreateFunc: func(
@@ -129,7 +128,6 @@ func NewKubeProvider(
 		}
 		builder = builder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
 	}
-
 	if err := builder.Complete(reconciler); err != nil {
 		return nil, fmt.Errorf("failed to construct manager: %w", err)
 	}
