@@ -54,6 +54,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/metadata"
 )
 
 type SkippedInvalidPolicies struct {
@@ -740,7 +741,11 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 		if err != nil {
 			return nil, err
 		}
-		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute)
+		metadataClient, err := metadata.NewForConfig(restConfig)
+		if err != nil {
+			return nil, err
+		}
+		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute, false, metadataClient)
 		if err != nil {
 			return nil, err
 		}

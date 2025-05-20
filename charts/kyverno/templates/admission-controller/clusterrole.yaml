@@ -33,6 +33,10 @@ rules:
       - customresourcedefinitions
     verbs:
       - get
+      {{- if .Values.admissionController.crdWatcher }}
+      - list
+      - watch
+      {{- end }}
   - apiGroups:
       - admissionregistration.k8s.io
     resources:
