@@ -48,8 +48,23 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
 			}
-			// TODO: rewrite
-			webhook.MatchConditions = append(webhook.MatchConditions, p.GetMatchConditions()...)
+			if ok := autogen.CanAutoGen(ptr.To(p.GetMatchConstraints())); ok {
+				webhook.MatchConditions = append(
+					webhook.MatchConditions,
+					autogen.CreateMatchConditions(
+						"",
+						[]policiesv1alpha1.Target{{
+							Group:    "",
+							Version:  "v1",
+							Resource: "pods",
+							Kind:     "Pod",
+						}},
+						p.GetMatchConditions(),
+					)...,
+				)
+			} else {
+				webhook.MatchConditions = append(webhook.MatchConditions, p.GetMatchConditions()...)
+			}
 			for _, match := range p.GetMatchConstraints().ResourceRules {
 				webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 			}
