@@ -52,7 +52,8 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 			return nil, err
 		}
 		rules[ControllerKeys(replacements, ivpol.GetName())] = policiesv1alpha1.ImageValidatingPolicyAutogen{
-			Spec: spec,
+			Targets: targets,
+			Spec:    spec,
 		}
 	}
 	return rules, nil

@@ -51,7 +51,8 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 			return nil, err
 		}
 		rules[replacements] = policiesv1alpha1.ValidatingPolicyAutogen{
-			Spec: spec,
+			Targets: targets,
+			Spec:    spec,
 		}
 	}
 	return rules, nil
