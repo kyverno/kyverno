@@ -67,6 +67,7 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    {{- if or .Values.webhooksCleanup.podAnnotations .Values.webhooksCleanup.podLabels }}
     metadata:
       {{- with .Values.webhooksCleanup.podAnnotations }}
       annotations:
@@ -76,6 +77,7 @@ spec:
       labels:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+    {{- end }}
     spec:
       serviceAccountName: {{ template "kyverno.fullname" . }}-remove-configmap
       {{- with .Values.webhooksCleanup.podSecurityContext }}
@@ -85,7 +87,7 @@ spec:
       restartPolicy: Never
       {{- with .Values.webhooksCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       containers:
         - name: kubectl

@@ -53,6 +53,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/metadata"
 )
 
 type SkippedInvalidPolicies struct {
@@ -219,13 +220,26 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
 	var store store.Store
-	policies, vaps, vapBindings, vps, ivps, err := c.loadPolicies()
+	kpols, vaps, vapBindings, vps, ivps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps))
+	for _, pol := range kpols {
+		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
+	}
+	for _, pol := range vaps {
+		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
+	}
+	for _, pol := range vps {
+		genericPolicies = append(genericPolicies, engineapi.NewValidatingPolicy(&pol))
+	}
+	for _, pol := range ivps {
+		genericPolicies = append(genericPolicies, engineapi.NewImageValidatingPolicy(&pol))
+	}
 	var targetResources []*unstructured.Unstructured
 	if len(c.TargetResourcePaths) > 0 {
-		targetResources, _, err = c.loadResources(out, c.TargetResourcePaths, policies, vaps, nil)
+		targetResources, _, err = c.loadResources(out, c.TargetResourcePaths, genericPolicies, nil)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, err
 		}
@@ -234,7 +248,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	resources, jsonPayloads, err := c.loadResources(out, c.ResourcePaths, policies, vaps, dClient)
+	resources, jsonPayloads, err := c.loadResources(out, c.ResourcePaths, genericPolicies, dClient)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -254,7 +268,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
 		var policyRulesCount int
-		for _, policy := range policies {
+		for _, policy := range kpols {
 			policyRulesCount += len(autogen.Default.ComputeRules(policy, ""))
 		}
 		policyRulesCount += len(vaps)
@@ -273,7 +287,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		out,
 		&store,
 		variables,
-		policies,
+		kpols,
 		vaps,
 		vapBindings,
 		vps,
@@ -522,7 +536,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request)
+		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -585,8 +599,8 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	return responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, c.ClusterWideResources, "")
+func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, c.ClusterWideResources, "")
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
@@ -707,7 +721,11 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 		if err != nil {
 			return nil, err
 		}
-		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute)
+		metadataClient, err := metadata.NewForConfig(restConfig)
+		if err != nil {
+			return nil, err
+		}
+		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute, false, metadataClient)
 		if err != nil {
 			return nil, err
 		}

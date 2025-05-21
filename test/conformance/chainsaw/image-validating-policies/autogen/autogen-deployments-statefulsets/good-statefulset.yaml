@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: good-statefulset-1
+  labels:
+    prod: "true"
+    app: good-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: good-nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: good-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-verify-image:signed
+        securityContext:
+          allowPrivilegeEscalation: false

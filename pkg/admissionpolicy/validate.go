@@ -11,10 +11,9 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,48 +27,81 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
-	var kindList []string
+func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]string, error) {
 	if matchResources == nil {
-		return kindList
+		return nil, nil
 	}
 
+	var kindList []string
 	for _, rule := range matchResources.ResourceRules {
 		if len(rule.APIGroups) == 0 || len(rule.APIVersions) == 0 {
 			continue
 		}
 
-		group := rule.APIGroups[0]
-		version := rule.APIVersions[0]
-		for _, resource := range rule.Resources {
-			isSubresource := kubeutils.IsSubresource(resource)
-			if isSubresource {
-				parts := strings.Split(resource, "/")
-
-				kind := cases.Title(language.English, cases.NoLower).String(parts[0])
-				kind, _ = strings.CutSuffix(kind, "s")
-				subresource := parts[1]
-
-				if group == "" {
-					kindList = append(kindList, strings.Join([]string{version, kind, subresource}, "/"))
-				} else {
-					kindList = append(kindList, strings.Join([]string{group, version, kind, subresource}, "/"))
-				}
-			} else {
-				resource = cases.Title(language.English, cases.NoLower).String(resource)
-				resource, _ = strings.CutSuffix(resource, "s")
-				kind := resource
-
-				if group == "" {
-					kindList = append(kindList, strings.Join([]string{version, kind}, "/"))
-				} else {
-					kindList = append(kindList, strings.Join([]string{group, version, kind}, "/"))
+		for _, group := range rule.APIGroups {
+			for _, version := range rule.APIVersions {
+				for _, resource := range rule.Resources {
+					kinds, err := resolveKinds(group, version, resource, mapper)
+					if err != nil {
+						return kindList, err
+					}
+					kindList = append(kindList, kinds...)
 				}
 			}
 		}
 	}
+	return kindList, nil
+}
 
-	return kindList
+func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
+	var kinds []string
+
+	formatGVK := func(gvk schema.GroupVersionKind, subresource string) string {
+		var parts []string
+		if gvk.Group != "" {
+			parts = append(parts, gvk.Group)
+		}
+		parts = append(parts, gvk.Version, gvk.Kind)
+		if subresource != "" {
+			parts = append(parts, subresource)
+		}
+		return strings.Join(parts, "/")
+	}
+
+	switch {
+	case group == "*" || version == "*" || resource == "*":
+		gvrList, err := mapper.ResourcesFor(schema.GroupVersionResource{
+			Group: group, Version: version, Resource: resource,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list resources failed for %s/%s/%s: %w", group, version, resource, err)
+		}
+		for _, gvr := range gvrList {
+			gvk, err := mapper.KindFor(gvr)
+			if err != nil {
+				return nil, fmt.Errorf("kind lookup failed for %v: %w", gvr, err)
+			}
+			kinds = append(kinds, formatGVK(gvk, ""))
+		}
+	case kubeutils.IsSubresource(resource):
+		parts := strings.SplitN(resource, "/", 2)
+		mainResource, subResource := parts[0], parts[1]
+		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: mainResource}
+		gvk, err := mapper.KindFor(gvr)
+		if err != nil {
+			return nil, fmt.Errorf("mapping gvr %v to gvk failed: %w", gvr, err)
+		}
+		kinds = append(kinds, formatGVK(gvk, subResource))
+	default:
+		gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+		gvk, err := mapper.KindFor(gvr)
+		if err != nil {
+			return nil, fmt.Errorf("mapping gvr %v to gvk failed: %w", gvr, err)
+		}
+		kinds = append(kinds, formatGVK(gvk, ""))
+	}
+
+	return kinds, nil
 }
 
 func Validate(

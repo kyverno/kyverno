@@ -57,6 +57,10 @@ type GenericPolicy interface {
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
+	// AsMutatingPolicy returns the mutating policy
+	AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy
+	// AsGeneratingPolicy returns the generating policy
+	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
 }
 
 type genericPolicy struct {
@@ -66,6 +70,8 @@ type genericPolicy struct {
 	MutatingAdmissionPolicy   *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
 	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
+	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
+	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -88,6 +94,14 @@ func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1alpha1.ImageValidat
 	return p.ImageValidatingPolicy
 }
 
+func (p *genericPolicy) AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy {
+	return p.MutatingPolicy
+}
+
+func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy {
+	return p.GeneratingPolicy
+}
+
 func (p *genericPolicy) GetAPIVersion() string {
 	switch {
 	case p.PolicyInterface != nil:
@@ -99,6 +113,10 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.ValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	case p.ImageValidatingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.MutatingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.GeneratingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	}
 	return ""
@@ -116,6 +134,10 @@ func (p *genericPolicy) GetKind() string {
 		return "ValidatingPolicy"
 	case p.ImageValidatingPolicy != nil:
 		return "ImageValidatingPolicy"
+	case p.MutatingPolicy != nil:
+		return "MutatingPolicy"
+	case p.GeneratingPolicy != nil:
+		return "GeneratingPolicy"
 	}
 	return ""
 }
@@ -167,5 +189,19 @@ func NewImageValidatingPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) Gener
 	return &genericPolicy{
 		Object:                pol,
 		ImageValidatingPolicy: pol,
+	}
+}
+
+func NewMutatingPolicy(pol *policiesv1alpha1.MutatingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:         pol,
+		MutatingPolicy: pol,
+	}
+}
+
+func NewGeneratingPolicy(pol *policiesv1alpha1.GeneratingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:           pol,
+		GeneratingPolicy: pol,
 	}
 }

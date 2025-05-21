@@ -94,6 +94,8 @@ func manageCloneList(log logr.Logger, targetNamespace string, severSideApply boo
 					fmt.Errorf("failed to list source resource for cloneList %s %s/%s. %v", apiVersion, kind, sourceNamespace, err),
 				),
 			)
+
+			continue
 		}
 
 		for _, source := range sources.Items {

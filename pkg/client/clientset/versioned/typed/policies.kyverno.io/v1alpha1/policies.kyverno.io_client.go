@@ -28,7 +28,10 @@ import (
 
 type PoliciesV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	DeletingPoliciesGetter
+	GeneratingPoliciesGetter
 	ImageValidatingPoliciesGetter
+	MutatingPoliciesGetter
 	PolicyExceptionsGetter
 	ValidatingPoliciesGetter
 }
@@ -38,8 +41,20 @@ type PoliciesV1alpha1Client struct {
 	restClient rest.Interface
 }
 
+func (c *PoliciesV1alpha1Client) DeletingPolicies() DeletingPolicyInterface {
+	return newDeletingPolicies(c)
+}
+
+func (c *PoliciesV1alpha1Client) GeneratingPolicies() GeneratingPolicyInterface {
+	return newGeneratingPolicies(c)
+}
+
 func (c *PoliciesV1alpha1Client) ImageValidatingPolicies() ImageValidatingPolicyInterface {
 	return newImageValidatingPolicies(c)
+}
+
+func (c *PoliciesV1alpha1Client) MutatingPolicies() MutatingPolicyInterface {
+	return newMutatingPolicies(c)
 }
 
 func (c *PoliciesV1alpha1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
