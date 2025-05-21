@@ -78,7 +78,8 @@ type GeneratingPolicySpec struct {
 
 	// Generation defines a set of CEL expressions that will be evaluated to generate resources.
 	// Required.
-	Generation []Generation `json:"generate,omitempty"`
+	// +kubebuilder:validation:MinItems=1
+	Generation []Generation `json:"generate"`
 }
 
 type GenerateConfiguration struct {
