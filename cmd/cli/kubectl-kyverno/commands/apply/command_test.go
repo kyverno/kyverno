@@ -720,18 +720,9 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 	// Call applyCommandHelper and capture EngineResponses.
 	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
 	assert.NoError(t, err, desc)
-	for i, resp := range responses {
-		policyName := "unknown"
-		if resp.Policy() != nil {
-			policyName = resp.Policy().GetName()
-		}
-		namespace := resp.Resource.GetNamespace()
-		name := resp.Resource.GetName()
-		fmt.Printf("Response %d: Policy: %s, Resource: %s/%s, Outcome: %+v\n",
-			i, policyName, namespace, name, resp.PolicyResponse)
-	}
 
 	clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
+	assert.Greater(t, len(clustered), 0, "policy reports should not be empty: %s", desc)
 	combined := []policyreportv1alpha2.ClusterPolicyReport{
 		report.MergeClusterReports(clustered),
 	}
@@ -854,6 +845,57 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-mutating-admission-policy/match-condition/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/match-condition/resource1.yaml",
+					"../../../../../test/cli/test-mutating-admission-policy/match-condition/resource2.yaml"},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-mutating-admission-policy/check-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/check-labels/resource1.yaml",
+					"../../../../../test/cli/test-mutating-admission-policy/check-labels/resource2.yaml"},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-mutating-admission-policy/check-ns-add-label/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/check-ns-add-label/resource1.yaml",
+					"../../../../../test/cli/test-mutating-admission-policy/check-ns-add-label/resource2.yaml"},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  1,
 					Error: 0,
 					Warn:  0,
 				},

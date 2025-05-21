@@ -220,44 +220,39 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if err != nil {
 		return nil, err
 	}
-
 	// Mutate Admission Policies
-	var gvr schema.GroupVersionResource
-	mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		log.Log.V(3).Info("skipping MAPs due to missing kind", "gvk", gvk)
-	} else {
-		gvr = mapping.Resource
+	if len(p.MutatingAdmissionPolicies) != 0 {
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			log.Log.V(3).Info("skipping MAPs due to missing kind", "gvk", gvk)
+		} else {
+			gvr := mapping.Resource
 
-		for _, mapPolicy := range p.MutatingAdmissionPolicies {
-			// build the policy+binding data
-			data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
-			for _, b := range p.MutatingAdmissionPolicyBindings {
-				if b.Spec.PolicyName == mapPolicy.Name {
-					data.AddBinding(b)
+			for _, mapPolicy := range p.MutatingAdmissionPolicies {
+				// build the policy+binding data
+				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
+				for _, b := range p.MutatingAdmissionPolicyBindings {
+					if b.Spec.PolicyName == mapPolicy.Name {
+						data.AddBinding(b)
+					}
 				}
+				// apply the MAP
+				mutateResponse, err := admissionpolicy.Mutate(*data, resource, gvr, p.Client, p.NamespaceSelectorMap, !p.Cluster)
+				if err != nil {
+					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
+					continue
+				}
+				if mutateResponse.IsEmpty() {
+					continue
+				}
+				if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
+					log.Log.Error(err, "failed to log MAP mutation")
+				}
+				resource = mutateResponse.PatchedResource
+				responses = append(responses, mutateResponse)
 			}
-			// apply the MAP
-
-			mutateResponse, err := admissionpolicy.Mutate(*data, resource, gvr, p.Client, p.NamespaceSelectorMap, !p.Cluster)
-			if err != nil {
-				log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
-				continue
-			}
-			if mutateResponse.IsEmpty() {
-				continue
-			}
-			// this single call both increments the counter and prints the patch
-			if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
-				log.Log.Error(err, "failed to log MAP mutation")
-			}
-			// update resource for the next loop
-			resource = mutateResponse.PatchedResource
-			// include in the final result list
-			responses = append(responses, mutateResponse)
 		}
 	}
-
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	if len(p.ValidatingAdmissionPolicies) != 0 {
