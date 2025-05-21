@@ -34,7 +34,7 @@ spec:
       restartPolicy: Never
       {{- with .Values.webhooksCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       containers:
         - name: kubectl
