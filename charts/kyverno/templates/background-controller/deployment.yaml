@@ -34,7 +34,7 @@ spec:
     spec:
       {{- with .Values.backgroundController.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.backgroundController.podSecurityContext }}
       securityContext:
@@ -120,7 +120,8 @@ spec:
             {{- end }}
             {{- end }}
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
-            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
+            - --imagePullSecrets={{- $secretNames := concat (keys .Values.imagePullSecrets | sortAlpha) (.Values.existingImagePullSecrets | sortAlpha) -}}
+              {{- join "," $secretNames -}}
             {{- end }}
             - --resyncPeriod={{ .Values.backgroundController.resyncPeriod | default .Values.global.resyncPeriod }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.backgroundController.featuresOverride)
