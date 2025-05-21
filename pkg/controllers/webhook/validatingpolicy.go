@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"maps"
 	"path"
 	"slices"
 
@@ -73,7 +74,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				if err != nil {
 					continue
 				}
-				for config, policy := range policies {
+				for _, config := range slices.Sorted(maps.Keys(policies)) {
+					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
 						autogen.CreateMatchConditions(config, policy.Targets, policy.Spec.MatchConditions)...,
@@ -88,7 +90,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				if err != nil {
 					continue
 				}
-				for config, policy := range policies {
+				for _, config := range slices.Sorted(maps.Keys(policies)) {
+					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
 						autogen.CreateMatchConditions(config, policy.Targets, policy.Spec.MatchConditions)...,
