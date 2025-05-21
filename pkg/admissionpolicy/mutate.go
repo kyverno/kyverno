@@ -131,7 +131,6 @@ func mutateResource(
 
 			if binding != nil {
 				logger.V(4).Info("matched MAP binding", "policy", policy.GetName(), "binding", binding.GetName())
-
 			}
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 			continue
