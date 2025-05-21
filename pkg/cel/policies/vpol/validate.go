@@ -24,7 +24,7 @@ func Validate(vpol *v1alpha1.ValidatingPolicy) ([]string, error) {
 		return nil, nil
 	}
 
-	for _, e := range errList.ToAggregate().Errors() {
+	for _, e := range err.ToAggregate().Errors() {
 		warnings = append(warnings, e.Error())
 	}
 
