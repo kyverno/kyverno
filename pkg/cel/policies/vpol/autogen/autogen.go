@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"cmp"
 	"encoding/json"
 	"maps"
 	"slices"
@@ -50,6 +51,21 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
+		slices.SortFunc(targets, func(a, b policiesv1alpha1.Target) int {
+			if x := cmp.Compare(a.Group, b.Group); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Version, b.Version); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Resource, b.Resource); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Kind, b.Kind); x != 0 {
+				return x
+			}
+			return 0
+		})
 		rules[config] = policiesv1alpha1.ValidatingPolicyAutogen{
 			Targets: targets,
 			Spec:    spec,
