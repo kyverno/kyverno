@@ -556,7 +556,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
+        k8s-version: [v1.29.14, v1.30.10, v1.31.6, v1.32.2]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -587,6 +587,26 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-policies
+          upgrade-scenario: ${{ matrix.upgrade }}
+
+  policy-exceptions-disabled:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.29.14, v1.30.10, v1.31.6, v1.32.2]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: default
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: policy-exceptions-disabled
           upgrade-scenario: ${{ matrix.upgrade }}
 
   verify-manifests:
@@ -1110,6 +1130,7 @@ jobs:
       - globalcontext
       - lease
       - mutate
+      - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
       - rbac
@@ -1150,6 +1171,7 @@ jobs:
       - globalcontext
       - lease
       - mutate
+      - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
       - rbac
