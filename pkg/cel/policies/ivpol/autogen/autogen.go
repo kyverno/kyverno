@@ -37,8 +37,8 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 	}
 	spec := ivpol.Spec
 	rules := map[string]policiesv1alpha1.ImageValidatingPolicyAutogen{}
-	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
-		targets := mapping[replacements]
+	for _, config := range slices.Sorted(maps.Keys(mapping)) {
+		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations)
@@ -47,18 +47,14 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 		if err != nil {
 			return nil, err
 		}
-		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[replacements]...)
+		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[config]...)
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		rules[ControllerKeys(replacements, ivpol.GetName())] = policiesv1alpha1.ImageValidatingPolicyAutogen{
+		rules[config] = policiesv1alpha1.ImageValidatingPolicyAutogen{
 			Targets: targets,
 			Spec:    spec,
 		}
 	}
 	return rules, nil
-}
-
-func ControllerKeys(prefix, polName string) string {
-	return prefix + "-" + polName
 }

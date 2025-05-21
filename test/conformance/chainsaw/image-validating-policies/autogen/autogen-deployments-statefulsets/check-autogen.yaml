@@ -5,7 +5,7 @@ metadata:
 status:
   autogen:
     configs:
-      defaults-ivpol-autogen-sample:
+      defaults:
         spec:
           attestations:
           - name: sbom

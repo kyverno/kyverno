@@ -36,8 +36,8 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 		}
 	}
 	rules := map[string]policiesv1alpha1.ValidatingPolicyAutogen{}
-	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
-		targets := mapping[replacements]
+	for _, config := range slices.Sorted(maps.Keys(mapping)) {
+		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations)
@@ -46,11 +46,11 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 		if err != nil {
 			return nil, err
 		}
-		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[replacements]...)
+		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[config]...)
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		rules[replacements] = policiesv1alpha1.ValidatingPolicyAutogen{
+		rules[config] = policiesv1alpha1.ValidatingPolicyAutogen{
 			Targets: targets,
 			Spec:    spec,
 		}

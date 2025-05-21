@@ -5,7 +5,7 @@ metadata:
 status:
   autogen:
     configs:
-      defaults-ivpol-autogen-sample:
+      defaults:
         spec:
           attestations:
           - name: sbom
@@ -78,7 +78,7 @@ status:
             verifyDigest: true
           webhookConfiguration:
             timeoutSeconds: 20
-      cronjobs-ivpol-autogen-sample:
+      cronjobs:
         spec:
           attestations:
           - name: sbom
