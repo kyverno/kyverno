@@ -78,6 +78,11 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1"},
 	}
+	generatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"generatingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1alpha1"},
+	}
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
@@ -785,6 +790,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
 					},
+				}, {
+					Rule: generatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
 				}},
 				FailurePolicy:           &fail,
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -874,7 +885,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 	validate := buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyMutateWebhookName,
-		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.MutatingWebhookServicePath,
+		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
 		ivpols)
@@ -1070,7 +1081,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
 		config.ValidatingPolicyWebhookName,
-		config.PolicyServicePath+config.ValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
+		"/vpol",
 		c.servicePort,
 		caBundle,
 		pols)...)
@@ -1082,7 +1093,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyValidateWebhookName,
-		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
+		"/ivpol/validate",
 		c.servicePort,
 		caBundle,
 		ivpols)...)
