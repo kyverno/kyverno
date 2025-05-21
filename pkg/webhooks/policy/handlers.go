@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	gpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/gpol"
 	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
@@ -48,6 +49,14 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		warnings, err := eval.Validate(ivpol, h.client.GetKubeClient().CoreV1().Secrets(""))
 		if err != nil {
 			logger.Error(err, "validating policy validation errors")
+		}
+		return admissionutils.Response(request.UID, err, warnings...)
+	}
+
+	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		warnings, err := gpolvalidation.Validate(gpol)
+		if err != nil {
+			logger.Error(err, "generating policy validation errors")
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
