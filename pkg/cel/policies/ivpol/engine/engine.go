@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -27,9 +28,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type (
+	EngineRequest  = engine.EngineRequest
+	EngineResponse = engine.EngineResponse
+	Predicate      = func(policiesv1alpha1.ImageValidatingPolicy) bool
+)
+
 type Engine interface {
-	HandleMutating(context.Context, engine.EngineRequest) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error)
-	HandleValidating(context.Context, engine.EngineRequest) (eval.ImageVerifyEngineResponse, error)
+	HandleMutating(context.Context, EngineRequest, Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error)
+	HandleValidating(context.Context, EngineRequest, Predicate) (eval.ImageVerifyEngineResponse, error)
 }
 
 type NamespaceResolver = engine.NamespaceResolver
@@ -58,7 +65,7 @@ func NewEngine(
 	}
 }
 
-func (e *engineImpl) HandleValidating(ctx context.Context, request engine.EngineRequest) (eval.ImageVerifyEngineResponse, error) {
+func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, error) {
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -100,7 +107,18 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request engine.Engine
 		namespace = e.nsResolver(ns)
 	}
 	// evaluate policies
-	responses, err := e.handleValidation(policies, attr, namespace)
+	var relevant []Policy
+	if predicate != nil {
+		for _, policy := range policies {
+			if !predicate(*policy.Policy) {
+				continue
+			}
+			relevant = append(relevant, policy)
+		}
+	} else {
+		relevant = policies
+	}
+	responses, err := e.handleValidation(relevant, attr, namespace)
 	if err != nil {
 		return response, err
 	}
@@ -108,10 +126,7 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request engine.Engine
 	return response, nil
 }
 
-func (e *engineImpl) HandleMutating(
-	ctx context.Context,
-	request engine.EngineRequest,
-) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
+func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -153,7 +168,18 @@ func (e *engineImpl) HandleMutating(
 		namespace = e.nsResolver(ns)
 	}
 	// evaluate policies
-	responses, patches, err := e.handleMutation(ctx, policies, attr, &request.Request, namespace, request.Context)
+	var relevant []Policy
+	if predicate != nil {
+		for _, policy := range policies {
+			if !predicate(*policy.Policy) {
+				continue
+			}
+			relevant = append(relevant, policy)
+		}
+	} else {
+		relevant = policies
+	}
+	responses, patches, err := e.handleMutation(ctx, relevant, attr, &request.Request, namespace, request.Context)
 	if err != nil {
 		return response, nil, err
 	}
@@ -244,7 +270,7 @@ func (e *engineImpl) handleMutation(
 					} else if result.Result {
 						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
 					} else {
-						response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, nil)
+						response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, result.AuditAnnotations)
 					}
 				}
 			}

@@ -78,6 +78,11 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1"},
 	}
+	generatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"generatingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1alpha1"},
+	}
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
@@ -785,6 +790,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
 					},
+				}, {
+					Rule: generatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
 				}},
 				FailurePolicy:           &fail,
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -866,7 +877,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return nil
 	}
 
-	ivpols, err := c.getImageValidatingPolicy()
+	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
 	}
@@ -874,7 +885,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 	validate := buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyMutateWebhookName,
-		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.MutatingWebhookServicePath,
+		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
 		ivpols)
@@ -1070,19 +1081,19 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
 		config.ValidatingPolicyWebhookName,
-		config.PolicyServicePath+config.ValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
+		"/vpol",
 		c.servicePort,
 		caBundle,
 		pols)...)
 
-	ivpols, err := c.getImageValidatingPolicy()
+	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
 	}
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyValidateWebhookName,
-		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
+		"/ivpol/validate",
 		c.servicePort,
 		caBundle,
 		ivpols)...)
@@ -1209,7 +1220,6 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	if err != nil {
 		return nil, err
 	}
-
 	vpols := make([]engineapi.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
 		if vpol.Spec.AdmissionEnabled() && !vpol.GetStatus().Generated {
@@ -1219,12 +1229,11 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	return vpols, nil
 }
 
-func (c *controller) getImageValidatingPolicy() ([]engineapi.GenericPolicy, error) {
+func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, error) {
 	policies, err := c.ivpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-
 	ivpols := make([]engineapi.GenericPolicy, 0)
 	for _, ivpol := range policies {
 		if ivpol.Spec.AdmissionEnabled() {

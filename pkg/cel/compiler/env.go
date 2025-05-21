@@ -7,7 +7,7 @@ import (
 	"k8s.io/apiserver/pkg/cel/library"
 )
 
-func NewEnv() (*cel.Env, error) {
+func NewBaseEnv() (*cel.Env, error) {
 	// create new cel env
 	return cel.NewEnv(
 		// configure env
@@ -31,6 +31,16 @@ func NewEnv() (*cel.Env, error) {
 		library.Lists(),
 		library.Regex(),
 		library.URLs(),
-		image.ImageLib(),
+	)
+}
+
+func NewMatchImageEnv() (*cel.Env, error) {
+	base, err := NewBaseEnv()
+	if err != nil {
+		return nil, err
+	}
+	return base.Extend(
+		cel.Variable(ImageRefKey, cel.StringType),
+		image.Lib(),
 	)
 }

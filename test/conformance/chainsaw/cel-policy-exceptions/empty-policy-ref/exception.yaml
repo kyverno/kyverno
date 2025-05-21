@@ -2,7 +2,6 @@ apiVersion: policies.kyverno.io/v1alpha1
 kind: PolicyException
 metadata:
   name: pod-security-exception
-  namespace: delta
 spec:
   matchConditions:
     - name: "check-namespace"
