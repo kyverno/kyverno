@@ -13,5 +13,6 @@ const (
 	OldObjectKey       = "oldObject"
 	RequestKey         = "request"
 	ResourceKey        = "resource"
+	GeneratorKey       = "generator"
 	VariablesKey       = "variables"
 )
