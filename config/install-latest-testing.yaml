@@ -48572,6 +48572,7 @@ spec:
                         of resources to be generated.
                       type: string
                   type: object
+                minItems: 1
                 type: array
               matchConditions:
                 description: |-
@@ -48997,6 +48998,8 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+            required:
+            - generate
             type: object
         required:
         - spec
