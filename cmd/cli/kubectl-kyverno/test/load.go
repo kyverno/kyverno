@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -74,15 +73,6 @@ func LoadTest(fs billy.Filesystem, path string) TestCase {
 			Err:  err,
 		}
 	}
-
-	if test.APIVersion != "cli.kyverno.io/v1alpha1" || test.Kind != "Test" {
-		return TestCase{
-			Path: path,
-			Fs:   fs,
-			Err:  fmt.Errorf("invalid or missing schema: test must include apiVersion: cli.kyverno.io/v1alpha1 and kind: Test"),
-		}
-	}
-
 	cleanTest(&test)
 	return TestCase{
 		Path: path,
