@@ -1,21 +1,21 @@
 package variables
 
 import (
-	"github.com/kyverno/go-jmespath"
+	"errors"
+	"strings"
+
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 )
 
 func CheckNotFoundErr(err error) bool {
 	if err != nil {
-		switch err.(type) {
-		case jmespath.NotFoundError:
+		if strings.Contains(err.Error(), "Unknown key") {
 			return true
-		case enginecontext.InvalidVariableError:
-			return false
-		default:
+		}
+		if errors.As(err, &enginecontext.InvalidVariableError{}) {
 			return false
 		}
+		return false
 	}
-
 	return true
 }

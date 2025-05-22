@@ -18,7 +18,7 @@ package v2alpha1
 import (
 	"time"
 
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/jmespath-community/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"

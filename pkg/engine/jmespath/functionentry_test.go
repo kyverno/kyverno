@@ -3,7 +3,7 @@ package jmespath
 import (
 	"testing"
 
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/jmespath-community/go-jmespath"
 )
 
 func TestFunctionEntry_String(t *testing.T) {

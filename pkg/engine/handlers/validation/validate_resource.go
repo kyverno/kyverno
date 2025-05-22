@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -290,11 +289,8 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 
 func (v *validator) loadContext(ctx context.Context) error {
 	if err := v.contextLoader(ctx, v.contextEntries, v.policyContext.JSONContext()); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
-			v.log.V(3).Info("failed to load context", "reason", err.Error())
-		} else {
-			v.log.Error(err, "failed to load context")
-		}
+		// the NotFoundError type doesn't exist in community jmespath, so no type assertion here
+		v.log.V(3).Info("failed to load context", "error", err.Error())
 		return err
 	}
 	return nil
