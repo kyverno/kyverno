@@ -13,11 +13,11 @@ status:
               - deployments
               - statefulsets
           matchConditions:
-          - expression: '!((object.apiVersion == ''apps/v1'' && object.kind ==''Deployment'')
-              || (object.apiVersion == ''apps/v1'' && object.kind ==''StatefulSet''))
-              || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
-              && object.spec.template.metadata.labels.prod == ''true'')'
-            name: autogen-defaults-check-prod-label
+          - expression: >-
+              has(object.spec.template.metadata.labels)
+              && has(object.spec.template.metadata.labels.prod)
+              && object.spec.template.metadata.labels.prod == 'true'
+            name: check-prod-label
           matchConstraints:
             resourceRules:
             - apiGroups:
