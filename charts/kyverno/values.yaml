@@ -502,6 +502,12 @@ test:
     seccompProfile:
       type: RuntimeDefault
 
+  # -- List of node taints to tolerate for test pods
+  tolerations:
+    - key: env
+      operator: Exists
+      effect: NoSchedule
+
 # -- Additional labels
 customLabels: {}
 
