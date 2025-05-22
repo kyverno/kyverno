@@ -1,0 +1,16 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: missing-match-constraints
+spec:
+  steps:
+  - name: Apply the policy
+    try:
+    - script:
+        content: kubectl apply -f policy.yaml
+        check:
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          (trim_space($stderr)): |-
+            Warning: spec.matchConstraints: Required value: a matchConstraints with at least one resource rule is required
+            Error from server: error when creating "policy.yaml": admission webhook "validate-policy.kyverno.svc" denied the request: spec.matchConstraints: Required value: a matchConstraints with at least one resource rule is required
