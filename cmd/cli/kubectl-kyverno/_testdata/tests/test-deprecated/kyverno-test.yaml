@@ -1,0 +1,11 @@
+name: deprecated-test
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: some-policy
+    rule: some-rule
+    resource: some-resource
+    kind: Pod
+    result: pass

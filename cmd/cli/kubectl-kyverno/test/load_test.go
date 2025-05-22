@@ -317,7 +317,13 @@ func TestLoadTest(t *testing.T) {
 			Path: "kyverno-test-bad.yaml",
 		},
 		wantErr: true,
-	}}
+	}, {
+		name:    "deprecated schema - missing apiVersion and kind",
+		path:    "../_testdata/tests/test-deprecated/kyverno-test.yaml",
+		want:    TestCase{Path: "../_testdata/tests/test-deprecated/kyverno-test.yaml"},
+		wantErr: true,
+	},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := LoadTest(tt.fs, tt.path)
