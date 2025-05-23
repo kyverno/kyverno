@@ -4,6 +4,7 @@ import (
 	"maps"
 	"slices"
 
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -31,7 +32,7 @@ var ReplacementsMap = map[string][]Replacement{
 
 var ConfigsMap = map[string]*Config{
 	"daemonsets": {
-		Target: Target{
+		Target: policiesv1alpha1.Target{
 			Group:    "apps",
 			Version:  "v1",
 			Resource: "daemonsets",
@@ -40,7 +41,7 @@ var ConfigsMap = map[string]*Config{
 		ReplacementsRef: AutogenDefaults,
 	},
 	"deployments": {
-		Target: Target{
+		Target: policiesv1alpha1.Target{
 			Group:    "apps",
 			Version:  "v1",
 			Resource: "deployments",
@@ -49,7 +50,7 @@ var ConfigsMap = map[string]*Config{
 		ReplacementsRef: AutogenDefaults,
 	},
 	"replicasets": {
-		Target: Target{
+		Target: policiesv1alpha1.Target{
 			Group:    "apps",
 			Version:  "v1",
 			Resource: "replicasets",
@@ -58,7 +59,7 @@ var ConfigsMap = map[string]*Config{
 		ReplacementsRef: AutogenDefaults,
 	},
 	"statefulsets": {
-		Target: Target{
+		Target: policiesv1alpha1.Target{
 			Group:    "apps",
 			Version:  "v1",
 			Resource: "statefulsets",
@@ -67,7 +68,7 @@ var ConfigsMap = map[string]*Config{
 		ReplacementsRef: AutogenDefaults,
 	},
 	"jobs": {
-		Target: Target{
+		Target: policiesv1alpha1.Target{
 			Group:    "batch",
 			Version:  "v1",
 			Resource: "jobs",
@@ -76,7 +77,7 @@ var ConfigsMap = map[string]*Config{
 		ReplacementsRef: AutogenDefaults,
 	},
 	"cronjobs": {
-		Target: Target{
+		Target: policiesv1alpha1.Target{
 			Group:    "batch",
 			Version:  "v1",
 			Resource: "cronjobs",

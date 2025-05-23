@@ -7,7 +7,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
 const libraryName = "kyverno.http"
@@ -17,10 +16,6 @@ type lib struct{}
 func Lib() cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{})
-}
-
-func Types() []*apiservercel.DeclType {
-	return []*apiservercel.DeclType{}
 }
 
 func (*lib) LibraryName() string {
@@ -47,29 +42,29 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"Get": {
 			cel.MemberOverload(
-				"get_request_string",
+				"http_get_string",
 				[]*cel.Type{ContextType, types.StringType},
-				types.NewMapType(types.StringType, types.AnyType),
+				types.AnyType,
 				cel.BinaryBinding(impl.get_request_string),
 			),
 			cel.MemberOverload(
-				"get_request_with_headers_string",
+				"http_get_string_headers",
 				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.StringType)},
-				types.NewMapType(types.StringType, types.AnyType),
+				types.AnyType,
 				cel.FunctionBinding(impl.get_request_with_headers_string),
 			),
 		},
 		"Post": {
 			cel.MemberOverload(
-				"post_request_string",
-				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
-				types.NewMapType(types.StringType, types.AnyType),
+				"http_post_string_any",
+				[]*cel.Type{ContextType, types.StringType, types.AnyType},
+				types.AnyType,
 				cel.FunctionBinding(impl.post_request_string),
 			),
 			cel.MemberOverload(
-				"post_request__with_headers_string",
-				[]*cel.Type{ContextType, types.StringType, types.NewMapType(types.StringType, types.AnyType), types.NewMapType(types.StringType, types.StringType)},
-				types.NewMapType(types.StringType, types.AnyType),
+				"http_post_string_any_headers",
+				[]*cel.Type{ContextType, types.StringType, types.AnyType, types.NewMapType(types.StringType, types.StringType)},
+				types.AnyType,
 				cel.FunctionBinding(impl.post_request_with_headers_string),
 			),
 		},
