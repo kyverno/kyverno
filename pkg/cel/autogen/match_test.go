@@ -3,6 +3,7 @@ package autogen
 import (
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
@@ -10,7 +11,7 @@ import (
 func TestCreateMatchConstraints(t *testing.T) {
 	tests := []struct {
 		name       string
-		targets    []Target
+		targets    []policiesv1alpha1.Target
 		operations []admissionregistrationv1.OperationType
 		want       *admissionregistrationv1.MatchResources
 	}{{
@@ -19,12 +20,12 @@ func TestCreateMatchConstraints(t *testing.T) {
 		want:       nil,
 	}, {
 		name:       "empty targets",
-		targets:    []Target{},
+		targets:    []policiesv1alpha1.Target{},
 		operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
 		want:       nil,
 	}, {
 		name: "nil operations",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",
@@ -33,7 +34,7 @@ func TestCreateMatchConstraints(t *testing.T) {
 		want: nil,
 	}, {
 		name: "empty operations",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",
@@ -43,7 +44,7 @@ func TestCreateMatchConstraints(t *testing.T) {
 		want:       nil,
 	}, {
 		name: "single target",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",
@@ -64,7 +65,7 @@ func TestCreateMatchConstraints(t *testing.T) {
 		},
 	}, {
 		name: "multiple targets",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",
@@ -129,7 +130,7 @@ func TestCreateMatchConditions(t *testing.T) {
 	tests := []struct {
 		name         string
 		replacements string
-		targets      []Target
+		targets      []policiesv1alpha1.Target
 		conditions   []admissionregistrationv1.MatchCondition
 		want         []admissionregistrationv1.MatchCondition
 	}{{
@@ -141,7 +142,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		want: nil,
 	}, {
 		name:    "empty targets",
-		targets: []Target{},
+		targets: []policiesv1alpha1.Target{},
 		conditions: []admissionregistrationv1.MatchCondition{{
 			Name:       "foo",
 			Expression: "something",
@@ -149,7 +150,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		want: nil,
 	}, {
 		name: "nil conditions",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",
@@ -158,7 +159,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		want: nil,
 	}, {
 		name: "empty conditions",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",
@@ -168,7 +169,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		want:       []admissionregistrationv1.MatchCondition{},
 	}, {
 		name: "single target",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",
@@ -184,7 +185,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		}},
 	}, {
 		name: "multiple targets",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",
@@ -206,7 +207,7 @@ func TestCreateMatchConditions(t *testing.T) {
 	}, {
 		name:         "with name",
 		replacements: "test",
-		targets: []Target{{
+		targets: []policiesv1alpha1.Target{{
 			Group:    "foo",
 			Version:  "v1",
 			Resource: "bars",

@@ -56,6 +56,7 @@ kyverno apply [flags]
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
   -o, --output string                      Prints the mutated/generated resources in provided file/directory
       --output-format string               Specifies the policy report format (json or yaml). Default: yaml. (default "yaml")
+      --password string                    Password for connecting to git repository
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
       --registry                           If set to true, access the image registry using local docker credentials to populate external data
       --remove-color                       Remove any color from output
@@ -67,6 +68,7 @@ kyverno apply [flags]
       --target-resource strings            Path to individual files containing target resources files for policies that have mutate existing
       --target-resources strings           Path to a directory containing target resources files for policies that have mutate existing
   -u, --userinfo string                    Admission Info including Roles, Cluster Roles and Subjects
+      --username string                    Username for connecting to git repository
   -f, --values-file string                 File containing values for policy variables
       --warn-exit-code int                 Set the exit code for warnings; if failures or errors are found, will exit 1
       --warn-no-pass                       Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag
