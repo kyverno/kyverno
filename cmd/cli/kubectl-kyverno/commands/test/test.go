@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -99,6 +100,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
+	resources = ProcessResources(resources)
+
 	uniques, duplicates := resource.RemoveDuplicates(resources)
 	if len(duplicates) > 0 {
 		for dup := range duplicates {
@@ -121,7 +124,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
-
 	targets := []runtime.Object{}
 	for _, t := range targetResources {
 		targets = append(targets, t)
@@ -498,4 +500,42 @@ func applyImageValidatingPolicies(
 
 func generateResourceKey(resource *unstructured.Unstructured) string {
 	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
+}
+
+// convertNumericValuesToFloat64 recursively converts all numeric values in the object to float64.
+func convertNumericValuesToFloat64(obj interface{}) interface{} {
+	switch v := obj.(type) {
+	case map[string]interface{}:
+		for key, val := range v {
+			v[key] = convertNumericValuesToFloat64(val)
+		}
+		return v
+	case []interface{}:
+		newSlice := make([]interface{}, len(v))
+		for i, val := range v {
+			newSlice[i] = convertNumericValuesToFloat64(val)
+		}
+		return newSlice
+	case int:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	default:
+		rv := reflect.ValueOf(v)
+		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+			elem := rv.Elem().Interface()
+			return convertNumericValuesToFloat64(elem)
+		}
+		return v
+	}
+}
+
+// ProcessResources processes each resource to convert numeric values to float64.
+func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Unstructured {
+	for _, res := range resources {
+		res.Object = convertNumericValuesToFloat64(res.Object).(map[string]interface{})
+	}
+	return resources
 }
