@@ -23,10 +23,6 @@ type MutatingPolicy struct {
 	Status MutatingPolicyStatus `json:"status,omitempty"`
 }
 
-func (s *MutatingPolicy) GetSpec() *MutatingPolicySpec {
-	return &s.Spec
-}
-
 type MutatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
