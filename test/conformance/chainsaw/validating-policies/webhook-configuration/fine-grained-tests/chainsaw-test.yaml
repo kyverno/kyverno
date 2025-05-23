@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: match-conditions
+spec:
+  steps:
+  - name: create policies
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy1-finegrained.yaml
+  - name: create policies
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy2-basic.yaml
+  - name: create policies
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy3-basic.yaml
+          # - policy1-finegrained.yaml
+          # - policy2-basic.yaml
+          # - policy3-basic.yaml
+  # - name: wait-policy-ready
+  #   use:
+  #     template: ../../../_step-templates/validating-policy-ready.yaml
+  #     with:
+  #       bindings:
+  #       - name: name
+  #         value: disallow-privilege-escalation
+  # - name: wait-policy-ready
+  #   use:
+  #     template: ../../../_step-templates/validating-policy-ready.yaml
+  #     with:
+  #       bindings:
+  #       - name: name
+  #         value: check-deployment-labels-2
+  # - name: wait-policy-ready
+  #   use:
+  #     template: ../../../_step-templates/validating-policy-ready.yaml
+  #     with:
+  #       bindings:
+  #       - name: name
+  #         value: check-deployment-labels-3
+
+          # - disallow-privilege-escalation
+          # - check-deployment-labels-2
+          # - check-deployment-labels-3
+  - name: check webhooks
+    try:
+    - assert:
+        file: webhooks.yaml
