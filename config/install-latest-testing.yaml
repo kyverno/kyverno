@@ -55951,6 +55951,7 @@ rules:
       - validatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
+      - generatingpolicies
     verbs:
       - create
       - delete
