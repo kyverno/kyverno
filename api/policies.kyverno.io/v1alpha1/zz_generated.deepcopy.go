@@ -526,6 +526,11 @@ func (in *GeneratingPolicySpec) DeepCopyInto(out *GeneratingPolicySpec) {
 		*out = new(GenerateConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.WebhookConfiguration != nil {
+		in, out := &in.WebhookConfiguration, &out.WebhookConfiguration
+		*out = new(WebhookConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Generation != nil {
 		in, out := &in.Generation, &out.Generation
 		*out = make([]Generation, len(*in))
