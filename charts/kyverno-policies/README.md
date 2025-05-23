@@ -89,6 +89,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | policyPreconditions | object | `{}` | Add preconditions to individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map. |
 | autogenControllers | string | `""` | Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`) For more info https://kyverno.io/docs/writing-policies/autogen/. |
 | nameOverride | string | `nil` | Name override. |
+| customAnnotations | object | `{}` | Additional Annotations. |
 | customLabels | object | `{}` | Additional labels. |
 | background | bool | `true` | Policies background mode |
 | skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |

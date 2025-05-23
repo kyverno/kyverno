@@ -19,6 +19,7 @@ metadata:
     policies.kyverno.io/description: >-
       SELinux options can be used to escalate privileges and should not be allowed. This policy
       ensures that the `seLinuxOptions` field is undefined.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}

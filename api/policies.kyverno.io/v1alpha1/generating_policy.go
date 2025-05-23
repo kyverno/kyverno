@@ -19,6 +19,29 @@ type GeneratingPolicy struct {
 	Spec              GeneratingPolicySpec `json:"spec"`
 }
 
+func (s *GeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+	return *s.Spec.MatchConstraints
+}
+
+func (s *GeneratingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.Spec.MatchConditions
+}
+
+func (s *GeneratingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	return admissionregistrationv1.Ignore
+}
+
+func (s *GeneratingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+	return s.Spec.WebhookConfiguration
+}
+
+func (s *GeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
+	return s.Spec.Variables
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -75,6 +98,10 @@ type GeneratingPolicySpec struct {
 	// GenerateConfiguration defines the configuration for the policy evaluation.
 	// +optional
 	GenerateConfiguration *GenerateConfiguration `json:"evaluation,omitempty"`
+
+	// WebhookConfiguration defines the configuration for the webhook.
+	// +optional
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
 
 	// Generation defines a set of CEL expressions that will be evaluated to generate resources.
 	// Required.

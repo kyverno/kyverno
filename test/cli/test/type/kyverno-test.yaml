@@ -1,0 +1,29 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: testing-type
+policies:
+- ./policy1.yaml
+- ./policy2.yaml
+- ./policy3.yaml
+resources:
+- ./resource.yaml
+results:
+- kind: Deployment
+  policy: testcase-1
+  resources:
+  - testing
+  result: pass
+  rule: test-rule
+- kind: Deployment
+  policy: testcase-2
+  resources:
+  - testing
+  result: pass
+  rule: test-rule
+- kind: Deployment
+  policy: testcase-3
+  resources:
+  - testing
+  result: pass
+  rule: test-rule

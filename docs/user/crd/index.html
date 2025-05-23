@@ -10476,6 +10476,20 @@ GenerateConfiguration
 </tr>
 <tr>
 <td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>generate</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.Generation">
@@ -12296,6 +12310,20 @@ GenerateConfiguration
 </tr>
 <tr>
 <td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>generate</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.Generation">
@@ -12474,6 +12502,18 @@ string
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>targets</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.Target">
+[]Target
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
 <tr>
 <td>
 <code>spec</code><br/>
@@ -13664,6 +13704,66 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.Target">Target
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>group</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicyAutogen">ValidatingPolicyAutogen
 </h3>
 <p>
@@ -13680,6 +13780,18 @@ string
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>targets</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.Target">
+[]Target
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
 <tr>
 <td>
 <code>spec</code><br/>
@@ -14112,6 +14224,7 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicySpec">GeneratingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)

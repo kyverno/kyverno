@@ -579,6 +579,35 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>generate</code>
           
           <span style="color:blue;"> *</span>
@@ -4126,6 +4155,35 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>generate</code>
           
           <span style="color:blue;"> *</span>
@@ -4494,6 +4552,36 @@ apply a regexp for matching.</p>
         
 
   
+  
+    
+    
+      <tr>
+        <td><code>targets</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Target">
+                <span style="font-family: monospace">[]Target</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
   
     
     
@@ -6890,6 +6978,154 @@ fully supported that should likely be the preferred way to handle these.</p>
     </table>
   
 
+  <H3 id="policies-kyverno-io-v1alpha1-Target">Target
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>group</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>version</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kind</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">ValidatingPolicyAutogen
     </H3>
 
@@ -6918,6 +7154,36 @@ fully supported that should likely be the preferred way to handle these.</p>
         
 
   
+  
+    
+    
+      <tr>
+        <td><code>targets</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Target">
+                <span style="font-family: monospace">[]Target</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
   
     
     
@@ -7785,6 +8051,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">GeneratingPolicySpec</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
         <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)

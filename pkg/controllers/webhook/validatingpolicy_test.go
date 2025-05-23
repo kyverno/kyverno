@@ -416,16 +416,16 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
-							Name:       "check-prod-label",
-							Expression: "!(object.kind == 'Pod') || has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'",
-						},
-						{
 							Name:       "autogen-check-prod-label",
-							Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet') || (object.apiVersion == 'batch/v1' && object.kind =='Job')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
+							Expression: "!((object.apiVersion == 'v1' && object.kind =='Pod')) || (has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true')",
 						},
 						{
 							Name:       "autogen-cronjobs-check-prod-label",
 							Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
+						},
+						{
+							Name:       "autogen-defaults-check-prod-label",
+							Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet') || (object.apiVersion == 'batch/v1' && object.kind =='Job')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
 						},
 					},
 				},
@@ -455,15 +455,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules), fmt.Sprintf("expected: %v,\n got: %v", expect.Rules, webhooks[i].Rules))
 
 				if expect.MatchConditions != nil {
-					for m, mExpect := range expect.MatchConditions {
-						for n, mActual := range webhooks[i].MatchConditions {
-							if mExpect.Name != mActual.Name {
-								continue
-							}
-							assert.Equal(t, expect.MatchConditions[m], webhooks[i].MatchConditions[n])
-						}
-					}
-
+					assert.Equal(t, expect.MatchConditions, webhooks[i].MatchConditions)
 				}
 				if expect.MatchPolicy != nil {
 					assert.Equal(t, expect.MatchPolicy, webhooks[i].MatchPolicy)
