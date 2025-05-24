@@ -20,6 +20,7 @@ metadata:
       Access to host ports allows potential snooping of network traffic and should not be
       allowed, or at minimum restricted to a known list. This policy ensures the `hostPort`
       field is unset or set to `0`.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}
