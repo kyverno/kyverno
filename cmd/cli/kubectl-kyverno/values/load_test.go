@@ -4,9 +4,14 @@ import (
 	"os"
 	"reflect"
 	"testing"
-
+	
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 )
 
@@ -82,7 +87,6 @@ func Test_readFile(t *testing.T) {
 		})
 	}
 }
-
 func TestLoad(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -146,4 +150,34 @@ func TestLoad(t *testing.T) {
 			}
 		})
 	}
+}
+func TestLoad_ConfigMap(t *testing.T) {
+	fs := memfs.New()
+
+	cm := corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cm",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"FOO": "bar",
+			"NUM": "42",
+		},
+	}
+	yamlBytes, err := yaml.Marshal(cm)
+	require.NoError(t, err)
+	file, err := fs.Create("cm.yaml")
+	require.NoError(t, err)
+	defer file.Close()
+	_, err = file.Write(yamlBytes)
+	require.NoError(t, err)
+	
+	vals, err := Load(fs, "/cm.yaml")
+	require.NoError(t, err)
+
+	assert.Equal(t, "Values", vals.TypeMeta.Kind)
+	assert.Equal(t, "default", vals.ObjectMeta.Namespace)
+	assert.Equal(t, "bar", vals.ValuesSpec.GlobalValues["FOO"])
+	assert.Equal(t, "42", vals.ValuesSpec.GlobalValues["NUM"])
 }
