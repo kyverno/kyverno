@@ -1,0 +1,62 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: http-cel
+spec:
+  namespace: http-cel-test
+  skipDelete: true
+  steps:
+  - name: create namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: deploy test server
+    try:
+    - apply:
+        file: test-server.yaml
+    - assert:
+        file: test-server.yaml
+  - name: wait for test server
+    try:
+    - script:
+        content: |
+          kubectl wait --for=condition=available deployment/test-server -n http-cel-test --timeout=120s
+          echo "Test server is available"
+          kubectl get pods -l app=test-server -n http-cel-test -o wide
+          echo "Test server pod details"
+          kubectl describe pods -l app=test-server -n http-cel-test
+          echo "Test server logs"
+          kubectl logs -l app=test-server -n http-cel-test
+          echo "Test server service"
+          kubectl get svc test-server -n http-cel-test -o wide
+          echo "Testing server endpoint"
+          kubectl run curl --image=curlimages/curl -n http-cel-test -- curl -s http://test-server:8080/health
+          sleep 30
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: http-cel-test
+  - name: create test pod
+    try:
+    - apply:
+        file: test-pod.yaml
+    - assert:
+        file: test-pod.yaml
+    - script:
+        content: |
+          echo "Test pod details"
+          kubectl get pods test-pod -n http-cel-test -o wide
+          echo "Test pod description"
+          kubectl describe pods test-pod -n http-cel-test
+          echo "Test server logs"
+          kubectl logs -l app=test-server -n http-cel-test 

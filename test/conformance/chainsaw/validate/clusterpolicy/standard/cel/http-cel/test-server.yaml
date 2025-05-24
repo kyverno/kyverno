@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-server
+  namespace: http-cel-test
+spec:
+  selector:
+    matchLabels:
+      app: test-server
+  template:
+    metadata:
+      labels:
+        app: test-server
+    spec:
+      containers:
+      - name: test-server
+        image: kyverno/test-server:latest
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-server
+  namespace: http-cel-test
+spec:
+  selector:
+    app: test-server
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-server-config
+  namespace: http-cel-test
+data:
+  health: |
+    {"status": "ok"}
+  echo: |
+    {"method": "GET"}
+  auth: |
+    {"authenticated": true}
+  data: |
+    {"success": true} 
