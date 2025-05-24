@@ -446,7 +446,9 @@ func applyImageValidatingPolicies(
 			Resource:       *resource,
 			PolicyResponse: engineapi.PolicyResponse{},
 		}
-
+		if len(engineResponse.Policies) == 0 {
+			continue
+		}
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))

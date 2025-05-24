@@ -312,18 +312,19 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 			}
 			for _, r := range reps.Policies {
-				if len(r.Rules) > 0 {
-					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
-						PolicyResponse: engineapi.PolicyResponse{
-							Rules: r.Rules,
-						},
-					}
-
-					response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
-					responses = append(responses, response)
+				if len(r.Rules) == 0 {
+					continue
 				}
+				response := engineapi.EngineResponse{
+					Resource: *reps.Resource,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+
+				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				p.Rc.AddValidatingPolicyResponse(response)
+				responses = append(responses, response)
 			}
 		}
 		if p.JsonPayload.Object != nil {
@@ -334,17 +335,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, err
 			}
 			for _, r := range reps.Policies {
-				if len(r.Rules) > 0 {
-					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
-						PolicyResponse: engineapi.PolicyResponse{
-							Rules: r.Rules,
-						},
-					}
-					response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
-					responses = append(responses, response)
+				if len(r.Rules) == 0 {
+					continue
 				}
+				response := engineapi.EngineResponse{
+					Resource: *reps.Resource,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				p.Rc.AddValidatingPolicyResponse(response)
+				responses = append(responses, response)
 			}
 		}
 	}
