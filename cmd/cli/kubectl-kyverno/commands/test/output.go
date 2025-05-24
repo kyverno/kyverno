@@ -238,7 +238,6 @@ func printTestResult(
 
 		for _, resource := range resources {
 			var rows []table.Row
-			var resourceSkipped bool
 			if _, ok := responses.Trigger[resource]; ok {
 				for _, response := range responses.Trigger[resource] {
 					polNameNs := strings.Split(test.Policy, "/")
@@ -251,7 +250,6 @@ func printTestResult(
 						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy {
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
 							if strings.Contains(message, "not found in manifest") {
-								resourceSkipped = true
 								continue
 							}
 
@@ -267,7 +265,6 @@ func printTestResult(
 
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
 							if strings.Contains(message, "not found in manifest") {
-								resourceSkipped = true
 								continue
 							}
 
@@ -341,43 +338,43 @@ func printTestResult(
 				}
 			}
 
-					if len(rows) == 0 {
-						if test.Result == policyreportv1alpha2.StatusSkip {
-							row := table.Row{
-								RowCompact: table.RowCompact{
-									ID:        testCount,
-									Policy:    color.Policy("", test.Policy),
-									Rule:      color.Rule(test.Rule),
-									Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
-									Result:    color.ResultSkip(),
-									Reason:    color.Excluded(),
-									IsFailure: false,
-								},
-								Message: color.Excluded(),
-							}
-							rc.Skip++
-							testCount++
-							resultsTable.Add(row)
-						} else {
-							row := table.Row{
-								RowCompact: table.RowCompact{
-									ID:        testCount,
-									Policy:    color.Policy("", test.Policy),
-									Rule:      color.Rule(test.Rule),
-									Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
-									Result:    color.ResultFail(),
-									Reason:    color.NotFound(),
-									IsFailure: true,
-								},
-								Message: color.NotFound(),
-							}
-							rc.Fail++
-							testCount++
-							resultsTable.Add(row)
-						}
-					} else {
-						resultsTable.Add(rows...)
+			if len(rows) == 0 {
+				if test.Result == policyreportv1alpha2.StatusSkip {
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+							Result:    color.ResultSkip(),
+							Reason:    color.Excluded(),
+							IsFailure: false,
+						},
+						Message: color.Excluded(),
 					}
+					rc.Skip++
+					testCount++
+					resultsTable.Add(row)
+				} else {
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+							Result:    color.ResultFail(),
+							Reason:    color.NotFound(),
+							IsFailure: true,
+						},
+						Message: color.NotFound(),
+					}
+					rc.Fail++
+					testCount++
+					resultsTable.Add(row)
+				}
+			} else {
+				resultsTable.Add(rows...)
+			}
 		}
 	}
 	return nil
