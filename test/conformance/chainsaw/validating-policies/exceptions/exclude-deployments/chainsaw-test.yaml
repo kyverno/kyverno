@@ -1,0 +1,37 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: exclude-deployments
+spec:
+  steps:
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 10s
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-deployment-labels
+  - name: create bad-deployment.yaml
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: bad-deployment.yaml
+  - name: create skipped-deployment
+    try:
+    - apply:
+        file: skipped-deployment.yaml

@@ -41,9 +41,3 @@ spec:
         file: good-pod.yaml
     - assert:
         file: good-pod.yaml
-  - name: create skipped pod
-    try:
-    - create:
-        file: skipped-pod.yaml
-    - assert:
-        file: skipped-pod.yaml

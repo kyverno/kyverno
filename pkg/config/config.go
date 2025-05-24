@@ -54,6 +54,8 @@ const (
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// ValidatingPolicyWebhookName defines default webhook name for validatingpolicies
 	ValidatingPolicyWebhookName = "vpol.validate.kyverno.svc"
+	// GeneratingPolicyWebhookName defines default webhook name for generatingpolicies
+	GeneratingPolicyWebhookName = "gpol.validate.kyverno.svc"
 	// ImageValidatingPolicyWebhookName defines default validating webhook name for imagevalidatingpolicies
 	ImageValidatingPolicyValidateWebhookName = "ivpol.validate.kyverno.svc"
 	// ImageValidatingPolicyWebhookName defines default mutating webhook name for imagevalidatingpolicies

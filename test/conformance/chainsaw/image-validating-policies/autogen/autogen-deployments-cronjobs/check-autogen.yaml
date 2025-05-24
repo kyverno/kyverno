@@ -5,7 +5,7 @@ metadata:
 status:
   autogen:
     configs:
-      defaults-ivpol-autogen-sample:
+      defaults:
         spec:
           attestations:
           - name: sbom
@@ -45,10 +45,11 @@ status:
           matchImageReferences:
           - glob: ghcr.io/*
           matchConditions:
-          - expression: '!((object.apiVersion == ''apps/v1'' && object.kind ==''Deployment''))
-              || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod)
-              && object.spec.template.metadata.labels.prod == ''true'')'
-            name: autogen-defaults-check-prod-label
+          - expression: >-
+              has(object.spec.template.metadata.labels)
+              && has(object.spec.template.metadata.labels.prod)
+              && object.spec.template.metadata.labels.prod == 'true'
+            name: check-prod-label
           matchConstraints:
             resourceRules:
             - apiGroups:
@@ -77,7 +78,7 @@ status:
             verifyDigest: true
           webhookConfiguration:
             timeoutSeconds: 20
-      cronjobs-ivpol-autogen-sample:
+      cronjobs:
         spec:
           attestations:
           - name: sbom
@@ -117,10 +118,11 @@ status:
           matchImageReferences:
           - glob: ghcr.io/*
           matchConditions:
-          - expression: '!((object.apiVersion == ''batch/v1'' && object.kind ==''CronJob''))
-              || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
-              && object.spec.jobTemplate.spec.template.metadata.labels.prod == ''true'')'
-            name: autogen-cronjobs-check-prod-label
+          - expression: >-
+              has(object.spec.jobTemplate.spec.template.metadata.labels)
+              && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
+              && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'
+            name: check-prod-label
           matchConstraints:
             resourceRules:
             - apiGroups:

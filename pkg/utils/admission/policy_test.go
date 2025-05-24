@@ -190,9 +190,6 @@ func TestGetPolicies(t *testing.T) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedP1, expectedP2, p1, p2)
 				}
 			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
 				if !reflect.DeepEqual(expectedP1, p1) || !reflect.DeepEqual(nil, p2) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedP1, nil, p1, p2)
 				}

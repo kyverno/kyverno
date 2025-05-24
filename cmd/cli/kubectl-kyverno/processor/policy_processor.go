@@ -307,7 +307,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			reps, err := eng.Handle(ctx, request)
+			reps, err := eng.Handle(ctx, request, nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 			}
@@ -330,7 +330,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if p.JsonPayload.Object != nil {
 			eng := vpolengine.NewEngine(provider, nil, nil)
 			request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
-			reps, err := eng.Handle(ctx, request)
+			reps, err := eng.Handle(ctx, request, nil)
 			if err != nil {
 				return nil, err
 			}

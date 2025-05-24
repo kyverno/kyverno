@@ -164,7 +164,7 @@ func Test_ImageVerifyEngine(t *testing.T) {
 	}
 	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
 
-	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest)
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, len(resp.Policies), 1)
 

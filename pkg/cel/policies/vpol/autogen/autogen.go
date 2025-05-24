@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"cmp"
 	"encoding/json"
 	"maps"
 	"slices"
@@ -27,7 +28,7 @@ func Autogen(policy *policiesv1alpha1.ValidatingPolicy) (map[string]policiesv1al
 }
 
 func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
-	mapping := map[string][]autogen.Target{}
+	mapping := map[string][]policiesv1alpha1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
 			targets := mapping[config.ReplacementsRef]
@@ -36,22 +37,37 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 		}
 	}
 	rules := map[string]policiesv1alpha1.ValidatingPolicyAutogen{}
-	for _, replacements := range slices.Sorted(maps.Keys(mapping)) {
-		targets := mapping[replacements]
+	for _, config := range slices.Sorted(maps.Keys(mapping)) {
+		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations)
-		spec.MatchConditions = autogen.CreateMatchConditions(replacements, targets, spec.MatchConditions)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err
 		}
-		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[replacements]...)
+		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[config]...)
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		rules[replacements] = policiesv1alpha1.ValidatingPolicyAutogen{
-			Spec: spec,
+		slices.SortFunc(targets, func(a, b policiesv1alpha1.Target) int {
+			if x := cmp.Compare(a.Group, b.Group); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Version, b.Version); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Resource, b.Resource); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Kind, b.Kind); x != 0 {
+				return x
+			}
+			return 0
+		})
+		rules[config] = policiesv1alpha1.ValidatingPolicyAutogen{
+			Targets: targets,
+			Spec:    spec,
 		}
 	}
 	return rules, nil

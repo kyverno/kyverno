@@ -138,7 +138,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-ignore-finegrained-test-fine-grained-ignore",
-					ClientConfig: newClientConfig("", 0, nil, "/policies/vpol/validate/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
+					ClientConfig: newClientConfig("", 0, nil, "/vpol/test-fine-grained-ignore"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -196,7 +196,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-fail-finegrained-test-fine-grained-fail",
-					ClientConfig: newClientConfig("", 0, nil, "/policies/vpol/validate/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
+					ClientConfig: newClientConfig("", 0, nil, "/vpol/test-fine-grained-fail"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -228,8 +228,15 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			for _, vpol := range tt.vpols {
 				vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 			}
-			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", config.ValidatingPolicyWebhookName,
-				config.PolicyServicePath+config.ValidatingPolicyServicePath+config.ValidatingWebhookServicePath, 0, nil, vpols)
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.ValidatingPolicyWebhookName,
+				"/vpol",
+				0,
+				nil,
+				vpols,
+			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -367,7 +374,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ImageValidatingPolicyValidateWebhookName + "-ignore-finegrained-ivpol-sample",
-					ClientConfig: newClientConfig("", 0, nil, "/policies/ivpol/validate/ignore"+config.FineGrainedWebhookPath+"/ivpol-sample"),
+					ClientConfig: newClientConfig("", 0, nil, "/ivpol/validate/ivpol-sample"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -409,16 +416,16 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
-							Name:       "check-prod-label",
-							Expression: "!(object.kind == 'Pod') || has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'",
-						},
-						{
 							Name:       "autogen-check-prod-label",
-							Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet') || (object.apiVersion == 'batch/v1' && object.kind =='Job')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
+							Expression: "!((object.apiVersion == 'v1' && object.kind =='Pod')) || (has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true')",
 						},
 						{
 							Name:       "autogen-cronjobs-check-prod-label",
 							Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
+						},
+						{
+							Name:       "autogen-defaults-check-prod-label",
+							Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet') || (object.apiVersion == 'batch/v1' && object.kind =='Job')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
 						},
 					},
 				},
@@ -432,8 +439,15 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 			for _, ivpol := range tt.ivpols {
 				ivpols = append(ivpols, engineapi.NewImageValidatingPolicy(ivpol))
 			}
-			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", config.ImageValidatingPolicyValidateWebhookName,
-				config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath, 0, nil, ivpols)
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.ImageValidatingPolicyValidateWebhookName,
+				"/ivpol/validate",
+				0,
+				nil,
+				ivpols,
+			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -441,15 +455,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules), fmt.Sprintf("expected: %v,\n got: %v", expect.Rules, webhooks[i].Rules))
 
 				if expect.MatchConditions != nil {
-					for m, mExpect := range expect.MatchConditions {
-						for n, mActual := range webhooks[i].MatchConditions {
-							if mExpect.Name != mActual.Name {
-								continue
-							}
-							assert.Equal(t, expect.MatchConditions[m], webhooks[i].MatchConditions[n])
-						}
-					}
-
+					assert.Equal(t, expect.MatchConditions, webhooks[i].MatchConditions)
 				}
 				if expect.MatchPolicy != nil {
 					assert.Equal(t, expect.MatchPolicy, webhooks[i].MatchPolicy)
