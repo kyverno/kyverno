@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"strings"
 	"time"
 
@@ -624,6 +625,9 @@ func main() {
 			}
 			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
 				Scheme: scheme,
+				Metrics: server.Options{
+					BindAddress: "0",
+				},
 			})
 			if err != nil {
 				setup.Logger.Error(err, "failed to construct manager")
