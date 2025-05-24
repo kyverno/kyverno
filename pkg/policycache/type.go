@@ -12,4 +12,5 @@ const (
 	Generate
 	VerifyImagesMutate
 	VerifyImagesValidate
+	ValidateDeferEnforce
 )
