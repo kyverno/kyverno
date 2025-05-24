@@ -1,3 +1,6 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+
 policies:
   - name: limit-configmap-for-sa
     resources:
