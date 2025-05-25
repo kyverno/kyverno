@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-configmap-name
+spec:
+  rules:
+    - name: validate-configmap-name
+      match:
+        resources:
+          kinds:
+            - ConfigMap
+      validate:
+        message: "ConfigMap name must start with 'example-'"
+        pattern:
+          metadata:
+            name: "example-*"
