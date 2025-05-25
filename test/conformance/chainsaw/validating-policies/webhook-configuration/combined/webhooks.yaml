@@ -1,6 +1,8 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
+  annotations:
+    admissions.enforcer/disabled: "true"
   labels:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
@@ -15,8 +17,8 @@ webhooks:
       port: 443
   failurePolicy: Fail
   matchConditions:
-  - expression: '!((object.apiVersion == ''v1'' && object.kind ==''Pod'')) || (has(object.metadata.labels) && has(object.metadata.labels.prod)
-      && object.metadata.labels.prod == ''true'')'
+  - expression: '!((object.apiVersion == ''v1'' && object.kind ==''Pod'')) || (has(object.metadata.labels)
+      && has(object.metadata.labels.prod) && object.metadata.labels.prod == ''true'')'
     name: autogen-check-prod-label
   - expression: '!((object.apiVersion == ''batch/v1'' && object.kind ==''CronJob''))
       || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
@@ -77,27 +79,29 @@ webhooks:
     resources:
     - jobs
     scope: '*'
----
-
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  labels:
-    webhook.kyverno.io/managed-by: kyverno
-  name: kyverno-resource-validating-webhook-cfg
-webhooks:
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10
 - admissionReviewVersions:
   - v1
   clientConfig:
     service:
       name: kyverno-svc
       namespace: kyverno
-      path: /vpol/check-deployment-labels-2/check-deployment-labels-3
+      path: /vpol/check-deployment-labels-2
       port: 443
   failurePolicy: Fail
   matchPolicy: Equivalent
   name: vpol.validate.kyverno.svc-fail
-  namespaceSelector: {}
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
   objectSelector: {}
   rules:
   - apiGroups:
@@ -109,15 +113,6 @@ webhooks:
     - UPDATE
     resources:
     - deployments
-    scope: '*'
-  - apiGroups:
-    - apps
-    apiVersions:
-    - v1
-    operations:
-    - DELETE
-    resources:
-    - configmaps
     scope: '*'
   sideEffects: NoneOnDryRun
   timeoutSeconds: 10
