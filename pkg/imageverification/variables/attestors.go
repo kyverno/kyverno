@@ -26,7 +26,7 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 		path := path.Index(i)
 		compiledAtt := &CompiledAttestor{
 			key: att.Name,
-			val: att,
+			// val: att,
 		}
 		if att.IsCosign() {
 			if att.Cosign.Key != nil && att.Cosign.Key.Expression != "" {
