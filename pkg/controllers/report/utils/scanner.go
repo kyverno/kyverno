@@ -189,7 +189,7 @@ func (s *scanner) ScanResource(
 				false,
 				nil,
 			)
-			engineResponse, err := engine.Handle(ctx, request)
+			engineResponse, err := engine.Handle(ctx, request, nil)
 			response := engineapi.EngineResponse{
 				Resource: resource,
 				PolicyResponse: engineapi.PolicyResponse{
@@ -240,7 +240,7 @@ func (s *scanner) ScanResource(
 				false,
 				nil,
 			)
-			engineResponse, _, err := engine.HandleMutating(ctx, request)
+			engineResponse, _, err := engine.HandleMutating(ctx, request, nil)
 			response := engineapi.EngineResponse{
 				Resource:       resource,
 				PolicyResponse: engineapi.PolicyResponse{},
@@ -255,14 +255,13 @@ func (s *scanner) ScanResource(
 	}
 	// evaluate validating admission policies
 	for i, policy := range vaps {
-		if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
-			policyData := admissionpolicy.NewPolicyData(*pol)
+		if policyData := policy.AsValidatingAdmissionPolicy(); policyData != nil {
 			for _, binding := range bindings {
-				if binding.Spec.PolicyName == pol.Name {
+				if binding.Spec.PolicyName == policyData.GetDefinition().GetName() {
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := admissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
+			res, err := admissionpolicy.Validate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, false)
 			results[&vaps[i]] = ScanResult{&res, err}
 		}
 	}

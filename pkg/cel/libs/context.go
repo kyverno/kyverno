@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
@@ -24,6 +25,7 @@ type Context interface {
 	globalcontext.ContextInterface
 	imagedata.ContextInterface
 	resource.ContextInterface
+	generator.ContextInterface
 }
 
 type contextProvider struct {
@@ -106,6 +108,22 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	}
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
+}
+
+func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
+	for _, data := range dataList {
+		resource := &unstructured.Unstructured{Object: data}
+		groupVersion, err := schema.ParseGroupVersion(resource.GetAPIVersion())
+		if err != nil {
+			return err
+		}
+		resourceInteface := cp.getResourceClient(groupVersion, resource.GetKind(), namespace)
+		_, err = resourceInteface.Create(context.TODO(), resource, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {

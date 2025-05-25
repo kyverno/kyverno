@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -32,7 +31,6 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
-	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -141,7 +139,7 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	stateRecorder webhook.StateRecorder,
+	stateRecorder webhookcontroller.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -163,6 +161,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
 		deploymentInformer,
 		caInformer,
@@ -230,7 +229,7 @@ func createrLeaderControllers(
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"policies.kyverno.io"},
 				APIVersions: []string{"v1alpha1"},
-				Resources:   []string{"PolicyExceptions"},
+				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Create,
@@ -436,7 +435,7 @@ func main() {
 		)
 		policyCache := policycache.NewCache()
 		notifyChan := make(chan string)
-		stateRecorder := webhook.NewStateRecorder(notifyChan)
+		stateRecorder := webhookcontroller.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -614,7 +613,7 @@ func main() {
 			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
 		}
-		var vpolEngine celengine.Engine
+		var vpolEngine vpolengine.Engine
 		var ivpolEngine ivpolengine.Engine
 		{
 			// create a controller manager
@@ -633,12 +632,12 @@ func main() {
 			// create compiler
 			compiler := vpolcompiler.NewCompiler()
 			// create vpolProvider
-			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create vpol provider")
 				os.Exit(1)
 			}
-			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister())
+			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
@@ -684,18 +683,26 @@ func main() {
 				nil,
 			)
 		}
-		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
-		if err != nil {
-			setup.Logger.Error(err, "failed to start admission reports watcher")
-			os.Exit(1)
-		}
-		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
-			count, isRunning := ephrs.Count()
-			if !isRunning {
-				return true
+		var reportsBreaker breaker.Breaker
+		if admissionReports {
+			ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+			if err != nil {
+				setup.Logger.Error(err, "failed to start admission reports watcher")
+				os.Exit(1)
 			}
-			return count > maxAdmissionReports
-		})
+			reportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				count, isRunning := ephrs.Count()
+				if !isRunning {
+					return true
+				}
+				return count > maxAdmissionReports
+			})
+		} else {
+			reportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				return true
+			})
+		}
+
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
 			setup.KyvernoDynamicClient,
@@ -722,6 +729,7 @@ func main() {
 			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
+			admissionReports,
 			reportsBreaker,
 		)
 		ivpolHandlers := ivpol.New(
@@ -733,8 +741,7 @@ func main() {
 			Namespace: internal.ExceptionNamespace(),
 		})
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
-			Enabled:   internal.PolicyExceptionEnabled(),
-			Namespace: internal.ExceptionNamespace(),
+			Enabled: internal.PolicyExceptionEnabled(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(

@@ -7,7 +7,7 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
-	resourcelib "github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
@@ -54,7 +54,7 @@ var (
 					Glob: "ghcr.io/*",
 				},
 			},
-			Images: []policiesv1alpha1.Image{},
+			ImageExtractors: []policiesv1alpha1.ImageExtractor{},
 			Attestors: []policiesv1alpha1.Attestor{
 				{
 					Name: "notary",
@@ -160,11 +160,11 @@ func Test_ImageVerifyEngine(t *testing.T) {
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		},
-		Context: &resourcelib.MockCtx{},
+		Context: libs.NewFakeContextProvider(),
 	}
 	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
 
-	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest)
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, len(resp.Policies), 1)
 
