@@ -88,7 +88,7 @@ type ApplyCommandConfig struct {
 	GeneratedExceptionTTL time.Duration
 	JSONPaths             []string
 	ClusterWideResources  bool
-	IgnoreEmpty bool
+	IgnoreEmpty           bool
 }
 
 func Command() *cobra.Command {
