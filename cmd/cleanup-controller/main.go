@@ -8,14 +8,19 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
+	"github.com/kyverno/kyverno/pkg/controllers/deleting"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -35,6 +40,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -111,6 +117,7 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
+		internal.WithRestConfig(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -131,6 +138,14 @@ func main() {
 			setup.Logger.Error(err, "sanity checks failed")
 			os.Exit(1)
 		}
+
+		// create a controller manager
+		scheme := kruntime.NewScheme()
+		if err := policiesv1alpha1.Install(scheme); err != nil {
+			setup.Logger.Error(err, "failed to initialize scheme")
+			os.Exit(1)
+		}
+
 		// certificates informers
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
@@ -208,6 +223,12 @@ func main() {
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 
 				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
+				provider := engine.NewFetchProvider(
+					compiler.NewCompiler(),
+					kyvernoInformer.Policies().V1alpha1().DeletingPolicies().Lister(),
+					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+					internal.PolicyExceptionEnabled(),
+				)
 
 				// controllers
 				renewer := tls.NewCertRenewer(
@@ -337,6 +358,21 @@ func main() {
 					),
 					cleanup.Workers,
 				)
+				deletingController := internal.NewController(
+					deleting.ControllerName,
+					deleting.NewController(
+						setup.KyvernoDynamicClient,
+						setup.KyvernoClient,
+						kyvernoInformer.Policies().V1alpha1().DeletingPolicies(),
+						provider,
+						nsLister,
+						setup.Configuration,
+						cmResolver,
+						eventGenerator,
+						matching.NewMatcher(),
+					),
+					deleting.Workers,
+				)
 				ttlManagerController := internal.NewController(
 					ttlcontroller.ControllerName,
 					ttlcontroller.NewManager(
@@ -359,6 +395,7 @@ func main() {
 				policyValidatingWebhookController.Run(ctx, logger, &wg)
 				ttlWebhookController.Run(ctx, logger, &wg)
 				cleanupController.Run(ctx, logger, &wg)
+				deletingController.Run(ctx, logger, &wg)
 				ttlManagerController.Run(ctx, logger, &wg)
 				wg.Wait()
 			},

@@ -61,6 +61,30 @@ rules:
       - list
       - watch
   - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - deletingpolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - deletingpolicies/status
+    verbs:
+      - update
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - policyexceptions
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
       - kyverno.io
     resources:
       - globalcontextentries
