@@ -23,4 +23,7 @@ type ValuesSpec struct {
 
 	// Subresources are the subresource/parent resource mappings
 	Subresources []Subresource `json:"subresources,omitempty"`
+
+	// Variables are the validation policy variables
+	Variables map[string]string `json:"variables,omitempty"`
 }

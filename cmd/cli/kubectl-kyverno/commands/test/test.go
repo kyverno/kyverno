@@ -155,6 +155,17 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
+	for i := range results.ValidatingPolicies {
+		vpVars := results.ValidatingPolicies[i].Spec.Variables
+		for name, expression := range vars.Variables() {
+			for j := range vpVars {
+				if vpVars[j].Name == name {
+					vpVars[j].Expression = expression
+				}
+			}
+		}
+	}
+
 	policyCount := len(results.Policies) + len(results.VAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
@@ -230,6 +241,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		Trigger: map[string][]engineapi.EngineResponse{},
 		Target:  map[string][]engineapi.EngineResponse{},
 	}
+
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
 		processor := processor.PolicyProcessor{
