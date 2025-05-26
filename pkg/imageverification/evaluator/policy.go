@@ -127,13 +127,15 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	}
 	data[engine.ImagesKey] = images
 	data[engine.AttestationsKey] = c.attestationList
-	attestors := make(map[string]policiesv1alpha1.Attestor)
-	for _, att := range c.attestors {
-		data, err := att.Evaluate(data)
-		if err != nil {
-			return nil, err
-		}
-		attestors[data.Name] = data
+	attestors := lazy.NewMapValue(cel.DynType)
+	for _, attestor := range c.attestors {
+		attestors.Append(attestor.Key, func(*lazy.MapValue) ref.Val {
+			data, err := attestor.Evaluate(data)
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return data
+		})
 	}
 	data[engine.AttestorsKey] = attestors
 
