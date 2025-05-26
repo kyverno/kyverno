@@ -25,14 +25,18 @@ type ivfuncs struct {
 	imgCtx          imagedataloader.ImageContext
 	creds           *v1alpha1.Credentials
 	imgRules        []compiler.MatchImageReference
-	attestorList    map[string]v1alpha1.Attestor
 	attestationList map[string]v1alpha1.Attestation
-	lister          k8scorev1.SecretInterface
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
 }
 
-func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface, adapter types.Adapter) (*ivfuncs, error) {
+func ImageVerifyCELFuncs(
+	logger logr.Logger,
+	imgCtx imagedataloader.ImageContext,
+	ivpol *v1alpha1.ImageValidatingPolicy,
+	lister k8scorev1.SecretInterface,
+	adapter types.Adapter,
+) (*ivfuncs, error) {
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
 	}
@@ -44,15 +48,12 @@ func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext
 	if errs != nil {
 		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
-
 	return &ivfuncs{
 		Adapter:         adapter,
 		imgCtx:          imgCtx,
 		creds:           ivpol.Spec.Credentials,
 		imgRules:        imgRules,
-		attestorList:    attestorMap(ivpol),
 		attestationList: attestationMap(ivpol),
-		lister:          lister,
 		cosignVerifier:  cosign.NewVerifier(lister, logger),
 		notaryVerifier:  notary.NewVerifier(logger),
 	}, nil
