@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	"github.com/kyverno/kyverno/cmd/internal"
@@ -40,7 +39,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -136,13 +134,6 @@ func main() {
 		}
 		if err := sanityChecks(setup.ApiServerClient); err != nil {
 			setup.Logger.Error(err, "sanity checks failed")
-			os.Exit(1)
-		}
-
-		// create a controller manager
-		scheme := kruntime.NewScheme()
-		if err := policiesv1alpha1.Install(scheme); err != nil {
-			setup.Logger.Error(err, "failed to initialize scheme")
 			os.Exit(1)
 		}
 
