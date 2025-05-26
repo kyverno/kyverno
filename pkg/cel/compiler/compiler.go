@@ -2,15 +2,41 @@ package compiler
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gobwas/glob"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/patrickmn/go-cache"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+var (
+	astCache = cache.New(5*time.Minute, 10*time.Minute)
+)
+
+// GetCompiledAST retrieves the compiled AST for a given expression and environment.
+func GetCompiledAST(expression string, env *cel.Env) (*cel.Ast, *cel.Issues) {
+	// Check the cache for a previously compiled AST.
+	key := fmt.Sprintf("%s||%p", expression, env)
+	if cached, found := astCache.Get(key); found {
+		cachedVal := cached.(struct {
+			ast    *cel.Ast
+			issues *cel.Issues
+		})
+		return cachedVal.ast, cachedVal.issues
+	}
+
+	ast, issues := env.Compile(expression)
+	astCache.Set(key, struct {
+		ast    *cel.Ast
+		issues *cel.Issues
+	}{ast, issues}, cache.DefaultExpiration)
+	return ast, issues
+}
 
 func CompileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
@@ -118,7 +144,7 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 	compiled := Validation{Message: rule.Message}
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(rule.Expression)
+		ast, issues := GetCompiledAST(rule.Expression, env)
 		if err := issues.Err(); err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}

@@ -1,22 +1,37 @@
 package admissionpolicy
 
 import (
+	"fmt"
+
+	celgo "github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
+	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
+type variableDeclEnvs map[cel.OptionalVariableDeclarations]*environment.EnvSet
+
 type Compiler struct {
 	compositedCompiler cel.CompositedCompiler
+	varEnvs            variableDeclEnvs
 	validations        []admissionregistrationv1.Validation
 	mutations          []admissionregistrationv1alpha1.Mutation
 	auditAnnotations   []admissionregistrationv1.AuditAnnotation
 	matchConditions    []admissionregistrationv1.MatchCondition
 	variables          []admissionregistrationv1.Variable
+}
+
+type CompositedConditionEvaluator struct {
+	cel.ConditionEvaluator
+
+	compositionEnv *cel.CompositionEnv
 }
 
 func NewCompiler(
@@ -79,12 +94,63 @@ func (c Compiler) CompileVariables(optionalVars cel.OptionalVariableDeclarations
 	)
 }
 
-func (c Compiler) CompileValidations(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
-	return c.compositedCompiler.CompileCondition(
-		c.convertValidations(),
-		optionalVars,
-		environment.StoredExpressions,
-	)
+func (c *Compiler) CompileValidations(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
+	env, err := c.varEnvs[optionalVars].Env(environment.StoredExpressions)
+	if err != nil {
+		logger.Info("unexpected error loading CEL environment: %v", err)
+		return nil
+	}
+	expressions := c.convertValidations()
+	results := make([]cel.CompilationResult, len(expressions))
+	for i, expr := range expressions {
+		resultError := func(errorString string, errType apiservercel.ErrorType, cause error) cel.CompilationResult {
+			return cel.CompilationResult{
+				Error: &apiservercel.Error{
+					Type:   errType,
+					Detail: errorString,
+					Cause:  cause,
+				},
+				ExpressionAccessor: expr,
+			}
+		}
+		ast, issues := compiler.GetCompiledAST(expr.GetExpression(), env)
+		if issues != nil {
+			logger.Info("unexpected error compiling expression: %v", issues)
+			results[i] = resultError("compilation failed: "+issues.String(), apiservercel.ErrorTypeInvalid, apiservercel.NewCompilationError(issues))
+			continue
+		}
+		found := false
+		returnTypes := expr.ReturnTypes()
+		for _, returnType := range returnTypes {
+			if ast.OutputType().IsExactType(returnType) || celgo.AnyType.IsExactType(returnType) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			var reason string
+			if len(returnTypes) == 1 {
+				reason = fmt.Sprintf("must evaluate to %v but got %v", returnTypes[0].String(), ast.OutputType().String())
+			} else {
+				reason = fmt.Sprintf("must evaluate to one of %v but got %v", returnTypes, ast.OutputType().String())
+			}
+
+			results[i] = resultError(reason, apiservercel.ErrorTypeInvalid, nil)
+			continue
+		}
+		prog, err := env.Program(ast,
+			celgo.InterruptCheckFrequency(celconfig.CheckFrequency),
+		)
+		if err != nil {
+			results[i] = resultError("program instantiation failed: "+err.Error(), apiservercel.ErrorTypeInternal, nil)
+			continue
+		}
+		results[i] = cel.CompilationResult{Program: prog}
+	}
+	return &CompositedConditionEvaluator{
+		ConditionEvaluator: cel.NewCondition(results),
+		compositionEnv:     c.compositedCompiler.CompositionEnv,
+	}
 }
 
 func (c Compiler) CompileMessageExpressions(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
