@@ -35,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -334,10 +335,18 @@ func (c *controller) needsReconcile(namespace, name, hash string, exceptions []k
 		}
 		return false, false, err
 	}
-	// if the resource changed, we need a full reconcile
-	if !reportutils.CompareHash(reportMetadata, hash) {
+
+	// Check for resourceVersion label to detect underlying resource changes
+	resourceObjectVersion := ""
+	if reportMetadata.GetLabels() != nil {
+		resourceObjectVersion = reportMetadata.GetLabels()[reportutils.LabelResourceObjectVersion]
+	}
+
+	// if the resource changed (either by hash or resourceVersion), we need a full reconcile
+	if !reportutils.CompareHash(reportMetadata, hash) || resourceObjectVersion == "" {
 		return true, true, nil
 	}
+
 	// if the last scan time is older than recomputation interval, we need a full reconcile
 	reportAnnotations := reportMetadata.GetAnnotations()
 	if reportAnnotations == nil || reportAnnotations[annotationLastScanTime] == "" {
@@ -376,6 +385,23 @@ func (c *controller) needsReconcile(namespace, name, hash string, exceptions []k
 	return false, false, nil
 }
 
+// forceReconcileResource determines if we should force a reconciliation
+// for a resource based on additional factors beyond just the hash
+func (c *controller) forceReconcileResource(target *unstructured.Unstructured, reportMetadata metav1.Object) bool {
+	// If the resource and report have different resource versions, force a reconciliation
+	if reportMetadata.GetLabels() != nil && target != nil {
+		storedResourceVersion := reportMetadata.GetLabels()[reportutils.LabelResourceObjectVersion]
+		currentResourceVersion := target.GetResourceVersion()
+
+		// If the resource version has changed, we should do a full reconciliation
+		if storedResourceVersion != currentResourceVersion {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *controller) reconcileReport(
 	ctx context.Context,
 	namespace string,
@@ -399,11 +425,13 @@ func (c *controller) reconcileReport(
 		}
 		ns = namespace
 	}
+
 	// load target resource
 	target, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 	if err != nil {
 		return err
 	}
+
 	// load observed report
 	observed, err := c.getReport(ctx, namespace, name)
 	if err != nil {
@@ -411,6 +439,11 @@ func (c *controller) reconcileReport(
 			return err
 		}
 		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
+	} else {
+		// Check if we need to force a full reconciliation based on resource changes
+		if !full && c.forceReconcileResource(target, observed) {
+			full = true
+		}
 	}
 	// build desired report
 	expected := map[string]string{}
