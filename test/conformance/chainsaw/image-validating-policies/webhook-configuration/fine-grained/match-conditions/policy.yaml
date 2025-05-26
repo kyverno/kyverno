@@ -3,8 +3,6 @@ kind: ImageValidatingPolicy
 metadata:
   name: check-signed-images
 spec:
-  webhookConfiguration:
-    timeoutSeconds: 20
   matchConstraints:
     resourceRules:
       - apiGroups: [""]

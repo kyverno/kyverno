@@ -77,7 +77,7 @@ webhooks:
     - jobs
     scope: '*'
   sideEffects: NoneOnDryRun
-  timeoutSeconds: 20
+  timeoutSeconds: 10
 
 ---
 
@@ -159,4 +159,4 @@ webhooks:
     - jobs
     scope: '*'
   sideEffects: NoneOnDryRun
-  timeoutSeconds: 20
+  timeoutSeconds: 10
