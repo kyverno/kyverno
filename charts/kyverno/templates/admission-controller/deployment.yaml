@@ -89,6 +89,7 @@ spec:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
       {{- end }}
+      automountServiceAccountToken: true
       serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
       initContainers:
         {{- with .Values.admissionController.extraInitContainers }}
