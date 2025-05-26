@@ -373,6 +373,7 @@ func (in *DeletingPolicySpec) DeepCopy() *DeletingPolicySpec {
 func (in *DeletingPolicyStatus) DeepCopyInto(out *DeletingPolicyStatus) {
 	*out = *in
 	in.ConditionStatus.DeepCopyInto(&out.ConditionStatus)
+	in.LastExecutionTime.DeepCopyInto(&out.LastExecutionTime)
 	return
 }
 
