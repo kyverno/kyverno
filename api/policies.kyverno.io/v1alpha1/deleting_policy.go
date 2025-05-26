@@ -114,5 +114,5 @@ func (p *DeletingPolicy) GetNextExecutionTime(time time.Time) (*time.Time, error
 }
 
 func (p *DeletingPolicy) GetKind() string {
-	return p.TypeMeta.Kind
+	return "DeletingPolicy"
 }
