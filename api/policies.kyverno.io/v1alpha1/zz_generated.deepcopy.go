@@ -373,6 +373,7 @@ func (in *DeletingPolicySpec) DeepCopy() *DeletingPolicySpec {
 func (in *DeletingPolicyStatus) DeepCopyInto(out *DeletingPolicyStatus) {
 	*out = *in
 	in.ConditionStatus.DeepCopyInto(&out.ConditionStatus)
+	in.LastExecutionTime.DeepCopyInto(&out.LastExecutionTime)
 	return
 }
 
@@ -524,6 +525,11 @@ func (in *GeneratingPolicySpec) DeepCopyInto(out *GeneratingPolicySpec) {
 	if in.GenerateConfiguration != nil {
 		in, out := &in.GenerateConfiguration, &out.GenerateConfiguration
 		*out = new(GenerateConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.WebhookConfiguration != nil {
+		in, out := &in.WebhookConfiguration, &out.WebhookConfiguration
+		*out = new(WebhookConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Generation != nil {
