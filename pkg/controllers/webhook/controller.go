@@ -115,6 +115,7 @@ type controller struct {
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
+	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
@@ -157,6 +158,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
@@ -191,6 +193,7 @@ func NewController(
 		cpolLister:          cpolInformer.Lister(),
 		polLister:           polInformer.Lister(),
 		vpolLister:          vpolInformer.Lister(),
+		gpolLister:          gpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		secretLister:        secretInformer.Lister(),
@@ -277,6 +280,14 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		vpolInformer.Informer(),
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
+		gpolInformer.Informer(),
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
@@ -1108,6 +1119,18 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		pols)...)
 
+	gpols, err := c.getGeneratingPolicies()
+	if err != nil {
+		return err
+	}
+	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+		c.server,
+		config.GeneratingPolicyWebhookName,
+		"/gpol",
+		c.servicePort,
+		caBundle,
+		gpols)...)
+
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
@@ -1249,6 +1272,18 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 		}
 	}
 	return vpols, nil
+}
+
+func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) {
+	generatingpolicies, err := c.gpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	gpols := make([]engineapi.GenericPolicy, 0)
+	for _, gpol := range generatingpolicies {
+		gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+	}
+	return gpols, nil
 }
 
 func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, error) {

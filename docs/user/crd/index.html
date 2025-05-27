@@ -10476,6 +10476,20 @@ GenerateConfiguration
 </tr>
 <tr>
 <td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>generate</code><br/>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.Generation">
@@ -12066,6 +12080,18 @@ ConditionStatus
 <em>(Optional)</em>
 </td>
 </tr>
+<tr>
+<td>
+<code>lastExecutionTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -12292,6 +12318,20 @@ GenerateConfiguration
 <td>
 <em>(Optional)</em>
 <p>GenerateConfiguration defines the configuration for the policy evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
 </td>
 </tr>
 <tr>
@@ -14196,6 +14236,7 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicySpec">GeneratingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)

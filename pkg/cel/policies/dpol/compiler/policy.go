@@ -29,17 +29,13 @@ type Policy struct {
 }
 
 func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured, context libs.Context) (*EvaluationResult, error) {
-	return p.evaluateWithData(ctx, evaluationData{Object: object, Context: context})
-}
-
-func (p *Policy) evaluateWithData(ctx context.Context, data evaluationData) (*EvaluationResult, error) {
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew := map[string]any{
-		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: data.Context},
+		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: context},
 		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
-		compiler.ImageDataKey:     imagedata.Context{ContextInterface: data.Context},
-		compiler.ObjectKey:        data.Object,
-		compiler.ResourceKey:      resource.Context{ContextInterface: data.Context},
+		compiler.ImageDataKey:     imagedata.Context{ContextInterface: context},
+		compiler.ObjectKey:        object.UnstructuredContent(),
+		compiler.ResourceKey:      resource.Context{ContextInterface: context},
 		compiler.VariablesKey:     vars,
 	}
 	for name, variable := range p.variables {
@@ -79,11 +75,7 @@ func (p *Policy) evaluateWithData(ctx context.Context, data evaluationData) (*Ev
 	return &EvaluationResult{Result: match}, nil
 }
 
-func (p *Policy) match(
-	ctx context.Context,
-	data map[string]any,
-	conditions []cel.Program,
-) (bool, error) {
+func (p *Policy) match(ctx context.Context, data map[string]any, conditions []cel.Program) (bool, error) {
 	var errs []error
 	for _, condition := range conditions {
 		// evaluate the condition
