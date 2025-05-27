@@ -224,7 +224,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if len(p.MutatingAdmissionPolicies) != 0 {
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			log.Log.V(3).Info("skipping MAPs due to missing kind", "gvk", gvk)
+			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		} else {
 			gvr := mapping.Resource
 
