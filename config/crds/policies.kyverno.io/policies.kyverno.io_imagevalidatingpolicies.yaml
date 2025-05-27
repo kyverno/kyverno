@@ -91,6 +91,11 @@ spec:
                 items:
                   description: Attestor is an identity that confirms or verifies the
                     authenticity of an image or an attestation
+                  oneOf:
+                  - required:
+                    - cosign
+                  - required:
+                    - notary
                   properties:
                     cosign:
                       description: Cosign defines attestor configuration for Cosign
@@ -1127,6 +1132,11 @@ spec:
                               items:
                                 description: Attestor is an identity that confirms
                                   or verifies the authenticity of an image or an attestation
+                                oneOf:
+                                - required:
+                                  - cosign
+                                - required:
+                                  - notary
                                 properties:
                                   cosign:
                                     description: Cosign defines attestor configuration

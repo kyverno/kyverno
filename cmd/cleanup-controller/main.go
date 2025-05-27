@@ -12,10 +12,14 @@ import (
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
+	"github.com/kyverno/kyverno/pkg/controllers/deleting"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -111,6 +115,7 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
+		internal.WithRestConfig(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -131,6 +136,7 @@ func main() {
 			setup.Logger.Error(err, "sanity checks failed")
 			os.Exit(1)
 		}
+
 		// certificates informers
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
@@ -208,6 +214,12 @@ func main() {
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 
 				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
+				provider := engine.NewFetchProvider(
+					compiler.NewCompiler(),
+					kyvernoInformer.Policies().V1alpha1().DeletingPolicies().Lister(),
+					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+					internal.PolicyExceptionEnabled(),
+				)
 
 				// controllers
 				renewer := tls.NewCertRenewer(
@@ -337,6 +349,21 @@ func main() {
 					),
 					cleanup.Workers,
 				)
+				deletingController := internal.NewController(
+					deleting.ControllerName,
+					deleting.NewController(
+						setup.KyvernoDynamicClient,
+						setup.KyvernoClient,
+						kyvernoInformer.Policies().V1alpha1().DeletingPolicies(),
+						provider,
+						nsLister,
+						setup.Configuration,
+						cmResolver,
+						eventGenerator,
+						matching.NewMatcher(),
+					),
+					deleting.Workers,
+				)
 				ttlManagerController := internal.NewController(
 					ttlcontroller.ControllerName,
 					ttlcontroller.NewManager(
@@ -359,6 +386,7 @@ func main() {
 				policyValidatingWebhookController.Run(ctx, logger, &wg)
 				ttlWebhookController.Run(ctx, logger, &wg)
 				cleanupController.Run(ctx, logger, &wg)
+				deletingController.Run(ctx, logger, &wg)
 				ttlManagerController.Run(ctx, logger, &wg)
 				wg.Wait()
 			},
