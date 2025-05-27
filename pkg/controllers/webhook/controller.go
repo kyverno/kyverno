@@ -78,6 +78,11 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1"},
 	}
+	generatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"generatingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1alpha1"},
+	}
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
@@ -110,6 +115,7 @@ type controller struct {
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
+	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
@@ -152,6 +158,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
@@ -186,6 +193,7 @@ func NewController(
 		cpolLister:          cpolInformer.Lister(),
 		polLister:           polInformer.Lister(),
 		vpolLister:          vpolInformer.Lister(),
+		gpolLister:          gpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		secretLister:        secretInformer.Lister(),
@@ -279,6 +287,14 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(
+		gpolInformer.Informer(),
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
 		ivpolInformer.Informer(),
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
@@ -301,9 +317,40 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
 }
 
+func (c *controller) createLease(ctx context.Context) error {
+	_, err := c.leaseClient.Create(ctx, &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kyverno-health",
+			Namespace: config.KyvernoNamespace(),
+			Labels: map[string]string{
+				"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
+			},
+			Annotations: map[string]string{
+				AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
+	_, err := c.getLease()
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			if err := c.createLease(ctx); err != nil {
+				logger.Error(err, "failed to create lease at initial setup")
+			}
+		} else {
+			logger.Error(err, "failed to get lease")
+		}
+	}
+
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -312,33 +359,24 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 			lease, err := c.getLease()
 			if err != nil {
 				if apierrors.IsNotFound(err) {
-					_, err = c.leaseClient.Create(ctx, &coordinationv1.Lease{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "kyverno-health",
-							Namespace: config.KyvernoNamespace(),
-							Labels: map[string]string{
-								"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
-							},
-							Annotations: map[string]string{
-								AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
-							},
-						},
-					}, metav1.CreateOptions{})
-					if err != nil {
+					if err := c.createLease(ctx); err != nil {
 						logger.Error(err, "failed to create lease")
 					}
-				} else {
-					logger.Error(err, "failed to get lease")
+					continue
 				}
-			} else {
-				lease := lease.DeepCopy()
-				lease.Labels = map[string]string{
-					"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
-				}
-				_, err = c.leaseClient.Update(ctx, lease, metav1.UpdateOptions{})
-				if err != nil {
-					logger.Error(err, "failed to update lease")
-				}
+				logger.Error(err, "failed to get lease during update")
+				continue
+			}
+			leaseCopy := lease.DeepCopy()
+			leaseCopy.Labels = map[string]string{
+				"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
+			}
+			leaseCopy.Annotations = map[string]string{
+				AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
+			}
+			_, err = c.leaseClient.Update(ctx, leaseCopy, metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to update lease")
 			}
 			c.enqueueResourceWebhooks(0)
 		}
@@ -785,6 +823,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
 					},
+				}, {
+					Rule: generatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
 				}},
 				FailurePolicy:           &fail,
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -1075,6 +1119,18 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		pols)...)
 
+	gpols, err := c.getGeneratingPolicies()
+	if err != nil {
+		return err
+	}
+	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+		c.server,
+		config.GeneratingPolicyWebhookName,
+		"/gpol",
+		c.servicePort,
+		caBundle,
+		gpols)...)
+
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
@@ -1216,6 +1272,18 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 		}
 	}
 	return vpols, nil
+}
+
+func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) {
+	generatingpolicies, err := c.gpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	gpols := make([]engineapi.GenericPolicy, 0)
+	for _, gpol := range generatingpolicies {
+		gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+	}
+	return gpols, nil
 }
 
 func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, error) {

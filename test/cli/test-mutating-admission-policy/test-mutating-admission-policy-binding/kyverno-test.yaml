@@ -14,7 +14,7 @@ results:
   policy: default/set-replicas
   resources:
   - nginx-default
-  result: fail
+  result: skip
 - isMutatingAdmissionPolicy: true
   kind: Deployment
   patchedResources: expected-patched.yaml

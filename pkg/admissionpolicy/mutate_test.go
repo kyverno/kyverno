@@ -2,14 +2,12 @@ package admissionpolicy
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/assert"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func Test_MutateResource(t *testing.T) {
@@ -571,24 +569,15 @@ func Test_MutateResource(t *testing.T) {
 			assert.NilError(t, err)
 
 			gvk := resource.GroupVersionKind()
-			gvr := schema.GroupVersionResource{
-				Group:    gvk.Group,
-				Version:  gvk.Version,
-				Resource: strings.ToLower(gvk.Kind) + "s",
-			}
 
-			var client dclient.Interface = nil
+			restMapper, err := utils.GetRESTMapper(nil, false)
+			assert.NilError(t, err)
 
-			namespaceSelectorMap := map[string]map[string]string{
-				"default": {
-					"env": "test",
-				},
-			}
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			assert.NilError(t, err)
 
-			isFake := true
-
-			response, err := MutateResource(policy, nil, *resource, gvr, client, namespaceSelectorMap, isFake)
-
+			gvr := mapping.Resource
+			response, err := mutateResource(policy, nil, *resource, gvr, nil, map[string]map[string]string{}, true)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)

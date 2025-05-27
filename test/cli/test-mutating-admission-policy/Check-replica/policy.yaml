@@ -5,20 +5,20 @@ metadata:
 spec:
   matchConstraints:
     resourceRules:
-    - apiGroups: [ "apps" ]
-      apiVersions: [ "v1" ]
-      operations: [ "CREATE" , "UPDATE"]
-      resources: [ "deployments" ]
+      - apiGroups: [ "apps" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE", "UPDATE" ]
+        resources: [ "deployments" ]
   failurePolicy: Fail
-  reinvocationPolicy: Never 
+  reinvocationPolicy: Never
   mutations:
-  - patchType: JSONPatch
-    jsonPatch:
-      expression: |
-        [
-          JSONPatch{
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          [
+            JSONPatch{
               op: "replace",
               path: "/spec/replicas",
-              value: object.spec.replicas + 10
-          }
-        ]
+              value: int(object.spec.replicas != null ? object.spec.replicas : 1) + 10
+            }
+          ]

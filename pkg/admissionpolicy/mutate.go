@@ -28,7 +28,7 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func MutateResource(
+func mutateResource(
 	policy admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
@@ -107,7 +107,7 @@ func MutateResource(
 	// compile mutations
 	patchers := compiler.CompileMutations(optionalVars)
 	if len(patchers) == 0 {
-		ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Mutation, "mutation returned no patchers", nil)
+		ruleResp := engineapi.RulePass(policy.GetName(), engineapi.Mutation, "mutation returned no patchers", nil)
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 		return engineResponse.WithPolicyResponse(policyResp), nil
 	}
@@ -126,40 +126,37 @@ func MutateResource(
 
 		newVersionedObject, err := patcher.Patch(context.TODO(), patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
-			ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).
-				WithResource(resource.GetNamespace(), resource.GetName(), gvk.Kind)
+			ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil)
+			logger.V(3).Info("mutation failed", "policy", policy.GetName(), "namespace", resource.GetNamespace(), "name", resource.GetName(), "kind", gvk.Kind)
 
 			if binding != nil {
-				ruleResp = ruleResp.WithMutatingBinding(binding)
+				logger.V(4).Info("matched MAP binding", "policy", policy.GetName(), "binding", binding.GetName())
 			}
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 			continue
 		}
 
 		if equality.Semantic.DeepEqual(original, newVersionedObject) {
-			ruleResp := engineapi.RuleSkip(ruleName, engineapi.Mutation, "mutation had no effect", nil).
-				WithResource(resource.GetNamespace(), resource.GetName(), gvk.Kind)
+			ruleResp := engineapi.RuleSkip(ruleName, engineapi.Mutation, "mutation had no effect", nil)
 			if binding != nil {
-				ruleResp = ruleResp.WithMutatingBinding(binding)
+				logger.V(4).Info("mutation had no effect", "binding", binding.GetName())
 			}
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 			continue
 		}
 		versionedAttributes.VersionedObject = newVersionedObject
-		ruleResp := engineapi.RulePass(ruleName, engineapi.Mutation, "", nil).
-			WithResource(resource.GetNamespace(), resource.GetName(), gvk.Kind)
+		ruleResp := engineapi.RulePass(ruleName, engineapi.Mutation, "", nil)
 		if binding != nil {
-			ruleResp = ruleResp.WithMutatingBinding(binding)
+			logger.V(4).Info("mutation applied", "binding", binding.GetName())
 		}
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	}
 
 	patchedResource, err := celutils.ConvertObjectToUnstructured(versionedAttributes.VersionedObject)
 	if err != nil {
-		ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).
-			WithResource(resource.GetNamespace(), resource.GetName(), gvk.Kind)
+		ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil)
 		if binding != nil {
-			ruleResp = ruleResp.WithMutatingBinding(binding)
+			logger.V(4).Info("mutation applied", "binding", binding.GetName())
 		}
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 		return engineResponse.WithPolicyResponse(policyResp), nil
@@ -228,7 +225,7 @@ func Mutate(
 			return emptyResp, nil
 		}
 
-		return MutateResource(*policy, nil, resource, gvr, client, namespaceSelectorMap, isFake)
+		return mutateResource(*policy, nil, resource, gvr, client, namespaceSelectorMap, isFake)
 	}
 
 	// bindings exist
@@ -258,7 +255,7 @@ func Mutate(
 			}
 
 			logger.V(3).Info("mutate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return MutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
+			return mutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
 		}
 		return emptyResp, nil
 	} else {
@@ -294,10 +291,15 @@ func Mutate(
 			if !ok {
 				continue
 			}
-			return MutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
+			return mutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
 		}
 
-		return emptyResp, nil
+		ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Mutation, "no binding matched (offline)", nil)
+		policyResp := engineapi.NewPolicyResponse()
+		policyResp.Add(engineapi.NewExecutionStats(time.Now(), time.Now()), *ruleResp)
+
+		return engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil).
+			WithPolicyResponse(policyResp), nil
 	}
 }
 

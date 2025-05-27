@@ -1,4 +1,3 @@
-# policy.yaml
 apiVersion: admissionregistration.k8s.io/v1alpha1
 kind: MutatingAdmissionPolicy
 metadata:
@@ -6,22 +5,23 @@ metadata:
 spec:
   matchConstraints:
     resourceRules:
-    - apiGroups: [ "apps" ]
-      apiVersions: [ "v1" ]
-      operations: [ "CREATE" ]
-      resources: [ "deployments" ]
+      - apiGroups: [ "apps" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "deployments" ]
   failurePolicy: Fail
   mutations:
-  - patchType: JSONPatch
-    jsonPatch:
-      expression: |
-        [
-          JSONPatch{
-            op: "replace",
-            path: "/spec/replicas",
-            value: object.spec.replicas + 2
-          }
-        ]
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          [
+            JSONPatch{
+              op: "replace",
+              path: "/spec/replicas",
+              value: int(object.spec.replicas != null ? object.spec.replicas : 1) + 2
+            }
+          ]
+
 ---
 # binding.yaml
 apiVersion: admissionregistration.k8s.io/v1alpha1

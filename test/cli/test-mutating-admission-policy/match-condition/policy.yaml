@@ -5,22 +5,22 @@ metadata:
 spec:
   matchConstraints:
     resourceRules:
-    - apiGroups: [ "apps" ]
-      apiVersions: [ "v1" ]
-      operations: [ "CREATE" ]
-      resources: [ "deployments" ]
+      - apiGroups: [ "apps" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "deployments" ]
   failurePolicy: Fail
   matchConditions:
-  - name: check-color
-    expression: "object.metadata.labels['color'] == 'red'"
+    - name: check-color
+      expression: "object.metadata.labels['color'] == 'red'"
   mutations:
-  - patchType: JSONPatch
-    jsonPatch:
-      expression: |
-        [
-          JSONPatch{
-            op: "replace",
-            path: "/spec/replicas",
-            value: object.spec.replicas + 5
-          }
-        ]
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          [
+            JSONPatch{
+              op: "replace",
+              path: "/spec/replicas",
+              value: int(object.spec.replicas != null ? object.spec.replicas : 1) + 5
+            }
+          ]
