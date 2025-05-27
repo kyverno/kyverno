@@ -61,6 +61,8 @@ type GenericPolicy interface {
 	AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
+	// AsDeletingPolicy returns the deleting policy
+	AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy
 }
 
 type genericPolicy struct {
@@ -72,6 +74,7 @@ type genericPolicy struct {
 	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
 	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
 	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
+	DeletingPolicy            *policiesv1alpha1.DeletingPolicy
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -102,6 +105,10 @@ func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy 
 	return p.GeneratingPolicy
 }
 
+func (p *genericPolicy) AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy {
+	return p.DeletingPolicy
+}
+
 func (p *genericPolicy) GetAPIVersion() string {
 	switch {
 	case p.PolicyInterface != nil:
@@ -117,6 +124,8 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.MutatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	case p.GeneratingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.DeletingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	}
 	return ""
@@ -138,6 +147,8 @@ func (p *genericPolicy) GetKind() string {
 		return "MutatingPolicy"
 	case p.GeneratingPolicy != nil:
 		return "GeneratingPolicy"
+	case p.DeletingPolicy != nil:
+		return "DeletingPolicy"
 	}
 	return ""
 }
@@ -203,5 +214,12 @@ func NewGeneratingPolicy(pol *policiesv1alpha1.GeneratingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:           pol,
 		GeneratingPolicy: pol,
+	}
+}
+
+func NewDeletingPolicy(pol *policiesv1alpha1.DeletingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:         pol,
+		DeletingPolicy: pol,
 	}
 }
