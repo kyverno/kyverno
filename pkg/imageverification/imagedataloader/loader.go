@@ -14,7 +14,7 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-var (
+const (
 	maxReferrersCount = 50
 	maxPayloadSize    = int64(10 * 1000 * 1000) // 10 MB
 )
