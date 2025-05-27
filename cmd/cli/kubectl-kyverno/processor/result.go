@@ -121,7 +121,7 @@ func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) boo
 		return printMutatedRes
 	}
 
-	// Handle native Kubernetes MAPs (no AsKyvernoPolicy)
+	// Handle native Kubernetes MAPs
 	if mapPolicy := genericPolicy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
 		for _, rule := range response.PolicyResponse.Rules {
 			switch rule.Status() {
