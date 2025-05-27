@@ -740,7 +740,6 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 		strings.Join(tc.config.JSONPaths, ","),
 	)
 
-	// Call applyCommandHelper and capture EngineResponses.
 	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
 	assert.NoError(t, err, desc)
 
@@ -750,7 +749,6 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 		report.MergeClusterReports(clustered),
 	}
 
-	// Now compare the aggregated summary with the expected one.
 	assert.Equal(t, len(combined), len(tc.expectedPolicyReports), "Number of combined reports does not match expected: "+desc)
 	for i, resp := range combined {
 		compareSummary(t, tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
