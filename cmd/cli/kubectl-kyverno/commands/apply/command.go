@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -53,6 +55,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/metadata"
 )
 
 type SkippedInvalidPolicies struct {
@@ -79,6 +82,8 @@ type ApplyCommandConfig struct {
 	PolicyPaths           []string
 	TargetResourcePaths   []string
 	GitBranch             string
+	GitUsername           string
+	GitPassword           string
 	warnExitCode          int
 	warnNoPassed          bool
 	Exception             []string
@@ -176,6 +181,8 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&applyCommandConfig.KubeConfig, "kubeconfig", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVar(&applyCommandConfig.Context, "context", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
+	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
+	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -603,7 +610,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
-
+	resources = test.ProcessResources(resources)
 	var jsonPayloads []*unstructured.Unstructured
 	if len(c.JSONPaths) > 0 {
 		for _, path := range c.JSONPaths {
@@ -649,7 +656,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			var gitPathToYamls string
 			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, path)
 			fs := memfs.New()
-			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch); err != nil {
+			auth := &http.BasicAuth{
+				Username: c.GitUsername,
+				Password: c.GitPassword,
+			}
+			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
 				return nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
@@ -720,7 +731,11 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 		if err != nil {
 			return nil, err
 		}
-		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute)
+		metadataClient, err := metadata.NewForConfig(restConfig)
+		if err != nil {
+			return nil, err
+		}
+		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute, false, metadataClient)
 		if err != nil {
 			return nil, err
 		}

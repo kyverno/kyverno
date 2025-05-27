@@ -18,6 +18,9 @@ global:
   # -- Resync period for informers
   resyncPeriod: 15m
 
+  # -- Enable/Disable custom resource watcher to invalidate cache
+  crdWatcher: false
+
   caCertificates:
     # -- Global CA certificates to use with Kyverno deployments
     # This value is expected to be one large string of CA certificates
@@ -842,6 +845,9 @@ admissionController:
 
   # -- Resync period for informers
   resyncPeriod: 15m
+
+  # -- Enable/Disable custom resource watcher to invalidate cache
+  crdWatcher: false
 
   # -- Additional labels to add to each pod
   podLabels: {}
