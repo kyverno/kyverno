@@ -27,13 +27,13 @@ type compilerImpl struct{}
 func (c *compilerImpl) Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetSpec().EvaluationMode() {
 	case policiesv1alpha1.EvaluationModeJSON:
-		return c.compileForJSON(policy, exceptions)
+		return c.compileForJSON(policy)
 	default:
 		return c.compileForKubernetes(policy, exceptions)
 	}
 }
 
-func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -49,6 +49,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 
 	options := []cel.EnvOption{
 		cel.Variable(compiler.ObjectKey, cel.DynType),
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	}
 
 	options = append(options, declOptions...)
