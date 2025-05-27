@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
-	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/notaryproject/notation-go"
@@ -33,7 +32,7 @@ func NewTrustStore(name string, certs []*x509.Certificate, tsaCerts []*x509.Cert
 
 func (ts *simpleTrustStore) GetCertificates(ctx context.Context, storeType truststore.Type, name string) ([]*x509.Certificate, error) {
 	if name != ts.name {
-		return nil, errors.Errorf("truststore not found")
+		return nil, errors.New("truststore not found")
 	}
 	switch storeType {
 	case truststore.TypeCA:
@@ -41,7 +40,7 @@ func (ts *simpleTrustStore) GetCertificates(ctx context.Context, storeType trust
 	case truststore.TypeTSA:
 		return ts.tsacerts, nil
 	}
-	return nil, fmt.Errorf("entry not found in trust store")
+	return nil, errors.New("entry not found in trust store")
 }
 
 func buildTrustPolicy(tsa []*x509.Certificate) *trustpolicy.Document {

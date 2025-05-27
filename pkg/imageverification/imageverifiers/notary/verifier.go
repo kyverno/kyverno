@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/notaryproject/notation-go"
 	notationlog "github.com/notaryproject/notation-go/log"
@@ -55,11 +54,12 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	return nil
 }
 
-func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, certsData, tsaCertsData string) error {
-	if attestation.Referrer == nil {
-		return fmt.Errorf("notary verifier only supports oci 1.1 referrers as attestations")
-	}
-	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name) // TODO: use attestor and attestation names
+func (v *Verifier) VerifyAttestationSignature(
+	ctx context.Context,
+	image *imagedataloader.ImageData,
+	referrerType, certsData, tsaCertsData string,
+) error {
+	logger := v.log.WithValues("image", image.Image, "digest", image.Digest) // TODO: use attestor and attestation names
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)
 
 	vInfo, err := getVerificationInfo(image, certsData, tsaCertsData)
@@ -69,7 +69,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 		return err
 	}
 
-	referrers, err := image.FetchRefererrs(attestation.Referrer.Type)
+	referrers, err := image.FetchRefererrs(referrerType)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to fetch referrers")
 		logger.Error(err, "image attestation verification failed")
@@ -108,7 +108,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	}
 
 	if len(errs) == 0 {
-		return fmt.Errorf("attestation verification failed, no attestations found for type: %s", attestation.Referrer.Type)
+		return fmt.Errorf("attestation verification failed, no attestations found for type: %s", referrerType)
 	}
 	return multierr.Combine(errs...)
 }

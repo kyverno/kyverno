@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 )
@@ -61,15 +60,8 @@ func Test_ImageAttestationVerificationStandard(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestation := &v1alpha1.Attestation{
-		Name: "attestation",
-		Referrer: &v1alpha1.Referrer{
-			Type: "sbom/cyclone-dx",
-		},
-	}
-
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, attestation, cert, "")
+	err = v.VerifyAttestationSignature(ctx, img, "sbom/cyclone-dx", cert, "")
 	assert.NoError(t, err)
 }
 
@@ -79,15 +71,8 @@ func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestation := &v1alpha1.Attestation{
-		Name: "attestation",
-		Referrer: &v1alpha1.Referrer{
-			Type: "invalid",
-		},
-	}
-
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, attestation, cert, "")
+	err = v.VerifyAttestationSignature(ctx, img, "invalid", cert, "")
 	assert.ErrorContains(t, err, "attestation verification failed, no attestations found for type: invalid")
 }
 
@@ -97,15 +82,8 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestation := &v1alpha1.Attestation{
-		Name: "attestation",
-		Referrer: &v1alpha1.Referrer{
-			Type: "trivy/vulnerability-fail-test",
-		},
-	}
-
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, attestation, cert, "")
+	err = v.VerifyAttestationSignature(ctx, img, "trivy/vulnerability-fail-test", cert, "")
 	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, signature is not produced by a trusted signer")
 }
 
@@ -115,13 +93,7 @@ func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestation := &v1alpha1.Attestation{
-		Name: "attestation",
-		Referrer: &v1alpha1.Referrer{
-			Type: "application/vnd.cncf.notary.signature",
-		},
-	}
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, attestation, cert, "")
+	err = v.VerifyAttestationSignature(ctx, img, "application/vnd.cncf.notary.signature", cert, "")
 	assert.ErrorContains(t, err, "make sure the artifact was signed successfully")
 }

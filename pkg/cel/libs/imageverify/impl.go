@@ -122,13 +122,11 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 				if !ok {
 					return types.NewErr("attestation not found in policy: %s", attestation)
 				}
-
 				opts := GetRemoteOptsFromPolicy(f.creds)
 				img, err := f.imgCtx.Get(ctx, image, opts...)
 				if err != nil {
 					return types.NewErr("failed to get imagedata: %v", err)
 				}
-
 				if attestor.IsCosign() {
 					if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
 						f.logger.Info("failed to verify attestation cosign: %v", err)
@@ -136,7 +134,16 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 						count += 1
 					}
 				} else if attestor.IsNotary() {
-					if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, &attest, attestor.Notary.Certs.Value, attestor.Notary.TSACerts.Value); err != nil {
+					if attest.Referrer == nil {
+						return types.NewErr("notary verifier only supports oci 1.1 referrers as attestations")
+					}
+					if err := f.notaryVerifier.VerifyAttestationSignature(
+						ctx,
+						img,
+						attest.Referrer.Type,
+						attestor.Notary.Certs.Value,
+						attestor.Notary.TSACerts.Value,
+					); err != nil {
 						f.logger.Info("failed to verify attestation notary: %v", err)
 					} else {
 						count += 1
