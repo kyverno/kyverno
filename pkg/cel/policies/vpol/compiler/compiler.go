@@ -68,10 +68,19 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
+
+	env, err = env.Extend(
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+	)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
 	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
+
 	validations := make([]compiler.Validation, 0, len(policy.Spec.Validations))
 	{
 		path := path.Child("validations")
