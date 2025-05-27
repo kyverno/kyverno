@@ -3,7 +3,6 @@ kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     admissions.enforcer/disabled: "true"
-  creationTimestamp: "2025-05-26T16:16:02Z"
   labels:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
