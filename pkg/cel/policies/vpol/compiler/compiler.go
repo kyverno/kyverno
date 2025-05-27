@@ -72,7 +72,6 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	env, err = env.Extend(
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
-
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
