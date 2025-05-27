@@ -1384,7 +1384,7 @@ image verification functions</p>
         <td>
           
 
-          <p>MatchConstraints specifies what resources this policy is designed to validate.
+          <p>MatchConstraints specifies what resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
 Required.</p>
 
@@ -1506,6 +1506,33 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
+        <td><code>targetMatchConstraints</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>mutations</code>
           
           </br>
@@ -1574,8 +1601,8 @@ and reinvocation of mutations occurs on a per binding basis.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
-                <span style="font-family: monospace">EvaluationConfiguration</span>
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">
+                <span style="font-family: monospace">MutatingPolicyEvaluationConfiguration</span>
               </a>
             
           
@@ -1583,7 +1610,7 @@ and reinvocation of mutations occurs on a per binding basis.</p>
         <td>
           
 
-          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+          <p>EvaluationConfiguration defines the configuration for mutating policy evaluation.</p>
 
 
           
@@ -3759,7 +3786,7 @@ Required.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)
     </p>
   
@@ -5785,6 +5812,101 @@ If not provided, the system roots are used.</p>
     </table>
   
 
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>EvaluationConfiguration</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
+                <span style="font-family: monospace">EvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>EvaluationConfiguration</code> are embedded into this type.)</p>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutateExisting enables mutation of existing resources. Default is <code>false</code>.
+When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates existing resources matched in <code>spec.matchConstraints</code>.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec
     </H3>
 
@@ -5834,7 +5956,7 @@ If not provided, the system roots are used.</p>
         <td>
           
 
-          <p>MatchConstraints specifies what resources this policy is designed to validate.
+          <p>MatchConstraints specifies what resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
 Required.</p>
 
@@ -5956,6 +6078,33 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
+        <td><code>targetMatchConstraints</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>mutations</code>
           
           </br>
@@ -6024,8 +6173,8 @@ and reinvocation of mutations occurs on a per binding basis.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
-                <span style="font-family: monospace">EvaluationConfiguration</span>
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">
+                <span style="font-family: monospace">MutatingPolicyEvaluationConfiguration</span>
               </a>
             
           
@@ -6033,7 +6182,7 @@ and reinvocation of mutations occurs on a per binding basis.</p>
         <td>
           
 
-          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+          <p>EvaluationConfiguration defines the configuration for mutating policy evaluation.</p>
 
 
           
