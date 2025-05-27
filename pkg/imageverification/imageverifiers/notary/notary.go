@@ -23,15 +23,11 @@ type Verifier struct {
 	log logr.Logger
 }
 
-func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1alpha1.Attestor) error {
-	if attestor.Notary == nil {
-		return fmt.Errorf("notary verifier only supports notary attestor")
-	}
-
-	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestor", attestor.Name)
+func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, certsData, tsaCertsData string) error {
+	logger := v.log.WithValues("image", image.Image, "digest", image.Digest)
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)
 
-	vInfo, err := getVerificationInfo(image, attestor.Notary)
+	vInfo, err := getVerificationInfo(image, certsData, tsaCertsData)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to setup notation verification data")
 		logger.Error(err, "image verification failed")
@@ -59,18 +55,14 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	return nil
 }
 
-func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, attestor *policiesv1alpha1.Attestor) error {
+func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *policiesv1alpha1.Attestation, certsData, tsaCertsData string) error {
 	if attestation.Referrer == nil {
 		return fmt.Errorf("notary verifier only supports oci 1.1 referrers as attestations")
 	}
-	if attestor.Notary == nil {
-		return fmt.Errorf("notary verifier only supports notary attestor")
-	}
-
-	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name, "attestor", attestor.Name) // TODO: use attestor and attestation names
+	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name) // TODO: use attestor and attestation names
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)
 
-	vInfo, err := getVerificationInfo(image, attestor.Notary)
+	vInfo, err := getVerificationInfo(image, certsData, tsaCertsData)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to setup notation verification data")
 		logger.Error(err, "image verification failed")

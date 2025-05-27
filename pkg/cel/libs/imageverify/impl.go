@@ -86,7 +86,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(ctx context.Context)
 						count += 1
 					}
 				} else if attestor.IsNotary() {
-					if err := f.notaryVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
+					if err := f.notaryVerifier.VerifyImageSignature(ctx, img, attestor.Notary.Certs.Value, attestor.Notary.TSACerts.Value); err != nil {
 						f.logger.Info("failed to verify image notary: %v", err)
 					} else {
 						count += 1
@@ -136,7 +136,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx contex
 						count += 1
 					}
 				} else if attestor.IsNotary() {
-					if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
+					if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, &attest, attestor.Notary.Certs.Value, attestor.Notary.TSACerts.Value); err != nil {
 						f.logger.Info("failed to verify attestation notary: %v", err)
 					} else {
 						count += 1

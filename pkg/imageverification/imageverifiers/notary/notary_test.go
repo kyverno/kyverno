@@ -39,17 +39,8 @@ func Test_ImageSignatureVerificationStandard(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
-		Name: "test",
-		Notary: &v1alpha1.Notary{
-			Certs: &v1alpha1.StringOrExpression{
-				Value: cert,
-			},
-		},
-	}
-
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyImageSignature(ctx, img, attestor)
+	err = v.VerifyImageSignature(ctx, img, cert, "")
 	assert.NoError(t, err)
 }
 
@@ -59,17 +50,8 @@ func Test_ImageSignatureVerificationUnsigned(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, unsignedImage)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
-		Name: "test",
-		Notary: &v1alpha1.Notary{
-			Certs: &v1alpha1.StringOrExpression{
-				Value: cert,
-			},
-		},
-	}
-
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyImageSignature(ctx, img, attestor)
+	err = v.VerifyImageSignature(ctx, img, cert, "")
 	assert.ErrorContains(t, err, "make sure the artifact was signed successfully")
 }
 
@@ -79,15 +61,6 @@ func Test_ImageAttestationVerificationStandard(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
-		Name: "test",
-		Notary: &v1alpha1.Notary{
-			Certs: &v1alpha1.StringOrExpression{
-				Value: cert,
-			},
-		},
-	}
-
 	attestation := &v1alpha1.Attestation{
 		Name: "attestation",
 		Referrer: &v1alpha1.Referrer{
@@ -96,7 +69,7 @@ func Test_ImageAttestationVerificationStandard(t *testing.T) {
 	}
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, attestation, attestor)
+	err = v.VerifyAttestationSignature(ctx, img, attestation, cert, "")
 	assert.NoError(t, err)
 }
 
@@ -106,15 +79,6 @@ func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
-		Name: "test",
-		Notary: &v1alpha1.Notary{
-			Certs: &v1alpha1.StringOrExpression{
-				Value: cert,
-			},
-		},
-	}
-
 	attestation := &v1alpha1.Attestation{
 		Name: "attestation",
 		Referrer: &v1alpha1.Referrer{
@@ -123,7 +87,7 @@ func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
 	}
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, attestation, attestor)
+	err = v.VerifyAttestationSignature(ctx, img, attestation, cert, "")
 	assert.ErrorContains(t, err, "attestation verification failed, no attestations found for type: invalid")
 }
 
@@ -133,15 +97,6 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
-		Name: "test",
-		Notary: &v1alpha1.Notary{
-			Certs: &v1alpha1.StringOrExpression{
-				Value: cert,
-			},
-		},
-	}
-
 	attestation := &v1alpha1.Attestation{
 		Name: "attestation",
 		Referrer: &v1alpha1.Referrer{
@@ -150,7 +105,7 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 	}
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, attestation, attestor)
+	err = v.VerifyAttestationSignature(ctx, img, attestation, cert, "")
 	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, signature is not produced by a trusted signer")
 }
 
@@ -160,15 +115,6 @@ func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
 	img, err := idf.FetchImageData(ctx, image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
-		Name: "test",
-		Notary: &v1alpha1.Notary{
-			Certs: &v1alpha1.StringOrExpression{
-				Value: cert,
-			},
-		},
-	}
-
 	attestation := &v1alpha1.Attestation{
 		Name: "attestation",
 		Referrer: &v1alpha1.Referrer{
@@ -176,6 +122,6 @@ func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
 		},
 	}
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, attestation, attestor)
+	err = v.VerifyAttestationSignature(ctx, img, attestation, cert, "")
 	assert.ErrorContains(t, err, "make sure the artifact was signed successfully")
 }
