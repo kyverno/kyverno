@@ -24,7 +24,16 @@ func (*imageLibType) Types() []*cel.Type {
 
 func (*imageLibType) declarations() map[string][]cel.FunctionOpt {
 	return map[string][]cel.FunctionOpt{
+		// DEPRECATED: alias for backward compatibility — use parseImageReference() instead
 		"image": {
+			cel.Overload(
+				"string_to_image_deprecated",
+				[]*cel.Type{cel.StringType},
+				ImageType,
+				cel.UnaryBinding(stringToImage),
+			),
+		},
+		"parseImageReference": {
 			cel.Overload(
 				"string_to_image",
 				[]*cel.Type{cel.StringType},
