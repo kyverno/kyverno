@@ -29,7 +29,7 @@ type Context interface {
 }
 
 type contextProvider struct {
-	dclient   dynamic.Interface
+	client    dclient.Interface
 	imagedata imagedataloader.Fetcher
 	gctxStore gctxstore.Store
 }
@@ -44,7 +44,7 @@ func NewContextProvider(
 		return nil, err
 	}
 	return &contextProvider{
-		dclient:   client.GetDynamicInterface(),
+		client:    client,
 		imagedata: idl,
 		gctxStore: gctxStore,
 	}, nil
@@ -113,12 +113,7 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
-		groupVersion, err := schema.ParseGroupVersion(resource.GetAPIVersion())
-		if err != nil {
-			return err
-		}
-		resourceInteface := cp.getResourceClient(groupVersion, resource.GetKind(), namespace)
-		_, err = resourceInteface.Create(context.TODO(), resource, metav1.CreateOptions{})
+		_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
 		if err != nil {
 			return err
 		}
@@ -127,7 +122,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {
-	client := cp.dclient.Resource(groupVersion.WithResource(resource))
+	client := cp.client.GetDynamicInterface().Resource(groupVersion.WithResource(resource))
 	if namespace != "" {
 		return client.Namespace(namespace)
 	} else {
