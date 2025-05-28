@@ -10,23 +10,33 @@ type MatchCriteria struct {
 	Constraints *admissionregistrationv1.MatchResources
 }
 
-// GetParsedNamespaceSelector returns the converted LabelSelector which implements labels.Selector
+func (m *MatchCriteria) getSelector(sel *metav1.LabelSelector) (labels.Selector, error) {
+	if sel == nil {
+		return labels.Everything(), nil
+	}
+	return metav1.LabelSelectorAsSelector(sel)
+}
+
+// GetParsedNamespaceSelector returns the namespace selector or Everything
 func (m *MatchCriteria) GetParsedNamespaceSelector() (labels.Selector, error) {
-	if m.Constraints.NamespaceSelector == nil {
+	if m.Constraints == nil {
 		return labels.Everything(), nil
 	}
-	return metav1.LabelSelectorAsSelector(m.Constraints.NamespaceSelector)
+	return m.getSelector(m.Constraints.NamespaceSelector)
 }
 
-// GetParsedObjectSelector returns the converted LabelSelector which implements labels.Selector
+// GetParsedObjectSelector returns the object selector or Everything
 func (m *MatchCriteria) GetParsedObjectSelector() (labels.Selector, error) {
-	if m.Constraints.ObjectSelector == nil {
+	if m.Constraints == nil {
 		return labels.Everything(), nil
 	}
-	return metav1.LabelSelectorAsSelector(m.Constraints.ObjectSelector)
+	return m.getSelector(m.Constraints.ObjectSelector)
 }
 
-// GetMatchResources returns the matchConstraints
+// GetMatchResources returns a copy of the constraints or an empty struct
 func (m *MatchCriteria) GetMatchResources() admissionregistrationv1.MatchResources {
+	if m.Constraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
 	return *m.Constraints
 }
