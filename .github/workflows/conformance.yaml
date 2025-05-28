@@ -632,7 +632,7 @@ jobs:
           tests-path: verify-manifests
           upgrade-scenario: ${{ matrix.upgrade }}
 
-  verifyImages:
+  verify-images:
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -650,7 +650,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: verifyImages
+          tests-path: verify-images
           shard-index: ${{ matrix.shard-index }}
           shard-count: 2
           upgrade-scenario: ${{ matrix.upgrade }}
@@ -1148,8 +1148,8 @@ jobs:
       - validate
       - validating-admission-policy-reports
       - validating-policies
+      - verify-images
       - verify-manifests
-      - verifyImages
       - image-validating-policies
       - webhook-configurations
       - webhooks
@@ -1189,8 +1189,8 @@ jobs:
       - validate
       - validating-admission-policy-reports
       - validating-policies
+      - verify-images
       - verify-manifests
-      - verifyImages
       - image-validating-policies
       - webhook-configurations
       - webhooks
