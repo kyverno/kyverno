@@ -31,6 +31,7 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
+	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -139,7 +140,7 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	stateRecorder webhookcontroller.StateRecorder,
+	stateRecorder webhook.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -161,7 +162,6 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
 		deploymentInformer,
 		caInformer,
@@ -435,7 +435,7 @@ func main() {
 		)
 		policyCache := policycache.NewCache()
 		notifyChan := make(chan string)
-		stateRecorder := webhookcontroller.NewStateRecorder(notifyChan)
+		stateRecorder := webhook.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
