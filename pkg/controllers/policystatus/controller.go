@@ -2,11 +2,13 @@ package policystatus
 
 import (
 	"context"
+	baseerrors "errors"
 	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
@@ -179,7 +181,9 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	for _, gvr := range gvrs {
 		for _, verb := range []string{"get", "list", "watch"} {
 			result, err := c.authChecker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, "", "", "", verb)
-			if err != nil {
+			if baseerrors.Is(err, checker.ErrNoServiceAccount) {
+				continue
+			} else if err != nil {
 				errs = append(errs, err)
 			} else if !result.Allowed {
 				errs = append(errs, fmt.Errorf("%s %s: %s", verb, gvr.String(), result.Reason))

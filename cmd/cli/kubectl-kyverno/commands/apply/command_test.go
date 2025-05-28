@@ -371,6 +371,27 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{
+					"../../../../../test/cli/apply/type/policy1.yaml",
+					"../../../../../test/cli/apply/type/policy2.yaml",
+					"../../../../../test/cli/apply/type/policy3.yaml",
+				},
+				ResourcePaths: []string{"../../../../../test/cli/apply/type/resource.yaml"},
+				GitBranch:     "main",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  3,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
@@ -379,6 +400,8 @@ func Test_Apply(t *testing.T) {
 		assert.Equal(t, actual.Skip, expected.Skip, desc)
 		assert.Equal(t, actual.Warn, expected.Warn, desc)
 		assert.Equal(t, actual.Error, expected.Error, desc)
+		assert.Equal(t, actual.Pass, expected.Pass, desc)
+
 	}
 
 	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(policyreportv1alpha2.PolicyReportSummary, policyreportv1alpha2.PolicyReportSummary, string)) {
@@ -610,6 +633,23 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod2.yaml"},
 				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
 				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/json-check-variables/policy.yaml"},
+				JSONPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-variables/payload.json"},
+
+				PolicyReport: true,
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{

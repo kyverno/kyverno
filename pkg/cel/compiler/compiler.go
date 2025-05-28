@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -189,6 +190,41 @@ func CompileMatchImageReferences(path *field.Path, env *cel.Env, matches ...v1al
 		allErrs = append(allErrs, errs...)
 		if match != nil {
 			result = append(result, match)
+		}
+	}
+	return result, allErrs
+}
+
+func compileGeneration(path *field.Path, env *cel.Env, generation policiesv1alpha1.Generation) (cel.Program, field.ErrorList) {
+	var allErrs field.ErrorList
+	{
+		path := path.Child("expression")
+		ast, issues := env.Compile(generation.Expression)
+		if err := issues.Err(); err != nil {
+			return nil, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
+		}
+		if !ast.OutputType().IsExactType(types.NullType) {
+			msg := fmt.Sprintf("output is expected to be of type %s", types.NullType.TypeName())
+			return nil, append(allErrs, field.Invalid(path, generation.Expression, msg))
+		}
+		prog, err := env.Program(ast)
+		if err != nil {
+			return nil, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
+		}
+		return prog, allErrs
+	}
+}
+
+func CompileGenerations(path *field.Path, env *cel.Env, generations ...policiesv1alpha1.Generation) (result []cel.Program, allErrs field.ErrorList) {
+	if len(generations) == 0 {
+		return nil, nil
+	}
+	result = make([]cel.Program, 0, len(generations))
+	for i, generation := range generations {
+		prog, errs := compileGeneration(path.Index(i), env, generation)
+		allErrs = append(allErrs, errs...)
+		if prog != nil {
+			result = append(result, prog)
 		}
 	}
 	return result, allErrs
