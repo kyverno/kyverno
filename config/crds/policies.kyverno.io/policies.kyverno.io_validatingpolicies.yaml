@@ -1425,8 +1425,26 @@ spec:
                                   type: integer
                               type: object
                           type: object
+                        targets:
+                          items:
+                            properties:
+                              group:
+                                type: string
+                              kind:
+                                type: string
+                              resource:
+                                type: string
+                              version:
+                                type: string
+                            required:
+                            - kind
+                            - resource
+                            - version
+                            type: object
+                          type: array
                       required:
                       - spec
+                      - targets
                       type: object
                     type: object
                 type: object
