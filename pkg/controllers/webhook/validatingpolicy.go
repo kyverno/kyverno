@@ -23,8 +23,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			p = vpol
 		} else if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
 			p = ivpol
-		} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
-			p = gpol
 		}
 		if p.GetMatchConditions() != nil {
 			fineGrained = append(fineGrained, policy)
@@ -46,8 +44,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				p = vpol
 			} else if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
 				p = ivpol
-			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
-				p = gpol
 			}
 			webhook := admissionregistrationv1.ValidatingWebhook{
 				SideEffects:             &noneOnDryRun,
@@ -166,8 +162,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				p = vpol
 			} else if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
 				p = ivpol
-			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
-				p = gpol
 			}
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -82,8 +81,6 @@ type ApplyCommandConfig struct {
 	PolicyPaths           []string
 	TargetResourcePaths   []string
 	GitBranch             string
-	GitUsername           string
-	GitPassword           string
 	warnExitCode          int
 	warnNoPassed          bool
 	Exception             []string
@@ -92,7 +89,6 @@ type ApplyCommandConfig struct {
 	GenerateExceptions    bool
 	GeneratedExceptionTTL time.Duration
 	JSONPaths             []string
-	ClusterWideResources  bool
 }
 
 func Command() *cobra.Command {
@@ -181,8 +177,6 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&applyCommandConfig.KubeConfig, "kubeconfig", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVar(&applyCommandConfig.Context, "context", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
-	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
-	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -195,7 +189,6 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
-	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
 	return cmd
 }
 
@@ -606,7 +599,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 }
 
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, c.ClusterWideResources, "")
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
@@ -656,11 +649,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			var gitPathToYamls string
 			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, path)
 			fs := memfs.New()
-			auth := &http.BasicAuth{
-				Username: c.GitUsername,
-				Password: c.GitPassword,
-			}
-			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
+			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
 				return nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
