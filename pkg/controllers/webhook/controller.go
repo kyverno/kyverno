@@ -929,8 +929,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return err
 	}
 
-	validate := make([]admissionregistrationv1.ValidatingWebhook, 0, len(mpols))
-	validate = buildWebhookRules(cfg,
+	validate := buildWebhookRules(cfg,
 		c.server,
 		config.MutatingPolicyWebhookName,
 		"/mpol",
