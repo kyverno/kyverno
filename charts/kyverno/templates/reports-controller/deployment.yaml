@@ -82,6 +82,7 @@ spec:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
       {{- end }}
+      automountServiceAccountToken: true
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
       containers:
         - name: controller
