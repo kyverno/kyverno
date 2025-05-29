@@ -7,7 +7,7 @@ spec:
   steps:
   - name: create policy
     use:
-      template: ../../../_step-templates/create-policy.yaml
+      template: ../../../../_step-templates/create-policy.yaml
       with:
         bindings:
         - name: file
