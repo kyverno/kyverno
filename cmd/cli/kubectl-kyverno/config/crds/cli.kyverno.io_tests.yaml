@@ -118,6 +118,10 @@ spec:
                     IsImageValidatingPolicy indicates if the policy is an image validating policy.
                     It's required in case the policy is an image validating policy.
                   type: boolean
+                isMutatingAdmissionPolicy:
+                  description: IsMutatingAdmissionPolicy indicates if the policy is
+                    a mutating admission policy.
+                  type: boolean
                 isValidatingAdmissionPolicy:
                   description: |-
                     IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
