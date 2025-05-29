@@ -1,0 +1,24 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: add-default-app-label
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE" ]
+      resources: [ "pods" ]
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        !has(object.metadata.labels.app) ?
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels/app",
+            value: "default"
+          }
+        ] :
+        []
