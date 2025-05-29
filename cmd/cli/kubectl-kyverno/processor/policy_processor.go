@@ -44,6 +44,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -54,6 +55,8 @@ type PolicyProcessor struct {
 	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
@@ -212,9 +215,43 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		responses = append(responses, validateResponse)
 		resource = validateResponse.PatchedResource
 	}
+
 	restMapper, err := utils.GetRESTMapper(p.Client, !p.Cluster)
 	if err != nil {
 		return nil, err
+	}
+	// Mutate Admission Policies
+	if len(p.MutatingAdmissionPolicies) != 0 {
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+		} else {
+			gvr := mapping.Resource
+
+			for _, mapPolicy := range p.MutatingAdmissionPolicies {
+				// build the policy+binding data
+				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
+				for _, b := range p.MutatingAdmissionPolicyBindings {
+					if b.Spec.PolicyName == mapPolicy.Name {
+						data.AddBinding(b)
+					}
+				}
+				// apply the MAP
+				mutateResponse, err := admissionpolicy.Mutate(*data, resource, gvr, p.Client, p.NamespaceSelectorMap, !p.Cluster)
+				if err != nil {
+					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
+					continue
+				}
+				if mutateResponse.IsEmpty() {
+					continue
+				}
+				if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
+					log.Log.Error(err, "failed to log MAP mutation")
+				}
+				resource = mutateResponse.PatchedResource
+				responses = append(responses, mutateResponse)
+			}
+		}
 	}
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
