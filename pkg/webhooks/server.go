@@ -71,6 +71,7 @@ func NewServer(
 	verifyLogger := logger.WithName("verify")
 	vpolLogger := logger.WithName("vpol")
 	ivpolLogger := logger.WithName("ivpol")
+	gpolLogger := logger.WithName("gpol")
 	// new vpol and ivpol handlers
 	mux.HandlerFunc(
 		"POST",
@@ -111,6 +112,19 @@ func NewServer(
 			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
 			WithAdmission(resourceLogger.WithName("mutate")).
 			ToHandlerFunc("IVPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		"/gpol/*policies",
+		handlerFunc("GENERATE", resourceHandlers.GeneratingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(resourceLogger.WithName("generate")).
+			ToHandlerFunc("GPOL"),
 	)
 	registerWebhookHandlersWithAll(
 		mux,
@@ -192,6 +206,22 @@ func NewServer(
 				WithRoles(rbLister, crbLister).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(ivpolLogger.WithName("validate"))
+		},
+	)
+	registerWebhookHandlers(
+		mux,
+		"GPOL",
+		config.PolicyServicePath+config.GeneratingPolicyServicePath+config.ValidatingWebhookServicePath,
+		resourceHandlers.GeneratingPolicies,
+		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
+			return handler.
+				WithFilter(configuration).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithTopLevelGVK(discovery).
+				WithRoles(rbLister, crbLister).
+				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+				WithAdmission(gpolLogger.WithName("generate"))
 		},
 	)
 	mux.HandlerFunc(
