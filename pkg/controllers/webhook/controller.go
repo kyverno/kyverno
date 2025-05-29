@@ -122,6 +122,7 @@ type controller struct {
 	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
 	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
+	mpolLister        policiesv1alpha1listers.MutatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
@@ -165,6 +166,7 @@ func NewController(
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
@@ -200,6 +202,7 @@ func NewController(
 		vpolLister:          vpolInformer.Lister(),
 		gpolLister:          gpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
+		mpolLister:          mpolInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
@@ -921,18 +924,32 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return nil
 	}
 
+	mpols, err := c.getMutatingPolicies()
+	if err != nil {
+		return err
+	}
+
+	validate := make([]admissionregistrationv1.ValidatingWebhook, 0, len(mpols))
+	validate = buildWebhookRules(cfg,
+		c.server,
+		config.MutatingPolicyWebhookName,
+		"/mpol",
+		c.servicePort,
+		caBundle,
+		mpols)
+
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
 	}
 
-	validate := buildWebhookRules(cfg,
+	validate = append(validate, buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyMutateWebhookName,
 		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
-		ivpols)
+		ivpols)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
 	for _, w := range validate {
@@ -1309,6 +1326,20 @@ func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, er
 		}
 	}
 	return ivpols, nil
+}
+
+func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
+	policies, err := c.mpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	mpols := make([]engineapi.GenericPolicy, 0)
+	for _, mpol := range policies {
+		if mpol.Spec.AdmissionEnabled() {
+			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
+		}
+	}
+	return mpols, nil
 }
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {
