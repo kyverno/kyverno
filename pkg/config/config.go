@@ -74,6 +74,8 @@ const (
 	ValidatingPolicyServicePath = "/vpol"
 	// ImageValidatingPolicyServicePath is the sub path for imageverificationpolicies execution
 	ImageValidatingPolicyServicePath = "/ivpol"
+	// GeneratingPolicyServicePath is the sub path for generatingpolicies execution
+	GeneratingPolicyServicePath = "/gpol"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CELExceptionValidatingWebhookServicePath is the path for CEL PolicyException validation webhook(used to validate CEL PolicyException resource)

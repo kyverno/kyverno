@@ -48355,6 +48355,7 @@ spec:
                 enum:
                 - mutate
                 - generate
+                - cel-generate
                 type: string
               resource:
                 description: ResourceSpec is the information to identify the trigger
@@ -57015,6 +57016,19 @@ rules:
       - updaterequests/status
       - globalcontextentries
       - globalcontextentries/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - generatingpolicies
     verbs:
       - create
       - delete
