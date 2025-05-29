@@ -130,3 +130,13 @@ func (v Variables) SetInStore(s *store.Store) {
 	}
 	s.SetPolicies(storePolicies...)
 }
+
+func (v *Variables) Variables() map[string]string {
+	if v.values == nil {
+		return map[string]string{}
+	}
+	if v.values.Variables == nil {
+		return map[string]string{}
+	}
+	return v.values.Variables
+}
