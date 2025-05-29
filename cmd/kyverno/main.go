@@ -51,6 +51,7 @@ import (
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/gpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -161,6 +162,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
 		deploymentInformer,
 		caInformer,
@@ -735,6 +737,7 @@ func main() {
 			ivpolEngine,
 			contextProvider,
 		)
+		gpolHandlers := gpol.New(urgen)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
@@ -755,6 +758,7 @@ func main() {
 				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
 				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.Validate),
 				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
+				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.Generate),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),

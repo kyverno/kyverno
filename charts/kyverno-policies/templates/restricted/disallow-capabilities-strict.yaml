@@ -21,6 +21,7 @@ metadata:
     policies.kyverno.io/description: >-
       Adding capabilities other than `NET_BIND_SERVICE` is disallowed. In addition,
       all containers must explicitly drop `ALL` capabilities.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}

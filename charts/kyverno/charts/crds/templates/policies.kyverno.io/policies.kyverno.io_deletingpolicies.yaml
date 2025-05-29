@@ -568,6 +568,9 @@ spec:
                       The conditions array, the reason and message fields contain more detail about the policy's status.
                     type: boolean
                 type: object
+              lastExecutionTime:
+                format: date-time
+                type: string
             type: object
         required:
         - spec
