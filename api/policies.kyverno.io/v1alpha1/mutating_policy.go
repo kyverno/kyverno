@@ -37,7 +37,7 @@ type MutatingPolicyStatus struct {
 
 // MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.
 type MutatingPolicySpec struct {
-	// MatchConstraints specifies what resources this policy is designed to validate.
+	// MatchConstraints specifies what resources this policy is designed to evaluate.
 	// The AdmissionPolicy cares about a request if it matches _all_ Constraints.
 	// Required.
 	MatchConstraints *admissionregistrationv1alpha1.MatchResources `json:"matchConstraints,omitempty"`
@@ -91,6 +91,10 @@ type MutatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1alpha1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
+	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
+	// +optional
+	TargetMatchConstraints *admissionregistrationv1alpha1.MatchResources `json:"targetMatchConstraints,omitempty"`
+
 	// mutations contain operations to perform on matching objects.
 	// mutations may not be empty; a minimum of one mutation is required.
 	// mutations are evaluated in order, and are reinvoked according to
@@ -106,9 +110,9 @@ type MutatingPolicySpec struct {
 	// +optional
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
 
-	// EvaluationConfiguration defines the configuration for the policy evaluation.
+	// EvaluationConfiguration defines the configuration for mutating policy evaluation.
 	// +optional
-	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
+	EvaluationConfiguration *MutatingPolicyEvaluationConfiguration `json:"evaluation,omitempty"`
 
 	// reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
 	// as part of a single admission evaluation.
@@ -121,6 +125,16 @@ type MutatingPolicySpec struct {
 	// reinvoked when mutations change the object after this mutation is invoked.
 	// Required.
 	ReinvocationPolicy admissionregistrationv1alpha1.ReinvocationPolicyType `json:"reinvocationPolicy,omitempty" protobuf:"bytes,7,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
+}
+
+type MutatingPolicyEvaluationConfiguration struct {
+	EvaluationConfiguration `json:",inline"`
+
+	// MutateExisting enables mutation of existing resources. Default is `false`.
+	// When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+	// +optional
+	// +kubebuilder:default=false
+	MutateExisting bool `json:"mutateExisting,omitempty"`
 }
 
 // +kubebuilder:object:root=true
