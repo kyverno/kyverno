@@ -808,6 +808,8 @@ admissionController:
     viewRoleName: view
 
     serviceAccount:
+      # -- Create a ServiceAccount for the admission controller
+      create: true
       # -- The ServiceAccount name
       name:
 
@@ -1235,6 +1237,8 @@ backgroundController:
     viewRoleName: view
 
     serviceAccount:
+      # -- Create a ServiceAccount for the background controller
+      create: true
       # -- Service account name
       name:
 
@@ -1544,6 +1548,8 @@ cleanupController:
     create: true
 
     serviceAccount:
+      # -- Create a ServiceAccount for the cleanup controller
+      create: true
       # -- Service account name
       name:
 
@@ -1870,6 +1876,8 @@ reportsController:
     viewRoleName: view
 
     serviceAccount:
+      # -- Create a ServiceAccount for the reports controller
+      create: true
       # -- Service account name
       name:
 
