@@ -1878,5 +1878,853 @@
         }
       ]
     }
+  },
+  {
+    "Group": {
+      "name": "kyverno.io",
+      "versions": [
+        {
+          "groupVersion": "kyverno.io/v2",
+          "version": "v2"
+        },
+        {
+          "groupVersion": "kyverno.io/v1",
+          "version": "v1"
+        },
+        {
+          "groupVersion": "kyverno.io/v2beta1",
+          "version": "v2beta1"
+        },
+        {
+          "groupVersion": "kyverno.io/v1beta1",
+          "version": "v1beta1"
+        },
+        {
+          "groupVersion": "kyverno.io/v2alpha1",
+          "version": "v2alpha1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "kyverno.io/v2",
+        "version": "v2"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "clusterpolicies",
+          "singularName": "clusterpolicy",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v1",
+          "kind": "ClusterPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "cpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "clusterpolicies/status",
+          "singularName": "clusterpolicy",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v1",
+          "kind": "ClusterPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "policies",
+          "singularName": "policy",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v1",
+          "kind": "Policy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "pol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "policies/status",
+          "singularName": "policy",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v1",
+          "kind": "Policy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ],
+      "v1beta1": [
+        {
+          "name": "updaterequests",
+          "singularName": "updaterequest",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v1beta1",
+          "kind": "UpdateRequest",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ur"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "updaterequests/status",
+          "singularName": "updaterequest",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v1beta1",
+          "kind": "UpdateRequest",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ],
+      "v2": [
+        {
+          "name": "cleanuppolicies",
+          "singularName": "cleanuppolicy",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2",
+          "kind": "CleanupPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "cleanpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "cleanuppolicies/status",
+          "singularName": "cleanuppolicy",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2",
+          "kind": "CleanupPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "clustercleanuppolicies",
+          "singularName": "clustercleanuppolicy",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v2",
+          "kind": "ClusterCleanupPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ccleanpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "clustercleanuppolicies/status",
+          "singularName": "clustercleanuppolicy",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v2",
+          "kind": "ClusterCleanupPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "policyexceptions",
+          "singularName": "policyexception",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2",
+          "kind": "PolicyException",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "polex"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "updaterequests",
+          "singularName": "updaterequest",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2",
+          "kind": "UpdateRequest",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ur"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "updaterequests/status",
+          "singularName": "updaterequest",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2",
+          "kind": "UpdateRequest",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ],
+      "v2alpha1": [
+        {
+          "name": "globalcontextentries",
+          "singularName": "globalcontextentry",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v2alpha1",
+          "kind": "GlobalContextEntry",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "gctxentry"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "globalcontextentries/status",
+          "singularName": "globalcontextentry",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v2alpha1",
+          "kind": "GlobalContextEntry",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ],
+      "v2beta1": [
+        {
+          "name": "cleanuppolicies",
+          "singularName": "cleanuppolicy",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "CleanupPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "cleanpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "cleanuppolicies/status",
+          "singularName": "cleanuppolicy",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "CleanupPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "clustercleanuppolicies",
+          "singularName": "clustercleanuppolicy",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "ClusterCleanupPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ccleanpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "clustercleanuppolicies/status",
+          "singularName": "clustercleanuppolicy",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "ClusterCleanupPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "clusterpolicies",
+          "singularName": "clusterpolicy",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "ClusterPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "cpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "clusterpolicies/status",
+          "singularName": "clusterpolicy",
+          "namespaced": false,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "ClusterPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "policies",
+          "singularName": "policy",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "Policy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "pol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "policies/status",
+          "singularName": "policy",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "Policy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "policyexceptions",
+          "singularName": "policyexception",
+          "namespaced": true,
+          "group": "kyverno.io",
+          "version": "v2beta1",
+          "kind": "PolicyException",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "polex"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "policies.kyverno.io",
+      "versions": [
+        {
+          "groupVersion": "policies.kyverno.io/v1alpha1",
+          "version": "v1alpha1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "policies.kyverno.io/v1alpha1",
+        "version": "v1alpha1"
+      }
+    },
+    "VersionedResources": {
+      "v1alpha1": [
+        {
+          "name": "deletingpolicies",
+          "singularName": "deletingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "DeletingPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "dpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "deletingpolicies/status",
+          "singularName": "deletingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "DeletingPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "generatingpolicies",
+          "singularName": "generatingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "GeneratingPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "gpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "generatingpolicies/status",
+          "singularName": "generatingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "GeneratingPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "imagevalidatingpolicies",
+          "singularName": "imagevalidatingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "ImageValidatingPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ivpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "imagevalidatingpolicies/status",
+          "singularName": "imagevalidatingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "ImageValidatingPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "mutatingpolicies",
+          "singularName": "mutatingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "MutatingPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "mpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "mutatingpolicies/status",
+          "singularName": "mutatingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "MutatingPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "policyexceptions",
+          "singularName": "policyexception",
+          "namespaced": true,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "PolicyException",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "validatingpolicies",
+          "singularName": "validatingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "ValidatingPolicy",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "vpol"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "validatingpolicies/status",
+          "singularName": "validatingpolicy",
+          "namespaced": false,
+          "group": "policies.kyverno.io",
+          "version": "v1alpha1",
+          "kind": "ValidatingPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "reports.kyverno.io",
+      "versions": [
+        {
+          "groupVersion": "reports.kyverno.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "reports.kyverno.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "clusterephemeralreports",
+          "singularName": "clusterephemeralreport",
+          "namespaced": false,
+          "group": "reports.kyverno.io",
+          "version": "v1",
+          "kind": "ClusterEphemeralReport",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "cephr"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        },
+        {
+          "name": "ephemeralreports",
+          "singularName": "ephemeralreport",
+          "namespaced": true,
+          "group": "reports.kyverno.io",
+          "version": "v1",
+          "kind": "EphemeralReport",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ephr"
+          ],
+          "categories": [
+            "kyverno"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "wgpolicyk8s.io",
+      "versions": [
+        {
+          "groupVersion": "wgpolicyk8s.io/v1alpha2",
+          "version": "v1alpha2"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "wgpolicyk8s.io/v1alpha2",
+        "version": "v1alpha2"
+      }
+    },
+    "VersionedResources": {
+      "v1alpha2": [
+        {
+          "name": "clusterpolicyreports",
+          "singularName": "clusterpolicyreport",
+          "namespaced": false,
+          "group": "wgpolicyk8s.io",
+          "version": "v1alpha2",
+          "kind": "ClusterPolicyReport",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "cpolr"
+          ]
+        },
+        {
+          "name": "policyreports",
+          "singularName": "policyreport",
+          "namespaced": true,
+          "group": "wgpolicyk8s.io",
+          "version": "v1alpha2",
+          "kind": "PolicyReport",
+          "verbs": [
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "create",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "polr"
+          ]
+        }
+      ]
+    }
   }
 ]
