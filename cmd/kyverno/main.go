@@ -164,6 +164,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
