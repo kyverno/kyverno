@@ -11,15 +11,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
 	"github.com/sigstore/cosign/v2/pkg/policy"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 type Verifier struct {
-	secretInterface k8scorev1.SecretInterface
+	secretInterface imagedataloader.SecretInterface
 	log             logr.Logger
 }
 
-func NewVerifier(secretInterface k8scorev1.SecretInterface, logger logr.Logger) *Verifier {
+func NewVerifier(secretInterface imagedataloader.SecretInterface, logger logr.Logger) *Verifier {
 	return &Verifier{
 		log:             logging.WithName("Notary"),
 		secretInterface: secretInterface,

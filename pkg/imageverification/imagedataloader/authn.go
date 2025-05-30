@@ -13,17 +13,16 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"k8s.io/apimachinery/pkg/util/sets"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 var acrRE = regexp.MustCompile(`.*\.azurecr\.io|.*\.azurecr\.cn|.*\.azurecr\.de|.*\.azurecr\.us`)
 
 type autoRefreshSecrets struct {
-	lister           k8scorev1.SecretInterface
+	lister           SecretInterface
 	imagePullSecrets []string
 }
 
-func NewAutoRefreshSecretsKeychain(lister k8scorev1.SecretInterface, imagePullSecrets ...string) (authn.Keychain, error) {
+func NewAutoRefreshSecretsKeychain(lister SecretInterface, imagePullSecrets ...string) (authn.Keychain, error) {
 	return &autoRefreshSecrets{
 		lister:           lister,
 		imagePullSecrets: imagePullSecrets,
@@ -73,7 +72,6 @@ func isACRRegistry(input string) bool {
 	if err != nil {
 		return false
 	}
-
 	matches := acrRE.FindStringSubmatch(serverURL.Hostname())
 	return len(matches) != 0
 }
@@ -96,6 +94,5 @@ func KeychainsForProviders(credentialProviders ...string) []authn.Keychain {
 	if helpers.Has("github") {
 		chains = append(chains, github.Keychain)
 	}
-
 	return chains
 }
