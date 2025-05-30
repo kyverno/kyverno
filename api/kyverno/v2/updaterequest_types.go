@@ -69,14 +69,15 @@ type UpdateRequest struct {
 type RequestType string
 
 const (
-	Mutate   RequestType = "mutate"
-	Generate RequestType = "generate"
+	Mutate      RequestType = "mutate"
+	Generate    RequestType = "generate"
+	CELGenerate RequestType = "cel-generate"
 )
 
 // UpdateRequestSpec stores the request specification.
 type UpdateRequestSpec struct {
 	// Type represents request type for background processing
-	// +kubebuilder:validation:Enum=mutate;generate
+	// +kubebuilder:validation:Enum=mutate;generate;cel-generate
 	Type RequestType `json:"requestType,omitempty"`
 
 	// Specifies the name of the policy.

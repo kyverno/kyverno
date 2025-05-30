@@ -44,7 +44,6 @@ func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext
 	if errs != nil {
 		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
-
 	return &ivfuncs{
 		Adapter:         adapter,
 		imgCtx:          imgCtx,
@@ -58,140 +57,133 @@ func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext
 	}, nil
 }
 
-func (f *ivfuncs) verify_image_signature_string_stringarray(ctx context.Context) func(ref.Val, ref.Val) ref.Val {
-	return func(_image ref.Val, _attestors ref.Val) ref.Val {
-		if image, err := utils.ConvertToNative[string](_image); err != nil {
+func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
+	ctx := context.TODO()
+	if image, err := utils.ConvertToNative[string](image); err != nil {
+		return types.WrapErr(err)
+	} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](attestors); err != nil {
+		return types.WrapErr(err)
+	} else {
+		count := 0
+		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
-		} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](_attestors); err != nil {
-			return types.WrapErr(err)
-		} else {
-			count := 0
-			if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
-				return types.WrapErr(err)
-			} else if !match {
-				return f.NativeToValue(count)
-			}
-
-			for _, attestor := range attestors {
-				opts := GetRemoteOptsFromPolicy(f.creds)
-				img, err := f.imgCtx.Get(ctx, image, opts...)
-				if err != nil {
-					return types.NewErr("failed to get imagedata: %v", err)
-				}
-
-				if attestor.IsCosign() {
-					if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
-						f.logger.Info("failed to verify image cosign: %v", err)
-					} else {
-						count += 1
-					}
-				} else if attestor.IsNotary() {
-					if err := f.notaryVerifier.VerifyImageSignature(ctx, img, attestor.Notary.Certs.Value, attestor.Notary.TSACerts.Value); err != nil {
-						f.logger.Info("failed to verify image notary: %v", err)
-					} else {
-						count += 1
-					}
-				}
-			}
+		} else if !match {
 			return f.NativeToValue(count)
 		}
+		for _, attestor := range attestors {
+			opts := GetRemoteOptsFromPolicy(f.creds)
+			img, err := f.imgCtx.Get(ctx, image, opts...)
+			if err != nil {
+				return types.NewErr("failed to get imagedata: %v", err)
+			}
+
+			if attestor.IsCosign() {
+				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
+					f.logger.Info("failed to verify image cosign: %v", err)
+				} else {
+					count += 1
+				}
+			} else if attestor.IsNotary() {
+				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, attestor.Notary.Certs.Value, attestor.Notary.TSACerts.Value); err != nil {
+					f.logger.Info("failed to verify image notary: %v", err)
+				} else {
+					count += 1
+				}
+			}
+		}
+		return f.NativeToValue(count)
 	}
 }
 
-func (f *ivfuncs) verify_image_attestations_string_string_stringarray(ctx context.Context) func(...ref.Val) ref.Val {
-	return func(args ...ref.Val) ref.Val {
-		if len(args) != 3 {
-			return types.NewErr("function usage: <image> <attestation> <attestor list>")
-		}
-		if image, err := utils.ConvertToNative[string](args[0]); err != nil {
+func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
+	ctx := context.TODO()
+	if len(args) != 3 {
+		return types.NewErr("function usage: <image> <attestation> <attestor list>")
+	}
+	if image, err := utils.ConvertToNative[string](args[0]); err != nil {
+		return types.WrapErr(err)
+	} else if attestation, err := utils.ConvertToNative[string](args[1]); err != nil {
+		return types.WrapErr(err)
+	} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](args[2]); err != nil {
+		return types.WrapErr(err)
+	} else {
+		count := 0
+		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
-		} else if attestation, err := utils.ConvertToNative[string](args[1]); err != nil {
-			return types.WrapErr(err)
-		} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](args[2]); err != nil {
-			return types.WrapErr(err)
-		} else {
-			count := 0
-			if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
-				return types.WrapErr(err)
-			} else if !match {
-				return f.NativeToValue(count)
-			}
-
-			for _, attestor := range attestors {
-				attest, ok := f.attestationList[attestation]
-				if !ok {
-					return types.NewErr("attestation not found in policy: %s", attestation)
-				}
-				opts := GetRemoteOptsFromPolicy(f.creds)
-				img, err := f.imgCtx.Get(ctx, image, opts...)
-				if err != nil {
-					return types.NewErr("failed to get imagedata: %v", err)
-				}
-				if attestor.IsCosign() {
-					if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
-						f.logger.Info("failed to verify attestation cosign: %v", err)
-					} else {
-						count += 1
-					}
-				} else if attestor.IsNotary() {
-					if attest.Referrer == nil {
-						return types.NewErr("notary verifier only supports oci 1.1 referrers as attestations")
-					}
-					if err := f.notaryVerifier.VerifyAttestationSignature(
-						ctx,
-						img,
-						attest.Referrer.Type,
-						attestor.Notary.Certs.Value,
-						attestor.Notary.TSACerts.Value,
-					); err != nil {
-						f.logger.Info("failed to verify attestation notary: %v", err)
-					} else {
-						count += 1
-					}
-				}
-			}
+		} else if !match {
 			return f.NativeToValue(count)
 		}
-	}
-}
-
-func (f *ivfuncs) payload_string_string(ctx context.Context) func(_image ref.Val, _attestation ref.Val) ref.Val {
-	return func(_image ref.Val, _attestation ref.Val) ref.Val {
-		if image, err := utils.ConvertToNative[string](_image); err != nil {
-			return types.WrapErr(err)
-		} else if attestation, err := utils.ConvertToNative[string](_attestation); err != nil {
-			return types.WrapErr(err)
-		} else {
+		for _, attestor := range attestors {
 			attest, ok := f.attestationList[attestation]
 			if !ok {
 				return types.NewErr("attestation not found in policy: %s", attestation)
 			}
-
 			opts := GetRemoteOptsFromPolicy(f.creds)
 			img, err := f.imgCtx.Get(ctx, image, opts...)
 			if err != nil {
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
-			payload, err := img.GetPayload(attest)
-			if err != nil {
-				return types.NewErr("failed to get payload: %v", err)
+			if attestor.IsCosign() {
+				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
+					f.logger.Info("failed to verify attestation cosign: %v", err)
+				} else {
+					count += 1
+				}
+			} else if attestor.IsNotary() {
+				if attest.Referrer == nil {
+					return types.NewErr("notary verifier only supports oci 1.1 referrers as attestations")
+				}
+				if err := f.notaryVerifier.VerifyAttestationSignature(
+					ctx,
+					img,
+					attest.Referrer.Type,
+					attestor.Notary.Certs.Value,
+					attestor.Notary.TSACerts.Value,
+				); err != nil {
+					f.logger.Info("failed to verify attestation notary: %v", err)
+				} else {
+					count += 1
+				}
 			}
-			return f.NativeToValue(payload)
 		}
+		return f.NativeToValue(count)
 	}
 }
 
-func (f *ivfuncs) get_image_data_string(ctx context.Context) func(_image ref.Val) ref.Val {
-	return func(_image ref.Val) ref.Val {
-		if image, err := utils.ConvertToNative[string](_image); err != nil {
-			return types.WrapErr(err)
-		} else {
-			opts := GetRemoteOptsFromPolicy(f.creds)
-			img, err := f.imgCtx.Get(ctx, image, opts...)
-			if err != nil {
-				return types.NewErr("failed to get imagedata: %v", err)
-			}
-			return f.NativeToValue(*img)
+func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
+	ctx := context.TODO()
+	if image, err := utils.ConvertToNative[string](image); err != nil {
+		return types.WrapErr(err)
+	} else if attestation, err := utils.ConvertToNative[string](attestation); err != nil {
+		return types.WrapErr(err)
+	} else {
+		attest, ok := f.attestationList[attestation]
+		if !ok {
+			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
+		opts := GetRemoteOptsFromPolicy(f.creds)
+		img, err := f.imgCtx.Get(ctx, image, opts...)
+		if err != nil {
+			return types.NewErr("failed to get imagedata: %v", err)
+		}
+		payload, err := img.GetPayload(attest)
+		if err != nil {
+			return types.NewErr("failed to get payload: %v", err)
+		}
+		return f.NativeToValue(payload)
+	}
+}
+
+func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
+	ctx := context.TODO()
+	if image, err := utils.ConvertToNative[string](image); err != nil {
+		return types.WrapErr(err)
+	} else {
+		opts := GetRemoteOptsFromPolicy(f.creds)
+		img, err := f.imgCtx.Get(ctx, image, opts...)
+		if err != nil {
+			return types.NewErr("failed to get imagedata: %v", err)
+		}
+		return f.NativeToValue(*img)
 	}
 }

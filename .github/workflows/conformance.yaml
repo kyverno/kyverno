@@ -558,6 +558,7 @@ jobs:
       matrix:
         k8s-version: [v1.29.14, v1.30.10, v1.31.6, v1.32.2]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+        shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -567,6 +568,8 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: image-validating-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
           upgrade-scenario: ${{ matrix.upgrade }}
 
   validating-policies:
@@ -578,6 +581,7 @@ jobs:
       matrix:
         k8s-version: [v1.29.14, v1.30.10, v1.31.6, v1.32.2]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+        shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -587,6 +591,31 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
+          upgrade-scenario: ${{ matrix.upgrade }}
+
+  generating-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.29.14, v1.30.10, v1.31.6, v1.32.2]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+        shard-index: [0, 1, 2]
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: generating-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
           upgrade-scenario: ${{ matrix.upgrade }}
 
   policy-exceptions-disabled:
@@ -629,7 +658,7 @@ jobs:
           tests-path: verify-manifests
           upgrade-scenario: ${{ matrix.upgrade }}
 
-  verifyImages:
+  verify-images:
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -647,7 +676,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: verifyImages
+          tests-path: verify-images
           shard-index: ${{ matrix.shard-index }}
           shard-count: 2
           upgrade-scenario: ${{ matrix.upgrade }}
@@ -1139,8 +1168,8 @@ jobs:
       - validate
       - validating-admission-policy-reports
       - validating-policies
+      - verify-images
       - verify-manifests
-      - verifyImages
       - image-validating-policies
       - webhook-configurations
       - webhooks
@@ -1180,8 +1209,8 @@ jobs:
       - validate
       - validating-admission-policy-reports
       - validating-policies
+      - verify-images
       - verify-manifests
-      - verifyImages
       - image-validating-policies
       - webhook-configurations
       - webhooks

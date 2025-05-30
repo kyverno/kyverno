@@ -8,8 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
-	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
@@ -28,11 +26,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apiserver/pkg/admission"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -42,6 +37,7 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	provider      engine.Provider
+	engine        *engine.Engine
 
 	// listers
 	nsLister corev1listers.NamespaceLister
@@ -55,8 +51,6 @@ type controller struct {
 	cmResolver    engineapi.ConfigmapResolver
 	eventGen      event.Interface
 	metrics       deletingMetrics
-	matcher       matching.Matcher
-	context       libs.Context
 }
 
 type deletingMetrics struct {
@@ -75,11 +69,11 @@ func NewController(
 	kyvernoClient versioned.Interface,
 	polInformer kyvernov1alpha1informers.DeletingPolicyInformer,
 	provider engine.Provider,
+	engine *engine.Engine,
 	nsLister corev1listers.NamespaceLister,
 	configuration config.Configuration,
 	cmResolver engineapi.ConfigmapResolver,
 	eventGen event.Interface,
-	matcher matching.Matcher,
 ) controllers.Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -107,13 +101,13 @@ func NewController(
 		kyvernoClient: kyvernoClient,
 		nsLister:      nsLister,
 		queue:         queue,
-		matcher:       matcher,
 		enqueue:       baseEnqueueFunc,
 		configuration: configuration,
 		cmResolver:    cmResolver,
 		eventGen:      eventGen,
 		metrics:       newDeletignMetrics(logger),
 		provider:      provider,
+		engine:        engine,
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
@@ -195,6 +189,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		} else {
 			for i := range list.Items {
 				resource := list.Items[i]
+
 				namespace := resource.GetNamespace()
 				name := resource.GetName()
 				debug := logger.WithValues("name", name, "namespace", namespace)
@@ -209,53 +204,16 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 					continue
 				}
 
-				mapping, err := restMapper.RESTMapping(resource.GroupVersionKind().GroupKind(), resource.GroupVersionKind().Version)
+				engineResult, err := c.engine.Handle(ctx, ePolicy, resource)
 				if err != nil {
-					debug.Error(err, "failed to map resource to GVR")
+					debug.Error(err, "failed to process resource")
 					errs = append(errs, err)
 					continue
 				}
 
-				attr := admission.NewAttributesRecord(
-					&resource,
-					nil,
-					resource.GroupVersionKind(),
-					namespace,
-					name,
-					mapping.Resource,
-					"",
-					"",
-					nil,
-					false,
-					nil,
-				)
-
-				var ns runtime.Object
-				if namespace != "" {
-					ns, err = c.nsLister.Get(namespace)
-					if err != nil {
-						debug.Error(err, "namespace not found")
-						errs = append(errs, err)
-						continue
-					}
-				}
-
-				if matches, err := c.matchPolicy(policy.Spec.MatchConstraints, attr, ns); err != nil {
-					debug.Error(err, "failed to check policy match")
+				if !engineResult.Match {
+					debug.Error(err, "policy did not match match")
 					errs = append(errs, err)
-					continue
-				} else if !matches {
-					continue
-				}
-
-				result, err := ePolicy.CompiledPolicy.Evaluate(ctx, resource, c.context)
-				if err != nil {
-					debug.Error(err, "failed to evaluate policy")
-					errs = append(errs, err)
-					continue
-				}
-				if !result.Result {
-					debug.Info("conditions did not pass")
 					continue
 				}
 
@@ -346,25 +304,4 @@ func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1al
 	logging.Info("updated deleting policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", policy.Status)
 
 	return nil
-}
-
-func (c *controller) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {
-	if constraints == nil {
-		return false, nil
-	}
-
-	copy := constraints.DeepCopy()
-	for i, rule := range copy.ResourceRules {
-		rule.Operations = []admissionregistrationv1.OperationType{
-			admissionregistrationv1.OperationAll,
-		}
-
-		copy.ResourceRules[i] = rule
-	}
-
-	matches, err := c.matcher.Match(&matching.MatchCriteria{Constraints: copy}, attr, namespace)
-	if err != nil {
-		return false, err
-	}
-	return matches, nil
 }
