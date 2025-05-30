@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
@@ -25,11 +24,10 @@ type Context interface {
 	globalcontext.ContextInterface
 	imagedata.ContextInterface
 	resource.ContextInterface
-	generator.ContextInterface
 }
 
 type contextProvider struct {
-	client    dclient.Interface
+	dclient   dynamic.Interface
 	imagedata imagedataloader.Fetcher
 	gctxStore gctxstore.Store
 }
@@ -44,7 +42,7 @@ func NewContextProvider(
 		return nil, err
 	}
 	return &contextProvider{
-		client:    client,
+		dclient:   client.GetDynamicInterface(),
 		imagedata: idl,
 		gctxStore: gctxStore,
 	}, nil
@@ -110,19 +108,8 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
 }
 
-func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
-	for _, data := range dataList {
-		resource := &unstructured.Unstructured{Object: data}
-		_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {
-	client := cp.client.GetDynamicInterface().Resource(groupVersion.WithResource(resource))
+	client := cp.dclient.Resource(groupVersion.WithResource(resource))
 	if namespace != "" {
 		return client.Namespace(namespace)
 	} else {

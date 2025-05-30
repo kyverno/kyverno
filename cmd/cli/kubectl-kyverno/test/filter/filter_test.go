@@ -151,7 +151,7 @@ func Test_resource_Apply(t *testing.T) {
 		name:  "empty value",
 		value: "",
 		result: v1alpha1.TestResult{
-			TestResultData: v1alpha1.TestResultData{Resources: append([]string{}, "test")},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "test"},
 		},
 		want: false,
 	}, {
@@ -163,28 +163,28 @@ func Test_resource_Apply(t *testing.T) {
 		name:  "match",
 		value: "test",
 		result: v1alpha1.TestResult{
-			TestResultData: v1alpha1.TestResultData{Resources: append([]string{}, "test")},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "test"},
 		},
 		want: true,
 	}, {
 		name:  "no match",
 		value: "test",
 		result: v1alpha1.TestResult{
-			TestResultData: v1alpha1.TestResultData{Resources: append([]string{}, "not-test")},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "not-test"},
 		},
 		want: false,
 	}, {
 		name:  "wildcard match",
 		value: "good*01",
 		result: v1alpha1.TestResult{
-			TestResultData: v1alpha1.TestResultData{Resources: append([]string{}, "good-deployment-01")},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "good-deployment-01"},
 		},
 		want: true,
 	}, {
 		name:  "wildcard does not match",
 		value: "good*01",
 		result: v1alpha1.TestResult{
-			TestResultData: v1alpha1.TestResultData{Resources: append([]string{}, "bad-deployment-01")},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "bad-deployment-01"},
 		},
 		want: false,
 	}}
@@ -234,16 +234,16 @@ func Test_composite_Apply(t *testing.T) {
 		name:    "policy and resource match",
 		filters: []Filter{policy{"test"}, resource{"resource"}},
 		result: v1alpha1.TestResult{
-			TestResultBase: v1alpha1.TestResultBase{Policy: "test"},
-			TestResultData: v1alpha1.TestResultData{Resources: append([]string{}, "resource")},
+			TestResultBase:       v1alpha1.TestResultBase{Policy: "test"},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "resource"},
 		},
 		want: true,
 	}, {
 		name:    "policy match and resource no match",
 		filters: []Filter{policy{"test"}, resource{"resource"}},
 		result: v1alpha1.TestResult{
-			TestResultBase: v1alpha1.TestResultBase{Policy: "test"},
-			TestResultData: v1alpha1.TestResultData{Resources: append([]string{}, "not-resource")},
+			TestResultBase:       v1alpha1.TestResultBase{Policy: "test"},
+			TestResultDeprecated: v1alpha1.TestResultDeprecated{Resource: "not-resource"},
 		},
 		want: false,
 	},
@@ -322,38 +322,6 @@ func TestParseFilter(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got1, tt.errors) {
 				t.Errorf("ParseFilter() got1 = %v, want %v", got1, tt.errors)
-			}
-		})
-	}
-}
-
-func TestExtractResourceFilters(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     string
-		resources []string
-	}{{
-		name:      "empty input",
-		input:     "",
-		resources: nil,
-	}, {
-		name:      "match",
-		input:     "resource=test",
-		resources: []string{"test"},
-	}, {
-		name:      "policy, rule and resource",
-		input:     "policy=test,resource=test,rule=test",
-		resources: []string{"test"},
-	}, {
-		name:      "skip *",
-		input:     "resource=*",
-		resources: nil,
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ExtractResourceFilters(tt.input)
-			if !reflect.DeepEqual(got, tt.resources) {
-				t.Errorf("ExtractResourceFilters() got = %v, want %v", got, tt.resources)
 			}
 		})
 	}

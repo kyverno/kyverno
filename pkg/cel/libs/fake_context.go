@@ -88,7 +88,3 @@ func (cp *FakeContextProvider) GetResource(apiVersion, resource, namespace, name
 func (cp *FakeContextProvider) PostResource(string, string, string, map[string]any) (*unstructured.Unstructured, error) {
 	panic("not implemented")
 }
-
-func (cp *FakeContextProvider) GenerateResources(string, []map[string]any) error {
-	panic("not implemented")
-}
