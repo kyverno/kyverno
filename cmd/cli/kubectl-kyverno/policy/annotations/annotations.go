@@ -2,7 +2,7 @@ package annotations
 
 import (
 	"github.com/kyverno/kyverno/api/kyverno"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportv1alpha1 "github.com/kyverno/kyverno/api/openreports.io/v1alpha1"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 )
 
@@ -13,7 +13,7 @@ func Scored(annotations map[string]string) bool {
 	return true
 }
 
-func Severity(annotations map[string]string) policyreportv1alpha2.PolicySeverity {
+func Severity(annotations map[string]string) reportv1alpha1.ResultSeverity {
 	return reportutils.SeverityFromString(annotations[kyverno.AnnotationPolicySeverity])
 }
 

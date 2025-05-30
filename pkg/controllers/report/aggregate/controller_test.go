@@ -7,7 +7,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/api/openreports.io/v1alpha1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
@@ -24,11 +24,11 @@ func newFakeMetaClient() (metadatainformers.SharedInformerFactory, metafake.Meta
 
 	client := metafake.NewSimpleMetadataClient(s)
 
-	return metadatainformers.NewSharedInformerFactory(client, 1*time.Minute), client.Resource(v1alpha2.SchemeGroupVersion.WithResource("policyreports")).Namespace("default").(metafake.MetadataClient)
+	return metadatainformers.NewSharedInformerFactory(client, 1*time.Minute), client.Resource(v1alpha1.SchemeGroupVersion.WithResource("policyreports")).Namespace("default").(metafake.MetadataClient)
 }
 
 var (
-	kyvernoPolr = &v1alpha2.PolicyReport{
+	kyvernoPolr = &v1alpha1.Report{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kyverno-polr",
 			Namespace: "default",
@@ -37,7 +37,7 @@ var (
 			},
 		},
 	}
-	notKyvernoPolr = &v1alpha2.PolicyReport{
+	notKyvernoPolr = &v1alpha1.Report{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "not-kyverno-polr",
 			Namespace: "default",
@@ -53,8 +53,8 @@ func TestController(t *testing.T) {
 	polInformer := kyvernoFactory.Kyverno().V1().Policies()
 	cpolInformer := kyvernoFactory.Kyverno().V1().ClusterPolicies()
 
-	client.Wgpolicyk8sV1alpha2().PolicyReports("default").Create(context.TODO(), kyvernoPolr, metav1.CreateOptions{})
-	client.Wgpolicyk8sV1alpha2().PolicyReports("default").Create(context.TODO(), notKyvernoPolr, metav1.CreateOptions{})
+	client.OpenreportsV1alpha1().Reports("default").Create(context.TODO(), kyvernoPolr, metav1.CreateOptions{})
+	client.OpenreportsV1alpha1().Reports("default").Create(context.TODO(), notKyvernoPolr, metav1.CreateOptions{})
 
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: kyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: notKyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
@@ -89,7 +89,7 @@ func TestController(t *testing.T) {
 	// because the controller runs in a goroutine it needs to wait a bit longer to give the controller time to process the queue
 	time.Sleep(13 * time.Second)
 
-	list, _ := client.Wgpolicyk8sV1alpha2().PolicyReports("default").List(context.TODO(), metav1.ListOptions{})
+	list, _ := client.OpenreportsV1alpha1().Reports("default").List(context.TODO(), metav1.ListOptions{})
 
 	assert.Len(t, list.Items, 1)
 	assert.Equal(t, notKyvernoPolr.Name, list.Items[0].Name)
