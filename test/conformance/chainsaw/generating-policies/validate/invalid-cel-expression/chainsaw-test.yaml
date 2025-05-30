@@ -13,5 +13,5 @@ spec:
           # This check ensures the contents of stderr are exactly as shown.  
           (trim_space($stderr)): |-
             Error from server: error when creating "policy.yaml": admission webhook "validate-policy.kyverno.svc" denied the request: spec.generate[0].expression: Invalid value: "generator.Apply(variables.configmap)": ERROR: <input>:1:16: found no matching overload for 'Apply' applied to 'generator.Context.(list(map(string, dyn)))'
-            | generator.Apply(variables.configmap)
-            | ...............^
+             | generator.Apply(variables.configmap)
+             | ...............^
