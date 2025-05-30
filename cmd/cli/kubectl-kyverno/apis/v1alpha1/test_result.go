@@ -28,6 +28,11 @@ type TestResultBase struct {
 	// +optional
 	IsValidatingPolicy bool `json:"isValidatingPolicy,omitempty"`
 
+	// IsDeletingPolicy indicates if the policy is a deleting policy.
+	// It's required in case the policy is a deleting policy.
+	// +optional
+	IsDeletingPolicy bool `json:"isDeletingPolicy,omitempty"`
+
 	// IsImageValidatingPolicy indicates if the policy is an image validating policy.
 	// It's required in case the policy is an image validating policy.
 	// +optional
