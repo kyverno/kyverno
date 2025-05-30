@@ -7,17 +7,15 @@ policies:
 resources:
 - resource.yaml
 results:
-- kind: Pod
+- isDeletingPolicy: true
+  kind: Pod
   policy: deleting-pod-by-name
-  isDeletingPolicy: true
-  resources:
-  - test/test-nginx-1
-  result: pass
-  rule: ""
-- kind: Pod
-  policy: deleting-pod-by-name
-  isDeletingPolicy: true
   resources:
   - test/test-nginx-2
   result: fail
-  rule: ""
+- isDeletingPolicy: true
+  kind: Pod
+  policy: deleting-pod-by-name
+  resources:
+  - test/test-nginx-1
+  result: pass
