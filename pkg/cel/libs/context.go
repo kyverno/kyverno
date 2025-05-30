@@ -113,6 +113,8 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
+		resource.SetNamespace(namespace)
+		resource.SetResourceVersion("")
 		_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
 		if err != nil {
 			return err
