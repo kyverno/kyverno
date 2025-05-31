@@ -1,0 +1,35 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    admissions.enforcer/disabled: "true"
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-validating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /vpol/check-deployment-labels
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: vpol.validate.kyverno.svc-fail-finegrained-check-deployment-labels
+  namespaceSelector: {}
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - apps
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - deployments
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 20
