@@ -826,7 +826,7 @@ test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-ivpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-cel-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-cel-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
 
 .PHONY: test-cli-local-validate
 test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
@@ -842,6 +842,11 @@ test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests
 test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
 	@echo Running local cli ivpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-image-validating-policy
+
+.PHONY: test-cli-local-dpols
+test-cli-local-dpols: $(CLI_BIN) ## Run local CLI IVPOL tests
+	@echo Running local cli dpols tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-deleting-policy
 
 .PHONY: test-cli-local-vaps
 test-cli-local-vaps: $(CLI_BIN) ## Run local CLI VAP tests
