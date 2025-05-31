@@ -358,6 +358,24 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			}
 			ers = append(ers, ivpols...)
 		}
+
+		if len(results.DeletingPolicies) != 0 {
+			dpols, err := applyDeletingPolicies(
+				results.DeletingPolicies,
+				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				polexLoader.CELExceptions,
+				vars.Namespace,
+				&resultCounts,
+				dClient,
+				true,
+				testCase.Test.Context,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
+			}
+			ers = append(ers, dpols...)
+		}
+
 		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
@@ -539,10 +557,15 @@ func applyDeletingPolicies(
 		for _, dpol := range policies {
 			resp, err := engine.Handle(context.TODO(), dpol, *resource)
 			if err != nil {
+				fmt.Printf("failed to apply policy %s on JSON payload: %v\n", resource.GetName(), err)
+
 				response := engineapi.NewEngineResponse(*resource, engineapi.NewDeletingPolicy(&dpol.Policy), nil)
-				response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
+				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
 					*engineapi.NewRuleResponse(dpol.Policy.Name, engineapi.Deletion, err.Error(), engineapi.RuleStatusError, nil),
 				}})
+
+				responses = append(responses, response)
+				rc.AddValidatingPolicyResponse(response)
 
 				continue
 			}
