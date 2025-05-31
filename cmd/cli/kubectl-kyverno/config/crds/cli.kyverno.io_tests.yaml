@@ -113,10 +113,19 @@ spec:
                     GeneratedResource takes a resource configuration file in yaml format from
                     the user to compare it against the Kyverno generated resource configuration.
                   type: string
+                isDeletingPolicy:
+                  description: |-
+                    IsDeletingPolicy indicates if the policy is a deleting policy.
+                    It's required in case the policy is a deleting policy.
+                  type: boolean
                 isImageValidatingPolicy:
                   description: |-
                     IsImageValidatingPolicy indicates if the policy is an image validating policy.
                     It's required in case the policy is an image validating policy.
+                  type: boolean
+                isMutatingAdmissionPolicy:
+                  description: IsMutatingAdmissionPolicy indicates if the policy is
+                    a mutating admission policy.
                   type: boolean
                 isValidatingAdmissionPolicy:
                   description: |-
