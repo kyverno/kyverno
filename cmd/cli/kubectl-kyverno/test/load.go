@@ -1,6 +1,9 @@
 package test
 
 import (
+	"bufio"
+	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -28,57 +31,81 @@ func loadLocalTest(path string, fileName string) (TestCases, error) {
 			}
 			tests = append(tests, ps...)
 		} else if file.Name() == fileName {
-			tests = append(tests, LoadTest(nil, filepath.Join(path, fileName)))
+			tests = append(tests, LoadTest(nil, filepath.Join(path, fileName))...)
 		}
 	}
 	return tests, nil
 }
 
-func LoadTest(fs billy.Filesystem, path string) TestCase {
+func LoadTest(fs billy.Filesystem, path string) TestCases {
 	var yamlBytes []byte
 	if fs != nil {
 		file, err := fs.Open(path)
 		if err != nil {
-			return TestCase{
+			return TestCases{{
 				Path: path,
 				Fs:   fs,
 				Err:  err,
-			}
+			}}
 		}
 		data, err := io.ReadAll(file)
 		if err != nil {
-			return TestCase{
+			return TestCases{{
 				Path: path,
 				Fs:   fs,
 				Err:  err,
-			}
+			}}
 		}
 		yamlBytes = data
 	} else {
 		data, err := os.ReadFile(path) // #nosec G304
 		if err != nil {
-			return TestCase{
+			return TestCases{{
 				Path: path,
 				Fs:   fs,
 				Err:  err,
-			}
+			}}
 		}
 		yamlBytes = data
 	}
-	var test v1alpha1.Test
-	if err := yaml.UnmarshalStrict(yamlBytes, &test); err != nil {
-		return TestCase{
+
+	testCases := make(TestCases, 0)
+	reader := yaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(yamlBytes)))
+
+	for {
+		yamlBytes, err := reader.Read()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			testCases = append(testCases, TestCase{
+				Path: path,
+				Fs:   fs,
+				Err:  err,
+			})
+			return testCases
+		}
+
+		var test v1alpha1.Test
+		if err := yaml.UnmarshalStrict(yamlBytes, &test); err != nil {
+			testCases = append(testCases, TestCase{
+				Path: path,
+				Fs:   fs,
+				Err:  err,
+			})
+			return testCases
+		}
+
+		cleanTest(&test)
+		testCases = append(testCases, TestCase{
 			Path: path,
 			Fs:   fs,
-			Err:  err,
-		}
+			Test: &test,
+		})
 	}
-	cleanTest(&test)
-	return TestCase{
-		Path: path,
-		Fs:   fs,
-		Test: &test,
-	}
+
+	return testCases
 }
 
 func cleanTest(test *v1alpha1.Test) {
