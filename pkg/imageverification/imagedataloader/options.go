@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/release-utils/version"
 )
 
@@ -76,7 +76,7 @@ func WithLocalCredentials(v bool) Option {
 	}
 }
 
-func makeDefaultOpts(lister v1.SecretInterface, opts ...Option) ([]remote.Option, error) {
+func makeDefaultOpts(lister corev1.SecretInterface, opts ...Option) ([]remote.Option, error) {
 	remoteOpts := make([]remote.Option, 0)
 	remoteOpts = append(remoteOpts, makeBaseOptions(opts...)...)
 	authOpts, err := makeAuthOptions(lister, opts...)
@@ -109,7 +109,7 @@ func makeBaseOptions(opts ...Option) []remote.Option {
 	return remoteOpts
 }
 
-func makeAuthOptions(lister v1.SecretInterface, opts ...Option) ([]remote.Option, error) {
+func makeAuthOptions(lister corev1.SecretInterface, opts ...Option) ([]remote.Option, error) {
 	remoteOpts := make([]remote.Option, 0)
 
 	opt := options{}
