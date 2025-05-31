@@ -1,0 +1,20 @@
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: DeletingPolicy
+metadata:
+  name: deleting-json
+spec:
+  conditions:
+  - expression: object.MetaArgs[0].Key == "BUILD_PLATFORM"
+    name: check-key
+  schedule: '*/1 * * * *'
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: DeletingPolicy
+metadata:
+  name: deleting-json-fail
+spec:
+  conditions:
+  - expression: object.MetaArgs[0].Key == "BUILDER_IMAGE"
+    name: check-key
+  schedule: '*/1 * * * *'
