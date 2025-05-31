@@ -1,0 +1,139 @@
+[
+    {
+      "Group": {
+        "name": "events.k8s.io",
+        "versions": [
+          {
+            "groupVersion": "events.k8s.io/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        "v1beta1": [
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "autoscaling",
+        "versions": [
+          {
+            "groupVersion": "autoscaling/v2beta2",
+            "version": "v2beta2"
+          }
+        ]
+      },
+      "VersionedResources": {
+        "v2beta2": [
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "batch",
+        "versions": [
+          {
+            "groupVersion": "batch/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        
+        "v1beta1": [
+        ]
+      }
+    },  
+    {
+      "Group": {
+        "name": "policy",
+        "versions": [
+ 
+          {
+            "groupVersion": "policy/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        "v1beta1": [
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "storage.k8s.io",
+        "versions": [
+          {
+            "groupVersion": "storage.k8s.io/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        
+        "v1beta1": [
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "node.k8s.io",
+        "versions": [
+          {
+            "groupVersion": "node.k8s.io/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+      
+        "v1beta1": [
+
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "discovery.k8s.io",
+        "versions": [
+     
+          {
+            "groupVersion": "discovery.k8s.io/v1beta1",
+            "version": "v1beta1"
+          }
+        ]
+      },
+      "VersionedResources": {
+        "v1beta1": [
+
+        ]
+      }
+    },
+    {
+      "Group": {
+        "name": "flowcontrol.apiserver.k8s.io",
+        "versions": [
+    
+          {
+            "groupVersion": "flowcontrol.apiserver.k8s.io/v1beta1",
+            "version": "v1beta1"
+          },
+          {
+            "groupVersion": "flowcontrol.apiserver.k8s.io/v1beta2",
+            "version": "v1beta2"
+          }
+        ]
+      },
+      "VersionedResources": {
+
+        "v1beta1": [
+        ],
+        "v1beta2":
+         [
+        ]
+      }
+    }  
+  ]
+  
