@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-version
+spec:
+  validationActions: 
+    - Deny
+  evaluation:
+    mode: JSON
+  variables:
+  - name: version
+    expression: "object.terraform_version"
+  validations:
+  - message: The terraform version must be .
+    expression: "variables.version == '1.5.9'"

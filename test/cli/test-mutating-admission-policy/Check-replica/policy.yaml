@@ -1,0 +1,24 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: sample-policy
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [ "apps" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE", "UPDATE" ]
+        resources: [ "deployments" ]
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          [
+            JSONPatch{
+              op: "replace",
+              path: "/spec/replicas",
+              value: int(object.spec.replicas != null ? object.spec.replicas : 1) + 10
+            }
+          ]
