@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: negative
+  labels:
+    app: nginx
+    env: testing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+      env: testing
+  template:
+    metadata:
+      labels:
+        app: nginx
+        env: testing
+    spec:
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-verify-image:signed
+        securityContext:
+          allowPrivilegeEscalation: false

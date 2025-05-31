@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-name
+spec:
+  policyRefs:
+    - name: ivpol-sample
+      kind: ImageValidatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'bad-pod'"

@@ -22,6 +22,9 @@ groups:
     validatingpolicies: true
     imagevalidatingpolicies: true
     policyexceptions: true
+    mutatingpolicies: true
+    generatingpolicies: true
+    deletingpolicies: true
 
   # -- This field can be overwritten by setting crds.labels in the parent chart
   reports:

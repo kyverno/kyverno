@@ -266,6 +266,8 @@ type Credentials struct {
 }
 
 // Attestor is an identity that confirms or verifies the authenticity of an image or an attestation
+// +kubebuilder:oneOf:={required:{cosign}}
+// +kubebuilder:oneOf:={required:{notary}}
 type Attestor struct {
 	// Name is the name for this attestor. It is used to refer to the attestor in verification
 	Name string `json:"name"`

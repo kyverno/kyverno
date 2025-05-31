@@ -46,7 +46,7 @@ type compiledPolicy struct {
 	matchConditions      []cel.Program
 	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
-	imageExtractors      map[string]variables.CompiledImageExtractor
+	imageExtractors      map[string]engine.ImageExtractor
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
@@ -121,19 +121,21 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	} else {
 		data[engine.ObjectKey] = request
 	}
-	images, err := variables.ExtractImages(data, c.imageExtractors)
+	images, err := engine.ExtractImages(data, c.imageExtractors)
 	if err != nil {
 		return nil, err
 	}
 	data[engine.ImagesKey] = images
 	data[engine.AttestationsKey] = c.attestationList
-	attestors := make(map[string]policiesv1alpha1.Attestor)
-	for _, att := range c.attestors {
-		data, err := att.Evaluate(data)
-		if err != nil {
-			return nil, err
-		}
-		attestors[data.Name] = data
+	attestors := lazy.NewMapValue(cel.DynType)
+	for _, attestor := range c.attestors {
+		attestors.Append(attestor.Key, func(*lazy.MapValue) ref.Val {
+			data, err := attestor.Evaluate(data)
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return data
+		})
 	}
 	data[engine.AttestorsKey] = attestors
 
