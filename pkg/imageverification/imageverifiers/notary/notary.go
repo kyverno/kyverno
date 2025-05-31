@@ -77,7 +77,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 		return err
 	}
 
-	referrers, err := image.FetchRefererrs(attestation.Referrer.Type)
+	referrers, err := image.FetchReferrers(attestation.Referrer.Type)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to fetch referrers")
 		logger.Error(err, "image attestation verification failed")
