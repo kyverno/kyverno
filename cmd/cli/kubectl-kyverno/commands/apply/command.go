@@ -238,7 +238,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	resources, jsonPayloads, err := c.loadResources(out, c.ResourcePaths, policies, vaps, dClient)
 	if err != nil {
-		if c.IgnoreEmpty && len(resources) == 0 && len(jsonPayloads) == 0 {
+		if c.IgnoreEmpty && len(resources) == 0 && len(jsonPayloads) == 0 && strings.Contains(err.Error(), "Object 'Kind' is missing in '---\n'") {
 			fmt.Fprintln(out, "Skipping apply: no resources and --ignore-empty is set.")
 			return &processor.ResultCounts{}, nil, skippedInvalidPolicies, nil, nil
 		}
