@@ -5,6 +5,7 @@
   {{- required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" -}}
 {{- else -}}
   {{- .Chart.Version | replace "+" "_" -}}
+  {{-  default .Chart.Version .Values.global.chartversion | trunc 63 | replace "+" "_" -}}
 {{- end -}}
 {{- end -}}
 
