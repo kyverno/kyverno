@@ -58,4 +58,6 @@ type ResourceHandlers struct {
 	ImageVerificationPoliciesMutation Handler
 	// ImageVerificationPolicies evaluates imageverificationpolicies validation phase against kube resources
 	ImageVerificationPolicies Handler
+	// GeneratingPolicies evaluates generating policies against kube resources
+	GeneratingPolicies Handler
 }

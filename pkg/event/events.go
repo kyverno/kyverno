@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -397,6 +398,42 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 		Reason:  PolicyError,
 		Message: msg,
 		Action:  None,
+	}
+}
+
+func NewDeletingPolicyEvent(policy v1alpha1.DeletingPolicy, resource unstructured.Unstructured, err error) Info {
+	regarding := corev1.ObjectReference{
+		// TODO: iirc it's not safe to assume api version is set
+		APIVersion: "kyverno.io/v2",
+		Kind:       policy.GetKind(),
+		Name:       policy.GetName(),
+		Namespace:  policy.GetNamespace(),
+		UID:        policy.GetUID(),
+	}
+	related := &corev1.ObjectReference{
+		APIVersion: resource.GetAPIVersion(),
+		Kind:       resource.GetKind(),
+		Namespace:  resource.GetNamespace(),
+		Name:       resource.GetName(),
+	}
+	if err == nil {
+		return Info{
+			Regarding: regarding,
+			Related:   related,
+			Source:    CleanupController,
+			Action:    ResourceCleanedUp,
+			Reason:    PolicyApplied,
+			Message:   fmt.Sprintf("successfully deleted the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName()),
+		}
+	} else {
+		return Info{
+			Regarding: regarding,
+			Related:   related,
+			Source:    CleanupController,
+			Action:    None,
+			Reason:    PolicyError,
+			Message:   fmt.Sprintf("failed to delete the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error()),
+		}
 	}
 }
 

@@ -18,12 +18,7 @@ import (
 func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
-		var p policiesv1alpha1.GenericPolicy
-		if vpol := policy.AsValidatingPolicy(); vpol != nil {
-			p = vpol
-		} else if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
-			p = ivpol
-		}
+		p := extractGenericPolicy(policy)
 		if p.GetMatchConditions() != nil {
 			fineGrained = append(fineGrained, policy)
 		} else if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
@@ -39,12 +34,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	if len(fineGrained) != 0 {
 		var fineGrainedIgnoreList, fineGrainedFailList []admissionregistrationv1.ValidatingWebhook
 		for _, policy := range fineGrained {
-			var p policiesv1alpha1.GenericPolicy
-			if vpol := policy.AsValidatingPolicy(); vpol != nil {
-				p = vpol
-			} else if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
-				p = ivpol
-			}
+			p := extractGenericPolicy(policy)
 			webhook := admissionregistrationv1.ValidatingWebhook{
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
@@ -157,12 +147,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			webhookFail.ObjectSelector = cfg.GetWebhook().ObjectSelector
 		}
 		for _, policy := range basic {
-			var p policiesv1alpha1.GenericPolicy
-			if vpol := policy.AsValidatingPolicy(); vpol != nil {
-				p = vpol
-			} else if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
-				p = ivpol
-			}
+			p := extractGenericPolicy(policy)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
 				rules, _ := vpolautogen.Autogen(vpol)

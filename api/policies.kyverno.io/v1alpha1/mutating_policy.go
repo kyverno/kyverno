@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,7 +38,7 @@ type MutatingPolicyStatus struct {
 
 // MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.
 type MutatingPolicySpec struct {
-	// MatchConstraints specifies what resources this policy is designed to validate.
+	// MatchConstraints specifies what resources this policy is designed to evaluate.
 	// The AdmissionPolicy cares about a request if it matches _all_ Constraints.
 	// Required.
 	MatchConstraints *admissionregistrationv1alpha1.MatchResources `json:"matchConstraints,omitempty"`
@@ -91,6 +92,10 @@ type MutatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1alpha1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
+	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
+	// +optional
+	TargetMatchConstraints *admissionregistrationv1alpha1.MatchResources `json:"targetMatchConstraints,omitempty"`
+
 	// mutations contain operations to perform on matching objects.
 	// mutations may not be empty; a minimum of one mutation is required.
 	// mutations are evaluated in order, and are reinvoked according to
@@ -106,9 +111,9 @@ type MutatingPolicySpec struct {
 	// +optional
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
 
-	// EvaluationConfiguration defines the configuration for the policy evaluation.
+	// EvaluationConfiguration defines the configuration for mutating policy evaluation.
 	// +optional
-	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
+	EvaluationConfiguration *MutatingPolicyEvaluationConfiguration `json:"evaluation,omitempty"`
 
 	// reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
 	// as part of a single admission evaluation.
@@ -121,6 +126,88 @@ type MutatingPolicySpec struct {
 	// reinvoked when mutations change the object after this mutation is invoked.
 	// Required.
 	ReinvocationPolicy admissionregistrationv1alpha1.ReinvocationPolicyType `json:"reinvocationPolicy,omitempty" protobuf:"bytes,7,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
+}
+
+func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	in := s.Spec.MatchConstraints
+	var out admissionregistrationv1.MatchResources
+	out.NamespaceSelector = in.NamespaceSelector
+	out.ObjectSelector = in.ObjectSelector
+	for _, ex := range in.ExcludeResourceRules {
+		out.ExcludeResourceRules = append(out.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	for _, ex := range in.ResourceRules {
+		out.ResourceRules = append(out.ResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	if in.MatchPolicy != nil {
+		mp := admissionregistrationv1.MatchPolicyType(*in.MatchPolicy)
+		out.MatchPolicy = &mp
+	}
+	return out
+}
+
+func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	in := s.Spec.MatchConditions
+	out := make([]admissionregistrationv1.MatchCondition, len(in))
+	for i := range in {
+		out[i] = (admissionregistrationv1.MatchCondition)(in[i])
+	}
+	return out
+}
+
+func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if s.Spec.FailurePolicy == nil {
+		return admissionregistrationv1.Fail
+	}
+	return admissionregistrationv1.FailurePolicyType(*s.Spec.FailurePolicy)
+}
+
+func (s *MutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+	return s.Spec.WebhookConfiguration
+}
+
+func (s *MutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
+	in := s.Spec.Variables
+	out := make([]admissionregistrationv1.Variable, len(in))
+	for i := range in {
+		out[i] = (admissionregistrationv1.Variable)(in[i])
+	}
+	return out
+}
+
+func (s MutatingPolicySpec) AdmissionEnabled() bool {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
+		return true
+	}
+	return *s.EvaluationConfiguration.Admission.Enabled
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s MutatingPolicySpec) BackgroundEnabled() bool {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
+		return true
+	}
+	return *s.EvaluationConfiguration.Background.Enabled
+}
+
+type MutatingPolicyEvaluationConfiguration struct {
+	EvaluationConfiguration `json:",inline"`
+
+	// MutateExisting enables mutation of existing resources. Default is `false`.
+	// When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+	// +optional
+	// +kubebuilder:default=false
+	MutateExisting bool `json:"mutateExisting,omitempty"`
 }
 
 // +kubebuilder:object:root=true

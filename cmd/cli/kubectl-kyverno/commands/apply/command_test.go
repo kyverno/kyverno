@@ -371,6 +371,27 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{
+					"../../../../../test/cli/apply/type/policy1.yaml",
+					"../../../../../test/cli/apply/type/policy2.yaml",
+					"../../../../../test/cli/apply/type/policy3.yaml",
+				},
+				ResourcePaths: []string{"../../../../../test/cli/apply/type/resource.yaml"},
+				GitBranch:     "main",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  3,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
@@ -379,6 +400,8 @@ func Test_Apply(t *testing.T) {
 		assert.Equal(t, actual.Skip, expected.Skip, desc)
 		assert.Equal(t, actual.Warn, expected.Warn, desc)
 		assert.Equal(t, actual.Error, expected.Error, desc)
+		assert.Equal(t, actual.Pass, expected.Pass, desc)
+
 	}
 
 	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(policyreportv1alpha2.PolicyReportSummary, policyreportv1alpha2.PolicyReportSummary, string)) {
@@ -621,6 +644,23 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/json-check-variables/policy.yaml"},
+				JSONPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-variables/payload.json"},
+
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	for _, tc := range testcases {
@@ -711,7 +751,11 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 			_ = input.Close()
 		}()
 	}
-	desc := fmt.Sprintf("Policies: [%s], / Resources: [%s], JSON payload: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","), strings.Join(tc.config.JSONPaths, ","))
+	desc := fmt.Sprintf("Policies: [%s], / Resources: [%s], JSON payload: [%s]",
+		strings.Join(tc.config.PolicyPaths, ","),
+		strings.Join(tc.config.ResourcePaths, ","),
+		strings.Join(tc.config.JSONPaths, ","),
+	)
 
 	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
 	assert.NoError(t, err, desc)
@@ -721,7 +765,8 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 	combined := []policyreportv1alpha2.ClusterPolicyReport{
 		report.MergeClusterReports(clustered),
 	}
-	assert.Equal(t, len(combined), len(tc.expectedPolicyReports))
+
+	assert.Equal(t, len(combined), len(tc.expectedPolicyReports), "Number of combined reports does not match expected: "+desc)
 	for i, resp := range combined {
 		compareSummary(t, tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
 	}
@@ -822,4 +867,101 @@ func TestCommandHelp(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
+}
+func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
+	// each entry here drives one t.Run
+	testcases := []*TestCase{
+		// plain MutatingAdmissionPolicy
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/Check-replica/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/Check-replica/resource.yaml"},
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-mutating-admission-policy/match-condition/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/match-condition/resource1.yaml",
+					"../../../../../test/cli/test-mutating-admission-policy/match-condition/resource2.yaml"},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-mutating-admission-policy/check-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/check-labels/resource1.yaml",
+					"../../../../../test/cli/test-mutating-admission-policy/check-labels/resource2.yaml"},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-mutating-admission-policy/check-ns-add-label/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/check-ns-add-label/resource1.yaml",
+					"../../../../../test/cli/test-mutating-admission-policy/check-ns-add-label/resource2.yaml"},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		// MutatingAdmissionPolicy + Binding
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/resource1.yaml"},
+				PolicyReport:  true,
+				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/values.yaml",
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
 }
