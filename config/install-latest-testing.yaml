@@ -56884,6 +56884,8 @@ rules:
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
       - generatingpolicies
+      - mutatingpolicies
+      - mutatingpolicies/status
     verbs:
       - create
       - delete
