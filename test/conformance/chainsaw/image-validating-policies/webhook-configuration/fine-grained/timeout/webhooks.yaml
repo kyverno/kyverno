@@ -1,0 +1,131 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    admissions.enforcer/disabled: "true"
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-mutating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /ivpol/mutate/check-signed-images
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: ivpol.mutate.kyverno.svc-fail-finegrained-check-signed-images
+  namespaceSelector: {}
+  objectSelector: {}
+  reinvocationPolicy: Never
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+    scope: '*'
+  - apiGroups:
+    - batch
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - cronjobs
+    scope: '*'
+  - apiGroups:
+    - apps
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - daemonsets
+    - deployments
+    - replicasets
+    - statefulsets
+    scope: '*'
+  - apiGroups:
+    - batch
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - jobs
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 20  
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    admissions.enforcer/disabled: "true"
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-validating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /ivpol/validate/check-signed-images
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: ivpol.validate.kyverno.svc-fail-finegrained-check-signed-images
+  namespaceSelector: {}
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+    scope: '*'
+  - apiGroups:
+    - batch
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - cronjobs
+    scope: '*'
+  - apiGroups:
+    - apps
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - daemonsets
+    - deployments
+    - replicasets
+    - statefulsets
+    scope: '*'
+  - apiGroups:
+    - batch
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - jobs
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 20

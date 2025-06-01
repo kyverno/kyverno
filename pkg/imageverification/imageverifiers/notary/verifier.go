@@ -61,21 +61,18 @@ func (v *Verifier) VerifyAttestationSignature(
 ) error {
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest) // TODO: use attestor and attestation names
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)
-
 	vInfo, err := getVerificationInfo(image, certsData, tsaCertsData)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to setup notation verification data")
 		logger.Error(err, "image verification failed")
 		return err
 	}
-
-	referrers, err := image.FetchRefererrs(referrerType)
+	referrers, err := image.FetchReferrers(referrerType)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to fetch referrers")
 		logger.Error(err, "image attestation verification failed")
 		return err
 	}
-
 	var errs []error
 	for _, r := range referrers {
 		reference := image.WithDigest(r.Digest.String())
