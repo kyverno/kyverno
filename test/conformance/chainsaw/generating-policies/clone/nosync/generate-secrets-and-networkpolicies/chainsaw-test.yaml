@@ -24,6 +24,10 @@ spec:
     try:
     - apply:
         file: namespace.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
   - name: check that the secret is generated
     try:
     - assert:
