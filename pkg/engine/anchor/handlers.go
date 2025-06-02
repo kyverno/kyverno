@@ -231,7 +231,7 @@ func (eh existenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
-		// Existence anchor can only exist on resource value type of list
+		// Existence anchor can only exist on resource value type of list of objects or strings
 		switch typedResource := value.(type) {
 		case []interface{}:
 			typedPattern, ok := eh.pattern.([]interface{})
@@ -241,15 +241,31 @@ func (eh existenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 			// loop all item in the pattern array
 			errorPath := ""
 			var err error
-			for _, patternMap := range typedPattern {
-				typedPatternMap, ok := patternMap.(map[string]interface{})
-				if !ok {
-					return currentPath, fmt.Errorf("invalid pattern type %T: Pattern has to be of type map to compare against items in resource", eh.pattern)
+			for _, patternItem := range typedPattern {
+				// if pattern item is string then check if it exists in the resource list
+				// else if pattern item is map then validate the resource list against the map
+				if patternStr, ok := patternItem.(string); ok {
+					found := false
+					for _, resourceElement := range typedResource {
+						if resourceStr, ok := resourceElement.(string); ok && resourceStr == patternStr {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return currentPath, fmt.Errorf("existence anchor validation failed at path %s", currentPath)
+					}
+				} else {
+					typedPatternMap, ok := patternItem.(map[string]interface{})
+					if !ok {
+						return currentPath, fmt.Errorf("invalid pattern type %T: Pattern has to be of type map or string to compare against items in resource", eh.pattern)
+					}
+					errorPath, err = validateExistenceListResource(handler, typedResource, typedPatternMap, originPattern, currentPath, ac)
+					if err != nil {
+						return errorPath, err
+					}
 				}
-				errorPath, err = validateExistenceListResource(handler, typedResource, typedPatternMap, originPattern, currentPath, ac)
-				if err != nil {
-					return errorPath, err
-				}
+
 			}
 			return errorPath, err
 		default:
