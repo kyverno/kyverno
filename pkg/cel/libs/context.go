@@ -115,9 +115,25 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 		resource := &unstructured.Unstructured{Object: data}
 		resource.SetNamespace(namespace)
 		resource.SetResourceVersion("")
-		_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
-		if err != nil {
-			return err
+		if resource.IsList() {
+			resourceList, err := resource.ToList()
+			if err != nil {
+				return err
+			}
+			for i := range resourceList.Items {
+				item := &resourceList.Items[i]
+				item.SetNamespace(namespace)
+				item.SetResourceVersion("")
+				_, err := cp.client.CreateResource(context.TODO(), item.GetAPIVersion(), item.GetKind(), namespace, item, false)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
