@@ -265,7 +265,6 @@ func (eh existenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 						return errorPath, err
 					}
 				}
-
 			}
 			return errorPath, err
 		default:
