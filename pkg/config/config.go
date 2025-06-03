@@ -56,6 +56,8 @@ const (
 	ValidatingPolicyWebhookName = "vpol.validate.kyverno.svc"
 	// GeneratingPolicyWebhookName defines default webhook name for generatingpolicies
 	GeneratingPolicyWebhookName = "gpol.validate.kyverno.svc"
+	// MutatingPolicyWebhookName defines default webhook name for mutatingpolicies
+	MutatingPolicyWebhookName = "mpol.validate.kyverno.svc"
 	// ImageValidatingPolicyWebhookName defines default validating webhook name for imagevalidatingpolicies
 	ImageValidatingPolicyValidateWebhookName = "ivpol.validate.kyverno.svc"
 	// ImageValidatingPolicyWebhookName defines default mutating webhook name for imagevalidatingpolicies
@@ -74,8 +76,6 @@ const (
 	ValidatingPolicyServicePath = "/vpol"
 	// ImageValidatingPolicyServicePath is the sub path for imageverificationpolicies execution
 	ImageValidatingPolicyServicePath = "/ivpol"
-	// GeneratingPolicyServicePath is the sub path for generatingpolicies execution
-	GeneratingPolicyServicePath = "/gpol"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CELExceptionValidatingWebhookServicePath is the path for CEL PolicyException validation webhook(used to validate CEL PolicyException resource)

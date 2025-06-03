@@ -86,7 +86,8 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		for i := range matchConditions {
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
-		matcher = matchconditions.NewMatcher(compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions), toV1FailurePolicy(policy.Spec.FailurePolicy), "policy", "validate", policy.Name)
+		failurePolicy := policy.GetFailurePolicy()
+		matcher = matchconditions.NewMatcher(compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions), &failurePolicy, "policy", "validate", policy.Name)
 	}
 
 	var patchers []patch.Patcher

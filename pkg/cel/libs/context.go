@@ -113,9 +113,27 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
-		_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
-		if err != nil {
-			return err
+		resource.SetNamespace(namespace)
+		resource.SetResourceVersion("")
+		if resource.IsList() {
+			resourceList, err := resource.ToList()
+			if err != nil {
+				return err
+			}
+			for i := range resourceList.Items {
+				item := &resourceList.Items[i]
+				item.SetNamespace(namespace)
+				item.SetResourceVersion("")
+				_, err := cp.client.CreateResource(context.TODO(), item.GetAPIVersion(), item.GetKind(), namespace, item, false)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
