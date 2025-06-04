@@ -114,6 +114,12 @@ type Spec struct {
 	// +optional
 	UseServerSideApply bool `json:"useServerSideApply,omitempty"`
 
+	// DisableReportGeneration controls whether report generation is disabled for the policy.
+	// This is useful for policies where report generation is not needed.
+	// +optional
+	// +kubebuilder:default=false
+	DisableReportGeneration *bool `json:"disableReportGeneration,omitempty"`
+
 	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
 	// +optional
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
