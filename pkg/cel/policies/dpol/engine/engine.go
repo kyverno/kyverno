@@ -41,37 +41,39 @@ func NewEngine(nsResolver engine.NamespaceResolver, mapper meta.RESTMapper, cont
 }
 
 func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructured.Unstructured) (EngineResponse, error) {
-	namespace := resource.GetNamespace()
+	if resource.GetAPIVersion() != "" && resource.GetKind() != "" {
+		namespace := resource.GetNamespace()
 
-	mapping, err := e.mapper.RESTMapping(resource.GroupVersionKind().GroupKind(), resource.GroupVersionKind().Version)
-	if err != nil {
-		return EngineResponse{}, err
-	}
+		mapping, err := e.mapper.RESTMapping(resource.GroupVersionKind().GroupKind(), resource.GroupVersionKind().Version)
+		if err != nil {
+			return EngineResponse{}, err
+		}
 
-	// create admission attributes
-	attr := admission.NewAttributesRecord(
-		&resource,
-		nil,
-		resource.GroupVersionKind(),
-		namespace,
-		resource.GetName(),
-		mapping.Resource,
-		"",
-		"",
-		nil,
-		false,
-		nil,
-	)
+		// create admission attributes
+		attr := admission.NewAttributesRecord(
+			&resource,
+			nil,
+			resource.GroupVersionKind(),
+			namespace,
+			resource.GetName(),
+			mapping.Resource,
+			"",
+			"",
+			nil,
+			false,
+			nil,
+		)
 
-	var ns runtime.Object
-	if namespace != "" {
-		ns = e.nsResolver(namespace)
-	}
+		var ns runtime.Object
+		if namespace != "" {
+			ns = e.nsResolver(namespace)
+		}
 
-	if matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, ns); err != nil {
-		return EngineResponse{}, err
-	} else if !matches {
-		return EngineResponse{Match: false}, err
+		if matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, ns); err != nil {
+			return EngineResponse{}, err
+		} else if !matches {
+			return EngineResponse{Match: false}, err
+		}
 	}
 
 	result, err := policy.CompiledPolicy.Evaluate(ctx, resource, e.context)

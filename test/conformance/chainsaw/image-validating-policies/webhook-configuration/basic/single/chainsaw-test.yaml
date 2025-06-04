@@ -2,23 +2,23 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: single
+  name: accept
 spec:
   steps:
   - name: create policy
     use:
-      template: ../../../_step-templates/create-policy.yaml
+      template: ../../../../_step-templates/create-policy.yaml
       with:
         bindings:
         - name: file
           value: policy.yaml
-  - name: wait-validating-policy-ready
+  - name: wait-policy-ready
     use:
-      template: ../../../_step-templates/validating-policy-ready.yaml
+      template: ../../../../_step-templates/image-validating-policy-ready.yaml
       with:
         bindings:
         - name: name
-          value: check-deployment-labels
+          value: check-signed-images
   - name: check webhooks
     try:
     - assert:
