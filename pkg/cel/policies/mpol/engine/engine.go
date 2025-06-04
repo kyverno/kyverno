@@ -32,6 +32,7 @@ type MutatingPolicyResponse struct {
 }
 
 type Predicate = func(policiesv1alpha1.MutatingPolicy) bool
+
 type engineImpl struct {
 	provider   Provider
 	client     kubernetes.Interface
