@@ -7,7 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	admission "k8s.io/apiserver/pkg/admission"
 	cel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
@@ -16,33 +15,33 @@ import (
 )
 
 type Policy struct {
-	evaluator  mutating.PolicyEvaluator
+	evaluator mutating.PolicyEvaluator
+	// TODO(shuting)
 	exceptions []compiler.Exception
 }
 
 func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
-	gvr schema.GroupVersionResource,
 	namespace *corev1.Namespace,
 	tcm patch.TypeConverterManager,
-) (*EvaluationResult, error) {
+) *EvaluationResult {
 	if p.evaluator.CompositionEnv != nil {
 		ctx = p.evaluator.CompositionEnv.CreateContext(ctx)
 	}
 	versionedAttributes, _ := admission.NewVersionedAttributes(attr, attr.GetKind(), nil)
 	matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, namespace, nil)
 	if matchResult.Error != nil {
-		return nil, matchResult.Error
+		return &EvaluationResult{Error: matchResult.Error}
 	}
 	if !matchResult.Matches {
-		return nil, nil
+		return nil
 	}
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	for _, patcher := range p.evaluator.Mutators {
 		patchRequest := patch.Request{
-			MatchedResource:     gvr,
+			MatchedResource:     attr.GetResource(),
 			VersionedAttributes: versionedAttributes,
 			ObjectInterfaces:    o,
 			OptionalVariables:   cel.OptionalVariableBindings{VersionedParams: nil, Authorizer: nil},
@@ -51,7 +50,7 @@ func (p *Policy) Evaluate(
 		}
 		newVersionedObject, err := patcher.Patch(ctx, patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
-			return nil, err
+			return &EvaluationResult{Error: err}
 		}
 
 		switch versionedAttributes.VersionedObject.(type) {
@@ -61,11 +60,13 @@ func (p *Policy) Evaluate(
 			// Before defaulting, if the admitted object is a typed object, convert unstructured patch result back to a typed object.
 			newVersionedObject, err = o.GetObjectConvertor().ConvertToVersion(newVersionedObject, versionedAttributes.GetKind().GroupVersion())
 			if err != nil {
-				return nil, err
+				return &EvaluationResult{Error: err}
 			}
 		}
 		o.GetObjectDefaulter().Default(newVersionedObject)
+		versionedAttributes.Dirty = true
+		versionedAttributes.VersionedObject = newVersionedObject
 	}
 
-	return nil, nil
+	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
