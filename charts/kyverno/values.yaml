@@ -58,6 +58,12 @@ fullnameOverride: ~
 # -- (string) Override the namespace the chart deploys to
 namespaceOverride: ~
 
+# -- (string) Override the chart version when deploying kyverno
+chartversion: ~
+
+# -- (string) Override the chart version when deploying kyverno
+chartfullname: ~
+
 upgrade:
   # -- Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed.
   fromV2: false
