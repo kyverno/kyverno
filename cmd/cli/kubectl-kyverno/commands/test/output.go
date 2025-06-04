@@ -287,22 +287,40 @@ func printTestResult(
 					}
 
 					// if there are no RuleResponse, the resource has been excluded. This is a pass.
-					if len(rows) == 0 && !resourceSkipped {
-						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
-							},
-							Message: color.Excluded(),
+					if len(rows) == 0 && !resourceSkipped && (test.IsValidatingPolicy || test.IsValidatingAdmissionPolicy) {
+						if test.Result == policyreportv1alpha2.StatusSkip {
+							row := table.Row{
+								RowCompact: table.RowCompact{
+									ID:        testCount,
+									Policy:    color.Policy("", test.Policy),
+									Rule:      color.Rule(test.Rule),
+									Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+									Result:    color.ResultSkip(),
+									Reason:    color.Excluded(),
+									IsFailure: false,
+								},
+								Message: color.Excluded(),
+							}
+							rc.Skip++
+							testCount++
+							rows = append(rows, row)
+						} else {
+							row := table.Row{
+								RowCompact: table.RowCompact{
+									ID:        testCount,
+									Policy:    color.Policy("", test.Policy),
+									Rule:      color.Rule(test.Rule),
+									Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+									Result:    color.ResultFail(),
+									Reason:    color.NotFound(),
+									IsFailure: true,
+								},
+								Message: color.NotFound(),
+							}
+							rc.Fail++
+							testCount++
+							rows = append(rows, row)
 						}
-						rc.Skip++
-						testCount++
-						rows = append(rows, row)
 					}
 				}
 			}
@@ -323,22 +341,40 @@ func printTestResult(
 				}
 			}
 
-			if len(rows) == 0 && !resourceSkipped {
-				row := table.Row{
-					RowCompact: table.RowCompact{
-						ID:        testCount,
-						Policy:    color.Policy("", test.Policy),
-						Rule:      color.Rule(test.Rule),
-						Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
-						IsFailure: true,
-						Result:    color.ResultFail(),
-						Reason:    color.NotFound(),
-					},
-					Message: color.NotFound(),
+			if len(rows) == 0 && !resourceSkipped && (test.IsValidatingPolicy || test.IsValidatingAdmissionPolicy) {
+				if test.Result == policyreportv1alpha2.StatusSkip {
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+							Result:    color.ResultSkip(),
+							Reason:    color.Excluded(),
+							IsFailure: false,
+						},
+						Message: color.Excluded(),
+					}
+					rc.Skip++
+					testCount++
+					resultsTable.Add(row)
+				} else {
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+							Result:    color.ResultFail(),
+							Reason:    color.NotFound(),
+							IsFailure: true,
+						},
+						Message: color.NotFound(),
+					}
+					rc.Fail++
+					testCount++
+					resultsTable.Add(row)
 				}
-				testCount++
-				resultsTable.Add(row)
-				rc.Fail++
 			} else {
 				resultsTable.Add(rows...)
 			}
