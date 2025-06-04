@@ -1004,6 +1004,9 @@ admissionController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
+    # -- Unhealty pod eviction policy to be used.
+    # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
+    unhealthyPodEvictionPolicy:
 
   # -- A writable volume to use for the TUF root initialization.
   tufRootMountPath: /.sigstore
@@ -1440,6 +1443,9 @@ backgroundController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
+    # -- Unhealty pod eviction policy to be used.
+    # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
+    unhealthyPodEvictionPolicy:
 
   caCertificates:
     # -- CA certificates to use with Kyverno deployments
@@ -1768,6 +1774,9 @@ cleanupController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
+    # -- Unhealty pod eviction policy to be used.
+    # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
+    unhealthyPodEvictionPolicy:
 
   service:
     # -- Service port.
@@ -2060,6 +2069,9 @@ reportsController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
+    # -- Unhealty pod eviction policy to be used.
+    # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
+    unhealthyPodEvictionPolicy:
 
   # -- A writable volume to use for the TUF root initialization.
   tufRootMountPath: /.sigstore
