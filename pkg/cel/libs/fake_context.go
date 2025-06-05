@@ -39,7 +39,7 @@ func (cp *FakeContextProvider) AddResource(gvr schema.GroupVersionResource, obj 
 	return nil
 }
 
-func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
+func (cp *FakeContextProvider) GetGlobalReference(string, string, string) (any, error) {
 	panic("not implemented")
 }
 
