@@ -1,5 +1,6 @@
 {{- if .Values.policyReportsCleanup.enabled -}}
 {{- if not .Values.templating.enabled -}}
+{{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -71,6 +72,12 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if not $automountSAToken }}
+          volumeMounts:
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          {{- end }}
       {{- with .Values.policyReportsCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
@@ -97,6 +104,27 @@ spec:
         nodeAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- if not $automountSAToken }}
+      volumes:
+        - name: serviceaccount-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3607
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
       {{- end }}
 {{- end -}}
 {{- end -}}
