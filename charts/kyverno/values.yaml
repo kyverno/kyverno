@@ -197,6 +197,10 @@ crds:
         cpu: 10m
         memory: 64Mi
 
+    serviceAccount:
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
+
 # Configuration
 config:
 
@@ -502,6 +506,8 @@ test:
     seccompProfile:
       type: RuntimeDefault
 
+  automountServiceAccountToken: true
+
 # -- Additional labels
 customLabels: {}
 
@@ -575,6 +581,10 @@ webhooksCleanup:
     requests:
       cpu: 10m
       memory: 64Mi
+
+  serviceAccount:
+    # -- Toggle automounting of the ServiceAccount
+    automountServiceAccountToken: true
 
 policyReportsCleanup:
   # -- Create a helm post-upgrade hook to cleanup the old policy reports.
@@ -814,6 +824,9 @@ admissionController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -1245,6 +1258,9 @@ backgroundController:
       annotations: {}
         # example.com/annotation: value
 
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
+
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
       # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
@@ -1556,6 +1572,9 @@ cleanupController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1885,6 +1904,9 @@ reportsController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
