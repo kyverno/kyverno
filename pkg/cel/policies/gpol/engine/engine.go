@@ -81,7 +81,7 @@ func (e *Engine) generate(ctx context.Context, policy Policy, attr admission.Att
 	if e.matcher != nil {
 		matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, namespace)
 		if err != nil {
-			response.Result = engineapi.RuleError("match", engineapi.Generation, "failed to execute matching", err, nil)
+			response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to execute matching", err, nil)
 			return response
 		} else if !matches {
 			return response
@@ -89,10 +89,10 @@ func (e *Engine) generate(ctx context.Context, policy Policy, attr admission.Att
 	}
 	generatedResources, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
-		response.Result = engineapi.RuleError("evaluate", engineapi.Generation, "failed to evaluate policy", err, nil)
+		response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to evaluate policy", err, nil)
 		return response
 	}
-	response.Result = engineapi.RulePass("evaluate", engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)
+	response.Result = engineapi.RulePass(policy.Policy.Name, engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)
 	return response
 }
 
