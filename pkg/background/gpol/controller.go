@@ -55,10 +55,20 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		request := celengine.RequestFromAdmission(c.context, *ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
-		err = c.gpolEngine.Generate(request, ur.Spec.GetPolicyKey())
+		response, err := c.gpolEngine.Handle(request, ur.Spec.GetPolicyKey())
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
+		}
+		for _, res := range response.Policies {
+			for _, resource := range res.Result.GeneratedResources() {
+				generatedResources = append(generatedResources, kyvernov1.ResourceSpec{
+					Kind:       resource.GetKind(),
+					APIVersion: resource.GetAPIVersion(),
+					Name:       resource.GetName(),
+					Namespace:  resource.GetNamespace(),
+				})
+			}
 		}
 	}
 	return updateURStatus(c.statusControl, *ur, multierr.Combine(failures...), generatedResources)
