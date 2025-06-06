@@ -670,10 +670,19 @@ func main() {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
 			}
+			ctrlMetricsBindAddress := controllerRuntimeMetricsAddress
+			if setup.MetricsManager.MetricsProviderMode() == "prometheus" {
+				// if prometheus metrics provider is used, bind address is set to the metrics manager address
+				ctrlMetricsBindAddress = setup.MetricsManager.MetricsAddress()
+				if controllerRuntimeMetricsAddress != "" && ctrlMetricsBindAddress != "" {
+					setup.Logger.Error(errors.New("controllerRuntimeMetricsAddress is not supported when using prometheus metrics provider"), "controllerRuntimeMetricsAddress is not supported when using prometheus metrics provider")
+					os.Exit(1)
+				}
+			}
 			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
 				Scheme: scheme,
 				Metrics: server.Options{
-					BindAddress: controllerRuntimeMetricsAddress,
+					BindAddress: ctrlMetricsBindAddress,
 				},
 			})
 			if err != nil {
