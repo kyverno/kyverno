@@ -909,6 +909,7 @@ func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPas
 func newContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, contextPath string, registryAccess bool) (libs.Context, error) {
 	if dclient != nil {
 		return libs.NewContextProvider(
+			log.Log.WithName("context-provider"),
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 			gctxstore.New(),

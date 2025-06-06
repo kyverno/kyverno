@@ -287,6 +287,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		var contextProvider libs.Context
 		if p.Client != nil && p.Cluster {
 			contextProvider, err = libs.NewContextProvider(
+				log.Log.WithName("context-provider"),
 				p.Client,
 				// TODO
 				[]imagedataloader.Option{imagedataloader.WithLocalCredentials(true)},
