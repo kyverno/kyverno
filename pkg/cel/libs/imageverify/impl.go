@@ -86,7 +86,14 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 					count += 1
 				}
 			} else if attestor.IsNotary() {
-				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, attestor.Notary.Certs.Value, attestor.Notary.TSACerts.Value); err != nil {
+				var certs, tsaCerts string
+				if attestor.Notary.Certs != nil {
+					certs = attestor.Notary.Certs.Value
+				}
+				if attestor.Notary.TSACerts != nil {
+					tsaCerts = attestor.Notary.TSACerts.Value
+				}
+				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
 					f.logger.Info("failed to verify image notary: %v", err)
 				} else {
 					count += 1
@@ -135,13 +142,14 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				if attest.Referrer == nil {
 					return types.NewErr("notary verifier only supports oci 1.1 referrers as attestations")
 				}
-				if err := f.notaryVerifier.VerifyAttestationSignature(
-					ctx,
-					img,
-					attest.Referrer.Type,
-					attestor.Notary.Certs.Value,
-					attestor.Notary.TSACerts.Value,
-				); err != nil {
+				var certs, tsaCerts string
+				if attestor.Notary.Certs != nil {
+					certs = attestor.Notary.Certs.Value
+				}
+				if attestor.Notary.TSACerts != nil {
+					tsaCerts = attestor.Notary.TSACerts.Value
+				}
+				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
 					f.logger.Info("failed to verify attestation notary: %v", err)
 				} else {
 					count += 1
