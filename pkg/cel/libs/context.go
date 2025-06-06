@@ -26,12 +26,16 @@ type Context interface {
 	imagedata.ContextInterface
 	resource.ContextInterface
 	generator.ContextInterface
+
+	GetGeneratedResources() []*unstructured.Unstructured
+	ClearGeneratedResources()
 }
 
 type contextProvider struct {
-	client    dclient.Interface
-	imagedata imagedataloader.Fetcher
-	gctxStore gctxstore.Store
+	client             dclient.Interface
+	imagedata          imagedataloader.Fetcher
+	gctxStore          gctxstore.Store
+	generatedResources []*unstructured.Unstructured
 }
 
 func NewContextProvider(
@@ -44,9 +48,10 @@ func NewContextProvider(
 		return nil, err
 	}
 	return &contextProvider{
-		client:    client,
-		imagedata: idl,
-		gctxStore: gctxStore,
+		client:             client,
+		imagedata:          idl,
+		gctxStore:          gctxStore,
+		generatedResources: make([]*unstructured.Unstructured, 0),
 	}, nil
 }
 
@@ -124,12 +129,14 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				item := &resourceList.Items[i]
 				item.SetNamespace(namespace)
 				item.SetResourceVersion("")
+				cp.generatedResources = append(cp.generatedResources, item)
 				_, err := cp.client.CreateResource(context.TODO(), item.GetAPIVersion(), item.GetKind(), namespace, item, false)
 				if err != nil {
 					return err
 				}
 			}
 		} else {
+			cp.generatedResources = append(cp.generatedResources, resource)
 			_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
 			if err != nil {
 				return err
@@ -137,6 +144,14 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 		}
 	}
 	return nil
+}
+
+func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {
+	return cp.generatedResources
+}
+
+func (cp *contextProvider) ClearGeneratedResources() {
+	cp.generatedResources = make([]*unstructured.Unstructured, 0)
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {
