@@ -200,6 +200,18 @@ func (s MutatingPolicySpec) BackgroundEnabled() bool {
 	return *s.EvaluationConfiguration.Background.Enabled
 }
 
+func (s *MutatingPolicy) GetStatus() *MutatingPolicyStatus {
+	return &s.Status
+}
+
+func (s *MutatingPolicy) GetKind() string {
+	return "MutatingPolicy"
+}
+
+func (status *MutatingPolicyStatus) GetConditionStatus() *ConditionStatus {
+	return &status.ConditionStatus
+}
+
 type MutatingPolicyEvaluationConfiguration struct {
 	EvaluationConfiguration `json:",inline"`
 
