@@ -92,3 +92,11 @@ func (cp *FakeContextProvider) PostResource(string, string, string, map[string]a
 func (cp *FakeContextProvider) GenerateResources(string, []map[string]any) error {
 	panic("not implemented")
 }
+
+func (cp *FakeContextProvider) GetGeneratedResources() []*unstructured.Unstructured {
+	panic("not implemented")
+}
+
+func (cp *FakeContextProvider) ClearGeneratedResources() {
+	panic("not implemented")
+}
