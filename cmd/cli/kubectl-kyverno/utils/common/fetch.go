@@ -19,6 +19,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -142,6 +143,10 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = ivp.Spec.MatchConstraints
 			} else if dp := policy.AsDeletingPolicy(); dp != nil {
 				matchResources = dp.Spec.MatchConstraints
+			} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
+				// Convert v1alpha1.MatchResources to v1.MatchResources
+				converted := rf.convertMatchResources(*mapPolicy.GetDefinition().Spec.MatchConstraints)
+				matchResources = &converted
 			}
 			rf.getKindsFromPolicy(matchResources, info)
 		}
@@ -328,4 +333,48 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []st
 		}
 	}
 	return resources, nil
+}
+
+// convertMatchResources turns a v1alpha1.MatchResources into a v1.MatchResources
+func (rf *ResourceFetcher) convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admissionregistrationv1.MatchResources {
+	resourceRules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(in.ResourceRules))
+	for _, r := range in.ResourceRules {
+		resourceRules = append(resourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: r.Operations,
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   r.APIGroups,
+					APIVersions: r.APIVersions,
+					Resources:   r.Resources,
+					Scope:       r.Scope,
+				},
+			},
+		})
+	}
+	exclude := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(in.ExcludeResourceRules))
+	for _, r := range in.ExcludeResourceRules {
+		exclude = append(exclude, admissionregistrationv1.NamedRuleWithOperations{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: r.Operations,
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   r.APIGroups,
+					APIVersions: r.APIVersions,
+					Resources:   r.Resources,
+					Scope:       r.Scope,
+				},
+			},
+		})
+	}
+	var mp *admissionregistrationv1.MatchPolicyType
+	if in.MatchPolicy != nil {
+		m := admissionregistrationv1.MatchPolicyType(*in.MatchPolicy)
+		mp = &m
+	}
+	return admissionregistrationv1.MatchResources{
+		NamespaceSelector:    in.NamespaceSelector,
+		ObjectSelector:       in.ObjectSelector,
+		ResourceRules:        resourceRules,
+		ExcludeResourceRules: exclude,
+		MatchPolicy:          mp,
+	}
 }
