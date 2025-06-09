@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -53,7 +54,9 @@ func NewContextProvider(
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
 	ent, ok := cp.gctxStore.Get(name)
 	if !ok {
-		return nil, errors.New("global context entry not found")
+		logger := logging.GlobalLogger()
+		logger.V(2).Info("global context entry not found, returning nil", "entry", name, "projection", projection)
+		return nil, nil
 	}
 	data, err := ent.Get(projection)
 	if err != nil {
