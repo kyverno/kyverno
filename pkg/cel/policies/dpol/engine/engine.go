@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -12,11 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
-)
-
-type (
-	EngineRequest = engine.EngineRequest
-	Predicate     = func(policiesv1alpha1.ValidatingPolicy) bool
 )
 
 type EngineResponse struct {
