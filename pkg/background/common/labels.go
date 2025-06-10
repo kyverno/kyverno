@@ -1,6 +1,8 @@
 package common
 
 import (
+	"crypto/sha256"
+	"encoding/base32"
 	"reflect"
 	"strings"
 
@@ -11,6 +13,10 @@ import (
 	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+)
+
+var (
+	base32NoPad = base32.StdEncoding.WithPadding(base32.NoPadding)
 )
 
 type Object interface {
@@ -41,7 +47,8 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
-		set[kyvernov2.URMutateTriggerNameLabel] = trimByLength(trigger.GetName(), 63)
+		set[kyvernov2.URMutateTriggerHashedEncodedNameLabel] = hashEncodeName(trigger.GetName())
+		set[kyvernov2.URMutateTriggerUIDLabel] = string(trigger.GetUID())
 		set[kyvernov2.URMutateTriggerNSLabel] = trigger.GetNamespace()
 		set[kyvernov2.URMutateTriggerKindLabel] = trigger.GetKind()
 		if trigger.GetAPIVersion() != "" {
@@ -82,9 +89,8 @@ func TagSource(labels map[string]string, obj Object) {
 	labels[GenerateTypeCloneSourceLabel] = ""
 }
 
-func trimByLength(value string, character int) string {
-	if len(value) > character {
-		return value[0:character]
-	}
-	return value
+func hashEncodeName(name string) string {
+	hash := sha256.Sum256([]byte(name))
+	encoded := base32NoPad.EncodeToString(hash[:])
+	return strings.ToLower(encoded)
 }
