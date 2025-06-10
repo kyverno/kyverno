@@ -121,13 +121,17 @@
 {{/* Helper function to sort imagePullSecrets by name to ensure consistent ordering */}}
 {{- define "kyverno.sortedImagePullSecrets" -}}
 {{- if . -}}
-{{- $secrets := list -}}
+{{- $secrets := dict -}}
 {{- range . -}}
-{{- $secrets = append $secrets (toYaml .) -}}
+{{- $secrets = set $secrets (toYaml .) . -}}
+{{- end -}}
+{{- $sortedKeys := list -}}
+{{- if $secrets -}}
+{{- $sortedKeys = sortAlpha (keys $secrets) -}}
 {{- end -}}
 {{- $sortedSecrets := list -}}
-{{- if $secrets -}}
-{{- $sortedSecrets = sortAlpha $secrets -}}
+{{- range $sortedKeys -}}
+{{- $sortedSecrets = append $sortedSecrets (get $secrets .) -}}
 {{- end -}}
 {{- toYaml $sortedSecrets -}}
 {{- end -}}
