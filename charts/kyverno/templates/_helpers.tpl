@@ -123,7 +123,7 @@
 {{- if . -}}
 {{- $secrets := list -}}
 {{- range . -}}
-{{- $secrets = append $secrets . -}}
+{{- $secrets = append $secrets (toYaml .) -}}
 {{- end -}}
 {{- $sortedSecrets := list -}}
 {{- if $secrets -}}
