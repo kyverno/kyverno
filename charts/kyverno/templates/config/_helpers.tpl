@@ -55,7 +55,38 @@
 {{- end -}}
 
 {{- define "kyverno.config.webhooks" -}}
-{{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list (include "kyverno.namespace" .)) }}
+{{- /* Create a list of namespaces to exclude */}}
+{{- $excludedNamespaces := list }}
+
+{{- /* Always add the Kyverno namespace if exclusion is enabled */}}
+{{- if .Values.config.excludeKyvernoNamespace }}
+  {{- $excludedNamespaces = append $excludedNamespaces (include "kyverno.namespace" .) }}
+{{- end }}
+
+{{- /* Add kube-system namespace to be excluded if defined in values */}}
+{{- if .Values.config.webhooks }}
+  {{- if .Values.config.webhooks.namespaceSelector }}
+    {{- if .Values.config.webhooks.namespaceSelector.matchExpressions }}
+      {{- range .Values.config.webhooks.namespaceSelector.matchExpressions }}
+        {{- if (and (eq .operator "NotIn") (eq .key "kubernetes.io/metadata.name")) }}
+          {{- range .values }}
+            {{- $excludedNamespaces = append $excludedNamespaces . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- /* Always include kube-system if not already in the list */}}
+{{- if not (has "kube-system" $excludedNamespaces) }}
+  {{- $excludedNamespaces = append $excludedNamespaces "kube-system" }}
+{{- end }}
+
+{{- /* Ensure the excluded namespaces list is unique */}}
+{{- $excludedNamespaces = uniq $excludedNamespaces }}
+
+{{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" $excludedNamespaces }}
 {{- $webhooks := .Values.config.webhooks -}}
 {{- if $webhooks | typeIs "slice" -}}
   {{- $newWebhooks := dict -}}
@@ -63,7 +94,7 @@
     {{- if $webhook.namespaceSelector -}}
       {{- $namespaceSelector := $webhook.namespaceSelector }}
       {{- $matchExpressions := default (list) $namespaceSelector.matchExpressions }}
-      {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+      {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (list $excludeDefault) }}
       {{- $newWebhook := merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector) }}
       {{- $newWebhooks = merge $newWebhooks (dict $webhook.name $newWebhook) }}
     {{- end -}}
@@ -73,7 +104,7 @@
   {{- $webhook := $webhooks }}
   {{- $namespaceSelector := default (dict) $webhook.namespaceSelector }}
   {{- $matchExpressions := default (list) $namespaceSelector.matchExpressions }}
-  {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+  {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (list $excludeDefault) }}
   {{- $newWebhook := merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector) }}
   {{- $newWebhook | toJson }}
 {{- end -}}
