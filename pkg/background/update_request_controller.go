@@ -9,8 +9,11 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/generate"
+	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/background/mutate"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
@@ -59,6 +62,8 @@ type controller struct {
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
 
+	context        libs.Context
+	gpolEngine     gpolengine.Engine
 	eventGen       event.Interface
 	configuration  config.Configuration
 	jp             jmespath.Interface
@@ -75,6 +80,8 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov2informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
+	context libs.Context,
+	gpolEngine gpolengine.Engine,
 	eventGen event.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
@@ -94,6 +101,8 @@ func NewController(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: "background"},
 		),
+		context:        context,
+		gpolEngine:     gpolEngine,
 		eventGen:       eventGen,
 		configuration:  configuration,
 		jp:             jp,
@@ -235,6 +244,9 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.Generate:
 		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp, c.reportsConfig, c.reportsBreaker)
+		return ctrl.ProcessUR(ur)
+	case kyvernov2.CELGenerate:
+		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, statusControl, c.reportsConfig, c.reportsBreaker, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil

@@ -10883,7 +10883,7 @@ Kubernetes admissionregistration/v1alpha1.MatchResources
 </em>
 </td>
 <td>
-<p>MatchConstraints specifies what resources this policy is designed to validate.
+<p>MatchConstraints specifies what resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
 Required.</p>
 </td>
@@ -10953,6 +10953,20 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
+<code>targetMatchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>mutations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutation-v1alpha1-admissionregistration">
@@ -10988,14 +11002,14 @@ WebhookConfiguration
 <td>
 <code>evaluation</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
-EvaluationConfiguration
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">
+MutatingPolicyEvaluationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+<p>EvaluationConfiguration defines the configuration for mutating policy evaluation.</p>
 </td>
 </tr>
 <tr>
@@ -12080,6 +12094,18 @@ ConditionStatus
 <em>(Optional)</em>
 </td>
 </tr>
+<tr>
+<td>
+<code>lastExecutionTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -12088,7 +12114,7 @@ ConditionStatus
 <p>
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>, 
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
 </p>
 <p>
@@ -13085,6 +13111,53 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>EvaluationConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>EvaluationConfiguration</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mutateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MutateExisting enables mutation of existing resources. Default is <code>false</code>.
+When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates existing resources matched in <code>spec.matchConstraints</code>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec
 </h3>
 <p>
@@ -13112,7 +13185,7 @@ Kubernetes admissionregistration/v1alpha1.MatchResources
 </em>
 </td>
 <td>
-<p>MatchConstraints specifies what resources this policy is designed to validate.
+<p>MatchConstraints specifies what resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
 Required.</p>
 </td>
@@ -13182,6 +13255,20 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 </tr>
 <tr>
 <td>
+<code>targetMatchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>mutations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutation-v1alpha1-admissionregistration">
@@ -13217,14 +13304,14 @@ WebhookConfiguration
 <td>
 <code>evaluation</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
-EvaluationConfiguration
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">
+MutatingPolicyEvaluationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+<p>EvaluationConfiguration defines the configuration for mutating policy evaluation.</p>
 </td>
 </tr>
 <tr>

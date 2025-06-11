@@ -36,10 +36,12 @@ const (
 	LabelDomainPolicy                           = "pol.kyverno.io"
 	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
 	LabelDomainImageValidatingPolicy            = "ivpol.kyverno.io"
+	LabelDomainGeneratingPolicy                 = "gpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
 	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
 	LabelPrefixImageValidatingPolicy            = LabelDomainImageValidatingPolicy + "/"
+	LabelPrefixGeneratingPolicy                 = LabelDomainGeneratingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
@@ -52,6 +54,7 @@ func IsPolicyLabel(label string) bool {
 		strings.HasPrefix(label, LabelPrefixClusterPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixImageValidatingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixGeneratingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
@@ -69,6 +72,9 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	}
 	if policy.AsImageValidatingPolicy() != nil {
 		return LabelPrefixImageValidatingPolicy
+	}
+	if policy.AsGeneratingPolicy() != nil {
+		return LabelPrefixGeneratingPolicy
 	}
 	// TODO: detect potential type not detected
 	return LabelPrefixValidatingAdmissionPolicy

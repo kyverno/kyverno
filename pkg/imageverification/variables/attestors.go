@@ -10,7 +10,7 @@ import (
 )
 
 type CompiledAttestor struct {
-	key               string
+	Key               string
 	val               v1alpha1.Attestor
 	keyProg           cel.Program
 	certProg          cel.Program
@@ -25,7 +25,7 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 	for i, att := range att {
 		path := path.Index(i)
 		compiledAtt := &CompiledAttestor{
-			key: att.Name,
+			Key: att.Name,
 			// val: att,
 		}
 		if att.IsCosign() {
@@ -94,41 +94,41 @@ func CompileAttestors(path *field.Path, att []v1alpha1.Attestor, env *cel.Env) (
 
 func (c *CompiledAttestor) Evaluate(data any) (v1alpha1.Attestor, error) {
 	if c.keyProg != nil {
-		result, err := evalProgramString(c.key, c.keyProg, data)
+		result, err := evalProgramString(c.Key, c.keyProg, data)
 		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert key in compiled attestor: %s, error: %w", c.key, err)
+			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert key in compiled attestor: %s, error: %w", c.Key, err)
 		}
 		c.val.Cosign.Key.Data = result
 	}
 
 	if c.certProg != nil {
-		result, err := evalProgramString(c.key, c.certProg, data)
+		result, err := evalProgramString(c.Key, c.certProg, data)
 		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert cert in compiled attestor: %s, error: %w", c.key, err)
+			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
 		c.val.Cosign.Certificate.Certificate.Value = result
 	}
 
 	if c.certChainProg != nil {
-		result, err := evalProgramString(c.key, c.certChainProg, data)
+		result, err := evalProgramString(c.Key, c.certChainProg, data)
 		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert cert chain in compiled attestor: %s, error: %w", c.key, err)
+			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert cert chain in compiled attestor: %s, error: %w", c.Key, err)
 		}
 		c.val.Cosign.Certificate.CertificateChain.Value = result
 	}
 
 	if c.notaryCertProg != nil {
-		result, err := evalProgramString(c.key, c.notaryCertProg, data)
+		result, err := evalProgramString(c.Key, c.notaryCertProg, data)
 		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert notary cert in compiled attestor: %s, error: %w", c.key, err)
+			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert notary cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
 		c.val.Notary.Certs.Value = result
 	}
 
 	if c.notaryTSACertProg != nil {
-		result, err := evalProgramString(c.key, c.notaryTSACertProg, data)
+		result, err := evalProgramString(c.Key, c.notaryTSACertProg, data)
 		if err != nil {
-			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert notary tsa cert in compiled attestor: %s, error: %w", c.key, err)
+			return v1alpha1.Attestor{}, fmt.Errorf("failed to convert notary tsa cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
 		c.val.Notary.TSACerts.Value = result
 	}

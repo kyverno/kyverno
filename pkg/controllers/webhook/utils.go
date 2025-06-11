@@ -7,12 +7,30 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1alpha1.GenericPolicy {
+	if vpol := policy.AsValidatingPolicy(); vpol != nil {
+		return vpol
+	}
+	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
+		return ivpol
+	}
+	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		return gpol
+	}
+	if mpol := policy.AsMutatingPolicy(); mpol != nil {
+		return mpol
+	}
+	return nil
+}
 
 func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.AdmissionOperation) webhookConfig {
 	out := map[string]sets.Set[kyvernov1.AdmissionOperation]{}
