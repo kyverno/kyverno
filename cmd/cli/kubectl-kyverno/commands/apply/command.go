@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -34,8 +33,6 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
-	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -49,10 +46,8 @@ import (
 	"github.com/spf13/cobra"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -86,8 +81,6 @@ type ApplyCommandConfig struct {
 	PolicyPaths           []string
 	TargetResourcePaths   []string
 	GitBranch             string
-	GitUsername           string
-	GitPassword           string
 	warnExitCode          int
 	warnNoPassed          bool
 	Exception             []string
@@ -96,7 +89,6 @@ type ApplyCommandConfig struct {
 	GenerateExceptions    bool
 	GeneratedExceptionTTL time.Duration
 	JSONPaths             []string
-	ClusterWideResources  bool
 }
 
 func Command() *cobra.Command {
@@ -185,8 +177,6 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&applyCommandConfig.KubeConfig, "kubeconfig", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVar(&applyCommandConfig.Context, "context", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
-	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
-	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -199,7 +189,6 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
-	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
 	return cmd
 }
 
@@ -230,12 +219,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
 	var store store.Store
-
-	kpols, vaps, vapBindings, maps, mapBindings, vps, ivps, dps, err := c.loadPolicies()
+	kpols, vaps, vapBindings, vps, ivps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(dps))
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps))
 	for _, pol := range kpols {
 		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
 	}
@@ -248,9 +236,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	for _, pol := range ivps {
 		genericPolicies = append(genericPolicies, engineapi.NewImageValidatingPolicy(&pol))
 	}
-	for _, pol := range dps {
-		genericPolicies = append(genericPolicies, engineapi.NewDeletingPolicy(&pol))
-	}
 	var targetResources []*unstructured.Unstructured
 	if len(c.TargetResourcePaths) > 0 {
 		targetResources, _, err = c.loadResources(out, c.TargetResourcePaths, genericPolicies, nil)
@@ -262,7 +247,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-
 	resources, jsonPayloads, err := c.loadResources(out, c.ResourcePaths, genericPolicies, dClient)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -289,8 +273,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(vaps)
 		policyRulesCount += len(vps)
 		policyRulesCount += len(ivps)
-		policyRulesCount += len(maps)
-		policyRulesCount += len(dps)
 		exceptionsCount := len(exceptions)
 		exceptionsCount += len(celexceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
@@ -308,8 +290,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		vaps,
 		vapBindings,
 		vps,
-		maps,
-		mapBindings,
 		resources,
 		jsonPayloads,
 		exceptions,
@@ -326,22 +306,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
-
-	responses5, err := c.applyDeletingPolicies(dps, resources1, celexceptions, variables.Namespace, rc, dClient, "resource")
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses4, err
-	}
-
-	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celexceptions, variables.Namespace, rc, dClient, "json")
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses4, err
-	}
-
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
 	responses = append(responses, responses4...)
-	responses = append(responses, responses5...)
-	responses = append(responses, responses6...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
 }
 
@@ -361,8 +328,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	vpols []policiesv1alpha1.ValidatingPolicy,
-	maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
-	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
 	exceptions []*kyvernov2.PolicyException,
@@ -402,8 +367,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
-			MutatingAdmissionPolicies:         maps,
-			MutatingAdmissionPolicyBindings:   mapBindings,
 			Resource:                          *resource,
 			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
@@ -440,8 +403,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
-			MutatingAdmissionPolicies:         maps,
-			MutatingAdmissionPolicyBindings:   mapBindings,
 			JsonPayload:                       *resource,
 			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
@@ -512,10 +473,36 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-
-	contextProvider, err := newContextProvider(dclient, restMapper, c.ContextPath, c.RegistryAccess)
-	if err != nil {
-		return nil, err
+	gctxStore := gctxstore.New()
+	var contextProvider libs.Context
+	if dclient != nil {
+		contextProvider, err = libs.NewContextProvider(
+			dclient,
+			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			gctxStore,
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fakeContextProvider := libs.NewFakeContextProvider()
+		if c.ContextPath != "" {
+			ctx, err := clicontext.Load(nil, c.ContextPath)
+			if err != nil {
+				return nil, err
+			}
+			for _, resource := range ctx.ContextSpec.Resources {
+				gvk := resource.GroupVersionKind()
+				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+				if err != nil {
+					return nil, err
+				}
+				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+					return nil, err
+				}
+			}
+		}
+		contextProvider = fakeContextProvider
 	}
 
 	responses := make([]engineapi.EngineResponse, 0)
@@ -611,80 +598,8 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	return responses, nil
 }
 
-func (c *ApplyCommandConfig) applyDeletingPolicies(
-	dps []policiesv1alpha1.DeletingPolicy,
-	resources []*unstructured.Unstructured,
-	celExceptions []*policiesv1alpha1.PolicyException,
-	namespaceProvider func(string) *corev1.Namespace,
-	rc *processor.ResultCounts,
-	dclient dclient.Interface,
-	payloadType string,
-) ([]engineapi.EngineResponse, error) {
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
-	restMapper, err := utils.GetRESTMapper(dclient, true)
-	if err != nil {
-		return nil, err
-	}
-
-	contextProvider, err := newContextProvider(dclient, restMapper, c.ContextPath, c.RegistryAccess)
-	if err != nil {
-		return nil, err
-	}
-
-	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
-
-	policies, err := provider.Fetch(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	responses := make([]engineapi.EngineResponse, 0)
-	for _, resource := range resources {
-		for _, dpol := range policies {
-			resp, err := engine.Handle(context.TODO(), dpol, *resource)
-			if err != nil {
-				response := engineapi.NewEngineResponse(*resource, engineapi.NewDeletingPolicy(&dpol.Policy), nil)
-				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
-					*engineapi.NewRuleResponse(dpol.Policy.Name, engineapi.Deletion, err.Error(), engineapi.RuleStatusError, nil),
-				}})
-
-				responses = append(responses, response)
-				rc.AddValidatingPolicyResponse(response)
-
-				if c.ContinueOnFail {
-					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
-					continue
-				}
-				return responses, fmt.Errorf("failed to apply deleting policies on %s: %w", payloadType, err)
-			}
-
-			status := engineapi.RuleStatusPass
-			message := fmt.Sprintf("%s matched", payloadType)
-			if !resp.Match {
-				status = engineapi.RuleStatusFail
-				message = fmt.Sprintf("%s did not match", payloadType)
-			}
-
-			response := engineapi.NewEngineResponse(*resource, engineapi.NewDeletingPolicy(&dpol.Policy), nil)
-			response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
-				*engineapi.NewRuleResponse(dpol.Policy.Name, engineapi.Deletion, message, status, nil),
-			}})
-
-			responses = append(responses, response)
-
-			rc.AddValidatingPolicyResponse(response)
-		}
-	}
-
-	return responses, nil
-}
-
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, c.ClusterWideResources, "")
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
@@ -707,11 +622,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]kyvernov1.PolicyInterface,
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	[]admissionregistrationv1alpha1.MutatingAdmissionPolicy, // Add new
-	[]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	[]policiesv1alpha1.ValidatingPolicy,
 	[]policiesv1alpha1.ImageValidatingPolicy,
-	[]policiesv1alpha1.DeletingPolicy,
 	error,
 ) {
 	// load policies
@@ -719,38 +631,31 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	var vps []policiesv1alpha1.ValidatingPolicy
-	var maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	var mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	var ivps []policiesv1alpha1.ImageValidatingPolicy
-	var dps []policiesv1alpha1.DeletingPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
 			var gitPathToYamls string
 			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, path)
 			fs := memfs.New()
-			auth := &http.BasicAuth{
-				Username: c.GitUsername,
-				Password: c.GitPassword,
-			}
-			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
+			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -766,10 +671,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				maps = append(maps, loaderResults.MAPs...)
-				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				dps = append(dps, loaderResults.DeletingPolicies...)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -785,19 +687,16 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				maps = append(maps, loaderResults.MAPs...)
-				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				dps = append(dps, loaderResults.DeletingPolicies...)
 			}
 		}
 		for _, policy := range policies {
 			if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetName()))
+				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetNamespace()))
 			}
 		}
 	}
-	return policies, vaps, vapBindings, maps, mapBindings, vps, ivps, dps, nil
+	return policies, vaps, vapBindings, vps, ivps, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
@@ -902,34 +801,4 @@ func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPas
 		}
 	}
 	return nil
-}
-
-func newContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, contextPath string, registryAccess bool) (libs.Context, error) {
-	if dclient != nil {
-		return libs.NewContextProvider(
-			dclient,
-			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
-			gctxstore.New(),
-		)
-	}
-
-	fakeContextProvider := libs.NewFakeContextProvider()
-	if contextPath != "" {
-		ctx, err := clicontext.Load(nil, contextPath)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, resource := range ctx.ContextSpec.Resources {
-			gvk := resource.GroupVersionKind()
-			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-			if err != nil {
-				return nil, err
-			}
-			if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return fakeContextProvider, nil
 }
