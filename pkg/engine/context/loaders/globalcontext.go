@@ -100,26 +100,11 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 		g.logger.Error(err, "")
 		return nil, err
 	}
-	data, err = storeEntry.Get(projectionName)
+	data, err = storeEntry.Get(projectionName, rc.JMESPath)
 	if err != nil {
 		g.logger.Error(err, "failed to fetch data from entry")
 		return nil, err
 	}
 
-	if rc.JMESPath == "" {
-		jsonData, err := json.Marshal(data)
-		if err != nil {
-			return nil, err
-		}
-		return jsonData, nil
-	}
-
-	results, err := g.jp.Search(rc.JMESPath, data)
-	if err != nil {
-		g.logger.Error(err, "failed to apply JMESPath for context entry")
-		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", rc.JMESPath, g.entry.Name, err)
-	}
-	g.logger.V(6).Info("applied jmespath expression", "name", g.entry.Name, "results", results)
-
-	return json.Marshal(results)
+	return json.Marshal(data)
 }
