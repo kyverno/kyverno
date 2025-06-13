@@ -62,7 +62,7 @@ type Validation struct {
 
 	// Assert defines a kyverno-json assertion tree.
 	// +optional
-	Assert AssertionTree `json:"assert"`
+	Assert *AssertionTree `json:"assert"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.
