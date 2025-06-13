@@ -81,6 +81,10 @@ crds:
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
+  reportsServer:
+      # -- Kyverno reports-server is used in your cluster
+    enabled: false
+
   groups:
 
     # -- Install CRDs in group `kyverno.io`
