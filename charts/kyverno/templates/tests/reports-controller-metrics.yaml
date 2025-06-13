@@ -9,6 +9,7 @@ metadata:
   annotations:
     {{- include "kyverno.test.annotations" . | nindent 4 }}
 spec:
+  automountServiceAccountToken: {{ .Values.test.automountServiceAccountToken }}
   restartPolicy: Never
   {{- with .Values.test.imagePullSecrets | default .Values.global.imagePullSecrets }}
   imagePullSecrets:
