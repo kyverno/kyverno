@@ -9,6 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Some internal error paths (e.g., baseEnv creation failure) are not tested here
+// as they're rare and better covered in e-2-e tests.
 func TestCompile(t *testing.T) {
 	tests := []struct {
 		name       string
