@@ -12,15 +12,10 @@ import (
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
-	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/matching"
-	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
-	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
-	"github.com/kyverno/kyverno/pkg/controllers/deleting"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -34,7 +29,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/kyverno/pkg/utils/restmapper"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -117,7 +111,6 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
-		internal.WithRestConfig(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -138,7 +131,6 @@ func main() {
 			setup.Logger.Error(err, "sanity checks failed")
 			os.Exit(1)
 		}
-
 		// certificates informers
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
@@ -201,19 +193,6 @@ func main() {
 			kyvernoDeployment,
 			nil,
 		)
-
-		restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
-		if err != nil {
-			setup.Logger.Error(err, "failed to create RESTMapper")
-			os.Exit(1)
-		}
-
-		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, nil, gcstore)
-		if err != nil {
-			setup.Logger.Error(err, "failed to create CEL context provider")
-			os.Exit(1)
-		}
-
 		// setup leader election
 		le, err := leaderelection.New(
 			setup.Logger.WithName("leader-election"),
@@ -229,12 +208,6 @@ func main() {
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 
 				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
-				provider := engine.NewFetchProvider(
-					compiler.NewCompiler(),
-					kyvernoInformer.Policies().V1alpha1().DeletingPolicies().Lister(),
-					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
-					internal.PolicyExceptionEnabled(),
-				)
 
 				// controllers
 				renewer := tls.NewCertRenewer(
@@ -364,32 +337,6 @@ func main() {
 					),
 					cleanup.Workers,
 				)
-				deletingController := internal.NewController(
-					deleting.ControllerName,
-					deleting.NewController(
-						setup.KyvernoDynamicClient,
-						setup.KyvernoClient,
-						kyvernoInformer.Policies().V1alpha1().DeletingPolicies(),
-						provider,
-						engine.NewEngine(
-							func(name string) *corev1.Namespace {
-								ns, err := nsLister.Get(name)
-								if err != nil {
-									return nil
-								}
-								return ns
-							},
-							restMapper,
-							libCtx,
-							matching.NewMatcher(),
-						),
-						nsLister,
-						setup.Configuration,
-						cmResolver,
-						eventGenerator,
-					),
-					deleting.Workers,
-				)
 				ttlManagerController := internal.NewController(
 					ttlcontroller.ControllerName,
 					ttlcontroller.NewManager(
@@ -412,7 +359,6 @@ func main() {
 				policyValidatingWebhookController.Run(ctx, logger, &wg)
 				ttlWebhookController.Run(ctx, logger, &wg)
 				cleanupController.Run(ctx, logger, &wg)
-				deletingController.Run(ctx, logger, &wg)
 				ttlManagerController.Run(ctx, logger, &wg)
 				wg.Wait()
 			},
