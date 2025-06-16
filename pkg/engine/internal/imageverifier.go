@@ -276,7 +276,7 @@ func (iv *ImageVerifier) verifyImage(
 		iv.logger.Error(err, "failed to add image to context", "image", image)
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err, iv.rule.ReportProperties), ""
 	}
-	if len(imageVerify.Attestors) > 0 {
+	if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
 		if !matchReferences(imageVerify.ImageReferences, image) {
 			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties), ""
 		}
