@@ -224,6 +224,6 @@ func logMutationResponse(patches []jsonpatch.JsonPatchOperation, engineResponses
 
 	// if any of the policies fails, print out the error
 	if !engineutils.IsResponseSuccessful(engineResponses) {
-		logger.Error(fmt.Errorf(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation") //nolint:govet,staticcheck
+		logger.Error(fmt.Errorf(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
 	}
 }
