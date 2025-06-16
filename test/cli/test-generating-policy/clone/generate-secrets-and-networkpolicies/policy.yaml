@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: generate-secrets-and-networkpolicies
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: clonedSecrets
+      expression: resource.List("v1", "secrets", "default")
+    - name: clonedNetworkPolicies
+      expression: resource.List("networking.k8s.io/v1", "networkpolicies", "default")
+  generate:
+    - expression: generator.Apply(variables.nsName, [variables.clonedSecrets, variables.clonedNetworkPolicies])
