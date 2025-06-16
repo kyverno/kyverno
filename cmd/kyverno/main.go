@@ -69,6 +69,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -628,8 +629,15 @@ func main() {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
 			}
+			ctrlMetricsBindAddress := ""
+			if setup.MetricsManager.MetricsProviderMode() == "prometheus" {
+				ctrlMetricsBindAddress = setup.MetricsManager.MetricsAddress()
+			}
 			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
 				Scheme: scheme,
+				Metrics: server.Options{
+					BindAddress: ctrlMetricsBindAddress,
+				},
 			})
 			if err != nil {
 				setup.Logger.Error(err, "failed to construct manager")
