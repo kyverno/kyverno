@@ -637,7 +637,7 @@ codegen-cli-all: codegen-cli-docs
 codegen-cli-all: codegen-cli-api-docs
 
 define generate_crd
-	@echo "{{- if .Values.groups.$(4).$(5) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@cat $(CRDS_PATH)/$(2)/$(1) \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
@@ -670,10 +670,10 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
 	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
 	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
-	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports)
-	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports)
-	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports)
-	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports)
+	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
+	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
+	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
+	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports,true)
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
