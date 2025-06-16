@@ -703,7 +703,7 @@ func main() {
 					}
 					return ns
 				},
-				setup.KubeClient,
+				setup.KubeClient.Discovery().OpenAPIV3(),
 				matching.NewMatcher(),
 			)
 		}
