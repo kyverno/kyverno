@@ -26,9 +26,10 @@ type CELGenerateController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 
-	context  libs.Context
-	engine   gpolengine.Engine
-	provider gpolengine.Provider
+	context      libs.Context
+	engine       gpolengine.Engine
+	provider     gpolengine.Provider
+	watchManager *WatchManager
 
 	statusControl common.StatusControlInterface
 
@@ -45,6 +46,7 @@ func NewCELGenerateController(
 	context libs.Context,
 	engine gpolengine.Engine,
 	provider gpolengine.Provider,
+	watchManager *WatchManager,
 	statusControl common.StatusControlInterface,
 	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
@@ -56,6 +58,7 @@ func NewCELGenerateController(
 		context:        context,
 		engine:         engine,
 		provider:       provider,
+		watchManager:   watchManager,
 		statusControl:  statusControl,
 		reportsConfig:  reportsConfig,
 		reportsBreaker: reportsBreaker,
@@ -83,6 +86,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
+		isSync := policy.Policy.Spec.SynchronizationEnabled()
 		gpolResponse, err := c.engine.Handle(request, policy)
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
@@ -103,6 +107,15 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			}
 			engineResponse.PolicyResponse.Rules = []engineapi.RuleResponse{*res.Result}
 			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicy(&res.Policy))
+			if isSync {
+				go func() {
+					if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), res.Result.GeneratedResources()); err != nil {
+						logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
+					} else {
+						logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey(), "resources", res.Result.GeneratedResources())
+					}
+				}()
+			}
 		}
 		// generate reports if enabled
 		if c.reportsConfig.GenerateReportsEnabled() {
