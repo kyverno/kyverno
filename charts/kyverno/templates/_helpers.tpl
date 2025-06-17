@@ -123,12 +123,16 @@
 {{- if . -}}
 {{- $secrets := list -}}
 {{- range . -}}
-{{- $secrets = append $secrets . -}}
+{{- $secrets = append $secrets .name -}}
 {{- end -}}
 {{- $sortedSecrets := list -}}
 {{- if $secrets -}}
 {{- $sortedSecrets = sortAlpha $secrets -}}
 {{- end -}}
-{{- toYaml $sortedSecrets -}}
+{{- $sortedRefs := list -}}
+{{- range $sortedSecrets -}}
+{{- $sortedRefs = append $sortedRefs (dict "name" .) -}}
+{{- end -}}
+{{- toYaml $sortedRefs -}}
 {{- end -}}
 {{- end -}}
