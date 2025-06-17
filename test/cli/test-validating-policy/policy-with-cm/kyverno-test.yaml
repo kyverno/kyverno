@@ -1,4 +1,5 @@
 apiVersion: cli.kyverno.io/v1alpha1
+context: context.yaml
 kind: Test
 metadata:
   name: kyverno-test.yaml
@@ -7,7 +8,6 @@ policies:
 resources:
 - pod1.yaml
 - pod2.yaml
-context: context.yaml
 results:
 - isValidatingPolicy: true
   kind: Pod
