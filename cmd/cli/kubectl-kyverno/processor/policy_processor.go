@@ -631,11 +631,11 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 			if !p.Stdin {
 				fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().GetName(), resourcePath)
 			}
-			fmt.Fprintf(p.Out, "\n"+resource+"\n")
+			fmt.Fprint(p.Out, "\n"+resource+"\n")
 			if len(yamlEncodedTargetResources) > 0 {
 				fmt.Fprintf(p.Out, "patched targets: \n")
 				for _, patchedTarget := range yamlEncodedTargetResources {
-					fmt.Fprintf(p.Out, "\n"+string(patchedTarget)+"\n")
+					fmt.Fprint(p.Out, "\n"+string(patchedTarget)+"\n")
 				}
 			}
 		}
