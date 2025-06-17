@@ -132,10 +132,6 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		result.Source = SourceImageValidatingPolicy
 		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
 
-	case pol.AsGeneratingPolicy() != nil:
-		result.Source = SourceGeneratingPolicy
-		process = "admission review"
-
 	case pol.AsKyvernoPolicy() != nil:
 		kyvernoPolicy := pol.AsKyvernoPolicy()
 		result.Source = SourceKyverno
@@ -162,6 +158,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	if pss := ruleResult.PodSecurityChecks(); pss != nil && len(pss.Checks) > 0 {
 		addPodSecurityProperties(pss, &result)
 	}
+
 	return result
 }
 

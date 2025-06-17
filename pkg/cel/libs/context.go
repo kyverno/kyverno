@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
@@ -25,17 +24,12 @@ type Context interface {
 	globalcontext.ContextInterface
 	imagedata.ContextInterface
 	resource.ContextInterface
-	generator.ContextInterface
-
-	GetGeneratedResources() []*unstructured.Unstructured
-	ClearGeneratedResources()
 }
 
 type contextProvider struct {
-	client             dclient.Interface
-	imagedata          imagedataloader.Fetcher
-	gctxStore          gctxstore.Store
-	generatedResources []*unstructured.Unstructured
+	dclient   dynamic.Interface
+	imagedata imagedataloader.Fetcher
+	gctxStore gctxstore.Store
 }
 
 func NewContextProvider(
@@ -48,10 +42,9 @@ func NewContextProvider(
 		return nil, err
 	}
 	return &contextProvider{
-		client:             client,
-		imagedata:          idl,
-		gctxStore:          gctxStore,
-		generatedResources: make([]*unstructured.Unstructured, 0),
+		dclient:   client.GetDynamicInterface(),
+		imagedata: idl,
+		gctxStore: gctxStore,
 	}, nil
 }
 
@@ -115,47 +108,8 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
 }
 
-func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
-	for _, data := range dataList {
-		resource := &unstructured.Unstructured{Object: data}
-		resource.SetNamespace(namespace)
-		resource.SetResourceVersion("")
-		if resource.IsList() {
-			resourceList, err := resource.ToList()
-			if err != nil {
-				return err
-			}
-			for i := range resourceList.Items {
-				item := &resourceList.Items[i]
-				item.SetNamespace(namespace)
-				item.SetResourceVersion("")
-				cp.generatedResources = append(cp.generatedResources, item)
-				_, err := cp.client.CreateResource(context.TODO(), item.GetAPIVersion(), item.GetKind(), namespace, item, false)
-				if err != nil {
-					return err
-				}
-			}
-		} else {
-			cp.generatedResources = append(cp.generatedResources, resource)
-			_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {
-	return cp.generatedResources
-}
-
-func (cp *contextProvider) ClearGeneratedResources() {
-	cp.generatedResources = make([]*unstructured.Unstructured, 0)
-}
-
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {
-	client := cp.client.GetDynamicInterface().Resource(groupVersion.WithResource(resource))
+	client := cp.dclient.Resource(groupVersion.WithResource(resource))
 	if namespace != "" {
 		return client.Namespace(namespace)
 	} else {
