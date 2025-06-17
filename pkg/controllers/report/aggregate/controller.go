@@ -530,9 +530,15 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	for _, result := range merged {
 		results = append(results, result)
 	}
+	// Delete report if no results (fix for orphaned PolicyReports)
 	if len(results) == 0 {
 		if report != nil {
 			return deleteReport(ctx, report, c.client)
+		}
+		// Delete any existing PolicyReports for this resource
+		_ = c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+		if namespace == "" {
+			_ = c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(ctx, name, metav1.DeleteOptions{})
 		}
 	} else {
 		if report == nil {
