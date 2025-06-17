@@ -173,6 +173,7 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
