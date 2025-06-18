@@ -25,4 +25,4 @@ spec:
       - script:
           content: kubectl apply -f policy-3.yaml
           check:
-            (contains($stderr, 'context are not supported when using the CEL Expressions in validate rules;')): false
+            (contains($stderr, 'context variables are not supported for CEL expressions in validate rules;')): false
