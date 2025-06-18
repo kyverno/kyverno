@@ -19,7 +19,9 @@ metadata:
     {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 spec:
+  {{- if not .Values.admissionController.autoscaling.enabled }}
   replicas: {{ template "kyverno.deployment.replicas" .Values.admissionController.replicas }}
+  {{- end }}
   revisionHistoryLimit: {{ .Values.admissionController.revisionHistoryLimit }}
   {{- with .Values.admissionController.updateStrategy }}
   strategy:
@@ -95,7 +97,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         - name: kyverno-pre
-          image: {{ include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.container.image.tag)) | quote }}
+          image: {{ include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.initContainer.image.tag)) | quote }}
           imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           args:
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride)
