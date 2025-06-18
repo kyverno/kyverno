@@ -10,7 +10,10 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
@@ -37,9 +40,14 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 		}
 	}
 
+	if len(policies) == 0 {
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
+
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
 	response, err := h.engine.Handle(ctx, request, mpolengine.MatchNames(policies...))
 	if err != nil {
+		logger.Error(err, "failed to handle mutating policy request")
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 
@@ -47,5 +55,26 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 }
 
 func (h *handler) admissionResponse(request celengine.EngineRequest, response mpolengine.EngineResponse) handlers.AdmissionResponse {
-	return handlers.AdmissionResponse{}
+	if len(response.Policies) == 0 {
+		return admissionutils.ResponseSuccess(request.Request.UID)
+	}
+
+	var errs, warnings []string
+	for _, policy := range response.Policies {
+		for _, rule := range policy.Rules {
+			if rule.Status() == engineapi.RuleStatusError {
+				errs = append(errs, rule.Message())
+			} else if rule.Status() == engineapi.RuleStatusWarn {
+				warnings = append(warnings, rule.Message())
+			}
+		}
+	}
+
+	if response.PatchedResource != nil {
+		patches := jsonutils.JoinPatches(patch.ConvertPatches(response.GetPatches()...)...)
+		return admissionutils.MutationResponse(request.Request.UID, patches, warnings...)
+
+	}
+
+	return admissionutils.MutationResponse(request.Request.UID, nil, warnings...)
 }
