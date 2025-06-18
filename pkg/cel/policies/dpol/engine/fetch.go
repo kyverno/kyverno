@@ -34,7 +34,7 @@ func (r *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	policy, err := r.dpolLister.Get(name)
 	// get exceptions that match the policy
 	var exceptions []*policiesv1alpha1.PolicyException
-	if r.polexEnabled {
+	if r.polexEnabled && policy != nil {
 		exceptions, err = engine.ListExceptions(r.polexLister, policy.Kind, policy.GetName())
 		if err != nil {
 			return Policy{}, err
