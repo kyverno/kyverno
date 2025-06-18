@@ -2,6 +2,7 @@ package mpol
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -62,7 +63,7 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 	response, err := h.engine.Handle(ctx, request, mpolengine.MatchNames(policies...))
 	if err != nil {
 		logger.Error(err, "failed to handle mutating policy request")
-		return admissionutils.Response(admissionRequest.UID, err)
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
 	}
 
 	go func() {
@@ -71,7 +72,12 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 		}
 	}()
 
-	return h.admissionResponse(request, response)
+	resp, err := h.admissionResponse(request, response)
+	if err != nil {
+		logger.Error(err, "mutation failures")
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
+	return resp
 }
 
 func (h *handler) createReports(ctx context.Context, response mpolengine.EngineResponse, request celengine.EngineRequest) error {
@@ -119,27 +125,35 @@ func (h *handler) needsReports(request celengine.EngineRequest) bool {
 	return true
 }
 
-func (h *handler) admissionResponse(request celengine.EngineRequest, response mpolengine.EngineResponse) handlers.AdmissionResponse {
+func (h *handler) admissionResponse(request celengine.EngineRequest, response mpolengine.EngineResponse) (handlers.AdmissionResponse, error) {
 	if len(response.Policies) == 0 {
-		return admissionutils.ResponseSuccess(request.Request.UID)
+		return admissionutils.ResponseSuccess(request.Request.UID), nil
 	}
 
-	var errs, warnings []string
+	var warnings []string
+	var mutationErrors []string
+
 	for _, policy := range response.Policies {
 		for _, rule := range policy.Rules {
-			if rule.Status() == engineapi.RuleStatusError {
-				errs = append(errs, rule.Message())
-			} else if rule.Status() == engineapi.RuleStatusWarn {
+			switch rule.Status() {
+			case engineapi.RuleStatusError:
+				mutationErrors = append(mutationErrors, fmt.Sprintf("Policy %s: %s", policy.Policy.Name, rule.Message()))
+			case engineapi.RuleStatusWarn:
 				warnings = append(warnings, rule.Message())
 			}
 		}
 	}
 
-	if response.PatchedResource != nil {
-		patches := jsonutils.JoinPatches(patch.ConvertPatches(response.GetPatches()...)...)
-		return admissionutils.MutationResponse(request.Request.UID, patches, warnings...)
-
+	if len(mutationErrors) > 0 {
+		return admissionutils.ResponseSuccess(request.Request.UID),
+			fmt.Errorf("Resource: %s/%s, Kind: %s, Errors: %v\n",
+				request.Request.Namespace, request.Request.Name, request.Request.Kind.Kind, mutationErrors)
 	}
 
-	return admissionutils.MutationResponse(request.Request.UID, nil, warnings...)
+	if response.PatchedResource != nil {
+		patches := jsonutils.JoinPatches(patch.ConvertPatches(response.GetPatches()...)...)
+		return admissionutils.MutationResponse(request.Request.UID, patches, warnings...), nil
+	}
+
+	return admissionutils.MutationResponse(request.Request.UID, nil, warnings...), nil
 }
