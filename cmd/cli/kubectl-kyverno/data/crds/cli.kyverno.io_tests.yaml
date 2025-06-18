@@ -118,6 +118,11 @@ spec:
                     IsDeletingPolicy indicates if the policy is a deleting policy.
                     It's required in case the policy is a deleting policy.
                   type: boolean
+                isGeneratingPolicy:
+                  description: |-
+                    IsGeneratingPolicy indicates if the policy is a generating policy.
+                    It's required in case the policy is a generating policy.
+                  type: boolean
                 isImageValidatingPolicy:
                   description: |-
                     IsImageValidatingPolicy indicates if the policy is an image validating policy.

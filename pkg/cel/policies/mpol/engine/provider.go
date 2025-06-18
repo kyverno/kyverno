@@ -83,5 +83,5 @@ func NewKubeProvider(
 		return nil, fmt.Errorf("failed to construct mutatingpolicies manager: %w", err)
 	}
 
-	return nil, nil
+	return reconciler, nil
 }
