@@ -1,8 +1,6 @@
 package compiler
 
 import (
-	"fmt"
-
 	"github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -26,6 +24,9 @@ func NewCompiler() Compiler {
 type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+	if policy == nil {
+		return nil, field.ErrorList{field.Required(field.NewPath("policy"), "policy must not be nil")}
+	}
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -52,7 +53,8 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptio
 	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf("failed to generate CEL env options from DeclTypeProvider: %w", err)))
+		// TODO: proper error handling
+		panic(err)
 	}
 	options = append(options, declOptions...)
 	options = append(options, globalcontext.Lib(), http.Lib(), image.Lib(), imagedata.Lib(), resource.Lib())

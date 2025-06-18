@@ -14,22 +14,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// mock CEL Programs
-
 type valueProgram struct{}
 
-func (v *valueProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
-	return nil, nil, nil
-}
+func (v *valueProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) { return nil, nil, nil }
 func (v *valueProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.String("test"), nil, nil
 }
 
 type errorProgram struct{}
 
-func (e *errorProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
-	return nil, nil, nil
-}
+func (e *errorProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) { return nil, nil, nil }
 func (e *errorProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, errors.New("forced variable error")
 }
@@ -62,7 +56,6 @@ func (e *evalErrorProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.
 }
 
 // mock Context
-
 type fakeContext struct{}
 
 func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
@@ -83,7 +76,7 @@ func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data 
 func (f *fakeContext) ClearGeneratedResources() {}
 
 func TestEvaluate(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	obj := unstructured.Unstructured{}
 	ctxLib := &fakeContext{}
 
@@ -187,7 +180,6 @@ func (e *errorConvertProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, nil
 }
 func (e *errorConvertProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
-	// return string which will cause convert to bool to fail
 	return types.String("notBool"), nil, nil
 }
 
