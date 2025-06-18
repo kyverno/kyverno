@@ -1297,7 +1297,7 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 	}
 
 	if rule.HasValidateCEL() {
-		return fmt.Errorf("context are not supported when using the CEL Expressions in validate rules")
+		return fmt.Errorf("context variables are not supported for CEL expressions in validate rules")
 	}
 
 	for _, entry := range rule.Context {
