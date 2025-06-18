@@ -149,7 +149,7 @@ spec:
             - --profile=true
             - --profilePort={{ .Values.reportsController.profiling.port }}
             {{- end }}
-            {{- if not .Values.reportsController.sanityChecks }}
+            {{- if or (not .Values.reportsController.sanityChecks) .Values.crds.reportsServer.enabled }}
             - --reportsCRDsSanityChecks=false
             {{- end }}
           env:

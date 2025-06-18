@@ -25,8 +25,10 @@ type CELGenerateController struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	context       libs.Context
-	gpolEngine    gpolengine.Engine
+
+	context  libs.Context
+	engine   gpolengine.Engine
+	provider gpolengine.Provider
 
 	statusControl common.StatusControlInterface
 
@@ -41,7 +43,8 @@ func NewCELGenerateController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	context libs.Context,
-	gpolEngine gpolengine.Engine,
+	engine gpolengine.Engine,
+	provider gpolengine.Provider,
 	statusControl common.StatusControlInterface,
 	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
@@ -51,7 +54,8 @@ func NewCELGenerateController(
 		client:         client,
 		kyvernoClient:  kyvernoClient,
 		context:        context,
-		gpolEngine:     gpolEngine,
+		engine:         engine,
+		provider:       provider,
 		statusControl:  statusControl,
 		reportsConfig:  reportsConfig,
 		reportsBreaker: reportsBreaker,
@@ -73,7 +77,13 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		request := celengine.RequestFromAdmission(c.context, *ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
-		gpolResponse, err := c.gpolEngine.Handle(request, ur.Spec.GetPolicyKey())
+		policy, err := c.provider.Get(context.TODO(), ur.Spec.GetPolicyKey())
+		if err != nil {
+			logger.Error(err, "failed to fetch gpol", "gpol", ur.Spec.GetPolicyKey())
+			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
+			continue
+		}
+		gpolResponse, err := c.engine.Handle(request, policy)
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -244,7 +245,7 @@ func MatchesResourceDescription(
 	}
 
 	if len(reasonsForFailure) > 0 {
-		return fmt.Errorf(errorMessage) //nolint:govet,staticcheck
+		return errors.New(errorMessage)
 	}
 
 	return nil
