@@ -7,6 +7,10 @@ import (
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 )
 
+type Provider interface {
+	Get(context.Context, string) (Policy, error)
+}
+
 type fetchProvider struct {
 	compiler   compiler.Compiler
 	gpolLister policiesv1alpha1listers.GeneratingPolicyLister

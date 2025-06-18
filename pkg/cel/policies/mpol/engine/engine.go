@@ -9,12 +9,13 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"gomodules.xyz/jsonpatch/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/openapi"
 )
 
 type Engine interface {
@@ -22,8 +23,25 @@ type Engine interface {
 }
 
 type EngineResponse struct {
-	Resource *unstructured.Unstructured
-	Policies []MutatingPolicyResponse
+	PatchedResource *unstructured.Unstructured
+	Resource        *unstructured.Unstructured
+	Policies        []MutatingPolicyResponse
+}
+
+func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
+	originalBytes, err := er.Resource.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	patchedBytes, err := er.PatchedResource.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	patches, err := jsonpatch.CreatePatch(originalBytes, patchedBytes)
+	if err != nil {
+		return nil
+	}
+	return patches
 }
 
 type MutatingPolicyResponse struct {
@@ -35,12 +53,12 @@ type Predicate = func(policiesv1alpha1.MutatingPolicy) bool
 
 type engineImpl struct {
 	provider   Provider
-	client     kubernetes.Interface
+	client     openapi.Client
 	nsResolver engine.NamespaceResolver
 	matcher    matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, client kubernetes.Interface, matcher matching.Matcher) *engineImpl {
+func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, client openapi.Client, matcher matching.Matcher) *engineImpl {
 	return &engineImpl{
 		provider:   provider,
 		nsResolver: nsResolver,
@@ -86,18 +104,21 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		namespace = e.nsResolver(ns)
 	}
 
-	typeConverter := patch.NewTypeConverterManager(nil, e.client.Discovery().OpenAPIV3())
+	typeConverter := patch.NewTypeConverterManager(nil, e.client)
 	for _, mpol := range mpols {
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		ruleResponse := e.handlePolicy(ctx, mpol, attr, namespace, typeConverter)
+		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, namespace, typeConverter)
 		response.Policies = append(response.Policies, ruleResponse)
+		if patchedResource != nil {
+			response.PatchedResource = patchedResource
+		}
 	}
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, namespace *corev1.Namespace, typeConverter patch.TypeConverterManager) MutatingPolicyResponse {
+func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, namespace *corev1.Namespace, typeConverter patch.TypeConverterManager) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: &mpol.Policy,
 	}
@@ -107,18 +128,20 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if err != nil {
 			ruleResponse.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
-			return ruleResponse
+			return ruleResponse, nil
 		} else if !matches {
-			return ruleResponse
+			return ruleResponse, nil
 		}
 	}
 	result := mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, typeConverter)
 	if result == nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RuleSkip("", engineapi.Mutation, "skip", nil))
+		return ruleResponse, nil
 	} else if result.Error != nil {
 		ruleResponse.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Mutation, "failed to evaluate policy", result.Error, nil))
+		return ruleResponse, nil
 	} else {
 		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RulePass("", engineapi.Mutation, "success", nil))
 	}
-	return ruleResponse
+	return ruleResponse, result.PatchedResource
 }

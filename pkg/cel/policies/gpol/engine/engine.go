@@ -16,27 +16,20 @@ import (
 )
 
 type Engine struct {
-	provider   Provider
 	nsResolver engine.NamespaceResolver
 	matcher    matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) *Engine {
+func NewEngine(nsResolver engine.NamespaceResolver, matcher matching.Matcher) *Engine {
 	return &Engine{
-		provider:   provider,
 		nsResolver: nsResolver,
 		matcher:    matcher,
 	}
 }
 
 // Handle evaluates a generating policy against the trigger in the provided request.
-func (e *Engine) Handle(request engine.EngineRequest, policyName string) (EngineResponse, error) {
+func (e *Engine) Handle(request engine.EngineRequest, policy Policy) (EngineResponse, error) {
 	var response EngineResponse
-	// fetch the compiled policy
-	policy, err := e.provider.Get(context.TODO(), policyName)
-	if err != nil {
-		return response, err
-	}
 	// load objects
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {

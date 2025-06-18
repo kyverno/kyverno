@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"reflect"
 
 	"github.com/kyverno/kyverno-json/pkg/payload"
@@ -64,6 +65,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
 	var dClient dclient.Interface
+	contextPath := ""
+	if testCase.Test.Context != "" {
+		contextPath = filepath.Join(testDir, testCase.Test.Context)
+	}
 	// values/variables
 	fmt.Fprintln(out, "  Loading values/variables", "...")
 	vars, err := variables.New(out, testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
@@ -162,7 +167,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies)
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
@@ -245,6 +250,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
+			GeneratingPolicies:                results.GeneratingPolicies,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			Resource:                          *resource,
@@ -252,7 +258,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
-			ContextPath:                       testCase.Test.Context,
+			ContextPath:                       contextPath,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -278,7 +284,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
-				testCase.Test.Context,
+				contextPath,
 				false,
 			)
 			if err != nil {
@@ -296,7 +302,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
-				testCase.Test.Context,
+				contextPath,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -324,7 +330,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
-			ContextPath:                       testCase.Test.Context,
+			ContextPath:                       contextPath,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -350,7 +356,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
-				testCase.Test.Context,
+				contextPath,
 				false,
 			)
 			if err != nil {
@@ -368,7 +374,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
-				testCase.Test.Context,
+				contextPath,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
