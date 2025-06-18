@@ -84,7 +84,7 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 
 	v := Verifier{log: logr.Discard()}
 	err = v.VerifyAttestationSignature(ctx, img, "trivy/vulnerability-fail-test", cert, "")
-	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, signature is not produced by a trusted signer")
+	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, the signature's certificate chain does not contain any trusted certificate")
 }
 
 func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
