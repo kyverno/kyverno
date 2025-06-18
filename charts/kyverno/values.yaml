@@ -1147,6 +1147,9 @@ admissionController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   metricsService:
     # -- Create service.
@@ -1161,6 +1164,9 @@ admissionController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   networkPolicy:
     # -- When true, use a NetworkPolicy to allow ingress to the webhook
@@ -1472,6 +1478,9 @@ backgroundController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   networkPolicy:
 
@@ -1786,6 +1795,9 @@ cleanupController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   metricsService:
     # -- Create service.
@@ -1800,6 +1812,9 @@ cleanupController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   networkPolicy:
 
@@ -2102,6 +2117,9 @@ reportsController:
     nodePort: ~
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   networkPolicy:
 
