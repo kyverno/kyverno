@@ -15,9 +15,9 @@ This test validates the behavior of Kyverno's `DeletingPolicy` when the required
 | File               | Description                                                                 |
 |--------------------|-----------------------------------------------------------------------------|
 | `chainsaw-test.yaml` | Chainsaw test definition with all steps                                    |
-| `pod.yaml`         | Pod definition that will be targeted by the DeletingPolicy                  |
-| `pod-assert.yaml`  | Assertion file to confirm the Pod's presence                                |
-| `policy.yaml`      | A `DeletingPolicy` targeting the Pod, but without RBAC                      |
+| `configmap.yaml`         | ConfigMap definition that will be targeted by the DeletingPolicy                  |
+| `configmap-assert.yaml`  | Assertion file to confirm the ConfigMap's presence                                |
+| `policy.yaml`      | A `DeletingPolicy` targeting the ConfigMap, but without RBAC                      |
 
 > **Note**: This test intentionally omits any RBAC configuration for Kyverno's cleanup controller.
 
@@ -27,17 +27,17 @@ This test validates the behavior of Kyverno's `DeletingPolicy` when the required
 
 | Step         | Action                                                           |
 |--------------|------------------------------------------------------------------|
-| `step-01`    | Creates the Pod `rbac-missing-pod`                               |
-| `step-02`    | Asserts that the Pod exists                                      |
+| `step-01`    | Creates the ConfigMap `rbac-missing-pod`                               |
+| `step-02`    | Asserts that the ConfigMap exists                                      |
 | `step-03`    | Applies the `DeletingPolicy` (with no RBAC)                      |
 | `step-04`    | Waits for 65 seconds (policy runs every minute)                 |
-| `step-05`    | Asserts again that the Pod still exists (i.e., was **not** deleted) |
+| `step-05`    | Asserts again that the ConfigMap still exists (i.e., was **not** deleted) |
 
 ---
 
 ## Expected Behavior
 
-- Kyverno **should not** be able to delete the Pod.
-- Chainsaw assertions in `step-05` should pass because the Pod still exists.
-- The test passes **only if the Pod is not deleted**, proving that proper RBAC is mandatory for cleanup.
+- Kyverno **should not** be able to delete the ConfigMap.
+- Chainsaw assertions in `step-05` should pass because the ConfigMap still exists.
+- The test passes **only if the ConfigMap is not deleted**, proving that proper RBAC is mandatory for cleanup.
 
