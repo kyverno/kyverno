@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -212,9 +213,17 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 		list, err := c.client.ListResource(ctx, "", kind, policy.GetNamespace(), nil)
 		if err != nil {
 			debug.Error(err, "failed to list resources")
-			errs = append(errs, err)
 			if c.metrics.cleanupFailuresTotal != nil {
 				c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(commonLabels...))
+			}
+			// Check if this is a recoverable error (permission denied, resource not found, etc.)
+			if isRecoverableError(err) {
+				logger.V(2).Info("skipping resource kind due to access restrictions", "kind", kind, "error", err.Error())
+				// Continue processing other resource kinds instead of failing the entire cleanup
+				continue
+			} else {
+				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
+				errs = append(errs, err)
 			}
 		} else {
 			for i := range list.Items {
@@ -401,4 +410,40 @@ func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyver
 		logging.V(3).Info("updated cleanup policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", new.Status)
 	}
 	return nil
+}
+
+func isRecoverableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for Kubernetes API errors that are recoverable
+	if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+		return true
+	}
+
+	// Check for resource not found/not available errors
+	if apierrors.IsNotFound(err) || apierrors.IsMethodNotSupported(err) {
+		return true
+	}
+
+	// Check for specific error messages that indicate permission or resource type issues
+	errStr := err.Error()
+	recoverablePatterns := []string{
+		"is forbidden",
+		"Operation on Calico tiered policy is forbidden",
+		"the server could not find the requested resource",
+		"no matches for kind",
+		"unable to recognize",
+		"failed to list",
+		"no Kind is registered for the type",
+	}
+
+	for _, pattern := range recoverablePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	return false
 }
