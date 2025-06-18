@@ -78,3 +78,13 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.lock.Unlock()
 	return ctrl.Result{}, nil
 }
+
+func (r *reconciler) Fetch(ctx context.Context) ([]Policy, error) {
+	r.lock.RLock()
+	defer r.lock.RUnlock()
+	var policies []Policy
+	for _, p := range r.policies {
+		policies = append(policies, p...)
+	}
+	return policies, nil
+}

@@ -260,6 +260,18 @@ func printTestResult(
 							continue
 						}
 
+						if test.IsGeneratingPolicy {
+							generatedResources := rule.GeneratedResources()
+							for _, r := range generatedResources {
+								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
+
+								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								rows = append(rows, resourceRows...)
+							}
+							continue
+						}
+
 						if rule.RuleType() != "Generation" {
 							if rule.RuleType() == "Mutation" {
 								r = response.PatchedResource
