@@ -38,6 +38,11 @@ type TestResultBase struct {
 	// +optional
 	IsImageValidatingPolicy bool `json:"isImageValidatingPolicy,omitempty"`
 
+	// IsGeneratingPolicy indicates if the policy is a generating policy.
+	// It's required in case the policy is a generating policy.
+	// +optional
+	IsGeneratingPolicy bool `json:"isGeneratingPolicy,omitempty"`
+
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
 	Result policyreportv1alpha2.PolicyResult `json:"result"`
