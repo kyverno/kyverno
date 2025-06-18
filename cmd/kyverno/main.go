@@ -766,7 +766,7 @@ func main() {
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
-		mpolHandlers := mpol.New(contextProvider, mpolEngine)
+		mpolHandlers := mpol.New(contextProvider, mpolEngine, reportsBreaker, setup.KyvernoClient, setup.ReportingConfiguration)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
 			Enabled: internal.PolicyExceptionEnabled(),
 		})
