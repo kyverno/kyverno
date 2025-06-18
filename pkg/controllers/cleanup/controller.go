@@ -417,33 +417,69 @@ func isRecoverableError(err error) bool {
 		return false
 	}
 
-	// Check for Kubernetes API errors that are recoverable
+	// Check for Kubernetes API errors that are permanent access issues (should skip, not retry)
 	if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
 		return true
 	}
 
-	// Check for resource not found/not available errors
+	// Check for resource not found/not available errors that are permanent (should skip, not retry)
 	if apierrors.IsNotFound(err) || apierrors.IsMethodNotSupported(err) {
 		return true
 	}
 
-	// Check for specific error messages that indicate permission or resource type issues
+	// Check for specific error messages that indicate permanent permission or resource type issues
 	errStr := err.Error()
-	recoverablePatterns := []string{
+	permanentErrorPatterns := []string{
 		"is forbidden",
 		"Operation on Calico tiered policy is forbidden",
 		"the server could not find the requested resource",
-		"no matches for kind",
-		"unable to recognize",
-		"failed to list",
 		"no Kind is registered for the type",
 	}
 
-	for _, pattern := range recoverablePatterns {
+	for _, pattern := range permanentErrorPatterns {
 		if strings.Contains(errStr, pattern) {
 			return true
 		}
 	}
 
+	// Check for temporary errors that might resolve on retry
+	// These patterns indicate potentially temporary issues that should NOT be skipped
+	temporaryErrorPatterns := []string{
+		"connection refused",
+		"connection reset",
+		"timeout",
+		"deadline exceeded",
+		"service unavailable",
+		"internal server error",
+		"server is currently unable to handle the request",
+		"too many requests",
+	}
+
+	for _, pattern := range temporaryErrorPatterns {
+		if strings.Contains(strings.ToLower(errStr), strings.ToLower(pattern)) {
+			// These are temporary errors - should NOT be recovered (should trigger retry)
+			return false
+		}
+	}
+
+	// For resource discovery errors, check if they contain specific patterns
+	// "no matches for kind" and "unable to recognize" could be temporary during API discovery
+	discoveryErrorPatterns := []string{
+		"no matches for kind",
+		"unable to recognize",
+	}
+
+	for _, pattern := range discoveryErrorPatterns {
+		if strings.Contains(errStr, pattern) {
+			// These could be temporary during API server startup or CRD installation
+			// However, if they persist, they indicate the resource type doesn't exist
+			// For cleanup controller, it's safer to skip these since they likely indicate
+			// resource types that don't exist in the cluster
+			return true
+		}
+	}
+
+	// Default: treat unknown errors as non-recoverable (should trigger retry)
+	// This ensures that unexpected errors get retried rather than silently ignored
 	return false
 }
