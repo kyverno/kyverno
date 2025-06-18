@@ -60,6 +60,7 @@ func createrLeaderControllers(
 	urGenerator generator.UpdateRequestGenerator,
 	context libs.Context,
 	gpolEngine gpolengine.Engine,
+	gpolProvider gpolengine.Provider,
 	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, error) {
@@ -92,6 +93,7 @@ func createrLeaderControllers(
 		kubeInformer.Core().V1().Namespaces(),
 		context,
 		gpolEngine,
+		gpolProvider,
 		eventGenerator,
 		configuration,
 		jp,
@@ -183,6 +185,7 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
@@ -263,7 +266,6 @@ func main() {
 				)
 				// create engine
 				gpolEngine := gpolengine.NewEngine(
-					gpolProvider,
 					func(name string) *corev1.Namespace {
 						ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
 						if err != nil {
@@ -289,6 +291,7 @@ func main() {
 					urGenerator,
 					contextProvider,
 					*gpolEngine,
+					gpolProvider,
 					setup.ReportingConfiguration,
 					reportsBreaker,
 				)

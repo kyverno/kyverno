@@ -35,6 +35,7 @@ var (
 	vapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
 	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
@@ -54,6 +55,7 @@ type LoaderResults struct {
 	MAPBindings             []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
 	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
+	GeneratingPolicies      []policiesv1alpha1.GeneratingPolicy
 	DeletingPolicies        []policiesv1alpha1.DeletingPolicy
 	NonFatalErrors          []LoaderError
 }
@@ -69,6 +71,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.MAPs = append(l.MAPs, results.MAPs...)
 	l.MAPBindings = append(l.MAPBindings, results.MAPBindings...)
 	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
+	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
 }
@@ -193,6 +196,12 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.MAPBindings = append(results.MAPBindings, *typed)
+		case gpsV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.GeneratingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.GeneratingPolicies = append(results.GeneratingPolicies, *typed)
 		case dpV1alpha1:
 			typed, err := convert.To[policiesv1alpha1.DeletingPolicy](untyped)
 			if err != nil {

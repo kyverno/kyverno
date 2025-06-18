@@ -14,7 +14,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/openapi"
 )
 
 type Engine interface {
@@ -35,12 +35,12 @@ type Predicate = func(policiesv1alpha1.MutatingPolicy) bool
 
 type engineImpl struct {
 	provider   Provider
-	client     kubernetes.Interface
+	client     openapi.Client
 	nsResolver engine.NamespaceResolver
 	matcher    matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, client kubernetes.Interface, matcher matching.Matcher) *engineImpl {
+func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, client openapi.Client, matcher matching.Matcher) *engineImpl {
 	return &engineImpl{
 		provider:   provider,
 		nsResolver: nsResolver,
@@ -86,7 +86,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		namespace = e.nsResolver(ns)
 	}
 
-	typeConverter := patch.NewTypeConverterManager(nil, e.client.Discovery().OpenAPIV3())
+	typeConverter := patch.NewTypeConverterManager(nil, e.client)
 	for _, mpol := range mpols {
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue

@@ -360,6 +360,17 @@
           ]
         },
         {
+          "name": "pods/resize",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "Pod",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
           "name": "pods/status",
           "singularName": "pod",
           "namespaced": true,
@@ -1238,6 +1249,25 @@
           ]
         },
         {
+          "name": "ipaddresses",
+          "singularName": "ipaddress",
+          "namespaced": false,
+          "kind": "IPAddress",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ip"
+          ]
+        },
+        {
           "name": "networkpolicies",
           "singularName": "networkpolicy",
           "namespaced": true,
@@ -1254,6 +1284,33 @@
           ],
           "shortNames": [
             "netpol"
+          ]
+        },
+        {
+          "name": "servicecidrs",
+          "singularName": "servicecidr",
+          "namespaced": false,
+          "kind": "ServiceCIDR",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "servicecidrs/status",
+          "singularName": "servicecidr",
+          "namespaced": false,
+          "kind": "ServiceCIDR",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
           ]
         }
       ]

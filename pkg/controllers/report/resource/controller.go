@@ -214,7 +214,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			}
 			return watch, err
 		}
-		watchInterface, err := watchTools.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+		watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 		if err != nil {
 			logger.Error(err, "failed to create watcher")
 			return nil, err

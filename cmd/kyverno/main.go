@@ -452,6 +452,7 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
@@ -703,7 +704,7 @@ func main() {
 					}
 					return ns
 				},
-				setup.KubeClient,
+				setup.KubeClient.Discovery().OpenAPIV3(),
 				matching.NewMatcher(),
 			)
 		}
@@ -765,7 +766,7 @@ func main() {
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
-		mpolHandlers := mpol.New(contextProvider, mpolEngine)
+		mpolHandlers := mpol.New(contextProvider, mpolEngine, reportsBreaker, setup.KyvernoClient, setup.ReportingConfiguration)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
 			Enabled: internal.PolicyExceptionEnabled(),
 		})

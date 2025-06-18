@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/go-logr/logr"
 	certificatesigningrequests "github.com/kyverno/kyverno/pkg/clients/kube/certificatesv1beta1/certificatesigningrequests"
+	clustertrustbundles "github.com/kyverno/kyverno/pkg/clients/kube/certificatesv1beta1/clustertrustbundles"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_certificates_v1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/rest"
@@ -33,6 +34,10 @@ func (c *withMetrics) CertificateSigningRequests() k8s_io_client_go_kubernetes_t
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "CertificateSigningRequest", c.clientType)
 	return certificatesigningrequests.WithMetrics(c.inner.CertificateSigningRequests(), recorder)
 }
+func (c *withMetrics) ClusterTrustBundles() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.ClusterTrustBundleInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterTrustBundle", c.clientType)
+	return clustertrustbundles.WithMetrics(c.inner.ClusterTrustBundles(), recorder)
+}
 
 type withTracing struct {
 	inner  k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificatesV1beta1Interface
@@ -45,6 +50,9 @@ func (c *withTracing) RESTClient() rest.Interface {
 func (c *withTracing) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificateSigningRequestInterface {
 	return certificatesigningrequests.WithTracing(c.inner.CertificateSigningRequests(), c.client, "CertificateSigningRequest")
 }
+func (c *withTracing) ClusterTrustBundles() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.ClusterTrustBundleInterface {
+	return clustertrustbundles.WithTracing(c.inner.ClusterTrustBundles(), c.client, "ClusterTrustBundle")
+}
 
 type withLogging struct {
 	inner  k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificatesV1beta1Interface
@@ -56,4 +64,7 @@ func (c *withLogging) RESTClient() rest.Interface {
 }
 func (c *withLogging) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificateSigningRequestInterface {
 	return certificatesigningrequests.WithLogging(c.inner.CertificateSigningRequests(), c.logger.WithValues("resource", "CertificateSigningRequests"))
+}
+func (c *withLogging) ClusterTrustBundles() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.ClusterTrustBundleInterface {
+	return clustertrustbundles.WithLogging(c.inner.ClusterTrustBundles(), c.logger.WithValues("resource", "ClusterTrustBundles"))
 }

@@ -5,12 +5,12 @@ linters:
     - bidichk
     - bodyclose
     - containedctx
+    - copyloopvar
     - decorder
     - dogsled
     - durationcheck
     - errcheck
     - errname
-    - exportloopref
     - gci
     - gochecknoinits
     - gofmt
