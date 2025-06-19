@@ -8,6 +8,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	"k8s.io/client-go/openapi"
 	workqueue "k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,11 +27,16 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 }
 
 func NewKubeProvider(
+	ctx context.Context,
 	compiler mpolcompiler.Compiler,
 	mgr ctrl.Manager,
+	c openapi.Client,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 	polexEnabled bool,
-) (Provider, error) {
+) (Provider, patch.TypeConverterManager, error) {
+	typeConverter := patch.NewTypeConverterManager(nil, c)
+	go typeConverter.Run(ctx)
+
 	reconciler := newReconciler(mgr.GetClient(), compiler, polexLister, polexEnabled)
 	builder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1alpha1.MutatingPolicy{})
 	if polexEnabled {
@@ -80,8 +87,8 @@ func NewKubeProvider(
 		builder.Watches(&policiesv1alpha1.PolicyException{}, polexHandler)
 	}
 	if err := builder.Complete(reconciler); err != nil {
-		return nil, fmt.Errorf("failed to construct mutatingpolicies manager: %w", err)
+		return nil, typeConverter, fmt.Errorf("failed to construct mutatingpolicies manager: %w", err)
 	}
 
-	return reconciler, nil
+	return reconciler, typeConverter, nil
 }

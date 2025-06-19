@@ -19,7 +19,12 @@ spec:
         Object{
           metadata: Object.metadata{
             labels: Object.metadata.labels{
-              foo: bar
+              foo: "bar"
             }
           }
-        }    
+        }   
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: applyconfiguration 
