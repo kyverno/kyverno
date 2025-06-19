@@ -27,6 +27,7 @@ spec:
     {{- end }}
     spec:
       serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      automountServiceAccountToken: true
       {{- with .Values.webhooksCleanup.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}

@@ -83,6 +83,7 @@ spec:
         {{- end }}
       {{- end }}
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+      automountServiceAccountToken: true
       containers:
         - name: controller
           image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}

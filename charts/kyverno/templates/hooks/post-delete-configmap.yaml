@@ -52,6 +52,7 @@ metadata:
     helm.sh/hook: post-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "0"
+automountServiceAccountToken: false
 ---
 apiVersion: batch/v1
 kind: Job
@@ -80,6 +81,7 @@ spec:
     {{- end }}
     spec:
       serviceAccountName: {{ template "kyverno.fullname" . }}-remove-configmap
+      automountServiceAccountToken: true
       {{- with .Values.webhooksCleanup.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}

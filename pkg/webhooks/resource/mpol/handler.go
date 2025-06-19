@@ -2,6 +2,7 @@ package mpol
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -13,7 +14,9 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -52,10 +55,15 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 		}
 	}
 
+	if len(policies) == 0 {
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
+
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
 	response, err := h.engine.Handle(ctx, request, mpolengine.MatchNames(policies...))
 	if err != nil {
-		return admissionutils.Response(admissionRequest.UID, err)
+		logger.Error(err, "failed to handle mutating policy request")
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
 	}
 
 	go func() {
@@ -64,7 +72,12 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 		}
 	}()
 
-	return h.admissionResponse(request, response)
+	resp, err := h.admissionResponse(request, response)
+	if err != nil {
+		logger.Error(err, "mutation failures")
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
+	return resp
 }
 
 func (h *handler) createReports(ctx context.Context, response mpolengine.EngineResponse, request celengine.EngineRequest) error {
@@ -112,6 +125,35 @@ func (h *handler) needsReports(request celengine.EngineRequest) bool {
 	return true
 }
 
-func (h *handler) admissionResponse(request celengine.EngineRequest, response mpolengine.EngineResponse) handlers.AdmissionResponse {
-	return handlers.AdmissionResponse{}
+func (h *handler) admissionResponse(request celengine.EngineRequest, response mpolengine.EngineResponse) (handlers.AdmissionResponse, error) {
+	if len(response.Policies) == 0 {
+		return admissionutils.ResponseSuccess(request.Request.UID), nil
+	}
+
+	var warnings []string
+	var mutationErrors []string
+
+	for _, policy := range response.Policies {
+		for _, rule := range policy.Rules {
+			switch rule.Status() {
+			case engineapi.RuleStatusError:
+				mutationErrors = append(mutationErrors, fmt.Sprintf("Policy %s: %s", policy.Policy.Name, rule.Message()))
+			case engineapi.RuleStatusWarn:
+				warnings = append(warnings, rule.Message())
+			}
+		}
+	}
+
+	if len(mutationErrors) > 0 {
+		return admissionutils.ResponseSuccess(request.Request.UID),
+			fmt.Errorf("Resource: %s/%s, Kind: %s, Errors: %v\n",
+				request.Request.Namespace, request.Request.Name, request.Request.Kind.Kind, mutationErrors)
+	}
+
+	if response.PatchedResource != nil {
+		patches := jsonutils.JoinPatches(patch.ConvertPatches(response.GetPatches()...)...)
+		return admissionutils.MutationResponse(request.Request.UID, patches, warnings...), nil
+	}
+
+	return admissionutils.MutationResponse(request.Request.UID, nil, warnings...), nil
 }
