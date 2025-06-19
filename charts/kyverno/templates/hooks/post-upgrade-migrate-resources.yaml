@@ -62,6 +62,7 @@ metadata:
     helm.sh/hook: post-upgrade
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "100"
+automountServiceAccountToken: false
 ---
 apiVersion: batch/v1
 kind: Job
@@ -90,6 +91,7 @@ spec:
     {{- end }}
     spec:
       serviceAccountName: {{ template "kyverno.fullname" . }}-migrate-resources
+      automountServiceAccountToken: true
       {{- with .Values.crds.migration.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
