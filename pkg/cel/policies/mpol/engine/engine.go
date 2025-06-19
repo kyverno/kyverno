@@ -105,6 +105,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	}
 
 	typeConverter := patch.NewTypeConverterManager(nil, e.client)
+	go typeConverter.Run(ctx)
 	for _, mpol := range mpols {
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
