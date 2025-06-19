@@ -35,6 +35,7 @@ spec:
           apiVersion: v1
           kind: Secret
           name: sync-delete-source
+          namespace: default
   - name: sleep
     try:
     - sleep:
