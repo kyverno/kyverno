@@ -195,10 +195,10 @@ spec:
               {{- join "," $secretNames -}}
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride)
-              "reporting"
               "admissionReports"
               "autoUpdateWebhooks"
               "configMapCaching"
+              "controllerRuntimeMetrics"
               "deferredLoading"
               "dumpPayload"
               "forceFailurePolicyIgnore"
@@ -210,6 +210,7 @@ spec:
               "policyExceptions"
               "protectManagedResources"
               "registryClient"
+              "reporting"
               "tuf"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.container.extraArgs }}

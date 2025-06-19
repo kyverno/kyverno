@@ -726,6 +726,9 @@ features:
   configMapCaching:
     # -- Enables the feature
     enabled: true
+  controllerRuntimeMetrics:
+    # -- Bind address for controller-runtime metrics (use "0" to disable it)
+    bindAddress: ":8080"
   deferredLoading:
     # -- Enables the feature
     enabled: true
