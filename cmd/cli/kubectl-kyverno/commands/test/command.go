@@ -165,9 +165,15 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	if expected == "" {
 		expected = test.Status
 	}
-	// fallback on deprecated field
-	if test.PatchedResource != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.PatchedResource))
+
+	expectedPatchResources := test.PatchedResources
+	if expectedPatchResources == "" {
+		// fallback on deprecated field
+		expectedPatchResources = test.PatchedResource
+	}
+
+	if expectedPatchResources != "" {
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, expectedPatchResources))
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
