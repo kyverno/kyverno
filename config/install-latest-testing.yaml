@@ -55208,6 +55208,7 @@ spec:
             - --maxAdmissionReports=1000
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
+            - --controllerRuntimeMetricsAddress=:8080
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false

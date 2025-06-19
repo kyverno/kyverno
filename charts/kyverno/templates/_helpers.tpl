@@ -37,6 +37,9 @@
 {{- with .configMapCaching -}}
   {{- $flags = append $flags (print "--enableConfigMapCaching=" .enabled) -}}
 {{- end -}}
+{{- with .controllerRuntimeMetrics -}}
+  {{- $flags = append $flags (print "--controllerRuntimeMetricsAddress=" .bindAddress) -}}
+{{- end -}}
 {{- with .deferredLoading -}}
   {{- $flags = append $flags (print "--enableDeferredLoading=" .enabled) -}}
 {{- end -}}
