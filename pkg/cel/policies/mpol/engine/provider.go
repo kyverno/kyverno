@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
-	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/client-go/openapi"
@@ -28,7 +29,7 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 
 func NewKubeProvider(
 	ctx context.Context,
-	compiler mpolcompiler.Compiler,
+	compiler compiler.Compiler,
 	mgr ctrl.Manager,
 	c openapi.Client,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
@@ -91,4 +92,33 @@ func NewKubeProvider(
 	}
 
 	return reconciler, typeConverter, nil
+}
+
+func NewProvider(
+	compiler compiler.Compiler,
+	policies []v1alpha1.MutatingPolicy,
+	exceptions []*v1alpha1.PolicyException,
+) (ProviderFunc, error) {
+	out := make([]Policy, 0, len(policies))
+	for _, policy := range policies {
+		var matchedExceptions []*v1alpha1.PolicyException
+		for _, polex := range exceptions {
+			for _, ref := range polex.Spec.PolicyRefs {
+				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
+					matchedExceptions = append(matchedExceptions, polex)
+				}
+			}
+		}
+		compiled, errs := compiler.Compile(&policy, matchedExceptions)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
+		}
+		out = append(out, Policy{
+			Policy:         policy,
+			CompiledPolicy: compiled,
+		})
+	}
+	return func(context.Context) ([]Policy, error) {
+		return out, nil
+	}, nil
 }

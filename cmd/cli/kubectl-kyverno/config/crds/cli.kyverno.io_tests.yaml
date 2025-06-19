@@ -132,6 +132,11 @@ spec:
                   description: IsMutatingAdmissionPolicy indicates if the policy is
                     a mutating admission policy.
                   type: boolean
+                isMutatingPolicy:
+                  description: |-
+                    IsMutatingPolicy indicates if the policy is a mutating policy.
+                    It's required in case the policy is a mutating policy.
+                  type: boolean
                 isValidatingAdmissionPolicy:
                   description: |-
                     IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
