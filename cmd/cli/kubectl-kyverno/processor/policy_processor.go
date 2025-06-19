@@ -364,7 +364,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				CompiledPolicy: compiled,
 			})
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, true)
 		if err != nil {
 			return nil, err
 		}

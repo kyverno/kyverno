@@ -142,6 +142,8 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = ivp.Spec.MatchConstraints
 			} else if dp := policy.AsDeletingPolicy(); dp != nil {
 				matchResources = dp.Spec.MatchConstraints
+			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+				matchResources = gpol.Spec.MatchConstraints
 			}
 			rf.getKindsFromPolicy(matchResources, info)
 		}
