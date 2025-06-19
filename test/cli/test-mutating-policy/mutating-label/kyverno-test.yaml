@@ -11,12 +11,11 @@ results:
   kind: Deployment
   policy: test-mpol-jsonpatch
   resources:
-  - default/dev-deploy-1
-  result: skip
+  - dev/dev-deploy-2
+  result: pass
 - isMutatingPolicy: true
   kind: Deployment
   policy: test-mpol-jsonpatch
-  patchedResource: patchedResource.yaml
   resources:
-  - dev/dev-deploy-2
-  result: pass
+  - default/dev-deploy-1
+  result: skip
