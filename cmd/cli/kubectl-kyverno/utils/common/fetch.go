@@ -29,14 +29,13 @@ type resourceTypeInfo struct {
 	subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
 }
 type ResourceFetcher struct {
-	Out                  io.Writer
-	Policies             []engineapi.GenericPolicy
-	ResourcePaths        []string
-	Client               dclient.Interface
-	Cluster              bool
-	Namespace            string
-	PolicyReport         bool
-	ClusterWideResources bool
+	Out           io.Writer
+	Policies      []engineapi.GenericPolicy
+	ResourcePaths []string
+	Client        dclient.Interface
+	Cluster       bool
+	Namespace     string
+	PolicyReport  bool
 }
 
 // GetResources gets matched resources by the given policies
@@ -140,12 +139,6 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = vp.Spec.MatchConstraints
 			} else if ivp := policy.AsImageValidatingPolicy(); ivp != nil {
 				matchResources = ivp.Spec.MatchConstraints
-			} else if dp := policy.AsDeletingPolicy(); dp != nil {
-				matchResources = dp.Spec.MatchConstraints
-			} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
-				// Convert v1alpha1.MatchResources to v1.MatchResources using the shared function
-				converted := admissionpolicy.ConvertMatchResources(*mapPolicy.GetDefinition().Spec.MatchConstraints)
-				matchResources = &converted
 			}
 			rf.getKindsFromPolicy(matchResources, info)
 		}
@@ -210,10 +203,6 @@ func (rf *ResourceFetcher) addToresourceTypeInfo(
 	}
 
 	for parent, child := range resourceDefs {
-		if rf.ClusterWideResources && child.Namespaced {
-			continue
-		}
-
 		if parent.SubResource == "" {
 			info.gvkMap[parent.GroupVersionKind()] = true
 		} else {

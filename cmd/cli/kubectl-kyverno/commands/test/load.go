@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
@@ -60,8 +59,7 @@ func loadTest(path string, fileName string, gitBranch string) (test.TestCases, e
 					gitPathToYamls = strings.ReplaceAll(path, repoURL, "/")
 				}
 			}
-			var auth http.BasicAuth
-			if _, err := gitutils.Clone(repoURL, fs, gitBranch, auth); err != nil {
+			if _, err := gitutils.Clone(repoURL, fs, gitBranch); err != nil {
 				return nil, fmt.Errorf("error: failed to clone repository \nCause: %s", err)
 			}
 			yamlFiles, err := gitutils.ListYamls(fs, gitPathToYamls)

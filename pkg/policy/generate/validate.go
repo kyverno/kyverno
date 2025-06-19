@@ -2,7 +2,6 @@ package generate
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -111,7 +110,7 @@ func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namesp
 	}
 
 	if !ok {
-		return errors.New(msg)
+		return fmt.Errorf(msg) //nolint:all
 	}
 
 	return nil
