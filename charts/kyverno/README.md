@@ -343,6 +343,7 @@ The chart values are organised per component.
 | features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |
 | features.backgroundScan.skipResourceFilters | bool | `true` | Skips resource filters in background scan |
 | features.configMapCaching.enabled | bool | `true` | Enables the feature |
+| features.controllerRuntimeMetrics.bindAddress | string | `":8080"` | Bind address for controller-runtime metrics (use "0" to disable it) |
 | features.deferredLoading.enabled | bool | `true` | Enables the feature |
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
