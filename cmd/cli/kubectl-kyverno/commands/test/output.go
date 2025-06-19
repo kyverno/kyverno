@@ -248,7 +248,11 @@ func printTestResult(
 					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
 						r := response.Resource
 
-						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy {
+						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
+							if test.IsMutatingPolicy {
+								r = response.PatchedResource
+							}
+
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
 							if strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true

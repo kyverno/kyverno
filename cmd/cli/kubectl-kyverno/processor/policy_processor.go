@@ -22,6 +22,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -46,6 +48,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
 type PolicyProcessor struct {
@@ -57,6 +60,7 @@ type PolicyProcessor struct {
 	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
+	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
@@ -249,6 +253,70 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				resource = mutateResponse.PatchedResource
 				responses = append(responses, mutateResponse)
+			}
+		}
+	}
+	// MutatingPolicies
+	if len(p.MutatingPolicies) != 0 {
+		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
+		if err != nil {
+			return nil, err
+		}
+		if resource.Object != nil {
+			// @TODO: is it possible to define the kubeversion in a test?
+			client := openapiclient.NewHardcodedBuiltins("1.32")
+
+			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, client, matching.NewMatcher())
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			}
+			gvr := mapping.Resource
+			var user authenticationv1.UserInfo
+			if p.UserInfo != nil {
+				user = p.UserInfo.AdmissionUserInfo
+			}
+			// create engine request
+			request := celengine.Request(
+				contextProvider,
+				gvk,
+				gvr,
+				"",
+				resource.GetName(),
+				resource.GetNamespace(),
+				admissionv1.Create,
+				user,
+				&resource,
+				nil,
+				false,
+				nil,
+			)
+			reps, err := eng.Handle(context.TODO(), request, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
+			}
+			for _, r := range reps.Policies {
+				patched := *reps.Resource
+				if reps.PatchedResource != nil {
+					patched = *reps.PatchedResource
+				}
+
+				response := engineapi.EngineResponse{
+					Resource:        *reps.Resource,
+					PatchedResource: patched,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				response = response.WithPolicy(engineapi.NewMutatingPolicy(r.Policy))
+				p.Rc.addMutateResponse(response)
+				responses = append(responses, response)
+				resource = response.PatchedResource
 			}
 		}
 	}
