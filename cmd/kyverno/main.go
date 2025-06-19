@@ -650,7 +650,7 @@ func main() {
 				os.Exit(1)
 			}
 			mpolcompiler := mpolcompiler.NewCompiler()
-			mpolProvider, err := mpolengine.NewKubeProvider(mpolcompiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create mpol provider")
 				os.Exit(1)
@@ -704,8 +704,8 @@ func main() {
 					}
 					return ns
 				},
-				setup.KubeClient.Discovery().OpenAPIV3(),
 				matching.NewMatcher(),
+				typeConverter,
 			)
 		}
 		var reportsBreaker breaker.Breaker
