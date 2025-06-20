@@ -194,6 +194,7 @@ func less[T cmp.Ordered](a []T, b []T) int {
 }
 
 const (
-	ValidatingPolicyType  = "ValidatingPolicy"
-	ImageValidatingPolicy = "ImageValidatingPolicy"
+	ValidatingPolicyType      = "ValidatingPolicy"
+	ImageValidatingPolicyType = "ImageValidatingPolicy"
+	MutatingPolicyType        = "MutatingPolicy"
 )

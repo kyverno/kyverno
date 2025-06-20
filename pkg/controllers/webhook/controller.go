@@ -721,6 +721,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
 			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
+				c.stateRecorder.Reset()
 				return err
 			}
 			if err := c.updatePolicyStatuses(ctx, config.MutatingWebhookConfigurationName); err != nil {
@@ -966,6 +967,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
+	c.recordPolicyState(mpols...)
 	return nil
 }
 
