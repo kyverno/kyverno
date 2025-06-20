@@ -49,6 +49,9 @@ func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, erro
 
 	baseObj := buffer{Buffer: bytes.NewBufferString(base)}
 	err = filtersutil.ApplyToJSON(f, baseObj)
+	if err != nil {
+		return []byte{}, fmt.Errorf("failed to apply JSON patch: %w", err)
+	}
 	patched, err := reorderContainers([]byte(base), baseObj.Bytes())
 	if err != nil {
 		return baseObj.Bytes(), nil
