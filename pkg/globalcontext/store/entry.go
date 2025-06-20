@@ -8,6 +8,6 @@ type Projection struct {
 }
 
 type Entry interface {
-	Get(projection string) (any, error)
+	Get(projection, jmesPath string) (any, error)
 	Stop()
 }

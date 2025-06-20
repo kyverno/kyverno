@@ -613,6 +613,7 @@ func main() {
 		)
 
 		contextProvider, err := libs.NewContextProvider(
+			setup.Logger.WithName("context-provider"),
 			setup.KyvernoDynamicClient,
 			nil,
 			gcstore,
