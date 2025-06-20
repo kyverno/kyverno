@@ -89,6 +89,8 @@ func (h validateCELHandler) Process(
 	if oldResource.Object == nil {
 		oldObject = nil
 	} else {
+		oldResource = *oldResource.DeepCopy()
+		oldResource.SetGroupVersionKind(gvk)
 		oldObject = oldResource.DeepCopyObject()
 	}
 
@@ -101,6 +103,8 @@ func (h validateCELHandler) Process(
 	} else {
 		ns = resource.GetNamespace()
 		name = resource.GetName()
+		resource = *resource.DeepCopy()
+		resource.SetGroupVersionKind(gvk)
 		object = resource.DeepCopyObject()
 	}
 
