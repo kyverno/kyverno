@@ -26,7 +26,7 @@ func (c controller) updateMpolStatus(ctx context.Context, mpol *policiesv1alpha1
 			conditionStatus.Ready = &ready
 		}
 		status := mpol.GetStatus()
-		vpol.Status = policiesv1alpha1.MutatingPolicyStatus{
+		mpol.Status = policiesv1alpha1.MutatingPolicyStatus{
 			ConditionStatus: *conditionStatus,
 			Generated:       status.Generated,
 		}
