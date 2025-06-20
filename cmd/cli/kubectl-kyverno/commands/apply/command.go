@@ -93,6 +93,7 @@ type ApplyCommandConfig struct {
 	GeneratedExceptionTTL time.Duration
 	JSONPaths             []string
 	ClusterWideResources  bool
+	IgnoreEmpty           bool
 }
 
 func Command() *cobra.Command {
@@ -196,6 +197,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
+	cmd.Flags().BoolVar(&applyCommandConfig.IgnoreEmpty, "ignore-empty", false, "If set, ignore empty YAML documents")
 	return cmd
 }
 
@@ -264,6 +266,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 
 	resources, jsonPayloads, err := c.loadResources(out, c.ResourcePaths, genericPolicies, dClient)
 	if err != nil {
+		if c.IgnoreEmpty && len(resources) == 0 && len(jsonPayloads) == 0 && strings.Contains(err.Error(), "Object 'Kind' is missing in '---\n'") {
+			fmt.Fprintln(out, "Skipping apply: no resources and --ignore-empty is set.")
+			return &processor.ResultCounts{}, nil, skippedInvalidPolicies, nil, nil
+		}
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	var exceptions []*kyvernov2.PolicyException
