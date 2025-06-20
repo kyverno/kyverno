@@ -18,6 +18,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -29,6 +30,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -40,6 +42,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -51,6 +54,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -58150,6 +58154,7 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       serviceAccountName: kyverno-admission-controller
+      automountServiceAccountToken: true
       initContainers:
         - name: kyverno-pre
           image: "reg.kyverno.io/kyverno/kyvernopre:latest"
@@ -58215,6 +58220,7 @@ spec:
             - --maxAdmissionReports=1000
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
+            - --controllerRuntimeMetricsAddress=:8080
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
@@ -58357,6 +58363,7 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       serviceAccountName: kyverno-background-controller
+      automountServiceAccountToken: true
       containers:
         - name: controller
           image: "reg.kyverno.io/kyverno/background-controller:latest"
@@ -58462,6 +58469,7 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       serviceAccountName: kyverno-cleanup-controller
+      automountServiceAccountToken: true
       containers:
         - name: controller
           image: "reg.kyverno.io/kyverno/cleanup-controller:latest"
@@ -58603,6 +58611,7 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       serviceAccountName: kyverno-reports-controller
+      automountServiceAccountToken: true
       containers:
         - name: controller
           image: "reg.kyverno.io/kyverno/reports-controller:latest"

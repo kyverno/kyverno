@@ -22,7 +22,7 @@ spec:
     type: Opaque
   - apiVersion: v1
     data:
-      key: dmFsdWU=
+      color: Ymx1ZQ==
     kind: Secret
     metadata:
       name: test-secret-3

@@ -69,6 +69,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -321,24 +322,25 @@ func main() {
 	var (
 		// TODO: this has been added to backward support command line arguments
 		// will be removed in future and the configuration will be set only via configmaps
-		serverIP                     string
-		webhookTimeout               int
-		maxQueuedEvents              int
-		omitEvents                   string
-		autoUpdateWebhooks           bool
-		autoDeleteWebhooks           bool
-		webhookRegistrationTimeout   time.Duration
-		admissionReports             bool
-		dumpPayload                  bool
-		servicePort                  int
-		webhookServerPort            int
-		backgroundServiceAccountName string
-		reportsServiceAccountName    string
-		maxAPICallResponseLength     int64
-		renewBefore                  time.Duration
-		maxAuditWorkers              int
-		maxAuditCapacity             int
-		maxAdmissionReports          int
+		serverIP                        string
+		webhookTimeout                  int
+		maxQueuedEvents                 int
+		omitEvents                      string
+		autoUpdateWebhooks              bool
+		autoDeleteWebhooks              bool
+		webhookRegistrationTimeout      time.Duration
+		admissionReports                bool
+		dumpPayload                     bool
+		servicePort                     int
+		webhookServerPort               int
+		backgroundServiceAccountName    string
+		reportsServiceAccountName       string
+		maxAPICallResponseLength        int64
+		renewBefore                     time.Duration
+		maxAuditWorkers                 int
+		maxAuditCapacity                int
+		maxAdmissionReports             int
+		controllerRuntimeMetricsAddress string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -365,6 +367,7 @@ func main() {
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
+	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -631,6 +634,9 @@ func main() {
 			}
 			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
 				Scheme: scheme,
+				Metrics: server.Options{
+					BindAddress: controllerRuntimeMetricsAddress,
+				},
 			})
 			if err != nil {
 				setup.Logger.Error(err, "failed to construct manager")
@@ -650,7 +656,7 @@ func main() {
 				os.Exit(1)
 			}
 			mpolcompiler := mpolcompiler.NewCompiler()
-			mpolProvider, err := mpolengine.NewKubeProvider(mpolcompiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create mpol provider")
 				os.Exit(1)
@@ -704,8 +710,8 @@ func main() {
 					}
 					return ns
 				},
-				setup.KubeClient.Discovery().OpenAPIV3(),
 				matching.NewMatcher(),
+				typeConverter,
 			)
 		}
 		var reportsBreaker breaker.Breaker

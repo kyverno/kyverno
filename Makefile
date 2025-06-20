@@ -826,7 +826,7 @@ test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-cel-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-cel-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
 
 .PHONY: test-cli-local-validate
 test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
@@ -837,6 +837,16 @@ test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
 test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests
 	@echo Running local cli vpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-validating-policy
+
+.PHONY: test-cli-local-gpols
+test-cli-local-gpols: $(CLI_BIN) ## Run local CLI GPOL tests
+	@echo Running local cli gpol tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-generating-policy
+
+.PHONY: test-cli-local-mpols
+test-cli-local-mpols: $(CLI_BIN) ## Run local CLI GPOL tests
+	@echo Running local cli mpol tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-mutating-policy
 
 .PHONY: test-cli-local-ivpols
 test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
