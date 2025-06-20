@@ -9,6 +9,8 @@ spec:
     try:
     - create:
         file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
   - name: sleep
     try:
     - sleep:
