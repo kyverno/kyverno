@@ -675,7 +675,7 @@ func main() {
 				// if prometheus metrics provider is used, bind address is set to the metrics manager address
 				ctrlMetricsBindAddress = setup.MetricsManager.MetricsAddress()
 				if controllerRuntimeMetricsAddress != "" && ctrlMetricsBindAddress != "" {
-					setup.Logger.Error(errors.New("controllerRuntimeMetricsAddress is not supported when using prometheus metrics provider"), "controllerRuntimeMetricsAddress is not supported when using prometheus metrics provider")
+					setup.Logger.Error(errors.New("controllerRuntimeMetricsAddress is not supported when using prometheus metrics provider"), "conflicting metrics addresses")
 					os.Exit(1)
 				}
 			}
