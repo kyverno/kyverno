@@ -1,0 +1,36 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policies-with-the-same-name
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: deployment.yaml
+    - assert:
+        file: deployment-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: validatingpolicy.yaml
+    - assert:
+        file: validatingpolicy-assert.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: imagevalidatingpolicy.yaml
+    - assert:
+        file: imagevalidatingpolicy-assert.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: validatingadmissionpolicy.yaml
+    - assert:
+        file: validatingadmissionpolicy.yaml
+    - sleep:
+        duration: 10s
+  - name: step-05
+    try:
+    - assert:
+        file: report-assert.yaml

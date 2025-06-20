@@ -1,0 +1,1939 @@
+[
+  {
+    "Group": {
+      "name": "",
+      "versions": [
+        {
+          "groupVersion": "v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "bindings",
+          "singularName": "binding",
+          "namespaced": true,
+          "kind": "Binding",
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "name": "componentstatuses",
+          "singularName": "componentstatus",
+          "namespaced": false,
+          "kind": "ComponentStatus",
+          "verbs": [
+            "get",
+            "list"
+          ],
+          "shortNames": [
+            "cs"
+          ]
+        },
+        {
+          "name": "configmaps",
+          "singularName": "configmap",
+          "namespaced": true,
+          "kind": "ConfigMap",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "cm"
+          ]
+        },
+        {
+          "name": "endpoints",
+          "singularName": "endpoints",
+          "namespaced": true,
+          "kind": "Endpoints",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ep"
+          ]
+        },
+        {
+          "name": "events",
+          "singularName": "event",
+          "namespaced": true,
+          "kind": "Event",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ev"
+          ]
+        },
+        {
+          "name": "limitranges",
+          "singularName": "limitrange",
+          "namespaced": true,
+          "kind": "LimitRange",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "limits"
+          ]
+        },
+        {
+          "name": "namespaces",
+          "singularName": "namespace",
+          "namespaced": false,
+          "kind": "Namespace",
+          "verbs": [
+            "create",
+            "delete",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ns"
+          ]
+        },
+        {
+          "name": "namespaces/finalize",
+          "singularName": "namespace",
+          "namespaced": false,
+          "kind": "Namespace",
+          "verbs": [
+            "update"
+          ]
+        },
+        {
+          "name": "namespaces/status",
+          "singularName": "namespace",
+          "namespaced": false,
+          "kind": "Namespace",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "nodes",
+          "singularName": "node",
+          "namespaced": false,
+          "kind": "Node",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "no"
+          ]
+        },
+        {
+          "name": "nodes/proxy",
+          "singularName": "node",
+          "namespaced": false,
+          "kind": "NodeProxyOptions",
+          "verbs": [
+            "create",
+            "delete",
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "nodes/status",
+          "singularName": "node",
+          "namespaced": false,
+          "kind": "Node",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "persistentvolumeclaims",
+          "singularName": "persistentvolumeclaim",
+          "namespaced": true,
+          "kind": "PersistentVolumeClaim",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "pvc"
+          ]
+        },
+        {
+          "name": "persistentvolumeclaims/status",
+          "singularName": "persistentvolumeclaim",
+          "namespaced": true,
+          "kind": "PersistentVolumeClaim",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "persistentvolumes",
+          "singularName": "persistentvolume",
+          "namespaced": false,
+          "kind": "PersistentVolume",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "pv"
+          ]
+        },
+        {
+          "name": "persistentvolumes/status",
+          "singularName": "persistentvolume",
+          "namespaced": false,
+          "kind": "PersistentVolume",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "pods",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "Pod",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "po"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "pods/attach",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "PodAttachOptions",
+          "verbs": [
+            "create",
+            "get"
+          ]
+        },
+        {
+          "name": "pods/binding",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "Binding",
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "name": "pods/ephemeralcontainers",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "Pod",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "pods/eviction",
+          "singularName": "pod",
+          "namespaced": true,
+          "group": "policy",
+          "version": "v1",
+          "kind": "Eviction",
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "name": "pods/exec",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "PodExecOptions",
+          "verbs": [
+            "create",
+            "get"
+          ]
+        },
+        {
+          "name": "pods/log",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "Pod",
+          "verbs": [
+            "get"
+          ]
+        },
+        {
+          "name": "pods/portforward",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "PodPortForwardOptions",
+          "verbs": [
+            "create",
+            "get"
+          ]
+        },
+        {
+          "name": "pods/proxy",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "PodProxyOptions",
+          "verbs": [
+            "create",
+            "delete",
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "pods/resize",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "Pod",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "pods/status",
+          "singularName": "pod",
+          "namespaced": true,
+          "kind": "Pod",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "podtemplates",
+          "singularName": "podtemplate",
+          "namespaced": true,
+          "kind": "PodTemplate",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "replicationcontrollers",
+          "singularName": "replicationcontroller",
+          "namespaced": true,
+          "kind": "ReplicationController",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "rc"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "replicationcontrollers/scale",
+          "singularName": "replicationcontroller",
+          "namespaced": true,
+          "group": "autoscaling",
+          "version": "v1",
+          "kind": "Scale",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "replicationcontrollers/status",
+          "singularName": "replicationcontroller",
+          "namespaced": true,
+          "kind": "ReplicationController",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "resourcequotas",
+          "singularName": "resourcequota",
+          "namespaced": true,
+          "kind": "ResourceQuota",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "quota"
+          ]
+        },
+        {
+          "name": "resourcequotas/status",
+          "singularName": "resourcequota",
+          "namespaced": true,
+          "kind": "ResourceQuota",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "secrets",
+          "singularName": "secret",
+          "namespaced": true,
+          "kind": "Secret",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "serviceaccounts",
+          "singularName": "serviceaccount",
+          "namespaced": true,
+          "kind": "ServiceAccount",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "sa"
+          ]
+        },
+        {
+          "name": "serviceaccounts/token",
+          "singularName": "serviceaccount",
+          "namespaced": true,
+          "group": "authentication.k8s.io",
+          "version": "v1",
+          "kind": "TokenRequest",
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "name": "services",
+          "singularName": "service",
+          "namespaced": true,
+          "kind": "Service",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "svc"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "services/proxy",
+          "singularName": "service",
+          "namespaced": true,
+          "kind": "ServiceProxyOptions",
+          "verbs": [
+            "create",
+            "delete",
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "services/status",
+          "singularName": "service",
+          "namespaced": true,
+          "kind": "Service",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "apiregistration.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "apiregistration.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "apiregistration.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "apiservices",
+          "singularName": "apiservice",
+          "namespaced": false,
+          "kind": "APIService",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "categories": [
+            "api-extensions"
+          ]
+        },
+        {
+          "name": "apiservices/status",
+          "singularName": "apiservice",
+          "namespaced": false,
+          "kind": "APIService",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "apps",
+      "versions": [
+        {
+          "groupVersion": "apps/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "apps/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "controllerrevisions",
+          "singularName": "controllerrevision",
+          "namespaced": true,
+          "kind": "ControllerRevision",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "daemonsets",
+          "singularName": "daemonset",
+          "namespaced": true,
+          "kind": "DaemonSet",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ds"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "daemonsets/status",
+          "singularName": "daemonset",
+          "namespaced": true,
+          "kind": "DaemonSet",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "deployments",
+          "singularName": "deployment",
+          "namespaced": true,
+          "kind": "Deployment",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "deploy"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "deployments/scale",
+          "singularName": "deployment",
+          "namespaced": true,
+          "group": "autoscaling",
+          "version": "v1",
+          "kind": "Scale",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "deployments/status",
+          "singularName": "deployment",
+          "namespaced": true,
+          "kind": "Deployment",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "replicasets",
+          "singularName": "replicaset",
+          "namespaced": true,
+          "kind": "ReplicaSet",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "rs"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "replicasets/scale",
+          "singularName": "replicaset",
+          "namespaced": true,
+          "group": "autoscaling",
+          "version": "v1",
+          "kind": "Scale",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "replicasets/status",
+          "singularName": "replicaset",
+          "namespaced": true,
+          "kind": "ReplicaSet",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "statefulsets",
+          "singularName": "statefulset",
+          "namespaced": true,
+          "kind": "StatefulSet",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "sts"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "statefulsets/scale",
+          "singularName": "statefulset",
+          "namespaced": true,
+          "group": "autoscaling",
+          "version": "v1",
+          "kind": "Scale",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "statefulsets/status",
+          "singularName": "statefulset",
+          "namespaced": true,
+          "kind": "StatefulSet",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "events.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "events.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "events.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "events",
+          "singularName": "event",
+          "namespaced": true,
+          "kind": "Event",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ev"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "authentication.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "authentication.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "authentication.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "selfsubjectreviews",
+          "singularName": "selfsubjectreview",
+          "namespaced": false,
+          "kind": "SelfSubjectReview",
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "name": "tokenreviews",
+          "singularName": "tokenreview",
+          "namespaced": false,
+          "kind": "TokenReview",
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "authorization.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "authorization.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "authorization.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "localsubjectaccessreviews",
+          "singularName": "localsubjectaccessreview",
+          "namespaced": true,
+          "kind": "LocalSubjectAccessReview",
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "name": "selfsubjectaccessreviews",
+          "singularName": "selfsubjectaccessreview",
+          "namespaced": false,
+          "kind": "SelfSubjectAccessReview",
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "name": "selfsubjectrulesreviews",
+          "singularName": "selfsubjectrulesreview",
+          "namespaced": false,
+          "kind": "SelfSubjectRulesReview",
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "name": "subjectaccessreviews",
+          "singularName": "subjectaccessreview",
+          "namespaced": false,
+          "kind": "SubjectAccessReview",
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "autoscaling",
+      "versions": [
+        {
+          "groupVersion": "autoscaling/v2",
+          "version": "v2"
+        },
+        {
+          "groupVersion": "autoscaling/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "autoscaling/v2",
+        "version": "v2"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "horizontalpodautoscalers",
+          "singularName": "horizontalpodautoscaler",
+          "namespaced": true,
+          "kind": "HorizontalPodAutoscaler",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "hpa"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "horizontalpodautoscalers/status",
+          "singularName": "horizontalpodautoscaler",
+          "namespaced": true,
+          "kind": "HorizontalPodAutoscaler",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ],
+      "v2": [
+        {
+          "name": "horizontalpodautoscalers",
+          "singularName": "horizontalpodautoscaler",
+          "namespaced": true,
+          "kind": "HorizontalPodAutoscaler",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "hpa"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "horizontalpodautoscalers/status",
+          "singularName": "horizontalpodautoscaler",
+          "namespaced": true,
+          "kind": "HorizontalPodAutoscaler",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "batch",
+      "versions": [
+        {
+          "groupVersion": "batch/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "batch/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "cronjobs",
+          "singularName": "cronjob",
+          "namespaced": true,
+          "kind": "CronJob",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "cj"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "cronjobs/status",
+          "singularName": "cronjob",
+          "namespaced": true,
+          "kind": "CronJob",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "jobs",
+          "singularName": "job",
+          "namespaced": true,
+          "kind": "Job",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "categories": [
+            "all"
+          ]
+        },
+        {
+          "name": "jobs/status",
+          "singularName": "job",
+          "namespaced": true,
+          "kind": "Job",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "certificates.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "certificates.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "certificates.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "certificatesigningrequests",
+          "singularName": "certificatesigningrequest",
+          "namespaced": false,
+          "kind": "CertificateSigningRequest",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "csr"
+          ]
+        },
+        {
+          "name": "certificatesigningrequests/approval",
+          "singularName": "certificatesigningrequest",
+          "namespaced": false,
+          "kind": "CertificateSigningRequest",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "certificatesigningrequests/status",
+          "singularName": "certificatesigningrequest",
+          "namespaced": false,
+          "kind": "CertificateSigningRequest",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "networking.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "networking.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "networking.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "ingressclasses",
+          "singularName": "ingressclass",
+          "namespaced": false,
+          "kind": "IngressClass",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "ingresses",
+          "singularName": "ingress",
+          "namespaced": true,
+          "kind": "Ingress",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ing"
+          ]
+        },
+        {
+          "name": "ingresses/status",
+          "singularName": "ingress",
+          "namespaced": true,
+          "kind": "Ingress",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "ipaddresses",
+          "singularName": "ipaddress",
+          "namespaced": false,
+          "kind": "IPAddress",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "ip"
+          ]
+        },
+        {
+          "name": "networkpolicies",
+          "singularName": "networkpolicy",
+          "namespaced": true,
+          "kind": "NetworkPolicy",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "netpol"
+          ]
+        },
+        {
+          "name": "servicecidrs",
+          "singularName": "servicecidr",
+          "namespaced": false,
+          "kind": "ServiceCIDR",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "servicecidrs/status",
+          "singularName": "servicecidr",
+          "namespaced": false,
+          "kind": "ServiceCIDR",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "policy",
+      "versions": [
+        {
+          "groupVersion": "policy/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "policy/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "poddisruptionbudgets",
+          "singularName": "poddisruptionbudget",
+          "namespaced": true,
+          "kind": "PodDisruptionBudget",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "pdb"
+          ]
+        },
+        {
+          "name": "poddisruptionbudgets/status",
+          "singularName": "poddisruptionbudget",
+          "namespaced": true,
+          "kind": "PodDisruptionBudget",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "rbac.authorization.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "rbac.authorization.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "rbac.authorization.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "clusterrolebindings",
+          "singularName": "clusterrolebinding",
+          "namespaced": false,
+          "kind": "ClusterRoleBinding",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "clusterroles",
+          "singularName": "clusterrole",
+          "namespaced": false,
+          "kind": "ClusterRole",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "rolebindings",
+          "singularName": "rolebinding",
+          "namespaced": true,
+          "kind": "RoleBinding",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "roles",
+          "singularName": "role",
+          "namespaced": true,
+          "kind": "Role",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "storage.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "storage.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "storage.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "csidrivers",
+          "singularName": "csidriver",
+          "namespaced": false,
+          "kind": "CSIDriver",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "csinodes",
+          "singularName": "csinode",
+          "namespaced": false,
+          "kind": "CSINode",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "csistoragecapacities",
+          "singularName": "csistoragecapacity",
+          "namespaced": true,
+          "kind": "CSIStorageCapacity",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "storageclasses",
+          "singularName": "storageclass",
+          "namespaced": false,
+          "kind": "StorageClass",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "sc"
+          ]
+        },
+        {
+          "name": "volumeattachments",
+          "singularName": "volumeattachment",
+          "namespaced": false,
+          "kind": "VolumeAttachment",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "volumeattachments/status",
+          "singularName": "volumeattachment",
+          "namespaced": false,
+          "kind": "VolumeAttachment",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "admissionregistration.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "admissionregistration.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "admissionregistration.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "mutatingwebhookconfigurations",
+          "singularName": "mutatingwebhookconfiguration",
+          "namespaced": false,
+          "kind": "MutatingWebhookConfiguration",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "categories": [
+            "api-extensions"
+          ]
+        },
+        {
+          "name": "validatingadmissionpolicies",
+          "singularName": "validatingadmissionpolicy",
+          "namespaced": false,
+          "kind": "ValidatingAdmissionPolicy",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "categories": [
+            "api-extensions"
+          ]
+        },
+        {
+          "name": "validatingadmissionpolicies/status",
+          "singularName": "validatingadmissionpolicy",
+          "namespaced": false,
+          "kind": "ValidatingAdmissionPolicy",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "validatingadmissionpolicybindings",
+          "singularName": "validatingadmissionpolicybinding",
+          "namespaced": false,
+          "kind": "ValidatingAdmissionPolicyBinding",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "categories": [
+            "api-extensions"
+          ]
+        },
+        {
+          "name": "validatingwebhookconfigurations",
+          "singularName": "validatingwebhookconfiguration",
+          "namespaced": false,
+          "kind": "ValidatingWebhookConfiguration",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "categories": [
+            "api-extensions"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "apiextensions.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "apiextensions.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "apiextensions.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "customresourcedefinitions",
+          "singularName": "customresourcedefinition",
+          "namespaced": false,
+          "kind": "CustomResourceDefinition",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "crd",
+            "crds"
+          ],
+          "categories": [
+            "api-extensions"
+          ]
+        },
+        {
+          "name": "customresourcedefinitions/status",
+          "singularName": "customresourcedefinition",
+          "namespaced": false,
+          "kind": "CustomResourceDefinition",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "scheduling.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "scheduling.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "scheduling.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "priorityclasses",
+          "singularName": "priorityclass",
+          "namespaced": false,
+          "kind": "PriorityClass",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "pc"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "coordination.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "coordination.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "coordination.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "leases",
+          "singularName": "lease",
+          "namespaced": true,
+          "kind": "Lease",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "node.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "node.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "node.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "runtimeclasses",
+          "singularName": "runtimeclass",
+          "namespaced": false,
+          "kind": "RuntimeClass",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "discovery.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "discovery.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "discovery.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "endpointslices",
+          "singularName": "endpointslice",
+          "namespaced": true,
+          "kind": "EndpointSlice",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "flowcontrol.apiserver.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "flowcontrol.apiserver.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "flowcontrol.apiserver.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "flowschemas",
+          "singularName": "flowschema",
+          "namespaced": false,
+          "kind": "FlowSchema",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "flowschemas/status",
+          "singularName": "flowschema",
+          "namespaced": false,
+          "kind": "FlowSchema",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "prioritylevelconfigurations",
+          "singularName": "prioritylevelconfiguration",
+          "namespaced": false,
+          "kind": "PriorityLevelConfiguration",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "prioritylevelconfigurations/status",
+          "singularName": "prioritylevelconfiguration",
+          "namespaced": false,
+          "kind": "PriorityLevelConfiguration",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        }
+      ]
+    }
+  }
+]

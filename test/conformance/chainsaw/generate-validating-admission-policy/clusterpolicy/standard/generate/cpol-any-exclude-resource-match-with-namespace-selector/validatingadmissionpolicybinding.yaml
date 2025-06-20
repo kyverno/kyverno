@@ -1,15 +1,15 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-t14-binding
+  name: cpol-disallow-host-path-t14-binding
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
     name: disallow-host-path-t14
 spec:
-  policyName: disallow-host-path-t14
+  policyName: cpol-disallow-host-path-t14
   validationActions:
   - Audit
   - Warn

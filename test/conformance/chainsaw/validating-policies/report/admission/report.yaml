@@ -1,0 +1,25 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-deployment
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: nginx-deployment
+results:
+- message: success
+  policy: check-deployment-labels
+  result: pass
+  scored: true
+  source: KyvernoValidatingPolicy
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

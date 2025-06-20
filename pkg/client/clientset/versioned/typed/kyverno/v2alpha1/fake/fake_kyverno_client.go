@@ -29,7 +29,7 @@ type FakeKyvernoV2alpha1 struct {
 }
 
 func (c *FakeKyvernoV2alpha1) GlobalContextEntries() v2alpha1.GlobalContextEntryInterface {
-	return &FakeGlobalContextEntries{c}
+	return newFakeGlobalContextEntries(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

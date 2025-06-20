@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/stretchr/testify/require"
 	"gotest.tools/assert"
 	kubecache "k8s.io/client-go/tools/cache"
 )
@@ -1228,36 +1229,39 @@ func Test_Get_Policies_Ns(t *testing.T) {
 }
 
 func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
+	type testCase struct {
+		name             string
+		action           PolicyType
+		namespace        string
+		expectedPolicies int
+	}
+
 	cache := NewCache()
 	policy1 := newValidateAuditPolicy(t)
 	policy2 := newValidateEnforcePolicy(t)
 	finder := TestResourceFinder{}
+
 	key1, _ := kubecache.MetaNamespaceKeyFunc(policy1)
 	cache.Set(key1, policy1, finder)
+
 	key2, _ := kubecache.MetaNamespaceKeyFunc(policy2)
 	cache.Set(key2, policy2, finder)
-	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "")
-	if len(validateAudit) != 1 {
-		t.Errorf("expected 1 validate audit policy, found %v", len(validateAudit))
+
+	testCases := []testCase{
+		{name: "ValidateAudit with no namespace", action: ValidateAudit, namespace: "", expectedPolicies: 1},
+		{name: "ValidateEnforce with no namespace", action: ValidateEnforce, namespace: "", expectedPolicies: 1},
+		{name: "ValidateAudit with test namespace", action: ValidateAudit, namespace: "test", expectedPolicies: 2},
+		{name: "ValidateEnforce with test namespace", action: ValidateEnforce, namespace: "test", expectedPolicies: 0},
+		{name: "ValidateAudit with default namespace", action: ValidateAudit, namespace: "default", expectedPolicies: 0},
+		{name: "ValidateEnforce with default namespace", action: ValidateEnforce, namespace: "default", expectedPolicies: 2},
+		{name: "ValidateEnforce with unmatched namespace in failureActionOverrides", action: ValidateEnforce, namespace: "nonexistent", expectedPolicies: 1},
+		{name: "ValidateAudit with unmatched namespace in failureActionOverrides", action: ValidateAudit, namespace: "nonexistent", expectedPolicies: 1},
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
-	if len(validateEnforce) != 1 {
-		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
-	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "test")
-	if len(validateAudit) != 2 {
-		t.Errorf("expected 2 validate audit policy, found %v", len(validateAudit))
-	}
-	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "test")
-	if len(validateEnforce) != 0 {
-		t.Errorf("expected 0 validate enforce policy, found %v", len(validateEnforce))
-	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "default")
-	if len(validateAudit) != 0 {
-		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
-	}
-	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "default")
-	if len(validateEnforce) != 2 {
-		t.Errorf("expected 2 validate enforce policy, found %v", len(validateEnforce))
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			policies := cache.GetPolicies(tc.action, podsGVRS.GroupVersionResource(), "", tc.namespace)
+			require.Equal(t, tc.expectedPolicies, len(policies), "unexpected number of policies")
+		})
 	}
 }

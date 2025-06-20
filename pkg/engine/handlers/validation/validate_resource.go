@@ -41,6 +41,7 @@ func (h validateResourceHandler) Process(
 	// check if there are policy exceptions that match the incoming resource
 	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
 	if len(matchedExceptions) > 0 {
+		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
 		for i, exception := range matchedExceptions {
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
@@ -49,11 +50,12 @@ func (h validateResourceHandler) Process(
 				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
 			}
 			keys = append(keys, key)
+			exceptions = append(exceptions, engineapi.NewPolicyException(&matchedExceptions[i]))
 		}
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions),
 		)
 	}
 	v := newValidator(logger, contextLoader, policyContext, rule)
@@ -217,6 +219,10 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 	for _, foreach := range v.forEach {
 		elements, err := engineutils.EvaluateList(foreach.List, v.policyContext.JSONContext())
 		if err != nil {
+			if strings.Contains(err.Error(), "Unknown key") {
+				v.log.V(4).Info("optional field not found, skipping", "list", foreach.List)
+				continue
+			}
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}

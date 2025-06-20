@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bad-statefulset-1
+  labels:
+    prod: "true"
+spec:
+  serviceName: my-app-service
+  replicas: 3
+  selector:
+    matchLabels:
+      prod: "true"
+      app: busybox
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: busybox
+    spec:
+      containers:
+      - name: my-app-container
+        image: busybox:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+        

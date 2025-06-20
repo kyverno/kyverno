@@ -6,7 +6,6 @@ import (
 	"flag"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
@@ -28,10 +27,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -68,20 +67,23 @@ func createReportControllers(
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
-	var vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer
-	var vapBindingInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyBindingInformer
+	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
+	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {
-		vapInformer = kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicies()
-		vapBindingInformer = kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicyBindings()
+		vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
+		vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
+	policiesV1alpha1 := kyvernoInformer.Policies().V1alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
+			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -101,6 +103,9 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
+					policiesV1alpha1.ValidatingPolicies(),
+					policiesV1alpha1.ImageValidatingPolicies(),
+					policiesV1alpha1.GeneratingPolicies(),
 					vapInformer,
 				),
 				aggregationWorkers,
@@ -114,6 +119,9 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
+				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1alpha1.ImageValidatingPolicies(),
+				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
@@ -130,8 +138,8 @@ func createReportControllers(
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
 				backgroundScanController,
-				backgroundScanWorkers),
-			)
+				backgroundScanWorkers,
+			))
 		}
 	}
 	return ctrls, func(ctx context.Context) error {
@@ -196,6 +204,7 @@ func main() {
 		aggregateReports                 bool
 		policyReports                    bool
 		validatingAdmissionPolicyReports bool
+		reportsCRDsSanityChecks          bool
 		backgroundScanWorkers            int
 		backgroundScanInterval           time.Duration
 		aggregationWorkers               int
@@ -219,6 +228,7 @@ func main() {
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
+	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -247,7 +257,7 @@ func main() {
 		internal.WithDefaultQps(300),
 		internal.WithDefaultBurst(300),
 	)
-	var wg sync.WaitGroup
+	var wg wait.Group
 	func() {
 		// setup
 		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
@@ -257,17 +267,11 @@ func main() {
 		kyamlopenapi.Schema()
 		if err := sanityChecks(setup.ApiServerClient); err != nil {
 			setup.Logger.Error(err, "sanity checks failed")
-			os.Exit(1)
-		}
-		setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
-		// check if validating admission policies are registered in the API server
-		if validatingAdmissionPolicyReports {
-			registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
-			if !registered {
-				setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
+			if reportsCRDsSanityChecks {
 				os.Exit(1)
 			}
 		}
+		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
@@ -287,12 +291,14 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
 				eventGenerator,
 				maxAPICallResponseLength,
 				false,
+				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
 		)
@@ -323,7 +329,6 @@ func main() {
 			setup.Logger.Error(err, "failed to start background-scan reports watcher")
 			os.Exit(1)
 		}
-
 		// create the circuit breaker
 		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
 			count, isRunning := ephrs.Count()
@@ -388,7 +393,7 @@ func main() {
 					os.Exit(1)
 				}
 				// start leader controllers
-				var wg sync.WaitGroup
+				var wg wait.Group
 				for _, controller := range leaderControllers {
 					controller.Run(ctx, logger.WithName("controllers"), &wg)
 				}

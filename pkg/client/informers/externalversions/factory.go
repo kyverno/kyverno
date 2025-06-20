@@ -26,6 +26,7 @@ import (
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	kyverno "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno"
+	policieskyvernoio "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io"
 	policyreport "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport"
 	reports "github.com/kyverno/kyverno/pkg/client/informers/externalversions/reports"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +45,7 @@ type sharedInformerFactory struct {
 	lock             sync.Mutex
 	defaultResync    time.Duration
 	customResync     map[reflect.Type]time.Duration
+	transform        cache.TransformFunc
 
 	informers map[reflect.Type]cache.SharedIndexInformer
 	// startedInformers is used for tracking which informers have been started.
@@ -78,6 +80,14 @@ func WithTweakListOptions(tweakListOptions internalinterfaces.TweakListOptionsFu
 func WithNamespace(namespace string) SharedInformerOption {
 	return func(factory *sharedInformerFactory) *sharedInformerFactory {
 		factory.namespace = namespace
+		return factory
+	}
+}
+
+// WithTransform sets a transform on all informers.
+func WithTransform(transform cache.TransformFunc) SharedInformerOption {
+	return func(factory *sharedInformerFactory) *sharedInformerFactory {
+		factory.transform = transform
 		return factory
 	}
 }
@@ -186,6 +196,7 @@ func (f *sharedInformerFactory) InformerFor(obj runtime.Object, newFunc internal
 	}
 
 	informer = newFunc(f.client, resyncPeriod)
+	informer.SetTransform(f.transform)
 	f.informers[informerType] = informer
 
 	return informer
@@ -220,6 +231,7 @@ type SharedInformerFactory interface {
 
 	// Start initializes all requested informers. They are handled in goroutines
 	// which run until the stop channel gets closed.
+	// Warning: Start does not block. When run in a go-routine, it will race with a later WaitForCacheSync.
 	Start(stopCh <-chan struct{})
 
 	// Shutdown marks a factory as shutting down. At that point no new
@@ -246,12 +258,17 @@ type SharedInformerFactory interface {
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
 	Kyverno() kyverno.Interface
+	Policies() policieskyvernoio.Interface
 	Wgpolicyk8s() policyreport.Interface
 	Reports() reports.Interface
 }
 
 func (f *sharedInformerFactory) Kyverno() kyverno.Interface {
 	return kyverno.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Policies() policieskyvernoio.Interface {
+	return policieskyvernoio.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Wgpolicyk8s() policyreport.Interface {

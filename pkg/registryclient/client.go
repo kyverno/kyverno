@@ -4,44 +4,23 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
-	"net"
 	"net/http"
 	"runtime"
-	"time"
 
-	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/release-utils/version"
 )
 
 var (
-	defaultKeychain  = AnonymousKeychain
-	defaultTransport = &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			// By default we wrap the transport in retries, so reduce the
-			// default dial timeout to 5s to avoid 5x 30s of connection
-			// timeouts when doing the "ping" on certain http registries.
-			Timeout:   5 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-
-	userAgent = fmt.Sprintf("Kyverno/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
+	defaultKeychain  = imagedataloader.AnonymousKeychain
+	defaultTransport = imagedataloader.DefaultTransport
+	userAgent        = fmt.Sprintf("Kyverno/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
 )
 
 // Client provides registry related objects.
@@ -129,23 +108,7 @@ func WithKeychainPullSecrets(lister corev1listers.SecretNamespaceLister, imagePu
 // WithCredentialProviders initialize registry client option by using registries credentials
 func WithCredentialProviders(credentialProviders ...string) Option {
 	return func(c *config) error {
-		var chains []authn.Keychain
-		helpers := sets.New(credentialProviders...)
-		if helpers.Has("default") {
-			chains = append(chains, authn.DefaultKeychain)
-		}
-		if helpers.Has("google") {
-			chains = append(chains, google.Keychain)
-		}
-		if helpers.Has("amazon") {
-			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
-		}
-		if helpers.Has("azure") {
-			chains = append(chains, AzureKeychain)
-		}
-		if helpers.Has("github") {
-			chains = append(chains, github.Keychain)
-		}
+		chains := imagedataloader.KeychainsForProviders(credentialProviders...)
 		c.keychain = append(c.keychain, chains...)
 		return nil
 	}

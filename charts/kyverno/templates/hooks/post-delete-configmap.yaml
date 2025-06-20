@@ -1,5 +1,6 @@
 {{- if .Values.config.preserve -}}
 {{- if not .Values.templating.enabled -}}
+{{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -52,6 +53,7 @@ metadata:
     helm.sh/hook: post-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "0"
+automountServiceAccountToken: false
 ---
 apiVersion: batch/v1
 kind: Job
@@ -67,6 +69,7 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    {{- if or .Values.webhooksCleanup.podAnnotations .Values.webhooksCleanup.podLabels }}
     metadata:
       {{- with .Values.webhooksCleanup.podAnnotations }}
       annotations:
@@ -76,8 +79,10 @@ spec:
       labels:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+    {{- end }}
     spec:
-      serviceAccount: {{ template "kyverno.fullname" . }}-remove-configmap
+      serviceAccountName: {{ template "kyverno.fullname" . }}-remove-configmap
+      automountServiceAccountToken: {{ $automountSAToken }}
       {{- with .Values.webhooksCleanup.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
@@ -85,7 +90,7 @@ spec:
       restartPolicy: Never
       {{- with .Values.webhooksCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       containers:
         - name: kubectl
@@ -96,12 +101,22 @@ spec:
             - '-c'
             - |-
               set -euo pipefail
-              kubectl delete cm -n {{ template "kyverno.namespace" . }} {{ template "kyverno.config.configMapName" . }}
+              kubectl delete cm --ignore-not-found -n {{ template "kyverno.namespace" . }} {{ template "kyverno.config.configMapName" . }}
           {{- with .Values.webhooksCleanup.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.webhooksCleanup.tolerations }}
+          {{- with .Values.webhooksCleanup.resources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}      
+          {{- if not $automountSAToken }}
+          volumeMounts:
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          {{- end }}
+      {{- with .Values.webhooksCleanup.tolerations | default .Values.global.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -123,6 +138,27 @@ spec:
         nodeAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- if not $automountSAToken }}
+      volumes:
+        - name: serviceaccount-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3607
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
       {{- end }}
 {{- end -}}
 {{- end -}}

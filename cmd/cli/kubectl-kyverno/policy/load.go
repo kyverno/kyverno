@@ -13,8 +13,8 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
@@ -22,29 +22,25 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
 var (
-	policyV1              = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("Policy")
-	policyV2              = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("Policy")
-	clusterPolicyV1       = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("ClusterPolicy")
-	clusterPolicyV2       = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("ClusterPolicy")
-	vapV1Beta1            = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
-	vapBindingV1beta1     = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
-	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	LegacyLoader          = legacyLoader
-	KubectlValidateLoader = kubectlValidateLoader
-	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
-		if experimental.UseKubectlValidate() {
-			return KubectlValidateLoader(path, bytes)
-		} else {
-			return LegacyLoader(path, bytes)
-		}
-	}
+	policyV1           = kyvernov1.SchemeGroupVersion.WithKind("Policy")
+	policyV2           = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
+	clusterPolicyV1    = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
+	clusterPolicyV2    = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
+	vapV1              = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
+	vapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
+	vpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
+	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
+	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
+	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
+	defaultLoader      = kubectlValidateLoader
 )
 
 type LoaderError struct {
@@ -53,10 +49,17 @@ type LoaderError struct {
 }
 
 type LoaderResults struct {
-	Policies       []kyvernov1.PolicyInterface
-	VAPs           []admissionregistrationv1beta1.ValidatingAdmissionPolicy
-	VAPBindings    []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
-	NonFatalErrors []LoaderError
+	Policies                []kyvernov1.PolicyInterface
+	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
+	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MAPs                    []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MAPBindings             []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
+	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
+	GeneratingPolicies      []policiesv1alpha1.GeneratingPolicy
+	DeletingPolicies        []policiesv1alpha1.DeletingPolicy
+	MutatingPolicies        []policiesv1alpha1.MutatingPolicy
+	NonFatalErrors          []LoaderError
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {
@@ -66,7 +69,14 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.Policies = append(l.Policies, results.Policies...)
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
+	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
+	l.MAPs = append(l.MAPs, results.MAPs...)
+	l.MAPBindings = append(l.MAPBindings, results.MAPBindings...)
+	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
+	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
+	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
+	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
 }
 
 func (l *LoaderResults) addError(path string, err error) {
@@ -86,7 +96,6 @@ func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, pat
 	if loader == nil {
 		loader = defaultLoader
 	}
-
 	aggregateResults := &LoaderResults{}
 	for _, path := range paths {
 		var err error
@@ -105,13 +114,11 @@ func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, pat
 		}
 		aggregateResults.merge(results)
 	}
-
 	// It's hard to use apply with the fake client, so disable all server side
 	// https://github.com/kubernetes/kubernetes/issues/99953
 	for _, policy := range aggregateResults.Policies {
 		policy.GetSpec().UseServerSideApply = false
 	}
-
 	return aggregateResults, nil
 }
 
@@ -121,20 +128,17 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		return nil, err
 	}
 	results := &LoaderResults{}
-
 	crds, err := data.Crds()
 	if err != nil {
 		return nil, err
 	}
-
 	factory, err := resourceloader.New(openapiclient.NewComposite(
-		openapiclient.NewHardcodedBuiltins("1.30"),
+		openapiclient.NewHardcodedBuiltins("1.32"),
 		openapiclient.NewLocalCRDFiles(crds),
 	))
 	if err != nil {
 		return nil, err
 	}
-
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
@@ -159,18 +163,60 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.Policies = append(results.Policies, typed)
-		case vapV1Beta1, vapV1:
-			typed, err := convert.To[admissionregistrationv1beta1.ValidatingAdmissionPolicy](untyped)
+		case vapV1:
+			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.VAPs = append(results.VAPs, *typed)
-		case vapBindingV1beta1, vapBindingV1:
-			typed, err := convert.To[admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding](untyped)
+		case vapBindingV1:
+			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicyBinding](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.VAPBindings = append(results.VAPBindings, *typed)
+		case vpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.ValidatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.ValidatingPolicies = append(results.ValidatingPolicies, *typed)
+		case ivpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.ImageValidatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
+		case mapV1alpha1:
+			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.MAPs = append(results.MAPs, *typed)
+		case mapBindingV1alpha1:
+			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.MAPBindings = append(results.MAPBindings, *typed)
+		case gpsV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.GeneratingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.GeneratingPolicies = append(results.GeneratingPolicies, *typed)
+		case dpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.DeletingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.DeletingPolicies = append(results.DeletingPolicies, *typed)
+		case mpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.MutatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.MutatingPolicies = append(results.MutatingPolicies, *typed)
 		default:
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}

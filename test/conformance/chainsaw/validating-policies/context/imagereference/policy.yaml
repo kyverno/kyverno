@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-images
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [deployments]
+  variables:
+    - name: images
+      expression: >-
+        object.spec.template.spec.containers.map(e, parseImageReference(e.image))
+  validations:
+    - expression: >-
+        variables.images.map(i, i.registry() == "ghcr.io" && !i.containsDigest()).all(e, e)
+      message: >-
+        Deployment must be have images from ghcr and images should be tagged

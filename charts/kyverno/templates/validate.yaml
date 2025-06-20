@@ -4,17 +4,31 @@
 {{- if and (eq .Values.cleanupController.enabled true) (eq .Values.crds.groups.kyverno.clustercleanuppolicies false) }}
 {{- fail "CRD clustercleanuppolicies disabled while cleanupController enabled" }}
 {{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.crds.groups.wgpolicyk8s.clusterpolicyreports false) }}
+{{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.wgpolicyk8s.clusterpolicyreports false) (eq .Values.reportsServer.enabled false) }}
 {{- fail "CRD clusterpolicyreports disabled while reportsController enabled" }}
 {{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.crds.groups.wgpolicyk8s.policyreports false) }}
+{{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.wgpolicyk8s.policyreports false) (eq .Values.reportsServer.enabled false) }}
 {{- fail "CRD policyreports disabled while reportsController enabled" }}
 {{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.crds.groups.reports.ephemeralreports false) }}
+{{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.reports.ephemeralreports false) (eq .Values.crds.reportsServer.enabled false) }}
 {{- fail "CRD ephemeralreports disabled while reportsController enabled" }}
 {{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.crds.groups.reports.clusterephemeralreports false) }}
+{{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.reports.clusterephemeralreports false) (eq .Values.crds.reportsServer.enabled false) }}
 {{- fail "CRD clusterephemeralreports disabled while reportsController enabled" }}
+{{- end }}
+
+{{- if and (eq .Values.backgroundController.enabled true) (eq .Values.backgroundController.sanityChecks true) (eq .Values.crds.groups.reports.ephemeralreports false) (eq .Values.crds.reportsServer.enabled false) }}
+{{- fail "CRD ephemeralreports disabled while reportsController enabled" }}
+{{- end }}
+{{- if and (eq .Values.backgroundController.enabled true) (eq .Values.backgroundController.sanityChecks true) (eq .Values.crds.groups.reports.clusterephemeralreports false) (eq .Values.crds.reportsServer.enabled false) }}
+{{- fail "CRD clusterephemeralreports disabled while reportsController enabled" }}
+{{- end }}
+
+{{- if and (eq .Values.policyReportsCleanup.enabled true) (eq .Values.crds.groups.wgpolicyk8s.clusterpolicyreports false) (eq .Values.crds.reportsServer.enabled false) }}
+{{- fail "CRD clusterpolicyreports disabled while policyReportsCleanup enabled" }}
+{{- end }}
+{{- if and (eq .Values.policyReportsCleanup.enabled true) (eq .Values.crds.groups.wgpolicyk8s.policyreports false) (eq .Values.crds.reportsServer.enabled false) }}
+{{- fail "CRD policyreports disabled while policyReportsCleanup enabled" }}
 {{- end }}
 
 {{- if hasKey .Values "mode" -}}
