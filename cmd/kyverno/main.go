@@ -768,7 +768,7 @@ func main() {
 			ivpolEngine,
 			contextProvider,
 		)
-		gpolHandlers := gpol.New(urgen)
+		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister())
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),

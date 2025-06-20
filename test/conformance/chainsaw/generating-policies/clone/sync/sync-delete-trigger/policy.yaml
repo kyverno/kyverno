@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: sync-delete-trigger
+spec:
+  evaluation:
+    synchronize: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["networking.k8s.io"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["networkpolicies"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.namespace"
+    - name: source
+      expression: resource.Get("v1", "secrets", "default", "sync-delete-trigger")
+  generate:
+    - expression: generator.Apply(variables.nsName, [variables.source])
