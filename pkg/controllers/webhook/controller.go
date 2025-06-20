@@ -1170,7 +1170,9 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		ivpols)...)
 
-	c.recordPolicyState(append(pols, ivpols...)...)
+	policies := append(pols, gpols...)
+	policies = append(policies, ivpols...)
+	c.recordPolicyState(policies...)
 	return nil
 }
 
