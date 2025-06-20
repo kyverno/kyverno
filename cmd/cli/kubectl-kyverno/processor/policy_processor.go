@@ -48,7 +48,6 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	mpatch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
@@ -269,13 +268,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 		if resource.Object != nil {
-			ctx, cancel := context.WithCancel(context.Background())
 			// @TODO: is it possible to define the kubeversion in a test?
 			client := openapiclient.NewHardcodedBuiltins("1.32")
-			tcm := mpatch.NewTypeConverterManager(nil, client)
-			go tcm.Run(ctx)
-
-			defer cancel()
+			tcm := mpolcompiler.NewStaticTypeConverterManager(client)
 
 			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
@@ -321,6 +316,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				response = response.WithPolicy(engineapi.NewMutatingPolicy(r.Policy))
 				p.Rc.addMutateResponse(response)
+
+				err = p.processMutateEngineResponse(response, resPath)
+				if err != nil {
+					return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+				}
+
 				responses = append(responses, response)
 				resource = response.PatchedResource
 			}
