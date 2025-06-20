@@ -160,6 +160,177 @@ func TestMergePatch(t *testing.T) {
         }
       }`),
 		},
+		{
+			// empty base for both container types
+			rawPolicy: []byte(`{
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx", "image": "nginx:latest"
+            }
+          ],
+          "initContainers": [
+            {
+              "name": "init", "image": "busybox:latest"
+            }
+          ]
+        }
+      }`),
+			rawResource: []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "empty-base"
+        },
+        "spec": {
+          "containers": [],
+          "initContainers": []
+        }
+      }`),
+			expected: []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "empty-base"
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx", "image": "nginx:latest"
+            }
+          ],
+          "initContainers": [
+            {
+              "name": "init", "image": "busybox:latest"
+            }
+          ]
+        }
+      }`),
+		},
+		{
+			// append new containers to both types
+			rawPolicy: []byte(`{
+		    "spec": {
+		      "containers": [
+            {
+              "name": "myapp", "image": "myapp:latest"
+            }
+		      ],
+		      "initContainers": [
+            {
+              "name": "myapp-init", "image": "busybox:latest"
+            }
+		      ]
+		    }
+		  }`),
+			rawResource: []byte(`{
+		    "apiVersion": "v1",
+		    "kind": "Pod",
+		    "metadata": {"name": "append-test"},
+		    "spec": {
+		      "containers": [
+            {
+              "name": "app", "image": "app:latest"
+            }
+		      ],
+		      "initContainers": [
+            {
+              "name": "db-init", "image": "postgres-init:13"
+            }
+		      ]
+		    }
+		  }`),
+			expected: []byte(`{
+		    "apiVersion": "v1",
+		    "kind": "Pod",
+		    "metadata": {"name": "append-test"},
+		    "spec": {
+		      "containers": [
+            {
+              "name": "app", "image": "app:latest"
+            },
+            {
+              "name": "myapp", "image": "myapp:latest"
+            }
+		      ],
+		      "initContainers": [
+            {
+              "name": "db-init", "image": "postgres-init:13"
+            },
+            {
+              "name": "myapp-init", "image": "busybox:latest"
+            }
+		      ]
+		    }
+		  }`),
+		},
+		{
+			// update existing containers in both types
+			rawPolicy: []byte(`{
+		    "spec": {
+		      "containers": [
+            {
+              "name": "app", "image": "app:latest"
+            }
+		      ],
+		      "initContainers": [
+            {
+              "name": "myapp-init", "image": "busybox:latest"
+            }
+		      ]
+		    }
+		  }`),
+			rawResource: []byte(`{
+		    "apiVersion": "v1",
+		    "kind": "Pod",
+		    "metadata": {
+          "name": "update-test"
+		    },
+		    "spec": {
+		      "containers": [
+            {
+              "name": "app", "image": "app"
+            },
+            {
+              "name": "logger", "image": "fluentd:latest"
+            }
+		      ],
+		      "initContainers": [
+            {
+              "name": "myapp-init", "image": "busybox"
+            },
+            {
+              "name": "config-init", "image": "config-img:latest"
+            }
+		      ]
+		    }
+		  }`),
+			expected: []byte(`{
+		    "apiVersion": "v1",
+		    "kind": "Pod",
+		    "metadata": {
+          "name": "update-test"
+		    },
+		    "spec": {
+		      "containers": [
+            {
+              "name": "app", "image": "app:latest"
+            },
+            {
+              "name": "logger", "image": "fluentd:latest"
+            }
+		      ],
+		      "initContainers": [
+            {
+              "name": "myapp-init", "image": "busybox:latest"
+            },
+            {
+              "name": "config-init", "image": "config-img:latest"
+            }
+		      ]
+		    }
+		  }`),
+		},
 	}
 
 	for i, test := range testCases {
