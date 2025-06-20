@@ -13,6 +13,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
@@ -48,6 +49,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
@@ -268,9 +270,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 		if resource.Object != nil {
-			// @TODO: is it possible to define the kubeversion in a test?
-			client := openapiclient.NewHardcodedBuiltins("1.32")
-			tcm := mpolcompiler.NewStaticTypeConverterManager(client)
+			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
 
 			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
@@ -750,4 +750,20 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		return err
 	}
 	return nil
+}
+
+func (p *PolicyProcessor) openAPI() openapi.Client {
+	clients := make([]openapi.Client, 0)
+
+	if p.Cluster {
+		return p.Client.GetKubeClient().Discovery().OpenAPIV3()
+	}
+
+	clients = append(clients, openapiclient.NewHardcodedBuiltins("1.32"))
+
+	if crds, err := data.Crds(); err == nil {
+		clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
+	}
+
+	return openapiclient.NewComposite(clients...)
 }
