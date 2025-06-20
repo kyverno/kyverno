@@ -1,0 +1,12 @@
+apiVersion: kyverno.io/v2alpha1
+kind: GlobalContextEntry
+metadata:
+  name: gctxentry-resource-projection-jmespath
+spec:
+  kubernetesResource:
+    group: apps
+    version: v1
+    resource: deployments
+  projections:
+    - name: test-globalcontext-resource-projection-jmespath_deployment
+      jmesPath: "[?metadata.namespace=='test-globalcontext-resource-projection-jmespath']"

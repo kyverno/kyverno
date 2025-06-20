@@ -1,23 +1,29 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: ValidatingPolicy
 metadata:
-  name: vpol-apicall-correct
+  name: vpol-apicall-projection-jmespath
 spec:
   validationActions:
     - Deny
   matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+            - test-globalcontext-apicall-projection-jmespath
     resourceRules:
-      - apiGroups: [""]
+      - apiGroups: [apps]
         apiVersions: [v1]
-        operations: [CREATE, UPDATE]
-        resources: [pods]
+        operations: [CREATE]
+        resources: [deployments]
   variables:
     - name: environment
       expression: >-
         has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'
     - name: dcount
       expression: >-
-        globalContext.Get("gctxentry-apicall-correct", "test-globalcontext-apicall-correct-projections_deployment_count")
+        globalContext.Get("gctxentry-apicall-projection-jmespath", "test-globalcontext-apicall-projection-jmespath_deployment", "[?metadata.name=='main-deployment'] | length(@)")
   validations:
     - expression: >-
         variables.environment == true
