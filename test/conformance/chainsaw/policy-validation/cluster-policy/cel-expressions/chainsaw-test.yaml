@@ -20,3 +20,9 @@ spec:
           # This check ensures that the string "undefined field 'replicas';" is found
           # in stderr or else fails
           (contains($stderr, 'undefined field \'replicas\';')): true
+  - name: Apply the third policy
+    try:
+      - script:
+          content: kubectl apply -f policy-3.yaml
+          check:
+            (contains($stderr, 'context variables are not supported for CEL expressions in validate rules;')): false
