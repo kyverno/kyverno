@@ -143,6 +143,24 @@ func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) boo
 			}
 		}
 	}
+
+	// Handle MutatingPolicies
+	if policy := genericPolicy.AsMutatingPolicy(); policy != nil {
+		for _, rule := range response.PolicyResponse.Rules {
+			switch rule.Status() {
+			case engineapi.RuleStatusPass:
+				rc.Pass++
+				printMutatedRes = true
+			case engineapi.RuleStatusFail:
+				rc.Fail++
+			case engineapi.RuleStatusSkip:
+				rc.Skip++
+			case engineapi.RuleStatusError:
+				rc.Error++
+			}
+		}
+	}
+
 	return printMutatedRes
 }
 

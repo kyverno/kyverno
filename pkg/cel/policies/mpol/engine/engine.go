@@ -6,6 +6,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -14,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 )
 
 type Engine interface {
@@ -54,10 +54,10 @@ type engineImpl struct {
 	provider      Provider
 	nsResolver    engine.NamespaceResolver
 	matcher       matching.Matcher
-	typeConverter patch.TypeConverterManager
+	typeConverter compiler.TypeConverterManager
 }
 
-func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher, typeConverter patch.TypeConverterManager) *engineImpl {
+func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher, typeConverter compiler.TypeConverterManager) *engineImpl {
 	return &engineImpl{
 		provider:      provider,
 		nsResolver:    nsResolver,
