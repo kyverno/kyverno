@@ -7,10 +7,10 @@ spec:
     synchronize: true
   matchConstraints:
     resourceRules:
-    - apiGroups:   [""]
+    - apiGroups:   ["networking.k8s.io"]
       apiVersions: ["v1"]
       operations:  ["CREATE", "UPDATE"]
-      resources:   ["configmaps"]
+      resources:   ["networkpolicies"]
   variables:
     - name: nsName
       expression: "object.metadata.namespace"

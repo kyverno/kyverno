@@ -36,8 +36,8 @@ spec:
     try:
     - delete:
         ref:
-          apiVersion: v1
-          kind: ConfigMap
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
           name: sync-delete-trigger
           namespace: sync-delete-trigger
   - name: sleep
