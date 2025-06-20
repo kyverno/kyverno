@@ -12,6 +12,7 @@ import (
 type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
 	generatedResources []*unstructured.Unstructured
+	policyName         string
 }
 
 func NewFakeContextProvider() *FakeContextProvider {
@@ -117,4 +118,8 @@ func (cp *FakeContextProvider) GetGeneratedResources() []*unstructured.Unstructu
 
 func (cp *FakeContextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
+}
+
+func (cp *FakeContextProvider) SetPolicyName(name string) {
+	cp.policyName = name
 }

@@ -56,8 +56,23 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			} else {
 				webhook.MatchConditions = append(webhook.MatchConditions, p.GetMatchConditions()...)
 			}
-			for _, match := range p.GetMatchConstraints().ResourceRules {
-				webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+
+			if _, ok := p.(*policiesv1alpha1.GeneratingPolicy); ok {
+				// all four operations including CONNECT are needed for generate.
+				for _, match := range p.GetMatchConstraints().ResourceRules {
+					rule := match.RuleWithOperations
+					rule.Operations = []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+						admissionregistrationv1.Delete,
+						admissionregistrationv1.Connect,
+					}
+					webhook.Rules = append(webhook.Rules, rule)
+				}
+			} else {
+				for _, match := range p.GetMatchConstraints().ResourceRules {
+					webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+				}
 			}
 			if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
 				policies, err := vpolautogen.Autogen(vpol)
@@ -168,8 +183,22 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					}
 				}
 			}
-			for _, match := range p.GetMatchConstraints().ResourceRules {
-				webhookRules = append(webhookRules, match.RuleWithOperations)
+			if _, ok := p.(*policiesv1alpha1.GeneratingPolicy); ok {
+				// all four operations including CONNECT are needed for generate.
+				for _, match := range p.GetMatchConstraints().ResourceRules {
+					rule := match.RuleWithOperations
+					rule.Operations = []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+						admissionregistrationv1.Delete,
+						admissionregistrationv1.Connect,
+					}
+					webhookRules = append(webhookRules, rule)
+				}
+			} else {
+				for _, match := range p.GetMatchConstraints().ResourceRules {
+					webhookRules = append(webhookRules, match.RuleWithOperations)
+				}
 			}
 			if p.GetFailurePolicy() == admissionregistrationv1.Ignore {
 				webhookIgnore.Rules = append(webhookIgnore.Rules, webhookRules...)

@@ -80,6 +80,7 @@ func (e *Engine) generate(ctx context.Context, policy Policy, attr admission.Att
 			return response
 		}
 	}
+	context.SetPolicyName(policy.Policy.Name)
 	generatedResources, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
 		response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to evaluate policy", err, nil)

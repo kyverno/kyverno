@@ -109,6 +109,14 @@ type GeneratingPolicySpec struct {
 	Generation []Generation `json:"generate"`
 }
 
+func (s GeneratingPolicySpec) SynchronizationEnabled() bool {
+	const defaultValue = false
+	if s.GenerateConfiguration == nil || s.GenerateConfiguration.Synchronize == nil {
+		return defaultValue
+	}
+	return *s.GenerateConfiguration.Synchronize
+}
+
 type GenerateConfiguration struct {
 	// GenerateExisting controls whether to trigger the policy for existing resources
 	// If is set to "true" the policy will be triggered and applied to existing matched resources.
