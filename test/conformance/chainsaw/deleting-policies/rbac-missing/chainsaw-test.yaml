@@ -1,0 +1,33 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: deleting-policy-configmap-without-rbac
+  namespace: default
+spec:
+  steps:
+    - name: step-01
+      try:
+        - apply:
+            file: configmap.yaml
+        - assert:
+            file: configmap-assert.yaml    
+
+    - name: step-02
+      try:
+        - assert:
+            file: configmap-assert.yaml
+
+    - name: step-03
+      try:
+        - apply:
+            file: policy.yaml
+        
+    - name: step-04
+      try:    
+        - sleep:
+            duration: 1m5s
+
+    - name: step-05
+      try:
+        - assert:
+            file: configmap-assert.yaml
