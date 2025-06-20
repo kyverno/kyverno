@@ -11,7 +11,7 @@ import (
 )
 
 func (c controller) updateMpolStatus(ctx context.Context, mpol *policiesv1alpha1.MutatingPolicy) error {
-	updateFunc := func(vpol *policiesv1alpha1.MutatingPolicy) error {
+	updateFunc := func(mpol *policiesv1alpha1.MutatingPolicy) error {
 		p := engineapi.NewMutatingPolicy(mpol)
 		// conditions
 		conditionStatus := c.reconcileConditions(ctx, p)
