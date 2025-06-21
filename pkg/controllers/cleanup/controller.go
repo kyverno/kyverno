@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -212,9 +213,17 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 		list, err := c.client.ListResource(ctx, "", kind, policy.GetNamespace(), nil)
 		if err != nil {
 			debug.Error(err, "failed to list resources")
-			errs = append(errs, err)
 			if c.metrics.cleanupFailuresTotal != nil {
 				c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(commonLabels...))
+			}
+			// Check if this is a recoverable error (permission denied, resource not found, etc.)
+			if isRecoverableError(err) {
+				logger.V(2).Info("skipping resource kind due to access restrictions", "kind", kind, "error", err.Error())
+				// Continue processing other resource kinds instead of failing the entire cleanup
+				continue
+			} else {
+				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
+				errs = append(errs, err)
 			}
 		} else {
 			for i := range list.Items {
@@ -401,4 +410,76 @@ func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyver
 		logging.V(3).Info("updated cleanup policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", new.Status)
 	}
 	return nil
+}
+
+func isRecoverableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for Kubernetes API errors that are permanent access issues (should skip, not retry)
+	if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+		return true
+	}
+
+	// Check for resource not found/not available errors that are permanent (should skip, not retry)
+	if apierrors.IsNotFound(err) || apierrors.IsMethodNotSupported(err) {
+		return true
+	}
+
+	// Check for specific error messages that indicate permanent permission or resource type issues
+	errStr := err.Error()
+	permanentErrorPatterns := []string{
+		"is forbidden",
+		"Operation on Calico tiered policy is forbidden",
+		"the server could not find the requested resource",
+		"no Kind is registered for the type",
+	}
+
+	for _, pattern := range permanentErrorPatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	// Check for temporary errors that might resolve on retry
+	// These patterns indicate potentially temporary issues that should NOT be skipped
+	temporaryErrorPatterns := []string{
+		"connection refused",
+		"connection reset",
+		"timeout",
+		"deadline exceeded",
+		"service unavailable",
+		"internal server error",
+		"server is currently unable to handle the request",
+		"too many requests",
+	}
+
+	for _, pattern := range temporaryErrorPatterns {
+		if strings.Contains(strings.ToLower(errStr), strings.ToLower(pattern)) {
+			// These are temporary errors - should NOT be recovered (should trigger retry)
+			return false
+		}
+	}
+
+	// For resource discovery errors, check if they contain specific patterns
+	// "no matches for kind" and "unable to recognize" could be temporary during API discovery
+	discoveryErrorPatterns := []string{
+		"no matches for kind",
+		"unable to recognize",
+	}
+
+	for _, pattern := range discoveryErrorPatterns {
+		if strings.Contains(errStr, pattern) {
+			// These could be temporary during API server startup or CRD installation
+			// However, if they persist, they indicate the resource type doesn't exist
+			// For cleanup controller, it's safer to skip these since they likely indicate
+			// resource types that don't exist in the cluster
+			return true
+		}
+	}
+
+	// Default: treat unknown errors as non-recoverable (should trigger retry)
+	// This ensures that unexpected errors get retried rather than silently ignored
+	return false
 }
