@@ -1,0 +1,81 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: globalreference-missing-graceful
+spec:
+  description: |
+    This test verifies that ValidatingPolicies gracefully handle missing GlobalContextEntries
+    instead of failing hard. When a GlobalContextEntry referenced by globalContext.Get() 
+    doesn't exist, the policy should continue evaluation with null values rather than 
+    blocking admission.
+  steps:
+  - name: create namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: create validating policy without globalcontextentry
+    try:
+    - apply:
+        file: policy-missing-gctx.yaml
+    - assert:
+        file: policy-missing-gctx.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: vpol-missing-gctx-graceful
+        - name: namespace
+          value: default
+  - name: create pod with missing globalcontext - should succeed gracefully
+    try:
+    - apply:
+        file: pod-test.yaml
+    - assert:
+        file: pod-test.yaml
+  - name: now create the globalcontextentry
+    try:
+    - apply:
+        file: gctxentry.yaml
+    - assert:
+        file: gctxentry.yaml
+  - name: wait for globalcontextentry to be ready
+    try:
+    - sleep:
+        duration: 5s
+  - name: create policy that should work with existing gctx
+    try:
+    - apply:
+        file: policy-with-gctx.yaml
+    - assert:
+        file: policy-with-gctx.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: vpol-with-gctx-works
+        - name: namespace
+          value: default
+  - name: create pod with existing globalcontext - should work normally
+    try:
+    - apply:
+        file: pod-test-2.yaml
+    - assert:
+        file: pod-test-2.yaml
+  - name: cleanup
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Pod
+          name: test-pod-missing-gctx
+          namespace: test-globalcontext-missing
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Pod
+          name: test-pod-with-gctx
+          namespace: test-globalcontext-missing 
