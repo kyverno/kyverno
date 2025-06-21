@@ -33,7 +33,7 @@ rules:
       - customresourcedefinitions
     verbs:
       - get
-      {{- if .Values.admissionController.crdWatcher }}
+      {{- if .Values.admissionController.crdWatcher | default .Values.global.crdWatcher }}
       - list
       - watch
       {{- end }}
@@ -105,6 +105,7 @@ rules:
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
       - generatingpolicies
+      - generatingpolicies/status
       - mutatingpolicies
       - mutatingpolicies/status
     verbs:

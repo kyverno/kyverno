@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
@@ -26,12 +28,18 @@ type Context interface {
 	imagedata.ContextInterface
 	resource.ContextInterface
 	generator.ContextInterface
+
+	GetGeneratedResources() []*unstructured.Unstructured
+	ClearGeneratedResources()
+	SetPolicyName(name string)
 }
 
 type contextProvider struct {
-	client    dclient.Interface
-	imagedata imagedataloader.Fetcher
-	gctxStore gctxstore.Store
+	client             dclient.Interface
+	imagedata          imagedataloader.Fetcher
+	gctxStore          gctxstore.Store
+	generatedResources []*unstructured.Unstructured
+	policyName         string
 }
 
 func NewContextProvider(
@@ -44,9 +52,10 @@ func NewContextProvider(
 		return nil, err
 	}
 	return &contextProvider{
-		client:    client,
-		imagedata: idl,
-		gctxStore: gctxStore,
+		client:             client,
+		imagedata:          idl,
+		gctxStore:          gctxStore,
+		generatedResources: make([]*unstructured.Unstructured, 0),
 	}, nil
 }
 
@@ -113,14 +122,64 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
-		resource.SetNamespace(namespace)
-		resource.SetResourceVersion("")
-		_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
-		if err != nil {
-			return err
+		if resource.IsList() {
+			resourceList, err := resource.ToList()
+			if err != nil {
+				return err
+			}
+			for i := range resourceList.Items {
+				item := &resourceList.Items[i]
+				labels := item.GetLabels()
+				if labels == nil {
+					labels = make(map[string]string, 3)
+				}
+				labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
+				labels[common.GenerateSourceUIDLabel] = string(item.GetUID())
+				labels[common.GeneratePolicyLabel] = cp.policyName
+
+				item.SetLabels(labels)
+				item.SetNamespace(namespace)
+				item.SetResourceVersion("")
+				generatedRes, err := cp.client.CreateResource(context.TODO(), item.GetAPIVersion(), item.GetKind(), namespace, item, false)
+				if err != nil {
+					return err
+				}
+				cp.generatedResources = append(cp.generatedResources, generatedRes)
+			}
+		} else {
+			labels := resource.GetLabels()
+			if labels == nil {
+				labels = make(map[string]string, 2)
+			}
+			labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
+			labels[common.GeneratePolicyLabel] = cp.policyName
+			// add source labels
+			if resource.GetResourceVersion() != "" {
+				labels[common.GenerateSourceUIDLabel] = string(resource.GetUID())
+			}
+			resource.SetLabels(labels)
+			resource.SetNamespace(namespace)
+			resource.SetResourceVersion("")
+			generatedRes, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
+			if err != nil {
+				return err
+			}
+			cp.generatedResources = append(cp.generatedResources, generatedRes)
 		}
 	}
 	return nil
+}
+
+func (cp *contextProvider) SetPolicyName(name string) {
+	cp.policyName = name
+}
+
+func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {
+	return cp.generatedResources
+}
+
+func (cp *contextProvider) ClearGeneratedResources() {
+	cp.generatedResources = make([]*unstructured.Unstructured, 0)
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {

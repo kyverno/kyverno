@@ -18,6 +18,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -29,6 +30,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -40,6 +42,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -51,6 +54,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -76,16 +80,16 @@ data:
     [*/*,kube-public,*]
     [*/*,kube-node-lease,*]
     [Node,*,*]
-    [Node/*,*,*]
+    [Node/?*,*,*]
     [APIService,*,*]
-    [APIService/*,*,*]
+    [APIService/?*,*,*]
     [TokenReview,*,*]
     [SubjectAccessReview,*,*]
     [SelfSubjectAccessReview,*,*]
     [Binding,*,*]
     [Pod/binding,*,*]
     [ReplicaSet,*,*]
-    [ReplicaSet/*,*,*]
+    [ReplicaSet/?*,*,*]
     [EphemeralReport,*,*]
     [ClusterEphemeralReport,*,*]
     [ClusterRole,*,kyverno:admission-controller]
@@ -105,13 +109,13 @@ data:
     [ClusterRoleBinding,*,kyverno:cleanup-controller]
     [ClusterRoleBinding,*,kyverno:reports-controller]
     [ServiceAccount,kyverno,kyverno-admission-controller]
-    [ServiceAccount/*,kyverno,kyverno-admission-controller]
+    [ServiceAccount/?*,kyverno,kyverno-admission-controller]
     [ServiceAccount,kyverno,kyverno-background-controller]
-    [ServiceAccount/*,kyverno,kyverno-background-controller]
+    [ServiceAccount/?*,kyverno,kyverno-background-controller]
     [ServiceAccount,kyverno,kyverno-cleanup-controller]
-    [ServiceAccount/*,kyverno,kyverno-cleanup-controller]
+    [ServiceAccount/?*,kyverno,kyverno-cleanup-controller]
     [ServiceAccount,kyverno,kyverno-reports-controller]
-    [ServiceAccount/*,kyverno,kyverno-reports-controller]
+    [ServiceAccount/?*,kyverno,kyverno-reports-controller]
     [Role,kyverno,kyverno:admission-controller]
     [Role,kyverno,kyverno:background-controller]
     [Role,kyverno,kyverno:cleanup-controller]
@@ -123,51 +127,51 @@ data:
     [ConfigMap,kyverno,kyverno]
     [ConfigMap,kyverno,kyverno-metrics]
     [Deployment,kyverno,kyverno-admission-controller]
-    [Deployment/*,kyverno,kyverno-admission-controller]
+    [Deployment/?*,kyverno,kyverno-admission-controller]
     [Deployment,kyverno,kyverno-background-controller]
-    [Deployment/*,kyverno,kyverno-background-controller]
+    [Deployment/?*,kyverno,kyverno-background-controller]
     [Deployment,kyverno,kyverno-cleanup-controller]
-    [Deployment/*,kyverno,kyverno-cleanup-controller]
+    [Deployment/?*,kyverno,kyverno-cleanup-controller]
     [Deployment,kyverno,kyverno-reports-controller]
-    [Deployment/*,kyverno,kyverno-reports-controller]
+    [Deployment/?*,kyverno,kyverno-reports-controller]
     [Pod,kyverno,kyverno-admission-controller-*]
-    [Pod/*,kyverno,kyverno-admission-controller-*]
+    [Pod/?*,kyverno,kyverno-admission-controller-*]
     [Pod,kyverno,kyverno-background-controller-*]
-    [Pod/*,kyverno,kyverno-background-controller-*]
+    [Pod/?*,kyverno,kyverno-background-controller-*]
     [Pod,kyverno,kyverno-cleanup-controller-*]
-    [Pod/*,kyverno,kyverno-cleanup-controller-*]
+    [Pod/?*,kyverno,kyverno-cleanup-controller-*]
     [Pod,kyverno,kyverno-reports-controller-*]
-    [Pod/*,kyverno,kyverno-reports-controller-*]
+    [Pod/?*,kyverno,kyverno-reports-controller-*]
     [Job,kyverno,kyverno-hook-pre-delete]
-    [Job/*,kyverno,kyverno-hook-pre-delete]
+    [Job/?*,kyverno,kyverno-hook-pre-delete]
     [NetworkPolicy,kyverno,kyverno-admission-controller]
-    [NetworkPolicy/*,kyverno,kyverno-admission-controller]
+    [NetworkPolicy/?*,kyverno,kyverno-admission-controller]
     [NetworkPolicy,kyverno,kyverno-background-controller]
-    [NetworkPolicy/*,kyverno,kyverno-background-controller]
+    [NetworkPolicy/?*,kyverno,kyverno-background-controller]
     [NetworkPolicy,kyverno,kyverno-cleanup-controller]
-    [NetworkPolicy/*,kyverno,kyverno-cleanup-controller]
+    [NetworkPolicy/?*,kyverno,kyverno-cleanup-controller]
     [NetworkPolicy,kyverno,kyverno-reports-controller]
-    [NetworkPolicy/*,kyverno,kyverno-reports-controller]
+    [NetworkPolicy/?*,kyverno,kyverno-reports-controller]
     [PodDisruptionBudget,kyverno,kyverno-admission-controller]
-    [PodDisruptionBudget/*,kyverno,kyverno-admission-controller]
+    [PodDisruptionBudget/?*,kyverno,kyverno-admission-controller]
     [PodDisruptionBudget,kyverno,kyverno-background-controller]
-    [PodDisruptionBudget/*,kyverno,kyverno-background-controller]
+    [PodDisruptionBudget/?*,kyverno,kyverno-background-controller]
     [PodDisruptionBudget,kyverno,kyverno-cleanup-controller]
-    [PodDisruptionBudget/*,kyverno,kyverno-cleanup-controller]
+    [PodDisruptionBudget/?*,kyverno,kyverno-cleanup-controller]
     [PodDisruptionBudget,kyverno,kyverno-reports-controller]
-    [PodDisruptionBudget/*,kyverno,kyverno-reports-controller]
+    [PodDisruptionBudget/?*,kyverno,kyverno-reports-controller]
     [Service,kyverno,kyverno-svc]
-    [Service/*,kyverno,kyverno-svc]
+    [Service/?*,kyverno,kyverno-svc]
     [Service,kyverno,kyverno-svc-metrics]
-    [Service/*,kyverno,kyverno-svc-metrics]
+    [Service/?*,kyverno,kyverno-svc-metrics]
     [Service,kyverno,kyverno-background-controller-metrics]
-    [Service/*,kyverno,kyverno-background-controller-metrics]
+    [Service/?*,kyverno,kyverno-background-controller-metrics]
     [Service,kyverno,kyverno-cleanup-controller]
-    [Service/*,kyverno,kyverno-cleanup-controller]
+    [Service/?*,kyverno,kyverno-cleanup-controller]
     [Service,kyverno,kyverno-cleanup-controller-metrics]
-    [Service/*,kyverno,kyverno-cleanup-controller-metrics]
+    [Service/?*,kyverno,kyverno-cleanup-controller-metrics]
     [Service,kyverno,kyverno-reports-controller-metrics]
-    [Service/*,kyverno,kyverno-reports-controller-metrics]
+    [Service/?*,kyverno,kyverno-reports-controller-metrics]
     [ServiceMonitor,kyverno,kyverno-admission-controller]
     [ServiceMonitor,kyverno,kyverno-background-controller]
     [ServiceMonitor,kyverno,kyverno-cleanup-controller]
@@ -49122,6 +49126,28 @@ spec:
                 description: GenerateConfiguration defines the configuration for the
                   policy evaluation.
                 properties:
+                  admission:
+                    description: Admission controls policy evaluation during admission.
+                    properties:
+                      enabled:
+                        default: true
+                        description: |-
+                          Enabled controls if rules are applied during admission.
+                          Optional. Default value is "true".
+                        type: boolean
+                    type: object
+                  background:
+                    description: Background  controls policy evaluation during background
+                      scan.
+                    properties:
+                      enabled:
+                        default: true
+                        description: |-
+                          Enabled controls if rules are applied to existing resources during a background scan.
+                          Optional. Default value is "true". The value must be set to "false" if the policy rule
+                          uses variables that are only available in the admission review request (e.g. user name).
+                        type: boolean
+                    type: object
                   generateExisting:
                     description: |-
                       GenerateExisting controls whether to trigger the policy for existing resources
@@ -49595,6 +49621,82 @@ spec:
                 type: object
             required:
             - generate
+            type: object
+          status:
+            description: Status contains policy runtime data.
+            properties:
+              conditionStatus:
+                description: ConditionStatus is the shared status across all policy
+                  types
+                properties:
+                  conditions:
+                    items:
+                      description: Condition contains details for one aspect of the
+                        current state of this API Resource.
+                      properties:
+                        lastTransitionTime:
+                          description: |-
+                            lastTransitionTime is the last time the condition transitioned from one status to another.
+                            This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          format: date-time
+                          type: string
+                        message:
+                          description: |-
+                            message is a human readable message indicating details about the transition.
+                            This may be an empty string.
+                          maxLength: 32768
+                          type: string
+                        observedGeneration:
+                          description: |-
+                            observedGeneration represents the .metadata.generation that the condition was set based upon.
+                            For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                            with respect to the current state of the instance.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        reason:
+                          description: |-
+                            reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                            Producers of specific condition types may define expected values and meanings for this field,
+                            and whether the values are considered a guaranteed API.
+                            The value should be a CamelCase string.
+                            This field may not be empty.
+                          maxLength: 1024
+                          minLength: 1
+                          pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                          type: string
+                        status:
+                          description: status of the condition, one of True, False,
+                            Unknown.
+                          enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                          type: string
+                        type:
+                          description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                          maxLength: 316
+                          pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  message:
+                    description: |-
+                      Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+                      It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.
+                    type: string
+                  ready:
+                    description: |-
+                      The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+                      The conditions array, the reason and message fields contain more detail about the policy's status.
+                    type: boolean
+                type: object
             type: object
         required:
         - spec
@@ -52049,7 +52151,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      ExcludeResourceRules describes what operations on what resources/subresources the policy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -52137,12 +52239,13 @@ spec:
                       - Exact: match a request only if it exactly matches a specified rule.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
+                      the admission policy does not consider requests to apps/v1beta1 or extensions/v1beta1 API groups.
 
                       - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
+                      the admission policy **does** consider requests made to apps/v1beta1 or extensions/v1beta1
+                      API groups. The API server translates the request to a matched resource API if necessary.
 
                       Defaults to "Equivalent"
                     type: string
@@ -52237,9 +52340,9 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      ObjectSelector decides whether to run the policy based on if the
                       object has matching labels. objectSelector is evaluated against both
-                      the oldObject and newObject that would be sent to the cel validation, and
+                      the oldObject and newObject that would be sent to the policy's expression (CEL), and
                       is considered to match if either object matches the selector. A null
                       object (oldObject in the case of create, or newObject in the case of
                       delete) or an object that cannot have labels (like a
@@ -52294,7 +52397,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      ResourceRules describes what operations on what resources/subresources the admission policy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -52529,7 +52632,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      ExcludeResourceRules describes what operations on what resources/subresources the policy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -52617,12 +52720,13 @@ spec:
                       - Exact: match a request only if it exactly matches a specified rule.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
+                      the admission policy does not consider requests to apps/v1beta1 or extensions/v1beta1 API groups.
 
                       - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
+                      the admission policy **does** consider requests made to apps/v1beta1 or extensions/v1beta1
+                      API groups. The API server translates the request to a matched resource API if necessary.
 
                       Defaults to "Equivalent"
                     type: string
@@ -52717,9 +52821,9 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      ObjectSelector decides whether to run the policy based on if the
                       object has matching labels. objectSelector is evaluated against both
-                      the oldObject and newObject that would be sent to the cel validation, and
+                      the oldObject and newObject that would be sent to the policy's expression (CEL), and
                       is considered to match if either object matches the selector. A null
                       object (oldObject in the case of create, or newObject in the case of
                       delete) or an object that cannot have labels (like a
@@ -52774,7 +52878,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      ResourceRules describes what operations on what resources/subresources the admission policy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -56884,6 +56988,7 @@ rules:
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
       - generatingpolicies
+      - generatingpolicies/status
       - mutatingpolicies
       - mutatingpolicies/status
     verbs:
@@ -57491,6 +57596,7 @@ rules:
       - validatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
+      - generatingpolicies
     verbs:
       - create
       - delete
@@ -58147,6 +58253,7 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       serviceAccountName: kyverno-admission-controller
+      automountServiceAccountToken: true
       initContainers:
         - name: kyverno-pre
           image: "reg.kyverno.io/kyverno/kyvernopre:latest"
@@ -58212,6 +58319,7 @@ spec:
             - --maxAdmissionReports=1000
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
+            - --controllerRuntimeMetricsAddress=:8080
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
@@ -58354,6 +58462,7 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       serviceAccountName: kyverno-background-controller
+      automountServiceAccountToken: true
       containers:
         - name: controller
           image: "reg.kyverno.io/kyverno/background-controller:latest"
@@ -58459,6 +58568,7 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       serviceAccountName: kyverno-cleanup-controller
+      automountServiceAccountToken: true
       containers:
         - name: controller
           image: "reg.kyverno.io/kyverno/cleanup-controller:latest"
@@ -58600,6 +58710,7 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       serviceAccountName: kyverno-reports-controller
+      automountServiceAccountToken: true
       containers:
         - name: controller
           image: "reg.kyverno.io/kyverno/reports-controller:latest"

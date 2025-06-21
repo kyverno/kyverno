@@ -24,6 +24,9 @@ spec:
   selector:
     {{- include "kyverno.reports-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.reportsController.metricsService.type }}
+  {{- if .Values.reportsController.metricsService.trafficDistribution }}
+  trafficDistribution: {{ .Values.reportsController.metricsService.trafficDistribution }}
+  {{- end }}
 {{- end -}}
 {{- end -}}
 {{- if .Values.reportsController.profiling.enabled }}
