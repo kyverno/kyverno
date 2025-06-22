@@ -513,6 +513,12 @@ test:
   # -- Toggle automounting of the ServiceAccount
   automountServiceAccountToken: true
 
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
 # -- Additional labels
 customLabels: {}
 
