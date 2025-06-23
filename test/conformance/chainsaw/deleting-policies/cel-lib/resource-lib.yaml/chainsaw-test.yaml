@@ -1,0 +1,36 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: deleting-policy-resource-lib
+  namespace: "default"
+spec:
+  steps:
+    - name: step-00
+      try:
+        - apply:
+            file: rbac.yaml
+
+    - name: step-01
+      try:
+        - apply:
+            file: configmap.yaml
+
+    - name: step-02
+      try:
+        - create:
+            file: pod.yaml
+
+    - name: step-03
+      try:
+        - apply:
+            file: policy.yaml
+
+    - name: step-04
+      try:
+        - sleep:
+            duration: 65s
+
+    - name: step-05
+      try:
+        - error:
+            file: pod-assert.yaml
