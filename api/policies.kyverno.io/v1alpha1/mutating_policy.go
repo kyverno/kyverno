@@ -251,6 +251,10 @@ func (s *MutatingPolicy) GetKind() string {
 	return "MutatingPolicy"
 }
 
+func (s *MutatingPolicy) GetSpec() *MutatingPolicySpec {
+	return &s.Spec
+}
+
 func (status *MutatingPolicyStatus) GetConditionStatus() *ConditionStatus {
 	return &status.ConditionStatus
 }
