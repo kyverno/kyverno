@@ -2,151 +2,266 @@ package api
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PolicyType represents the type of a policy
-type PolicyType string
-
-const (
-	// KyvernoPolicy type for kyverno policies
-	KyvernoPolicyType PolicyType = "KyvernoPolicy"
-	// ValidatingAdmissionPolicy for validating admission policies
-	ValidatingAdmissionPolicyType PolicyType = "ValidatingAdmissionPolicy"
-)
-
-// GenericPolicy abstracts the policy type (Kyverno policy vs Validating admission policy)
-// It is intended to be used in EngineResponse
-type GenericPolicy interface {
-	// AsKyvernoPolicy returns the kyverno policy
-	AsKyvernoPolicy() kyvernov1.PolicyInterface
-	// AsValidatingAdmissionPolicy returns the validating admission policy
-	AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy
-	// GetType returns policy type
-	GetType() PolicyType
-	// GetAPIVersion returns policy API version
-	GetAPIVersion() string
-	// GetName returns policy name
-	GetName() string
-	// GetNamespace returns policy namespace
-	GetNamespace() string
-	// GetKind returns policy kind
-	GetKind() string
-	// GetResourceVersion returns policy resource version
-	GetResourceVersion() string
-	// GetAnnotations returns policy annotations
-	GetAnnotations() map[string]string
-	// IsNamespaced indicates if the policy is namespace scoped
-	IsNamespaced() bool
-	// MetaObject provides an object compatible with metav1.Object
-	MetaObject() metav1.Object
+// Everything someone might need to validate a single ValidatingAdmissionPolicy
+// against all of its registered bindings.
+type ValidatingAdmissionPolicyData struct {
+	definition *admissionregistrationv1.ValidatingAdmissionPolicy
+	bindings   []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 }
 
-type KyvernoPolicy struct {
-	policy kyvernov1.PolicyInterface
+func (p *ValidatingAdmissionPolicyData) AddBinding(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
+	p.bindings = append(p.bindings, binding)
 }
 
-func (p *KyvernoPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
-	return p.policy
+func (p *ValidatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1.ValidatingAdmissionPolicy {
+	return p.definition
 }
 
-func (p *KyvernoPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
-	return nil
+func (p *ValidatingAdmissionPolicyData) GetBindings() []admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+	return p.bindings
 }
 
-func (p *KyvernoPolicy) GetType() PolicyType {
-	return KyvernoPolicyType
-}
-
-func (p *KyvernoPolicy) GetAPIVersion() string {
-	return "kyverno.io/v1"
-}
-
-func (p *KyvernoPolicy) GetName() string {
-	return p.policy.GetName()
-}
-
-func (p *KyvernoPolicy) GetNamespace() string {
-	return p.policy.GetNamespace()
-}
-
-func (p *KyvernoPolicy) GetKind() string {
-	return p.policy.GetKind()
-}
-
-func (p *KyvernoPolicy) GetResourceVersion() string {
-	return p.policy.GetResourceVersion()
-}
-
-func (p *KyvernoPolicy) GetAnnotations() map[string]string {
-	return p.policy.GetAnnotations()
-}
-
-func (p *KyvernoPolicy) IsNamespaced() bool {
-	return p.policy.IsNamespaced()
-}
-
-func (p *KyvernoPolicy) MetaObject() metav1.Object {
-	return p.policy
-}
-
-func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) GenericPolicy {
-	return &KyvernoPolicy{
-		policy: pol,
+func NewValidatingAdmissionPolicyData(
+	policy *admissionregistrationv1.ValidatingAdmissionPolicy,
+	bindings ...admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+) *ValidatingAdmissionPolicyData {
+	return &ValidatingAdmissionPolicyData{
+		definition: policy,
+		bindings:   bindings,
 	}
 }
 
-type ValidatingAdmissionPolicy struct {
-	policy admissionregistrationv1beta1.ValidatingAdmissionPolicy
+// MutatingPolicyData holds a MAP and its associated MAPBs
+type MutatingAdmissionPolicyData struct {
+	definition *admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 }
 
-func (p *ValidatingAdmissionPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
-	return nil
+// AddBinding appends a MAPB to the policy data
+func (m *MutatingAdmissionPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+	m.bindings = append(m.bindings, b)
 }
 
-func (p *ValidatingAdmissionPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
-	return &p.policy
+func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
+	return p.definition
 }
 
-func (p *ValidatingAdmissionPolicy) GetType() PolicyType {
-	return ValidatingAdmissionPolicyType
+func (p *MutatingAdmissionPolicyData) GetBindings() []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
+	return p.bindings
 }
 
-func (p *ValidatingAdmissionPolicy) GetAPIVersion() string {
-	return "admissionregistration.k8s.io/v1beta1"
+// NewMutatingPolicyData initializes a MAP wrapper with no bindings
+func NewMutatingAdmissionPolicyData(
+	policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
+	bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+) *MutatingAdmissionPolicyData {
+	return &MutatingAdmissionPolicyData{
+		definition: policy,
+		bindings:   bindings,
+	}
 }
 
-func (p *ValidatingAdmissionPolicy) GetName() string {
-	return p.policy.GetName()
+// GenericPolicy abstracts the policy type (ClusterPolicy/Policy, ValidatingPolicy, ValidatingAdmissionPolicy and MutatingAdmissionPolicy)
+// It is intended to be used in EngineResponse
+type GenericPolicy interface {
+	metav1.Object
+	// GetAPIVersion returns policy API version
+	GetAPIVersion() string
+	// GetKind returns policy kind
+	GetKind() string
+	// IsNamespaced indicates if the policy is namespace scoped
+	IsNamespaced() bool
+	// AsObject returns the raw underlying policy
+	AsObject() any
+	// AsKyvernoPolicy returns the kyverno policy
+	AsKyvernoPolicy() kyvernov1.PolicyInterface
+	// AsValidatingAdmissionPolicy returns the validating admission policy with its bindings
+	AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData
+	// AsValidatingPolicy returns the validating policy
+	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
+	// AsImageValidatingPolicy returns the imageverificationpolicy
+	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
+	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
+	AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
+	// AsMutatingPolicy returns the mutating policy
+	AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy
+	// AsGeneratingPolicy returns the generating policy
+	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
+	// AsDeletingPolicy returns the deleting policy
+	AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy
+}
+type genericPolicy struct {
+	metav1.Object
+	PolicyInterface           kyvernov1.PolicyInterface
+	ValidatingAdmissionPolicy *ValidatingAdmissionPolicyData
+	MutatingAdmissionPolicy   *MutatingAdmissionPolicyData
+	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
+	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
+	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
+	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
+	DeletingPolicy            *policiesv1alpha1.DeletingPolicy
 }
 
-func (p *ValidatingAdmissionPolicy) GetNamespace() string {
-	return p.policy.GetNamespace()
+func (p *genericPolicy) AsObject() any {
+	return p.Object
 }
 
-func (p *ValidatingAdmissionPolicy) GetKind() string {
-	return "ValidatingAdmissionPolicy"
+func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
+	return p.PolicyInterface
 }
 
-func (p *ValidatingAdmissionPolicy) GetResourceVersion() string {
-	return p.policy.GetResourceVersion()
+func (p *genericPolicy) AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData {
+	return p.ValidatingAdmissionPolicy
 }
 
-func (p *ValidatingAdmissionPolicy) GetAnnotations() map[string]string {
-	return p.policy.GetAnnotations()
+func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData {
+	return p.MutatingAdmissionPolicy
 }
 
-func (p *ValidatingAdmissionPolicy) IsNamespaced() bool {
+func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy {
+	return p.ValidatingPolicy
+}
+
+func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy {
+	return p.ImageValidatingPolicy
+}
+
+func (p *genericPolicy) AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy {
+	return p.MutatingPolicy
+}
+
+func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy {
+	return p.GeneratingPolicy
+}
+
+func (p *genericPolicy) AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy {
+	return p.DeletingPolicy
+}
+
+func (p *genericPolicy) GetAPIVersion() string {
+	switch {
+	case p.PolicyInterface != nil:
+		return kyvernov1.GroupVersion.String()
+	case p.ValidatingAdmissionPolicy != nil:
+		return admissionregistrationv1.SchemeGroupVersion.String()
+	case p.MutatingAdmissionPolicy != nil:
+		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
+	case p.ValidatingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.ImageValidatingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.MutatingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.GeneratingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.DeletingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	}
+	return ""
+}
+
+func (p *genericPolicy) GetKind() string {
+	switch {
+	case p.PolicyInterface != nil:
+		return p.PolicyInterface.GetKind()
+	case p.ValidatingAdmissionPolicy != nil:
+		return "ValidatingAdmissionPolicy"
+	case p.MutatingAdmissionPolicy != nil:
+		return "MutatingAdmissionPolicy"
+	case p.ValidatingPolicy != nil:
+		return "ValidatingPolicy"
+	case p.ImageValidatingPolicy != nil:
+		return "ImageValidatingPolicy"
+	case p.MutatingPolicy != nil:
+		return "MutatingPolicy"
+	case p.GeneratingPolicy != nil:
+		return "GeneratingPolicy"
+	case p.DeletingPolicy != nil:
+		return "DeletingPolicy"
+	}
+	return ""
+}
+
+func (p *genericPolicy) IsNamespaced() bool {
+	switch {
+	case p.PolicyInterface != nil:
+		return p.PolicyInterface.IsNamespaced()
+	}
 	return false
 }
 
-func (p *ValidatingAdmissionPolicy) MetaObject() metav1.Object {
-	return &p.policy
+func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) GenericPolicy {
+	return &genericPolicy{
+		Object:          pol,
+		PolicyInterface: pol,
+	}
 }
 
-func NewValidatingAdmissionPolicy(pol admissionregistrationv1beta1.ValidatingAdmissionPolicy) GenericPolicy {
-	return &ValidatingAdmissionPolicy{
-		policy: pol,
+func NewValidatingAdmissionPolicy(pol *admissionregistrationv1.ValidatingAdmissionPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:                    pol,
+		ValidatingAdmissionPolicy: NewValidatingAdmissionPolicyData(pol),
+	}
+}
+
+func NewValidatingAdmissionPolicyWithBindings(pol *admissionregistrationv1.ValidatingAdmissionPolicy, bindings ...admissionregistrationv1.ValidatingAdmissionPolicyBinding) GenericPolicy {
+	return &genericPolicy{
+		Object:                    pol,
+		ValidatingAdmissionPolicy: NewValidatingAdmissionPolicyData(pol, bindings...),
+	}
+}
+
+func NewMutatingAdmissionPolicy(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:                  pol,
+		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol),
+	}
+}
+
+func NewMutatingAdmissionPolicyWithBindings(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy, bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) GenericPolicy {
+	return &genericPolicy{
+		Object:                  pol,
+		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol, bindings...),
+	}
+}
+
+func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:           pol,
+		ValidatingPolicy: pol,
+	}
+}
+
+func NewImageValidatingPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:                pol,
+		ImageValidatingPolicy: pol,
+	}
+}
+
+func NewMutatingPolicy(pol *policiesv1alpha1.MutatingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:         pol,
+		MutatingPolicy: pol,
+	}
+}
+
+func NewGeneratingPolicy(pol *policiesv1alpha1.GeneratingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:           pol,
+		GeneratingPolicy: pol,
+	}
+}
+
+func NewDeletingPolicy(pol *policiesv1alpha1.DeletingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:         pol,
+		DeletingPolicy: pol,
 	}
 }

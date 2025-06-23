@@ -66,6 +66,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(configMapResolver),
 			exceptions.New(peLister),
+			nil,
 		),
 	}
 }

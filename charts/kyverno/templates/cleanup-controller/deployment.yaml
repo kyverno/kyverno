@@ -1,5 +1,6 @@
 {{- if .Values.cleanupController.enabled -}}
 {{- if not .Values.templating.debug -}}
+{{- $automountSAToken := .Values.cleanupController.rbac.serviceAccount.automountServiceAccountToken -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -41,7 +42,7 @@ spec:
     spec:
       {{- with .Values.cleanupController.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.cleanupController.podSecurityContext }}
       securityContext:
@@ -68,6 +69,10 @@ spec:
       {{- with .Values.cleanupController.dnsPolicy }}
       dnsPolicy: {{ . }}
       {{- end }}
+      {{- with .Values.cleanupController.dnsConfig }}
+      dnsConfig:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
       {{- if or .Values.cleanupController.antiAffinity.enabled .Values.cleanupController.podAffinity .Values.cleanupController.nodeAffinity }}
       affinity:
         {{- if .Values.cleanupController.antiAffinity.enabled }}
@@ -86,6 +91,7 @@ spec:
         {{- end }}
       {{- end }}
       serviceAccountName: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
+      automountServiceAccountToken: {{ $automountSAToken }}
       containers:
         - name: controller
           image: {{ include "kyverno.cleanup-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
@@ -131,7 +137,7 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.cleanupController.featuresOverride)
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.cleanupController.featuresOverride)
               "deferredLoading"
               "dumpPayload"
               "globalContext"
@@ -192,5 +198,32 @@ spec:
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
+          {{- if not $automountSAToken }}
+          volumeMounts:
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          {{- end }}
+      {{- if not $automountSAToken }}
+      volumes:
+        - name: serviceaccount-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3607
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
+      {{- end }}
 {{- end -}}
 {{- end -}}

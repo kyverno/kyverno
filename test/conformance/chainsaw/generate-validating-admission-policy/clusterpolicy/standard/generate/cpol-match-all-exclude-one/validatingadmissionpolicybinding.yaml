@@ -1,15 +1,15 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: check-label-app5-binding
+  name: cpol-check-label-app5-binding
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
     name: check-label-app5
 spec:
-  policyName: check-label-app5
+  policyName: cpol-check-label-app5
   validationActions:
   - Audit
   - Warn

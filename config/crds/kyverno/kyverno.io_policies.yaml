@@ -144,7 +144,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -3178,6 +3178,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -5219,7 +5225,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -8295,6 +8301,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.
@@ -13116,6 +13128,12 @@ spec:
                                 - expression
                                 type: object
                               type: array
+                            generate:
+                              default: false
+                              description: |-
+                                Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                Optional. Defaults to "false" if not specified.
+                              type: boolean
                             paramKind:
                               description: ParamKind is a tuple of Group Kind and
                                 Version.
@@ -15214,7 +15232,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -18290,6 +18308,12 @@ spec:
                                     - expression
                                     type: object
                                   type: array
+                                generate:
+                                  default: false
+                                  description: |-
+                                    Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+                                    Optional. Defaults to "false" if not specified.
+                                  type: boolean
                                 paramKind:
                                   description: ParamKind is a tuple of Group Kind
                                     and Version.

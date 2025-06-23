@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: globalcontextentries.kyverno.io
 spec:
   group: kyverno.io
@@ -25,9 +25,6 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: READY
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -186,6 +183,24 @@ spec:
                 - resource
                 - version
                 type: object
+              projections:
+                description: Projections defines the list of JMESPath expressions
+                  to extract values from the cached resource.
+                items:
+                  properties:
+                    jmesPath:
+                      description: JMESPath is the JMESPath expression to extract
+                        the value from the cached resource.
+                      type: string
+                    name:
+                      description: Name is the name to use for the extracted value
+                        in the context.
+                      type: string
+                  required:
+                  - jmesPath
+                  - name
+                  type: object
+                type: array
             type: object
           status:
             description: Status contains globalcontextentry runtime data.

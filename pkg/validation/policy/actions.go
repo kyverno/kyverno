@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -14,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 )
 
 // Validation provides methods to validate a rule
@@ -45,20 +45,22 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 
 	// Validate
 	if rule.HasValidate() {
-		checker = validate.NewValidateFactory(rule, client, mock, reportsSA)
-		if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
-			return nil, fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
-		} else if w != nil {
-			warnings = append(warnings, w...)
+		if reportsSA != "" {
+			checker = validate.NewValidateFactory(rule, client, mock, reportsSA)
+			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
+				return nil, fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
+			} else if w != nil {
+				warnings = append(warnings, w...)
+			}
 		}
 
 		if rule.HasValidateCEL() && toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
 			authCheck := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
-			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
+			if !admissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
 				warnings = append(warnings, "insufficient permissions to generate ValidatingAdmissionPolicies")
 			}
 
-			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyBindingPermission(authCheck) {
+			if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(authCheck) {
 				warnings = append(warnings, "insufficient permissions to generate ValidatingAdmissionPolicies")
 			}
 		}

@@ -89,7 +89,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
-	logger.Info("processing mutate existing")
+	logger.V(3).Info("processing mutate existing")
 	policy, err := c.getPolicy(ur)
 	if err != nil {
 		logger.Error(err, "failed to get policy")
@@ -148,7 +148,13 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 			}
 		}
 
-		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+		namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, []kyvernov1.PolicyInterface{policy}, logger)
+		if err != nil {
+			logger.WithName(rule.Name).Error(err, "failed to get namespace labels")
+			errs = append(errs, err)
+			continue
+		}
+
 		policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, policy, trigger, c.configuration, c.jp, namespaceLabels)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
@@ -159,7 +165,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 			var gvk schema.GroupVersionKind
 			gvk, err = c.client.Discovery().GetGVKFromGVR(schema.GroupVersionResource(admissionRequest.Resource))
 			if err != nil {
-				logger.WithName(rule.Name).Error(err, "failed to get GVK from GVR", "GVR", admissionRequest.Resource)
+				logger.WithName(rule.Name).Error(err, "failed to get GVK from GVR", "GVR", admissionRequest.Resource.String())
 				errs = append(errs, err)
 				continue
 			}
@@ -202,7 +208,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 					parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
 					parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
 					if err != nil {
-						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
+						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR.String())
 						errs = append(errs, err)
 						continue
 					}

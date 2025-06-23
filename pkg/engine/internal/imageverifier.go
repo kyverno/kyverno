@@ -86,7 +86,7 @@ func ExpandStaticKeys(attestorSet kyvernov1.AttestorSet) kyvernov1.AttestorSet {
 		if e.Keys != nil {
 			keys := splitPEM(e.Keys.PublicKeys)
 			if len(keys) > 1 {
-				moreEntries := createStaticKeyAttestors(keys)
+				moreEntries := createStaticKeyAttestors(keys, e)
 				entries = append(entries, moreEntries...)
 				continue
 			}
@@ -107,15 +107,12 @@ func splitPEM(pem string) []string {
 	return keys[0 : len(keys)-1]
 }
 
-func createStaticKeyAttestors(keys []string) []kyvernov1.Attestor {
+func createStaticKeyAttestors(keys []string, base kyvernov1.Attestor) []kyvernov1.Attestor {
 	attestors := make([]kyvernov1.Attestor, 0, len(keys))
 	for _, k := range keys {
-		a := kyvernov1.Attestor{
-			Keys: &kyvernov1.StaticKeyAttestor{
-				PublicKeys: k,
-			},
-		}
-		attestors = append(attestors, a)
+		a := base.DeepCopy()
+		a.Keys.PublicKeys = k
+		attestors = append(attestors, *a)
 	}
 	return attestors
 }
@@ -279,16 +276,16 @@ func (iv *ImageVerifier) verifyImage(
 		iv.logger.Error(err, "failed to add image to context", "image", image)
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err, iv.rule.ReportProperties), ""
 	}
-	if len(imageVerify.Attestors) > 0 {
-		if !matchReferences(imageVerify.ImageReferences, image) {
-			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties), ""
-		}
+	if !matchReferences(imageVerify.ImageReferences, image) {
+		return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties), ""
+	}
 
-		if matchReferences(imageVerify.SkipImageReferences, image) {
-			iv.logger.Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
-			iv.ivm.Add(image, engineapi.ImageVerificationSkip)
-			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties).WithEmitWarning(true), ""
-		}
+	if matchReferences(imageVerify.SkipImageReferences, image) {
+		iv.logger.V(3).Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
+		iv.ivm.Add(image, engineapi.ImageVerificationSkip)
+		return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties).WithEmitWarning(true), ""
+	}
+	if len(imageVerify.Attestors) > 0 {
 		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo)
 		if ruleResp.Status() != engineapi.RuleStatusPass {
 			return ruleResp, ""
@@ -541,7 +538,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		opts.Type = attestation.Type
 		opts.IgnoreSCT = true // TODO: Add option to allow SCT when attestors are not provided
 		if attestation.PredicateType != "" && attestation.Type == "" {
-			iv.logger.Info("predicate type has been deprecated, please use type instead", "image", image)
+			iv.logger.V(4).Info("predicate type has been deprecated, please use type instead", "image", image)
 			opts.Type = attestation.PredicateType
 		}
 		opts.FetchAttestations = true
@@ -650,7 +647,7 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 		opts.Type = attestation.Type
 		opts.PredicateType = attestation.PredicateType
 		if attestation.PredicateType != "" && attestation.Type == "" {
-			iv.logger.Info("predicate type has been deprecated, please use type instead", "image", image)
+			iv.logger.V(2).Info("predicate type has been deprecated, please use type instead", "image", image)
 			opts.Type = attestation.PredicateType
 		}
 		opts.FetchAttestations = true
@@ -676,11 +673,11 @@ func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, 
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 	statements = statementsByPredicate[attestation.Type]
 	if statements == nil {
-		iv.logger.Info("no attestations found for predicate", "type", attestation.Type, "predicates", types, "image", imageInfo.String())
+		iv.logger.V(2).Info("no attestations found for predicate", "type", attestation.Type, "predicates", types, "image", imageInfo.String())
 		return fmt.Errorf("attestions not found for predicate type %s", attestation.Type)
 	}
 	for _, s := range statements {
-		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
+		iv.logger.V(3).Info("checking attestation", "predicates", types, "image", imageInfo.String())
 		val, msg, err := iv.checkAttestations(attestation, s)
 		if err != nil {
 			return fmt.Errorf("failed to check attestations: %w", err)

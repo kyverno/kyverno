@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/go-logr/logr"
+	leasecandidates "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1beta1/leasecandidates"
 	leases "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1beta1/leases"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_coordination_v1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
@@ -29,6 +30,10 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withMetrics) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseCandidateInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "LeaseCandidate", c.clientType)
+	return leasecandidates.WithMetrics(c.inner.LeaseCandidates(namespace), recorder)
+}
 func (c *withMetrics) Leases(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Lease", c.clientType)
 	return leases.WithMetrics(c.inner.Leases(namespace), recorder)
@@ -42,6 +47,9 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withTracing) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseCandidateInterface {
+	return leasecandidates.WithTracing(c.inner.LeaseCandidates(namespace), c.client, "LeaseCandidate")
+}
 func (c *withTracing) Leases(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseInterface {
 	return leases.WithTracing(c.inner.Leases(namespace), c.client, "Lease")
 }
@@ -53,6 +61,9 @@ type withLogging struct {
 
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
+}
+func (c *withLogging) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseCandidateInterface {
+	return leasecandidates.WithLogging(c.inner.LeaseCandidates(namespace), c.logger.WithValues("resource", "LeaseCandidates").WithValues("namespace", namespace))
 }
 func (c *withLogging) Leases(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseInterface {
 	return leases.WithLogging(c.inner.Leases(namespace), c.logger.WithValues("resource", "Leases").WithValues("namespace", namespace))

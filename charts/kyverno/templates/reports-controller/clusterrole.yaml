@@ -53,6 +53,32 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - validatingpolicies
+      - validatingpolicies/status
+      - imagevalidatingpolicies
+      - imagevalidatingpolicies/status
+      - generatingpolicies
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - policyexceptions
+      - policyexceptions/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports

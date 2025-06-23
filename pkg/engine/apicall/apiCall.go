@@ -64,6 +64,11 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	}
 	data, err := a.Execute(ctx, &call.APICall)
 	if err != nil {
+		if data == nil && a.entry.APICall.Default != nil {
+			data = a.entry.APICall.Default.Raw
+			a.logger.V(4).Info("failed to substitute variable data for APICall, using default value", "default", data, "name", a.entry.Name, "URLPath", a.entry.APICall.URLPath, "error", err)
+			return data, nil
+		}
 		return nil, err
 	}
 	return data, nil
@@ -82,17 +87,15 @@ func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte,
 }
 
 func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
-	if jsonData == nil {
-		if a.entry.APICall.Default.Raw == nil {
+	if a.entry.APICall.Default != nil {
+		if string(jsonData) == string(a.entry.APICall.Default.Raw) {
+			err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", a.entry.Name, err)
+			}
+
 			return jsonData, nil
 		}
-		jsonData = a.entry.APICall.Default.Raw
-		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", a.entry.Name, err)
-		}
-
-		return jsonData, nil
 	}
 	if a.entry.APICall.JMESPath == "" {
 		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)

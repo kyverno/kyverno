@@ -1,0 +1,9 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+spec:
+  matchConditions:
+    - name: "check-namespace"
+      expression: "object.metadata.namespace == 'test-ns'"
+  

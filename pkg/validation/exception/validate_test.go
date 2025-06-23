@@ -68,8 +68,7 @@ func Test_Validate(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			polex, err := admissionutils.UnmarshalPolicyException(c.args.resource)
 			assert.NilError(t, err)
-			warnings, err := Validate(context.Background(), logging.GlobalLogger(), polex, c.args.opts)
-			assert.NilError(t, err)
+			warnings := ValidateNamespace(context.Background(), logging.GlobalLogger(), polex.GetNamespace(), c.args.opts)
 			assert.Assert(t, len(warnings) == c.want)
 		})
 	}

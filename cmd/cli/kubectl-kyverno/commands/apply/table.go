@@ -26,7 +26,7 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 			row.ID = id
 			id++
 			row.Policy = color.Policy(policyNamespace, policyName)
-			if policy.GetType() == engineapi.KyvernoPolicyType {
+			if policy.AsKyvernoPolicy() != nil {
 				row.Rule = color.Rule(ruleResponse.Name())
 			}
 			row.Resource = color.Resource(resourceKind, resourceNamespace, resourceName)

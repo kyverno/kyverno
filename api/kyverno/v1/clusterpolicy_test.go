@@ -16,12 +16,12 @@ func Test_ClusterPolicy_Name(t *testing.T) {
 			Namespace: "abcd",
 		},
 	}
-	errs := subject.Validate(nil)
+	_, errs := subject.Validate(nil)
 	assert.Assert(t, len(errs) == 1)
 	assert.Equal(t, errs[0].Field, "name")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeTooLong)
-	assert.Equal(t, errs[0].Detail, "must have at most 63 bytes")
-	assert.Equal(t, errs[0].Error(), "name: Too long: must have at most 63 bytes")
+	assert.Equal(t, errs[0].Detail, "may not be more than 63 bytes")
+	assert.Equal(t, errs[0].Error(), "name: Too long: may not be more than 63 bytes")
 }
 
 func Test_ClusterPolicy_IsNamespaced(t *testing.T) {
@@ -49,7 +49,7 @@ func Test_ClusterPolicy_Autogen_All(t *testing.T) {
 			},
 		},
 	}
-	errs := subject.Validate(nil)
+	_, errs := subject.Validate(nil)
 	assert.Equal(t, len(errs), 1)
 	assert.Equal(t, errs[0].Error(), "metadata.annotations: Forbidden: Autogen annotation does not support 'all' anymore, remove the annotation or set it to a valid value")
 }
