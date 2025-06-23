@@ -197,4 +197,5 @@ const (
 	ValidatingPolicyType      = "ValidatingPolicy"
 	ImageValidatingPolicyType = "ImageValidatingPolicy"
 	MutatingPolicyType        = "MutatingPolicy"
+	GeneratingPolicyType      = "GeneratingPolicy"
 )

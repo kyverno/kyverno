@@ -49,6 +49,7 @@ func NewController(
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	reportsSA string,
 	polStateRecorder webhook.StateRecorder,
 ) Controller {
@@ -120,6 +121,22 @@ func NewController(
 	if err != nil {
 		logger.Error(err, "failed to register event handlers for MutatingPolicy")
 	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		gpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			gpol, ok := obj.(*policiesv1alpha1.GeneratingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.GeneratingPolicyType, gpol.Name))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for GeneratingPolicy")
+	}
 	return c
 }
 
@@ -170,6 +187,18 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		}
 		return c.updateMpolStatus(ctx, mpol)
 	}
+
+	if polType == webhook.GeneratingPolicyType {
+		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("generating policy not found", "name", polName)
+				return nil
+			}
+			return err
+		}
+		return c.updateGpolStatus(ctx, gpol)
+	}
 	return nil
 }
 
@@ -191,6 +220,10 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName())
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsMutatingPolicy().GetSpec().BackgroundEnabled())
+	case webhook.GeneratingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName())
+		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsGeneratingPolicy().GetSpec().AdmissionEnabled() && policy.AsGeneratingPolicy().GetSpec().BackgroundEnabled())
 	}
 
 	if !backgroundOnly {

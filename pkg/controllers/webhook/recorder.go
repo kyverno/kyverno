@@ -57,6 +57,8 @@ func BuildRecorderKey(policyType, name string) string {
 		return ImageValidatingPolicyType + "/" + name
 	case MutatingPolicyType:
 		return MutatingPolicyType + "/" + name
+	case GeneratingPolicyType:
+		return GeneratingPolicyType + "/" + name
 	}
 	return ""
 }
