@@ -4,7 +4,8 @@ metadata:
   name: sync-delete-trigger
 spec:
   evaluation:
-    synchronize: true
+    synchronize:
+      enabled: true
   matchConstraints:
     resourceRules:
     - apiGroups:   ["networking.k8s.io"]
