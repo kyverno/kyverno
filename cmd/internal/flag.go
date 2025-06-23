@@ -15,6 +15,7 @@ var (
 	// logging
 	loggingFormat   string
 	loggingTsFormat string
+	disableLogColor bool
 	// profiling
 	profilingEnabled bool
 	profilingAddress string
@@ -63,11 +64,14 @@ var (
 	enableReporting string
 	// resync
 	resyncPeriod time.Duration
+	// custom resource watch
+	crdWatcher bool
 )
 
 func initLoggingFlags() {
 	logging.InitFlags(nil)
 	flag.StringVar(&loggingFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.BoolVar(&disableLogColor, "disableLogColor", false, "Disable colored output in logs.")
 	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
 }
@@ -94,12 +98,15 @@ func initMetricsFlags() {
 }
 
 func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst int) {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	if f := flag.Lookup("kubeconfig"); f == nil {
+		flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	}
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Float64Var(&eventsRateLimitQPS, "eventsRateLimitQPS", eventsQPS, "Configure the maximum QPS to the Kubernetes API server from Kyverno for events. Uses the client default if zero.")
 	flag.IntVar(&eventsRateLimitBurst, "eventsRateLimitBurst", eventsBurst, "Configure the maximum burst for throttle for events. Uses the client default if zero.")
 	flag.DurationVar(&resyncPeriod, "resyncPeriod", 15*time.Minute, "Configure the resync period for informer factory")
+	flag.BoolVar(&crdWatcher, "crdWatcher", false, "Enable watching of custom resources to invalidate discovery cache on changes.")
 }
 
 func initPolicyExceptionsFlags() {
@@ -144,6 +151,12 @@ func initCleanupFlags() {
 
 func initReportingFlags() {
 	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+}
+
+func lookupKubeconfigFlag() {
+	if f := flag.Lookup("kubeconfig"); f != nil {
+		kubeconfig = f.Value.String()
+	}
 }
 
 type options struct {
@@ -233,7 +246,6 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesReporting() {
 		initReportingFlags()
 	}
-
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
@@ -248,6 +260,7 @@ func showWarnings(config Configuration, logger logr.Logger) {
 func ParseFlags(config Configuration, opts ...Option) {
 	initFlags(config, opts...)
 	flag.Parse()
+	lookupKubeconfigFlag()
 }
 
 func ExceptionNamespace() string {

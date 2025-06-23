@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -85,7 +85,7 @@ type Rule struct {
 	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of CEL conditions. It can only be used with the validate.cel subrule
 	// +optional
-	CELPreconditions []admissionregistrationv1beta1.MatchCondition `json:"celPreconditions,omitempty"`
+	CELPreconditions []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -450,22 +450,24 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
-func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if !r.HasGenerate() {
-		return nil
+		return nil, nil
 	}
 
 	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
-	errs = append(errs, r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)...)
-	return errs
+	warning, errors := r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)
+	warnings = append(warnings, warning...)
+	errs = append(errs, errors...)
+	return warnings, errs
 }

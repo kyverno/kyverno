@@ -15,8 +15,8 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,15 +29,15 @@ func GetResourceAccordingToResourcePath(
 	fs billy.Filesystem,
 	resourcePaths []string,
 	cluster bool,
-	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1beta1.ValidatingAdmissionPolicy,
+	policies []engineapi.GenericPolicy,
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
+	clusterWideResources bool,
 	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
-		resources, err = GetResourcesWithTest(out, fs, policies, resourcePaths, policyResourcePath)
+		resources, err = GetResourcesWithTest(out, fs, resourcePaths, policyResourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
@@ -77,11 +77,40 @@ func GetResourceAccordingToResourcePath(
 					resourcePaths = listOfFiles
 				}
 			}
-
-			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
+			if clusterWideResources {
+				fetcher := &ResourceFetcher{
+					Out:                  out,
+					Policies:             policies,
+					ResourcePaths:        resourcePaths,
+					Client:               dClient,
+					Cluster:              cluster,
+					Namespace:            "",
+					PolicyReport:         policyReport,
+					ClusterWideResources: clusterWideResources,
+				}
+				resources, err := fetcher.GetResources()
+				if err != nil {
+					return resources, err
+				}
+				if namespace == "" {
+					return resources, nil
+				}
+			}
+			fetcher := &ResourceFetcher{
+				Out:                  out,
+				Policies:             policies,
+				ResourcePaths:        resourcePaths,
+				Client:               dClient,
+				Cluster:              cluster,
+				Namespace:            namespace,
+				PolicyReport:         policyReport,
+				ClusterWideResources: false,
+			}
+			namespaceResources, err := fetcher.GetResources()
 			if err != nil {
 				return resources, err
 			}
+			resources = append(resources, namespaceResources...)
 		}
 	}
 	return resources, err

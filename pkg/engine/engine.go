@@ -31,6 +31,7 @@ type engine struct {
 	metricsConfiguration config.MetricsConfiguration
 	jp                   jmespath.Interface
 	client               engineapi.Client
+	isCluster            bool
 	rclientFactory       engineapi.RegistryClientFactory
 	ivCache              imageverifycache.Client
 	contextLoader        engineapi.ContextLoaderFactory
@@ -51,7 +52,12 @@ func NewEngine(
 	ivCache imageverifycache.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
+	isCluster *bool,
 ) engineapi.Engine {
+	if isCluster == nil {
+		defaultCluster := true
+		isCluster = &defaultCluster
+	}
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
 		"kyverno_policy_results",
@@ -74,6 +80,7 @@ func NewEngine(
 		client:               client,
 		rclientFactory:       rclientFactory,
 		ivCache:              ivCache,
+		isCluster:            *isCluster,
 		contextLoader:        contextLoader,
 		exceptionSelector:    exceptionSelector,
 		resultCounter:        resultCounter,
@@ -93,7 +100,7 @@ func (e *engine) Validate(
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response
 }
 
@@ -107,11 +114,11 @@ func (e *engine) Mutate(
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
 		policyResponse, patchedResource := e.mutate(ctx, logger, policyContext)
 		response = response.
-			WithPolicyResponse(policyResponse).
-			WithPatchedResource(patchedResource)
+			WithPatchedResource(patchedResource).
+			WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response
 }
 
@@ -127,7 +134,7 @@ func (e *engine) Generate(
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response
 }
 
@@ -146,7 +153,7 @@ func (e *engine) VerifyAndPatchImages(
 			WithPatchedResource(patchedResource), innerIvm
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response, ivm
 }
 
@@ -162,7 +169,7 @@ func (e *engine) ApplyBackgroundChecks(
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response
 }
 

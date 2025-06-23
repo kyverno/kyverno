@@ -1,4 +1,20 @@
-# Kyverno [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Cloud%20Native%20Policy%20Management.%20No%20new%20language%20required%21&url=https://github.com/kyverno/kyverno/&hashtags=kubernetes,devops)
+<!--
+Copyright 2024 The Kyverno Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+# Kyverno [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Cloud%20Native%20Policy%20Management.%20No%20new%20language%20required%1&url=https://github.com/kyverno/kyverno/&hashtags=kubernetes,devops)
 
 **Cloud Native Policy Management 🎉**
 
@@ -30,13 +46,43 @@ Kyverno is a policy engine designed for cloud native platform engineering teams.
 
 ## 📙 Documentation
 
-Kyverno installation and reference documents are available at [kyverno.io] (https://kyverno.io).
+Kyverno installation and reference documents are available at [kyverno.io](https://kyverno.io).
 
 👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
 
 👉 **[Installation](https://kyverno.io/docs/installation/)**
 
 👉 **[Sample Policies](https://kyverno.io/policies/)**
+
+## 🎯 Popular Use Cases
+
+Kyverno helps platform teams enforce best practices and security policies. Here are some common use cases:
+
+1. **Security & Compliance**
+   - Enforce pod security standards
+   - Require specific security contexts
+   - Validate image sources and signatures
+   - Ensure resource limits and requests
+
+2. **Operational Excellence**
+   - Automatically add labels and annotations
+   - Enforce naming conventions
+   - Generate default network policies
+   - Validate resource configurations
+
+3. **Cost Optimization**
+   - Enforce resource quotas
+   - Require cost allocation labels
+   - Clean up unused resources
+   - Validate instance types
+
+4. **Developer Guardrails**
+   - Enforce ingress/egress rules
+   - Require liveness/readiness probes
+   - Validate container images
+   - Auto-mount configuration
+
+Each use case includes ready-to-use policies in our [policy library](https://kyverno.io/policies/).
 
 ## 🙋‍♂️ Getting Help
 
@@ -80,6 +126,6 @@ Made with [contributors-img](https://contrib.rocks).
 
 ## License
 
-Copyright 2024, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
+Copyright 2025, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
 
 Kyverno is a [Cloud Native Computing Foundation (CNCF) Incubating project](https://www.cncf.io/projects/) and was contributed by [Nirmata](https://nirmata.com/?utm_source=github&utm_medium=repository).

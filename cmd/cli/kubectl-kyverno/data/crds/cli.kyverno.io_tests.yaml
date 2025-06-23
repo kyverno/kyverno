@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: (devel)
   name: tests.cli.kyverno.io
 spec:
   group: cli.kyverno.io
@@ -61,12 +61,18 @@ spec:
               - error
               type: object
             type: array
+          context:
+            description: Context file containing context data for CEL policies
+            type: string
           exceptions:
-            description: Policy Exceptions are the policy exceptions to be used in
+            description: PolicyExceptions are the policy exceptions to be used in
               the test
             items:
               type: string
             type: array
+          jsonPayload:
+            description: JSONPayload is the JSON payload to be used in the test
+            type: string
           kind:
             description: |-
               Kind is a string value representing the REST resource this object represents.
@@ -95,7 +101,7 @@ spec:
           results:
             description: Results are the results to be checked in the test
             items:
-              description: TestResultBase declares a test result
+              description: TestResult declares a test result
               properties:
                 cloneSourceResource:
                   description: |-
@@ -107,10 +113,39 @@ spec:
                     GeneratedResource takes a resource configuration file in yaml format from
                     the user to compare it against the Kyverno generated resource configuration.
                   type: string
+                isDeletingPolicy:
+                  description: |-
+                    IsDeletingPolicy indicates if the policy is a deleting policy.
+                    It's required in case the policy is a deleting policy.
+                  type: boolean
+                isGeneratingPolicy:
+                  description: |-
+                    IsGeneratingPolicy indicates if the policy is a generating policy.
+                    It's required in case the policy is a generating policy.
+                  type: boolean
+                isImageValidatingPolicy:
+                  description: |-
+                    IsImageValidatingPolicy indicates if the policy is an image validating policy.
+                    It's required in case the policy is an image validating policy.
+                  type: boolean
+                isMutatingAdmissionPolicy:
+                  description: IsMutatingAdmissionPolicy indicates if the policy is
+                    a mutating admission policy.
+                  type: boolean
+                isMutatingPolicy:
+                  description: |-
+                    IsMutatingPolicy indicates if the policy is a mutating policy.
+                    It's required in case the policy is a mutating policy.
+                  type: boolean
                 isValidatingAdmissionPolicy:
                   description: |-
                     IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
-                    It's required in case policy is a validating admission policy.
+                    It's required in case the policy is a validating admission policy.
+                  type: boolean
+                isValidatingPolicy:
+                  description: |-
+                    IsValidatingPolicy indicates if the policy is a validating policy.
+                    It's required in case the policy is a validating policy.
                   type: boolean
                 kind:
                   description: Kind mentions the kind of the resource on which the
@@ -123,9 +158,9 @@ spec:
                   type: string
                 patchedResource:
                   description: |-
-                    Deprecated. Use `patchedResources` instead.
                     PatchedResource takes a resource configuration file in yaml format from
                     the user to compare it against the Kyverno mutated resource configuration.
+                    This is DEPRECATED, Use `patchedResources` instead.
                   type: string
                 patchedResources:
                   description: |-
@@ -141,6 +176,25 @@ spec:
                     Resource mentions the name of the resource on which the policy is to be applied.
                     This is DEPRECATED, use `Resources` instead.
                   type: string
+                resourceSpecs:
+                  description: Resources gives us the list of resources on which the
+                    policy is going to be applied.
+                  items:
+                    properties:
+                      group:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      subresource:
+                        type: string
+                      version:
+                        type: string
+                    type: object
+                  type: array
                 resources:
                   description: Resources gives us the list of resources on which the
                     policy is going to be applied.
@@ -178,9 +232,13 @@ spec:
               required:
               - kind
               - policy
-              - resources
               - result
               type: object
+            type: array
+          targetResources:
+            description: Target Resources are for policies that have mutate existing
+            items:
+              type: string
             type: array
           userinfo:
             description: UserInfo is the user info to be used in the test
@@ -208,6 +266,97 @@ spec:
                   required:
                   - labels
                   - name
+                  type: object
+                type: array
+              namespaces:
+                description: Namespaces are the namespaces
+                items:
+                  description: |-
+                    Namespace provides a scope for Names.
+                    Use of multiple namespaces is optional.
+                  properties:
+                    apiVersion:
+                      description: |-
+                        APIVersion defines the versioned schema of this representation of an object.
+                        Servers should convert recognized schemas to the latest internal value, and
+                        may reject unrecognized values.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+                      type: string
+                    kind:
+                      description: |-
+                        Kind is a string value representing the REST resource this object represents.
+                        Servers may infer this from the endpoint the client submits requests to.
+                        Cannot be updated.
+                        In CamelCase.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    metadata:
+                      description: |-
+                        Standard object's metadata.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+                      type: object
+                    spec:
+                      description: |-
+                        Spec defines the behavior of the Namespace.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+                      properties:
+                        finalizers:
+                          description: |-
+                            Finalizers is an opaque list of values that must be empty to permanently remove object from storage.
+                            More info: https://kubernetes.io/docs/tasks/administer-cluster/namespaces/
+                          items:
+                            description: FinalizerName is the name identifying a finalizer
+                              during namespace lifecycle.
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      type: object
+                    status:
+                      description: |-
+                        Status describes the current status of a Namespace.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+                      properties:
+                        conditions:
+                          description: Represents the latest available observations
+                            of a namespace's current state.
+                          items:
+                            description: NamespaceCondition contains details about
+                              state of namespace.
+                            properties:
+                              lastTransitionTime:
+                                description: Last time the condition transitioned
+                                  from one status to another.
+                                format: date-time
+                                type: string
+                              message:
+                                description: Human-readable message indicating details
+                                  about last transition.
+                                type: string
+                              reason:
+                                description: Unique, one-word, CamelCase reason for
+                                  the condition's last transition.
+                                type: string
+                              status:
+                                description: Status of the condition, one of True,
+                                  False, Unknown.
+                                type: string
+                              type:
+                                description: Type of namespace controller condition.
+                                type: string
+                            required:
+                            - status
+                            - type
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - type
+                          x-kubernetes-list-type: map
+                        phase:
+                          description: |-
+                            Phase is the current lifecycle phase of the namespace.
+                            More info: https://kubernetes.io/docs/tasks/administer-cluster/namespaces/
+                          type: string
+                      type: object
                   type: object
                 type: array
               policies:

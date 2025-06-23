@@ -2,15 +2,35 @@ package webhook
 
 import (
 	"cmp"
+	"fmt"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"golang.org/x/exp/maps"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1alpha1.GenericPolicy {
+	if vpol := policy.AsValidatingPolicy(); vpol != nil {
+		return vpol
+	}
+	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
+		return ivpol
+	}
+	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		return gpol
+	}
+	if mpol := policy.AsMutatingPolicy(); mpol != nil {
+		return mpol
+	}
+	return nil
+}
 
 func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.AdmissionOperation) webhookConfig {
 	out := map[string]sets.Set[kyvernov1.AdmissionOperation]{}
@@ -128,6 +148,24 @@ func capTimeout(maxWebhookTimeout int32) int32 {
 	return maxWebhookTimeout
 }
 
+func newClientConfig(server string, servicePort int32, caBundle []byte, path string) admissionregistrationv1.WebhookClientConfig {
+	clientConfig := admissionregistrationv1.WebhookClientConfig{
+		CABundle: caBundle,
+	}
+	if server == "" {
+		clientConfig.Service = &admissionregistrationv1.ServiceReference{
+			Namespace: config.KyvernoNamespace(),
+			Name:      config.KyvernoServiceName(),
+			Path:      &path,
+			Port:      &servicePort,
+		}
+	} else {
+		url := fmt.Sprintf("https://%s%s", server, path)
+		clientConfig.URL = &url
+	}
+	return clientConfig
+}
+
 func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, path string) {
 	if wh.failurePolicy == ignore {
 		name = baseName + "-ignore"
@@ -154,3 +192,10 @@ func less[T cmp.Ordered](a []T, b []T) int {
 	}
 	return 0
 }
+
+const (
+	ValidatingPolicyType      = "ValidatingPolicy"
+	ImageValidatingPolicyType = "ImageValidatingPolicy"
+	MutatingPolicyType        = "MutatingPolicy"
+	GeneratingPolicyType      = "GeneratingPolicy"
+)

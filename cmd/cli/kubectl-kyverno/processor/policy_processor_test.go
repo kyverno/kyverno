@@ -98,7 +98,7 @@ func Test_NamespaceSelector(t *testing.T) {
 	}
 	rc := &ResultCounts{}
 	for _, tc := range testcases {
-		policyArray, _, _, _ := yamlutils.GetPolicy(tc.policy)
+		policyArray, _, _, _, _, _, _, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := resource.GetUnstructuredResources(tc.resource)
 		processor := PolicyProcessor{
 			Store:                &store.Store{},

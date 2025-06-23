@@ -1,0 +1,28 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-privilege-escalation
+spec:
+  autogen:
+    podControllers:
+      controllers:
+      - deployments
+      - cronjobs
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   ["pods"]
+  matchConditions:
+    - name: check-prod-label
+      expression: >- 
+        has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
+  validations:
+    - expression: >- 
+        object.spec.containers.all(container, has(container.securityContext) &&
+        has(container.securityContext.allowPrivilegeEscalation) &&
+        container.securityContext.allowPrivilegeEscalation == false)
+      message: >-
+        Privilege escalation is disallowed. The field
+        spec.containers[*].securityContext.allowPrivilegeEscalation must be set to `false`.

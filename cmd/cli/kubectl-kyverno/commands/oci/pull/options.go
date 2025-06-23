@@ -86,7 +86,7 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 			if err != nil {
 				return fmt.Errorf("reading layer blob: %v", err)
 			}
-			policies, _, _, err := yamlutils.GetPolicy(layerBytes)
+			policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(layerBytes)
 			if err != nil {
 				return fmt.Errorf("unmarshaling layer blob: %v", err)
 			}

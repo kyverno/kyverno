@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: (devel)
   name: userinfoes.cli.kyverno.io
 spec:
   group: cli.kyverno.io
@@ -49,6 +49,11 @@ spec:
               type: string
             nullable: true
             type: array
+          synchronize:
+            description: |-
+              DryRun indicates that modifications will definitely not be persisted for this request.
+              Defaults to false.
+            type: boolean
           userInfo:
             description: UserInfo is the userInfo carried in the admission request.
             properties:

@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-apicall-projections
+spec:
+  failurePolicy: Fail
+  rules:
+  - name: main-deployment-exists
+    context:
+    - name: deploymentCount
+      globalReference:
+        name: gctxentry-apicall-projections.test-globalcontext-apicall-correct-projections_deployment_count
+    match:
+      all:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - test-globalcontext-apicall-correct-projections
+    preconditions:
+      all:
+      - key: '{{ request.operation }}'
+        operator: AnyIn
+        value:
+        - CREATE
+        - UPDATE
+    validate:
+      failureAction: Enforce
+      deny:
+        conditions:
+          any:
+          - key: "{{ deploymentCount }}"
+            operator: GreaterThan
+            value: 0

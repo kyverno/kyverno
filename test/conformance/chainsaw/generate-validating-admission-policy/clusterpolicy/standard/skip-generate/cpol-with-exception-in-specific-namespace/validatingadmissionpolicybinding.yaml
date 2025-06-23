@@ -1,7 +1,7 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-binding
+  name: cpol-disallow-host-path-binding
 spec: {}

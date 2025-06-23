@@ -9,7 +9,6 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/config"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -105,7 +104,11 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
-			namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, pc.log)
+			namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, []kyvernov1.PolicyInterface{policyNew}, pc.log)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("failed to get namespace labels for rule %s: %w", rule.Name, err))
+				continue
+			}
 			policyContext, err := common.NewBackgroundContext(pc.log, pc.client, ur.Spec.Context, policy, trigger, pc.configuration, pc.jp, namespaceLabels)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err))
@@ -233,9 +236,9 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 		for _, kind := range ruleSelector.kinds {
 			updated, err := pc.client.ListResource(context.TODO(), "", kind, "", &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					backgroundcommon.GeneratePolicyLabel:          selector.policy,
-					backgroundcommon.GeneratePolicyNamespaceLabel: selector.policyNamespace,
-					backgroundcommon.GenerateRuleLabel:            ruleSelector.rule,
+					common.GeneratePolicyLabel:          selector.policy,
+					common.GeneratePolicyNamespaceLabel: selector.policyNamespace,
+					common.GenerateRuleLabel:            ruleSelector.rule,
 				},
 			},
 			)
@@ -246,9 +249,9 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 
 			for _, obj := range updated.Items {
 				labels := obj.GetLabels()
-				delete(labels, backgroundcommon.GeneratePolicyLabel)
-				delete(labels, backgroundcommon.GeneratePolicyNamespaceLabel)
-				delete(labels, backgroundcommon.GenerateRuleLabel)
+				delete(labels, common.GeneratePolicyLabel)
+				delete(labels, common.GeneratePolicyNamespaceLabel)
+				delete(labels, common.GenerateRuleLabel)
 				obj.SetLabels(labels)
 				_, err = pc.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), &obj, false)
 				if err != nil {
@@ -296,6 +299,10 @@ func ruleChange(old, new kyvernov1.PolicyInterface) (_ kyvernov1.PolicyInterface
 		} else {
 			ruleRsrc := ruleResource{rule: oldRule.Name}
 			old, new := oldRule.Generation, newRule.Generation
+			if old == nil || new == nil {
+				continue
+			}
+
 			if old.ResourceSpec != new.ResourceSpec || old.Clone != new.Clone {
 				ruleRsrc.kinds = append(ruleRsrc.kinds, old.ResourceSpec.GetKind())
 			}

@@ -59,7 +59,8 @@ func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error)
 	return resource, nil
 }
 
-func GetResourceFromPath(fs billy.Filesystem, path string) ([]*unstructured.Unstructured, error) {
+// should be able to specify a single resource in a multi yaml file, dont error out when there are multiple resource
+func GetResourceFromPath(fs billy.Filesystem, path string, apiVersion, kind, resourceNamespace, resourceName string) (*unstructured.Unstructured, error) {
 	var resourceBytes []byte
 	if fs == nil {
 		data, err := GetFileBytes(path)
@@ -83,10 +84,18 @@ func GetResourceFromPath(fs billy.Filesystem, path string) ([]*unstructured.Unst
 	if err != nil {
 		return nil, err
 	}
-	if len(resources) == 0 {
-		return nil, fmt.Errorf("no resources found")
+
+	for _, r := range resources {
+		name := r.GetName()
+		ns := r.GetNamespace()
+		apiv := r.GetAPIVersion()
+		k := r.GetKind()
+
+		if apiv == apiVersion && k == kind && name == resourceName && ns == resourceNamespace {
+			return r, nil
+		}
 	}
-	return resources, nil
+	return nil, fmt.Errorf("resource with name %s not found in manifest", resourceName)
 }
 
 func GetFileBytes(path string) ([]byte, error) {
