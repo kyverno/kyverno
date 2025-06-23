@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: parse-sa-test
+spec: 
+    validationActions:
+      - Deny
+    matchConstraints:
+      resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE" ,"UPDATE"] 
+    variables:
+      - name: sa
+        expression: >-
+          parseServiceAccount(request.userInfo.username)
+    validations:
+     - expression: >-
+          variables.sa.Name== "my-sa"
+       message: >-
+          ServiceAccount must be my-sa 
+     - expression: >-
+          variables.sa.Namespace == "default"
+       message: >-
+          ServiceAccount must be in default namespace
+      

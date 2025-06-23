@@ -19,13 +19,13 @@ limitations under the License.
 package v2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	apikyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v2 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	kyvernov2 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // UpdateRequests.
 type UpdateRequestInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2.UpdateRequestLister
+	Lister() kyvernov2.UpdateRequestLister
 }
 
 type updateRequestInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredUpdateRequestInformer(client versioned.Interface, namespace stri
 				return client.KyvernoV2().UpdateRequests(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&kyvernov2.UpdateRequest{},
+		&apikyvernov2.UpdateRequest{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *updateRequestInformer) defaultInformer(client versioned.Interface, resy
 }
 
 func (f *updateRequestInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov2.UpdateRequest{}, f.defaultInformer)
+	return f.factory.InformerFor(&apikyvernov2.UpdateRequest{}, f.defaultInformer)
 }
 
-func (f *updateRequestInformer) Lister() v2.UpdateRequestLister {
-	return v2.NewUpdateRequestLister(f.Informer().GetIndexer())
+func (f *updateRequestInformer) Lister() kyvernov2.UpdateRequestLister {
+	return kyvernov2.NewUpdateRequestLister(f.Informer().GetIndexer())
 }

@@ -1,0 +1,17 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: invalid-cel-expression
+spec:
+  steps:
+  - name: Apply the policy
+    try:
+    - script:
+        content: kubectl apply -f policy.yaml
+        check:
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          (trim_space($stderr)): |-
+            Error from server: error when creating "policy.yaml": admission webhook "validate-policy.kyverno.svc" denied the request: spec.generate[0].expression: Invalid value: "generator.Apply(variables.configmap)": ERROR: <input>:1:16: found no matching overload for 'Apply' applied to 'generator.Context.(list(map(string, dyn)))'
+             | generator.Apply(variables.configmap)
+             | ...............^

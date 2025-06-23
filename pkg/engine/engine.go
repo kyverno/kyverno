@@ -100,7 +100,7 @@ func (e *engine) Validate(
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response
 }
 
@@ -118,7 +118,7 @@ func (e *engine) Mutate(
 			WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response
 }
 
@@ -134,7 +134,7 @@ func (e *engine) Generate(
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response
 }
 
@@ -153,7 +153,7 @@ func (e *engine) VerifyAndPatchImages(
 			WithPatchedResource(patchedResource), innerIvm
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response, ivm
 }
 
@@ -169,7 +169,7 @@ func (e *engine) ApplyBackgroundChecks(
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), policyContext.AdmissionInfo(), response)
 	return response
 }
 

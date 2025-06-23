@@ -25,12 +25,101 @@ background-color: #1589dd;
 <h2 id="cli.kyverno.io/v1alpha1">cli.kyverno.io/v1alpha1</h2>
 Resource Types:
 <ul><li>
+<a href="#cli.kyverno.io/v1alpha1.Context">Context</a>
+</li><li>
 <a href="#cli.kyverno.io/v1alpha1.Test">Test</a>
 </li><li>
 <a href="#cli.kyverno.io/v1alpha1.UserInfo">UserInfo</a>
 </li><li>
 <a href="#cli.kyverno.io/v1alpha1.Values">Values</a>
 </li></ul>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.Context">Context
+</h3>
+<p>
+<p>Values declares values to be loaded by the Kyverno CLI</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+cli.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>Context</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.ContextSpec">
+ContextSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#unstructured-unstructured-v1">
+[]Kubernetes meta/v1/unstructured.Unstructured
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.ImageData">
+[]ImageData
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h3 id="cli.kyverno.io/v1alpha1.Test">Test
 </h3>
@@ -108,6 +197,17 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
 </td>
 <td>
 <p>Resources are the resource to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>jsonPayload</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>JSONPayload is the JSON payload to be used in the test</p>
 </td>
 </tr>
 <tr>
@@ -190,7 +290,18 @@ ValuesSpec
 </em>
 </td>
 <td>
-<p>Policy Exceptions are the policy exceptions to be used in the test</p>
+<p>PolicyExceptions are the policy exceptions to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Context file containing context data for CEL policies</p>
 </td>
 </tr>
 </tbody>
@@ -421,6 +532,158 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </td>
 <td>
 <p>Error contains negative assertion to be performed on the relevant rule responses</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.ContextSpec">ContextSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.Context">Context</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#unstructured-unstructured-v1">
+[]Kubernetes meta/v1/unstructured.Unstructured
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.ImageData">
+[]ImageData
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.ImageData">ImageData
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.ContextSpec">ContextSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>image</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resolvedImage</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>registry</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>repository</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>tag</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>digest</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>imageIndex</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>manifest</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>config</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -861,7 +1124,84 @@ bool
 <td>
 <em>(Optional)</em>
 <p>IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
-It&rsquo;s required in case policy is a validating admission policy.</p>
+It&rsquo;s required in case the policy is a validating admission policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isMutatingAdmissionPolicy</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsMutatingAdmissionPolicy indicates if the policy is a mutating admission policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isValidatingPolicy</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsValidatingPolicy indicates if the policy is a validating policy.
+It&rsquo;s required in case the policy is a validating policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isDeletingPolicy</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsDeletingPolicy indicates if the policy is a deleting policy.
+It&rsquo;s required in case the policy is a deleting policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isImageValidatingPolicy</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsImageValidatingPolicy indicates if the policy is an image validating policy.
+It&rsquo;s required in case the policy is an image validating policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isGeneratingPolicy</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsGeneratingPolicy indicates if the policy is a generating policy.
+It&rsquo;s required in case the policy is a generating policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isMutatingPolicy</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsMutatingPolicy indicates if the policy is a mutating policy.
+It&rsquo;s required in case the policy is a mutating policy.</p>
 </td>
 </tr>
 <tr>

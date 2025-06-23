@@ -2,23 +2,26 @@ package policystatus
 
 import (
 	"context"
+	baseerrors "errors"
 	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
-	vpolautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/webhook"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"go.uber.org/multierr"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -33,22 +36,31 @@ type Controller interface {
 }
 
 type controller struct {
-	dclient           dclient.Interface
-	client            versioned.Interface
-	queue             workqueue.TypedRateLimitingInterface[any]
-	authChecker       auth.AuthChecker
-	vpolStateRecorder webhook.StateRecorder
+	dclient          dclient.Interface
+	client           versioned.Interface
+	queue            workqueue.TypedRateLimitingInterface[any]
+	authChecker      auth.AuthChecker
+	polStateRecorder webhook.StateRecorder
 }
 
-func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer, reportsSA string, vpolStateRecorder webhook.StateRecorder) Controller {
+func NewController(
+	dclient dclient.Interface,
+	client versioned.Interface,
+	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	reportsSA string,
+	polStateRecorder webhook.StateRecorder,
+) Controller {
 	c := &controller{
 		dclient: dclient,
 		client:  client,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName}),
-		authChecker:       auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
-		vpolStateRecorder: vpolStateRecorder,
+		authChecker:      auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
+		polStateRecorder: polStateRecorder,
 	}
 
 	enqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(c.queue)))
@@ -59,7 +71,71 @@ func NewController(dclient dclient.Interface, client versioned.Interface, vpolIn
 		nil,
 	)
 	if err != nil {
-		logger.Error(err, "failed to register event handlers")
+		logger.Error(err, "failed to register event handlers for webhook state recorder")
+	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		vpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			vpol, ok := obj.(*policiesv1alpha1.ValidatingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ValidatingPolicyType, vpol.Name))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for ValidatingPolicy")
+	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		ivpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			ivpol, ok := obj.(*policiesv1alpha1.ImageValidatingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, ivpol.Name))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for ImageValidatingPolicy")
+	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		mpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			mpol, ok := obj.(*policiesv1alpha1.MutatingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, mpol.Name))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for MutatingPolicy")
+	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		gpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			gpol, ok := obj.(*policiesv1alpha1.GeneratingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.GeneratingPolicyType, gpol.Name))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for GeneratingPolicy")
 	}
 	return c
 }
@@ -69,34 +145,97 @@ func (c controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
-	notifyChan := c.vpolStateRecorder.(*webhook.Recorder).NotifyChan
+	notifyChan := c.polStateRecorder.(*webhook.Recorder).NotifyChan
 	for key := range notifyChan {
 		c.queue.Add(key)
 	}
 }
 
 func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error {
-	vpol, err := c.client.PoliciesV1alpha1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.V(4).Info("validating policy not found", "name", name)
-			return nil
+	polType, polName := webhook.ParseRecorderKey(key)
+	if polType == webhook.ValidatingPolicyType {
+		vpol, err := c.client.PoliciesV1alpha1().ValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("validating policy not found", "name", polName)
+				return nil
+			}
+			return err
 		}
-		return err
+
+		return c.updateVpolStatus(ctx, vpol)
+	}
+	if polType == webhook.ImageValidatingPolicyType {
+		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("imageVerification policy not found", "name", polName)
+				return nil
+			}
+			return err
+		}
+		return c.updateIvpolStatus(ctx, ivpol)
 	}
 
-	return c.updateStatus(ctx, vpol)
+	if polType == webhook.MutatingPolicyType {
+		mpol, err := c.client.PoliciesV1alpha1().MutatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("mutating policy not found", "name", polName)
+				return nil
+			}
+		}
+		return c.updateMpolStatus(ctx, mpol)
+	}
+
+	if polType == webhook.GeneratingPolicyType {
+		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("generating policy not found", "name", polName)
+				return nil
+			}
+			return err
+		}
+		return c.updateGpolStatus(ctx, gpol)
+	}
+	return nil
 }
 
-func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) {
-	if ready, ok := c.vpolStateRecorder.Ready(vpol.GetName()); ready {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
-	} else if ok {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
+func (c controller) reconcileConditions(ctx context.Context, policy engineapi.GenericPolicy) *policiesv1alpha1.ConditionStatus {
+	var key string
+	var matchConstraints admissionregistrationv1.MatchResources
+	status := &policiesv1alpha1.ConditionStatus{}
+	backgroundOnly := false
+	switch policy.GetKind() {
+	case webhook.ValidatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName())
+		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsValidatingPolicy().GetSpec().BackgroundEnabled())
+	case webhook.ImageValidatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName())
+		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled())
+	case webhook.MutatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName())
+		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsMutatingPolicy().GetSpec().BackgroundEnabled())
+	case webhook.GeneratingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName())
+		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsGeneratingPolicy().GetSpec().AdmissionEnabled() && policy.AsGeneratingPolicy().GetSpec().BackgroundEnabled())
+	}
+
+	if !backgroundOnly {
+		if ready, ok := c.polStateRecorder.Ready(key); ready {
+			status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
+		} else if ok {
+			status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
+		}
 	}
 
 	gvrs := []metav1.GroupVersionResource{}
-	for _, rule := range vpol.GetMatchConstraints().ResourceRules {
+	for _, rule := range matchConstraints.ResourceRules {
 		for _, g := range rule.RuleWithOperations.APIGroups {
 			for _, v := range rule.RuleWithOperations.APIVersions {
 				for _, r := range rule.RuleWithOperations.Resources {
@@ -114,7 +253,9 @@ func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alp
 	for _, gvr := range gvrs {
 		for _, verb := range []string{"get", "list", "watch"} {
 			result, err := c.authChecker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, "", "", "", verb)
-			if err != nil {
+			if baseerrors.Is(err, checker.ErrNoServiceAccount) {
+				continue
+			} else if err != nil {
 				errs = append(errs, err)
 			} else if !result.Allowed {
 				errs = append(errs, fmt.Errorf("%s %s: %s", verb, gvr.String(), result.Reason))
@@ -123,57 +264,9 @@ func (c controller) reconcileConditions(ctx context.Context, vpol *policiesv1alp
 	}
 
 	if errs != nil {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
 	} else {
-		vpol.GetStatus().SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
 	}
-}
-
-func (c controller) updateStatus(ctx context.Context, vpol *policiesv1alpha1.ValidatingPolicy) error {
-	updateFunc := func(vpol *policiesv1alpha1.ValidatingPolicy) error {
-		c.reconcileConditions(ctx, vpol)
-
-		status := vpol.GetStatus()
-		status.Autogen.Rules = nil
-		rules := vpolautogen.ComputeRules(vpol)
-		status.Autogen.Rules = append(status.Autogen.Rules, rules...)
-
-		ready := true
-		for _, condition := range status.Conditions {
-			if condition.Status != metav1.ConditionTrue {
-				ready = false
-				break
-			}
-		}
-
-		if status.Ready == nil || *status.Ready != ready {
-			status.Ready = &ready
-		}
-		return nil
-	}
-
-	err := controllerutils.UpdateStatus(ctx,
-		vpol,
-		c.client.PoliciesV1alpha1().ValidatingPolicies(),
-		updateFunc,
-		func(current, expect *policiesv1alpha1.ValidatingPolicy) bool {
-			if current.GetStatus().Ready == nil || current.GetStatus().IsReady() != expect.GetStatus().IsReady() {
-				return false
-			}
-
-			if len(current.GetStatus().Conditions) != len(expect.GetStatus().Conditions) {
-				return false
-			}
-
-			for _, condition := range current.GetStatus().Conditions {
-				for _, expectCondition := range expect.GetStatus().Conditions {
-					if condition.Type == expectCondition.Type && condition.Status != expectCondition.Status {
-						return false
-					}
-				}
-			}
-			return datautils.DeepEqual(current.GetStatus().Autogen, expect.GetStatus().Autogen)
-		},
-	)
-	return err
+	return status
 }

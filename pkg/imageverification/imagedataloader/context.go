@@ -43,7 +43,6 @@ func (idc *imageContext) AddImages(ctx context.Context, images []string, opts ..
 	g.SetLimit(workers)
 
 	for _, img := range images {
-		img := img
 		g.Go(func() error {
 			if _, found := idc.list[img]; found {
 				return nil
@@ -67,16 +66,17 @@ func (idc *imageContext) AddImages(ctx context.Context, images []string, opts ..
 
 func (idc *imageContext) Get(ctx context.Context, image string, opts ...Option) (*ImageData, error) {
 	idc.RLock()
-	defer idc.RUnlock()
-
 	if data, found := idc.list[image]; found {
 		return data, nil
 	}
+	idc.RUnlock()
 
 	data, err := idc.f.FetchImageData(ctx, image, opts...)
 	if err != nil {
 		return nil, err
 	}
+	idc.Lock()
+	defer idc.Unlock()
 	idc.list[image] = data
 
 	return data, nil

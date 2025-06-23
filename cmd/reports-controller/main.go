@@ -83,6 +83,7 @@ func createReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -103,6 +104,8 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					policiesV1alpha1.ValidatingPolicies(),
+					policiesV1alpha1.ImageValidatingPolicies(),
+					policiesV1alpha1.GeneratingPolicies(),
 					vapInformer,
 				),
 				aggregationWorkers,
@@ -117,6 +120,8 @@ func createReportControllers(
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
 				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1alpha1.ImageValidatingPolicies(),
+				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
@@ -286,6 +291,7 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
