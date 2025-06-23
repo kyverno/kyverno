@@ -219,11 +219,17 @@ func (status *MutatingPolicyStatus) GetConditionStatus() *ConditionStatus {
 type MutatingPolicyEvaluationConfiguration struct {
 	EvaluationConfiguration `json:",inline"`
 
-	// MutateExisting enables mutation of existing resources. Default is `false`.
+	// MutateExisting controls whether existing resources are mutated.
+	// +optional
+	MutateExistingConfiguration *MutateExistingConfiguration `json:"mutateExisting,omitempty"`
+}
+
+type MutateExistingConfiguration struct {
+	// Enabled enables mutation of existing resources. Default is `false`.
 	// When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
 	// +optional
 	// +kubebuilder:default=false
-	MutateExisting bool `json:"mutateExisting,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // +kubebuilder:object:root=true
