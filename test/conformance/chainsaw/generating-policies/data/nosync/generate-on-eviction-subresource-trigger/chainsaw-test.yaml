@@ -5,6 +5,10 @@ metadata:
   name: generate-on-eviction-subresource-trigger
 spec:
   steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
   - name: create policy
     try:
     - create:
