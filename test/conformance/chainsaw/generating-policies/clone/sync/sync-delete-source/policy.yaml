@@ -4,7 +4,8 @@ metadata:
   name: generate-secret
 spec:
   evaluation:
-    synchronize: true
+    synchronize:
+      enabled: true
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]

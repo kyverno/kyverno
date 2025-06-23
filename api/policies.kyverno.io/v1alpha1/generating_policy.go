@@ -106,9 +106,9 @@ type GeneratingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
-	// GenerateConfiguration defines the configuration for the policy evaluation.
+	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
-	GenerateConfiguration *GenerateConfiguration `json:"evaluation,omitempty"`
+	EvaluationConfiguration *GeneratingPolicyEvaluationConfiguration `json:"evaluation,omitempty"`
 
 	// WebhookConfiguration defines the configuration for the webhook.
 	// +optional
@@ -122,28 +122,34 @@ type GeneratingPolicySpec struct {
 
 func (s GeneratingPolicySpec) SynchronizationEnabled() bool {
 	const defaultValue = false
-	if s.GenerateConfiguration == nil || s.GenerateConfiguration.Synchronize == nil {
+	if s.EvaluationConfiguration == nil {
 		return defaultValue
 	}
-	return *s.GenerateConfiguration.Synchronize
+	if s.EvaluationConfiguration.SynchronizationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.SynchronizationConfiguration.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.SynchronizationConfiguration.Enabled
 }
 
 func (s GeneratingPolicySpec) AdmissionEnabled() bool {
-	if s.GenerateConfiguration == nil || s.GenerateConfiguration.Admission == nil || s.GenerateConfiguration.Admission.Enabled == nil {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
 		return true
 	}
-	return *s.GenerateConfiguration.Admission.Enabled
+	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
 // BackgroundEnabled checks if background is set to true
 func (s GeneratingPolicySpec) BackgroundEnabled() bool {
-	if s.GenerateConfiguration == nil || s.GenerateConfiguration.Background == nil || s.GenerateConfiguration.Background.Enabled == nil {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
 		return true
 	}
-	return *s.GenerateConfiguration.Background.Enabled
+	return *s.EvaluationConfiguration.Background.Enabled
 }
 
-type GenerateConfiguration struct {
+type GeneratingPolicyEvaluationConfiguration struct {
 	// Admission controls policy evaluation during admission.
 	// +optional
 	Admission *AdmissionConfiguration `json:"admission,omitempty"`
@@ -152,24 +158,47 @@ type GenerateConfiguration struct {
 	// +optional
 	Background *BackgroundConfiguration `json:"background,omitempty"`
 
-	// GenerateExisting controls whether to trigger the policy for existing resources
-	// If is set to "true" the policy will be triggered and applied to existing matched resources.
+	// GenerateExisting defines the configuration for generating resources for existing triggeres.
 	// +optional
-	GenerateExisting *bool `json:"generateExisting,omitempty"`
+	GenerateExistingConfiguration *GenerateExistingConfiguration `json:"generateExisting,omitempty"`
 
-	// Synchronize controls if generated resources should be kept in-sync with their source resource.
+	// Synchronization defines the configuration for the synchronization of generated resources.
+	// +optional
+	SynchronizationConfiguration *SynchronizationConfiguration `json:"synchronize,omitempty"`
+
+	// OrphanDownstreamOnPolicyDelete defines the configuration for orphaning downstream resources on policy delete.
+	OrphanDownstreamOnPolicyDelete *OrphanDownstreamOnPolicyDeleteConfiguration `json:"orphanDownstreamOnPolicyDelete,omitempty"`
+}
+
+// GenerateExistingConfiguration defines the configuration for generating resources for existing triggers.
+type GenerateExistingConfiguration struct {
+	// Enabled controls whether to trigger the policy for existing resources
+	// If is set to "true" the policy will be triggered and applied to existing matched resources.
+	// Optional. Defaults to "false" if not specified.
+	// +optional
+	// +kubebuilder:default=false
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// SynchronizationConfiguration defines the configuration for the synchronization of generated resources.
+type SynchronizationConfiguration struct {
+	// Enabled controls if generated resources should be kept in-sync with their source resource.
 	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
 	// data from Data or the resource specified in the Clone declaration.
 	// Optional. Defaults to "false" if not specified.
 	// +optional
-	Synchronize *bool `json:"synchronize,omitempty"`
+	// +kubebuilder:default=false
+	Enabled *bool `json:"enabled,omitempty"`
+}
 
-	// OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the policy that generated
+// OrphanDownstreamOnPolicyDeleteConfiguration defines the configuration for orphaning downstream resources on policy delete.
+type OrphanDownstreamOnPolicyDeleteConfiguration struct {
+	// Enabled controls whether generated resources should be deleted when the policy that generated
 	// them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-	// See https://kyverno.io/docs/writing-policies/generate/#data-examples.
-	// Defaults to "false" if not specified.
+	// Optional. Defaults to "false" if not specified.
 	// +optional
-	OrphanDownstreamOnPolicyDelete *bool `json:"orphanDownstreamOnPolicyDelete,omitempty"`
+	// +kubebuilder:default=false
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // Generation defines the configuration for the generation of resources.
