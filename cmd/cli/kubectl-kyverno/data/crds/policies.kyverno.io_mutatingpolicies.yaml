@@ -83,11 +83,16 @@ spec:
                       Optional. Default value is "Kubernetes".
                     type: string
                   mutateExisting:
-                    default: false
-                    description: |-
-                      MutateExisting enables mutation of existing resources. Default is `false`.
-                      When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
-                    type: boolean
+                    description: MutateExisting controls whether existing resources
+                      are mutated.
+                    properties:
+                      enabled:
+                        default: false
+                        description: |-
+                          Enabled enables mutation of existing resources. Default is `false`.
+                          When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+                        type: boolean
+                    type: object
                 type: object
               failurePolicy:
                 description: |-
