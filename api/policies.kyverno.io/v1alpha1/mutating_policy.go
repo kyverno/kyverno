@@ -92,6 +92,10 @@ type MutatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1alpha1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
+	// AutogenConfiguration defines the configuration for the generation controller.
+	// +optional
+	AutogenConfiguration *ValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
+
 	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
 	// +optional
 	TargetMatchConstraints *admissionregistrationv1alpha1.MatchResources `json:"targetMatchConstraints,omitempty"`
@@ -133,7 +137,20 @@ func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchReso
 		return admissionregistrationv1.MatchResources{}
 	}
 
-	in := s.Spec.MatchConstraints
+	return s.Spec.GetMatchConstraints()
+}
+
+func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.GetMatchConditions()
+
+}
+
+func (s *MutatingPolicySpec) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	in := s.MatchConstraints
 	var out admissionregistrationv1.MatchResources
 	out.NamespaceSelector = in.NamespaceSelector
 	out.ObjectSelector = in.ObjectSelector
@@ -156,8 +173,34 @@ func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchReso
 	return out
 }
 
-func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	in := s.Spec.MatchConditions
+func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.MatchResources) {
+	if s.MatchConstraints == nil {
+		return
+	}
+
+	out := s.MatchConstraints
+	out.NamespaceSelector = in.NamespaceSelector
+	out.ObjectSelector = in.ObjectSelector
+	for _, ex := range in.ExcludeResourceRules {
+		out.ExcludeResourceRules = append(out.ExcludeResourceRules, admissionregistrationv1alpha1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	for _, ex := range in.ResourceRules {
+		out.ResourceRules = append(out.ResourceRules, admissionregistrationv1alpha1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	if in.MatchPolicy != nil {
+		mp := admissionregistrationv1alpha1.MatchPolicyType(*in.MatchPolicy)
+		out.MatchPolicy = &mp
+	}
+}
+
+func (s *MutatingPolicySpec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	in := s.MatchConditions
 	out := make([]admissionregistrationv1.MatchCondition, len(in))
 	for i := range in {
 		out[i] = (admissionregistrationv1.MatchCondition)(in[i])

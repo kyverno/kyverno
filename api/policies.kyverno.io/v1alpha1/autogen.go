@@ -28,3 +28,8 @@ type ImageValidatingPolicyAutogen struct {
 	Targets []Target                   `json:"targets"`
 	Spec    *ImageValidatingPolicySpec `json:"spec"`
 }
+
+type MutatingPolicyAutogen struct {
+	Targets []Target            `json:"targets"`
+	Spec    *MutatingPolicySpec `json:"spec"`
+}
