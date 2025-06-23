@@ -29,7 +29,7 @@ type MutatingPolicyStatus struct {
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
-	Autogen ValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
+	Autogen MutatingPolicyAutogenStatus `json:"autogen,omitempty"`
 
 	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
@@ -141,8 +141,7 @@ func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchReso
 }
 
 func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.GetMatchConditions()
-
+	return s.Spec.GetMatchConditions()
 }
 
 func (s *MutatingPolicySpec) GetMatchConstraints() admissionregistrationv1.MatchResources {
