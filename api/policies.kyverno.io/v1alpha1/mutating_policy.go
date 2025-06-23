@@ -173,11 +173,7 @@ func (s *MutatingPolicySpec) GetMatchConstraints() admissionregistrationv1.Match
 }
 
 func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.MatchResources) {
-	if s.MatchConstraints == nil {
-		return
-	}
-
-	out := s.MatchConstraints
+	out := &admissionregistrationv1alpha1.MatchResources{}
 	out.NamespaceSelector = in.NamespaceSelector
 	out.ObjectSelector = in.ObjectSelector
 	for _, ex := range in.ExcludeResourceRules {
@@ -196,6 +192,7 @@ func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.Matc
 		mp := admissionregistrationv1alpha1.MatchPolicyType(*in.MatchPolicy)
 		out.MatchPolicy = &mp
 	}
+	s.MatchConstraints = out
 }
 
 func (s *MutatingPolicySpec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
