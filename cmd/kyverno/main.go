@@ -288,8 +288,11 @@ func createrLeaderControllers(
 		kyvernoClient,
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		reportsServiceAccountName,
-		stateRecorder)
+		stateRecorder,
+	)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
@@ -767,7 +770,7 @@ func main() {
 			ivpolEngine,
 			contextProvider,
 		)
-		gpolHandlers := gpol.New(urgen)
+		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister())
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),

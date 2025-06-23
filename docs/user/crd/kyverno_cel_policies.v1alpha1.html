@@ -644,6 +644,35 @@ Required.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyStatus">
+                <span style="font-family: monospace">GeneratingPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -2335,7 +2364,8 @@ Required.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-GenerateConfiguration">GenerateConfiguration</a>)
     </p>
   
 
@@ -2644,7 +2674,8 @@ Optional. Default value is &quot;true&quot;.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-GenerateConfiguration">GenerateConfiguration</a>)
     </p>
   
 
@@ -3007,6 +3038,7 @@ parent intermediate CA certificate of the signing certificate and end with the r
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-DeletingPolicyStatus">DeletingPolicyStatus</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyStatus">GeneratingPolicyStatus</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyStatus">ImageValidatingPolicyStatus</a>, 
         <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">MutatingPolicyStatus</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyStatus">ValidatingPolicyStatus</a>)
@@ -3951,6 +3983,64 @@ Optional. Default value is &quot;Kubernetes&quot;.</p>
     
     
       <tr>
+        <td><code>admission</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AdmissionConfiguration">
+                <span style="font-family: monospace">AdmissionConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Admission controls policy evaluation during admission.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-BackgroundConfiguration">
+                <span style="font-family: monospace">BackgroundConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background  controls policy evaluation during background scan.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>generateExisting</code>
           
           </br>
@@ -4260,6 +4350,69 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
 Required.</p>
 
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GeneratingPolicyStatus">GeneratingPolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditionStatus</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ConditionStatus">
+                <span style="font-family: monospace">ConditionStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
 
           
 

@@ -29,6 +29,8 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - DELETE
+    - CONNECT
     resources:
     - namespaces
     scope: '*'

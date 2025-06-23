@@ -17,6 +17,9 @@ type GeneratingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              GeneratingPolicySpec `json:"spec"`
+	// Status contains policy runtime data.
+	// +optional
+	Status GeneratingPolicyStatus `json:"status,omitempty"`
 }
 
 func (s *GeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -40,6 +43,14 @@ func (s *GeneratingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
 
 func (s *GeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
+}
+
+func (s *GeneratingPolicy) GetSpec() *GeneratingPolicySpec {
+	return &s.Spec
+}
+
+func (s *GeneratingPolicy) GetStatus() *GeneratingPolicyStatus {
+	return &s.Status
 }
 
 // +kubebuilder:object:root=true
@@ -109,7 +120,38 @@ type GeneratingPolicySpec struct {
 	Generation []Generation `json:"generate"`
 }
 
+func (s GeneratingPolicySpec) SynchronizationEnabled() bool {
+	const defaultValue = false
+	if s.GenerateConfiguration == nil || s.GenerateConfiguration.Synchronize == nil {
+		return defaultValue
+	}
+	return *s.GenerateConfiguration.Synchronize
+}
+
+func (s GeneratingPolicySpec) AdmissionEnabled() bool {
+	if s.GenerateConfiguration == nil || s.GenerateConfiguration.Admission == nil || s.GenerateConfiguration.Admission.Enabled == nil {
+		return true
+	}
+	return *s.GenerateConfiguration.Admission.Enabled
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s GeneratingPolicySpec) BackgroundEnabled() bool {
+	if s.GenerateConfiguration == nil || s.GenerateConfiguration.Background == nil || s.GenerateConfiguration.Background.Enabled == nil {
+		return true
+	}
+	return *s.GenerateConfiguration.Background.Enabled
+}
+
 type GenerateConfiguration struct {
+	// Admission controls policy evaluation during admission.
+	// +optional
+	Admission *AdmissionConfiguration `json:"admission,omitempty"`
+
+	// Background  controls policy evaluation during background scan.
+	// +optional
+	Background *BackgroundConfiguration `json:"background,omitempty"`
+
 	// GenerateExisting controls whether to trigger the policy for existing resources
 	// If is set to "true" the policy will be triggered and applied to existing matched resources.
 	// +optional
@@ -134,4 +176,9 @@ type GenerateConfiguration struct {
 type Generation struct {
 	// Expression is a CEL expression that takes a list of resources to be generated.
 	Expression string `json:"expression,omitempty"`
+}
+
+type GeneratingPolicyStatus struct {
+	// +optional
+	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 }
