@@ -4,6 +4,7 @@ import (
 	"context"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -25,9 +26,17 @@ func (c controller) updateMpolStatus(ctx context.Context, mpol *policiesv1alpha1
 		if conditionStatus.Ready == nil || conditionStatus.IsReady() != ready {
 			conditionStatus.Ready = &ready
 		}
+		rules, err := mpolautogen.Autogen(mpol)
+		if err != nil {
+			return err
+		}
+		autogenStatus := policiesv1alpha1.MutatingPolicyAutogenStatus{
+			Configs: rules,
+		}
 		status := mpol.GetStatus()
 		mpol.Status = policiesv1alpha1.MutatingPolicyStatus{
 			ConditionStatus: *conditionStatus,
+			Autogen:         autogenStatus,
 			Generated:       status.Generated,
 		}
 		return nil
