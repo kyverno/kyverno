@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: DeletingPolicy
+metadata:
+  name: image-registry-delete
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  schedule: "*/1 * * * *"
+  conditions:
+    - name: test-isImage
+      expression: >
+        object.spec.containers.all(c, isImage(c.image))
