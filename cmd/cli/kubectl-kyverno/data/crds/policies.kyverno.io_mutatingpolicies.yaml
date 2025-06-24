@@ -54,6 +54,16 @@ spec:
                 description: AutogenConfiguration defines the configuration for the
                   generation controller.
                 properties:
+                  mutatingAdmissionPolicy:
+                    description: MutatingAdmissionPolicy specifies whether to generate
+                      a Kubernetes MutatingAdmissionPolicy.
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+                          Optional. Defaults to "false" if not specified.
+                        type: boolean
+                    type: object
                   podControllers:
                     description: PodControllers specifies whether to generate a pod
                       controllers rules.
@@ -62,16 +72,6 @@ spec:
                         items:
                           type: string
                         type: array
-                    type: object
-                  validatingAdmissionPolicy:
-                    description: ValidatingAdmissionPolicy specifies whether to generate
-                      a Kubernetes ValidatingAdmissionPolicy.
-                    properties:
-                      enabled:
-                        description: |-
-                          Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-                          Optional. Defaults to "false" if not specified.
-                        type: boolean
                     type: object
                 type: object
               evaluation:
@@ -1067,6 +1067,16 @@ spec:
                               description: AutogenConfiguration defines the configuration
                                 for the generation controller.
                               properties:
+                                mutatingAdmissionPolicy:
+                                  description: MutatingAdmissionPolicy specifies whether
+                                    to generate a Kubernetes MutatingAdmissionPolicy.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+                                        Optional. Defaults to "false" if not specified.
+                                      type: boolean
+                                  type: object
                                 podControllers:
                                   description: PodControllers specifies whether to
                                     generate a pod controllers rules.
@@ -1075,16 +1085,6 @@ spec:
                                       items:
                                         type: string
                                       type: array
-                                  type: object
-                                validatingAdmissionPolicy:
-                                  description: ValidatingAdmissionPolicy specifies
-                                    whether to generate a Kubernetes ValidatingAdmissionPolicy.
-                                  properties:
-                                    enabled:
-                                      description: |-
-                                        Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
-                                        Optional. Defaults to "false" if not specified.
-                                      type: boolean
                                   type: object
                               type: object
                             evaluation:
@@ -2194,7 +2194,7 @@ spec:
                     type: boolean
                 type: object
               generated:
-                description: Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+                description: Generated indicates whether a MutatingAdmissionPolicy/MutatingAdmissionPolicy
                   is generated from the policy or not
                 type: boolean
             type: object
