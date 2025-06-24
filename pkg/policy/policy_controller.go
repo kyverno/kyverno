@@ -241,6 +241,19 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		if datautils.DeepEqual(oldgpol.Spec, newgpol.Spec) {
 			return
 		}
+		// If the policy is updated to disable synchronization, we need to remove the watchers.
+		if oldgpol.Spec.SynchronizationEnabled() && !newgpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("removing watchers for generating policy", "name", oldgpol.GetName())
+			pc.watchManager.RemoveWatchersForPolicy(oldgpol.GetName(), false)
+		}
+		// create UR to update/generate downstream resources
+		if newgpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("creating UR for generating policy", "name", newgpol.GetName())
+			err := pc.createURForGeneratingPolicy(newgpol)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", newgpol.GetName(), err))
+			}
+		}
 	}
 
 	logger.V(2).Info("updating policy", "name", oldPolicy.GetName())
@@ -268,7 +281,7 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 		p = engineapi.NewKyvernoPolicy(pol)
 	case *policiesv1alpha1.GeneratingPolicy:
 		gpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.GeneratingPolicy)
-		pc.watchManager.RemoveWatchersForPolicy(gpol.GetName())
+		pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
 		p = engineapi.NewGeneratingPolicy(gpol)
 	default:
 		logger.Info("Failed to get deleted object", "obj", obj)
