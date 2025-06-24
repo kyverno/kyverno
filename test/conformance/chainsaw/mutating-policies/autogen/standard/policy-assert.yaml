@@ -18,4 +18,4 @@ status:
 kind: Namespace
 apiVersion: v1
 metadata:
-  name: dev 
+  name: autogen-applyconfiguration 

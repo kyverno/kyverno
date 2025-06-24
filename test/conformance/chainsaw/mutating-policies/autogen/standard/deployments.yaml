@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dev-deploy
-  namespace: dev
+  namespace: autogen-applyconfiguration
 spec:
   replicas: 1
   selector:
@@ -43,7 +43,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: prod-deploy
-  namespace: dev
+  namespace: autogen-applyconfiguration
 spec:
   replicas: 1
   selector:

@@ -16,7 +16,7 @@ spec:
       resources: [ "pods" ]
   matchConditions:
   - name: is-applyconfiguration-namespace
-    expression: object.metadata.namespace == 'dev'
+    expression: object.metadata.namespace == 'autogen-applyconfiguration'
   mutations:
   - patchType: ApplyConfiguration
     applyConfiguration:
@@ -31,3 +31,8 @@ spec:
             })
           } 
         } 
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: autogen-applyconfiguration 

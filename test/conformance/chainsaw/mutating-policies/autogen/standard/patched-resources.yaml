@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dev-deploy
-  namespace: dev
+  namespace: autogen-applyconfiguration
 spec:
   template:
     spec:
@@ -29,7 +29,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: prod-deploy
-  namespace: dev
+  namespace: autogen-applyconfiguration
 spec:
   template:
     spec:
