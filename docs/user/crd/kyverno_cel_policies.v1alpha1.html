@@ -1535,6 +1535,35 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">ValidatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>targetMatchConstraints</code>
           
           </br>
@@ -6094,6 +6123,176 @@ When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates ex
     </table>
   
 
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyAutogen">MutatingPolicyAutogen
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenStatus">MutatingPolicyAutogenStatus</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>targets</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Target">
+                <span style="font-family: monospace">[]Target</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">
+                <span style="font-family: monospace">MutatingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyAutogenStatus">MutatingPolicyAutogenStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">MutatingPolicyStatus</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>configs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogen">
+                <span style="font-family: monospace">map[string]MutatingPolicyAutogen</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration
     </H3>
 
@@ -6196,7 +6395,8 @@ When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates ex
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogen">MutatingPolicyAutogen</a>)
     </p>
   
 
@@ -6349,6 +6549,35 @@ The variables defined here will be available under <code>variables</code> in oth
 except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
 <p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
 Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">ValidatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
 
 
           
@@ -6584,8 +6813,8 @@ Required.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenStatus">
-                <span style="font-family: monospace">ValidatingPolicyAutogenStatus</span>
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenStatus">
+                <span style="font-family: monospace">MutatingPolicyAutogenStatus</span>
               </a>
             
           
@@ -7576,6 +7805,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogen">MutatingPolicyAutogen</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
     </p>
   
@@ -7828,6 +8058,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)
     </p>
   
@@ -7925,7 +8156,6 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">MutatingPolicyStatus</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyStatus">ValidatingPolicyStatus</a>)
     </p>
   
