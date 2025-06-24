@@ -10464,14 +10464,14 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 <td>
 <code>evaluation</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.GenerateConfiguration">
-GenerateConfiguration
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">
+GeneratingPolicyEvaluationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateConfiguration defines the configuration for the policy evaluation.</p>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
 <tr>
@@ -11419,7 +11419,7 @@ ValidatingPolicyStatus
 <p>
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>, 
-<a href="#policies.kyverno.io/v1alpha1.GenerateConfiguration">GenerateConfiguration</a>)
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
 </p>
 <p>
 </p>
@@ -11570,7 +11570,7 @@ Notary
 <p>
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>, 
-<a href="#policies.kyverno.io/v1alpha1.GenerateConfiguration">GenerateConfiguration</a>)
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
 </p>
 <p>
 </p>
@@ -12213,7 +12213,41 @@ BackgroundConfiguration
 </p>
 <p>
 </p>
-<h3 id="policies.kyverno.io/v1alpha1.GenerateConfiguration">GenerateConfiguration
+<h3 id="policies.kyverno.io/v1alpha1.GenerateExistingConfiguration">GenerateExistingConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+<p>GenerateExistingConfiguration defines the configuration for generating resources for existing triggers.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls whether to trigger the policy for existing resources
+If is set to &ldquo;true&rdquo; the policy will be triggered and applied to existing matched resources.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration
 </h3>
 <p>
 (<em>Appears on:</em>
@@ -12261,43 +12295,41 @@ BackgroundConfiguration
 <td>
 <code>generateExisting</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.GenerateExistingConfiguration">
+GenerateExistingConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger the policy for existing resources
-If is set to &ldquo;true&rdquo; the policy will be triggered and applied to existing matched resources.</p>
+<p>GenerateExisting defines the configuration for generating resources for existing triggeres.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>synchronize</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.SynchronizationConfiguration">
+SynchronizationConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Synchronize controls if generated resources should be kept in-sync with their source resource.
-If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
-data from Data or the resource specified in the Clone declaration.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>Synchronization defines the configuration for the synchronization of generated resources.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>orphanDownstreamOnPolicyDelete</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.OrphanDownstreamOnPolicyDeleteConfiguration">
+OrphanDownstreamOnPolicyDeleteConfiguration
+</a>
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the policy that generated
-them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-See <a href="https://kyverno.io/docs/writing-policies/generate/#data-examples">https://kyverno.io/docs/writing-policies/generate/#data-examples</a>.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>OrphanDownstreamOnPolicyDelete defines the configuration for orphaning downstream resources on policy delete.</p>
 </td>
 </tr>
 </tbody>
@@ -12383,14 +12415,14 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 <td>
 <code>evaluation</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.GenerateConfiguration">
-GenerateConfiguration
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">
+GeneratingPolicyEvaluationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateConfiguration defines the configuration for the policy evaluation.</p>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
 <tr>
@@ -13202,6 +13234,38 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.MutateExistingConfiguration">MutateExistingConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled enables mutation of existing resources. Default is <code>false</code>.
+When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates existing resources matched in <code>spec.matchConstraints</code>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.MutatingPolicyAutogen">MutatingPolicyAutogen
 </h3>
 <p>
@@ -13315,13 +13379,14 @@ EvaluationConfiguration
 <td>
 <code>mutateExisting</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.MutateExistingConfiguration">
+MutateExistingConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>MutateExisting enables mutation of existing resources. Default is <code>false</code>.
-When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates existing resources matched in <code>spec.matchConstraints</code>.</p>
+<p>MutateExisting controls whether existing resources are mutated.</p>
 </td>
 </tr>
 </tbody>
@@ -13626,6 +13691,40 @@ StringOrExpression
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.OrphanDownstreamOnPolicyDeleteConfiguration">OrphanDownstreamOnPolicyDeleteConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+<p>OrphanDownstreamOnPolicyDeleteConfiguration defines the configuration for orphaning downstream resources on policy delete.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls whether generated resources should be deleted when the policy that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">PodControllersGenerationConfiguration
 </h3>
 <p>
@@ -13880,6 +13979,41 @@ string
 <td>
 <em>(Optional)</em>
 <p>Expression defines the a CEL expression input.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.SynchronizationConfiguration">SynchronizationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+<p>SynchronizationConfiguration defines the configuration for the synchronization of generated resources.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls if generated resources should be kept in-sync with their source resource.
+If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
+data from Data or the resource specified in the Clone declaration.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 </tbody>
