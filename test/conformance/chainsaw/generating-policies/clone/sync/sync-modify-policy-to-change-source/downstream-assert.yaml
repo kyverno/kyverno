@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: sync-modify-policy-to-change-source
+  namespace: sync-modify-policy-to-change-source
+type: Opaque
