@@ -2194,7 +2194,7 @@ spec:
                     type: boolean
                 type: object
               generated:
-                description: Generated indicates whether a MutatingAdmissionPolicy/MutatingAdmissionPolicy
+                description: Generated indicates whether a MutatingAdmissionPolicy
                   is generated from the policy or not
                 type: boolean
             type: object

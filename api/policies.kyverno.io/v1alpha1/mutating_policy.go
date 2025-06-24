@@ -31,7 +31,7 @@ type MutatingPolicyStatus struct {
 	// +optional
 	Autogen MutatingPolicyAutogenStatus `json:"autogen,omitempty"`
 
-	// Generated indicates whether a MutatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
+	// Generated indicates whether a MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
 }
