@@ -2,7 +2,6 @@ package autogen
 
 import (
 	"cmp"
-	"encoding/json"
 	"maps"
 	"slices"
 	"strings"
@@ -47,42 +46,12 @@ func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, confi
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		match := autogen.CreateMatchConstraints(targets, operations)
 		spec.SetMatchConstraints(*match)
-		bytes, err := json.Marshal(spec)
-		if err != nil {
-			return nil, err
-		}
 
-		var specMap map[string]interface{}
-		if err := json.Unmarshal(bytes, &specMap); err != nil {
-			return nil, err
-		}
-
-		if mutations, exists := specMap["mutations"]; exists {
-			if mutationsList, ok := mutations.([]interface{}); ok {
-				for _, mutation := range mutationsList {
-					if mutationMap, ok := mutation.(map[string]interface{}); ok {
-						if applyConfig, exists := mutationMap["applyConfiguration"]; exists {
-							if applyConfigMap, ok := applyConfig.(map[string]interface{}); ok {
-								if expression, exists := applyConfigMap["expression"]; exists {
-									if exprStr, ok := expression.(string); ok {
-										// Convert pod pattern to template pattern
-										convertedExpr := convertPodToTemplateExpression(exprStr, config)
-										applyConfigMap["expression"] = convertedExpr
-									}
-								}
-							}
-						}
-					}
-				}
+		for i := range spec.Mutations {
+			if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
+				convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
+				spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
 			}
-		}
-
-		bytes, err = json.Marshal(specMap)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(bytes, spec); err != nil {
-			return nil, err
 		}
 
 		slices.SortFunc(targets, func(a, b policiesv1alpha1.Target) int {
