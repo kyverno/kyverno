@@ -61,7 +61,6 @@ func (p *Policy) Evaluate(
 			return &EvaluationResult{Error: err}
 		}
 
-		// Always treat the object as unstructured
 		versionedAttributes.Dirty = true
 		versionedAttributes.VersionedObject = newVersionedObject
 	}
