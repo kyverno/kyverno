@@ -346,7 +346,7 @@ func TestAutogenIntegration(t *testing.T) {
 			},
 		}
 
-		policy.Spec.AutogenConfiguration = &policiesv1alpha1.ValidatingPolicyAutogenConfiguration{
+		policy.Spec.AutogenConfiguration = &policiesv1alpha1.MutatingPolicyAutogenConfiguration{
 			PodControllers: &policiesv1alpha1.PodControllersGenerationConfiguration{
 				Controllers: []string{"deployments"},
 			},
@@ -407,7 +407,7 @@ func TestAutogenIntegration(t *testing.T) {
 			},
 		}
 
-		policy.Spec.AutogenConfiguration = &policiesv1alpha1.ValidatingPolicyAutogenConfiguration{
+		policy.Spec.AutogenConfiguration = &policiesv1alpha1.MutatingPolicyAutogenConfiguration{
 			PodControllers: &policiesv1alpha1.PodControllersGenerationConfiguration{
 				Controllers: []string{"cronjobs"},
 			},

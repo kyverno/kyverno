@@ -1542,8 +1542,8 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">
-                <span style="font-family: monospace">ValidatingPolicyAutogenConfiguration</span>
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">MutatingPolicyAutogenConfiguration</span>
               </a>
             
           
@@ -5970,6 +5970,71 @@ If not provided, the system roots are used.</p>
     </table>
   
 
+  <H3 id="policies-kyverno-io-v1alpha1-MAPGenerationConfiguration">MAPGenerationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-MatchImageReference">MatchImageReference
     </H3>
 
@@ -6217,6 +6282,103 @@ When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates ex
   
 
             </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>podControllers</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-PodControllersGenerationConfiguration">
+                <span style="font-family: monospace">PodControllersGenerationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodControllers specifies whether to generate a pod controllers rules.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutatingAdmissionPolicy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MAPGenerationConfiguration">
+                <span style="font-family: monospace">MAPGenerationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutatingAdmissionPolicy specifies whether to generate a Kubernetes MutatingAdmissionPolicy.</p>
+
+
+          
+
           
         </td>
       </tr>
@@ -6568,8 +6730,8 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">
-                <span style="font-family: monospace">ValidatingPolicyAutogenConfiguration</span>
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">MutatingPolicyAutogenConfiguration</span>
               </a>
             
           
@@ -6848,7 +7010,7 @@ Required.</p>
         <td>
           
 
-          <p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+          <p>Generated indicates whether a MutatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
 
 
           
@@ -7030,6 +7192,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenConfiguration">ImageValidatingPolicyAutogenConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration</a>)
     </p>
   
@@ -8058,7 +8221,6 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)
     </p>
   

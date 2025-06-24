@@ -31,7 +31,7 @@ type MutatingPolicyStatus struct {
 	// +optional
 	Autogen MutatingPolicyAutogenStatus `json:"autogen,omitempty"`
 
-	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
+	// Generated indicates whether a MutatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
 }
@@ -94,7 +94,7 @@ type MutatingPolicySpec struct {
 
 	// AutogenConfiguration defines the configuration for the generation controller.
 	// +optional
-	AutogenConfiguration *ValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
+	AutogenConfiguration *MutatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 
 	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
 	// +optional
@@ -261,6 +261,19 @@ type MutatingPolicyEvaluationConfiguration struct {
 	// MutateExisting controls whether existing resources are mutated.
 	// +optional
 	MutateExistingConfiguration *MutateExistingConfiguration `json:"mutateExisting,omitempty"`
+}
+
+type MutatingPolicyAutogenConfiguration struct {
+	// PodControllers specifies whether to generate a pod controllers rules.
+	PodControllers *PodControllersGenerationConfiguration `json:"podControllers,omitempty"`
+	// MutatingAdmissionPolicy specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+	MutatingAdmissionPolicy *MAPGenerationConfiguration `json:"mutatingAdmissionPolicy,omitempty"`
+}
+
+type MAPGenerationConfiguration struct {
+	// Enabled specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+	// Optional. Defaults to "false" if not specified.
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type MutateExistingConfiguration struct {
