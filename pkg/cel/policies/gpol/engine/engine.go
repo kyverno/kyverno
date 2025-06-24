@@ -49,7 +49,7 @@ func (e *Engine) Handle(request engine.EngineRequest, policy Policy) (EngineResp
 		&object,
 		&oldObject,
 		schema.GroupVersionKind(request.Request.Kind),
-		request.Request.Namespace,
+		object.GetNamespace(),
 		request.Request.Name,
 		schema.GroupVersionResource(request.Request.Resource),
 		request.Request.SubResource,
@@ -63,11 +63,11 @@ func (e *Engine) Handle(request engine.EngineRequest, policy Policy) (EngineResp
 	if ns := request.Request.Namespace; ns != "" {
 		namespace = e.nsResolver(ns)
 	}
-	response.Policies = append(response.Policies, e.generate(context.TODO(), policy, attr, &request.Request, namespace, request.Context))
+	response.Policies = append(response.Policies, e.generate(context.TODO(), policy, attr, &request.Request, namespace, request.Context, string(object.GetUID())))
 	return response, nil
 }
 
-func (e *Engine) generate(ctx context.Context, policy Policy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context) GeneratingPolicyResponse {
+func (e *Engine) generate(ctx context.Context, policy Policy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context, triggerUID string) GeneratingPolicyResponse {
 	response := GeneratingPolicyResponse{
 		Policy: policy.Policy,
 	}
@@ -81,6 +81,7 @@ func (e *Engine) generate(ctx context.Context, policy Policy, attr admission.Att
 		}
 	}
 	context.SetPolicyName(policy.Policy.Name)
+	context.SetTriggerMetadata(request.Name, attr.GetNamespace(), triggerUID, request.Kind.Version, request.Kind.Group, request.Kind.Kind)
 	generatedResources, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
 		response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to evaluate policy", err, nil)
