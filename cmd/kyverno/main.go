@@ -288,6 +288,7 @@ func createrLeaderControllers(
 		kyvernoClient,
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		reportsServiceAccountName,
 		stateRecorder,

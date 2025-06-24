@@ -4,7 +4,8 @@ metadata:
   name: zk-kafka-address
 spec:
   evaluation:
-    synchronize: true
+    synchronize:
+      enabled: true
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]
