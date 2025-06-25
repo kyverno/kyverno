@@ -367,7 +367,10 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 	if exists {
 		uid := obj.GetUID()
 		// the metadata cache is used to track the generated resources.
-		// if the resource is not in the cache, it means that it is the source resource that has been updated.
+		// if the resource is not in the cache, it means it is one of the following:
+		// - it is the source resource with sync enabled, and we need to update the downstream resources.
+		// - it is the source resource with sync disabled, and we do nothing.
+		// - it is the downstream resource with sync disabled, and we do nothing.
 		if _, ok := watcher.metadataCache[uid]; !ok {
 			source := obj.DeepCopy()
 			// clean up parameters that shouldn't be copied
@@ -385,8 +388,12 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			if err != nil {
 				wm.log.Error(err, "failed to list downstream resources")
 			}
-			// update the downstream resources with the source information.
 			for _, downstream := range downstreams.Items {
+				// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
+				if _, exists := watcher.metadataCache[downstream.GetUID()]; !exists {
+					continue
+				}
+				// update the downstream resources with the source information.
 				newResource := &unstructured.Unstructured{}
 				newResource.SetUnstructuredContent(source.UnstructuredContent())
 				newResource.SetName(downstream.GetName())
@@ -412,7 +419,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				}
 			}
 		} else {
-			// if the resource is already in the cache, then it is the downstream resource that has been updated.
+			// if the resource is already in the cache, then it is the downstream resource that has been updated and it is sync enabled.
 			hash := reportutils.CalculateResourceHash(*obj)
 			// if the hash of the resource is different from the one in the cache
 			// then we need to revert the downstream resource as it means that it has been updated by the user.
@@ -459,6 +466,10 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				wm.log.Error(err, "failed to list downstream resources")
 			} else {
 				for _, downstream := range downstreams.Items {
+					// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
+					if _, exists := watcher.metadataCache[downstream.GetUID()]; !exists {
+						continue
+					}
 					err := wm.client.DeleteResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), false, metav1.DeleteOptions{})
 					if err != nil {
 						wm.log.Error(err, "failed to delete downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
