@@ -15,9 +15,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var (
-	base32NoPad = base32.StdEncoding.WithPadding(base32.NoPadding)
-)
+var base32NoPad = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 type Object interface {
 	GetName() string

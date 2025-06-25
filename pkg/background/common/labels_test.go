@@ -1,8 +1,9 @@
 package common
 
 import (
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 )
 
 func TestHashEncodeName(t *testing.T) {
