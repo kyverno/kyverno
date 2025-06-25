@@ -7,10 +7,8 @@ permissions: {}
 on:
   pull_request:
     branches:
-      - "main"
-      - "release*"
-  schedule:
-    - cron: "43 0 * * 0"
+      - main
+      - release*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -819,7 +817,7 @@ jobs:
           verify: true
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@e069d099ee4924f0c125e5e25e631ad706035e33
+        uses: sigstore/scaffolding/actions/setup@819d566d24a563bb99666dbda770871eb85710a1
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version }}

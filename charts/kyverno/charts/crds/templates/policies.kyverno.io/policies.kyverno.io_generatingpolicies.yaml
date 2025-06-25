@@ -54,8 +54,8 @@ spec:
               behavior of the GeneratingPolicy.
             properties:
               evaluation:
-                description: GenerateConfiguration defines the configuration for the
-                  policy evaluation.
+                description: EvaluationConfiguration defines the configuration for
+                  the policy evaluation.
                 properties:
                   admission:
                     description: Admission controls policy evaluation during admission.
@@ -67,37 +67,43 @@ spec:
                           Optional. Default value is "true".
                         type: boolean
                     type: object
-                  background:
-                    description: Background  controls policy evaluation during background
-                      scan.
+                  generateExisting:
+                    description: GenerateExisting defines the configuration for generating
+                      resources for existing triggeres.
                     properties:
                       enabled:
-                        default: true
+                        default: false
                         description: |-
-                          Enabled controls if rules are applied to existing resources during a background scan.
-                          Optional. Default value is "true". The value must be set to "false" if the policy rule
-                          uses variables that are only available in the admission review request (e.g. user name).
+                          Enabled controls whether to trigger the policy for existing resources
+                          If is set to "true" the policy will be triggered and applied to existing matched resources.
+                          Optional. Defaults to "false" if not specified.
                         type: boolean
                     type: object
-                  generateExisting:
-                    description: |-
-                      GenerateExisting controls whether to trigger the policy for existing resources
-                      If is set to "true" the policy will be triggered and applied to existing matched resources.
-                    type: boolean
                   orphanDownstreamOnPolicyDelete:
-                    description: |-
-                      OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the policy that generated
-                      them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                      See https://kyverno.io/docs/writing-policies/generate/#data-examples.
-                      Defaults to "false" if not specified.
-                    type: boolean
+                    description: OrphanDownstreamOnPolicyDelete defines the configuration
+                      for orphaning downstream resources on policy delete.
+                    properties:
+                      enabled:
+                        default: false
+                        description: |-
+                          Enabled controls whether generated resources should be deleted when the policy that generated
+                          them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+                          Optional. Defaults to "false" if not specified.
+                        type: boolean
+                    type: object
                   synchronize:
-                    description: |-
-                      Synchronize controls if generated resources should be kept in-sync with their source resource.
-                      If Synchronize is set to "true" changes to generated resources will be overwritten with resource
-                      data from Data or the resource specified in the Clone declaration.
-                      Optional. Defaults to "false" if not specified.
-                    type: boolean
+                    description: Synchronization defines the configuration for the
+                      synchronization of generated resources.
+                    properties:
+                      enabled:
+                        default: false
+                        description: |-
+                          Enabled controls if generated resources should be kept in-sync with their source resource.
+                          If Synchronize is set to "true" changes to generated resources will be overwritten with resource
+                          data from Data or the resource specified in the Clone declaration.
+                          Optional. Defaults to "false" if not specified.
+                        type: boolean
+                    type: object
                 type: object
               generate:
                 description: |-
