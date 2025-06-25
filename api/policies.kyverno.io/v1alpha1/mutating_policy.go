@@ -233,10 +233,7 @@ func (s MutatingPolicySpec) AdmissionEnabled() bool {
 
 // BackgroundEnabled checks if background is set to true
 func (s MutatingPolicySpec) BackgroundEnabled() bool {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return true
-	}
-	return *s.EvaluationConfiguration.Background.Enabled
+	return true
 }
 
 func (s *MutatingPolicy) GetStatus() *MutatingPolicyStatus {
@@ -256,7 +253,9 @@ func (status *MutatingPolicyStatus) GetConditionStatus() *ConditionStatus {
 }
 
 type MutatingPolicyEvaluationConfiguration struct {
-	EvaluationConfiguration `json:",inline"`
+	// Admission controls policy evaluation during admission.
+	// +optional
+	Admission *AdmissionConfiguration `json:"admission,omitempty"`
 
 	// MutateExisting controls whether existing resources are mutated.
 	// +optional
@@ -277,8 +276,8 @@ type MAPGenerationConfiguration struct {
 }
 
 type MutateExistingConfiguration struct {
-	// Enabled enables mutation of existing resources. Default is `false`.
-	// When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+	// Enabled enables mutation of existing resources. Default is false.
+	// When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.
 	// +optional
 	// +kubebuilder:default=false
 	Enabled *bool `json:"enabled,omitempty"`

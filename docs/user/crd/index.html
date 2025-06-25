@@ -10273,8 +10273,6 @@ Required.</p>
 Conditions filter resources that have already been matched by the match constraints,
 namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
 There are a maximum of 64 conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):
 1. If ANY condition evaluates to FALSE, the policy is skipped.
 2. If ALL conditions evaluate to TRUE, the policy is executed.</p>
@@ -11419,7 +11417,8 @@ ValidatingPolicyStatus
 <p>
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>, 
-<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>, 
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
 </p>
 <p>
 </p>
@@ -12041,8 +12040,6 @@ Required.</p>
 Conditions filter resources that have already been matched by the match constraints,
 namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
 There are a maximum of 64 conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):
 1. If ANY condition evaluates to FALSE, the policy is skipped.
 2. If ALL conditions evaluate to TRUE, the policy is executed.</p>
@@ -12145,7 +12142,6 @@ Kubernetes meta/v1.Time
 <p>
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
 </p>
 <p>
@@ -13290,8 +13286,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Enabled enables mutation of existing resources. Default is <code>false</code>.
-When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates existing resources matched in <code>spec.matchConstraints</code>.</p>
+<p>Enabled enables mutation of existing resources. Default is false.
+When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.</p>
 </td>
 </tr>
 </tbody>
@@ -13438,17 +13434,16 @@ map[string]github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1.MutatingP
 <tbody>
 <tr>
 <td>
-<code>EvaluationConfiguration</code><br/>
+<code>admission</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
-EvaluationConfiguration
+<a href="#policies.kyverno.io/v1alpha1.AdmissionConfiguration">
+AdmissionConfiguration
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>EvaluationConfiguration</code> are embedded into this type.)
-</p>
+<em>(Optional)</em>
+<p>Admission controls policy evaluation during admission.</p>
 </td>
 </tr>
 <tr>

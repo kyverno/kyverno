@@ -193,8 +193,6 @@ Required.</p>
 Conditions filter resources that have already been matched by the match constraints,
 namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
 There are a maximum of 64 conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY condition evaluates to FALSE, the policy is skipped.</li>
@@ -2394,7 +2392,8 @@ Required.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
     </p>
   
 
@@ -3638,8 +3637,6 @@ Required.</p>
 Conditions filter resources that have already been matched by the match constraints,
 namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
 There are a maximum of 64 conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY condition evaluates to FALSE, the policy is skipped.</li>
@@ -3847,7 +3844,6 @@ Required.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)
     </p>
   
@@ -6171,8 +6167,8 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          <p>Enabled enables mutation of existing resources. Default is <code>false</code>.
-When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates existing resources matched in <code>spec.matchConstraints</code>.</p>
+          <p>Enabled enables mutation of existing resources. Default is false.
+When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.</p>
 
 
           
@@ -6487,27 +6483,24 @@ When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates ex
     
     
       <tr>
-        <td><code>EvaluationConfiguration</code>
-          
-          <span style="color:blue;"> *</span>
+        <td><code>admission</code>
           
           </br>
 
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
-                <span style="font-family: monospace">EvaluationConfiguration</span>
+              <a href="#policies-kyverno-io-v1alpha1-AdmissionConfiguration">
+                <span style="font-family: monospace">AdmissionConfiguration</span>
               </a>
             
           
         </td>
         <td>
           
-            <p>(Members of <code>EvaluationConfiguration</code> are embedded into this type.)</p>
-          
 
-          
+          <p>Admission controls policy evaluation during admission.</p>
+
 
           
 
