@@ -19,6 +19,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -79,10 +80,11 @@ type controller struct {
 	client dclient.Interface
 
 	// listers
-	polLister  kyvernov1listers.PolicyLister
-	cpolLister kyvernov1listers.ClusterPolicyLister
-	vpolLister policiesv1alpha1listers.ValidatingPolicyLister
-	vapLister  admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	polLister   kyvernov1listers.PolicyLister
+	cpolLister  kyvernov1listers.ClusterPolicyLister
+	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
+	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -97,6 +99,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
@@ -112,6 +115,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, ivpolInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -196,16 +205,16 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			c.notify(Added, uid, gvk, hashes[uid])
 		}
 		logger := logger.WithValues("resourceVersion", resourceVersion)
-		logger.Info("start watcher ...")
+		logger.V(2).Info("start watcher ...")
 		watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-			logger.Info("creating watcher...")
+			logger.V(3).Info("creating watcher...")
 			watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
 			if err != nil {
 				logger.Error(err, "failed to watch")
 			}
 			return watch, err
 		}
-		watchInterface, err := watchTools.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+		watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 		if err != nil {
 			logger.Error(err, "failed to create watcher")
 			return nil, err
@@ -216,7 +225,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 				hashes:  hashes,
 			}
 			go func(gvr schema.GroupVersionResource) {
-				defer logger.Info("watcher stopped")
+				defer logger.V(2).Info("watcher stopped")
 				for event := range watchInterface.ResultChan() {
 					switch event.Type {
 					case watch.Added:
@@ -252,6 +261,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
 		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
 	}
+	restMapper, err := restmapper.GetRESTMapper(c.client, false)
+	if err != nil {
+		return err
+	}
 	if c.vapLister != nil {
 		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
 		if err != nil {
@@ -259,7 +272,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vapPolicies {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -273,7 +289,27 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.ivpolLister != nil {
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return err
+		}
+		// fetch kinds from image verification admission policies
+		for _, policy := range ivpols {
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -317,12 +353,12 @@ func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string
 			if gvrs.SubResource == "" {
 				gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: kind}
 				if !reportutils.IsGvkSupported(gvk) {
-					logger.Info("kind is not supported", "gvk", gvk)
+					logger.V(2).Info("kind is not supported", "gvk", gvk)
 				} else {
 					if slices.Contains(api.Verbs, "list") && slices.Contains(api.Verbs, "watch") {
 						gvrMap[gvk] = gvrs.GroupVersionResource()
 					} else {
-						logger.Info("list/watch not supported for kind", "kind", kind)
+						logger.V(2).Info("list/watch not supported for kind", "kind", kind)
 					}
 				}
 			}

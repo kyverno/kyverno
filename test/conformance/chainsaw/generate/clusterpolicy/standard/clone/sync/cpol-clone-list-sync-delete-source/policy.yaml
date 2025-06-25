@@ -11,9 +11,14 @@ spec:
         namespace: cpol-clone-list-sync-delete-source-existing-ns
         selector:
           matchLabels:
-            allowedToBeCloned: "true"
+            allowedToBeCloned: "{{allow}}"
       namespace: '{{ request.object.metadata.name }}'
       synchronize: true
+    context:
+    - name: allow
+      apiCall:
+        jmesPath: metadata.labels.allowedToBeCloned
+        urlPath: /api/v1/namespaces/cpol-clone-list-sync-delete-source-existing-ns/secrets/mysecret-1
     match:
       all:
       - resources:

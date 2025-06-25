@@ -95,7 +95,7 @@ func NewController(
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
 			}
-			logger.Info(operation)
+			logger.V(2).Info(operation)
 			if err := baseEnqueueFunc(obj); err != nil {
 				logger.Error(err, "failed to enqueue object", "obj", obj)
 				return err
@@ -222,6 +222,12 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				namespace := resource.GetNamespace()
 				name := resource.GetName()
 				debug := debug.WithValues("name", name, "namespace", namespace)
+				gvk := resource.GroupVersionKind()
+				// Skip if resource matches resourceFilters from config
+				if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
+					debug.Info("skipping resource due to resourceFilters in ConfigMap")
+					continue
+				}
 				// check if the resource is owned by Kyverno
 				if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
 					continue

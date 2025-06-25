@@ -1501,6 +1501,21 @@ Here, all of the conditions need to pass</p>
 
   
 
+  <H3 id="kyverno-io-v1-AssertionTree">AssertionTree
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-Validation">Validation</a>)
+    </p>
+  
+
+  <p><p>AssertionTree defines a kyverno-json assertion tree.</p>
+</p>
+
+  
+
   <H3 id="kyverno-io-v1-Attestation">Attestation
     </H3>
 
@@ -2133,6 +2148,34 @@ attributes for keyless verification, or a nested attestor declaration.</p>
         
 
   
+  
+    
+    
+      <tr>
+        <td><code>generate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
   
     
     
@@ -10151,7 +10194,9 @@ by specifying exclusions for Pod Security Standards controls.</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+              <a href="#kyverno-io-v1-AssertionTree">
+                <span style="font-family: monospace">AssertionTree</span>
+              </a>
             
           
         </td>

@@ -3,11 +3,11 @@ kind: ValidatingAdmissionPolicyBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-binding
+  name: cpol-disallow-host-path-binding
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
     name: disallow-host-path
 spec:
-  policyName: disallow-host-path
+  policyName: cpol-disallow-host-path
   validationActions: [Audit, Warn]

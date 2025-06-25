@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: clone-update-policy-to-disable-sync
+  namespace: clone-update-policy-to-disable-sync
+type: Opaque

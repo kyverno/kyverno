@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -101,8 +103,8 @@ func (gen *controller) Add(infos ...Info) {
 // Run begins generator
 func (gen *controller) Run(ctx context.Context, workers int) {
 	logger := gen.logger
-	logger.Info("start")
-	defer logger.Info("terminated")
+	logger.V(2).Info("start")
+	defer logger.V(2).Info("terminated")
 	defer utilruntime.HandleCrash()
 	var waitGroup wait.Group
 	for i := 0; i < workers; i++ {
@@ -140,6 +142,26 @@ func (gen *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	gen.queue.Forget(key)
 	return true
+}
+
+// sanitizeEventName ensures the name is RFC 1123 compliant by replacing invalid characters
+// RFC 1123 requires lowercase alphanumeric characters, '-' or '.', starting and ending with alphanumeric
+func sanitizeEventName(name string) string {
+	// Replace colons, slashes, and other non-compliant characters with hyphens
+	invalidChars := regexp.MustCompile(`[^a-z0-9\.\-]`)
+	sanitized := invalidChars.ReplaceAllString(strings.ToLower(name), "-")
+
+	// Ensure name starts with an alphanumeric character
+	if len(sanitized) > 0 && !regexp.MustCompile(`^[a-z0-9]`).MatchString(sanitized) {
+		sanitized = "a" + sanitized
+	}
+
+	// Ensure name ends with an alphanumeric character
+	if len(sanitized) > 0 && !regexp.MustCompile(`[a-z0-9]$`).MatchString(sanitized) {
+		sanitized = sanitized + "z"
+	}
+
+	return sanitized
 }
 
 func (gen *controller) emitEvent(key Info) {
@@ -182,9 +204,13 @@ func (gen *controller) emitEvent(key Info) {
 	if len(message) > 1024 {
 		message = message[0:1021] + "..."
 	}
+
+	// Sanitize refRegarding.Name to comply with RFC 1123 subdomain naming requirements
+	sanitizedName := sanitizeEventName(refRegarding.Name)
+
 	event := &eventsv1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%v.%x", refRegarding.Name, t.UnixNano()),
+			Name:      fmt.Sprintf("%v.%x", sanitizedName, t.UnixNano()),
 			Namespace: namespace,
 		},
 		EventTime:           timestamp,

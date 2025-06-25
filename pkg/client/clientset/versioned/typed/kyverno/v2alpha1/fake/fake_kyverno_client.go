@@ -28,16 +28,8 @@ type FakeKyvernoV2alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeKyvernoV2alpha1) CELPolicyExceptions(namespace string) v2alpha1.CELPolicyExceptionInterface {
-	return &FakeCELPolicyExceptions{c, namespace}
-}
-
 func (c *FakeKyvernoV2alpha1) GlobalContextEntries() v2alpha1.GlobalContextEntryInterface {
-	return &FakeGlobalContextEntries{c}
-}
-
-func (c *FakeKyvernoV2alpha1) ValidatingPolicies() v2alpha1.ValidatingPolicyInterface {
-	return &FakeValidatingPolicies{c}
+	return newFakeGlobalContextEntries(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

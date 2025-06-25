@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prevent-node-pool-deletion
+status:
+  conditions:
+  - message: Not Ready
+    reason: Failed
+    status: "False"
+    type: Ready

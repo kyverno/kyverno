@@ -45,11 +45,13 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 
 	// Validate
 	if rule.HasValidate() {
-		checker = validate.NewValidateFactory(rule, client, mock, reportsSA)
-		if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
-			return nil, fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
-		} else if w != nil {
-			warnings = append(warnings, w...)
+		if reportsSA != "" {
+			checker = validate.NewValidateFactory(rule, client, mock, reportsSA)
+			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
+				return nil, fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
+			} else if w != nil {
+				warnings = append(warnings, w...)
+			}
 		}
 
 		if rule.HasValidateCEL() && toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {

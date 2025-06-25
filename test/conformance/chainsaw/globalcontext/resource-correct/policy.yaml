@@ -16,6 +16,8 @@ spec:
       - resources:
           kinds:
           - Pod
+          namespaces:
+          - test-globalcontext-resource-correct
     preconditions:
       all:
       - key: '{{ request.operation }}'

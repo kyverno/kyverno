@@ -25,13 +25,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	regex "github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/event"
-	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	validationpolicy "github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
-	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -101,7 +99,7 @@ func NewGenerateController(
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	var genResources []kyvernov1.ResourceSpec
-	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
+	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	var failures []error
 	policy, err := c.getPolicyObject(*ur)
@@ -111,7 +109,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		rule := ur.Spec.RuleContext[i]
-		trigger, err := c.getTrigger(ur.Spec, i)
+		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
 			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %v", rule.Rule, err))
@@ -121,7 +119,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
-				logger.V(4).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
+				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
 			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
@@ -134,70 +132,6 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 }
 
 const doesNotApply = "policy does not apply to resource"
-
-func (c *GenerateController) getTrigger(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
-	resourceSpec := spec.RuleContext[i].Trigger
-	c.log.V(4).Info("fetching trigger", "trigger", resourceSpec.String())
-	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
-	if admissionRequest == nil {
-		return common.GetResource(c.client, resourceSpec, spec, c.log)
-	} else {
-		operation := spec.Context.AdmissionRequestInfo.Operation
-		if operation == admissionv1.Delete {
-			return c.getTriggerForDeleteOperation(spec, i)
-		} else if operation == admissionv1.Create {
-			return c.getTriggerForCreateOperation(spec, i)
-		} else {
-			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
-			if err != nil {
-				c.log.Error(err, "failed to extract resources from admission review request")
-				return nil, err
-			}
-
-			trigger := &newResource
-			if newResource.Object == nil {
-				trigger = &oldResource
-			}
-			return trigger, nil
-		}
-	}
-}
-
-func (c *GenerateController) getTriggerForDeleteOperation(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
-	request := spec.Context.AdmissionRequestInfo.AdmissionRequest
-	_, oldResource, err := admissionutils.ExtractResources(nil, *request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load resource from context: %w", err)
-	}
-	labels := oldResource.GetLabels()
-	resourceSpec := spec.RuleContext[i].Trigger
-	if labels[common.GeneratePolicyLabel] != "" {
-		// non-trigger deletion, get trigger from ur spec
-		c.log.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
-		return common.GetResource(c.client, resourceSpec, spec, c.log)
-	}
-	return &oldResource, nil
-}
-
-func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
-	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
-	resourceSpec := spec.RuleContext[i].Trigger
-	trigger, err := common.GetResource(c.client, resourceSpec, spec, c.log)
-	if err != nil || trigger == nil {
-		if admissionRequest.SubResource == "" {
-			return nil, err
-		} else {
-			c.log.V(4).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", admissionRequest.SubResource)
-			newResource, _, err := admissionutils.ExtractResources(nil, *admissionRequest)
-			if err != nil {
-				c.log.Error(err, "failed to extract resources from admission review request")
-				return nil, err
-			}
-			return &newResource, nil
-		}
-	}
-	return trigger, err
-}
 
 func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, i int) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
@@ -214,7 +148,11 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		return nil, nil
 	}
 
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+	namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, []kyvernov1.PolicyInterface{p}, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, p, &trigger, c.configuration, c.jp, namespaceLabels)
 	if err != nil {
 		return nil, err
@@ -332,7 +270,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			for _, s := range vars {
 				for _, banned := range validationpolicy.ForbiddenUserVariables {
 					if banned.Match([]byte(s[2])) {
-						log.Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
+						log.V(2).Info("warning: resources with admission request variables may not be regenerated", "policy", policy.GetName(), "rule", rule.Name, "variable", s[2])
 					}
 				}
 			}

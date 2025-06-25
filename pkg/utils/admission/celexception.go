@@ -6,16 +6,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 )
 
-func UnmarshalCELPolicyException(raw []byte) (*policiesv1alpha1.CELPolicyException, error) {
-	var exception *policiesv1alpha1.CELPolicyException
+func UnmarshalCELPolicyException(raw []byte) (*policiesv1alpha1.PolicyException, error) {
+	var exception *policiesv1alpha1.PolicyException
 	if err := json.Unmarshal(raw, &exception); err != nil {
 		return nil, err
 	}
 	return exception, nil
 }
 
-func GetCELPolicyExceptions(request admissionv1.AdmissionRequest) (*policiesv1alpha1.CELPolicyException, *policiesv1alpha1.CELPolicyException, error) {
-	var empty *policiesv1alpha1.CELPolicyException
+func GetCELPolicyExceptions(request admissionv1.AdmissionRequest) (*policiesv1alpha1.PolicyException, *policiesv1alpha1.PolicyException, error) {
+	var empty *policiesv1alpha1.PolicyException
 	exception, err := UnmarshalCELPolicyException(request.Object.Raw)
 	if err != nil {
 		return exception, empty, err

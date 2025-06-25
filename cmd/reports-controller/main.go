@@ -83,6 +83,7 @@ func createReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -103,6 +104,9 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					policiesV1alpha1.ValidatingPolicies(),
+					policiesV1alpha1.ImageValidatingPolicies(),
+					policiesV1alpha1.GeneratingPolicies(),
+					policiesV1alpha1.MutatingPolicies(),
 					vapInformer,
 				),
 				aggregationWorkers,
@@ -117,6 +121,8 @@ func createReportControllers(
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
 				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1alpha1.ImageValidatingPolicies(),
+				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
@@ -266,7 +272,7 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
@@ -286,12 +292,14 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
 				eventGenerator,
 				maxAPICallResponseLength,
 				false,
+				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
 		)

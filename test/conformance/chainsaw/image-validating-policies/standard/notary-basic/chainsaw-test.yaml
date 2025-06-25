@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: exception-test
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: /../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-image-validating-policy-ready
+    use:
+      template: /../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-sample
+  - name: create bad pod
+    try:
+    - create:
+        file: bad-pod.yaml
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "ivpol.validate.kyverno.svc-ignore-finegrained-ivpol-sample" denied the request: Policy ivpol-sample failed: failed to verify image with notary cert
+  - name: create good pod
+    try:
+    - create:
+        file: good-pod.yaml
+    - assert:
+        file: good-pod.yaml

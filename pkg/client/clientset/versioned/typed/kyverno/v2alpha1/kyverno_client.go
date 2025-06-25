@@ -19,18 +19,16 @@ limitations under the License.
 package v2alpha1
 
 import (
-	"net/http"
+	http "net/http"
 
-	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
 type KyvernoV2alpha1Interface interface {
 	RESTClient() rest.Interface
-	CELPolicyExceptionsGetter
 	GlobalContextEntriesGetter
-	ValidatingPoliciesGetter
 }
 
 // KyvernoV2alpha1Client is used to interact with features provided by the kyverno.io group.
@@ -38,16 +36,8 @@ type KyvernoV2alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *KyvernoV2alpha1Client) CELPolicyExceptions(namespace string) CELPolicyExceptionInterface {
-	return newCELPolicyExceptions(c, namespace)
-}
-
 func (c *KyvernoV2alpha1Client) GlobalContextEntries() GlobalContextEntryInterface {
 	return newGlobalContextEntries(c)
-}
-
-func (c *KyvernoV2alpha1Client) ValidatingPolicies() ValidatingPolicyInterface {
-	return newValidatingPolicies(c)
 }
 
 // NewForConfig creates a new KyvernoV2alpha1Client for the given config.
@@ -95,10 +85,10 @@ func New(c rest.Interface) *KyvernoV2alpha1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v2alpha1.SchemeGroupVersion
+	gv := kyvernov2alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
