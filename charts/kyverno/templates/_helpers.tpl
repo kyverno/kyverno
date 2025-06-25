@@ -52,6 +52,9 @@
 {{- with .generateValidatingAdmissionPolicy -}}
   {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
 {{- end -}}
+{{- with .generateMutatingAdmissionPolicy -}}
+  {{- $flags = append $flags (print "--generateMutatingAdmissionPolicy=" .enabled) -}}
+{{- end -}}
 {{- with .dumpPatches -}}
   {{- $flags = append $flags (print "--dumpPatches=" .enabled) -}}
 {{- end -}}

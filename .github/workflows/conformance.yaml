@@ -334,6 +334,27 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
           upgrade-scenario: ${{ matrix.upgrade }}
+  
+  generate-mutating-admission-policy:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.32.5, v1.33.1]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+          kyverno-configs: standard,generate-mutating-admission-policy
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: generate-mutating-admission-policy
+          upgrade-scenario: ${{ matrix.upgrade }}
 
   globalcontext:
     runs-on: ubuntu-latest
@@ -1202,6 +1223,7 @@ jobs:
       - force-failure-policy-ignore
       - generate
       - generate-validating-admission-policy
+      - generate-mutating-admission-policy
       - generating-policies
       - globalcontext
       - image-validating-policies
@@ -1247,6 +1269,7 @@ jobs:
       - force-failure-policy-ignore
       - generate
       - generate-validating-admission-policy
+      - generate-mutating-admission-policy
       - generating-policies
       - globalcontext
       - image-validating-policies
