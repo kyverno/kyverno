@@ -11,4 +11,5 @@ const (
 	SourceImageValidatingPolicy     = "KyvernoImageValidatingPolicy"
 	SourceGeneratingPolicy          = "KyvernoGeneratingPolicy"
 	SourceMutatingAdmissionPolicy   = "MutatingAdmissionPolicy"
+	SourceMutatingPolicy            = "MutatingPolicy"
 )
