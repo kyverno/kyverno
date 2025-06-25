@@ -96,13 +96,15 @@ crds:
       policies: true
       policyexceptions: true
       updaterequests: true
-      validatingpolicies: true
 
     # -- Install CRDs in group `policies.kyverno.io`
     policies:
       validatingpolicies: true
       policyexceptions: true
       imagevalidatingpolicies: true
+      mutatingpolicies: true
+      generatingpolicies: true
+      deletingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -513,6 +515,12 @@ test:
   # -- Toggle automounting of the ServiceAccount
   automountServiceAccountToken: true
 
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
 # -- Additional labels
 customLabels: {}
 
@@ -739,6 +747,9 @@ features:
     # -- Enables the feature
     enabled: false
   generateValidatingAdmissionPolicy:
+    # -- Enables the feature
+    enabled: false
+  generateMutatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
   dumpPatches:

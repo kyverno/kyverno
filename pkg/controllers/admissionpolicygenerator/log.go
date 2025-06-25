@@ -1,4 +1,4 @@
-package validatingadmissionpolicygenerate
+package admissionpolicygenerator
 
 import "github.com/kyverno/kyverno/pkg/logging"
 
