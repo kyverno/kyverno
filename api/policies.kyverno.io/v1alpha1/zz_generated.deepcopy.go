@@ -470,11 +470,6 @@ func (in *GeneratingPolicyEvaluationConfiguration) DeepCopyInto(out *GeneratingP
 		*out = new(AdmissionConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Background != nil {
-		in, out := &in.Background, &out.Background
-		*out = new(BackgroundConfiguration)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.GenerateExistingConfiguration != nil {
 		in, out := &in.GenerateExistingConfiguration, &out.GenerateExistingConfiguration
 		*out = new(GenerateExistingConfiguration)
