@@ -34,7 +34,9 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
-      description: fix validation error in validate.yaml, which made it impossible to disable reports-controller CRDs, with the recently introduced option .reportsController.sanityChecks
+      description: Ensure spec.template.metadata isn't null
+    - kind: removed
+      description: Remove the `delete` permission for policyexceptions in the admission controller
 dependencies:
   - name: grafana
     version: v0.0.0

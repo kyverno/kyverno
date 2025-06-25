@@ -24,6 +24,9 @@ spec:
   selector:
     {{- include "kyverno.background-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.backgroundController.metricsService.type }}
+  {{- if .Values.backgroundController.metricsService.trafficDistribution }}
+  trafficDistribution: {{ .Values.backgroundController.metricsService.trafficDistribution }}
+  {{- end }}
 {{- end -}}
 {{- end -}}
 {{- if .Values.backgroundController.profiling.enabled }}

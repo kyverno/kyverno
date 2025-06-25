@@ -1,5 +1,6 @@
 {{- if .Values.webhooksCleanup.enabled -}}
 {{- if not .Values.templating.enabled -}}
+{{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -14,6 +15,7 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    {{- if or .Values.webhooksCleanup.podAnnotations .Values.webhooksCleanup.podLabels }}
     metadata:
       {{- with .Values.webhooksCleanup.podAnnotations }}
       annotations:
@@ -23,8 +25,10 @@ spec:
       labels:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+    {{- end }}
     spec:
-      serviceAccount: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      automountServiceAccountToken: {{ $automountSAToken }}
       {{- with .Values.webhooksCleanup.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
@@ -32,7 +36,7 @@ spec:
       restartPolicy: Never
       {{- with .Values.webhooksCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       containers:
         - name: kubectl
@@ -47,9 +51,19 @@ spec:
               sleep 30
               kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
               kubectl delete mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
+          {{- with .Values.webhooksCleanup.resources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           {{- with .Values.webhooksCleanup.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if not $automountSAToken }}
+          volumeMounts:
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
           {{- end }}
       {{- with .Values.webhooksCleanup.tolerations | default .Values.global.tolerations}}
       tolerations:
@@ -73,6 +87,27 @@ spec:
         nodeAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- if not $automountSAToken }}
+      volumes:
+        - name: serviceaccount-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3607
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
       {{- end }}
 {{- end -}}
 {{- end -}}

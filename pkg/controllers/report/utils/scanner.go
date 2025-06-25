@@ -6,19 +6,25 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -46,6 +52,7 @@ type Scanner interface {
 		string,
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+		[]*policiesv1alpha1.PolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
 }
@@ -75,15 +82,18 @@ func (s *scanner) ScanResource(
 	subResource string,
 	ns *corev1.Namespace,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+	exceptions []*policiesv1alpha1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
-	var kpols, vpols, vaps []engineapi.GenericPolicy
+	var kpols, vpols, ivpols, vaps []engineapi.GenericPolicy
 	// split policies per nature
 	for _, policy := range policies {
 		if pol := policy.AsKyvernoPolicy(); pol != nil {
 			kpols = append(kpols, policy)
 		} else if pol := policy.AsValidatingPolicy(); pol != nil {
 			vpols = append(vpols, policy)
+		} else if pol := policy.AsImageValidatingPolicy(); pol != nil {
+			ivpols = append(vpols, policy)
 		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
 			vaps = append(vaps, policy)
 		}
@@ -137,26 +147,28 @@ func (s *scanner) ScanResource(
 	for i, policy := range vpols {
 		if pol := policy.AsValidatingPolicy(); pol != nil {
 			// create compiler
-			compiler := celpolicy.NewCompiler()
+			compiler := compiler.NewCompiler()
 			// create provider
-			provider, err := celengine.NewProvider(compiler, *pol)
+			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			// create engine
-			engine := celengine.NewEngine(
+			engine := vpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 			)
+			gctxStore := gctxstore.New()
 			// create context provider
-			context, err := celpolicy.NewContextProvider(
-				s.client.GetKubeClient(),
+			context, err := libs.NewContextProvider(
+				s.client,
 				nil,
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+				gctxStore,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
@@ -171,12 +183,13 @@ func (s *scanner) ScanResource(
 				resource.GetName(),
 				resource.GetNamespace(),
 				admissionv1.Create,
+				authenticationv1.UserInfo{},
 				&resource,
 				nil,
 				false,
 				nil,
 			)
-			engineResponse, err := engine.Handle(ctx, request)
+			engineResponse, err := engine.Handle(ctx, request, nil)
 			response := engineapi.EngineResponse{
 				Resource: resource,
 				PolicyResponse: engineapi.PolicyResponse{
@@ -187,16 +200,68 @@ func (s *scanner) ScanResource(
 			results[&vpols[i]] = ScanResult{&response, err}
 		}
 	}
+
+	// evaluate image verification policies
+	for i, policy := range ivpols {
+		if pol := policy.AsImageValidatingPolicy(); pol != nil {
+			// create provider
+			provider, err := ivpolengine.NewProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol}, exceptions)
+			if err != nil {
+				logger.Error(err, "failed to create image verification policy provider")
+				results[&ivpols[i]] = ScanResult{nil, err}
+				continue
+			}
+			// create engine
+			engine := ivpolengine.NewEngine(
+				provider,
+				func(name string) *corev1.Namespace { return ns },
+				matching.NewMatcher(),
+				s.client.GetKubeClient().CoreV1().Secrets(""),
+				nil,
+			)
+			// create context provider
+			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New())
+			if err != nil {
+				logger.Error(err, "failed to create cel context provider")
+				results[&ivpols[i]] = ScanResult{nil, err}
+				continue
+			}
+			request := celengine.Request(
+				context,
+				resource.GroupVersionKind(),
+				gvr,
+				subResource,
+				resource.GetName(),
+				resource.GetNamespace(),
+				admissionv1.Create,
+				authenticationv1.UserInfo{},
+				&resource,
+				nil,
+				false,
+				nil,
+			)
+			engineResponse, _, err := engine.HandleMutating(ctx, request, nil)
+			response := engineapi.EngineResponse{
+				Resource:       resource,
+				PolicyResponse: engineapi.PolicyResponse{},
+			}.WithPolicy(ivpols[i])
+
+			if len(engineResponse.Policies) >= 1 {
+				response.PolicyResponse.Rules = []engineapi.RuleResponse{engineResponse.Policies[0].Result}
+			}
+
+			results[&ivpols[i]] = ScanResult{&response, err}
+		}
+	}
 	// evaluate validating admission policies
 	for i, policy := range vaps {
-		if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
-			policyData := admissionpolicy.NewPolicyData(*pol)
+		if policyData := policy.AsValidatingAdmissionPolicy(); policyData != nil {
 			for _, binding := range bindings {
-				if binding.Spec.PolicyName == pol.Name {
+				if binding.Spec.PolicyName == policyData.GetDefinition().GetName() {
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := admissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
+			res, err := admissionpolicy.Validate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, false)
 			results[&vaps[i]] = ScanResult{&res, err}
 		}
 	}

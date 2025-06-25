@@ -203,6 +203,37 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>projections</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-GlobalContextEntryProjection">
+                <span style="font-family: monospace">[]GlobalContextEntryProjection</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
             </table>
           
@@ -370,6 +401,99 @@ such as &quot;300ms&quot;, &quot;1.5h&quot; or &quot;2h45m&quot;. Valid time uni
     </table>
   
 
+  <H3 id="kyverno-io-v2alpha1-GlobalContextEntryProjection">GlobalContextEntryProjection
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name to use for the extracted value in the context.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>jmesPath</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>JMESPath is the JMESPath expression to extract the value from the cached resource.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v2alpha1-GlobalContextEntrySpec">GlobalContextEntrySpec
     </H3>
 
@@ -461,6 +585,37 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
 <li>A POST is needed to create a resource.</li>
 <li>Finer-grained control is needed. Example: To restrict the number of resources cached.</li>
 </ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>projections</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-GlobalContextEntryProjection">
+                <span style="font-family: monospace">[]GlobalContextEntryProjection</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
 
 
           

@@ -15,22 +15,34 @@ import (
 
 func Test_load(t *testing.T) {
 	tests := []struct {
-		name       string
-		policies   string
-		wantLoaded int
-		wantErr    bool
+		name                string
+		policies            string
+		exceptionsLoaded    int
+		celExceptionsLoaded int
+		wantErr             bool
 	}{{
 		name:     "not a policy exception",
 		policies: "../_testdata/resources/namespace.yaml",
 		wantErr:  true,
 	}, {
-		name:       "policy exception",
-		policies:   "../_testdata/exceptions/exception.yaml",
-		wantLoaded: 1,
+		name:                "policy exception",
+		policies:            "../_testdata/exceptions/exception.yaml",
+		exceptionsLoaded:    1,
+		celExceptionsLoaded: 0,
 	}, {
 		name:     "policy exception and policy",
 		policies: "../_testdata/exceptions/exception-and-policy.yaml",
 		wantErr:  true,
+	}, {
+		name:                "cel policy exception",
+		policies:            "../_testdata/exceptions/celexception.yaml",
+		exceptionsLoaded:    0,
+		celExceptionsLoaded: 1,
+	}, {
+		name:                "cel policy exception and policy",
+		policies:            "../_testdata/exceptions/exception-and-celexception.yaml",
+		exceptionsLoaded:    1,
+		celExceptionsLoaded: 1,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -39,8 +51,12 @@ func Test_load(t *testing.T) {
 			require.NoError(t, err)
 			if res, err := load(bytes); (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
-			} else if len(res) != tt.wantLoaded {
-				t.Errorf("Load() loaded amount = %v, wantLoaded %v", len(res), tt.wantLoaded)
+			} else if res != nil {
+				if len(res.Exceptions) != tt.exceptionsLoaded {
+					t.Errorf("Load() loaded amount = %v, wantLoaded %v", len(res.Exceptions), tt.exceptionsLoaded)
+				} else if len(res.CELExceptions) != tt.celExceptionsLoaded {
+					t.Errorf("Load() loaded amount = %v, wantLoaded %v", len(res.CELExceptions), tt.celExceptionsLoaded)
+				}
 			}
 		})
 	}

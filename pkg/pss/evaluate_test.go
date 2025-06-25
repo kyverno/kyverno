@@ -2488,6 +2488,859 @@ var baseline_appArmor = []testCase{
 		}`),
 		allowed: true,
 	},
+	{
+		name: "baseline_appArmor_no_exclusion",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "latest"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "Unconfined"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Unconfined"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_appArmor_defines_all_violate_true_1",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "fake"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_all_violate_true_2",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "fake"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "RuntimeDefault"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_all_violate_false_1",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "RuntimeDefault"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_all_violate_false_2",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "RuntimeDefault"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_multiple_all_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor"
+				},
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "Unconfined"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": null
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Unconfined"
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "RuntimeDefault"
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Localhost"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_multiple_all_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"restrictedField": "spec.securityContext.appArmorProfile.type",
+					"values": ["Unconfined"]
+				},
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.appArmorProfile.type",
+					"values": ["Unconfined"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "Unconfined"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": null
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Unconfined"
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "RuntimeDefault"
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Localhost"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_multiple_all_allowed_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"restrictedField": "spec.securityContext.appArmorProfile.type",
+					"values": ["unknown"]
+				},
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.appArmorProfile.type",
+					"values": ["Unconfined"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "Unconfined"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": null
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Unconfined"
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "RuntimeDefault"
+							}
+						}
+					},
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Localhost"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_appArmor_defines_multiple_initContainer_&_ephemeralContainer_all_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"restrictedField": "spec.securityContext.appArmorProfile.type",
+					"values": ["Unconfined"]
+				},
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.initContainers[*].securityContext.appArmorProfile.type",
+					"values": ["Unconfined"]
+				},
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.ephemeralContainers[*].securityContext.appArmorProfile.type",
+					"values": ["Unconfined"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "Unconfined"
+					}
+				},
+				"initContainers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Unconfined"
+							}
+						}
+					}
+				],
+				"ephemeralContainers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Unconfined"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_multiple_initContainer_&_ephemeralContainer_all_allowed_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"restrictedField": "spec.securityContext.appArmorProfile.type",
+					"values": ["Unconfined"]
+				},
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.initContainers[*].securityContext.appArmorProfile.type",
+					"values": ["Unconfined"]
+				},
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.ephemeralContainers[*].securityContext.appArmorProfile.type",
+					"values": ["unknown"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "Unconfined"
+					}
+				},
+				"initContainers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Unconfined"
+							}
+						}
+					}
+				],
+				"ephemeralContainers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "Unconfined"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_appArmor_defines_container_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "fake"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_container_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.appArmorProfile.type",
+					"values": ["fake"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "fake"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_container_allowed_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"images": [
+						"nginx"
+					],
+					"restrictedField": "spec.containers[*].securityContext.appArmorProfile.type",
+					"values": ["real"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "fake"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_appArmor_defines_container_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"appArmorProfile": {
+								"type": "RuntimeDefault"
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_spec_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "fake"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_spec_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"restrictedField": "spec.securityContext.appArmorProfile.type",
+					"values": ["fake"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "fake"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_appArmor_defines_spec_allowed_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "AppArmor",
+					"restrictedField": "spec.securityContext.appArmorProfile.type",
+					"values": ["true"]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "fake"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_appArmor_defines_spec_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"appArmorProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
 }
 
 var baseline_seLinux = []testCase{

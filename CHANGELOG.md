@@ -5,6 +5,9 @@
 - Removed deprecated flag `reportsChunkSize`.
 - Added `--tufRootRaw` flag to pass tuf root for custom sigstore deployments.
 
+### Bug Fixes
+- Fixed inconsistent ordering of `imagePullSecrets` in Helm charts which could cause GitOps tools like ArgoCD to show OutOfSync status ([#12995](https://github.com/kyverno/kyverno/issues/12995))
+
 ## v1.11.0
 
 ## v1.11.0-rc.1
