@@ -1,0 +1,18 @@
+features:
+  generateMutatingAdmissionPolicy:
+    enabled: true
+
+admissionController:
+  rbac:
+    clusterRole:
+      extraResources:
+      - apiGroups:
+          - admissionregistration.k8s.io
+        resources:
+          - mutatingadmissionpolicies
+          - mutatingadmissionpolicybindings
+        verbs:
+          - create
+          - update
+          - delete
+          - list

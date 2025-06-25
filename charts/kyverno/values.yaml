@@ -747,6 +747,9 @@ features:
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
+  generateMutatingAdmissionPolicy:
+    # -- Enables the feature
+    enabled: false
   dumpPatches:
     # -- Enables the feature
     enabled: false
