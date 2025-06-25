@@ -784,6 +784,8 @@ The chart values are organised per component.
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | test.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
+| test.nodeSelector | object | `{}` | Node labels for pod assignment |
+| test.tolerations | list | `[]` | List of node taints to tolerate |
 
 ### Api version override
 
