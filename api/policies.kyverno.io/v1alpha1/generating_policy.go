@@ -141,22 +141,10 @@ func (s GeneratingPolicySpec) AdmissionEnabled() bool {
 	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
-// BackgroundEnabled checks if background is set to true
-func (s GeneratingPolicySpec) BackgroundEnabled() bool {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return true
-	}
-	return *s.EvaluationConfiguration.Background.Enabled
-}
-
 type GeneratingPolicyEvaluationConfiguration struct {
 	// Admission controls policy evaluation during admission.
 	// +optional
 	Admission *AdmissionConfiguration `json:"admission,omitempty"`
-
-	// Background  controls policy evaluation during background scan.
-	// +optional
-	Background *BackgroundConfiguration `json:"background,omitempty"`
 
 	// GenerateExisting defines the configuration for generating resources for existing triggeres.
 	// +optional

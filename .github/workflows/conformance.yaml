@@ -7,10 +7,8 @@ permissions: {}
 on:
   pull_request:
     branches:
-      - "main"
-      - "release*"
-  schedule:
-    - cron: "43 0 * * 0"
+      - main
+      - release*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
