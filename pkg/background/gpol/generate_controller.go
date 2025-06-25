@@ -83,7 +83,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	var failures []error
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		if ur.Spec.RuleContext[i].DeleteDownstream {
-			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey())
+			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
 			continue
 		}
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
