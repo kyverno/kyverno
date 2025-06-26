@@ -140,6 +140,14 @@ func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchReso
 	return s.Spec.GetMatchConstraints()
 }
 
+func (s *MutatingPolicy) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.TargetMatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	return s.Spec.GetTargetMatchConstraints()
+}
+
 func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
 	return s.Spec.GetMatchConditions()
 }
@@ -150,6 +158,34 @@ func (s *MutatingPolicySpec) GetMatchConstraints() admissionregistrationv1.Match
 	}
 
 	in := s.MatchConstraints
+	var out admissionregistrationv1.MatchResources
+	out.NamespaceSelector = in.NamespaceSelector
+	out.ObjectSelector = in.ObjectSelector
+	for _, ex := range in.ExcludeResourceRules {
+		out.ExcludeResourceRules = append(out.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	for _, ex := range in.ResourceRules {
+		out.ResourceRules = append(out.ResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	if in.MatchPolicy != nil {
+		mp := admissionregistrationv1.MatchPolicyType(*in.MatchPolicy)
+		out.MatchPolicy = &mp
+	}
+	return out
+}
+
+func (s *MutatingPolicySpec) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.TargetMatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	in := s.TargetMatchConstraints
 	var out admissionregistrationv1.MatchResources
 	out.NamespaceSelector = in.NamespaceSelector
 	out.ObjectSelector = in.ObjectSelector
