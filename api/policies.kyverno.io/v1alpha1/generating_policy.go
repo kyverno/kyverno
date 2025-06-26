@@ -120,6 +120,20 @@ type GeneratingPolicySpec struct {
 	Generation []Generation `json:"generate"`
 }
 
+func (s GeneratingPolicySpec) GenerateExistingEnabled() bool {
+	const defaultValue = false
+	if s.EvaluationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.GenerateExistingConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled
+}
+
 func (s GeneratingPolicySpec) SynchronizationEnabled() bool {
 	const defaultValue = false
 	if s.EvaluationConfiguration == nil {
