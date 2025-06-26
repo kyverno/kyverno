@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: data-sync-delete-policy
+  name: sync-delete-policy-without-orphan-downstream
 spec:
   steps:
   - name: create policy
@@ -25,12 +25,12 @@ spec:
         ref:
           apiVersion: policies.kyverno.io/v1alpha1
           kind: GeneratingPolicy
-          name: zk-kafka-address
+          name: sync-delete-policy-without-orphan-downstream
   - name: sleep
     try:
     - sleep:
         duration: 3s
-  - name: check that the downstream is deleted
+  - name: check that the downstream still exists
     try:
-    - error:
-        file: configmap-error.yaml
+    - assert:
+        file: configmap-assert.yaml

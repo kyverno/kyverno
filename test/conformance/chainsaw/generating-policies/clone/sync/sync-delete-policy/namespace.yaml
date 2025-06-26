@@ -1,4 +1,4 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: data-sync-delete-policy
+  name: sync-delete-policy
