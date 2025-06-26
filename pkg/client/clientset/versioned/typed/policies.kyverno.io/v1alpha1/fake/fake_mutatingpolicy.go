@@ -19,114 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeMutatingPolicies implements MutatingPolicyInterface
-type FakeMutatingPolicies struct {
+// fakeMutatingPolicies implements MutatingPolicyInterface
+type fakeMutatingPolicies struct {
+	*gentype.FakeClientWithList[*v1alpha1.MutatingPolicy, *v1alpha1.MutatingPolicyList]
 	Fake *FakePoliciesV1alpha1
 }
 
-var mutatingpoliciesResource = v1alpha1.SchemeGroupVersion.WithResource("mutatingpolicies")
-
-var mutatingpoliciesKind = v1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
-
-// Get takes name of the mutatingPolicy, and returns the corresponding mutatingPolicy object, and an error if there is any.
-func (c *FakeMutatingPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.MutatingPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(mutatingpoliciesResource, name), &v1alpha1.MutatingPolicy{})
-	if obj == nil {
-		return nil, err
+func newFakeMutatingPolicies(fake *FakePoliciesV1alpha1) policieskyvernoiov1alpha1.MutatingPolicyInterface {
+	return &fakeMutatingPolicies{
+		gentype.NewFakeClientWithList[*v1alpha1.MutatingPolicy, *v1alpha1.MutatingPolicyList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("mutatingpolicies"),
+			v1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy"),
+			func() *v1alpha1.MutatingPolicy { return &v1alpha1.MutatingPolicy{} },
+			func() *v1alpha1.MutatingPolicyList { return &v1alpha1.MutatingPolicyList{} },
+			func(dst, src *v1alpha1.MutatingPolicyList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.MutatingPolicyList) []*v1alpha1.MutatingPolicy {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.MutatingPolicyList, items []*v1alpha1.MutatingPolicy) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.MutatingPolicy), err
-}
-
-// List takes label and field selectors, and returns the list of MutatingPolicies that match those selectors.
-func (c *FakeMutatingPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.MutatingPolicyList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(mutatingpoliciesResource, mutatingpoliciesKind, opts), &v1alpha1.MutatingPolicyList{})
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.MutatingPolicyList{ListMeta: obj.(*v1alpha1.MutatingPolicyList).ListMeta}
-	for _, item := range obj.(*v1alpha1.MutatingPolicyList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested mutatingPolicies.
-func (c *FakeMutatingPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(mutatingpoliciesResource, opts))
-}
-
-// Create takes the representation of a mutatingPolicy and creates it.  Returns the server's representation of the mutatingPolicy, and an error, if there is any.
-func (c *FakeMutatingPolicies) Create(ctx context.Context, mutatingPolicy *v1alpha1.MutatingPolicy, opts v1.CreateOptions) (result *v1alpha1.MutatingPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(mutatingpoliciesResource, mutatingPolicy), &v1alpha1.MutatingPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.MutatingPolicy), err
-}
-
-// Update takes the representation of a mutatingPolicy and updates it. Returns the server's representation of the mutatingPolicy, and an error, if there is any.
-func (c *FakeMutatingPolicies) Update(ctx context.Context, mutatingPolicy *v1alpha1.MutatingPolicy, opts v1.UpdateOptions) (result *v1alpha1.MutatingPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(mutatingpoliciesResource, mutatingPolicy), &v1alpha1.MutatingPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.MutatingPolicy), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeMutatingPolicies) UpdateStatus(ctx context.Context, mutatingPolicy *v1alpha1.MutatingPolicy, opts v1.UpdateOptions) (*v1alpha1.MutatingPolicy, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(mutatingpoliciesResource, "status", mutatingPolicy), &v1alpha1.MutatingPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.MutatingPolicy), err
-}
-
-// Delete takes name of the mutatingPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeMutatingPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(mutatingpoliciesResource, name, opts), &v1alpha1.MutatingPolicy{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeMutatingPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(mutatingpoliciesResource, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.MutatingPolicyList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched mutatingPolicy.
-func (c *FakeMutatingPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.MutatingPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(mutatingpoliciesResource, name, pt, data, subresources...), &v1alpha1.MutatingPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.MutatingPolicy), err
 }

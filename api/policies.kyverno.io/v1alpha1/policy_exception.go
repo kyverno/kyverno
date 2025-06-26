@@ -11,26 +11,26 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PolicyException declares resources to be excluded from specified policies.
-type CELPolicyException struct {
+type PolicyException struct {
 	metav1.TypeMeta   `json:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
-	Spec CELPolicyExceptionSpec `json:"spec"`
+	Spec PolicyExceptionSpec `json:"spec"`
 }
 
-func (p *CELPolicyException) GetKind() string {
-	return "CELPolicyException"
+func (p *PolicyException) GetKind() string {
+	return "PolicyException"
 }
 
 // Validate implements programmatic validation
-func (p *CELPolicyException) Validate() (errs field.ErrorList) {
+func (p *PolicyException) Validate() (errs field.ErrorList) {
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
 	return errs
 }
 
 // PolicyExceptionSpec stores policy exception spec
-type CELPolicyExceptionSpec struct {
+type PolicyExceptionSpec struct {
 	// PolicyRefs identifies the policies to which the exception is applied.
 	PolicyRefs []PolicyRef `json:"policyRefs"`
 
@@ -40,7 +40,7 @@ type CELPolicyExceptionSpec struct {
 }
 
 // Validate implements programmatic validation
-func (p *CELPolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) {
+func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) {
 	if len(p.PolicyRefs) == 0 {
 		errs = append(errs, field.Invalid(path.Child("policyRefs"), p.PolicyRefs, "must specify at least one policy ref"))
 	} else {
@@ -72,9 +72,9 @@ func (p *PolicyRef) Validate(path *field.Path) (errs field.ErrorList) {
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CELPolicyExceptionList is a list of Policy Exceptions
-type CELPolicyExceptionList struct {
+// PolicyExceptionList is a list of Policy Exceptions
+type PolicyExceptionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []CELPolicyException `json:"items"`
+	Items           []PolicyException `json:"items"`
 }

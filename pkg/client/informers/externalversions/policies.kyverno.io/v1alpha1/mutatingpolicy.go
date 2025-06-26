@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	apipolicieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // MutatingPolicies.
 type MutatingPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.MutatingPolicyLister
+	Lister() policieskyvernoiov1alpha1.MutatingPolicyLister
 }
 
 type mutatingPolicyInformer struct {
@@ -70,7 +70,7 @@ func NewFilteredMutatingPolicyInformer(client versioned.Interface, resyncPeriod 
 				return client.PoliciesV1alpha1().MutatingPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&policieskyvernoiov1alpha1.MutatingPolicy{},
+		&apipolicieskyvernoiov1alpha1.MutatingPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +81,9 @@ func (f *mutatingPolicyInformer) defaultInformer(client versioned.Interface, res
 }
 
 func (f *mutatingPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policieskyvernoiov1alpha1.MutatingPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apipolicieskyvernoiov1alpha1.MutatingPolicy{}, f.defaultInformer)
 }
 
-func (f *mutatingPolicyInformer) Lister() v1alpha1.MutatingPolicyLister {
-	return v1alpha1.NewMutatingPolicyLister(f.Informer().GetIndexer())
+func (f *mutatingPolicyInformer) Lister() policieskyvernoiov1alpha1.MutatingPolicyLister {
+	return policieskyvernoiov1alpha1.NewMutatingPolicyLister(f.Informer().GetIndexer())
 }

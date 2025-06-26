@@ -2,9 +2,12 @@ apiVersion: policies.kyverno.io/v1alpha1
 kind: ValidatingPolicy
 metadata:
   name: disallow-privilege-escalation
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: deployments,cronjobs
 spec:
+  autogen:
+    podControllers:
+      controllers:
+      - deployments
+      - cronjobs
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]
@@ -12,7 +15,7 @@ spec:
       operations:  [CREATE, UPDATE]
       resources:   ["pods"]
   matchConditions:
-    - name: "check-prod-label"  
+    - name: check-prod-label
       expression: >- 
         has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   validations:

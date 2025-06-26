@@ -57,6 +57,10 @@ rules:
     resources:
       - validatingpolicies
       - validatingpolicies/status
+      - imagevalidatingpolicies
+      - imagevalidatingpolicies/status
+      - generatingpolicies
+      - mutatingpolicies
     verbs:
       - create
       - delete
@@ -66,6 +70,15 @@ rules:
       - update
       - watch
       - deletecollection
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - policyexceptions
+      - policyexceptions/status
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - reports.kyverno.io
     resources:

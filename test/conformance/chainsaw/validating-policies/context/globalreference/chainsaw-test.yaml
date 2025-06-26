@@ -1,0 +1,36 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apicall-correct
+spec:
+  steps:
+  - try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: main-deployment.yaml
+    - apply:
+        file: gctxentry.yaml
+    - sleep:
+        duration: 3s
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: vpol-apicall-correct
+  - try:
+    - create:
+        file: new-deployment.yaml
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy vpol-apicall-correct failed: cannot create new deployment as there is already one, variables.dcount: 1

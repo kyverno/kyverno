@@ -1050,6 +1050,19 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <tbody>
 <tr>
 <td>
+<code>generate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>expressions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
@@ -6933,6 +6946,19 @@ Kubernetes authentication/v1.UserInfo
 <p>UserInfo is the userInfo carried in the admission request.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DryRun indicates that modifications will definitely not be persisted for this request.
+Defaults to false.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -10148,107 +10174,20 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </p>
 Resource Types:
 <ul><li>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException</a>
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy</a>
 </li><li>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicy">ImageVerificationPolicy</a>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicy">GeneratingPolicy</a>
+</li><li>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy</a>
 </li><li>
 <a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>
+</li><li>
+<a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>
 </li><li>
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>
 </li></ul>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException
-</h3>
-<p>
-<p>PolicyException declares resources to be excluded from specified policies.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-policies.kyverno.io/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>CELPolicyException</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">
-CELPolicyExceptionSpec
-</a>
-</em>
-</td>
-<td>
-<p>Spec declares policy exception behaviors.</p>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>policyRefs</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyRef">
-[]PolicyRef
-</a>
-</em>
-</td>
-<td>
-<p>PolicyRefs identifies the policies to which the exception is applied.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>matchConditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.MatchCondition
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1alpha1.ImageVerificationPolicy">ImageVerificationPolicy
+<h3 id="policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy
 </h3>
 <p>
 </p>
@@ -10275,7 +10214,7 @@ policies.kyverno.io/v1alpha1
 <code>kind</code><br/>
 string
 </td>
-<td><code>ImageVerificationPolicy</code></td>
+<td><code>DeletingPolicy</code></td>
 </tr>
 <tr>
 <td>
@@ -10295,8 +10234,8 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">
-ImageVerificationPolicySpec
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicySpec">
+DeletingPolicySpec
 </a>
 </em>
 </td>
@@ -10314,6 +10253,342 @@ Kubernetes admissionregistration/v1.MatchResources
 </em>
 </td>
 <td>
+<p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that must be met for a resource to be deleted.
+Conditions filter resources that have already been matched by the match constraints,
+namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
+There are a maximum of 64 conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY condition evaluates to FALSE, the policy is skipped.
+2. If ALL conditions evaluate to TRUE, the policy is executed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicyStatus">
+DeletingPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.GeneratingPolicy">GeneratingPolicy
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+policies.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>GeneratingPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicySpec">
+GeneratingPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchConstraints specifies what resources will trigger this policy.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+3. If any matchCondition evaluates to an error (but none are FALSE):
+- If failurePolicy=Fail, reject the request
+- If failurePolicy=Ignore, the policy is skipped</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>evaluation</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">
+GeneratingPolicyEvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generate</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.Generation">
+[]Generation
+</a>
+</em>
+</td>
+<td>
+<p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
+Required.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyStatus">
+GeneratingPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+policies.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ImageValidatingPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">
+ImageValidatingPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
 <p>MatchConstraints specifies what resources this policy is designed to validate.</p>
 </td>
 </tr>
@@ -10331,6 +10606,23 @@ Kubernetes admissionregistration/v1.FailurePolicyType
 <p>FailurePolicy defines how to handle failures for the admission policy. Failures can
 occur from CEL expression parse errors, type check errors, runtime errors and invalid
 or mis-configured policy definitions or bindings.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
 </td>
 </tr>
 <tr>
@@ -10381,56 +10673,33 @@ Each variable is defined as a named CEL expression.</p>
 </tr>
 <tr>
 <td>
-<code>imageRules</code><br/>
+<code>validationConfigurations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageRule">
-[]ImageRule
+<a href="#policies.kyverno.io/v1alpha1.ValidationConfiguration">
+ValidationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchImageReferences</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MatchImageReference">
+[]MatchImageReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>mutateDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MutateDigest enables replacement of image tags with digests.
-Defaults to true.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>verifyDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>VerifyDigest validates that images have a digest.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>required</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
 <tr>
@@ -10450,14 +10719,14 @@ Credentials
 <td>
 <code>images</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.Image">
-[]Image
+<a href="#policies.kyverno.io/v1alpha1.ImageExtractor">
+[]ImageExtractor
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Images is a list of CEL expression to extract images from the resource</p>
+<p>ImageExtractors is a list of CEL expression to extract images from the resource</p>
 </td>
 </tr>
 <tr>
@@ -10489,7 +10758,7 @@ Credentials
 </tr>
 <tr>
 <td>
-<code>verifications</code><br/>
+<code>validations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
 []Kubernetes admissionregistration/v1.Validation
@@ -10497,10 +10766,66 @@ Credentials
 </em>
 </td>
 <td>
-<p>Verifications contain CEL expressions which is used to apply the image verification checks.</p>
+<p>Validations contain CEL expressions which is used to apply the image validation checks.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>evaluation</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">
+ImageValidatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 </table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyStatus">
+ImageValidatingPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
 </td>
 </tr>
 </tbody>
@@ -10564,17 +10889,127 @@ MutatingPolicySpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>MutatingAdmissionPolicySpec</code><br/>
+<code>matchConstraints</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutatingadmissionpolicyspec-v1alpha1-admissionregistration">
-Kubernetes admissionregistration/v1alpha1.MutatingAdmissionPolicySpec
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.MatchResources
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>MutatingAdmissionPolicySpec</code> are embedded into this type.)
-</p>
+<p>MatchConstraints specifies what resources this policy is designed to evaluate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#failurepolicytype-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.FailurePolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+3. If any matchCondition evaluates to an error (but none are FALSE):
+- If failurePolicy=Fail, reject the request
+- If failurePolicy=Ignore, the policy is skipped</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogenConfiguration">
+MutatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetMatchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mutations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Mutation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>mutations contain operations to perform on matching objects.
+mutations may not be empty; a minimum of one mutation is required.
+mutations are evaluated in order, and are reinvoked according to
+the reinvocationPolicy.
+The mutations of a policy are invoked for each binding of this policy
+and reinvocation of mutations occurs on a per binding basis.</p>
 </td>
 </tr>
 <tr>
@@ -10591,6 +11026,40 @@ WebhookConfiguration
 <p>WebhookConfiguration defines the configuration for the webhook.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>evaluation</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">
+MutatingPolicyEvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EvaluationConfiguration defines the configuration for mutating policy evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>reinvocationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#reinvocationpolicytype-v1-admissionregistration">
+Kubernetes admissionregistration/v1.ReinvocationPolicyType
+</a>
+</em>
+</td>
+<td>
+<p>reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
+as part of a single admission evaluation.
+Allowed values are &ldquo;Never&rdquo; and &ldquo;IfNeeded&rdquo;.</p>
+<p>Never: These mutations will not be called more than once per binding in a single admission evaluation.</p>
+<p>IfNeeded: These mutations may be invoked more than once per binding for a single admission request and there is no guarantee of
+order with respect to other admission plugins, admission webhooks, bindings of this policy and admission policies.  Mutations are only
+reinvoked when mutations change the object after this mutation is invoked.
+Required.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -10598,14 +11067,105 @@ WebhookConfiguration
 <td>
 <code>status</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyStatus">
-PolicyStatus
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyStatus">
+MutatingPolicyStatus
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.PolicyException">PolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+policies.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyExceptionSpec">
+PolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>policyRefs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyRef">
+[]PolicyRef
+</a>
+</em>
+</td>
+<td>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 </tbody>
@@ -10669,17 +11229,127 @@ ValidatingPolicySpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>ValidatingAdmissionPolicySpec</code><br/>
+<code>matchConstraints</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validatingadmissionpolicyspec-v1-admissionregistration">
-Kubernetes admissionregistration/v1.ValidatingAdmissionPolicySpec
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)
-</p>
+<p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Validation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Validations contain CEL expressions which is used to apply the validation.
+Validations and AuditAnnotations may not both be empty; a minimum of one Validations or AuditAnnotations is
+required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#failurepolicytype-v1-admissionregistration">
+Kubernetes admissionregistration/v1.FailurePolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+3. If any matchCondition evaluates to an error (but none are FALSE):
+- If failurePolicy=Fail, reject the request
+- If failurePolicy=Ignore, the policy is skipped</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">
+ValidatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 <tr>
@@ -10712,29 +11382,16 @@ WebhookConfiguration
 </tr>
 <tr>
 <td>
-<code>admission</code><br/>
+<code>evaluation</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Admission controls if rules are applied during admission.
-Optional. Default value is &ldquo;true&rdquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>background</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
-uses variables that are only available in the admission review request (e.g. user name).</p>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 </td>
 </tr>
 </table>
@@ -10744,8 +11401,8 @@ uses variables that are only available in the admission review request (e.g. use
 <td>
 <code>status</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyStatus">
-PolicyStatus
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyStatus">
+ValidatingPolicyStatus
 </a>
 </em>
 </td>
@@ -10757,11 +11414,44 @@ PolicyStatus
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.AdmissionConfiguration">AdmissionConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>, 
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls if rules are applied during admission.
+Optional. Default value is &ldquo;true&rdquo;.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.Attestation">Attestation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 <p>Attestation defines the identification details of the  metadata that has to be verified</p>
@@ -10820,7 +11510,7 @@ Referrer
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 <p>Attestor is an identity that confirms or verifies the authenticity of an image or an attestation</p>
@@ -10875,11 +11565,11 @@ Notary
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.AutogenRule">AutogenRule
+<h3 id="policies.kyverno.io/v1alpha1.BackgroundConfiguration">BackgroundConfiguration
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.AutogenStatus">AutogenStatus</a>)
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>)
 </p>
 <p>
 </p>
@@ -10893,142 +11583,16 @@ Notary
 <tbody>
 <tr>
 <td>
-<code>matchConstraints</code><br/>
+<code>enabled</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
-Kubernetes admissionregistration/v1.MatchResources
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>matchConditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.MatchCondition
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>validations</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.Validation
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>auditAnnotations</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.AuditAnnotation
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>variables</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.Variable
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1alpha1.AutogenStatus">AutogenStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyStatus">PolicyStatus</a>)
-</p>
-<p>
-<p>AutogenStatus contains autogen status information.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>rules</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.AutogenRule">
-[]AutogenRule
-</a>
-</em>
-</td>
-<td>
-<p>Rules is a list of Rule instances. It contains auto generated rules added for pod controllers</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyException">CELPolicyException</a>)
-</p>
-<p>
-<p>PolicyExceptionSpec stores policy exception spec</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>policyRefs</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.PolicyRef">
-[]PolicyRef
-</a>
-</em>
-</td>
-<td>
-<p>PolicyRefs identifies the policies to which the exception is applied.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>matchConditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.MatchCondition
-</a>
+bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+<p>Enabled controls if rules are applied to existing resources during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
 </td>
 </tr>
 </tbody>
@@ -11151,7 +11715,9 @@ timestamp. Default is false. Set to true if this was opted out during signing.</
 <td>
 <code>cert</code><br/>
 <em>
-string
+<a href="#policies.kyverno.io/v1alpha1.StringOrExpression">
+StringOrExpression
+</a>
 </em>
 </td>
 <td>
@@ -11163,7 +11729,9 @@ string
 <td>
 <code>certChain</code><br/>
 <em>
-string
+<a href="#policies.kyverno.io/v1alpha1.StringOrExpression">
+StringOrExpression
+</a>
 </em>
 </td>
 <td>
@@ -11171,6 +11739,69 @@ string
 <p>CertificateChain is the list of CA certificates in PEM format which will be needed
 when building the certificate chain for the signing certificate. Must start with the
 parent intermediate CA certificate of the signing certificate and end with the root certificate</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ConditionStatus">ConditionStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicyStatus">DeletingPolicyStatus</a>, 
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyStatus">GeneratingPolicyStatus</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyStatus">ImageValidatingPolicyStatus</a>, 
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyStatus">MutatingPolicyStatus</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyStatus">ValidatingPolicyStatus</a>)
+</p>
+<p>
+<p>ConditionStatus is the shared status across all policy types</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ready</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+The conditions array, the reason and message fields contain more detail about the policy&rsquo;s status.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.</p>
 </td>
 </tr>
 </tbody>
@@ -11298,7 +11929,7 @@ The payload may contain other key-value pairs.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 </p>
@@ -11362,6 +11993,517 @@ Secrets must live in the Kyverno namespace.</p>
 <p>
 <p>CredentialsProvidersType provides the list of credential providers required.</p>
 </p>
+<h3 id="policies.kyverno.io/v1alpha1.DeletingPolicySpec">DeletingPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy</a>)
+</p>
+<p>
+<p>DeletingPolicySpec is the specification of the desired behavior of the DeletingPolicy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that must be met for a resource to be deleted.
+Conditions filter resources that have already been matched by the match constraints,
+namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
+There are a maximum of 64 conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY condition evaluates to FALSE, the policy is skipped.
+2. If ALL conditions evaluate to TRUE, the policy is executed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.DeletingPolicyStatus">DeletingPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditionStatus</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ConditionStatus">
+ConditionStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastExecutionTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>mode</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationMode">
+EvaluationMode
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Mode is the mode of policy evaluation.
+Allowed values are &ldquo;Kubernetes&rdquo; or &ldquo;JSON&rdquo;.
+Optional. Default value is &ldquo;Kubernetes&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AdmissionConfiguration">
+AdmissionConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls policy evaluation during admission.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.BackgroundConfiguration">
+BackgroundConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Background  controls policy evaluation during background scan.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.EvaluationMode">EvaluationMode
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">EvaluationConfiguration</a>)
+</p>
+<p>
+</p>
+<h3 id="policies.kyverno.io/v1alpha1.GenerateExistingConfiguration">GenerateExistingConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+<p>GenerateExistingConfiguration defines the configuration for generating resources for existing triggers.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls whether to trigger the policy for existing resources
+If is set to &ldquo;true&rdquo; the policy will be triggered and applied to existing matched resources.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicySpec">GeneratingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>admission</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AdmissionConfiguration">
+AdmissionConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admission controls policy evaluation during admission.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.GenerateExistingConfiguration">
+GenerateExistingConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting defines the configuration for generating resources for existing triggeres.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.SynchronizationConfiguration">
+SynchronizationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Synchronization defines the configuration for the synchronization of generated resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>orphanDownstreamOnPolicyDelete</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.OrphanDownstreamOnPolicyDeleteConfiguration">
+OrphanDownstreamOnPolicyDeleteConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>OrphanDownstreamOnPolicyDelete defines the configuration for orphaning downstream resources on policy delete.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.GeneratingPolicySpec">GeneratingPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicy">GeneratingPolicy</a>)
+</p>
+<p>
+<p>GeneratingPolicySpec is the specification of the desired behavior of the GeneratingPolicy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchConstraints specifies what resources will trigger this policy.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+3. If any matchCondition evaluates to an error (but none are FALSE):
+- If failurePolicy=Fail, reject the request
+- If failurePolicy=Ignore, the policy is skipped</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>evaluation</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">
+GeneratingPolicyEvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generate</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.Generation">
+[]Generation
+</a>
+</em>
+</td>
+<td>
+<p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
+Required.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.GeneratingPolicyStatus">GeneratingPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicy">GeneratingPolicy</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditionStatus</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ConditionStatus">
+ConditionStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.Generation">Generation
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicySpec">GeneratingPolicySpec</a>)
+</p>
+<p>
+<p>Generation defines the configuration for the generation of resources.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Expression is a CEL expression that takes a list of resources to be generated.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.GenericPolicy">GenericPolicy
 </h3>
 <p>
@@ -11437,11 +12579,11 @@ string
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.Image">Image
+<h3 id="policies.kyverno.io/v1alpha1.ImageExtractor">ImageExtractor
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
 </p>
@@ -11472,20 +12614,19 @@ string
 </em>
 </td>
 <td>
-<p>Expression defines CEL expression to extact images from the resource.</p>
+<p>Expression defines CEL expression to extract images from the resource.</p>
 </td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.ImageRule">ImageRule
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenStatus">ImageValidatingPolicyAutogenStatus</a>)
 </p>
 <p>
-<p>ImageRule defines a Glob or a CEL expression for matching images</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11497,38 +12638,107 @@ string
 <tbody>
 <tr>
 <td>
-<code>glob</code><br/>
+<code>targets</code><br/>
 <em>
-string
+<a href="#policies.kyverno.io/v1alpha1.Target">
+[]Target
+</a>
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>Glob defines a globbing pattern for matching images</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>cel</code><br/>
+<code>spec</code><br/>
 <em>
-string
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">
+ImageValidatingPolicySpec
+</a>
 </em>
 </td>
 <td>
-<p>Cel defines CEL Expressions for matching images</p>
+<br/>
+<br/>
+<table class="table table-striped">
+</table>
 </td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.ImageVerificationPolicySpec">ImageVerificationPolicySpec
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">ImageValidatingPolicyAutogenConfiguration
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ImageVerificationPolicy">ImageVerificationPolicy</a>)
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
 </p>
 <p>
-<p>ImageVerificationPolicySpec is the specification of the desired behavior of the ImageVerificationPolicy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>podControllers</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">
+PodControllersGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>PodControllers specifies whether to generate a pod controllers rules.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenStatus">ImageValidatingPolicyAutogenStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyStatus">ImageValidatingPolicyStatus</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>configs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogen">
+map[string]github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogen
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>)
+</p>
+<p>
+<p>ImageValidatingPolicySpec is the specification of the desired behavior of the ImageValidatingPolicy.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11548,6 +12758,7 @@ Kubernetes admissionregistration/v1.MatchResources
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>MatchConstraints specifies what resources this policy is designed to validate.</p>
 </td>
 </tr>
@@ -11565,6 +12776,23 @@ Kubernetes admissionregistration/v1.FailurePolicyType
 <p>FailurePolicy defines how to handle failures for the admission policy. Failures can
 occur from CEL expression parse errors, type check errors, runtime errors and invalid
 or mis-configured policy definitions or bindings.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
 </td>
 </tr>
 <tr>
@@ -11615,56 +12843,33 @@ Each variable is defined as a named CEL expression.</p>
 </tr>
 <tr>
 <td>
-<code>imageRules</code><br/>
+<code>validationConfigurations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ImageRule">
-[]ImageRule
+<a href="#policies.kyverno.io/v1alpha1.ValidationConfiguration">
+ValidationConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ImagesRules is a list of Glob and CELExpressions to match images.
+<p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchImageReferences</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MatchImageReference">
+[]MatchImageReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchImageReferences is a list of Glob and CELExpressions to match images.
 Any image that matches one of the rules is considered for validation
 Any image that does not match a rule is skipped, even when they are passed as arguments to
 image verification functions</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>mutateDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MutateDigest enables replacement of image tags with digests.
-Defaults to true.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>verifyDigest</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>VerifyDigest validates that images have a digest.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>required</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
 <tr>
@@ -11684,14 +12889,14 @@ Credentials
 <td>
 <code>images</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.Image">
-[]Image
+<a href="#policies.kyverno.io/v1alpha1.ImageExtractor">
+[]ImageExtractor
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Images is a list of CEL expression to extract images from the resource</p>
+<p>ImageExtractors is a list of CEL expression to extract images from the resource</p>
 </td>
 </tr>
 <tr>
@@ -11723,7 +12928,7 @@ Credentials
 </tr>
 <tr>
 <td>
-<code>verifications</code><br/>
+<code>validations</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
 []Kubernetes admissionregistration/v1.Validation
@@ -11731,7 +12936,94 @@ Credentials
 </em>
 </td>
 <td>
-<p>Verifications contain CEL expressions which is used to apply the image verification checks.</p>
+<p>Validations contain CEL expressions which is used to apply the image validation checks.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>evaluation</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">
+ImageValidatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ImageValidatingPolicyStatus">ImageValidatingPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditionStatus</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ConditionStatus">
+ConditionStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenStatus">
+ImageValidatingPolicyAutogenStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
 </td>
 </tr>
 </tbody>
@@ -11774,9 +13066,7 @@ string
 <a href="#policies.kyverno.io/v1alpha1.Cosign">Cosign</a>)
 </p>
 <p>
-<p>This references a public verification key stored in
-a secret in the kyverno namespace.
-A Key must specify only one of SecretRef, Data or KMS</p>
+<p>A Key must specify only one of CEL, Data or KMS</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11786,20 +13076,6 @@ A Key must specify only one of SecretRef, Data or KMS</p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>secretRef</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#secretreference-v1-core">
-Kubernetes core/v1.SecretReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>SecretRef sets a reference to a secret with the key.</p>
-</td>
-</tr>
 <tr>
 <td>
 <code>data</code><br/>
@@ -11836,6 +13112,18 @@ string
 <em>(Optional)</em>
 <p>HashAlgorithm specifues signature algorithm for public keys. Supported values are
 sha224, sha256, sha384 and sha512. Defaults to sha256.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Expression is a Expression expression that returns the public key.</p>
 </td>
 </tr>
 </tbody>
@@ -11887,11 +13175,290 @@ If not provided, the system roots are used.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.MAPGenerationConfiguration">MAPGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MatchImageReference">MatchImageReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+</p>
+<p>
+<p>MatchImageReference defines a Glob or a CEL expression for matching images</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>glob</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Glob defines a globbing pattern for matching images</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Expression defines CEL Expressions for matching images</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MutateExistingConfiguration">MutateExistingConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled enables mutation of existing resources. Default is <code>false</code>.
+When <code>spec.targetMatchConstraints</code> is not defined, Kyverno mutates existing resources matched in <code>spec.matchConstraints</code>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MutatingPolicyAutogen">MutatingPolicyAutogen
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogenStatus">MutatingPolicyAutogenStatus</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>targets</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.Target">
+[]Target
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">
+MutatingPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>podControllers</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">
+PodControllersGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>PodControllers specifies whether to generate a pod controllers rules.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mutatingAdmissionPolicy</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MAPGenerationConfiguration">
+MAPGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>MutatingAdmissionPolicy specifies whether to generate a Kubernetes MutatingAdmissionPolicy.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MutatingPolicyAutogenStatus">MutatingPolicyAutogenStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyStatus">MutatingPolicyStatus</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>configs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogen">
+map[string]github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1.MutatingPolicyAutogen
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>EvaluationConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>EvaluationConfiguration</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mutateExisting</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MutateExistingConfiguration">
+MutateExistingConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MutateExisting controls whether existing resources are mutated.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>)
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>, 
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogen">MutatingPolicyAutogen</a>)
 </p>
 <p>
 <p>MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.</p>
@@ -11906,17 +13473,127 @@ If not provided, the system roots are used.</p>
 <tbody>
 <tr>
 <td>
-<code>MutatingAdmissionPolicySpec</code><br/>
+<code>matchConstraints</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutatingadmissionpolicyspec-v1alpha1-admissionregistration">
-Kubernetes admissionregistration/v1alpha1.MutatingAdmissionPolicySpec
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.MatchResources
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>MutatingAdmissionPolicySpec</code> are embedded into this type.)
-</p>
+<p>MatchConstraints specifies what resources this policy is designed to evaluate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#failurepolicytype-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.FailurePolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+3. If any matchCondition evaluates to an error (but none are FALSE):
+- If failurePolicy=Fail, reject the request
+- If failurePolicy=Ignore, the policy is skipped</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogenConfiguration">
+MutatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetMatchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mutations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Mutation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>mutations contain operations to perform on matching objects.
+mutations may not be empty; a minimum of one mutation is required.
+mutations are evaluated in order, and are reinvoked according to
+the reinvocationPolicy.
+The mutations of a policy are invoked for each binding of this policy
+and reinvocation of mutations occurs on a per binding basis.</p>
 </td>
 </tr>
 <tr>
@@ -11931,6 +13608,97 @@ WebhookConfiguration
 <td>
 <em>(Optional)</em>
 <p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>evaluation</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyEvaluationConfiguration">
+MutatingPolicyEvaluationConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EvaluationConfiguration defines the configuration for mutating policy evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>reinvocationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#reinvocationpolicytype-v1-admissionregistration">
+Kubernetes admissionregistration/v1.ReinvocationPolicyType
+</a>
+</em>
+</td>
+<td>
+<p>reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
+as part of a single admission evaluation.
+Allowed values are &ldquo;Never&rdquo; and &ldquo;IfNeeded&rdquo;.</p>
+<p>Never: These mutations will not be called more than once per binding in a single admission evaluation.</p>
+<p>IfNeeded: These mutations may be invoked more than once per binding for a single admission request and there is no guarantee of
+order with respect to other admission plugins, admission webhooks, bindings of this policy and admission policies.  Mutations are only
+reinvoked when mutations change the object after this mutation is invoked.
+Required.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.MutatingPolicyStatus">MutatingPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditionStatus</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ConditionStatus">
+ConditionStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogenStatus">
+MutatingPolicyAutogenStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>generated</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Generated indicates whether a MutatingAdmissionPolicy is generated from the policy or not</p>
 </td>
 </tr>
 </tbody>
@@ -11957,10 +13725,13 @@ WebhookConfiguration
 <td>
 <code>certs</code><br/>
 <em>
-string
+<a href="#policies.kyverno.io/v1alpha1.StringOrExpression">
+StringOrExpression
+</a>
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Certs define the cert chain for Notary signature verification</p>
 </td>
 </tr>
@@ -11968,7 +13739,9 @@ string
 <td>
 <code>tsaCerts</code><br/>
 <em>
-string
+<a href="#policies.kyverno.io/v1alpha1.StringOrExpression">
+StringOrExpression
+</a>
 </em>
 </td>
 <td>
@@ -11979,15 +13752,127 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.OrphanDownstreamOnPolicyDeleteConfiguration">OrphanDownstreamOnPolicyDeleteConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+<p>OrphanDownstreamOnPolicyDeleteConfiguration defines the configuration for orphaning downstream resources on policy delete.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls whether generated resources should be deleted when the policy that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">PodControllersGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogenConfiguration">ImageValidatingPolicyAutogenConfiguration</a>, 
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>controllers</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.PolicyConditionType">PolicyConditionType
 (<code>string</code> alias)</p></h3>
 <p>
 </p>
+<h3 id="policies.kyverno.io/v1alpha1.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyRefs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyRef">
+[]PolicyRef
+</a>
+</em>
+</td>
+<td>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.PolicyRef">PolicyRef
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec</a>)
+<a href="#policies.kyverno.io/v1alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 </p>
@@ -12019,65 +13904,6 @@ string
 </td>
 <td>
 <p>Kind is the kind of the policy</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1alpha1.PolicyStatus">PolicyStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>, 
-<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>ready</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>The ready of a policy is a high-level summary of where the policy is in its lifecycle.
-The conditions array, the reason and message fields contain more detail about the policy&rsquo;s status.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>conditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
-[]Kubernetes meta/v1.Condition
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>autogen</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1alpha1.AutogenStatus">
-AutogenStatus
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
 </td>
 </tr>
 </tbody>
@@ -12175,6 +14001,86 @@ fully supported that should likely be the preferred way to handle these.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.StringOrExpression">StringOrExpression
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.Certificate">Certificate</a>, 
+<a href="#policies.kyverno.io/v1alpha1.Notary">Notary</a>)
+</p>
+<p>
+<p>StringOrExpression contains either a raw string input or a CEL expression</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>value</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Value defines the raw string input.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Expression defines the a CEL expression input.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.SynchronizationConfiguration">SynchronizationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+</p>
+<p>
+<p>SynchronizationConfiguration defines the configuration for the synchronization of generated resources.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled controls if generated resources should be kept in-sync with their source resource.
+If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
+data from Data or the resource specified in the Clone declaration.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.TUF">TUF
 </h3>
 <p>
@@ -12265,11 +14171,196 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.Target">Target
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>, 
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicyAutogen">MutatingPolicyAutogen</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>group</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicyAutogen">ValidatingPolicyAutogen
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenStatus">ValidatingPolicyAutogenStatus</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>targets</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.Target">
+[]Target
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">
+ValidatingPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>podControllers</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PodControllersGenerationConfiguration">
+PodControllersGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>PodControllers specifies whether to generate a pod controllers rules.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validatingAdmissionPolicy</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.VapGenerationConfiguration">
+VapGenerationConfiguration
+</a>
+</em>
+</td>
+<td>
+<p>ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenStatus">ValidatingPolicyAutogenStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyStatus">ValidatingPolicyStatus</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>configs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogen">
+map[string]github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1.ValidatingPolicyAutogen
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>)
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
 </p>
 <p>
 <p>ValidatingPolicySpec is the specification of the desired behavior of the ValidatingPolicy.</p>
@@ -12284,17 +14375,127 @@ string
 <tbody>
 <tr>
 <td>
-<code>ValidatingAdmissionPolicySpec</code><br/>
+<code>matchConstraints</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validatingadmissionpolicyspec-v1-admissionregistration">
-Kubernetes admissionregistration/v1.ValidatingAdmissionPolicySpec
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)
-</p>
+<p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Validation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Validations contain CEL expressions which is used to apply the validation.
+Validations and AuditAnnotations may not both be empty; a minimum of one Validations or AuditAnnotations is
+required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#failurepolicytype-v1-admissionregistration">
+Kubernetes admissionregistration/v1.FailurePolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditAnnotations</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.AuditAnnotation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):
+1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
+2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
+3. If any matchCondition evaluates to an error (but none are FALSE):
+- If failurePolicy=Fail, reject the request
+- If failurePolicy=Ignore, the policy is skipped</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">
+ValidatingPolicyAutogenConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AutogenConfiguration defines the configuration for the generation controller.</p>
 </td>
 </tr>
 <tr>
@@ -12327,29 +14528,160 @@ WebhookConfiguration
 </tr>
 <tr>
 <td>
-<code>admission</code><br/>
+<code>evaluation</code><br/>
 <em>
-bool
+<a href="#policies.kyverno.io/v1alpha1.EvaluationConfiguration">
+EvaluationConfiguration
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Admission controls if rules are applied during admission.
-Optional. Default value is &ldquo;true&rdquo;.</p>
+<p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicyStatus">ValidatingPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditionStatus</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ConditionStatus">
+ConditionStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
 </td>
 </tr>
 <tr>
 <td>
-<code>background</code><br/>
+<code>autogen</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenStatus">
+ValidatingPolicyAutogenStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>generated</code><br/>
 <em>
 bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
-uses variables that are only available in the admission review request (e.g. user name).</p>
+<p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidationConfiguration">ValidationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>mutateDigest</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MutateDigest enables replacement of image tags with digests.
+Defaults to true.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>verifyDigest</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>VerifyDigest validates that images have a digest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>required</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Required validates that images are verified, i.e., have passed a signature or attestation check.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.VapGenerationConfiguration">VapGenerationConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 </tbody>
@@ -12359,6 +14691,8 @@ uses variables that are only available in the admission review request (e.g. use
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.GeneratingPolicySpec">GeneratingPolicySpec</a>, 
+<a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>, 
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
 </p>

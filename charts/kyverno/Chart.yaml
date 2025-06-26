@@ -34,7 +34,11 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
-      description: Fix propagation of maxBackgroundReports. These were implemented in the controllers but not in the Helm values config.
+      description: Fix propagation of maxBackgroundReports. These were implemented in the controllers but not in the Helm values config
+    - kind: fixed
+      description: Ensure spec.template.metadata isn't null
+    - kind: removed
+      description: Remove the `delete` permission for policyexceptions in the admission controller
 dependencies:
   - name: grafana
     version: v0.0.0

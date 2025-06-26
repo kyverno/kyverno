@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // MutatingPolicyLister helps list MutatingPolicies.
@@ -30,39 +30,19 @@ import (
 type MutatingPolicyLister interface {
 	// List lists all MutatingPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.MutatingPolicy, err error)
+	List(selector labels.Selector) (ret []*policieskyvernoiov1alpha1.MutatingPolicy, err error)
 	// Get retrieves the MutatingPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.MutatingPolicy, error)
+	Get(name string) (*policieskyvernoiov1alpha1.MutatingPolicy, error)
 	MutatingPolicyListerExpansion
 }
 
 // mutatingPolicyLister implements the MutatingPolicyLister interface.
 type mutatingPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*policieskyvernoiov1alpha1.MutatingPolicy]
 }
 
 // NewMutatingPolicyLister returns a new MutatingPolicyLister.
 func NewMutatingPolicyLister(indexer cache.Indexer) MutatingPolicyLister {
-	return &mutatingPolicyLister{indexer: indexer}
-}
-
-// List lists all MutatingPolicies in the indexer.
-func (s *mutatingPolicyLister) List(selector labels.Selector) (ret []*v1alpha1.MutatingPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.MutatingPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the MutatingPolicy from the index for a given name.
-func (s *mutatingPolicyLister) Get(name string) (*v1alpha1.MutatingPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("mutatingpolicy"), name)
-	}
-	return obj.(*v1alpha1.MutatingPolicy), nil
+	return &mutatingPolicyLister{listers.New[*policieskyvernoiov1alpha1.MutatingPolicy](indexer, policieskyvernoiov1alpha1.Resource("mutatingpolicy"))}
 }
