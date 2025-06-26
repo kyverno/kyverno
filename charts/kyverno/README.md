@@ -753,7 +753,7 @@ The chart values are organised per component.
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.autoDeleteWebhooks.enabled | bool | `false` | Allow webhooks controller to delete webhooks using finalizers |
 | webhooksCleanup.image.registry | string | `nil` | Image registry |
-| webhooksCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| webhooksCleanup.image.repository | string | `"registry.k8s.io/kubectl"` | Image repository |
 | webhooksCleanup.image.tag | string | `"1.32.3"` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
@@ -816,7 +816,7 @@ The chart values are organised per component.
 | customLabels | object | `{}` | Additional labels |
 | policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
 | policyReportsCleanup.image.registry | string | `nil` | Image registry |
-| policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| policyReportsCleanup.image.repository | string | `"registry.k8s.io/kubectl"` | Image repository |
 | policyReportsCleanup.image.tag | string | `"1.32.3"` | Image tag Defaults to `latest` if omitted |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
