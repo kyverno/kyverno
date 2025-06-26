@@ -33,6 +33,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
@@ -102,6 +104,9 @@ type policyController struct {
 	urGenerator generator.UpdateRequestGenerator
 
 	watchManager *gpol.WatchManager
+
+	// mapper
+	restMapper meta.RESTMapper
 }
 
 // NewPolicyController create a new PolicyController
@@ -155,6 +160,8 @@ func NewPolicyController(
 		urGenerator:     urGenerator,
 		watchManager:    watchManager,
 	}
+	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
+	pc.restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 
 	pc.pLister = pInformer.Lister()
 	pc.npLister = npInformer.Lister()
@@ -202,6 +209,14 @@ func (pc *policyController) addPolicy(obj interface{}) {
 	if kpol := policy.AsKyvernoPolicy(); kpol != nil {
 		if !pc.canBackgroundProcess(kpol) {
 			return
+		}
+	} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		if gpol.Spec.GenerateExistingEnabled() {
+			logger.V(2).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
+			err := pc.handleGenerateExisting(gpol)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", gpol.GetName(), err))
+			}
 		}
 	}
 
