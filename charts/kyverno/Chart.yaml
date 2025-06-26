@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.4.3
-appVersion: v1.14.3
+version: 3.4.4
+appVersion: v1.14.4
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -39,8 +39,8 @@ annotations:
       description: Remove the `delete` permission for policyexceptions in the admission controller
 dependencies:
   - name: grafana
-    version: 3.4.3
+    version: 3.4.4
     condition: grafana.enabled
   - name: crds
-    version: 3.4.3
+    version: 3.4.4
     condition: crds.install
