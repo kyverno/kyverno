@@ -363,10 +363,10 @@ config:
         values:
           - kube-system
     # Exclude objects
-    # - objectSelector:
-    #     matchExpressions:
-    #     - key: webhooks.kyverno.io/exclude
-    #       operator: DoesNotExist
+    # objectSelector:
+    #   matchExpressions:
+    #   - key: webhooks.kyverno.io/exclude
+    #     operator: DoesNotExist
 
   # -- Defines annotations to set on webhook configurations.
   webhookAnnotations:
