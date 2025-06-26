@@ -236,6 +236,15 @@ func (s MutatingPolicySpec) BackgroundEnabled() bool {
 	return true
 }
 
+func (s MutatingPolicySpec) MutateExistingEnabled() bool {
+	if s.EvaluationConfiguration == nil ||
+		s.EvaluationConfiguration.MutateExistingConfiguration == nil ||
+		s.EvaluationConfiguration.MutateExistingConfiguration.Enabled == nil {
+		return false
+	}
+	return *s.EvaluationConfiguration.MutateExistingConfiguration.Enabled
+}
+
 func (s *MutatingPolicy) GetStatus() *MutatingPolicyStatus {
 	return &s.Status
 }

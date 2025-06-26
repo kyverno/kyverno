@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -19,6 +20,7 @@ import (
 
 type Engine interface {
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
+	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) ([]string, kyvernov1.ResourceSpec)
 }
 
 type EngineResponse struct {
@@ -68,7 +70,7 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 
 func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
 	var response EngineResponse
-	mpols, err := e.provider.Fetch(ctx)
+	mpols, err := e.provider.Fetch(ctx, false)
 	if err != nil {
 		return response, err
 	}
@@ -142,4 +144,43 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RulePass("", engineapi.Mutation, "success", nil))
 	}
 	return ruleResponse, result.PatchedResource
+}
+
+func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) ([]string, kyvernov1.ResourceSpec) {
+	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
+	if err != nil {
+		return nil, kyvernov1.ResourceSpec{}
+	}
+	dryRun := false
+	if request.Request.DryRun != nil {
+		dryRun = *request.Request.DryRun
+	}
+
+	attr := admission.NewAttributesRecord(
+		&object,
+		&oldObject,
+		schema.GroupVersionKind(request.Request.Kind),
+		request.Request.Namespace,
+		request.Request.Name,
+		schema.GroupVersionResource(request.Request.Resource),
+		request.Request.SubResource,
+		admission.Operation(request.Request.Operation),
+		nil,
+		dryRun,
+		// TODO
+		nil,
+	)
+
+	var namespace *corev1.Namespace
+	if ns := request.Request.Namespace; ns != "" {
+		namespace = e.nsResolver(ns)
+	}
+
+	return e.provider.MatchesMutateExisting(ctx, attr, namespace),
+		kyvernov1.ResourceSpec{
+			APIVersion: object.GetAPIVersion(),
+			Kind:       object.GetKind(),
+			Namespace:  object.GetNamespace(),
+			UID:        object.GetUID(),
+		}
 }
