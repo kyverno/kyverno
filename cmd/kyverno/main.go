@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -25,6 +26,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
@@ -32,7 +34,6 @@ import (
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
-	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -65,6 +66,8 @@ import (
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -301,22 +304,41 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
 	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-	if generateVAPs {
+	generateMAPs := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+	if generateVAPs || generateMAPs {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
-		vapController := vapcontroller.NewController(
+
+		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
+		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
+		if generateVAPs {
+			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
+			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
+		}
+
+		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
+		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
+		if generateMAPs {
+			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+		}
+
+		admissionpolicyController := admissionpolicygenerator.NewController(
 			kubeClient,
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
+			kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
 			kyvernoInformer.Policies().V1alpha1().PolicyExceptions(),
-			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies(),
-			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings(),
+			vapInformer,
+			vapBindingInformer,
+			mapInformer,
+			mapBindingInformer,
 			eventGenerator,
 			checker,
 		)
-		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
+		leaderControllers = append(leaderControllers, internal.NewController(admissionpolicygenerator.ControllerName, admissionpolicyController, admissionpolicygenerator.Workers))
 	}
 	return leaderControllers, nil, nil
 }
@@ -357,6 +379,7 @@ func main() {
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
+	flagset.Func(toggle.GenerateMutatingAdmissionPolicyFlagName, toggle.GenerateMutatingAdmissionPolicyDescription, toggle.GenerateMutatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.DumpMutatePatchesFlagName, toggle.DumpMutatePatchesDescription, toggle.DumpMutatePatches.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
@@ -408,6 +431,15 @@ func main() {
 		if tlsSecretName == "" {
 			setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 			os.Exit(1)
+		}
+		// check if mutating admission policies are registered in the API server
+		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		if generateMutatingAdmissionPolicy {
+			registered, err := admissionpolicy.IsMutatingAdmissionPolicyRegistered(setup.KubeClient)
+			if !registered {
+				setup.Logger.Error(err, "MutatingAdmissionPolicies isn't supported in the API server")
+				os.Exit(1)
+			}
 		}
 
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)

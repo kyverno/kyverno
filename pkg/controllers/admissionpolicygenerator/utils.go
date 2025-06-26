@@ -1,10 +1,11 @@
-package validatingadmissionpolicygenerate
+package admissionpolicygenerator
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -17,13 +18,22 @@ func (c *controller) getClusterPolicy(name string) (*kyvernov1.ClusterPolicy, er
 	return cpolicy, nil
 }
 
-// getClusterPolicy gets the Kyverno ValidatingPolicy
+// getValidatngPolicy gets the Kyverno ValidatingPolicy
 func (c *controller) getValidatingPolicy(name string) (*policiesv1alpha1.ValidatingPolicy, error) {
 	vpol, err := c.vpolLister.Get(name)
 	if err != nil {
 		return nil, err
 	}
 	return vpol, nil
+}
+
+// getMutatingPolicy gets the Kyverno MutatingPolicy
+func (c *controller) getMutatingPolicy(name string) (*policiesv1alpha1.MutatingPolicy, error) {
+	mpol, err := c.mpolLister.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return mpol, nil
 }
 
 // getValidatingAdmissionPolicy gets the Kubernetes ValidatingAdmissionPolicy
@@ -42,6 +52,24 @@ func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissio
 		return nil, err
 	}
 	return vapbinding, nil
+}
+
+// getMutatingAdmissionPolicy gets the Kubernetes MutatingAdmissionPolicy
+func (c *controller) getMutatingAdmissionPolicy(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
+	mapol, err := c.mapLister.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return mapol, nil
+}
+
+// getMutatingAdmissionPolicyBinding gets the Kubernetes MutatingAdmissionPolicyBinding
+func (c *controller) getMutatingAdmissionPolicyBinding(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
+	mapbinding, err := c.mapbindingLister.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return mapbinding, nil
 }
 
 // getExceptions get PolicyExceptions that match both the ClusterPolicy and the rule if exists.
@@ -76,6 +104,6 @@ func (c *controller) getCELExceptions(policyName string) ([]policiesv1alpha1.Pol
 	return exceptions, nil
 }
 
-func constructVapBindingName(vapName string) string {
-	return vapName + "-binding"
+func constructBindingName(polName string) string {
+	return polName + "-binding"
 }

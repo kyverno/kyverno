@@ -48,10 +48,13 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 			ClusterRoles:      request.ClusterRoles,
 		}
 		for _, policy := range policies {
-			trigger, _, err := admissionutils.ExtractResources(nil, admissionRequest)
+			trigger, oldTrigger, err := admissionutils.ExtractResources(nil, admissionRequest)
 			if err != nil {
 				logger.Error(err, "failed to extract resources from admission request")
 				break
+			}
+			if trigger.Object == nil {
+				trigger = oldTrigger
 			}
 			triggerSpec := kyvernov1.ResourceSpec{
 				APIVersion: trigger.GetAPIVersion(),
