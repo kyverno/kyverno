@@ -1088,6 +1088,8 @@ admissionController:
 
     # -- Container security context
     securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -1133,6 +1135,8 @@ admissionController:
 
     # -- Container security context
     securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -1460,6 +1464,8 @@ backgroundController:
 
   # -- Security context for the containers
   securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -1795,6 +1801,8 @@ cleanupController:
 
   # -- Security context for the containers
   securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -2097,6 +2105,8 @@ reportsController:
 
   # -- Security context for the containers
   securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
