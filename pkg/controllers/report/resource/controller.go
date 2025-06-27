@@ -214,7 +214,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			}
 			return watch, err
 		}
-		watchInterface, err := watchTools.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+		watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 		if err != nil {
 			logger.Error(err, "failed to create watcher")
 			return nil, err
@@ -293,6 +293,16 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+
+			for _, autogen := range policy.Status.Autogen.Configs {
+				genKinds, err := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
+				if err != nil {
+					return err
+				}
+
+				kinds = append(kinds, genKinds...)
+			}
+
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)

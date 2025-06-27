@@ -106,6 +106,7 @@ func createReportControllers(
 					policiesV1alpha1.ValidatingPolicies(),
 					policiesV1alpha1.ImageValidatingPolicies(),
 					policiesV1alpha1.GeneratingPolicies(),
+					policiesV1alpha1.MutatingPolicies(),
 					vapInformer,
 				),
 				aggregationWorkers,
@@ -291,6 +292,7 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,

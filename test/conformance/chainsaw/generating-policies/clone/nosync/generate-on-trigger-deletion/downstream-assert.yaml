@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: clone-generate-on-trigger-deletion
+  namespace: clone-generate-on-trigger-deletion
+type: Opaque
