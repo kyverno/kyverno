@@ -190,11 +190,15 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			engineResponse, err := engine.Handle(ctx, request, nil)
+			rules := make([]engineapi.RuleResponse, 0)
+			for _, policy := range engineResponse.Policies {
+				rules = append(rules, policy.Rules...)
+			}
+
 			response := engineapi.EngineResponse{
 				Resource: resource,
 				PolicyResponse: engineapi.PolicyResponse{
-					// TODO: policies at index 0
-					Rules: engineResponse.Policies[0].Rules,
+					Rules: rules,
 				},
 			}.WithPolicy(vpols[i])
 			results[&vpols[i]] = ScanResult{&response, err}
