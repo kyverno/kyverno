@@ -17,6 +17,40 @@ type GeneratingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              GeneratingPolicySpec `json:"spec"`
+	// Status contains policy runtime data.
+	// +optional
+	Status GeneratingPolicyStatus `json:"status,omitempty"`
+}
+
+func (s *GeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+	return *s.Spec.MatchConstraints
+}
+
+func (s *GeneratingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.Spec.MatchConditions
+}
+
+func (s *GeneratingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	return admissionregistrationv1.Ignore
+}
+
+func (s *GeneratingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+	return s.Spec.WebhookConfiguration
+}
+
+func (s *GeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
+	return s.Spec.Variables
+}
+
+func (s *GeneratingPolicy) GetSpec() *GeneratingPolicySpec {
+	return &s.Spec
+}
+
+func (s *GeneratingPolicy) GetStatus() *GeneratingPolicyStatus {
+	return &s.Status
 }
 
 // +kubebuilder:object:root=true
@@ -72,9 +106,13 @@ type GeneratingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
-	// GenerateConfiguration defines the configuration for the policy evaluation.
+	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
-	GenerateConfiguration *GenerateConfiguration `json:"evaluation,omitempty"`
+	EvaluationConfiguration *GeneratingPolicyEvaluationConfiguration `json:"evaluation,omitempty"`
+
+	// WebhookConfiguration defines the configuration for the webhook.
+	// +optional
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
 
 	// Generation defines a set of CEL expressions that will be evaluated to generate resources.
 	// Required.
@@ -82,29 +120,96 @@ type GeneratingPolicySpec struct {
 	Generation []Generation `json:"generate"`
 }
 
-type GenerateConfiguration struct {
-	// GenerateExisting controls whether to trigger the policy for existing resources
-	// If is set to "true" the policy will be triggered and applied to existing matched resources.
-	// +optional
-	GenerateExisting *bool `json:"generateExisting,omitempty"`
+func (s GeneratingPolicySpec) GenerateExistingEnabled() bool {
+	const defaultValue = false
+	if s.EvaluationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.GenerateExistingConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled
+}
 
-	// Synchronize controls if generated resources should be kept in-sync with their source resource.
+func (s GeneratingPolicySpec) SynchronizationEnabled() bool {
+	const defaultValue = false
+	if s.EvaluationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.SynchronizationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.SynchronizationConfiguration.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.SynchronizationConfiguration.Enabled
+}
+
+func (s GeneratingPolicySpec) AdmissionEnabled() bool {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
+		return true
+	}
+	return *s.EvaluationConfiguration.Admission.Enabled
+}
+
+type GeneratingPolicyEvaluationConfiguration struct {
+	// Admission controls policy evaluation during admission.
+	// +optional
+	Admission *AdmissionConfiguration `json:"admission,omitempty"`
+
+	// GenerateExisting defines the configuration for generating resources for existing triggeres.
+	// +optional
+	GenerateExistingConfiguration *GenerateExistingConfiguration `json:"generateExisting,omitempty"`
+
+	// Synchronization defines the configuration for the synchronization of generated resources.
+	// +optional
+	SynchronizationConfiguration *SynchronizationConfiguration `json:"synchronize,omitempty"`
+
+	// OrphanDownstreamOnPolicyDelete defines the configuration for orphaning downstream resources on policy delete.
+	OrphanDownstreamOnPolicyDelete *OrphanDownstreamOnPolicyDeleteConfiguration `json:"orphanDownstreamOnPolicyDelete,omitempty"`
+}
+
+// GenerateExistingConfiguration defines the configuration for generating resources for existing triggers.
+type GenerateExistingConfiguration struct {
+	// Enabled controls whether to trigger the policy for existing resources
+	// If is set to "true" the policy will be triggered and applied to existing matched resources.
+	// Optional. Defaults to "false" if not specified.
+	// +optional
+	// +kubebuilder:default=false
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// SynchronizationConfiguration defines the configuration for the synchronization of generated resources.
+type SynchronizationConfiguration struct {
+	// Enabled controls if generated resources should be kept in-sync with their source resource.
 	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
 	// data from Data or the resource specified in the Clone declaration.
 	// Optional. Defaults to "false" if not specified.
 	// +optional
-	Synchronize *bool `json:"synchronize,omitempty"`
+	// +kubebuilder:default=false
+	Enabled *bool `json:"enabled,omitempty"`
+}
 
-	// OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the policy that generated
+// OrphanDownstreamOnPolicyDeleteConfiguration defines the configuration for orphaning downstream resources on policy delete.
+type OrphanDownstreamOnPolicyDeleteConfiguration struct {
+	// Enabled controls whether generated resources should be deleted when the policy that generated
 	// them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-	// See https://kyverno.io/docs/writing-policies/generate/#data-examples.
-	// Defaults to "false" if not specified.
+	// Optional. Defaults to "false" if not specified.
 	// +optional
-	OrphanDownstreamOnPolicyDelete *bool `json:"orphanDownstreamOnPolicyDelete,omitempty"`
+	// +kubebuilder:default=false
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // Generation defines the configuration for the generation of resources.
 type Generation struct {
 	// Expression is a CEL expression that takes a list of resources to be generated.
 	Expression string `json:"expression,omitempty"`
+}
+
+type GeneratingPolicyStatus struct {
+	// +optional
+	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 }

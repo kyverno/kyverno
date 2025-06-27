@@ -1,5 +1,6 @@
 {{- if .Values.crds.migration.enabled -}}
 {{- if not .Values.templating.enabled -}}
+{{- $automountSAToken := .Values.crds.migration.serviceAccount.automountServiceAccountToken }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -62,6 +63,7 @@ metadata:
     helm.sh/hook: post-upgrade
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "100"
+automountServiceAccountToken: false
 ---
 apiVersion: batch/v1
 kind: Job
@@ -90,6 +92,7 @@ spec:
     {{- end }}
     spec:
       serviceAccountName: {{ template "kyverno.fullname" . }}-migrate-resources
+      automountServiceAccountToken: {{ $automountSAToken }}
       {{- with .Values.crds.migration.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
@@ -112,6 +115,12 @@ spec:
           {{- with .Values.crds.migration.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if not $automountSAToken }}
+          volumeMounts:
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
           {{- end }}
       {{- with .Values.crds.migration.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -139,6 +148,27 @@ spec:
         nodeAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- if not $automountSAToken }}
+      volumes:
+        - name: serviceaccount-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3607
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
       {{- end }}
 {{- end -}}
 {{- end -}}

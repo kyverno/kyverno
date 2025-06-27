@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-applyconfiguration
+status:
+  conditionStatus:
+    conditions:
+    - message: Webhook configured.
+      reason: Succeeded
+      status: "True"
+      type: WebhookConfigured
+    - message: Policy is ready for reporting.
+      reason: Succeeded
+      status: "True"
+      type: RBACPermissionsGranted
+    ready: true 
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: applyconfiguration 

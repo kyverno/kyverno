@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: DeletingPolicy
+metadata:
+  name: delete-configmap-without-rbac
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+  conditions:
+    - name: match-default
+      expression: object.metadata.namespace == "default"
+    - name: match-name
+      expression: object.metadata.name == "rbac-missing-configmap"
+  schedule: "*/1 * * * *"

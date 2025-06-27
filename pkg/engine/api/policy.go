@@ -37,6 +37,36 @@ func NewValidatingAdmissionPolicyData(
 	}
 }
 
+// MutatingPolicyData holds a MAP and its associated MAPBs
+type MutatingAdmissionPolicyData struct {
+	definition *admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+}
+
+// AddBinding appends a MAPB to the policy data
+func (m *MutatingAdmissionPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+	m.bindings = append(m.bindings, b)
+}
+
+func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
+	return p.definition
+}
+
+func (p *MutatingAdmissionPolicyData) GetBindings() []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
+	return p.bindings
+}
+
+// NewMutatingPolicyData initializes a MAP wrapper with no bindings
+func NewMutatingAdmissionPolicyData(
+	policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
+	bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+) *MutatingAdmissionPolicyData {
+	return &MutatingAdmissionPolicyData{
+		definition: policy,
+		bindings:   bindings,
+	}
+}
+
 // GenericPolicy abstracts the policy type (ClusterPolicy/Policy, ValidatingPolicy, ValidatingAdmissionPolicy and MutatingAdmissionPolicy)
 // It is intended to be used in EngineResponse
 type GenericPolicy interface {
@@ -57,21 +87,25 @@ type GenericPolicy interface {
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
+	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
+	AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 	// AsMutatingPolicy returns the mutating policy
 	AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
+	// AsDeletingPolicy returns the deleting policy
+	AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy
 }
-
 type genericPolicy struct {
 	metav1.Object
 	PolicyInterface           kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicy *ValidatingAdmissionPolicyData
-	MutatingAdmissionPolicy   *admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicy   *MutatingAdmissionPolicyData
 	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
 	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
 	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
 	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
+	DeletingPolicy            *policiesv1alpha1.DeletingPolicy
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -84,6 +118,10 @@ func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 
 func (p *genericPolicy) AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData {
 	return p.ValidatingAdmissionPolicy
+}
+
+func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData {
+	return p.MutatingAdmissionPolicy
 }
 
 func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy {
@@ -102,6 +140,10 @@ func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy 
 	return p.GeneratingPolicy
 }
 
+func (p *genericPolicy) AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy {
+	return p.DeletingPolicy
+}
+
 func (p *genericPolicy) GetAPIVersion() string {
 	switch {
 	case p.PolicyInterface != nil:
@@ -117,6 +159,8 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.MutatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	case p.GeneratingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
+	case p.DeletingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	}
 	return ""
@@ -138,6 +182,8 @@ func (p *genericPolicy) GetKind() string {
 		return "MutatingPolicy"
 	case p.GeneratingPolicy != nil:
 		return "GeneratingPolicy"
+	case p.DeletingPolicy != nil:
+		return "DeletingPolicy"
 	}
 	return ""
 }
@@ -174,7 +220,14 @@ func NewValidatingAdmissionPolicyWithBindings(pol *admissionregistrationv1.Valid
 func NewMutatingAdmissionPolicy(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                  pol,
-		MutatingAdmissionPolicy: pol,
+		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol),
+	}
+}
+
+func NewMutatingAdmissionPolicyWithBindings(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy, bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) GenericPolicy {
+	return &genericPolicy{
+		Object:                  pol,
+		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol, bindings...),
 	}
 }
 
@@ -203,5 +256,12 @@ func NewGeneratingPolicy(pol *policiesv1alpha1.GeneratingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:           pol,
 		GeneratingPolicy: pol,
+	}
+}
+
+func NewDeletingPolicy(pol *policiesv1alpha1.DeletingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:         pol,
+		DeletingPolicy: pol,
 	}
 }
