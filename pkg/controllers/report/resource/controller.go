@@ -19,6 +19,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -213,7 +214,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			}
 			return watch, err
 		}
-		watchInterface, err := watchTools.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+		watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 		if err != nil {
 			logger.Error(err, "failed to create watcher")
 			return nil, err
@@ -260,6 +261,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
 		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
 	}
+	restMapper, err := restmapper.GetRESTMapper(c.client, false)
+	if err != nil {
+		return err
+	}
 	if c.vapLister != nil {
 		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
 		if err != nil {
@@ -267,7 +272,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vapPolicies {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -281,7 +289,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -295,7 +306,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from image verification admission policies
 		for _, policy := range ivpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)

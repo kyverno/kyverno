@@ -45,11 +45,13 @@ type resource struct {
 }
 
 func (f resource) Apply(result v1alpha1.TestResult) bool {
-	if result.Resource == "" {
+	if len(result.Resources) == 0 {
 		return true
 	}
-	if wildcard.Match(f.value, result.Resource) {
-		return true
+	for _, res := range result.Resources {
+		if wildcard.Match(f.value, res) {
+			return true
+		}
 	}
 	return false
 }
@@ -92,4 +94,23 @@ func ParseFilter(in string) (Filter, []error) {
 		}
 	}
 	return composite{filters}, errors
+}
+
+func ExtractResourceFilters(input string) []string {
+	var resourceFilters []string
+	f, errs := ParseFilter(input)
+	if len(errs) > 0 {
+		return resourceFilters
+	}
+	if compositeFilter, ok := f.(composite); ok {
+		for _, subFilter := range compositeFilter.filters {
+			if resourceFilter, ok := subFilter.(resource); ok {
+				if resourceFilter.value == "*" {
+					break
+				}
+				resourceFilters = append(resourceFilters, resourceFilter.value)
+			}
+		}
+	}
+	return resourceFilters
 }

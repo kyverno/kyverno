@@ -39,6 +39,11 @@ func TestUnmarshalPolicy(t *testing.T) {
 			raw:  []byte(`{"field":"value"}`),
 		},
 		{
+			name: "DeletingPolicy",
+			kind: "DeletingPolicy",
+			raw:  []byte(`{"field":"value"}`),
+		},
+		{
 			name: "InvalidKind",
 			kind: "InvalidKind",
 			raw:  []byte(`{"field":"value"}`),
@@ -89,8 +94,19 @@ func TestUnmarshalPolicy(t *testing.T) {
 				if err := json.Unmarshal(test.raw, &expectedPolicy); err != nil {
 					expectedPolicy = nil
 				}
-				if !reflect.DeepEqual(policy.AsImageVerificationPolicy(), expectedPolicy) {
-					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsImageVerificationPolicy())
+				if !reflect.DeepEqual(policy.AsImageValidatingPolicy(), expectedPolicy) {
+					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsImageValidatingPolicy())
+				}
+			case "DeletingPolicy":
+				var expectedPolicy *v1alpha1.DeletingPolicy
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if err := json.Unmarshal(test.raw, &expectedPolicy); err != nil {
+					expectedPolicy = nil
+				}
+				if !reflect.DeepEqual(policy.AsDeletingPolicy(), expectedPolicy) {
+					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsDeletingPolicy())
 				}
 			default:
 				if !reflect.DeepEqual(policy, nil) {
@@ -190,9 +206,6 @@ func TestGetPolicies(t *testing.T) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedP1, expectedP2, p1, p2)
 				}
 			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
 				if !reflect.DeepEqual(expectedP1, p1) || !reflect.DeepEqual(nil, p2) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedP1, nil, p1, p2)
 				}

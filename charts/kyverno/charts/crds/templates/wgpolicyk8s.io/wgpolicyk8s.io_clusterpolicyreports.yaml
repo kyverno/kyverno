@@ -1,4 +1,4 @@
-{{- if .Values.groups.wgpolicyk8s.clusterpolicyreports }}
+{{- if and .Values.groups.wgpolicyk8s.clusterpolicyreports (not .Values.reportsServer.enabled) }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io

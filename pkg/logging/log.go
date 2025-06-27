@@ -54,11 +54,11 @@ func InitFlags(flags *flag.FlagSet) {
 
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
-func Setup(logFormat string, loggingTimestampFormat string, level int) error {
+func Setup(logFormat string, loggingTimestampFormat string, level int, disableColor bool) error {
 	zerologr.SetMaxV(level)
 
 	var logger zerolog.Logger
-	output := zerolog.ConsoleWriter{Out: os.Stderr}
+	output := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: disableColor}
 	output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
 
 	switch logFormat {
@@ -90,6 +90,8 @@ func resolveTimestampFormat(format string) string {
 		return time.UnixDate
 	case RFC3339NANO:
 		return time.RFC3339Nano
+	case DefaultTime:
+		return time.RFC3339
 	default:
 		return time.RFC3339
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,11 +32,16 @@ func Test_impl_parse_service_account_string(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := Lib()
-			env, err := cel.NewEnv(opts)
+			base, err := compiler.NewBaseEnv()
+			assert.NoError(t, err)
+			assert.NotNil(t, base)
+			options := []cel.EnvOption{
+				Lib(),
+			}
+			env, err := base.Extend(options...)
 			assert.NoError(t, err)
 			assert.NotNil(t, env)
-			ast, issues := env.Compile(fmt.Sprintf(`user.ParseServiceAccount("%s")`, tt.user))
+			ast, issues := env.Compile(fmt.Sprintf(`parseServiceAccount("%s")`, tt.user))
 			fmt.Println(issues.String())
 			assert.Nil(t, issues)
 			assert.NotNil(t, ast)

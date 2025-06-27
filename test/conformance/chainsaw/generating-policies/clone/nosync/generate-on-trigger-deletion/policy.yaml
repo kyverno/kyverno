@@ -1,0 +1,18 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: generate-networkpolicy
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["DELETE"]
+      resources:   ["configmaps"]
+  variables:
+    - name: nsName
+      expression: "namespaceObject.metadata.name"
+    - name: source
+      expression: resource.Get("v1", "secrets", "default", "clone-generate-on-trigger-deletion")
+  generate:
+    - expression: generator.Apply(variables.nsName, [variables.source])

@@ -37,7 +37,9 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 				{
 					Name: "notary",
 					Notary: &v1alpha1.Notary{
-						Certs: cert,
+						Certs: &v1alpha1.StringOrExpression{
+							Value: cert,
+						},
 					},
 				},
 			},
@@ -56,20 +58,36 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	imgCtx, err := imagedataloader.NewImageContext(nil)
 	assert.NoError(t, err)
-	opts := Lib(imgCtx, ivpol, nil)
-	env, err := cel.NewEnv(opts)
+
+	options := []cel.EnvOption{
+		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
+		Lib(imgCtx, ivpol, nil),
+	}
+	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
 
-	ast, issues := env.Compile(`verifyImageSignatures("ghcr.io/kyverno/test-verify-image:signed",["notary"])`)
+	ast, issues := env.Compile(`verifyImageSignatures("ghcr.io/kyverno/test-verify-image:signed",[attestors.notary])`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
+	att := map[string]v1alpha1.Attestor{
+		"notary": {
+			Name: "notary",
+			Notary: &v1alpha1.Notary{
+				Certs: &v1alpha1.StringOrExpression{
+					Value: cert,
+				},
+			},
+		},
+	}
 
-	data := map[string]any{}
+	data := map[string]any{
+		"attestors": att,
+	}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	assert.Equal(t, out.Value(), int64(1))
@@ -78,12 +96,16 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T) {
 	imgCtx, err := imagedataloader.NewImageContext(nil)
 	assert.NoError(t, err)
-	opts := Lib(imgCtx, ivpol, nil)
-	env, err := cel.NewEnv(opts)
+
+	options := []cel.EnvOption{
+		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
+		Lib(imgCtx, ivpol, nil),
+	}
+	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
 
-	ast, issues := env.Compile(`verifyAttestationSignatures("ghcr.io/kyverno/test-verify-image:signed", "sbom" ,["notary"])`)
+	ast, issues := env.Compile(`verifyAttestationSignatures("ghcr.io/kyverno/test-verify-image:signed", "sbom" ,[attestors.notary])`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 
@@ -91,7 +113,20 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 
-	data := map[string]any{}
+	att := map[string]v1alpha1.Attestor{
+		"notary": {
+			Name: "notary",
+			Notary: &v1alpha1.Notary{
+				Certs: &v1alpha1.StringOrExpression{
+					Value: cert,
+				},
+			},
+		},
+	}
+
+	data := map[string]any{
+		"attestors": att,
+	}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	assert.Equal(t, out.Value(), int64(1))
