@@ -30,7 +30,7 @@ spec:
     try:
     - sleep:
         duration: 3s
-  - name: check that the downstream still exists
+  - name: check that the downstream is deleted
     try:
-    - assert:
-        file: configmap-assert.yaml
+    - error:
+        file: configmap-error.yaml

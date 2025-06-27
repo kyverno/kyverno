@@ -297,9 +297,9 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 	case *policiesv1alpha1.GeneratingPolicy:
 		gpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.GeneratingPolicy)
 		if gpol.Spec.OrphanDownstreamOnPolicyDeleteEnabled() {
-			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
-		} else {
 			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), false)
+		} else {
+			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
 		}
 		p = engineapi.NewGeneratingPolicy(gpol)
 	default:
