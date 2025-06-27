@@ -1,17 +1,18 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: GeneratingPolicy
 metadata:
-  name: zk-kafka-address
+  name: basic-generate-with-name-matching
 spec:
   evaluation:
-    synchronize:
+    generateExisting:
       enabled: true
   matchConstraints:
     resourceRules:
-    - apiGroups:   [""]
-      apiVersions: ["v1"]
-      operations:  ["CREATE", "UPDATE"]
-      resources:   ["namespaces"]
+    - apiGroups:     [""]
+      apiVersions:   ["v1"]
+      operations:    ["CREATE", "UPDATE"]
+      resources:     ["namespaces"]
+      resourceNames: ["match-namespace"]
   variables:
     - name: nsName
       expression: "object.metadata.name"
@@ -22,7 +23,7 @@ spec:
             "kind": dyn("ConfigMap"),
             "apiVersion": dyn("v1"),
             "metadata": dyn({
-              "name": "data-sync-delete-policy",
+              "name": "basic-generate-with-name-matching",
               "namespace": string(variables.nsName),
             }),
             "data": dyn({
