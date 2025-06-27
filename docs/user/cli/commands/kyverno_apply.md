@@ -39,7 +39,9 @@ kyverno apply [flags]
 ```
       --audit-warn                         If set to true, will flag audit policies as warnings instead of failures
   -c, --cluster                            Checks if policies should be applied to cluster in the current context
+      --cluster-wide-resources             If set to true, will apply policies to cluster-wide resources
       --context string                     The name of the kubeconfig context to use
+      --context-file string                File containing context data for CEL policies
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
       --detailed-results                   If set to true, display detailed results
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
@@ -49,10 +51,12 @@ kyverno apply [flags]
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
   -h, --help                               help for apply
+      --json strings                       Path to JSON payload files
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
   -o, --output string                      Prints the mutated/generated resources in provided file/directory
       --output-format string               Specifies the policy report format (json or yaml). Default: yaml. (default "yaml")
+      --password string                    Password for connecting to git repository
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
       --registry                           If set to true, access the image registry using local docker credentials to populate external data
       --remove-color                       Remove any color from output
@@ -64,6 +68,7 @@ kyverno apply [flags]
       --target-resource strings            Path to individual files containing target resources files for policies that have mutate existing
       --target-resources strings           Path to a directory containing target resources files for policies that have mutate existing
   -u, --userinfo string                    Admission Info including Roles, Cluster Roles and Subjects
+      --username string                    Username for connecting to git repository
   -f, --values-file string                 File containing values for policy variables
       --warn-exit-code int                 Set the exit code for warnings; if failures or errors are found, will exit 1
       --warn-no-pass                       Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag

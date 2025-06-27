@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,7 +24,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		Kind:       pol.GetKind(),
 		Name:       pol.GetName(),
 		Namespace:  pol.GetNamespace(),
-		UID:        pol.MetaObject().GetUID(),
+		UID:        pol.GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
 	return Info{
@@ -75,7 +76,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 
 	var action Action
 	policy := engineResponse.Policy()
-	if policy.GetType() == engineapi.KyvernoPolicyType {
+	if policy.AsKyvernoPolicy() != nil {
 		pol := engineResponse.Policy().AsKyvernoPolicy()
 		hasValidate := pol.GetSpec().HasValidate()
 		hasVerifyImages := pol.GetSpec().HasVerifyImages()
@@ -96,7 +97,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
-		UID:        policy.MetaObject().GetUID(),
+		UID:        policy.GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
 	return Info{
@@ -232,30 +233,58 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	exceptions := ruleResp.Exceptions()
 	exceptionNames := make([]string, 0, len(exceptions))
 	events := make([]Info, 0, len(exceptions))
+	policy := engineResponse.Policy()
 
 	// build the events of the policy exceptions
-	pol := engineResponse.Policy().AsKyvernoPolicy()
-	if pol.GetNamespace() == "" {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
-	} else {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
-	}
+	if pol := policy.AsKyvernoPolicy(); pol != nil {
+		if pol.GetNamespace() == "" {
+			exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
+		} else {
+			exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
+		}
 
-	related := engineResponse.GetResourceSpec()
-	for _, exception := range exceptions {
-		ns := exception.GetNamespace()
-		name := exception.GetName()
-		exceptionNames = append(exceptionNames, ns+"/"+name)
+		related := engineResponse.GetResourceSpec()
+		for _, exception := range exceptions {
+			ns := exception.GetNamespace()
+			name := exception.GetName()
+			exceptionNames = append(exceptionNames, ns+"/"+name)
 
-		exceptionEvent := Info{
-			Regarding: corev1.ObjectReference{
-				// TODO: iirc it's not safe to assume api version is set
-				APIVersion: "kyverno.io/v2",
-				Kind:       "PolicyException",
-				Name:       name,
-				Namespace:  ns,
-				UID:        exception.GetUID(),
-			},
+			exceptionEvent := Info{
+				Regarding: corev1.ObjectReference{
+					// TODO: iirc it's not safe to assume api version is set
+					APIVersion: "kyverno.io/v2",
+					Kind:       "PolicyException",
+					Name:       name,
+					Namespace:  ns,
+					UID:        exception.GetUID(),
+				},
+				Related: &corev1.ObjectReference{
+					APIVersion: related.APIVersion,
+					Kind:       related.Kind,
+					Name:       related.Name,
+					Namespace:  related.Namespace,
+					UID:        types.UID(related.UID),
+				},
+				Reason:  PolicySkipped,
+				Message: exceptionMessage,
+				Source:  source,
+				Action:  ResourcePassed,
+			}
+			events = append(events, exceptionEvent)
+		}
+
+		// build the policy events
+		policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exceptions %s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), strings.Join(exceptionNames, ", "))
+		regarding := corev1.ObjectReference{
+			// TODO: iirc it's not safe to assume api version is set
+			APIVersion: "kyverno.io/v1",
+			Kind:       pol.GetKind(),
+			Name:       pol.GetName(),
+			Namespace:  pol.GetNamespace(),
+			UID:        pol.GetUID(),
+		}
+		policyEvent := Info{
+			Regarding: regarding,
 			Related: &corev1.ObjectReference{
 				APIVersion: related.APIVersion,
 				Kind:       related.Kind,
@@ -264,38 +293,12 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 				UID:        types.UID(related.UID),
 			},
 			Reason:  PolicySkipped,
-			Message: exceptionMessage,
+			Message: policyMessage,
 			Source:  source,
 			Action:  ResourcePassed,
 		}
-		events = append(events, exceptionEvent)
+		events = append(events, policyEvent)
 	}
-
-	// build the policy events
-	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exceptions %s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), strings.Join(exceptionNames, ", "))
-	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
-		Kind:       pol.GetKind(),
-		Name:       pol.GetName(),
-		Namespace:  pol.GetNamespace(),
-		UID:        pol.GetUID(),
-	}
-	policyEvent := Info{
-		Regarding: regarding,
-		Related: &corev1.ObjectReference{
-			APIVersion: related.APIVersion,
-			Kind:       related.Kind,
-			Name:       related.Name,
-			Namespace:  related.Namespace,
-			UID:        types.UID(related.UID),
-		},
-		Reason:  PolicySkipped,
-		Message: policyMessage,
-		Source:  source,
-		Action:  ResourcePassed,
-	}
-	events = append(events, policyEvent)
 	return events
 }
 
@@ -335,10 +338,10 @@ func NewCleanupPolicyEvent(policy kyvernov2.CleanupPolicyInterface, resource uns
 	}
 }
 
-func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName, vapBindingName string) []Info {
+func NewValidatingAdmissionPolicyEvent(policy engineapi.GenericPolicy, vapName, vapBindingName string) []Info {
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
@@ -347,7 +350,7 @@ func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName
 	vapEvent := Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
-			APIVersion: "admissionregistration.k8s.io/v1beta1",
+			APIVersion: "admissionregistration.k8s.io/v1",
 			Kind:       "ValidatingAdmissionPolicy",
 			Name:       vapName,
 		},
@@ -359,7 +362,7 @@ func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName
 	vapBindingEvent := Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
-			APIVersion: "admissionregistration.k8s.io/v1beta1",
+			APIVersion: "admissionregistration.k8s.io/v1",
 			Kind:       "ValidatingAdmissionPolicyBinding",
 			Name:       vapBindingName,
 		},
@@ -390,6 +393,41 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 		Reason:  PolicyError,
 		Message: msg,
 		Action:  None,
+	}
+}
+
+func NewDeletingPolicyEvent(policy v1alpha1.DeletingPolicy, resource unstructured.Unstructured, err error) Info {
+	regarding := corev1.ObjectReference{
+		APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		Kind:       policy.GetKind(),
+		Name:       policy.GetName(),
+		Namespace:  policy.GetNamespace(),
+		UID:        policy.GetUID(),
+	}
+	related := &corev1.ObjectReference{
+		APIVersion: resource.GetAPIVersion(),
+		Kind:       resource.GetKind(),
+		Namespace:  resource.GetNamespace(),
+		Name:       resource.GetName(),
+	}
+	if err == nil {
+		return Info{
+			Regarding: regarding,
+			Related:   related,
+			Source:    CleanupController,
+			Action:    ResourceCleanedUp,
+			Reason:    PolicyApplied,
+			Message:   fmt.Sprintf("successfully deleted the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName()),
+		}
+	} else {
+		return Info{
+			Regarding: regarding,
+			Related:   related,
+			Source:    CleanupController,
+			Action:    None,
+			Reason:    PolicyError,
+			Message:   fmt.Sprintf("failed to delete the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error()),
+		}
 	}
 }
 

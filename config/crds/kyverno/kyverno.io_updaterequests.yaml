@@ -654,6 +654,11 @@ spec:
                           type: string
                         nullable: true
                         type: array
+                      synchronize:
+                        description: |-
+                          DryRun indicates that modifications will definitely not be persisted for this request.
+                          Defaults to false.
+                        type: boolean
                       userInfo:
                         description: UserInfo is the userInfo carried in the admission
                           request.
@@ -700,6 +705,7 @@ spec:
                 enum:
                 - mutate
                 - generate
+                - cel-generate
                 type: string
               resource:
                 description: ResourceSpec is the information to identify the trigger

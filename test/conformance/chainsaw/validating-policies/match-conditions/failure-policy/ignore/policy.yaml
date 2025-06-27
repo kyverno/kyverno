@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-deployment-labels
+spec:
+  failurePolicy: Ignore
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  matchConditions:
+    - name: error
+      expression: >-
+        2 / 0 == 1
+  validations:
+    - expression: >-
+        false
+      message: >-
+        Always false

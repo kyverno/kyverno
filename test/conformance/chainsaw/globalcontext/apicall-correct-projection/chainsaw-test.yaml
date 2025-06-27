@@ -1,0 +1,44 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: projections
+spec:
+  steps:
+  - try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: main-deployment.yaml
+    - apply:
+        file: gctxentry.yaml
+    - sleep:
+        duration: 3s
+  - name: create policy
+    use:
+      template: ../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: cpol-apicall-projections
+  - name: create new deployment
+    try:
+      - script:
+          content: kubectl apply -f new-deployment.yaml
+          check:
+            ($error != null): true
+            # This check ensures the contents of stderr are exactly as shown.
+            (trim_space($stderr)): |-
+              Error from server: error when creating "new-deployment.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+              
+              resource Deployment/test-globalcontext-apicall-correct-projections/new-deployment was blocked due to the following policies 
+              
+              cpol-apicall-projections:
+                autogen-main-deployment-exists: 'validation error: rule autogen-main-deployment-exists
+                  failed'

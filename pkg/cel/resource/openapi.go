@@ -22,9 +22,7 @@ func (o *OpenAPITypeResolver) GetDeclProvier(gvk schema.GroupVersionKind, typeNa
 	if err != nil {
 		return nil, err
 	}
-
 	schema := common.SchemaDeclType(&openapi.Schema{Schema: spec}, true)
-
 	return cel.NewDeclTypeProvider(schema.MaybeAssignTypeName(typeName)), nil
 }
 

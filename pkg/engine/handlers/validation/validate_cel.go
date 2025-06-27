@@ -14,7 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -52,6 +52,7 @@ func (h validateCELHandler) Process(
 	// check if there are policy exceptions that match the incoming resource
 	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
 	if len(matchedExceptions) > 0 {
+		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
 		for i, exception := range matchedExceptions {
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
@@ -60,11 +61,12 @@ func (h validateCELHandler) Process(
 				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
 			}
 			keys = append(keys, key)
+			exceptions = append(exceptions, engineapi.NewPolicyException(&exception))
 		}
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions),
 		)
 	}
 
@@ -87,6 +89,8 @@ func (h validateCELHandler) Process(
 	if oldResource.Object == nil {
 		oldObject = nil
 	} else {
+		oldResource = *oldResource.DeepCopy()
+		oldResource.SetGroupVersionKind(gvk)
 		oldObject = oldResource.DeepCopyObject()
 	}
 
@@ -99,6 +103,8 @@ func (h validateCELHandler) Process(
 	} else {
 		ns = resource.GetNamespace()
 		name = resource.GetName()
+		resource = *resource.DeepCopy()
+		resource.SetGroupVersionKind(gvk)
 		object = resource.DeepCopyObject()
 	}
 
@@ -119,7 +125,7 @@ func (h validateCELHandler) Process(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	// compile CEL expressions
-	compiler, err := admissionpolicy.NewCompiler(admissionpolicy.ConvertMatchConditionsV1(matchConditions), variables)
+	compiler, err := admissionpolicy.NewCompiler(matchConditions, variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
@@ -218,7 +224,7 @@ func (h validateCELHandler) Process(
 	)
 }
 
-func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1beta1.ParamKind, paramRef *admissionregistrationv1beta1.ParamRef, namespace string) ([]runtime.Object, error) {
+func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
 	var params []runtime.Object
 
 	apiVersion := paramKind.APIVersion
@@ -269,7 +275,7 @@ func collectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 		}
 	}
 
-	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1beta1.DenyAction {
+	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1.DenyAction {
 		return nil, fmt.Errorf("no params found")
 	}
 

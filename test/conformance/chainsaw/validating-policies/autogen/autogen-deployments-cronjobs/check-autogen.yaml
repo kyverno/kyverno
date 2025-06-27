@@ -1,0 +1,67 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+    name: disallow-privilege-escalation
+status:
+  autogen:
+    configs:
+      defaults:
+        spec:
+          autogen:
+            podControllers:
+              controllers:
+              - deployments
+              - cronjobs
+          matchConditions:
+          - expression: >-
+              has(object.spec.template.metadata.labels)
+              && has(object.spec.template.metadata.labels.prod)
+              && object.spec.template.metadata.labels.prod == 'true'
+            name: check-prod-label
+          matchConstraints:
+            resourceRules:
+            - apiGroups:
+              - apps
+              apiVersions:
+              - v1
+              operations:
+              - CREATE
+              - UPDATE
+              resources:
+              - deployments
+          validations:
+          - expression: object.spec.template.spec.containers.all(container, has(container.securityContext)
+              && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation
+              == false)
+            message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
+              must be set to `false`.
+      cronjobs:
+        spec:
+          autogen:
+            podControllers:
+              controllers:
+              - deployments
+              - cronjobs
+          matchConditions:
+          - expression: >-
+              has(object.spec.jobTemplate.spec.template.metadata.labels)
+              && has(object.spec.jobTemplate.spec.template.metadata.labels.prod)
+              && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'
+            name: check-prod-label
+          matchConstraints:
+            resourceRules:
+            - apiGroups:
+              - batch
+              apiVersions:
+              - v1
+              operations:
+              - CREATE
+              - UPDATE
+              resources:
+              - cronjobs
+          validations:
+          - expression: object.spec.jobTemplate.spec.template.spec.containers.all(container,
+              has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation)
+              && container.securityContext.allowPrivilegeEscalation == false)
+            message: Privilege escalation is disallowed. The field spec.containers[*].securityContext.allowPrivilegeEscalation
+              must be set to `false`.

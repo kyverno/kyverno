@@ -10,7 +10,6 @@ results:
 - kind: ""
   patchedResources: mutated-secret.yaml
   policy: mutate-existing-secret
-  resources: []
   result: pass
   rule: mutate-secret-on-configmap-create
 targetResources:

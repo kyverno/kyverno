@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+spec:
+  policyRefs:
+  - name: "check-deployment-labels"
+    kind: ValidatingPolicy
+  matchConditions:
+    - name: "check-namespace"
+      expression: "object.metadata.namespace == 'test-ns'"
+---
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: delta-exception
+  namespace: delta
+spec:
+  exceptions:
+  - policyName: disallow-host-namespaces
+    ruleNames:
+    - host-namespaces
+    - autogen-host-namespaces
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        - Deployment
+        namespaces:
+        - delta
+        names:
+        - important-tool*
