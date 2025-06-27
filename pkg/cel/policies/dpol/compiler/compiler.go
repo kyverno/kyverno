@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -23,6 +24,9 @@ func NewCompiler() Compiler {
 type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+	if policy == nil {
+		return nil, field.ErrorList{field.Required(field.NewPath("policy"), "policy must not be nil")}
+	}
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -34,6 +38,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptio
 		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
+		cel.Variable(compiler.ImagesKey, image.ImageType),
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
 		cel.Variable(compiler.OldObjectKey, cel.DynType),
@@ -52,7 +57,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptio
 		panic(err)
 	}
 	options = append(options, declOptions...)
-	options = append(options, globalcontext.Lib(), http.Lib(), imagedata.Lib(), resource.Lib())
+	options = append(options, globalcontext.Lib(), http.Lib(), image.Lib(), imagedata.Lib(), resource.Lib())
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {

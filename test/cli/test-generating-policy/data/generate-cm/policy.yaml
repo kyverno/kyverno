@@ -1,7 +1,7 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: GeneratingPolicy
 metadata:
-  name: zk-kafka-address
+  name: generate-cm
 spec:
   matchConstraints:
     resourceRules:
