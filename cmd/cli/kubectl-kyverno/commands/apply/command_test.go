@@ -319,10 +319,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-empty-fields/policy.yaml"},
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/policy.yaml"},
 				ResourcePaths: []string{
-					"../../../../../test/cli/test-empty-fields/deployment-1.yaml",
-					"../../../../../test/cli/test-empty-fields/deployment-2.yaml",
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/deployment1.yaml",
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/deployment2.yaml",
 				},
 				PolicyReport: true,
 			},
