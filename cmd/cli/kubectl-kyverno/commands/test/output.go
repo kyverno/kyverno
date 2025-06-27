@@ -180,9 +180,6 @@ func printTestResult(
 	for _, test := range tests {
 		var resources []string
 		// The test specifies certain resources to check, results will be checked for those resources only
-		if test.Resource != "" {
-			test.Resources = append(test.Resources, test.Resource)
-		}
 		if test.Resources != nil {
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
@@ -306,10 +303,10 @@ func printTestResult(
 					if len(rows) == 0 && !resourceSkipped {
 						row := table.Row{
 							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+								ID:     testCount,
+								Policy: color.Policy("", test.Policy),
+								Rule:   color.Rule(test.Rule),
+								// Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
 								Result:    color.ResultPass(),
 								Reason:    color.Excluded(),
 								IsFailure: false,
@@ -342,10 +339,10 @@ func printTestResult(
 			if len(rows) == 0 && !resourceSkipped {
 				row := table.Row{
 					RowCompact: table.RowCompact{
-						ID:        testCount,
-						Policy:    color.Policy("", test.Policy),
-						Rule:      color.Rule(test.Rule),
-						Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+						ID:     testCount,
+						Policy: color.Policy("", test.Policy),
+						Rule:   color.Rule(test.Rule),
+						// Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
 						IsFailure: true,
 						Result:    color.ResultFail(),
 						Reason:    color.NotFound(),
@@ -364,14 +361,14 @@ func printTestResult(
 }
 
 func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
-	resourceParts := strings.Split(resourceGVKAndName, "/")
+	// resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
 	row := table.Row{
 		RowCompact: table.RowCompact{
-			ID:        *globalTestCounter,
-			Policy:    color.Policy("", test.Policy),
-			Rule:      color.Rule(test.Rule),
-			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]),
+			ID:     *globalTestCounter,
+			Policy: color.Policy("", test.Policy),
+			Rule:   color.Rule(test.Rule),
+			// Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]),
 			Reason:    reason,
 			IsFailure: !success,
 		},
@@ -395,10 +392,10 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 	if len(rows) == 0 {
 		row := table.Row{
 			RowCompact: table.RowCompact{
-				ID:        *globalTestCounter,
-				Policy:    color.Policy("", test.Policy),
-				Rule:      color.Rule(test.Rule),
-				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]), // todo: handle namespace
+				ID:     *globalTestCounter,
+				Policy: color.Policy("", test.Policy),
+				Rule:   color.Rule(test.Rule),
+				// Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]), // todo: handle namespace
 				Result:    color.ResultPass(),
 				Reason:    color.Excluded(),
 				IsFailure: false,
