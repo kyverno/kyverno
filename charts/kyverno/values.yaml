@@ -539,7 +539,7 @@ webhooksCleanup:
     repository: registry.k8s.io/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.32.3'
+    tag: v1.32.3
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -610,7 +610,7 @@ policyReportsCleanup:
     repository: registry.k8s.io/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.32.3'
+    tag: v1.32.3
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
