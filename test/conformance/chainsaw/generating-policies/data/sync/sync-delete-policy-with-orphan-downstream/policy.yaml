@@ -1,10 +1,12 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: GeneratingPolicy
 metadata:
-  name: zk-kafka-address
+  name: sync-delete-policy-with-orphan-downstream
 spec:
   evaluation:
     synchronize:
+      enabled: true
+    orphanDownstreamOnPolicyDelete:
       enabled: true
   matchConstraints:
     resourceRules:
@@ -22,7 +24,7 @@ spec:
             "kind": dyn("ConfigMap"),
             "apiVersion": dyn("v1"),
             "metadata": dyn({
-              "name": "data-sync-delete-policy",
+              "name": "sync-delete-policy-with-orphan-downstream",
               "namespace": string(variables.nsName),
             }),
             "data": dyn({
