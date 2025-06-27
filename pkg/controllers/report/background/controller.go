@@ -12,7 +12,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
@@ -65,8 +65,9 @@ type controller struct {
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister      policiesv1alpha1listers.ImageValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
-	celpolexListener policiesv1alpha1listers.CELPolicyExceptionLister
+	celpolexListener policiesv1alpha1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	bgscanrLister    cache.GenericLister
@@ -97,7 +98,8 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	celpolexlInformer policiesv1alpha1informers.CELPolicyExceptionInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
@@ -140,6 +142,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(ivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -213,15 +221,15 @@ func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 	}
 }
 
-func (c *controller) deleteCELPolicy(obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) deleteCELPolicy(obj *policiesv1alpha1.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addCELException(obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) addCELException(obj *policiesv1alpha1.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateCELException(old, obj *policiesv1alpha1.CELPolicyException) {
+func (c *controller) updateCELException(old, obj *policiesv1alpha1.PolicyException) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
@@ -242,6 +250,20 @@ func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
 }
 
 func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageValidatingPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
@@ -364,7 +386,7 @@ func (c *controller) reconcileReport(
 	gvr schema.GroupVersionResource,
 	resource resource.Resource,
 	exceptions []kyvernov2.PolicyException,
-	celexceptions []*policiesv1alpha1.CELPolicyException,
+	celexceptions []*policiesv1alpha1.PolicyException,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) error {
@@ -415,9 +437,11 @@ func (c *controller) reconcileReport(
 			if policy.AsKyvernoPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsKyvernoPolicy()).String()
 			} else if policy.AsValidatingAdmissionPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy()).String()
+				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy().GetDefinition()).String()
 			} else if policy.AsValidatingPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
+			} else if policy.AsImageValidatingPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsImageValidatingPolicy()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
@@ -586,8 +610,18 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if err != nil {
 			return err
 		}
-		for _, vpol := range policy.RemoveNoneBackgroundPolicies(vpols) {
+		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
 			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
+		}
+	}
+	if c.ivpolLister != nil {
+		// load validating policies
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return err
+		}
+		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
+			policies = append(policies, engineapi.NewImageValidatingPolicy(&vpol))
 		}
 	}
 	if c.vapLister != nil {

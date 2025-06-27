@@ -1,59 +1,64 @@
 hiddenMemberFields:
-  - "TypeMeta"
+- "TypeMeta"
 
 externalPackages:
-  - match: ^k8s\\.io/apimachinery/pkg/apis/meta/v1\\.Duration$
-    target: https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration
-  - match: ^k8s\\.io/(api|apimachinery|apiextensions-apiserver/pkg/apis)/
-    target: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#{{lower .TypeIdentifier}}-{{arrIndex .PackageSegments -1}}-{{arrIndex .PackageSegments -2}}
-  - match: ^github\\.com/knative/pkg/apis/duck/
-    target: https://godoc.org/github.com/knative/pkg/apis/duck/{{arrIndex .PackageSegments -1}}#{{.TypeIdentifier}}
+- match: ^k8s\\.io/apimachinery/pkg/apis/meta/v1\\.Duration$
+  target: https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration
+- match: ^k8s\\.io/(api|apimachinery|apiextensions-apiserver/pkg/apis)/
+  target: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#{{lower .TypeIdentifier}}-{{arrIndex .PackageSegments -1}}-{{arrIndex .PackageSegments -2}}
+- match: ^github\\.com/knative/pkg/apis/duck/
+  target: https://godoc.org/github.com/knative/pkg/apis/duck/{{arrIndex .PackageSegments -1}}#{{.TypeIdentifier}}
 
 hideTypePatterns:
-  - "ParseError$"
-  - "List$"
+- "ParseError$"
+- "List$"
 
 markdownDisabled: false
 
 stripPrefix:
-  - k8s.io/api/
-  - k8s.io/apimachinery/pkg/apis/
-  - github.com/tengqm/kubeconfig/config/kubeadm/v1beta2.
-  - github.com/tengqm/kubeconfig/config/kubeadm/v1beta3.
-  - github.com/tengqm/kubeconfig/config/bootstraptoken/v1.
+- k8s.io/api/
+- k8s.io/apimachinery/pkg/apis/
+- github.com/tengqm/kubeconfig/config/kubeadm/v1beta2.
+- github.com/tengqm/kubeconfig/config/kubeadm/v1beta3.
+- github.com/tengqm/kubeconfig/config/bootstraptoken/v1.
 
 apis:
-  - name: kyverno
-    title: kyverno (v1)
-    package: github.com/kyverno/kyverno
-    path: api/kyverno/v1
+- name: kyverno
+  title: kyverno (v1)
+  package: github.com/kyverno/kyverno
+  path: api/kyverno/v1
 
-  - name: kyverno
-    title: kyverno (v1beta1)
-    package: github.com/kyverno/kyverno
-    path: api/kyverno/v1beta1
+- name: kyverno
+  title: kyverno (v1beta1)
+  package: github.com/kyverno/kyverno
+  path: api/kyverno/v1beta1
 
-  - name: kyverno
-    title: kyverno (v2)
-    package: github.com/kyverno/kyverno
-    path: api/kyverno/v2
+- name: kyverno
+  title: kyverno (v2)
+  package: github.com/kyverno/kyverno
+  path: api/kyverno/v2
 
-  - name: kyverno
-    title: kyverno (v2alpha1)
-    package: github.com/kyverno/kyverno
-    path: api/kyverno/v2alpha1
+- name: kyverno
+  title: kyverno (v2alpha1)
+  package: github.com/kyverno/kyverno
+  path: api/kyverno/v2alpha1
 
-  - name: kyverno
-    title: kyverno (v2beta1)
-    package: github.com/kyverno/kyverno
-    path: api/kyverno/v2beta1
+- name: kyverno
+  title: kyverno (v2beta1)
+  package: github.com/kyverno/kyverno
+  path: api/kyverno/v2beta1
 
-  - name: kyverno_policyreport
-    title: kyverno policy report (v1alpha2)
-    package: github.com/kyverno/kyverno
-    path: api/policyreport/v1alpha2
+- name: kyverno_policyreport
+  title: kyverno policy report (v1alpha2)
+  package: github.com/kyverno/kyverno
+  path: api/policyreport/v1alpha2
 
-  - name: kyverno_reports
-    title: kyverno reports (v1)
-    package: github.com/kyverno/kyverno
-    path: api/reports/v1
+- name: kyverno_reports
+  title: kyverno reports (v1)
+  package: github.com/kyverno/kyverno
+  path: api/reports/v1
+
+- name: kyverno_cel_policies
+  title: kyverno CEL policies (v1alpha1)
+  package: github.com/kyverno/kyverno
+  path: api/policies.kyverno.io/v1alpha1

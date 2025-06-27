@@ -19,13 +19,13 @@ limitations under the License.
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	apikyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v2alpha1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // GlobalContextEntries.
 type GlobalContextEntryInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2alpha1.GlobalContextEntryLister
+	Lister() kyvernov2alpha1.GlobalContextEntryLister
 }
 
 type globalContextEntryInformer struct {
@@ -70,7 +70,7 @@ func NewFilteredGlobalContextEntryInformer(client versioned.Interface, resyncPer
 				return client.KyvernoV2alpha1().GlobalContextEntries().Watch(context.TODO(), options)
 			},
 		},
-		&kyvernov2alpha1.GlobalContextEntry{},
+		&apikyvernov2alpha1.GlobalContextEntry{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +81,9 @@ func (f *globalContextEntryInformer) defaultInformer(client versioned.Interface,
 }
 
 func (f *globalContextEntryInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov2alpha1.GlobalContextEntry{}, f.defaultInformer)
+	return f.factory.InformerFor(&apikyvernov2alpha1.GlobalContextEntry{}, f.defaultInformer)
 }
 
-func (f *globalContextEntryInformer) Lister() v2alpha1.GlobalContextEntryLister {
-	return v2alpha1.NewGlobalContextEntryLister(f.Informer().GetIndexer())
+func (f *globalContextEntryInformer) Lister() kyvernov2alpha1.GlobalContextEntryLister {
+	return kyvernov2alpha1.NewGlobalContextEntryLister(f.Informer().GetIndexer())
 }

@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: basic-generate-with-obj-selector
+spec:
+  evaluation:
+    generateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["secrets"]
+    objectSelector:
+      matchLabels:
+        app: critical
+  variables:
+    - name: nsName
+      expression: "object.metadata.namespace"
+    - name: source
+      expression: resource.Get("v1", "configmaps", "default", "basic-generate-with-obj-selector")
+  generate:
+    - expression: generator.Apply(variables.nsName, [variables.source])

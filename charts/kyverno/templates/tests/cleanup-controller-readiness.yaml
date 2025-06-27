@@ -9,10 +9,11 @@ metadata:
   annotations:
     {{- include "kyverno.test.annotations" . | nindent 4 }}
 spec:
+  automountServiceAccountToken: {{ .Values.test.automountServiceAccountToken }}
   restartPolicy: Never
   {{- with .Values.test.imagePullSecrets | default .Values.global.imagePullSecrets }}
   imagePullSecrets:
-    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 4 }}
   {{- end }}
   containers:
     - name: test
@@ -30,4 +31,12 @@ spec:
         - /bin/sh
         - -c
         - sleep {{ .Values.test.sleep }} ; wget -O- -S --no-check-certificate https://{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.service.port }}/health/readiness
+  {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
+  nodeSelector:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
+  {{- with .Values.test.tolerations | default .Values.global.tolerations}}
+  tolerations:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
 {{- end -}}

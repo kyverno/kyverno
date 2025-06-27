@@ -35,6 +35,5 @@ nodes:
   - role: worker
   - role: worker
 featureGates:
-  "JobPodFailurePolicy": true
   "PodDisruptionConditions": true
   "ProcMountType": true

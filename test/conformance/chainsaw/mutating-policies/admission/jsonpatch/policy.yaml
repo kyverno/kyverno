@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-jsonpatch
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "apps" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE" ]
+      resources: [ "deployments" ]
+  matchConditions:
+  - name: is-dev-namespace
+    expression: request.namespace == 'dev'
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        has(object.metadata.labels) ?
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels/managed",
+            value: "true"
+          }
+        ] :
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels",
+            value: {"managed": "true"}
+          }
+        ]

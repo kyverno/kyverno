@@ -23,7 +23,7 @@ jobs:
       - name: Build devcontainer image
         run: docker build .devcontainer   
       - name: Trivy Scan Image
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # v0.31.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true

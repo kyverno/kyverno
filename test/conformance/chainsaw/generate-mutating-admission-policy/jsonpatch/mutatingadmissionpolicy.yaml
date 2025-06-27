@@ -1,0 +1,46 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: mpol-add-label-jsonpatch
+  ownerReferences:
+  - apiVersion: policies.kyverno.io/v1alpha1
+    kind: MutatingPolicy
+    name: add-label-jsonpatch
+spec:
+  failurePolicy: Fail
+  matchConditions:
+  - expression: request.namespace == 'dev'
+    name: is-dev-namespace
+  matchConstraints:
+    matchPolicy: Equivalent
+    resourceRules:
+    - apiGroups:
+      - apps
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - deployments
+  mutations:
+  - jsonPatch:
+      expression: |
+        has(object.metadata.labels) ?
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels/managed",
+            value: "true"
+          }
+        ] :
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels",
+            value: {"managed": "true"}
+          }
+        ]
+    patchType: JSONPatch
+  reinvocationPolicy: Never

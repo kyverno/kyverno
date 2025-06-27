@@ -26,6 +26,11 @@ const (
 	GenerateValidatingAdmissionPolicyDescription = "Set the flag to 'true', to generate validating admission policies."
 	generateValidatingAdmissionPolicyEnvVar      = "FLAG_GENERATE_VALIDATING_ADMISSION_POLICY"
 	defaultGenerateValidatingAdmissionPolicy     = false
+	// generate mutating admission policies
+	GenerateMutatingAdmissionPolicyFlagName    = "generateMutatingAdmissionPolicy"
+	GenerateMutatingAdmissionPolicyDescription = "Set the flag to 'true', to generate mutating admission policies."
+	generateMutatingAdmissionPolicyEnvVar      = "FLAG_GENERATE_MUTATING_ADMISSION_POLICY"
+	defaultGenerateMutatingAdmissionPolicy     = false
 	// dump mutate patches
 	DumpMutatePatchesFlagName    = "dumpPatches"
 	DumpMutatePatchesDescription = "Set the flag to 'true', to dump mutate patches."
@@ -43,6 +48,7 @@ var (
 	ForceFailurePolicyIgnore          = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
 	EnableDeferredLoading             = newToggle(defaultEnableDeferredLoading, enableDeferredLoadingEnvVar)
 	GenerateValidatingAdmissionPolicy = newToggle(defaultGenerateValidatingAdmissionPolicy, generateValidatingAdmissionPolicyEnvVar)
+	GenerateMutatingAdmissionPolicy   = newToggle(defaultGenerateMutatingAdmissionPolicy, generateMutatingAdmissionPolicyEnvVar)
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
 	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
 )

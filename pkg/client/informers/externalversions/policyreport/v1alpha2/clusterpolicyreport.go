@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	apipolicyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ClusterPolicyReports.
 type ClusterPolicyReportInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.ClusterPolicyReportLister
+	Lister() policyreportv1alpha2.ClusterPolicyReportLister
 }
 
 type clusterPolicyReportInformer struct {
@@ -70,7 +70,7 @@ func NewFilteredClusterPolicyReportInformer(client versioned.Interface, resyncPe
 				return client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Watch(context.TODO(), options)
 			},
 		},
-		&policyreportv1alpha2.ClusterPolicyReport{},
+		&apipolicyreportv1alpha2.ClusterPolicyReport{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +81,9 @@ func (f *clusterPolicyReportInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *clusterPolicyReportInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policyreportv1alpha2.ClusterPolicyReport{}, f.defaultInformer)
+	return f.factory.InformerFor(&apipolicyreportv1alpha2.ClusterPolicyReport{}, f.defaultInformer)
 }
 
-func (f *clusterPolicyReportInformer) Lister() v1alpha2.ClusterPolicyReportLister {
-	return v1alpha2.NewClusterPolicyReportLister(f.Informer().GetIndexer())
+func (f *clusterPolicyReportInformer) Lister() policyreportv1alpha2.ClusterPolicyReportLister {
+	return policyreportv1alpha2.NewClusterPolicyReportLister(f.Informer().GetIndexer())
 }

@@ -1,0 +1,14 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apply-maps-in-cluster-mode
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: kyverno apply policy.yaml --cluster 2>&1 || true
+        check:
+          # Check that the CLI successfully processes the MAP policy without throwing unsupported errors
+          # and shows the expected output format
+          (contains($stdout, 'Applying') && contains($stdout, 'policy rule(s)')): true 

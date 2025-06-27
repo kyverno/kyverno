@@ -19,10 +19,10 @@ limitations under the License.
 package v2alpha1
 
 import (
-	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // GlobalContextEntryLister helps list GlobalContextEntries.
@@ -30,39 +30,19 @@ import (
 type GlobalContextEntryLister interface {
 	// List lists all GlobalContextEntries in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2alpha1.GlobalContextEntry, err error)
+	List(selector labels.Selector) (ret []*kyvernov2alpha1.GlobalContextEntry, err error)
 	// Get retrieves the GlobalContextEntry from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.GlobalContextEntry, error)
+	Get(name string) (*kyvernov2alpha1.GlobalContextEntry, error)
 	GlobalContextEntryListerExpansion
 }
 
 // globalContextEntryLister implements the GlobalContextEntryLister interface.
 type globalContextEntryLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*kyvernov2alpha1.GlobalContextEntry]
 }
 
 // NewGlobalContextEntryLister returns a new GlobalContextEntryLister.
 func NewGlobalContextEntryLister(indexer cache.Indexer) GlobalContextEntryLister {
-	return &globalContextEntryLister{indexer: indexer}
-}
-
-// List lists all GlobalContextEntries in the indexer.
-func (s *globalContextEntryLister) List(selector labels.Selector) (ret []*v2alpha1.GlobalContextEntry, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2alpha1.GlobalContextEntry))
-	})
-	return ret, err
-}
-
-// Get retrieves the GlobalContextEntry from the index for a given name.
-func (s *globalContextEntryLister) Get(name string) (*v2alpha1.GlobalContextEntry, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2alpha1.Resource("globalcontextentry"), name)
-	}
-	return obj.(*v2alpha1.GlobalContextEntry), nil
+	return &globalContextEntryLister{listers.New[*kyvernov2alpha1.GlobalContextEntry](indexer, kyvernov2alpha1.Resource("globalcontextentry"))}
 }

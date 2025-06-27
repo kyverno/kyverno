@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: basic-generate-with-ns-selector-1
+  labels:
+    app: critical
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: basic-generate-with-ns-selector-2
+  labels:
+    app: non-critical

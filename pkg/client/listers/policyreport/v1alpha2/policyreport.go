@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // PolicyReportLister helps list PolicyReports.
@@ -30,7 +30,7 @@ import (
 type PolicyReportLister interface {
 	// List lists all PolicyReports in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.PolicyReport, err error)
+	List(selector labels.Selector) (ret []*policyreportv1alpha2.PolicyReport, err error)
 	// PolicyReports returns an object that can list and get PolicyReports.
 	PolicyReports(namespace string) PolicyReportNamespaceLister
 	PolicyReportListerExpansion
@@ -38,25 +38,17 @@ type PolicyReportLister interface {
 
 // policyReportLister implements the PolicyReportLister interface.
 type policyReportLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*policyreportv1alpha2.PolicyReport]
 }
 
 // NewPolicyReportLister returns a new PolicyReportLister.
 func NewPolicyReportLister(indexer cache.Indexer) PolicyReportLister {
-	return &policyReportLister{indexer: indexer}
-}
-
-// List lists all PolicyReports in the indexer.
-func (s *policyReportLister) List(selector labels.Selector) (ret []*v1alpha2.PolicyReport, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.PolicyReport))
-	})
-	return ret, err
+	return &policyReportLister{listers.New[*policyreportv1alpha2.PolicyReport](indexer, policyreportv1alpha2.Resource("policyreport"))}
 }
 
 // PolicyReports returns an object that can list and get PolicyReports.
 func (s *policyReportLister) PolicyReports(namespace string) PolicyReportNamespaceLister {
-	return policyReportNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return policyReportNamespaceLister{listers.NewNamespaced[*policyreportv1alpha2.PolicyReport](s.ResourceIndexer, namespace)}
 }
 
 // PolicyReportNamespaceLister helps list and get PolicyReports.
@@ -64,36 +56,15 @@ func (s *policyReportLister) PolicyReports(namespace string) PolicyReportNamespa
 type PolicyReportNamespaceLister interface {
 	// List lists all PolicyReports in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.PolicyReport, err error)
+	List(selector labels.Selector) (ret []*policyreportv1alpha2.PolicyReport, err error)
 	// Get retrieves the PolicyReport from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.PolicyReport, error)
+	Get(name string) (*policyreportv1alpha2.PolicyReport, error)
 	PolicyReportNamespaceListerExpansion
 }
 
 // policyReportNamespaceLister implements the PolicyReportNamespaceLister
 // interface.
 type policyReportNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all PolicyReports in the indexer for a given namespace.
-func (s policyReportNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.PolicyReport, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.PolicyReport))
-	})
-	return ret, err
-}
-
-// Get retrieves the PolicyReport from the indexer for a given namespace and name.
-func (s policyReportNamespaceLister) Get(name string) (*v1alpha2.PolicyReport, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("policyreport"), name)
-	}
-	return obj.(*v1alpha2.PolicyReport), nil
+	listers.ResourceIndexer[*policyreportv1alpha2.PolicyReport]
 }

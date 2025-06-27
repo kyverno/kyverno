@@ -1,0 +1,15 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: missing-action
+spec:
+  steps:
+  - name: Apply the policy
+    try:
+    - script:
+        content: kubectl apply -f policy.yaml
+        check:
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          (trim_space($stderr)): |-
+            The ImageValidatingPolicy "ivpol-sample" is invalid: spec.validationActions[0]: Unsupported value: "test": supported values: "Deny", "Audit", "Warn"

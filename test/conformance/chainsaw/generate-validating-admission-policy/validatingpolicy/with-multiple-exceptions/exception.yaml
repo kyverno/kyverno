@@ -1,5 +1,5 @@
 apiVersion: policies.kyverno.io/v1alpha1
-kind: CELPolicyException
+kind: PolicyException
 metadata:
   name: check-deployment-name
 spec:
@@ -11,7 +11,7 @@ spec:
       expression: "object.metadata.name == 'skipped-deployment'"
 ---
 apiVersion: policies.kyverno.io/v1alpha1
-kind: CELPolicyException
+kind: PolicyException
 metadata:
   name: check-deployment-namespace
 spec:

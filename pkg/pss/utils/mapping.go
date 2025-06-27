@@ -2,20 +2,6 @@ package utils
 
 import "sync"
 
-var PSS_baseline_control_names = []string{
-	"HostProcess",
-	"Host Namespaces",
-	"Privileged Containers",
-	"Capabilities",
-	"HostPath Volumes",
-	"Host Ports",
-	"AppArmor",
-	"SELinux",
-	"/proc Mount Type",
-	"Seccomp",
-	"Sysctls",
-}
-
 var PSS_restricted_control_names = []string{
 	"Volume Types",
 	"Privilege Escalation",
@@ -29,7 +15,6 @@ var PSS_pod_level_control = []string{
 	"Host Namespaces",
 	"HostPath Volumes",
 	"Sysctls",
-	"AppArmor",
 	"Volume Types",
 }
 
@@ -88,7 +73,7 @@ var PSS_control_name_to_ids = map[string][]string{
 		"sysctls",
 	},
 
-	// Metadata-level control
+	// Metadata-level, Container-level and pod-level control
 	"AppArmor": {
 		"appArmorProfile",
 	},
@@ -308,6 +293,7 @@ var PSS_controls = map[string][]RestrictedField{
 				"container_t",
 				"container_init_t",
 				"container_kvm_t",
+				"container_engine_t",
 			},
 		},
 		{
@@ -317,6 +303,7 @@ var PSS_controls = map[string][]RestrictedField{
 				"container_t",
 				"container_init_t",
 				"container_kvm_t",
+				"container_engine_t",
 			},
 		},
 		{
@@ -326,6 +313,7 @@ var PSS_controls = map[string][]RestrictedField{
 				"container_t",
 				"container_init_t",
 				"container_kvm_t",
+				"container_engine_t",
 			},
 		},
 		{
@@ -335,6 +323,7 @@ var PSS_controls = map[string][]RestrictedField{
 				"container_t",
 				"container_init_t",
 				"container_kvm_t",
+				"container_engine_t",
 			},
 		},
 
@@ -465,6 +454,11 @@ var PSS_controls = map[string][]RestrictedField{
 				"net.ipv4.tcp_syncookies",
 				"net.ipv4.ping_group_range",
 				"net.ipv4.ip_unprivileged_port_start",
+				"net.ipv4.ip_local_reserved_ports",
+				"net.ipv4.tcp_keepalive_time",
+				"net.ipv4.tcp_fin_timeout",
+				"net.ipv4.tcp_keepalive_intvl",
+				"net.ipv4.tcp_keepalive_probes",
 			},
 		},
 	},
@@ -500,7 +494,7 @@ var PSS_controls = map[string][]RestrictedField{
 		},
 	},
 
-	// metadata-level controls
+	// metadata-level, Container-level and pod-level controls
 	"appArmorProfile": {
 		{
 			Path: "metadata.annotations",
@@ -509,6 +503,39 @@ var PSS_controls = map[string][]RestrictedField{
 				"",
 				"runtime/default",
 				"localhost/*",
+			},
+		},
+		// type
+		{
+			Path: "spec.securityContext.appArmorProfile.type",
+			AllowedValues: []interface{}{
+				nil,
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			Path: "spec.containers[*].securityContext.appArmorProfile.type",
+			AllowedValues: []interface{}{
+				nil,
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			Path: "spec.initContainers[*].securityContext.appArmorProfile.type",
+			AllowedValues: []interface{}{
+				nil,
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			Path: "spec.ephemeralContainers[*].securityContext.appArmorProfile.type",
+			AllowedValues: []interface{}{
+				nil,
+				"RuntimeDefault",
+				"Localhost",
 			},
 		},
 	},

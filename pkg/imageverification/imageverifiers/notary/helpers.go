@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
-	"fmt"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/notaryproject/notation-go"
 	notationregistry "github.com/notaryproject/notation-go/registry"
@@ -34,17 +32,15 @@ func NewTrustStore(name string, certs []*x509.Certificate, tsaCerts []*x509.Cert
 
 func (ts *simpleTrustStore) GetCertificates(ctx context.Context, storeType truststore.Type, name string) ([]*x509.Certificate, error) {
 	if name != ts.name {
-		return nil, errors.Errorf("truststore not found")
+		return nil, errors.New("truststore not found")
 	}
-
 	switch storeType {
 	case truststore.TypeCA:
 		return ts.cacerts, nil
 	case truststore.TypeTSA:
 		return ts.tsacerts, nil
 	}
-
-	return nil, fmt.Errorf("entry not found in trust store")
+	return nil, errors.New("entry not found in trust store")
 }
 
 func buildTrustPolicy(tsa []*x509.Certificate) *trustpolicy.Document {
@@ -52,7 +48,6 @@ func buildTrustPolicy(tsa []*x509.Certificate) *trustpolicy.Document {
 	if len(tsa) != 0 {
 		truststores = append(truststores, "tsa:kyverno")
 	}
-
 	return &trustpolicy.Document{
 		Version: "1.0",
 		TrustPolicies: []trustpolicy.TrustPolicy{
@@ -75,7 +70,6 @@ func checkVerificationOutcomes(outcomes []*notation.VerificationOutcome) error {
 			continue
 		}
 	}
-
 	return multierr.Combine(errs...)
 }
 
@@ -84,22 +78,19 @@ type verificationInfo struct {
 	Repo     notationregistry.Repository
 }
 
-func getVerificationInfo(image *imagedataloader.ImageData, att *policiesv1alpha1.Notary) (*verificationInfo, error) {
-	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(att.Certs)))
+func getVerificationInfo(image *imagedataloader.ImageData, certsData, tsaCertsData string) (*verificationInfo, error) {
+	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsData)))
 	if err != nil {
 		return nil, err
 	}
-
-	tsacerts, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(att.TSACerts)))
+	tsacerts, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(tsaCertsData)))
 	if err != nil {
 		return nil, err
 	}
-
 	notationVerifier, err := verifier.New(buildTrustPolicy(tsacerts), NewTrustStore("kyverno", certs, tsacerts), nil)
 	if err != nil {
 		return nil, err
 	}
-
 	return &verificationInfo{
 		Verifier: notationVerifier,
 		Repo:     NewRepository(image),

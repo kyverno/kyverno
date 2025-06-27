@@ -1,0 +1,28 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: add-label-applyconfiguration
+spec:
+  autogen:
+    mutatingAdmissionPolicy:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [ "apps" ]
+      apiVersions: [ "v1" ]
+      operations:  [ "CREATE" ]
+      resources:   [ "deployments" ]
+  matchConditions:
+  - name: is-applyconfiguration-namespace
+    expression: object.metadata.namespace == 'applyconfiguration'
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              foo: "bar"
+            }
+          }
+        }

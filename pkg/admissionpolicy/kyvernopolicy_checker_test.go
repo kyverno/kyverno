@@ -921,7 +921,7 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			policies, _, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
+			policies, _, _, _, _, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
 			out, _ := CanGenerateVAP(policies[0].GetSpec(), nil, false)

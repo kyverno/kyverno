@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	apikyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ClusterPolicies.
 type ClusterPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ClusterPolicyLister
+	Lister() kyvernov1.ClusterPolicyLister
 }
 
 type clusterPolicyInformer struct {
@@ -70,7 +70,7 @@ func NewFilteredClusterPolicyInformer(client versioned.Interface, resyncPeriod t
 				return client.KyvernoV1().ClusterPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&kyvernov1.ClusterPolicy{},
+		&apikyvernov1.ClusterPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +81,9 @@ func (f *clusterPolicyInformer) defaultInformer(client versioned.Interface, resy
 }
 
 func (f *clusterPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov1.ClusterPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apikyvernov1.ClusterPolicy{}, f.defaultInformer)
 }
 
-func (f *clusterPolicyInformer) Lister() v1.ClusterPolicyLister {
-	return v1.NewClusterPolicyLister(f.Informer().GetIndexer())
+func (f *clusterPolicyInformer) Lister() kyvernov1.ClusterPolicyLister {
+	return kyvernov1.NewClusterPolicyLister(f.Informer().GetIndexer())
 }

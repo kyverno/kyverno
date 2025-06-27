@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"strings"
 	"sync"
 )
 
@@ -45,4 +46,28 @@ func (s *Recorder) Reset() {
 	for d := range s.data {
 		s.data[d] = false
 	}
+}
+
+// BuildRecorderKey builds policy key in kind/name format
+func BuildRecorderKey(policyType, name string) string {
+	switch policyType {
+	case ValidatingPolicyType:
+		return ValidatingPolicyType + "/" + name
+	case ImageValidatingPolicyType:
+		return ImageValidatingPolicyType + "/" + name
+	case MutatingPolicyType:
+		return MutatingPolicyType + "/" + name
+	case GeneratingPolicyType:
+		return GeneratingPolicyType + "/" + name
+	}
+	return ""
+}
+
+// ParseRecorderKey parses policy key in kind/name format
+func ParseRecorderKey(key string) (policyType, name string) {
+	vars := strings.Split(key, "/")
+	if len(vars) < 2 {
+		return "", ""
+	}
+	return vars[0], vars[1]
 }

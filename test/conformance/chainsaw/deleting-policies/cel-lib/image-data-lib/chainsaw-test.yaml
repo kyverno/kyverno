@@ -1,0 +1,31 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: deleting-policy-image-data-lib
+  namespace: default
+spec:
+  steps:
+    - name: step-01
+      try:
+        - apply:
+            file: rbac.yaml
+
+    - name: step-02
+      try:
+        - apply:
+            file: pod.yaml
+
+    - name: step-03
+      try:
+        - apply:
+            file: policy.yaml
+        
+    - name: step-04
+      try:
+        - sleep:
+            duration: 1m5s
+    
+    - name: step-05
+      try:
+        - error:
+            file: pod-assert.yaml

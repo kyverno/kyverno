@@ -5,11 +5,13 @@ import (
 	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -171,7 +173,7 @@ func BuildValidatingAdmissionPolicyBinding(
 		paramRef = rule.Validation.CEL.ParamRef
 		policyName = "cpol-" + cpol.GetName()
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		validationActions = vpol.Spec.ValidationAction
+		validationActions = vpol.Spec.ValidationActions()
 		policyName = "vpol-" + vpol.GetName()
 	}
 
@@ -193,6 +195,55 @@ func BuildValidatingAdmissionPolicyBinding(
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(vapbinding)
 	return nil
+}
+
+// BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
+func BuildMutatingAdmissionPolicy(
+	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
+	mp *policiesv1alpha1.MutatingPolicy,
+) {
+	// set owner reference
+	mapol.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: policiesv1alpha1.GroupVersion.String(),
+			Kind:       mp.GetKind(),
+			Name:       mp.GetName(),
+			UID:        mp.GetUID(),
+		},
+	}
+	// set policy spec
+	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
+		MatchConstraints:   mp.Spec.MatchConstraints,
+		MatchConditions:    mp.Spec.MatchConditions,
+		Mutations:          mp.Spec.Mutations,
+		Variables:          mp.Spec.Variables,
+		FailurePolicy:      mp.Spec.FailurePolicy,
+		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
+	}
+	// set labels
+	controllerutils.SetManagedByKyvernoLabel(mapol)
+}
+
+// BuildMutatingAdmissionPolicyBinding is used to build a Kubernetes MutatingAdmissionPolicyBinding from a MutatingPolicy
+func BuildMutatingAdmissionPolicyBinding(
+	mapbinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	mp *policiesv1alpha1.MutatingPolicy,
+) {
+	// set owner reference
+	mapbinding.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: policiesv1alpha1.GroupVersion.String(),
+			Kind:       mp.GetKind(),
+			Name:       mp.GetName(),
+			UID:        mp.GetUID(),
+		},
+	}
+	// set binding spec
+	mapbinding.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicyBindingSpec{
+		PolicyName: "mpol-" + mp.GetName(),
+	}
+	// set labels
+	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
 
 func translateResourceFilters(discoveryClient dclient.IDiscovery,

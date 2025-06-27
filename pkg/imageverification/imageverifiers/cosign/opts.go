@@ -19,10 +19,9 @@ import (
 	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/tuf"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister k8scorev1.SecretInterface) (*cosign.CheckOpts, error) {
+func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
 	if err := initializeTuf(ctx, att.TUF); err != nil {
 		return nil, err
 	}
@@ -114,12 +113,6 @@ func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
 			}
-		} else if att.Key.SecretRef != nil {
-			key := fmt.Sprintf("k8s://%s/%s", att.Key.SecretRef.Namespace, att.Key.SecretRef.Name)
-			opts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, key, signatureAlgorithmMap[att.Key.HashAlgorithm])
-			if err != nil {
-				return nil, fmt.Errorf("failed to load public key from %s: %w", key, err)
-			}
 		} else if len(att.Key.KMS) != 0 {
 			opts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, att.Key.KMS, signatureAlgorithmMap[att.Key.HashAlgorithm])
 			if err != nil {
@@ -127,21 +120,21 @@ func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.
 			}
 		}
 	} else if att.Certificate != nil {
-		if att.Certificate.Certificate != "" {
+		if att.Certificate.Certificate != nil && att.Certificate.Certificate.Value != "" {
 			// load cert and optionally a cert chain as a verifier
-			cert, err := certFromBytes([]byte(att.Certificate.Certificate))
+			cert, err := certFromBytes([]byte(att.Certificate.Certificate.Value))
 			if err != nil {
 				return nil, fmt.Errorf("failed to load certificate from %s: %w", att.Certificate.Certificate, err)
 			}
 
-			if att.Certificate.CertificateChain == "" {
+			if att.Certificate.CertificateChain != nil && att.Certificate.CertificateChain.Value == "" {
 				opts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, signatureAlgorithmMap[att.Key.HashAlgorithm])
 				if err != nil {
 					return nil, fmt.Errorf("failed to load signature from certificate: %w", err)
 				}
 			} else {
 				// Verify certificate with chain
-				chain, err := certChainFromBytes([]byte(att.Certificate.CertificateChain))
+				chain, err := certChainFromBytes([]byte(att.Certificate.CertificateChain.Value))
 				if err != nil {
 					return nil, fmt.Errorf("failed to load load certificate chain: %w", err)
 				}
@@ -151,9 +144,9 @@ func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.
 				}
 			}
 		}
-		if att.Certificate.CertificateChain != "" {
+		if att.Certificate.CertificateChain != nil && att.Certificate.CertificateChain.Value != "" {
 			// load cert chain as roots
-			cp, err := certPoolFromBytes([]byte(att.Certificate.CertificateChain))
+			cp, err := certPoolFromBytes([]byte(att.Certificate.CertificateChain.Value))
 			if err != nil {
 				return nil, fmt.Errorf("failed to load certificates: %w", err)
 			}
@@ -190,7 +183,7 @@ func initializeTuf(ctx context.Context, t *v1alpha1.TUF) error {
 	return nil
 }
 
-func sourceRemoteOpts(ctx context.Context, secretLister k8scorev1.SecretInterface, src *v1alpha1.Source) ([]remote.Option, error) {
+func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretInterface, src *v1alpha1.Source) ([]remote.Option, error) {
 	opts := make([]remote.Option, 0)
 	if len(src.SignaturePullSecrets) > 0 {
 		signaturePullSecrets := make([]string, 0, len(src.SignaturePullSecrets))

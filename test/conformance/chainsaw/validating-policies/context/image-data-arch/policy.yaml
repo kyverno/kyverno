@@ -1,0 +1,25 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-image-arch
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [pods]
+  variables:
+    - name: imageRef
+      expression: object.spec.containers[0].image
+    - name: imageKey
+      expression: variables.imageRef
+    - name: image
+      expression: image.GetMetadata(variables.imageKey)
+       
+  validations:
+    - expression: >-
+         variables.image.config.architecture == "amd64"  
+      message: >-
+        image architecture is not supported

@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skipped-deployment
+  labels:
+    prod: "true"
+    app: bad-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: bad-nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: bad-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-verify-image:unsigned
+        securityContext:
+          allowPrivilegeEscalation: true
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: skipped-cronjob  
+spec:
+  schedule: "*/5 * * * *"  
+  concurrencyPolicy: Forbid  
+  jobTemplate:
+    metadata:
+      labels:
+        prod: "true"  
+    spec:
+      template:
+        metadata:
+          labels:
+            prod: "true"  
+        spec:
+          containers:
+          - name: secure-container  
+            image: ghcr.io/kyverno/test-verify-image:unsigned
+            command: ["echo", "Hello, world"]  
+            securityContext:
+              allowPrivilegeEscalation: true 
+          restartPolicy: OnFailure  
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: skipped-statefulset
+  labels:
+    prod: "true"
+spec:
+  serviceName: my-app-service
+  replicas: 3
+  selector:
+    matchLabels:
+      prod: "true"
+      app: busybox
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: busybox
+    spec:
+      containers:
+      - name: my-app-container
+        image: ghcr.io/kyverno/test-verify-image:unsigned
+        securityContext:
+          allowPrivilegeEscalation: true

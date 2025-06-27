@@ -57,8 +57,10 @@ rules:
     resources:
       - validatingpolicies
       - validatingpolicies/status
-      - imageverificationpolicies
-      - imageverificationpolicies/status
+      - imagevalidatingpolicies
+      - imagevalidatingpolicies/status
+      - generatingpolicies
+      - mutatingpolicies
     verbs:
       - create
       - delete
@@ -71,8 +73,8 @@ rules:
   - apiGroups:
       - policies.kyverno.io
     resources:
-      - celpolicyexceptions
-      - celpolicyexceptions/status
+      - policyexceptions
+      - policyexceptions/status
     verbs:
       - get
       - list

@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Value
+metadata:
+  name: values
+namespaces:
+- apiVersion: v1
+  kind: namespace
+  metadata:
+    labels:
+      environment: staging
+    name: staging
+- apiVersion: v1
+  kind: namespace
+  metadata:
+    labels:
+      environment: default
+    name: default

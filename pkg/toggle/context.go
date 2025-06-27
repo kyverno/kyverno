@@ -11,6 +11,7 @@ type Toggles interface {
 	ForceFailurePolicyIgnore() bool
 	EnableDeferredLoading() bool
 	GenerateValidatingAdmissionPolicy() bool
+	GenerateMutatingAdmissionPolicy() bool
 	DumpMutatePatches() bool
 	AutogenV2() bool
 }
@@ -31,6 +32,10 @@ func (defaultToggles) EnableDeferredLoading() bool {
 
 func (defaultToggles) GenerateValidatingAdmissionPolicy() bool {
 	return GenerateValidatingAdmissionPolicy.enabled()
+}
+
+func (defaultToggles) GenerateMutatingAdmissionPolicy() bool {
+	return GenerateMutatingAdmissionPolicy.enabled()
 }
 
 func (defaultToggles) DumpMutatePatches() bool {
