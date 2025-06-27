@@ -491,11 +491,11 @@ test:
   resources:
     # -- Pod resource limits
     limits:
-      cpu: 100m
+      cpu: 200m
       memory: 256Mi
     # -- Pod resource requests
     requests:
-      cpu: 10m
+      cpu: 100m
       memory: 64Mi
 
   # -- Security context for the test containers
@@ -588,11 +588,11 @@ webhooksCleanup:
   resources:
     # -- Pod resource limits
     limits:
-      cpu: 100m
+      cpu: 200m
       memory: 256Mi
     # -- Pod resource requests
     requests:
-      cpu: 10m
+      cpu: 100m
       memory: 64Mi
 
   serviceAccount:
@@ -660,11 +660,11 @@ policyReportsCleanup:
   resources:
     # -- Pod resource limits
     limits:
-      cpu: 100m
+      cpu: 200m
       memory: 256Mi
     # -- Pod resource requests
     requests:
-      cpu: 10m
+      cpu: 100m
       memory: 64Mi
 
 grafana:
@@ -1079,11 +1079,11 @@ admissionController:
     resources:
       # -- Pod resource limits
       limits:
-        cpu: 100m
+        cpu: 200m
         memory: 256Mi
       # -- Pod resource requests
       requests:
-        cpu: 10m
+        cpu: 100m
         memory: 64Mi
 
     # -- Container security context
@@ -1128,7 +1128,7 @@ admissionController:
         memory: 384Mi
       # -- Pod resource requests
       requests:
-        cpu: 100m
+        cpu: 200m
         memory: 128Mi
 
     # -- Container security context
@@ -1418,7 +1418,7 @@ backgroundController:
       memory: 128Mi
     # -- Pod resource requests
     requests:
-      cpu: 100m
+      cpu: 200m
       memory: 64Mi
 
   # -- Node labels for pod assignment
@@ -1710,7 +1710,7 @@ cleanupController:
       memory: 128Mi
     # -- Pod resource requests
     requests:
-      cpu: 100m
+      cpu: 200m
       memory: 64Mi
 
   # -- Startup probe.
@@ -2055,7 +2055,7 @@ reportsController:
       memory: 128Mi
     # -- Pod resource requests
     requests:
-      cpu: 100m
+      cpu: 200m
       memory: 64Mi
 
   # -- Node labels for pod assignment
