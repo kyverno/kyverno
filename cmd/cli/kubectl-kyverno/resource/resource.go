@@ -138,8 +138,10 @@ func normalizeEmptyFields(obj map[string]interface{}) {
 		case map[string]interface{}:
 			normalizeEmptyFields(v)
 		case []interface{}:
-			for _, item := range v {
-				if nestedObj, ok := item.(map[string]interface{}); ok {
+			for i, item := range v {
+				if item == nil {
+					v[i] = map[string]interface{}{}
+				} else if nestedObj, ok := item.(map[string]interface{}); ok {
 					normalizeEmptyFields(nestedObj)
 				}
 			}
