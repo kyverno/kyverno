@@ -12,21 +12,17 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
-	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
-	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
-	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
@@ -34,6 +30,8 @@ import (
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
+	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
+	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -54,9 +52,7 @@ import (
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/gpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -66,8 +62,6 @@ import (
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -147,7 +141,7 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	stateRecorder webhookcontroller.StateRecorder,
+	stateRecorder webhook.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -169,9 +163,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
@@ -291,11 +283,8 @@ func createrLeaderControllers(
 		kyvernoClient,
 		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		reportsServiceAccountName,
-		stateRecorder,
-	)
+		stateRecorder)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
@@ -304,41 +293,22 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
 	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-	generateMAPs := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
-	if generateVAPs || generateMAPs {
+	if generateVAPs {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
-
-		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
-		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-		if generateVAPs {
-			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
-			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
-		}
-
-		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
-		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
-		if generateMAPs {
-			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
-			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
-		}
-
-		admissionpolicyController := admissionpolicygenerator.NewController(
+		vapController := vapcontroller.NewController(
 			kubeClient,
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
-			kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
 			kyvernoInformer.Policies().V1alpha1().PolicyExceptions(),
-			vapInformer,
-			vapBindingInformer,
-			mapInformer,
-			mapBindingInformer,
+			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies(),
+			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
 			checker,
 		)
-		leaderControllers = append(leaderControllers, internal.NewController(admissionpolicygenerator.ControllerName, admissionpolicyController, admissionpolicygenerator.Workers))
+		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
 	}
 	return leaderControllers, nil, nil
 }
@@ -379,7 +349,6 @@ func main() {
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
-	flagset.Func(toggle.GenerateMutatingAdmissionPolicyFlagName, toggle.GenerateMutatingAdmissionPolicyDescription, toggle.GenerateMutatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.DumpMutatePatchesFlagName, toggle.DumpMutatePatchesDescription, toggle.DumpMutatePatches.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
@@ -432,15 +401,6 @@ func main() {
 			setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 			os.Exit(1)
 		}
-		// check if mutating admission policies are registered in the API server
-		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
-		if generateMutatingAdmissionPolicy {
-			registered, err := admissionpolicy.IsMutatingAdmissionPolicyRegistered(setup.KubeClient)
-			if !registered {
-				setup.Logger.Error(err, "MutatingAdmissionPolicies isn't supported in the API server")
-				os.Exit(1)
-			}
-		}
 
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
@@ -478,7 +438,7 @@ func main() {
 		)
 		policyCache := policycache.NewCache()
 		notifyChan := make(chan string)
-		stateRecorder := webhookcontroller.NewStateRecorder(notifyChan)
+		stateRecorder := webhook.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -659,7 +619,6 @@ func main() {
 		}
 		var vpolEngine vpolengine.Engine
 		var ivpolEngine ivpolengine.Engine
-		var mpolEngine mpolengine.Engine
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
@@ -688,12 +647,6 @@ func main() {
 			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create ivpol provider")
-				os.Exit(1)
-			}
-			mpolcompiler := mpolcompiler.NewCompiler()
-			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
-			if err != nil {
-				setup.Logger.Error(err, "failed to create mpol provider")
 				os.Exit(1)
 			}
 			// create a cancellable context
@@ -735,18 +688,6 @@ func main() {
 				matching.NewMatcher(),
 				setup.KubeClient.CoreV1().Secrets(""),
 				nil,
-			)
-			mpolEngine = mpolengine.NewEngine(
-				mpolProvider,
-				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
-					if err != nil {
-						return nil
-					}
-					return ns
-				},
-				matching.NewMatcher(),
-				typeConverter,
 			)
 		}
 		var reportsBreaker breaker.Breaker
@@ -802,12 +743,10 @@ func main() {
 			ivpolEngine,
 			contextProvider,
 		)
-		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister())
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
-		mpolHandlers := mpol.New(contextProvider, mpolEngine, reportsBreaker, setup.KyvernoClient, setup.ReportingConfiguration)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
 			Enabled: internal.PolicyExceptionEnabled(),
 		})
@@ -821,11 +760,9 @@ func main() {
 			webhooks.ResourceHandlers{
 				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
 				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
-				MutatingPolicies:                  webhooks.HandlerFunc(mpolHandlers.Mutate),
 				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
 				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.Validate),
 				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
-				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.Generate),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),

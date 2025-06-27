@@ -633,7 +633,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 	}}
 }
 
-func jpfCompare(arguments []any) (any, error) {
+func jpfCompare(arguments []interface{}) (interface{}, error) {
 	if a, err := validateArg(compare, arguments, 0, reflect.String); err != nil {
 		return nil, err
 	} else if b, err := validateArg(compare, arguments, 1, reflect.String); err != nil {
@@ -643,7 +643,7 @@ func jpfCompare(arguments []any) (any, error) {
 	}
 }
 
-func jpfEqualFold(arguments []any) (any, error) {
+func jpfEqualFold(arguments []interface{}) (interface{}, error) {
 	if a, err := validateArg(equalFold, arguments, 0, reflect.String); err != nil {
 		return nil, err
 	} else if b, err := validateArg(equalFold, arguments, 1, reflect.String); err != nil {
@@ -653,7 +653,7 @@ func jpfEqualFold(arguments []any) (any, error) {
 	}
 }
 
-func jpfReplace(arguments []any) (any, error) {
+func jpfReplace(arguments []interface{}) (interface{}, error) {
 	if str, err := validateArg(replace, arguments, 0, reflect.String); err != nil {
 		return nil, err
 	} else if old, err := validateArg(replace, arguments, 1, reflect.String); err != nil {
@@ -667,7 +667,7 @@ func jpfReplace(arguments []any) (any, error) {
 	}
 }
 
-func jpfReplaceAll(arguments []any) (any, error) {
+func jpfReplaceAll(arguments []interface{}) (interface{}, error) {
 	if str, err := validateArg(replaceAll, arguments, 0, reflect.String); err != nil {
 		return nil, err
 	} else if old, err := validateArg(replaceAll, arguments, 1, reflect.String); err != nil {
@@ -679,7 +679,7 @@ func jpfReplaceAll(arguments []any) (any, error) {
 	}
 }
 
-func jpfToUpper(arguments []any) (any, error) {
+func jpfToUpper(arguments []interface{}) (interface{}, error) {
 	if str, err := validateArg(toUpper, arguments, 0, reflect.String); err != nil {
 		return nil, err
 	} else {
@@ -687,7 +687,7 @@ func jpfToUpper(arguments []any) (any, error) {
 	}
 }
 
-func jpfToLower(arguments []any) (any, error) {
+func jpfToLower(arguments []interface{}) (interface{}, error) {
 	if str, err := validateArg(toLower, arguments, 0, reflect.String); err != nil {
 		return nil, err
 	} else {
@@ -695,7 +695,7 @@ func jpfToLower(arguments []any) (any, error) {
 	}
 }
 
-func jpfTrim(arguments []any) (any, error) {
+func jpfTrim(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg(trim, arguments, 0, reflect.String)
 	if err != nil {
@@ -710,7 +710,7 @@ func jpfTrim(arguments []any) (any, error) {
 	return strings.Trim(str.String(), cutset.String()), nil
 }
 
-func jpfTrimPrefix(arguments []any) (any, error) {
+func jpfTrimPrefix(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg(trimPrefix, arguments, 0, reflect.String)
 	if err != nil {
@@ -725,7 +725,7 @@ func jpfTrimPrefix(arguments []any) (any, error) {
 	return strings.TrimPrefix(str.String(), prefix.String()), nil
 }
 
-func jpfSplit(arguments []any) (any, error) {
+func jpfSplit(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg(split, arguments, 0, reflect.String)
 	if err != nil {
@@ -738,7 +738,7 @@ func jpfSplit(arguments []any) (any, error) {
 	}
 
 	split := strings.Split(str.String(), sep.String())
-	arr := make([]any, len(split))
+	arr := make([]interface{}, len(split))
 
 	for i, v := range split {
 		arr[i] = v
@@ -747,7 +747,7 @@ func jpfSplit(arguments []any) (any, error) {
 	return arr, nil
 }
 
-func jpRegexReplaceAll(arguments []any) (any, error) {
+func jpRegexReplaceAll(arguments []interface{}) (interface{}, error) {
 	var err error
 	regex, err := validateArg(regexReplaceAll, arguments, 0, reflect.String)
 	if err != nil {
@@ -771,7 +771,7 @@ func jpRegexReplaceAll(arguments []any) (any, error) {
 	return string(reg.ReplaceAll([]byte(src), []byte(repl))), nil
 }
 
-func jpRegexReplaceAllLiteral(arguments []any) (any, error) {
+func jpRegexReplaceAllLiteral(arguments []interface{}) (interface{}, error) {
 	var err error
 	regex, err := validateArg(regexReplaceAllLiteral, arguments, 0, reflect.String)
 	if err != nil {
@@ -795,7 +795,7 @@ func jpRegexReplaceAllLiteral(arguments []any) (any, error) {
 	return string(reg.ReplaceAllLiteral([]byte(src), []byte(repl))), nil
 }
 
-func jpRegexMatch(arguments []any) (any, error) {
+func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 	var err error
 	regex, err := validateArg(regexMatch, arguments, 0, reflect.String)
 	if err != nil {
@@ -810,7 +810,7 @@ func jpRegexMatch(arguments []any) (any, error) {
 	return regexp.Match(regex.String(), []byte(src))
 }
 
-func jpPatternMatch(arguments []any) (any, error) {
+func jpPatternMatch(arguments []interface{}) (interface{}, error) {
 	pattern, err := validateArg(regexMatch, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
@@ -824,14 +824,14 @@ func jpPatternMatch(arguments []any) (any, error) {
 	return wildcard.Match(pattern.String(), src), nil
 }
 
-func jpLabelMatch(arguments []any) (any, error) {
-	labelMap, ok := arguments[0].(map[string]any)
+func jpLabelMatch(arguments []interface{}) (interface{}, error) {
+	labelMap, ok := arguments[0].(map[string]interface{})
 
 	if !ok {
 		return nil, formatError(invalidArgumentTypeError, labelMatch, 0, "Object")
 	}
 
-	matchMap, ok := arguments[1].(map[string]any)
+	matchMap, ok := arguments[1].(map[string]interface{})
 
 	if !ok {
 		return nil, formatError(invalidArgumentTypeError, labelMatch, 1, "Object")
@@ -846,7 +846,7 @@ func jpLabelMatch(arguments []any) (any, error) {
 	return true, nil
 }
 
-func jpToBoolean(arguments []any) (any, error) {
+func jpToBoolean(arguments []interface{}) (interface{}, error) {
 	if input, err := validateArg(toBoolean, arguments, 0, reflect.String); err != nil {
 		return nil, err
 	} else {
@@ -861,7 +861,7 @@ func jpToBoolean(arguments []any) (any, error) {
 	}
 }
 
-func _jpAdd(arguments []any, operator string) (any, error) {
+func _jpAdd(arguments []interface{}, operator string) (interface{}, error) {
 	op1, op2, err := parseArithemticOperands(arguments, operator)
 	if err != nil {
 		return nil, err
@@ -869,12 +869,12 @@ func _jpAdd(arguments []any, operator string) (any, error) {
 	return op1.Add(op2, operator)
 }
 
-func jpAdd(arguments []any) (any, error) {
+func jpAdd(arguments []interface{}) (interface{}, error) {
 	return _jpAdd(arguments, add)
 }
 
-func jpSum(arguments []any) (any, error) {
-	items, ok := arguments[0].([]any)
+func jpSum(arguments []interface{}) (interface{}, error) {
+	items, ok := arguments[0].([]interface{})
 	if !ok {
 		return nil, formatError(typeMismatchError, sum)
 	}
@@ -884,7 +884,7 @@ func jpSum(arguments []any) (any, error) {
 	var err error
 	result := items[0]
 	for _, item := range items[1:] {
-		result, err = _jpAdd([]any{result, item}, sum)
+		result, err = _jpAdd([]interface{}{result, item}, sum)
 		if err != nil {
 			return nil, err
 		}
@@ -892,7 +892,7 @@ func jpSum(arguments []any) (any, error) {
 	return result, nil
 }
 
-func jpSubtract(arguments []any) (any, error) {
+func jpSubtract(arguments []interface{}) (interface{}, error) {
 	op1, op2, err := parseArithemticOperands(arguments, subtract)
 	if err != nil {
 		return nil, err
@@ -901,7 +901,7 @@ func jpSubtract(arguments []any) (any, error) {
 	return op1.Subtract(op2)
 }
 
-func jpMultiply(arguments []any) (any, error) {
+func jpMultiply(arguments []interface{}) (interface{}, error) {
 	op1, op2, err := parseArithemticOperands(arguments, multiply)
 	if err != nil {
 		return nil, err
@@ -910,7 +910,7 @@ func jpMultiply(arguments []any) (any, error) {
 	return op1.Multiply(op2)
 }
 
-func jpDivide(arguments []any) (any, error) {
+func jpDivide(arguments []interface{}) (interface{}, error) {
 	op1, op2, err := parseArithemticOperands(arguments, divide)
 	if err != nil {
 		return nil, err
@@ -919,7 +919,7 @@ func jpDivide(arguments []any) (any, error) {
 	return op1.Divide(op2)
 }
 
-func jpModulo(arguments []any) (any, error) {
+func jpModulo(arguments []interface{}) (interface{}, error) {
 	op1, op2, err := parseArithemticOperands(arguments, modulo)
 	if err != nil {
 		return nil, err
@@ -928,7 +928,7 @@ func jpModulo(arguments []any) (any, error) {
 	return op1.Modulo(op2)
 }
 
-func jpRound(arguments []any) (any, error) {
+func jpRound(arguments []interface{}) (interface{}, error) {
 	op, err := validateArg(round, arguments, 0, reflect.Float64)
 	if err != nil {
 		return nil, err
@@ -949,7 +949,7 @@ func jpRound(arguments []any) (any, error) {
 	return rounded, nil
 }
 
-func jpBase64Decode(arguments []any) (any, error) {
+func jpBase64Decode(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
@@ -964,7 +964,7 @@ func jpBase64Decode(arguments []any) (any, error) {
 	return string(decodedStr), nil
 }
 
-func jpBase64Encode(arguments []any) (any, error) {
+func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
@@ -974,7 +974,7 @@ func jpBase64Encode(arguments []any) (any, error) {
 	return base64.StdEncoding.EncodeToString([]byte(str.String())), nil
 }
 
-func jpPathCanonicalize(arguments []any) (any, error) {
+func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
 	if err != nil {
@@ -984,7 +984,7 @@ func jpPathCanonicalize(arguments []any) (any, error) {
 	return filepath.Join(str.String()), nil
 }
 
-func jpTruncate(arguments []any) (any, error) {
+func jpTruncate(arguments []interface{}) (interface{}, error) {
 	var err error
 	var normalizedLength float64
 	str, err := validateArg(truncate, arguments, 0, reflect.String)
@@ -1005,7 +1005,7 @@ func jpTruncate(arguments []any) (any, error) {
 	return trunc.Truncator(str.String(), int(normalizedLength), trunc.CutStrategy{}), nil
 }
 
-func jpSemverCompare(arguments []any) (any, error) {
+func jpSemverCompare(arguments []interface{}) (interface{}, error) {
 	var err error
 	v, err := validateArg(semverCompare, arguments, 0, reflect.String)
 	if err != nil {
@@ -1029,17 +1029,17 @@ func jpSemverCompare(arguments []any) (any, error) {
 	return false, nil
 }
 
-func jpParseJson(arguments []any) (any, error) {
+func jpParseJson(arguments []interface{}) (interface{}, error) {
 	input, err := validateArg(parseJson, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
-	var output any
+	var output interface{}
 	err = json.Unmarshal([]byte(input.String()), &output)
 	return output, err
 }
 
-func jpParseYAML(arguments []any) (any, error) {
+func jpParseYAML(arguments []interface{}) (interface{}, error) {
 	input, err := validateArg(parseYAML, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
@@ -1048,20 +1048,20 @@ func jpParseYAML(arguments []any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var output any
+	var output interface{}
 	err = json.Unmarshal(jsonData, &output)
 	return output, err
 }
 
-func jpLookup(arguments []any) (any, error) {
+func jpLookup(arguments []interface{}) (interface{}, error) {
 	switch input := arguments[0].(type) {
-	case map[string]any:
+	case map[string]interface{}:
 		key, ok := arguments[1].(string)
 		if !ok {
 			return nil, formatError(invalidArgumentTypeError, lookup, 2, "String")
 		}
 		return input[key], nil
-	case []any:
+	case []interface{}:
 		key, ok := arguments[1].(float64)
 		if !ok {
 			return nil, formatError(invalidArgumentTypeError, lookup, 2, "Number")
@@ -1082,7 +1082,7 @@ func jpLookup(arguments []any) (any, error) {
 	}
 }
 
-func jpItems(arguments []any) (any, error) {
+func jpItems(arguments []interface{}) (interface{}, error) {
 	keyName, ok := arguments[1].(string)
 	if !ok {
 		return nil, formatError(invalidArgumentTypeError, items, 2, "String")
@@ -1092,25 +1092,25 @@ func jpItems(arguments []any) (any, error) {
 		return nil, formatError(invalidArgumentTypeError, items, 3, "String")
 	}
 	switch input := arguments[0].(type) {
-	case map[string]any:
+	case map[string]interface{}:
 		keys := make([]string, 0, len(input))
 		// Sort the keys so that the output is deterministic
 		for key := range input {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		arrayOfObj := make([]map[string]any, 0, len(input))
+		arrayOfObj := make([]map[string]interface{}, 0, len(input))
 		for _, key := range keys {
-			arrayOfObj = append(arrayOfObj, map[string]any{
+			arrayOfObj = append(arrayOfObj, map[string]interface{}{
 				keyName: key,
 				valName: input[key],
 			})
 		}
 		return arrayOfObj, nil
-	case []any:
-		arrayOfObj := make([]map[string]any, 0, len(input))
+	case []interface{}:
+		arrayOfObj := make([]map[string]interface{}, 0, len(input))
 		for index, value := range input {
-			arrayOfObj = append(arrayOfObj, map[string]any{
+			arrayOfObj = append(arrayOfObj, map[string]interface{}{
 				keyName: float64(index),
 				valName: value,
 			})
@@ -1121,17 +1121,17 @@ func jpItems(arguments []any) (any, error) {
 	}
 }
 
-func jpObjectFromLists(arguments []any) (any, error) {
-	keys, ok := arguments[0].([]any)
+func jpObjectFromLists(arguments []interface{}) (interface{}, error) {
+	keys, ok := arguments[0].([]interface{})
 	if !ok {
 		return nil, formatError(invalidArgumentTypeError, objectFromLists, 1, "Array")
 	}
-	values, ok := arguments[1].([]any)
+	values, ok := arguments[1].([]interface{})
 	if !ok {
 		return nil, formatError(invalidArgumentTypeError, objectFromLists, 2, "Array")
 	}
 
-	output := map[string]any{}
+	output := map[string]interface{}{}
 
 	for i, ikey := range keys {
 		key, err := ifaceToString(ikey)
@@ -1149,7 +1149,7 @@ func jpObjectFromLists(arguments []any) (any, error) {
 }
 
 // InterfaceToString casts an interface to a string type
-func ifaceToString(iface any) (string, error) {
+func ifaceToString(iface interface{}) (string, error) {
 	switch i := iface.(type) {
 	case int:
 		return strconv.Itoa(i), nil
@@ -1166,7 +1166,7 @@ func ifaceToString(iface any) (string, error) {
 	}
 }
 
-func jpRandom(arguments []any) (any, error) {
+func jpRandom(arguments []interface{}) (interface{}, error) {
 	pattern := arguments[0].(string)
 	if pattern == "" {
 		return "", errors.New("no pattern provided")
@@ -1185,20 +1185,20 @@ func jpRandom(arguments []any) (any, error) {
 	return ans, nil
 }
 
-func encode[T any](in T) (any, error) {
+func encode[T any](in T) (interface{}, error) {
 	buf := new(bytes.Buffer)
 	enc := json.NewEncoder(buf)
 	if err := enc.Encode(in); err != nil {
 		return nil, err
 	}
-	res := map[string]any{}
+	res := map[string]interface{}{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-func jpX509Decode(arguments []any) (any, error) {
+func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	parseSubjectPublicKeyInfo := func(data []byte) (*rsa.PublicKey, error) {
 		spki := cryptobyte.String(data)
 		if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
@@ -1261,7 +1261,7 @@ func jpX509Decode(arguments []any) (any, error) {
 }
 
 func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction {
-	return func(arguments []any) (any, error) {
+	return func(arguments []interface{}) (interface{}, error) {
 		if image, err := validateArg(imageNormalize, arguments, 0, reflect.String); err != nil {
 			return nil, err
 		} else if infos, err := imageutils.GetImageInfo(image.String(), configuration); err != nil {
@@ -1272,7 +1272,7 @@ func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction 
 	}
 }
 
-func jpIsExternalURL(arguments []any) (any, error) {
+func jpIsExternalURL(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
 	if err != nil {
@@ -1299,7 +1299,7 @@ func jpIsExternalURL(arguments []any) (any, error) {
 	return true, nil
 }
 
-func jpSha256(arguments []any) (any, error) {
+func jpSha256(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
@@ -1314,7 +1314,7 @@ func jpSha256(arguments []any) (any, error) {
 	return hex.EncodeToString(hashedBytes), nil
 }
 
-func jpSha1(arguments []any) (any, error) {
+func jpSha1(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
@@ -1329,7 +1329,7 @@ func jpSha1(arguments []any) (any, error) {
 	return hex.EncodeToString(hashedBytes), nil
 }
 
-func jpMd5(arguments []any) (any, error) {
+func jpMd5(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {

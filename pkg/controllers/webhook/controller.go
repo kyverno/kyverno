@@ -78,16 +78,6 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1"},
 	}
-	generatingPolicyRule = admissionregistrationv1.Rule{
-		Resources:   []string{"generatingpolicies"},
-		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
-	}
-	deletingPolicyRule = admissionregistrationv1.Rule{
-		Resources:   []string{"deletingpolicies"},
-		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
-	}
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
@@ -120,9 +110,7 @@ type controller struct {
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
-	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
-	mpolLister        policiesv1alpha1listers.MutatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
@@ -164,9 +152,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
@@ -200,9 +186,7 @@ func NewController(
 		cpolLister:          cpolInformer.Lister(),
 		polLister:           polInformer.Lister(),
 		vpolLister:          vpolInformer.Lister(),
-		gpolLister:          gpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
-		mpolLister:          mpolInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
@@ -288,14 +272,6 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		vpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-	); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	if _, err := controllerutils.AddEventHandlers(
-		gpolInformer.Informer(),
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
 		func(interface{}) { c.enqueueResourceWebhooks(0) },
@@ -721,7 +697,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
 			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
-				c.stateRecorder.Reset()
 				return err
 			}
 			if err := c.updatePolicyStatuses(ctx, config.MutatingWebhookConfigurationName); err != nil {
@@ -832,18 +807,6 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
 					},
-				}, {
-					Rule: generatingPolicyRule,
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-					},
-				}, {
-					Rule: deletingPolicyRule,
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-					},
 				}},
 				FailurePolicy:           &fail,
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -925,31 +888,18 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return nil
 	}
 
-	mpols, err := c.getMutatingPolicies()
+	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
 	}
 
 	validate := buildWebhookRules(cfg,
 		c.server,
-		config.MutatingPolicyWebhookName,
-		"/mpol",
-		c.servicePort,
-		caBundle,
-		mpols)
-
-	ivpols, err := c.getImageValidatingPolicies()
-	if err != nil {
-		return err
-	}
-
-	validate = append(validate, buildWebhookRules(cfg,
-		c.server,
 		config.ImageValidatingPolicyMutateWebhookName,
 		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
-		ivpols)...)
+		ivpols)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
 	for _, w := range validate {
@@ -967,7 +917,6 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
-	c.recordPolicyState(mpols...)
 	return nil
 }
 
@@ -1148,18 +1097,6 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		pols)...)
 
-	gpols, err := c.getGeneratingPolicies()
-	if err != nil {
-		return err
-	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
-		c.server,
-		config.GeneratingPolicyWebhookName,
-		"/gpol",
-		c.servicePort,
-		caBundle,
-		gpols)...)
-
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
@@ -1172,9 +1109,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		ivpols)...)
 
-	policies := append(pols, gpols...)
-	policies = append(policies, ivpols...)
-	c.recordPolicyState(policies...)
+	c.recordPolicyState(append(pols, ivpols...)...)
 	return nil
 }
 
@@ -1305,18 +1240,6 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	return vpols, nil
 }
 
-func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) {
-	generatingpolicies, err := c.gpolLister.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-	gpols := make([]engineapi.GenericPolicy, 0)
-	for _, gpol := range generatingpolicies {
-		gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
-	}
-	return gpols, nil
-}
-
 func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, error) {
 	policies, err := c.ivpolLister.List(labels.Everything())
 	if err != nil {
@@ -1329,20 +1252,6 @@ func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, er
 		}
 	}
 	return ivpols, nil
-}
-
-func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
-	policies, err := c.mpolLister.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-	mpols := make([]engineapi.GenericPolicy, 0)
-	for _, mpol := range policies {
-		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated {
-			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
-		}
-	}
-	return mpols, nil
 }
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {

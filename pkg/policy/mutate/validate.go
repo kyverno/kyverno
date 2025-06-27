@@ -2,7 +2,6 @@ package mutate
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -127,7 +126,7 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 			return err
 		}
 		if !ok {
-			errs = append(errs, errors.New(msg))
+			errs = append(errs, fmt.Errorf(msg)) //nolint:all
 		}
 	}
 

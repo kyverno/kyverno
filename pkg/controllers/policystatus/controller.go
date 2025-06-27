@@ -36,31 +36,22 @@ type Controller interface {
 }
 
 type controller struct {
-	dclient          dclient.Interface
-	client           versioned.Interface
-	queue            workqueue.TypedRateLimitingInterface[any]
-	authChecker      auth.AuthChecker
-	polStateRecorder webhook.StateRecorder
+	dclient           dclient.Interface
+	client            versioned.Interface
+	queue             workqueue.TypedRateLimitingInterface[any]
+	authChecker       auth.AuthChecker
+	vpolStateRecorder webhook.StateRecorder
 }
 
-func NewController(
-	dclient dclient.Interface,
-	client versioned.Interface,
-	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
-	reportsSA string,
-	polStateRecorder webhook.StateRecorder,
-) Controller {
+func NewController(dclient dclient.Interface, client versioned.Interface, vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer, ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer, reportsSA string, vpolStateRecorder webhook.StateRecorder) Controller {
 	c := &controller{
 		dclient: dclient,
 		client:  client,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName}),
-		authChecker:      auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
-		polStateRecorder: polStateRecorder,
+		authChecker:       auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
+		vpolStateRecorder: vpolStateRecorder,
 	}
 
 	enqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(c.queue)))
@@ -99,43 +90,11 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, ivpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ImageValidatingPolicy, ivpol.Name))
 		},
 	)
 	if err != nil {
 		logger.Error(err, "failed to register event handlers for ImageValidatingPolicy")
-	}
-
-	_, _, err = controllerutils.AddExplicitEventHandlers(
-		logger,
-		mpolInformer.Informer(),
-		c.queue,
-		func(obj interface{}) cache.ExplicitKey {
-			mpol, ok := obj.(*policiesv1alpha1.MutatingPolicy)
-			if !ok {
-				return ""
-			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, mpol.Name))
-		},
-	)
-	if err != nil {
-		logger.Error(err, "failed to register event handlers for MutatingPolicy")
-	}
-
-	_, _, err = controllerutils.AddExplicitEventHandlers(
-		logger,
-		gpolInformer.Informer(),
-		c.queue,
-		func(obj interface{}) cache.ExplicitKey {
-			gpol, ok := obj.(*policiesv1alpha1.GeneratingPolicy)
-			if !ok {
-				return ""
-			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.GeneratingPolicyType, gpol.Name))
-		},
-	)
-	if err != nil {
-		logger.Error(err, "failed to register event handlers for GeneratingPolicy")
 	}
 	return c
 }
@@ -145,7 +104,7 @@ func (c controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
-	notifyChan := c.polStateRecorder.(*webhook.Recorder).NotifyChan
+	notifyChan := c.vpolStateRecorder.(*webhook.Recorder).NotifyChan
 	for key := range notifyChan {
 		c.queue.Add(key)
 	}
@@ -165,7 +124,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 
 		return c.updateVpolStatus(ctx, vpol)
 	}
-	if polType == webhook.ImageValidatingPolicyType {
+	if polType == webhook.ImageValidatingPolicy {
 		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -175,29 +134,6 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return err
 		}
 		return c.updateIvpolStatus(ctx, ivpol)
-	}
-
-	if polType == webhook.MutatingPolicyType {
-		mpol, err := c.client.PoliciesV1alpha1().MutatingPolicies().Get(ctx, polName, metav1.GetOptions{})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				logger.V(4).Info("mutating policy not found", "name", polName)
-				return nil
-			}
-		}
-		return c.updateMpolStatus(ctx, mpol)
-	}
-
-	if polType == webhook.GeneratingPolicyType {
-		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, polName, metav1.GetOptions{})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				logger.V(4).Info("generating policy not found", "name", polName)
-				return nil
-			}
-			return err
-		}
-		return c.updateGpolStatus(ctx, gpol)
 	}
 	return nil
 }
@@ -212,21 +148,14 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName())
 		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsValidatingPolicy().GetSpec().BackgroundEnabled())
-	case webhook.ImageValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName())
+	case webhook.ImageValidatingPolicy:
+		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicy, policy.GetName())
 		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled())
-	case webhook.MutatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName())
-		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
-		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsMutatingPolicy().GetSpec().BackgroundEnabled())
-	case webhook.GeneratingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName())
-		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
 	}
 
 	if !backgroundOnly {
-		if ready, ok := c.polStateRecorder.Ready(key); ready {
+		if ready, ok := c.vpolStateRecorder.Ready(key); ready {
 			status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
 		} else if ok {
 			status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
