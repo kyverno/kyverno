@@ -10,7 +10,12 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
+	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
+	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -29,7 +34,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -52,15 +59,20 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	backgroundScanInterval time.Duration,
 	urGenerator generator.UpdateRequestGenerator,
+	context libs.Context,
+	gpolEngine gpolengine.Engine,
+	gpolProvider gpolengine.Provider,
 	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, error) {
+	watchManager := gpol.NewWatchManager(logging.WithName("WatchManager"), dynamicClient)
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
 		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -70,6 +82,7 @@ func createrLeaderControllers(
 		metricsConfig,
 		jp,
 		urGenerator,
+		watchManager,
 	)
 	if err != nil {
 		return nil, err
@@ -82,6 +95,10 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
+		context,
+		gpolEngine,
+		gpolProvider,
+		watchManager,
 		eventGenerator,
 		configuration,
 		jp,
@@ -173,6 +190,7 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
@@ -235,6 +253,33 @@ func main() {
 				// create leader factories
 				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+				contextProvider, err := libs.NewContextProvider(
+					setup.KyvernoDynamicClient,
+					nil,
+					gcstore,
+				)
+				if err != nil {
+					setup.Logger.Error(err, "failed to create cel context provider")
+					os.Exit(1)
+				}
+				// create compiler
+				compiler := gpolcompiler.NewCompiler()
+				// create provider
+				gpolProvider := gpolengine.NewFetchProvider(
+					compiler,
+					kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister(),
+				)
+				// create engine
+				gpolEngine := gpolengine.NewEngine(
+					func(name string) *corev1.Namespace {
+						ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+						if err != nil {
+							return nil
+						}
+						return ns
+					},
+					matching.NewMatcher(),
+				)
 				// create leader controllers
 				leaderControllers, err := createrLeaderControllers(
 					engine,
@@ -249,6 +294,9 @@ func main() {
 					setup.Jp,
 					bgscanInterval,
 					urGenerator,
+					contextProvider,
+					*gpolEngine,
+					gpolProvider,
 					setup.ReportingConfiguration,
 					reportsBreaker,
 				)

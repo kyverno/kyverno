@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
@@ -30,17 +31,17 @@ func (p *Policy) Evaluate(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context libs.Context,
-) error {
+) ([]*unstructured.Unstructured, error) {
 	data, err := prepareData(attr, request, namespace, context)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, p.matchConditions)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !match {
-		return nil
+		return nil, nil
 	}
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew := map[string]any{
@@ -67,10 +68,13 @@ func (p *Policy) Evaluate(
 	for _, generation := range p.generations {
 		_, _, err := generation.ContextEval(ctx, dataNew)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+
+	generatedResources := data.Context.GetGeneratedResources()
+	data.Context.ClearGeneratedResources()
+	return generatedResources, nil
 }
 
 func (p *Policy) match(

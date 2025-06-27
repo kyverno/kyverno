@@ -74,7 +74,7 @@ func Test_ParseJsonSerde(t *testing.T) {
 func Test_ParseJsonComplex(t *testing.T) {
 	testCases := []struct {
 		input          string
-		expectedResult interface{}
+		expectedResult any
 	}{
 		{
 			input:          `parse_json('{"a": "b"}').a`,
@@ -105,11 +105,11 @@ func Test_ParseJsonComplex(t *testing.T) {
 func Test_ParseYAML(t *testing.T) {
 	testCases := []struct {
 		input  string
-		output interface{}
+		output any
 	}{
 		{
 			input: `a: b`,
-			output: map[string]interface{}{
+			output: map[string]any{
 				"a": "b",
 			},
 		},
@@ -119,11 +119,11 @@ func Test_ParseYAML(t *testing.T) {
 - 2
 - 3
 - a: b`,
-			output: []interface{}{
+			output: []any{
 				1.0,
 				2.0,
 				3.0,
-				map[string]interface{}{
+				map[string]any{
 					"a": "b",
 				},
 			},
@@ -136,10 +136,10 @@ spec:
     - 2
     - 3
 `,
-			output: map[string]interface{}{
-				"spec": map[string]interface{}{
+			output: map[string]any{
+				"spec": map[string]any{
 					"test":  1.0,
-					"test2": []interface{}{2.0, 3.0},
+					"test2": []any{2.0, 3.0},
 				},
 			},
 		},
@@ -150,7 +150,7 @@ bar: >
   spans more than
   one line
   see?`,
-			output: map[string]interface{}{
+			output: map[string]any{
 				"bar": "this is not a normal string it spans more than one line see?",
 			},
 		},
@@ -160,7 +160,7 @@ bar: >
 foo: ~
 bar: null
 `,
-			output: map[string]interface{}{
+			output: map[string]any{
 				"bar": nil,
 				"foo": nil,
 			},
@@ -339,19 +339,19 @@ func Test_Trim(t *testing.T) {
 
 func Test_TrimPrefix(t *testing.T) {
 	type args struct {
-		arguments []interface{}
+		arguments []any
 	}
 
 	tests := []struct {
 		name    string
 		args    args
-		want    interface{}
+		want    any
 		wantErr bool
 	}{
 		{
 			name: "trims prefix",
 			args: args{
-				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", "¡¡¡Hello, "},
+				arguments: []any{"¡¡¡Hello, Gophers!!!", "¡¡¡Hello, "},
 			},
 			want:    "Gophers!!!",
 			wantErr: false,
@@ -359,7 +359,7 @@ func Test_TrimPrefix(t *testing.T) {
 		{
 			name: "does not trim prefix",
 			args: args{
-				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", "¡¡¡Hola, "},
+				arguments: []any{"¡¡¡Hello, Gophers!!!", "¡¡¡Hola, "},
 			},
 			want:    "¡¡¡Hello, Gophers!!!",
 			wantErr: false,
@@ -367,7 +367,7 @@ func Test_TrimPrefix(t *testing.T) {
 		{
 			name: "invalid first argument",
 			args: args{
-				arguments: []interface{}{1, "¡¡¡Hello, "},
+				arguments: []any{1, "¡¡¡Hello, "},
 			},
 			want:    nil,
 			wantErr: true,
@@ -375,7 +375,7 @@ func Test_TrimPrefix(t *testing.T) {
 		{
 			name: "invalid first argument",
 			args: args{
-				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", 1},
+				arguments: []any{"¡¡¡Hello, Gophers!!!", 1},
 			},
 			want:    nil,
 			wantErr: true,
@@ -403,7 +403,7 @@ func Test_Split(t *testing.T) {
 	result, err := jp.Search("")
 	assert.NilError(t, err)
 
-	split, ok := result.([]interface{})
+	split, ok := result.([]any)
 	assert.Assert(t, ok)
 	assert.Equal(t, split[0], "Hello")
 	assert.Equal(t, split[1], "Gophers")
@@ -434,7 +434,7 @@ func Test_HasSuffix(t *testing.T) {
 }
 
 func Test_RegexMatch(t *testing.T) {
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	data["foo"] = "hgf'b1a2r'b12g"
 
 	query, err := jmespathInterface.Query("regex_match('12.*', foo)")
@@ -446,7 +446,7 @@ func Test_RegexMatch(t *testing.T) {
 }
 
 func Test_RegexMatchWithNumber(t *testing.T) {
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	data["foo"] = -12.0
 
 	query, err := jmespathInterface.Query("regex_match('12.*', abs(foo))")
@@ -458,7 +458,7 @@ func Test_RegexMatchWithNumber(t *testing.T) {
 }
 
 func Test_PatternMatch(t *testing.T) {
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	data["foo"] = "prefix-foo"
 
 	query, err := jmespathInterface.Query("pattern_match('prefix-*', foo)")
@@ -470,7 +470,7 @@ func Test_PatternMatch(t *testing.T) {
 }
 
 func Test_PatternMatchWithNumber(t *testing.T) {
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	data["foo"] = -12.0
 
 	query, err := jmespathInterface.Query("pattern_match('12*', abs(foo))")
@@ -497,7 +497,7 @@ func Test_RegexReplaceAll(t *testing.T) {
 	`)
 	expected := "Glo world, Gworldlo"
 
-	var resource interface{}
+	var resource any
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	query, err := jmespathInterface.Query(`regex_replace_all('([Hh]e|G)l', spec.field, '${2}G')`)
@@ -527,7 +527,7 @@ func Test_RegexReplaceAllLiteral(t *testing.T) {
 	`)
 	expected := "Glo world, Gworldlo"
 
-	var resource interface{}
+	var resource any
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
@@ -582,7 +582,7 @@ func Test_LabelMatch(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			var resource interface{}
+			var resource any
 			err := json.Unmarshal(tc.resource, &resource)
 			assert.NilError(t, err)
 
@@ -602,8 +602,8 @@ func Test_LabelMatch(t *testing.T) {
 
 func Test_JpToBoolean(t *testing.T) {
 	testCases := []struct {
-		input    interface{}
-		expected interface{}
+		input    any
+		expected any
 		err      bool
 	}{
 		{"true", true, false},
@@ -616,7 +616,7 @@ func Test_JpToBoolean(t *testing.T) {
 		{nil, nil, true},
 	}
 	for _, tc := range testCases {
-		res, err := jpToBoolean([]interface{}{tc.input})
+		res, err := jpToBoolean([]any{tc.input})
 		if tc.err && err == nil {
 			t.Errorf("Expected an error but received nil")
 		}
@@ -668,7 +668,7 @@ func Test_Base64Decode_Secret(t *testing.T) {
 			"example2": "Rm9vQmFy"
 		}
 	}`)
-	var resource interface{}
+	var resource any
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
@@ -998,7 +998,7 @@ func Test_Lookup(t *testing.T) {
 			result, err := query.Search("")
 			assert.NilError(t, err)
 
-			var expectedResult interface{}
+			var expectedResult any
 			err = json.Unmarshal([]byte(tc.expectedResult), &expectedResult)
 			assert.NilError(t, err)
 
@@ -1083,10 +1083,10 @@ func Test_Items(t *testing.T) {
 			res, err := query.Search("")
 			assert.NilError(t, err)
 
-			result, ok := res.([]map[string]interface{})
+			result, ok := res.([]map[string]any)
 			assert.Assert(t, ok)
 
-			var resource []map[string]interface{}
+			var resource []map[string]any
 			err = json.Unmarshal([]byte(tc.expectedResult), &resource)
 			assert.NilError(t, err)
 
@@ -1099,12 +1099,12 @@ func Test_ObjectFromLists(t *testing.T) {
 	testCases := []struct {
 		keys           string
 		values         string
-		expectedResult map[string]interface{}
+		expectedResult map[string]any
 	}{
 		{
 			keys:   `["key1", "key2"]`,
 			values: `["1", "2"]`,
-			expectedResult: map[string]interface{}{
+			expectedResult: map[string]any{
 				"key1": "1",
 				"key2": "2",
 			},
@@ -1112,7 +1112,7 @@ func Test_ObjectFromLists(t *testing.T) {
 		{
 			keys:   `["key1", "key2"]`,
 			values: `[1, "2"]`,
-			expectedResult: map[string]interface{}{
+			expectedResult: map[string]any{
 				"key1": 1.0,
 				"key2": "2",
 			},
@@ -1120,7 +1120,7 @@ func Test_ObjectFromLists(t *testing.T) {
 		{
 			keys:   `["key1", "key2"]`,
 			values: `[1]`,
-			expectedResult: map[string]interface{}{
+			expectedResult: map[string]any{
 				"key1": 1.0,
 				"key2": nil,
 			},
@@ -1132,7 +1132,7 @@ func Test_ObjectFromLists(t *testing.T) {
 			assert.NilError(t, err)
 			res, err := query.Search("")
 			assert.NilError(t, err)
-			result, ok := res.(map[string]interface{})
+			result, ok := res.(map[string]any)
 			assert.Assert(t, ok)
 			assert.DeepEqual(t, result, tc.expectedResult)
 		})
@@ -1204,18 +1204,18 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 -----END CERTIFICATE REQUEST-----`,
 	}
 	resList := []string{
-		`{"Raw":"MIIC7TCCAdWgAwIBAgIBADANBgkqhkiG9w0BAQsFADAYMRYwFAYDVQQDDA0qLmt5dmVybm8uc3ZjMB4XDTIyMDExMTEzMjY0M1oXDTIzMDExMTE0MjY0M1owGDEWMBQGA1UEAwwNKi5reXZlcm5vLnN2YzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMsAz85+yino+MmdKsVtHwNi3oAVjumzXHiLfUJK7xi5KU8B7goPHF/VCe/V7Y2c4afyfgY2ePw4LxSDkCYNgYwqjSwGIbcsqv5ZRazBdDxR09ri6PknNyBVGLi5RlPXIrGQ3psNuf55qwxJxLO31qCZuvktKY5YvuIR4JPmBhuSFXOnn0ZiQw8uxMcQ0QA2lz+PxWCVNk9q+31H5DH1oYZDLfU3mijIOA+AJGZbBb+ZwBmpVL0+2TXLxE74WowdKEV+WTsKojNTd0VwcuRKRKR/6ynXAAis21y1X7Ui9FJE6mDIylUD40WXOKGJ1lYY41kRnYhVhvXYN9JtNYdY3HsCAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFOnlASVD9fu3TAjptlW/gAXA4ql+MA0GCSqGSIb3DQEBCwUAA4IBAQCIpyRiChxp97crKfQ24Jt7z8P+AGpLf3sX4eL87ESa7QRoVJtXLmaut1pUEoYLQruKmh/0YFtZG9WxVgY6iuKbWnu7bOeMB/Ir+V/yrX3R+XvZOsuXiJnEbJiBW6lJzLldoW4f/71H+j1WD4tHpqmdMxq/sLqXfPIuc0/m0yFCn+ADBWGGB8Nn66vxtv+cT6p+RIVotXPQWbMilWp6pd5wSuB68FqrDwtYLNJtPwFs9MPVkuaJdYZ0eWd/rMcKD94Hgf89gvA0+qzMVFf+3BemXskjQRYy6CKsqoyC6jX4nhYjumAP/7psbzITsnpHtfCEEU+2JZwgM406aiMcsgLb","RawTBSCertificate":"MIIB1aADAgECAgEAMA0GCSqGSIb3DQEBCwUAMBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmMwHhcNMjIwMTExMTMyNjQzWhcNMjMwMTExMTQyNjQzWjAYMRYwFAYDVQQDDA0qLmt5dmVybm8uc3ZjMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywDPzn7KKej4yZ0qxW0fA2LegBWO6bNceIt9QkrvGLkpTwHuCg8cX9UJ79XtjZzhp/J+BjZ4/DgvFIOQJg2BjCqNLAYhtyyq/llFrMF0PFHT2uLo+Sc3IFUYuLlGU9cisZDemw25/nmrDEnEs7fWoJm6+S0pjli+4hHgk+YGG5IVc6efRmJDDy7ExxDRADaXP4/FYJU2T2r7fUfkMfWhhkMt9TeaKMg4D4AkZlsFv5nAGalUvT7ZNcvETvhajB0oRX5ZOwqiM1N3RXBy5EpEpH/rKdcACKzbXLVftSL0UkTqYMjKVQPjRZc4oYnWVhjjWRGdiFWG9dg30m01h1jcewIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU6eUBJUP1+7dMCOm2Vb+ABcDiqX4=","RawSubjectPublicKeyInfo":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywDPzn7KKej4yZ0qxW0fA2LegBWO6bNceIt9QkrvGLkpTwHuCg8cX9UJ79XtjZzhp/J+BjZ4/DgvFIOQJg2BjCqNLAYhtyyq/llFrMF0PFHT2uLo+Sc3IFUYuLlGU9cisZDemw25/nmrDEnEs7fWoJm6+S0pjli+4hHgk+YGG5IVc6efRmJDDy7ExxDRADaXP4/FYJU2T2r7fUfkMfWhhkMt9TeaKMg4D4AkZlsFv5nAGalUvT7ZNcvETvhajB0oRX5ZOwqiM1N3RXBy5EpEpH/rKdcACKzbXLVftSL0UkTqYMjKVQPjRZc4oYnWVhjjWRGdiFWG9dg30m01h1jcewIDAQAB","RawSubject":"MBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmM=","RawIssuer":"MBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmM=","Signature":"iKckYgocafe3Kyn0NuCbe8/D/gBqS397F+Hi/OxEmu0EaFSbVy5mrrdaVBKGC0K7ipof9GBbWRvVsVYGOorim1p7u2znjAfyK/lf8q190fl72TrLl4iZxGyYgVupScy5XaFuH/+9R/o9Vg+LR6apnTMav7C6l3zyLnNP5tMhQp/gAwVhhgfDZ+ur8bb/nE+qfkSFaLVz0FmzIpVqeqXecErgevBaqw8LWCzSbT8BbPTD1ZLmiXWGdHlnf6zHCg/eB4H/PYLwNPqszFRX/twXpl7JI0EWMugirKqMguo1+J4WI7pgD/+6bG8yE7J6R7XwhBFPtiWcIDONOmojHLIC2w==","SignatureAlgorithm":4,"PublicKeyAlgorithm":1,"PublicKey":{"N":"25626776194299809103943925293022478779550111351090439168995035251396620593900589237452364135475983088162735720467798166985191488213022186077349821145857402701723499012699772423162550319145896535355752944351742979794245171828792388153331005254201525593934122190716637483002316913539755904599370968007653484768793099970920881706651907943367212661888776583428009130496820305182341702970575924538413569026902195901329094514102681440057150490032724791460671006772434362132998853498175356133386237155854830546292463707783883111067332118558636600306550854546869660051077649500890548685566726464348535891964886136890236394619","E":65537},"Version":3,"SerialNumber":0,"Issuer":{"Country":null,"Organization":null,"OrganizationalUnit":null,"Locality":null,"Province":null,"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"*.kyverno.svc","Names":[{"Type":[2,5,4,3],"Value":"*.kyverno.svc"}],"ExtraNames":null},"Subject":{"Country":null,"Organization":null,"OrganizationalUnit":null,"Locality":null,"Province":null,"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"*.kyverno.svc","Names":[{"Type":[2,5,4,3],"Value":"*.kyverno.svc"}],"ExtraNames":null},"NotBefore":"2022-01-11T13:26:43Z","NotAfter":"2023-01-11T14:26:43Z","KeyUsage":37,"Extensions":[{"Id":[2,5,29,15],"Critical":true,"Value":"AwICpA=="},{"Id":[2,5,29,19],"Critical":true,"Value":"MAMBAf8="},{"Id":[2,5,29,14],"Critical":false,"Value":"BBTp5QElQ/X7t0wI6bZVv4AFwOKpfg=="}],"ExtraExtensions":null,"UnhandledCriticalExtensions":null,"ExtKeyUsage":null,"UnknownExtKeyUsage":null,"BasicConstraintsValid":true,"IsCA":true,"MaxPathLen":-1,"MaxPathLenZero":false,"SubjectKeyId":"6eUBJUP1+7dMCOm2Vb+ABcDiqX4=","AuthorityKeyId":null,"OCSPServer":null,"IssuingCertificateURL":null,"DNSNames":null,"EmailAddresses":null,"IPAddresses":null,"URIs":null,"PermittedDNSDomainsCritical":false,"PermittedDNSDomains":null,"ExcludedDNSDomains":null,"PermittedIPRanges":null,"ExcludedIPRanges":null,"PermittedEmailAddresses":null,"ExcludedEmailAddresses":null,"PermittedURIDomains":null,"Policies":null,"ExcludedURIDomains":null,"CRLDistributionPoints":null,"PolicyIdentifiers":null}`,
-		`{"Raw":"MIIDSjCCAjKgAwIBAgIUWxmj40l+TDVJq98Xy7c6Leo3np8wDQYJKoZIhvcNAQELBQAwPTELMAkGA1UEBhMCeHgxCjAIBgNVBAgTAXgxCjAIBgNVBAcTAXgxCjAIBgNVBAoTAXgxCjAIBgNVBAsTAXgwHhcNMTgwMjAyMTIzODAwWhcNMjMwMjAxMTIzODAwWjA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UEChMBeDEKMAgGA1UECxMBeDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANHkqOmVf23KMXdaZU2eFUx1h4wb09JINBB8x/HL7UE0KFJcnOoVnNQB0gRukUopiYCzrzMFyGWWmB/pAEKool+ZiI2uMy6mcYBDtOi4pOm7U0TQQMV6L/5Yfi65xRz3RTMd/tYAoFi4aCZbJAGjxU6UWNYDzTy8E/cP6ZnlNbVHRiA6/wHsoWcXtWTXYP5yn9cf7EWQi1hOBM4BWmOIyB1f6LEgQipZWMOMPPHO3hsuSBn0rk7jovSt5XTlbgRrtxqAJiNjJUykWzIF+lLnZCioippGv5vkdGvE83JoACXvZTUwzA+MLu49fkw3bweqkbhrer8kacjfGlw3aJN37eECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFKXcb52bv6oqnD+D9fTNFHZL8IWxMA0GCSqGSIb3DQEBCwUAA4IBAQADvKvv3ym0XAYwKxPLLl3Lc6sJYHDbTN0donduG7PXeb1dhuukJ2lfufUYp2IGSAxuLecTYeeByOVp1gaMb5LsIGt2BVDmlMMkiH29LUHsvbyi85CpJo7A5RJG6AWW2VBCiDjz5v8JFM6pMkBRFfXH+pwIge65CE+MTSQcfb1/aIIoQ226P7E/3uUGX4k4pDXG/O7GNvykF40v1DB5y7DDBTQ4JWiJfyGkT69TmdOGLFAmjwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1FUFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/","RawTBSCertificate":"MIICMqADAgECAhRbGaPjSX5MNUmr3xfLtzot6jeenzANBgkqhkiG9w0BAQsFADA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UEChMBeDEKMAgGA1UECxMBeDAeFw0xODAyMDIxMjM4MDBaFw0yMzAyMDExMjM4MDBaMD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0eSo6ZV/bcoxd1plTZ4VTHWHjBvT0kg0EHzH8cvtQTQoUlyc6hWc1AHSBG6RSimJgLOvMwXIZZaYH+kAQqiiX5mIja4zLqZxgEO06Lik6btTRNBAxXov/lh+LrnFHPdFMx3+1gCgWLhoJlskAaPFTpRY1gPNPLwT9w/pmeU1tUdGIDr/AeyhZxe1ZNdg/nKf1x/sRZCLWE4EzgFaY4jIHV/osSBCKllYw4w88c7eGy5IGfSuTuOi9K3ldOVuBGu3GoAmI2MlTKRbMgX6UudkKKiKmka/m+R0a8TzcmgAJe9lNTDMD4wu7j1+TDdvB6qRuGt6vyRpyN8aXDdok3ft4QIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUpdxvnZu/qiqcP4P19M0UdkvwhbE=","RawSubjectPublicKeyInfo":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0eSo6ZV/bcoxd1plTZ4VTHWHjBvT0kg0EHzH8cvtQTQoUlyc6hWc1AHSBG6RSimJgLOvMwXIZZaYH+kAQqiiX5mIja4zLqZxgEO06Lik6btTRNBAxXov/lh+LrnFHPdFMx3+1gCgWLhoJlskAaPFTpRY1gPNPLwT9w/pmeU1tUdGIDr/AeyhZxe1ZNdg/nKf1x/sRZCLWE4EzgFaY4jIHV/osSBCKllYw4w88c7eGy5IGfSuTuOi9K3ldOVuBGu3GoAmI2MlTKRbMgX6UudkKKiKmka/m+R0a8TzcmgAJe9lNTDMD4wu7j1+TDdvB6qRuGt6vyRpyN8aXDdok3ft4QIDAQAB","RawSubject":"MD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4","RawIssuer":"MD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4","Signature":"A7yr798ptFwGMCsTyy5dy3OrCWBw20zdHaJ3bhuz13m9XYbrpCdpX7n1GKdiBkgMbi3nE2HngcjladYGjG+S7CBrdgVQ5pTDJIh9vS1B7L28ovOQqSaOwOUSRugFltlQQog48+b/CRTOqTJAURX1x/qcCIHuuQhPjE0kHH29f2iCKENtuj+xP97lBl+JOKQ1xvzuxjb8pBeNL9QwecuwwwU0OCVoiX8hpE+vU5nThixQJo8MVI1srxHsuKiXsfxBhJuUUHDL/Ysu7W2tcCu7MpDRp+bgxCxjxiCBAGuayB5tRVBTmWVaBC2mrFkuefcMvKIN/RKttXQzMp2/AZ3Z/w==","SignatureAlgorithm":4,"PublicKeyAlgorithm":1,"PublicKey":{"N":"26496562094779491076553211809422098021949952483515703281510813808490953126660362388109632773224118754702902108388229193869554055094778177099185065933983949693842239539154549752097759985799130804083586220803335221114269832081649712810220640441076536231140807229028981655981643835428138719795509959624793308640711388215921808921435203036357847686892066058381787405708754578605922703585581205444932036212009496723589206933777338978604488048677611723712498345752655171502746679687404543368933776929978831813434358099337112479727796701588293884856604804625411358577626503349165930794262171211166398339413648296787152727521","E":65537},"Version":3,"SerialNumber":520089955419326249038486015063014459614455897759,"Issuer":{"Country":["xx"],"Organization":["x"],"OrganizationalUnit":["x"],"Locality":["x"],"Province":["x"],"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"","Names":[{"Type":[2,5,4,6],"Value":"xx"},{"Type":[2,5,4,8],"Value":"x"},{"Type":[2,5,4,7],"Value":"x"},{"Type":[2,5,4,10],"Value":"x"},{"Type":[2,5,4,11],"Value":"x"}],"ExtraNames":null},"Subject":{"Country":["xx"],"Organization":["x"],"OrganizationalUnit":["x"],"Locality":["x"],"Province":["x"],"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"","Names":[{"Type":[2,5,4,6],"Value":"xx"},{"Type":[2,5,4,8],"Value":"x"},{"Type":[2,5,4,7],"Value":"x"},{"Type":[2,5,4,10],"Value":"x"},{"Type":[2,5,4,11],"Value":"x"}],"ExtraNames":null},"NotBefore":"2018-02-02T12:38:00Z","NotAfter":"2023-02-01T12:38:00Z","KeyUsage":96,"Extensions":[{"Id":[2,5,29,15],"Critical":true,"Value":"AwIBBg=="},{"Id":[2,5,29,19],"Critical":true,"Value":"MAMBAf8="},{"Id":[2,5,29,14],"Critical":false,"Value":"BBSl3G+dm7+qKpw/g/X0zRR2S/CFsQ=="}],"ExtraExtensions":null,"UnhandledCriticalExtensions":null,"ExtKeyUsage":null,"UnknownExtKeyUsage":null,"BasicConstraintsValid":true,"IsCA":true,"MaxPathLen":-1,"MaxPathLenZero":false,"SubjectKeyId":"pdxvnZu/qiqcP4P19M0UdkvwhbE=","AuthorityKeyId":null,"OCSPServer":null,"IssuingCertificateURL":null,"DNSNames":null,"EmailAddresses":null,"IPAddresses":null,"URIs":null,"PermittedDNSDomainsCritical":false,"PermittedDNSDomains":null,"ExcludedDNSDomains":null,"PermittedIPRanges":null,"ExcludedIPRanges":null,"PermittedEmailAddresses":null,"ExcludedEmailAddresses":null,"PermittedURIDomains":null,"Policies":null,"ExcludedURIDomains":null,"CRLDistributionPoints":null,"PolicyIdentifiers":null}`,
+		`{"Raw":"MIIC7TCCAdWgAwIBAgIBADANBgkqhkiG9w0BAQsFADAYMRYwFAYDVQQDDA0qLmt5dmVybm8uc3ZjMB4XDTIyMDExMTEzMjY0M1oXDTIzMDExMTE0MjY0M1owGDEWMBQGA1UEAwwNKi5reXZlcm5vLnN2YzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMsAz85+yino+MmdKsVtHwNi3oAVjumzXHiLfUJK7xi5KU8B7goPHF/VCe/V7Y2c4afyfgY2ePw4LxSDkCYNgYwqjSwGIbcsqv5ZRazBdDxR09ri6PknNyBVGLi5RlPXIrGQ3psNuf55qwxJxLO31qCZuvktKY5YvuIR4JPmBhuSFXOnn0ZiQw8uxMcQ0QA2lz+PxWCVNk9q+31H5DH1oYZDLfU3mijIOA+AJGZbBb+ZwBmpVL0+2TXLxE74WowdKEV+WTsKojNTd0VwcuRKRKR/6ynXAAis21y1X7Ui9FJE6mDIylUD40WXOKGJ1lYY41kRnYhVhvXYN9JtNYdY3HsCAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFOnlASVD9fu3TAjptlW/gAXA4ql+MA0GCSqGSIb3DQEBCwUAA4IBAQCIpyRiChxp97crKfQ24Jt7z8P+AGpLf3sX4eL87ESa7QRoVJtXLmaut1pUEoYLQruKmh/0YFtZG9WxVgY6iuKbWnu7bOeMB/Ir+V/yrX3R+XvZOsuXiJnEbJiBW6lJzLldoW4f/71H+j1WD4tHpqmdMxq/sLqXfPIuc0/m0yFCn+ADBWGGB8Nn66vxtv+cT6p+RIVotXPQWbMilWp6pd5wSuB68FqrDwtYLNJtPwFs9MPVkuaJdYZ0eWd/rMcKD94Hgf89gvA0+qzMVFf+3BemXskjQRYy6CKsqoyC6jX4nhYjumAP/7psbzITsnpHtfCEEU+2JZwgM406aiMcsgLb","RawTBSCertificate":"MIIB1aADAgECAgEAMA0GCSqGSIb3DQEBCwUAMBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmMwHhcNMjIwMTExMTMyNjQzWhcNMjMwMTExMTQyNjQzWjAYMRYwFAYDVQQDDA0qLmt5dmVybm8uc3ZjMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywDPzn7KKej4yZ0qxW0fA2LegBWO6bNceIt9QkrvGLkpTwHuCg8cX9UJ79XtjZzhp/J+BjZ4/DgvFIOQJg2BjCqNLAYhtyyq/llFrMF0PFHT2uLo+Sc3IFUYuLlGU9cisZDemw25/nmrDEnEs7fWoJm6+S0pjli+4hHgk+YGG5IVc6efRmJDDy7ExxDRADaXP4/FYJU2T2r7fUfkMfWhhkMt9TeaKMg4D4AkZlsFv5nAGalUvT7ZNcvETvhajB0oRX5ZOwqiM1N3RXBy5EpEpH/rKdcACKzbXLVftSL0UkTqYMjKVQPjRZc4oYnWVhjjWRGdiFWG9dg30m01h1jcewIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU6eUBJUP1+7dMCOm2Vb+ABcDiqX4=","RawSubjectPublicKeyInfo":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywDPzn7KKej4yZ0qxW0fA2LegBWO6bNceIt9QkrvGLkpTwHuCg8cX9UJ79XtjZzhp/J+BjZ4/DgvFIOQJg2BjCqNLAYhtyyq/llFrMF0PFHT2uLo+Sc3IFUYuLlGU9cisZDemw25/nmrDEnEs7fWoJm6+S0pjli+4hHgk+YGG5IVc6efRmJDDy7ExxDRADaXP4/FYJU2T2r7fUfkMfWhhkMt9TeaKMg4D4AkZlsFv5nAGalUvT7ZNcvETvhajB0oRX5ZOwqiM1N3RXBy5EpEpH/rKdcACKzbXLVftSL0UkTqYMjKVQPjRZc4oYnWVhjjWRGdiFWG9dg30m01h1jcewIDAQAB","RawSubject":"MBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmM=","RawIssuer":"MBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmM=","Signature":"iKckYgocafe3Kyn0NuCbe8/D/gBqS397F+Hi/OxEmu0EaFSbVy5mrrdaVBKGC0K7ipof9GBbWRvVsVYGOorim1p7u2znjAfyK/lf8q190fl72TrLl4iZxGyYgVupScy5XaFuH/+9R/o9Vg+LR6apnTMav7C6l3zyLnNP5tMhQp/gAwVhhgfDZ+ur8bb/nE+qfkSFaLVz0FmzIpVqeqXecErgevBaqw8LWCzSbT8BbPTD1ZLmiXWGdHlnf6zHCg/eB4H/PYLwNPqszFRX/twXpl7JI0EWMugirKqMguo1+J4WI7pgD/+6bG8yE7J6R7XwhBFPtiWcIDONOmojHLIC2w==","SignatureAlgorithm":4,"PublicKeyAlgorithm":1,"PublicKey":{"N":"25626776194299809103943925293022478779550111351090439168995035251396620593900589237452364135475983088162735720467798166985191488213022186077349821145857402701723499012699772423162550319145896535355752944351742979794245171828792388153331005254201525593934122190716637483002316913539755904599370968007653484768793099970920881706651907943367212661888776583428009130496820305182341702970575924538413569026902195901329094514102681440057150490032724791460671006772434362132998853498175356133386237155854830546292463707783883111067332118558636600306550854546869660051077649500890548685566726464348535891964886136890236394619","E":65537},"Version":3,"SerialNumber":0,"Issuer":{"Country":null,"Organization":null,"OrganizationalUnit":null,"Locality":null,"Province":null,"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"*.kyverno.svc","Names":[{"Type":[2,5,4,3],"Value":"*.kyverno.svc"}],"ExtraNames":null},"Subject":{"Country":null,"Organization":null,"OrganizationalUnit":null,"Locality":null,"Province":null,"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"*.kyverno.svc","Names":[{"Type":[2,5,4,3],"Value":"*.kyverno.svc"}],"ExtraNames":null},"NotBefore":"2022-01-11T13:26:43Z","NotAfter":"2023-01-11T14:26:43Z","KeyUsage":37,"Extensions":[{"Id":[2,5,29,15],"Critical":true,"Value":"AwICpA=="},{"Id":[2,5,29,19],"Critical":true,"Value":"MAMBAf8="},{"Id":[2,5,29,14],"Critical":false,"Value":"BBTp5QElQ/X7t0wI6bZVv4AFwOKpfg=="}],"ExtraExtensions":null,"UnhandledCriticalExtensions":null,"ExtKeyUsage":null,"UnknownExtKeyUsage":null,"BasicConstraintsValid":true,"IsCA":true,"MaxPathLen":-1,"MaxPathLenZero":false,"SubjectKeyId":"6eUBJUP1+7dMCOm2Vb+ABcDiqX4=","AuthorityKeyId":null,"OCSPServer":null,"IssuingCertificateURL":null,"DNSNames":null,"EmailAddresses":null,"IPAddresses":null,"URIs":null,"PermittedDNSDomainsCritical":false,"PermittedDNSDomains":null,"ExcludedDNSDomains":null,"PermittedIPRanges":null,"ExcludedIPRanges":null,"PermittedEmailAddresses":null,"ExcludedEmailAddresses":null,"PermittedURIDomains":null,"Policies":null,"ExcludedURIDomains":null,"CRLDistributionPoints":null,"PolicyIdentifiers":null,"InhibitAnyPolicy": 0, "InhibitAnyPolicyZero": false, "InhibitPolicyMapping": 0, "InhibitPolicyMappingZero": false, "PolicyMappings": null, "RequireExplicitPolicy": 0, "RequireExplicitPolicyZero": false}`,
+		`{"Raw":"MIIDSjCCAjKgAwIBAgIUWxmj40l+TDVJq98Xy7c6Leo3np8wDQYJKoZIhvcNAQELBQAwPTELMAkGA1UEBhMCeHgxCjAIBgNVBAgTAXgxCjAIBgNVBAcTAXgxCjAIBgNVBAoTAXgxCjAIBgNVBAsTAXgwHhcNMTgwMjAyMTIzODAwWhcNMjMwMjAxMTIzODAwWjA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UEChMBeDEKMAgGA1UECxMBeDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANHkqOmVf23KMXdaZU2eFUx1h4wb09JINBB8x/HL7UE0KFJcnOoVnNQB0gRukUopiYCzrzMFyGWWmB/pAEKool+ZiI2uMy6mcYBDtOi4pOm7U0TQQMV6L/5Yfi65xRz3RTMd/tYAoFi4aCZbJAGjxU6UWNYDzTy8E/cP6ZnlNbVHRiA6/wHsoWcXtWTXYP5yn9cf7EWQi1hOBM4BWmOIyB1f6LEgQipZWMOMPPHO3hsuSBn0rk7jovSt5XTlbgRrtxqAJiNjJUykWzIF+lLnZCioippGv5vkdGvE83JoACXvZTUwzA+MLu49fkw3bweqkbhrer8kacjfGlw3aJN37eECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFKXcb52bv6oqnD+D9fTNFHZL8IWxMA0GCSqGSIb3DQEBCwUAA4IBAQADvKvv3ym0XAYwKxPLLl3Lc6sJYHDbTN0donduG7PXeb1dhuukJ2lfufUYp2IGSAxuLecTYeeByOVp1gaMb5LsIGt2BVDmlMMkiH29LUHsvbyi85CpJo7A5RJG6AWW2VBCiDjz5v8JFM6pMkBRFfXH+pwIge65CE+MTSQcfb1/aIIoQ226P7E/3uUGX4k4pDXG/O7GNvykF40v1DB5y7DDBTQ4JWiJfyGkT69TmdOGLFAmjwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1FUFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/","RawTBSCertificate":"MIICMqADAgECAhRbGaPjSX5MNUmr3xfLtzot6jeenzANBgkqhkiG9w0BAQsFADA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UEChMBeDEKMAgGA1UECxMBeDAeFw0xODAyMDIxMjM4MDBaFw0yMzAyMDExMjM4MDBaMD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0eSo6ZV/bcoxd1plTZ4VTHWHjBvT0kg0EHzH8cvtQTQoUlyc6hWc1AHSBG6RSimJgLOvMwXIZZaYH+kAQqiiX5mIja4zLqZxgEO06Lik6btTRNBAxXov/lh+LrnFHPdFMx3+1gCgWLhoJlskAaPFTpRY1gPNPLwT9w/pmeU1tUdGIDr/AeyhZxe1ZNdg/nKf1x/sRZCLWE4EzgFaY4jIHV/osSBCKllYw4w88c7eGy5IGfSuTuOi9K3ldOVuBGu3GoAmI2MlTKRbMgX6UudkKKiKmka/m+R0a8TzcmgAJe9lNTDMD4wu7j1+TDdvB6qRuGt6vyRpyN8aXDdok3ft4QIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUpdxvnZu/qiqcP4P19M0UdkvwhbE=","RawSubjectPublicKeyInfo":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0eSo6ZV/bcoxd1plTZ4VTHWHjBvT0kg0EHzH8cvtQTQoUlyc6hWc1AHSBG6RSimJgLOvMwXIZZaYH+kAQqiiX5mIja4zLqZxgEO06Lik6btTRNBAxXov/lh+LrnFHPdFMx3+1gCgWLhoJlskAaPFTpRY1gPNPLwT9w/pmeU1tUdGIDr/AeyhZxe1ZNdg/nKf1x/sRZCLWE4EzgFaY4jIHV/osSBCKllYw4w88c7eGy5IGfSuTuOi9K3ldOVuBGu3GoAmI2MlTKRbMgX6UudkKKiKmka/m+R0a8TzcmgAJe9lNTDMD4wu7j1+TDdvB6qRuGt6vyRpyN8aXDdok3ft4QIDAQAB","RawSubject":"MD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4","RawIssuer":"MD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4","Signature":"A7yr798ptFwGMCsTyy5dy3OrCWBw20zdHaJ3bhuz13m9XYbrpCdpX7n1GKdiBkgMbi3nE2HngcjladYGjG+S7CBrdgVQ5pTDJIh9vS1B7L28ovOQqSaOwOUSRugFltlQQog48+b/CRTOqTJAURX1x/qcCIHuuQhPjE0kHH29f2iCKENtuj+xP97lBl+JOKQ1xvzuxjb8pBeNL9QwecuwwwU0OCVoiX8hpE+vU5nThixQJo8MVI1srxHsuKiXsfxBhJuUUHDL/Ysu7W2tcCu7MpDRp+bgxCxjxiCBAGuayB5tRVBTmWVaBC2mrFkuefcMvKIN/RKttXQzMp2/AZ3Z/w==","SignatureAlgorithm":4,"PublicKeyAlgorithm":1,"PublicKey":{"N":"26496562094779491076553211809422098021949952483515703281510813808490953126660362388109632773224118754702902108388229193869554055094778177099185065933983949693842239539154549752097759985799130804083586220803335221114269832081649712810220640441076536231140807229028981655981643835428138719795509959624793308640711388215921808921435203036357847686892066058381787405708754578605922703585581205444932036212009496723589206933777338978604488048677611723712498345752655171502746679687404543368933776929978831813434358099337112479727796701588293884856604804625411358577626503349165930794262171211166398339413648296787152727521","E":65537},"Version":3,"SerialNumber":520089955419326249038486015063014459614455897759,"Issuer":{"Country":["xx"],"Organization":["x"],"OrganizationalUnit":["x"],"Locality":["x"],"Province":["x"],"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"","Names":[{"Type":[2,5,4,6],"Value":"xx"},{"Type":[2,5,4,8],"Value":"x"},{"Type":[2,5,4,7],"Value":"x"},{"Type":[2,5,4,10],"Value":"x"},{"Type":[2,5,4,11],"Value":"x"}],"ExtraNames":null},"Subject":{"Country":["xx"],"Organization":["x"],"OrganizationalUnit":["x"],"Locality":["x"],"Province":["x"],"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"","Names":[{"Type":[2,5,4,6],"Value":"xx"},{"Type":[2,5,4,8],"Value":"x"},{"Type":[2,5,4,7],"Value":"x"},{"Type":[2,5,4,10],"Value":"x"},{"Type":[2,5,4,11],"Value":"x"}],"ExtraNames":null},"NotBefore":"2018-02-02T12:38:00Z","NotAfter":"2023-02-01T12:38:00Z","KeyUsage":96,"Extensions":[{"Id":[2,5,29,15],"Critical":true,"Value":"AwIBBg=="},{"Id":[2,5,29,19],"Critical":true,"Value":"MAMBAf8="},{"Id":[2,5,29,14],"Critical":false,"Value":"BBSl3G+dm7+qKpw/g/X0zRR2S/CFsQ=="}],"ExtraExtensions":null,"UnhandledCriticalExtensions":null,"ExtKeyUsage":null,"UnknownExtKeyUsage":null,"BasicConstraintsValid":true,"IsCA":true,"MaxPathLen":-1,"MaxPathLenZero":false,"SubjectKeyId":"pdxvnZu/qiqcP4P19M0UdkvwhbE=","AuthorityKeyId":null,"OCSPServer":null,"IssuingCertificateURL":null,"DNSNames":null,"EmailAddresses":null,"IPAddresses":null,"URIs":null,"PermittedDNSDomainsCritical":false,"PermittedDNSDomains":null,"ExcludedDNSDomains":null,"PermittedIPRanges":null,"ExcludedIPRanges":null,"PermittedEmailAddresses":null,"ExcludedEmailAddresses":null,"PermittedURIDomains":null,"Policies":null,"ExcludedURIDomains":null,"CRLDistributionPoints":null,"PolicyIdentifiers":null,"InhibitAnyPolicy": 0, "InhibitAnyPolicyZero": false, "InhibitPolicyMapping": 0, "InhibitPolicyMappingZero": false, "PolicyMappings": null, "RequireExplicitPolicy": 0, "RequireExplicitPolicyZero": false}`,
 		`{"Attributes": null,"DNSNames": null,"EmailAddresses": null,"Extensions": null,"ExtraExtensions": null,"IPAddresses": null,"PublicKey": {"E": 65537,"N": "30788787775499084229626026724118719872973907471499649646184775670914346180312671906399223325409590948519743636184795333482381888453996128329396648505249062053283056069530767359210562374203250761551376585013181653210719557451154530514423713570995019036786795900989905655136970670786111875127185122973524433496741842862203002594125711406631836733656561027033024624302759714504708249269624951711291364305004897900464453081676928894280743798888738608709381777168414778329993619693869221517193116446955833233290395600921852333943656575398427367952052258926688943219100950267027328710138285403327192731641778165311310576291"},"PublicKeyAlgorithm": 1,"Raw": "MIICvDCCAaQCAQAwdzELMAkGA1UEBhMCVVMxDTALBgNVBAgMBFV0YWgxDzANBgNVBAcMBkxpbmRvbjEWMBQGA1UECgwNRGlnaUNlcnQgSW5jLjERMA8GA1UECwwIRGlnaUNlcnQxHTAbBgNVBAMMFGV4YW1wbGUuZGlnaWNlcnQuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8+To7d+2kPWeBv/orU3LVbJwDrSQbeKamCmowp5bqDxIwV20zqRb7APUOKYoVEFFOEQs6T6gImnIolhbiH6m4zgZ/CPvWBOkZc+c1Po2EmvBz+AD5sBdT5kzGQA6NbWyZGldxRthNLOs1efOhdnWFuhI162qmcflgpiIWDuwq4C9f+YkeJhNn9dF5+owm8cOQmDrV8NNdiTqin8q3qYAHHJRW28glJUCZkTZwIaSR6crBQ8TbYNE0dc+Caa3DOIkz1EOsHWzTx+n0zKfqcbgXi4DJx+C1bjptYPRBPZL8DAeWuA8ebudVT44yEp82G96/Ggcf7F33xMxe0yc+Xa6owIDAQABoAAwDQYJKoZIhvcNAQEFBQADggEBAB0kcrFccSmFDmxox0Ne01UIqSsDqHgL+XmHTXJwre6DhJSZwbvEtOK0G3+dr4Fs11WuUNt5qcLsx5a8uk4G6AKHMzuhLsJ7XZjgmQXGECpYQ4mC3yT3ZoCGpIXbw+iP3lmEEXgaQL0Tx5LFl/okKbKYwIqNiyKWOMj7ZR/wxWg/ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn29XI1PpVUNCPQGn9p/eX6Qo7vpDaPybRtA2R7XLKjQaF9oXWeCUqy1hvJac9QFO297Ob1alpHPoZ7mWiEuJwjBPii6a9M9G30nUo39lBi1w=","RawSubject": "MHcxCzAJBgNVBAYTAlVTMQ0wCwYDVQQIDARVdGFoMQ8wDQYDVQQHDAZMaW5kb24xFjAUBgNVBAoMDURpZ2lDZXJ0IEluYy4xETAPBgNVBAsMCERpZ2lDZXJ0MR0wGwYDVQQDDBRleGFtcGxlLmRpZ2ljZXJ0LmNvbQ==","RawSubjectPublicKeyInfo": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8+To7d+2kPWeBv/orU3LVbJwDrSQbeKamCmowp5bqDxIwV20zqRb7APUOKYoVEFFOEQs6T6gImnIolhbiH6m4zgZ/CPvWBOkZc+c1Po2EmvBz+AD5sBdT5kzGQA6NbWyZGldxRthNLOs1efOhdnWFuhI162qmcflgpiIWDuwq4C9f+YkeJhNn9dF5+owm8cOQmDrV8NNdiTqin8q3qYAHHJRW28glJUCZkTZwIaSR6crBQ8TbYNE0dc+Caa3DOIkz1EOsHWzTx+n0zKfqcbgXi4DJx+C1bjptYPRBPZL8DAeWuA8ebudVT44yEp82G96/Ggcf7F33xMxe0yc+Xa6owIDAQAB","RawTBSCertificateRequest": "MIIBpAIBADB3MQswCQYDVQQGEwJVUzENMAsGA1UECAwEVXRhaDEPMA0GA1UEBwwGTGluZG9uMRYwFAYDVQQKDA1EaWdpQ2VydCBJbmMuMREwDwYDVQQLDAhEaWdpQ2VydDEdMBsGA1UEAwwUZXhhbXBsZS5kaWdpY2VydC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDz5Ojt37aQ9Z4G/+itTctVsnAOtJBt4pqYKajCnluoPEjBXbTOpFvsA9Q4pihUQUU4RCzpPqAiaciiWFuIfqbjOBn8I+9YE6Rlz5zU+jYSa8HP4APmwF1PmTMZADo1tbJkaV3FG2E0s6zV586F2dYW6EjXraqZx+WCmIhYO7CrgL1/5iR4mE2f10Xn6jCbxw5CYOtXw012JOqKfyrepgAcclFbbyCUlQJmRNnAhpJHpysFDxNtg0TR1z4JprcM4iTPUQ6wdbNPH6fTMp+pxuBeLgMnH4LVuOm1g9EE9kvwMB5a4Dx5u51VPjjISnzYb3r8aBx/sXffEzF7TJz5drqjAgMBAAGgAA==","Signature": "HSRysVxxKYUObGjHQ17TVQipKwOoeAv5eYdNcnCt7oOElJnBu8S04rQbf52vgWzXVa5Q23mpwuzHlry6TgboAoczO6EuwntdmOCZBcYQKlhDiYLfJPdmgIakhdvD6I/eWYQReBpAvRPHksWX+iQpspjAio2LIpY4yPtlH/DFaD9kMZGznnG6h4sMn9lEV/1sj4hoJR3Vit9hwciXcbzsC/6vj1hXCpENPRUNXu4uCqfb1cjU+lVQ0I9Aaf2n95fpCju+kNo/JtG0DZHtcsqNBoX2hdZ4JSrLWG8lpz1AU7b3s5vVqWkc+hnuZaIS4nCME+KLpr0z0bfSdSjf2UGLXA==","SignatureAlgorithm": 3,"Subject": {"CommonName": "example.digicert.com","Country": ["US"],"ExtraNames": null,"Locality": ["Lindon"],"Names": [{"Type": [2,5,4,6],"Value": "US"},{"Type": [2,5,4,8],"Value": "Utah"},{"Type": [2,5,4,7],"Value": "Lindon"},{"Type": [2,5,4,10],"Value": "DigiCert Inc."},{"Type": [2,5,4,11],"Value": "DigiCert"},{"Type": [2,5,4,3],"Value": "example.digicert.com"}],"Organization": ["DigiCert Inc."],"OrganizationalUnit": ["DigiCert"],"PostalCode": null,"Province": ["Utah"],"SerialNumber": "","StreetAddress": null},"URIs": null,"Version": 0}`,
 	}
-	resExpected := make([]map[string]interface{}, 3)
+	resExpected := make([]map[string]any, 3)
 	for i, v := range resList {
 		err := json.Unmarshal([]byte(v), &resExpected[i])
 		assert.NilError(t, err)
 	}
 	testCases := []struct {
 		jmesPath       string
-		expectedResult map[string]interface{}
+		expectedResult map[string]any
 	}{{
 		jmesPath:       "x509_decode(base64_decode('" + certs[0] + "'))",
 		expectedResult: resExpected[0],
@@ -1240,7 +1240,7 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 	},
 	// {
 	// 	jmesPath:       "x509_decode('xyz')",
-	// 	expectedResult: map[string]interface{}{},
+	// 	expectedResult: map[string]any{},
 	// }
 	}
 	for _, tc := range testCases {
@@ -1253,7 +1253,7 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 				assert.NilError(t, err)
 			}
 
-			res, ok := result.(map[string]interface{})
+			res, ok := result.(map[string]any)
 			assert.Assert(t, ok)
 			assert.DeepEqual(t, res, tc.expectedResult)
 		})
@@ -1262,36 +1262,36 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 
 func Test_jpfCompare(t *testing.T) {
 	type args struct {
-		arguments []interface{}
+		arguments []any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    interface{}
+		want    any
 		wantErr bool
 	}{{
 		args: args{
-			arguments: []interface{}{"a", "b"},
+			arguments: []any{"a", "b"},
 		},
 		want: -1,
 	}, {
 		args: args{
-			arguments: []interface{}{"b", "a"},
+			arguments: []any{"b", "a"},
 		},
 		want: 1,
 	}, {
 		args: args{
-			arguments: []interface{}{"b", "b"},
+			arguments: []any{"b", "b"},
 		},
 		want: 0,
 	}, {
 		args: args{
-			arguments: []interface{}{1, "b"},
+			arguments: []any{1, "b"},
 		},
 		wantErr: true,
 	}, {
 		args: args{
-			arguments: []interface{}{"a", 1},
+			arguments: []any{"a", 1},
 		},
 		wantErr: true,
 	}}
@@ -1311,31 +1311,31 @@ func Test_jpfCompare(t *testing.T) {
 
 func Test_jpfEqualFold(t *testing.T) {
 	type args struct {
-		arguments []interface{}
+		arguments []any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    interface{}
+		want    any
 		wantErr bool
 	}{{
 		args: args{
-			arguments: []interface{}{"Go", "go"},
+			arguments: []any{"Go", "go"},
 		},
 		want: true,
 	}, {
 		args: args{
-			arguments: []interface{}{"a", "b"},
+			arguments: []any{"a", "b"},
 		},
 		want: false,
 	}, {
 		args: args{
-			arguments: []interface{}{1, "b"},
+			arguments: []any{1, "b"},
 		},
 		wantErr: true,
 	}, {
 		args: args{
-			arguments: []interface{}{"a", 1},
+			arguments: []any{"a", 1},
 		},
 		wantErr: true,
 	}}
@@ -1355,16 +1355,16 @@ func Test_jpfEqualFold(t *testing.T) {
 
 func Test_jpfReplace(t *testing.T) {
 	type args struct {
-		arguments []interface{}
+		arguments []any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    interface{}
+		want    any
 		wantErr bool
 	}{{
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum dolor sit amet",
 				"ipsum",
 				"muspi",
@@ -1374,7 +1374,7 @@ func Test_jpfReplace(t *testing.T) {
 		want: "Lorem muspi dolor sit amet",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum ipsum ipsum dolor sit amet",
 				"ipsum",
 				"muspi",
@@ -1384,7 +1384,7 @@ func Test_jpfReplace(t *testing.T) {
 		want: "Lorem muspi muspi muspi dolor sit amet",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum ipsum ipsum dolor sit amet",
 				"ipsum",
 				"muspi",
@@ -1394,7 +1394,7 @@ func Test_jpfReplace(t *testing.T) {
 		want: "Lorem muspi ipsum ipsum dolor sit amet",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				1.0,
 				"ipsum",
 				"muspi",
@@ -1404,7 +1404,7 @@ func Test_jpfReplace(t *testing.T) {
 		wantErr: true,
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum ipsum ipsum dolor sit amet",
 				1.0,
 				"muspi",
@@ -1414,7 +1414,7 @@ func Test_jpfReplace(t *testing.T) {
 		wantErr: true,
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum ipsum ipsum dolor sit amet",
 				"ipsum",
 				false,
@@ -1424,7 +1424,7 @@ func Test_jpfReplace(t *testing.T) {
 		wantErr: true,
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum ipsum ipsum dolor sit amet",
 				"ipsum",
 				"muspi",
@@ -1449,16 +1449,16 @@ func Test_jpfReplace(t *testing.T) {
 
 func Test_jpfReplaceAll(t *testing.T) {
 	type args struct {
-		arguments []interface{}
+		arguments []any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    interface{}
+		want    any
 		wantErr bool
 	}{{
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum dolor sit amet",
 				"ipsum",
 				"muspi",
@@ -1467,7 +1467,7 @@ func Test_jpfReplaceAll(t *testing.T) {
 		want: "Lorem muspi dolor sit amet",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum ipsum ipsum dolor sit amet",
 				"ipsum",
 				"muspi",
@@ -1476,7 +1476,7 @@ func Test_jpfReplaceAll(t *testing.T) {
 		want: "Lorem muspi muspi muspi dolor sit amet",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				1.0,
 				"ipsum",
 				"muspi",
@@ -1485,7 +1485,7 @@ func Test_jpfReplaceAll(t *testing.T) {
 		wantErr: true,
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum ipsum ipsum dolor sit amet",
 				1.0,
 				"muspi",
@@ -1494,7 +1494,7 @@ func Test_jpfReplaceAll(t *testing.T) {
 		wantErr: true,
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"Lorem ipsum ipsum ipsum dolor sit amet",
 				"ipsum",
 				false,
@@ -1518,37 +1518,37 @@ func Test_jpfReplaceAll(t *testing.T) {
 
 func Test_jpfToUpper(t *testing.T) {
 	type args struct {
-		arguments []interface{}
+		arguments []any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    interface{}
+		want    any
 		wantErr bool
 	}{{
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"abc",
 			},
 		},
 		want: "ABC",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"123",
 			},
 		},
 		want: "123",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"a#%&123Bc",
 			},
 		},
 		want: "A#%&123BC",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				32.0,
 			},
 		},
@@ -1570,37 +1570,37 @@ func Test_jpfToUpper(t *testing.T) {
 
 func Test_jpfToLower(t *testing.T) {
 	type args struct {
-		arguments []interface{}
+		arguments []any
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    interface{}
+		want    any
 		wantErr bool
 	}{{
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"ABC",
 			},
 		},
 		want: "abc",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"123",
 			},
 		},
 		want: "123",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				"A#%&123BC",
 			},
 		},
 		want: "a#%&123bc",
 	}, {
 		args: args{
-			arguments: []interface{}{
+			arguments: []any{
 				32.0,
 			},
 		},
