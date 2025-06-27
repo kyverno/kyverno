@@ -20,7 +20,6 @@ type lib struct {
 }
 
 func Lib(imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) cel.EnvOption {
-	// create the cel lib env option
 	return cel.Lib(&lib{
 		imgCtx: imgCtx,
 		ivpol:  ivpol,
@@ -47,12 +46,10 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
 	if err != nil {
 		return nil, err
 	}
-	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"verifyImageSignatures": {
 			cel.Overload(
@@ -87,11 +84,9 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			),
 		},
 	}
-	// create env options corresponding to our function overloads
 	options := []cel.EnvOption{}
 	for name, overloads := range libraryDecls {
 		options = append(options, cel.Function(name, overloads...))
 	}
-	// extend environment with our function overloads
 	return env.Extend(options...)
 }

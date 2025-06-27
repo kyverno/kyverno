@@ -13,7 +13,6 @@ const libraryName = "kyverno.resource"
 type lib struct{}
 
 func Lib() cel.EnvOption {
-	// create the cel lib env option
 	return cel.Lib(&lib{})
 }
 
@@ -33,11 +32,9 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}
-	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"List": {
 			cel.MemberOverload(
@@ -70,11 +67,9 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			),
 		},
 	}
-	// create env options corresponding to our function overloads
 	options := []cel.EnvOption{}
 	for name, overloads := range libraryDecls {
 		options = append(options, cel.Function(name, overloads...))
 	}
-	// extend environment with our function overloads
 	return env.Extend(options...)
 }
