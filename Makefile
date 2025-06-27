@@ -787,7 +787,7 @@ codegen-helm-update-versions: ## Update helm charts versions
 .PHONY: verify-api-versions
 verify-api-versions: ## Check API versions are consistent
 	@echo Checking API versions are consistent... >&2
-	@go run ./cmd/api-version-validator/main.go
+	@go run ./hack/api-version-validator/main.go
 
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
