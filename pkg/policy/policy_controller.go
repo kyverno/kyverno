@@ -296,7 +296,11 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 		p = engineapi.NewKyvernoPolicy(pol)
 	case *policiesv1alpha1.GeneratingPolicy:
 		gpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.GeneratingPolicy)
-		pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
+		if gpol.Spec.OrphanDownstreamOnPolicyDeleteEnabled() {
+			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), false)
+		} else {
+			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
+		}
 		p = engineapi.NewGeneratingPolicy(gpol)
 	default:
 		logger.Info("Failed to get deleted object", "obj", obj)
