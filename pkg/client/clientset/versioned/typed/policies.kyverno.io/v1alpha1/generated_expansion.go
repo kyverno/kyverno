@@ -18,7 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
+type DeletingPolicyExpansion interface{}
+
+type GeneratingPolicyExpansion interface{}
+
 type ImageValidatingPolicyExpansion interface{}
+
+type MutatingPolicyExpansion interface{}
 
 type PolicyExceptionExpansion interface{}
 

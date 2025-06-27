@@ -84,12 +84,12 @@ jobs:
       - name: Create Kind cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
-          version: v0.27.0
+          version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -166,12 +166,12 @@ jobs:
       - name: Create Kind cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
-          version: v0.27.0
+          version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -256,12 +256,12 @@ jobs:
       - name: Create Kind cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
         with:
-          version: v0.27.0
+          version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
