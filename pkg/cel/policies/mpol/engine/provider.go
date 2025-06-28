@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
-	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
+	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	"k8s.io/client-go/openapi"
 	workqueue "k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,11 +29,16 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 }
 
 func NewKubeProvider(
-	compiler mpolcompiler.Compiler,
+	ctx context.Context,
+	compiler compiler.Compiler,
 	mgr ctrl.Manager,
+	c openapi.Client,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 	polexEnabled bool,
-) (Provider, error) {
+) (Provider, patch.TypeConverterManager, error) {
+	typeConverter := patch.NewTypeConverterManager(nil, c)
+	go typeConverter.Run(ctx)
+
 	reconciler := newReconciler(mgr.GetClient(), compiler, polexLister, polexEnabled)
 	builder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1alpha1.MutatingPolicy{})
 	if polexEnabled {
@@ -80,8 +89,52 @@ func NewKubeProvider(
 		builder.Watches(&policiesv1alpha1.PolicyException{}, polexHandler)
 	}
 	if err := builder.Complete(reconciler); err != nil {
-		return nil, fmt.Errorf("failed to construct mutatingpolicies manager: %w", err)
+		return nil, typeConverter, fmt.Errorf("failed to construct mutatingpolicies manager: %w", err)
 	}
 
-	return reconciler, nil
+	return reconciler, typeConverter, nil
+}
+
+func NewProvider(
+	compiler compiler.Compiler,
+	policies []v1alpha1.MutatingPolicy,
+	exceptions []*v1alpha1.PolicyException,
+) (ProviderFunc, error) {
+	out := make([]Policy, 0, len(policies))
+	for _, policy := range policies {
+		var matchedExceptions []*v1alpha1.PolicyException
+		for _, polex := range exceptions {
+			for _, ref := range polex.Spec.PolicyRefs {
+				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
+					matchedExceptions = append(matchedExceptions, polex)
+				}
+			}
+		}
+		compiled, errs := compiler.Compile(&policy, matchedExceptions)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
+		}
+		out = append(out, Policy{
+			Policy:         policy,
+			CompiledPolicy: compiled,
+		})
+		generated, err := autogen.Autogen(&policy)
+		if err != nil {
+			return nil, err
+		}
+		for _, autogen := range generated {
+			policy.Spec = *autogen.Spec
+			compiled, errs := compiler.Compile(&policy, matchedExceptions)
+			if len(errs) > 0 {
+				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
+			}
+			out = append(out, Policy{
+				Policy:         policy,
+				CompiledPolicy: compiled,
+			})
+		}
+	}
+	return func(context.Context) ([]Policy, error) {
+		return out, nil
+	}, nil
 }

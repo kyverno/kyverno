@@ -258,8 +258,8 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.reportsServer.enabled | bool | `false` | Kyverno reports-server is used in your cluster |
-| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true,"validatingpolicies":true}` | Install CRDs in group `kyverno.io` |
-| crds.groups.policies | object | `{"imagevalidatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
+| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
+| crds.groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
 | crds.groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
 | crds.groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
@@ -283,6 +283,7 @@ The chart values are organised per component.
 | crds.migration.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 | crds.migration.podResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | crds.migration.podResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| crds.migration.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 
 ### Config
 
@@ -343,10 +344,12 @@ The chart values are organised per component.
 | features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |
 | features.backgroundScan.skipResourceFilters | bool | `true` | Skips resource filters in background scan |
 | features.configMapCaching.enabled | bool | `true` | Enables the feature |
+| features.controllerRuntimeMetrics.bindAddress | string | `":8080"` | Bind address for controller-runtime metrics (use "0" to disable it) |
 | features.deferredLoading.enabled | bool | `true` | Enables the feature |
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
 | features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
+| features.generateMutatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
 | features.logging.format | string | `"text"` | Logging format |
@@ -379,6 +382,7 @@ The chart values are organised per component.
 | admissionController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| admissionController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | admissionController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
@@ -486,6 +490,7 @@ The chart values are organised per component.
 | backgroundController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| backgroundController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | backgroundController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | backgroundController.image.registry | string | `nil` | Image registry |
@@ -565,6 +570,7 @@ The chart values are organised per component.
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | cleanupController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| cleanupController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | cleanupController.image.registry | string | `nil` | Image registry |
@@ -653,6 +659,7 @@ The chart values are organised per component.
 | reportsController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| reportsController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | reportsController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | reportsController.image.registry | string | `nil` | Image registry |
@@ -761,6 +768,7 @@ The chart values are organised per component.
 | webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 | webhooksCleanup.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | webhooksCleanup.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| webhooksCleanup.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 
 ### Test
 
@@ -775,6 +783,9 @@ The chart values are organised per component.
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
+| test.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
+| test.nodeSelector | object | `{}` | Node labels for pod assignment |
+| test.tolerations | list | `[]` | List of node taints to tolerate |
 
 ### Api version override
 

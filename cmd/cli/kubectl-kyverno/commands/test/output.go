@@ -180,9 +180,6 @@ func printTestResult(
 	for _, test := range tests {
 		var resources []string
 		// The test specifies certain resources to check, results will be checked for those resources only
-		if test.Resource != "" {
-			test.Resources = append(test.Resources, test.Resource)
-		}
 		if test.Resources != nil {
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
@@ -248,7 +245,11 @@ func printTestResult(
 					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
 						r := response.Resource
 
-						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy {
+						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
+							if test.IsMutatingPolicy {
+								r = response.PatchedResource
+							}
+
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
 							if strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
@@ -305,7 +306,7 @@ func printTestResult(
 								ID:        testCount,
 								Policy:    color.Policy("", test.Policy),
 								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+								Resource:  color.Resource(test.Kind, "", strings.Replace(resource, ",", "/", -1)),
 								Result:    color.ResultPass(),
 								Reason:    color.Excluded(),
 								IsFailure: false,
@@ -341,7 +342,7 @@ func printTestResult(
 						ID:        testCount,
 						Policy:    color.Policy("", test.Policy),
 						Rule:      color.Rule(test.Rule),
-						Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+						Resource:  color.Resource(test.Kind, "", strings.Replace(resource, ",", "/", -1)),
 						IsFailure: true,
 						Result:    color.ResultFail(),
 						Reason:    color.NotFound(),
@@ -367,7 +368,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 			ID:        *globalTestCounter,
 			Policy:    color.Policy("", test.Policy),
 			Rule:      color.Rule(test.Rule),
-			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]),
+			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
 			Reason:    reason,
 			IsFailure: !success,
 		},
@@ -394,7 +395,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 				ID:        *globalTestCounter,
 				Policy:    color.Policy("", test.Policy),
 				Rule:      color.Rule(test.Rule),
-				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]), // todo: handle namespace
+				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]), // todo: handle namespace
 				Result:    color.ResultPass(),
 				Reason:    color.Excluded(),
 				IsFailure: false,

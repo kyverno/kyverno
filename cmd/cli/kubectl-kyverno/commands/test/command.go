@@ -191,13 +191,9 @@ func testCommandExecute(
 
 func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured) (bool, string, string) {
 	expected := test.Result
-	// fallback to the deprecated field
-	if expected == "" {
-		expected = test.Status
-	}
-	// fallback on deprecated field
-	if test.PatchedResource != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.PatchedResource))
+	expectedPatchResources := test.PatchedResources
+	if expectedPatchResources != "" {
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, expectedPatchResources))
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -228,7 +224,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
-	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy || test.IsGeneratingPolicy {
+	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy || test.IsGeneratingPolicy || test.IsMutatingPolicy {
 		matches = responses
 	} else {
 		for _, response := range responses {
