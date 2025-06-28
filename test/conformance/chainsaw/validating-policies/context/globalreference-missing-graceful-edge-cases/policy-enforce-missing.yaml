@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-enforce-missing-ref
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: missingData
+      expression: >-
+        globalContext.Get("enforce-missing-entry", "data")
+  validations:
+    - expression: >-
+        variables.missingData == null || string(variables.missingData) != "forbidden"
+      message: "Pod allowed since global context entry is missing (graceful handling)" 
