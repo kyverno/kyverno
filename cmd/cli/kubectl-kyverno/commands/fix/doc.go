@@ -1,6 +1,7 @@
 package fix
 
-var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#fix`
+// TODO
+var websiteUrl = ``
 
 var description = []string{
 	`Fix inconsistencies and deprecated usage of Kyverno resources.`,
