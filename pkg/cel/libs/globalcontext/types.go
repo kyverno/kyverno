@@ -7,7 +7,7 @@ import (
 var ContextType = types.NewOpaqueType("globalcontext.Context")
 
 type ContextInterface interface {
-	GetGlobalReference(string, string) (any, error)
+	GetGlobalReference(string, string, string) (any, error)
 }
 
 type Context struct {

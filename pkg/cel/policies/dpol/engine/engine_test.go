@@ -19,8 +19,10 @@ import (
 // mock Context
 type fakeContext struct{}
 
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
+func (f *fakeContext) GenerateResources(string, []map[string]any) error { return nil }
+func (f *fakeContext) GetGlobalReference(name, projection, jmesPath string) (any, error) {
+	return name, nil
+}
 func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
 	return map[string]any{"test": image}, nil
 }

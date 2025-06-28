@@ -5,11 +5,11 @@ import (
 )
 
 type ContextMock struct {
-	GetGlobalReferenceFunc func(string, string) (any, error)
+	GetGlobalReferenceFunc func(string, string, string) (any, error)
 }
 
-func (mock *ContextMock) GetGlobalReference(n, p string) (any, error) {
-	return mock.GetGlobalReferenceFunc(n, p)
+func (mock *ContextMock) GetGlobalReference(n, p, j string) (any, error) {
+	return mock.GetGlobalReferenceFunc(n, p, j)
 }
 
 type MockGctxStore struct {
@@ -33,7 +33,7 @@ type MockEntry struct {
 	Err  error
 }
 
-func (m *MockEntry) Get(_ string) (any, error) {
+func (m *MockEntry) Get(_, _ string) (any, error) {
 	return m.Data, m.Err
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
@@ -36,6 +37,7 @@ type Context interface {
 }
 
 type contextProvider struct {
+	logger             logr.Logger
 	client             dclient.Interface
 	imagedata          imagedataloader.Fetcher
 	gctxStore          gctxstore.Store
@@ -50,6 +52,7 @@ type contextProvider struct {
 }
 
 func NewContextProvider(
+	logger logr.Logger,
 	client dclient.Interface,
 	imageOpts []imagedataloader.Option,
 	gctxStore gctxstore.Store,
@@ -59,6 +62,7 @@ func NewContextProvider(
 		return nil, err
 	}
 	return &contextProvider{
+		logger:             logger,
 		client:             client,
 		imagedata:          idl,
 		gctxStore:          gctxStore,
@@ -66,18 +70,23 @@ func NewContextProvider(
 	}, nil
 }
 
-func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
+func (cp *contextProvider) GetGlobalReference(name, projection, jmesPath string) (any, error) {
 	ent, ok := cp.gctxStore.Get(name)
 	if !ok {
-		return nil, errors.New("global context entry not found")
-	}
-	data, err := ent.Get(projection)
-	if err != nil {
+		err := errors.New("global context entry not found")
+		cp.logger.Error(err, "GetGlobalReference", "name", name, "projection", projection, "jmesPath", jmesPath)
 		return nil, err
 	}
+	data, err := ent.Get(projection, jmesPath)
+	if err != nil {
+		cp.logger.Error(err, "GetGlobalReference", "name", name, "projection", projection, "jmesPath", jmesPath)
+		return nil, err
+	}
+	cp.logger.V(4).Info("GetGlobalReference", "name", name, "projection", projection, "jmesPath", jmesPath, "data", data)
 	if isLikelyKubernetesObject(data) {
 		out, err := kubeutils.ObjToUnstructured(data)
 		if err != nil {
+			cp.logger.Error(err, "GetGlobalReference", "name", name, "projection", projection, "jmesPath", jmesPath)
 			return nil, err
 		}
 		if out != nil {
