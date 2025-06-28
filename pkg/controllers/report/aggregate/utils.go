@@ -5,16 +5,17 @@ import (
 	"errors"
 	"time"
 
-	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
+
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 )
 
 type maps struct {
