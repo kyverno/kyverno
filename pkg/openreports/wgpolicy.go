@@ -29,6 +29,7 @@ func (a *WgpolicyClusterReportAdapter) SetResults(res []openreportsv1alpha1.Repo
 			Rule:             r.Rule,
 			Message:          r.Description,
 			Severity:         policyreportv1alpha2.PolicySeverity(r.Severity),
+			Result:           policyreportv1alpha2.PolicyResult(r.Result),
 			ResourceSelector: r.ResourceSelector,
 			Scored:           r.Scored,
 			Timestamp:        r.Timestamp,
