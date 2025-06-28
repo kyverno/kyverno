@@ -33,7 +33,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 )
 
 const (
@@ -51,7 +50,6 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
-	orClient      openreportsclient.OpenreportsV1alpha1Interface
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
