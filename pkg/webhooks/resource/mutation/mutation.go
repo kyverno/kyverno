@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
+
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -208,7 +209,7 @@ func (h *mutationHandler) createReports(
 	report := reportutils.BuildMutationReport(resource, request.AdmissionRequest, engineResponses...)
 	if len(report.GetResults()) > 0 {
 		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, h.kyvernoClient)
+			_, err := reportutils.CreateReport(ctx, report, h.kyvernoClient, nil)
 			return err
 		})
 		if err != nil {

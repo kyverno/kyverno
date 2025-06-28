@@ -10,16 +10,16 @@ import (
 	"strings"
 	"testing"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/stretchr/testify/assert"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
-		expectedPolicyReports []policyreportv1alpha2.PolicyReport
-		config                ApplyCommandConfig
-		stdinFile             string
+		expectedReports []openreportsv1alpha1.Report
+		config          ApplyCommandConfig
+		stdinFile       string
 	}
 	// copy disallow_latest_tag.yaml to local path
 	localFileName, err := copyFileToThisDir("../../../../../test/best_practices/disallow_latest_tag.yaml")
@@ -33,8 +33,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  2,
 					Fail:  0,
 					Skip:  0,
@@ -49,8 +49,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  2,
 					Fail:  0,
 					Skip:  0,
@@ -65,8 +65,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -81,8 +81,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/apply/resource"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -98,8 +98,8 @@ func Test_Apply(t *testing.T) {
 				PolicyReport:  true,
 				AuditWarn:     true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -117,8 +117,8 @@ func Test_Apply(t *testing.T) {
 				warnExitCode:  3,
 			},
 			stdinFile: "../../../../../test/best_practices/disallow_latest_tag.yaml",
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -135,8 +135,8 @@ func Test_Apply(t *testing.T) {
 				AuditWarn:     true,
 			},
 			stdinFile: "../../../../../test/resources/pod_with_latest_tag.yaml",
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -152,8 +152,8 @@ func Test_Apply(t *testing.T) {
 				Variables:     []string{"request.operation=UPDATE"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  2,
 					Fail:  0,
 					Skip:  0,
@@ -168,8 +168,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -184,8 +184,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -200,8 +200,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -216,8 +216,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -232,8 +232,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -248,8 +248,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -267,8 +267,8 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -286,8 +286,8 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -307,8 +307,8 @@ func Test_Apply(t *testing.T) {
 				ValuesFile:   "../../../../../test/cli/test-validating-admission-policy/with-bindings-3/values.yaml",
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  2,
 					Fail:  2,
 					Skip:  0,
@@ -326,8 +326,8 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -343,8 +343,8 @@ func Test_Apply(t *testing.T) {
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  2,
 					Fail:  1,
 					Skip:  0,
@@ -361,8 +361,8 @@ func Test_Apply(t *testing.T) {
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  2,
 					Fail:  1,
 					Skip:  0,
@@ -382,8 +382,8 @@ func Test_Apply(t *testing.T) {
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  3,
 					Fail:  0,
 					Skip:  0,
@@ -394,7 +394,7 @@ func Test_Apply(t *testing.T) {
 		},
 	}
 
-	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
+	compareSummary := func(expected openreportsv1alpha1.ReportSummary, actual openreportsv1alpha1.ReportSummary, desc string) {
 		assert.Equal(t, actual.Pass, expected.Pass, desc)
 		assert.Equal(t, actual.Fail, expected.Fail, desc)
 		assert.Equal(t, actual.Skip, expected.Skip, desc)
@@ -404,7 +404,7 @@ func Test_Apply(t *testing.T) {
 
 	}
 
-	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(policyreportv1alpha2.PolicyReportSummary, policyreportv1alpha2.PolicyReportSummary, string)) {
+	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(openreportsv1alpha1.ReportSummary, openreportsv1alpha1.ReportSummary, string)) {
 		if tc.stdinFile != "" {
 			oldStdin := os.Stdin
 			input, err := os.OpenFile(tc.stdinFile, os.O_RDONLY, 0)
@@ -423,12 +423,12 @@ func Test_Apply(t *testing.T) {
 
 		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
 		assert.Greater(t, len(clustered), 0, "policy reports should not be empty: %s", desc)
-		combined := []policyreportv1alpha2.ClusterPolicyReport{
+		combined := []openreportsv1alpha1.ClusterReport{
 			report.MergeClusterReports(clustered),
 		}
-		assert.Equal(t, len(combined), len(tc.expectedPolicyReports))
+		assert.Equal(t, len(combined), len(tc.expectedReports))
 		for i, resp := range combined {
-			compareSummary(tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
+			compareSummary(tc.expectedReports[i].Summary, resp.Summary, desc)
 		}
 	}
 
@@ -440,9 +440,9 @@ func Test_Apply(t *testing.T) {
 }
 
 type TestCase struct {
-	expectedPolicyReports []policyreportv1alpha2.PolicyReport
-	config                ApplyCommandConfig
-	stdinFile             string
+	expectedReports []openreportsv1alpha1.Report
+	config          ApplyCommandConfig
+	stdinFile       string
 }
 
 func Test_Apply_ValidatingPolicies(t *testing.T) {
@@ -453,8 +453,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -469,8 +469,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -485,8 +485,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/deployment1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -501,8 +501,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/deployment2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -517,8 +517,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -533,8 +533,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -549,8 +549,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -566,8 +566,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  0,
 					Skip:  1,
@@ -583,8 +583,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -600,8 +600,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -617,8 +617,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -634,8 +634,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -651,8 +651,8 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -679,8 +679,8 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml"},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -696,8 +696,8 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json"},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -713,8 +713,8 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 				Exception:     []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/exception.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  1,
@@ -740,8 +740,8 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -756,8 +756,8 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 				JSONPaths:    []string{"../../../../../test/cli/test-deleting-policy/deleting-json/payload.json"},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -775,7 +775,7 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	}
 }
 
-func compareSummary(t *testing.T, expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
+func compareSummary(t *testing.T, expected openreportsv1alpha1.ReportSummary, actual openreportsv1alpha1.ReportSummary, desc string) {
 	assert.Equal(t, actual.Pass, expected.Pass, desc)
 	assert.Equal(t, actual.Fail, expected.Fail, desc)
 	assert.Equal(t, actual.Skip, expected.Skip, desc)
@@ -783,7 +783,7 @@ func compareSummary(t *testing.T, expected policyreportv1alpha2.PolicyReportSumm
 	assert.Equal(t, actual.Error, expected.Error, desc)
 }
 
-func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, policyreportv1alpha2.PolicyReportSummary, policyreportv1alpha2.PolicyReportSummary, string)) {
+func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, openreportsv1alpha1.ReportSummary, openreportsv1alpha1.ReportSummary, string)) {
 	if tc.stdinFile != "" {
 		oldStdin := os.Stdin
 		input, err := os.OpenFile(tc.stdinFile, os.O_RDONLY, 0)
@@ -805,13 +805,13 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 
 	clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
 	assert.Greater(t, len(clustered), 0, "policy reports should not be empty: %s", desc)
-	combined := []policyreportv1alpha2.ClusterPolicyReport{
+	combined := []openreportsv1alpha1.ClusterReport{
 		report.MergeClusterReports(clustered),
 	}
 
-	assert.Equal(t, len(combined), len(tc.expectedPolicyReports), "Number of combined reports does not match expected: "+desc)
+	assert.Equal(t, len(combined), len(tc.expectedReports), "Number of combined reports does not match expected: "+desc)
 	for i, resp := range combined {
-		compareSummary(t, tc.expectedPolicyReports[i].Summary, resp.Summary, desc)
+		compareSummary(t, tc.expectedReports[i].Summary, resp.Summary, desc)
 	}
 }
 
@@ -921,8 +921,8 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/Check-replica/resource.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -938,8 +938,8 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 					"../../../../../test/cli/test-mutating-admission-policy/match-condition/resource2.yaml"},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  1,
@@ -955,8 +955,8 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 					"../../../../../test/cli/test-mutating-admission-policy/check-labels/resource2.yaml"},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  1,
@@ -972,8 +972,8 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 					"../../../../../test/cli/test-mutating-admission-policy/check-ns-add-label/resource2.yaml"},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  1,
@@ -990,8 +990,8 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 				PolicyReport:  true,
 				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/test-mutating-admission-policy-binding/values.yaml",
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,

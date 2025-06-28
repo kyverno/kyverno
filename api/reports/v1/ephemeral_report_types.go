@@ -17,8 +17,8 @@ limitations under the License.
 package v1
 
 import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 type EphemeralReportSpec struct {
@@ -27,11 +27,11 @@ type EphemeralReportSpec struct {
 
 	// PolicyReportSummary provides a summary of results
 	// +optional
-	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
+	Summary openreportsv1alpha1.ReportSummary `json:"summary,omitempty"`
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+	Results []openreportsv1alpha1.ReportResult `json:"results,omitempty"`
 }
 
 // +genclient
@@ -59,15 +59,15 @@ type EphemeralReport struct {
 	Spec              EphemeralReportSpec `json:"spec"`
 }
 
-func (r *EphemeralReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
+func (r *EphemeralReport) GetResults() []openreportsv1alpha1.ReportResult {
 	return r.Spec.Results
 }
 
-func (r *EphemeralReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
+func (r *EphemeralReport) SetResults(results []openreportsv1alpha1.ReportResult) {
 	r.Spec.Results = results
 }
 
-func (r *EphemeralReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
+func (r *EphemeralReport) SetSummary(summary openreportsv1alpha1.ReportSummary) {
 	r.Spec.Summary = summary
 }
 
@@ -97,15 +97,15 @@ type ClusterEphemeralReport struct {
 	Spec              EphemeralReportSpec `json:"spec"`
 }
 
-func (r *ClusterEphemeralReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
+func (r *ClusterEphemeralReport) GetResults() []openreportsv1alpha1.ReportResult {
 	return r.Spec.Results
 }
 
-func (r *ClusterEphemeralReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
+func (r *ClusterEphemeralReport) SetResults(results []openreportsv1alpha1.ReportResult) {
 	r.Spec.Results = results
 }
 
-func (r *ClusterEphemeralReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
+func (r *ClusterEphemeralReport) SetSummary(summary openreportsv1alpha1.ReportSummary) {
 	r.Spec.Summary = summary
 }
 

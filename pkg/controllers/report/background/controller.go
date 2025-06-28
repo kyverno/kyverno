@@ -9,7 +9,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
@@ -44,6 +43,7 @@ import (
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 const (
@@ -429,7 +429,7 @@ func (c *controller) reconcileReport(
 			actual[key] = value
 		}
 	}
-	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	var ruleResults []openreportsv1alpha1.ReportResult
 	if !full {
 		policyNameToLabel := map[string]string{}
 		for _, policy := range policies {
@@ -543,7 +543,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 		return nil
 	} else if !hasReport && wantsReport {
 		err = c.breaker.Do(ctx, func(context.Context) error {
-			_, err := reportutils.CreateReport(ctx, desired, c.kyvernoClient)
+			_, err := reportutils.CreateReport(ctx, desired, c.kyvernoClient, nil)
 			if err != nil {
 				return err
 			}
@@ -560,7 +560,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 		if utils.ReportsAreIdentical(observed, desired) {
 			return nil
 		}
-		_, err = reportutils.UpdateReport(ctx, desired, c.kyvernoClient)
+		_, err = reportutils.UpdateReport(ctx, desired, c.kyvernoClient, nil)
 		return err
 	}
 }

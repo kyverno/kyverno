@@ -24,6 +24,8 @@ type Configuration interface {
 	UsesEventsClient() bool
 	UsesReporting() bool
 	UsesRestConfig() bool
+	UsesOpenreports() bool
+	EnableOpenreports()
 	FlagSets() []*flag.FlagSet
 }
 
@@ -127,6 +129,12 @@ func WithMetadataClient() ConfigurationOption {
 	}
 }
 
+func WithOpenreports() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesOpenreports = true
+	}
+}
+
 func WithKyvernoDynamicClient() ConfigurationOption {
 	return func(c *configuration) {
 		// requires dynamic client
@@ -170,6 +178,7 @@ type configuration struct {
 	usesCosign               bool
 	usesRegistryClient       bool
 	usesImageVerifyCache     bool
+	usesOpenreports          bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
 	usesDynamicClient        bool
@@ -212,6 +221,14 @@ func (c *configuration) UsesDeferredLoading() bool {
 
 func (c *configuration) UsesCosign() bool {
 	return c.usesCosign
+}
+
+func (c *configuration) EnableOpenreports() {
+	c.usesOpenreports = true
+}
+
+func (c *configuration) UsesOpenreports() bool {
+	return c.usesOpenreports
 }
 
 func (c *configuration) UsesRegistryClient() bool {

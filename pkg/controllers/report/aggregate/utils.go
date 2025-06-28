@@ -5,14 +5,16 @@ import (
 	"errors"
 	"time"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
+	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 )
 
 type maps struct {
@@ -24,7 +26,7 @@ type maps struct {
 	mpol  sets.Set[string]
 }
 
-func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
+func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
 	for _, report := range reports {
 		if report == nil {
 			continue
@@ -91,18 +93,18 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 	}
 }
 
-func deleteReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface) error {
+func deleteReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) error {
 	if !controllerutils.IsManagedByKyverno(report) {
 		return errors.New("can't delete report because it is not managed by kyverno")
 	}
-	return reportutils.DeleteReport(ctx, report, client)
+	return reportutils.DeleteReport(ctx, report, client, orClient)
 }
 
-func updateReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface) (reportsv1.ReportInterface, error) {
+func updateReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) (reportsv1.ReportInterface, error) {
 	if !controllerutils.IsManagedByKyverno(report) {
 		return nil, errors.New("can't update report because it is not managed by kyverno")
 	}
-	return reportutils.UpdateReport(ctx, report, client)
+	return reportutils.UpdateReport(ctx, report, client, orClient)
 }
 
 func isTooOld(reportMeta *metav1.PartialObjectMetadata) bool {

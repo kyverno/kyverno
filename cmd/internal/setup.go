@@ -20,6 +20,7 @@ import (
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
@@ -40,6 +41,7 @@ type SetupResult struct {
 	MetricsManager         metrics.MetricsConfigManager
 	Jp                     jmespath.Interface
 	KubeClient             kubeclient.UpstreamInterface
+	OpenreportsClient      openreportsclient.OpenreportsV1alpha1Interface
 	LeaderElectionClient   kubeclient.UpstreamInterface
 	RegistryClient         registryclient.Client
 	ImageVerifyCacheClient imageverifycache.Client
@@ -118,12 +120,18 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesRestConfig() {
 		restConfig = createClientConfig(logger, clientRateLimitQPS, clientRateLimitBurst)
 	}
+	var orClient openreportsclient.OpenreportsV1alpha1Interface
+	// in case there's no uses openreports in the config, this will remain nil. which says that wgpolicy will be used
+	if config.UsesOpenreports() {
+		orClient = createOpenReportsClient(logger, clientRateLimitQPS, clientRateLimitBurst)
+	}
 	return ctx,
 		SetupResult{
 			Logger:                 logger,
 			Configuration:          configuration,
 			MetricsConfiguration:   metricsConfiguration,
 			MetricsManager:         metricsManager,
+			OpenreportsClient:      orClient,
 			Jp:                     jmespath.New(configuration),
 			KubeClient:             client,
 			LeaderElectionClient:   leaderElectionClient,

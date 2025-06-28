@@ -32,6 +32,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
+	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -55,6 +56,7 @@ func createReportControllers(
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -99,6 +101,7 @@ func createReportControllers(
 				aggregatereportcontroller.ControllerName,
 				aggregatereportcontroller.NewController(
 					kyvernoClient,
+					orClient,
 					client,
 					metadataFactory,
 					kyvernoV1.Policies(),
@@ -167,6 +170,7 @@ func createrLeaderControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	metadataInformer metadatainformers.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
+	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	dynamicClient dclient.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
@@ -185,6 +189,7 @@ func createrLeaderControllers(
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
+		orClient,
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
@@ -214,6 +219,7 @@ func main() {
 		skipResourceFilters              bool
 		maxAPICallResponseLength         int64
 		maxBackgroundReports             int
+		openreportsEnabled               bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
@@ -230,6 +236,7 @@ func main() {
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
 	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
+	flagset.BoolVar(&openreportsEnabled, "openreportsEnabled", false, "Use openreports.io/v1alpha1 for the reporting group")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -261,6 +268,9 @@ func main() {
 	var wg wait.Group
 	func() {
 		// setup
+		if openreportsEnabled {
+			appConfig.EnableOpenreports()
+		}
 		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
 		defer sdown()
 		// THIS IS AN UGLY FIX
@@ -368,6 +378,7 @@ func main() {
 					kyvernoInformer,
 					metadataInformer,
 					setup.KyvernoClient,
+					setup.OpenreportsClient,
 					setup.KyvernoDynamicClient,
 					setup.Configuration,
 					setup.Jp,

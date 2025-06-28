@@ -16,6 +16,7 @@ package v1alpha2
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 // +genclient
@@ -65,6 +66,40 @@ func (r *PolicyReport) SetResults(results []PolicyReportResult) {
 
 func (r *PolicyReport) SetSummary(summary PolicyReportSummary) {
 	r.Summary = summary
+}
+
+func (polr *PolicyReport) ToOpenReports() *openreportsv1alpha1.Report {
+	res := []openreportsv1alpha1.ReportResult{}
+	for _, r := range polr.GetResults() {
+		res = append(res, openreportsv1alpha1.ReportResult{
+			Source:           r.Source,
+			Policy:           r.Policy,
+			Rule:             r.Rule,
+			Category:         r.Category,
+			Timestamp:        r.Timestamp,
+			Severity:         openreportsv1alpha1.ResultSeverity(r.Severity),
+			Result:           openreportsv1alpha1.Result(r.Result),
+			Subjects:         r.Resources,
+			ResourceSelector: r.ResourceSelector,
+			Scored:           r.Scored,
+			Description:      r.Message,
+			Properties:       r.Properties,
+		})
+	}
+	return &openreportsv1alpha1.Report{
+		ObjectMeta:    polr.ObjectMeta,
+		Scope:         polr.Scope,
+		ScopeSelector: polr.ScopeSelector,
+		Source:        kyvernoSource,
+		Summary: openreportsv1alpha1.ReportSummary{
+			Pass:  polr.Summary.Pass,
+			Fail:  polr.Summary.Fail,
+			Warn:  polr.Summary.Warn,
+			Error: polr.Summary.Error,
+			Skip:  polr.Summary.Skip,
+		},
+		Results: res,
+	}
 }
 
 // +kubebuilder:object:root=true
