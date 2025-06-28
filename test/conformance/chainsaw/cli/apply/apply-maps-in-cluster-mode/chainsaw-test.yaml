@@ -7,8 +7,14 @@ spec:
   - name: step-01
     try:
     - script:
-        content: kyverno apply policy.yaml --cluster 2>&1 || true
+        content: kubectl apply -f resource.yaml
+  - name: step-02
+    try:
+    - script:
+        content: kyverno apply policy.yaml --cluster
         check:
-          # Check that the CLI successfully processes the MAP policy without throwing unsupported errors
-          # and shows the expected output format
-          (contains($stdout, 'Applying') && contains($stdout, 'policy rule(s)')): true 
+          (trim_space($stdout)): |-
+            Applying 1 policy rule(s) to 1 resource(s)...
+            
+            
+            pass: 1, fail: 0, warn: 0, error: 0, skip: 0 
