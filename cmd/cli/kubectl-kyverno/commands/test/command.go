@@ -113,6 +113,7 @@ func testCommandExecute(
 			fmt.Fprintln(out, "  Path:", e.Path)
 			fmt.Fprintln(out, "    Error:", e.Err)
 		}
+		return fmt.Errorf("found %d errors after loading tests", len(errs))
 	}
 	if len(tests) == 0 {
 		if requireTests {
