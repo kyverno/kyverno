@@ -23,7 +23,7 @@ func TestNewFakeContextProvider(t *testing.T) {
 
 func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
 	cp := &FakeContextProvider{}
-	assert.Panics(t, func() { cp.GetGlobalReference("foo", "bar") })
+	assert.Panics(t, func() { cp.GetGlobalReference("foo", "bar", "baz") })
 }
 
 func TestFakeContextProvider_GetImageData(t *testing.T) {
