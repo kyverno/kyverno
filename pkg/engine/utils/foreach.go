@@ -2,7 +2,9 @@ package utils
 
 import (
 	"fmt"
+	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
@@ -41,6 +43,38 @@ func InvertElements(elements []interface{}) []interface{} {
 		elementsCopy[i] = elements[len(elements)-i-1]
 	}
 	return elementsCopy
+}
+
+func ReversePatchedListIfAscending(foreach kyvernov1.ForEachMutation, patchedResource *unstructured.Unstructured) {
+	if foreach.Order == nil || *foreach.Order != kyvernov1.Ascending {
+		return
+	}
+	field := strings.TrimSuffix(strings.TrimPrefix(foreach.List, "request.object.spec."), "[]")
+
+	if field != "containers" && field != "initContainers" {
+		return
+	}
+	var fieldPath []string
+	switch field {
+	case "containers":
+		fieldPath = []string{"spec", "containers"}
+	case "initContainers":
+		fieldPath = []string{"spec", "initContainers"}
+	default:
+		return
+	}
+
+	containers, found, err := unstructured.NestedSlice(patchedResource.Object, fieldPath...)
+	if !found || err != nil || len(containers) <= 1 {
+		return
+	}
+
+	for i, j := 0, len(containers)-1; i < j; i, j = i+1, j-1 {
+		containers[i], containers[j] = containers[j], containers[i]
+	}
+	if err := unstructured.SetNestedSlice(patchedResource.Object, containers, fieldPath...); err != nil {
+		return
+	}
 }
 
 func AddElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
