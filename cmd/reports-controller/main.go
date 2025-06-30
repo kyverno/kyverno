@@ -82,10 +82,6 @@ func sanityChecks(logger logr.Logger, apiserverClient apiserver.Interface, polrC
 				Labels:      or.Labels,
 				Annotations: or.Annotations,
 			}
-			grCounter := 0
-			if grCounter < 4 {
-
-			}
 			if _, err := orClient.Reports(r.Namespace).Create(context.Background(), or, metav1.CreateOptions{}); err != nil {
 				logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
 			}
