@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -28,6 +31,9 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -36,13 +42,59 @@ import (
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
-func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsInstalled(apiserverClient,
-		"clusterpolicyreports.wgpolicyk8s.io",
-		"policyreports.wgpolicyk8s.io",
+func sanityChecks(logger logr.Logger, apiserverClient apiserver.Interface, polrClient wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) error {
+	crdNames := []string{
 		"ephemeralreports.reports.kyverno.io",
 		"clusterephemeralreports.reports.kyverno.io",
-	)
+	}
+	if orClient != nil {
+		crdNames = append(crdNames, "reports.openreports.io", "clusterreports.openreports.io")
+		err := kubeutils.CRDsInstalled(apiserverClient, crdNames...)
+		if err != nil {
+			return err
+		}
+
+		err = kubeutils.CRDsInstalled(apiserverClient, "clusterpolicyreports.wgpolicyk8s.io", "policyreports.wgpolicyk8s.io")
+		// there was no wgpolicy reports in the cluster, exit the function successfully
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		// error was nil, migrate wgpolicyreports to openreports
+		polrs, err := polrClient.PolicyReports(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+
+		cpolrs, err := polrClient.ClusterPolicyReports().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+
+		for _, r := range polrs.Items {
+			or := r.ToOpenReports()
+			_, err := orClient.Reports(r.Namespace).Create(context.Background(), or, metav1.CreateOptions{})
+			logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
+
+			err = polrClient.PolicyReports(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{})
+			logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+		}
+
+		for _, r := range cpolrs.Items {
+			or := r.ToOpenReports()
+			_, err := orClient.ClusterReports().Create(context.Background(), or, metav1.CreateOptions{})
+			logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
+
+			err = polrClient.ClusterPolicyReports().Delete(context.Background(), r.Name, metav1.DeleteOptions{})
+			logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+		}
+		return nil
+	}
+
+	crdNames = append(crdNames, "clusterpolicyreports.wgpolicyk8s.io", "policyreports.wgpolicyk8s.io")
+	return kubeutils.CRDsInstalled(apiserverClient)
 }
 
 func createReportControllers(
@@ -276,7 +328,7 @@ func main() {
 		// THIS IS AN UGLY FIX
 		// ELSE KYAML IS NOT THREAD SAFE
 		kyamlopenapi.Schema()
-		if err := sanityChecks(setup.ApiServerClient); err != nil {
+		if err := sanityChecks(setup.Logger.WithName("sanity-checks"), setup.ApiServerClient, setup.KyvernoClient.Wgpolicyk8sV1alpha2(), setup.OpenreportsClient); err != nil {
 			setup.Logger.Error(err, "sanity checks failed")
 			if reportsCRDsSanityChecks {
 				os.Exit(1)
