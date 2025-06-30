@@ -33,6 +33,8 @@ import (
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=polr
 
+const kyvernoSource = "kyverno"
+
 // PolicyReport is the Schema for the policyreports API
 type PolicyReport struct {
 	metav1.TypeMeta   `json:",inline"`
