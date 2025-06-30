@@ -164,6 +164,7 @@ func (s *scanner) ScanResource(
 			gctxStore := gctxstore.New()
 			// create context provider
 			context, err := libs.NewContextProvider(
+				logger.WithName("context-provider"),
 				s.client,
 				nil,
 				// TODO
@@ -224,7 +225,12 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			// create context provider
-			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New())
+			context, err := libs.NewContextProvider(
+				logger.WithName("context-provider"),
+				s.client,
+				nil,
+				gctxstore.New(),
+			)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
