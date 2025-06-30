@@ -98,7 +98,7 @@ func (h *handler) createReports(ctx context.Context, response mpolengine.EngineR
 	report := reportutils.BuildMutationReport(*response.Resource, request.Request, engineResponses...)
 	if len(report.GetResults()) > 0 {
 		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, h.kyvernoClient, nil)
+			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
 			return err
 		})
 		if err != nil {

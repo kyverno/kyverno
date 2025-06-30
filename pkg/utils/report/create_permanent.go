@@ -11,7 +11,7 @@ import (
 	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 )
 
-func CreateReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) (reportsv1.ReportInterface, error) {
+func CreatePermanentReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) (reportsv1.ReportInterface, error) {
 	switch v := report.(type) {
 	case *openreports.ReportAdapter:
 		report, err := orClient.Reports(report.GetNamespace()).Create(ctx, v.Report, metav1.CreateOptions{})
@@ -25,12 +25,6 @@ func CreateReport(ctx context.Context, report reportsv1.ReportInterface, client 
 	case *openreports.WgpolicyClusterReportAdapter:
 		report, err := client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(ctx, v.ClusterPolicyReport, metav1.CreateOptions{})
 		return openreports.NewWGCpolAdapter(report), err
-	case *reportsv1.EphemeralReport:
-		report, err := client.ReportsV1().EphemeralReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
-		return report, err
-	case *reportsv1.ClusterEphemeralReport:
-		report, err := client.ReportsV1().ClusterEphemeralReports().Create(ctx, v, metav1.CreateOptions{})
-		return report, err
 	default:
 		return nil, errors.New("unknow type")
 	}

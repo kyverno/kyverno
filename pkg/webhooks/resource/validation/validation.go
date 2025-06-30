@@ -259,7 +259,7 @@ func (v *validationHandler) createReports(
 	if len(report.GetResults()) > 0 {
 		err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
 			// no need to set up open reports enabled here. create report is for an admission report (ephemeral)
-			_, err := reportutils.CreateReport(ctx, report, v.kyvernoClient, nil)
+			_, err := reportutils.CreateEphemeralReport(ctx, report, v.kyvernoClient)
 			return err
 		})
 		if err != nil {

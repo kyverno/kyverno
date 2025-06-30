@@ -622,7 +622,7 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		}
 		reportutils.SetResults(report, results...)
 		if report.GetResourceVersion() == "" {
-			if _, err := reportutils.CreateReport(ctx, report, c.client, c.orClient); err != nil {
+			if _, err := reportutils.CreatePermanentReport(ctx, report, c.client, c.orClient); err != nil {
 				return err
 			}
 		} else {

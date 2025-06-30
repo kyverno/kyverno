@@ -543,7 +543,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 		return nil
 	} else if !hasReport && wantsReport {
 		err = c.breaker.Do(ctx, func(context.Context) error {
-			_, err := reportutils.CreateReport(ctx, desired, c.kyvernoClient, nil)
+			_, err := reportutils.CreateEphemeralReport(ctx, desired, c.kyvernoClient)
 			if err != nil {
 				return err
 			}

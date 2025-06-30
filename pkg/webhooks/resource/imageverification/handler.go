@@ -192,7 +192,7 @@ func (v *imageVerificationHandler) handleAudit(
 				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
 				if len(report.GetResults()) > 0 {
 					err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-						_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient, nil)
+						_, err := reportutils.CreateEphemeralReport(context.Background(), report, v.kyvernoClient)
 						return err
 					})
 					if err != nil {

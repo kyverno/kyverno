@@ -122,7 +122,7 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 	report := reportutils.BuildAdmissionReport(object, admissionRequest, responses...)
 	if len(report.GetResults()) > 0 {
 		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, h.kyvernoClient, nil)
+			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
 			return err
 		})
 		if err != nil {
