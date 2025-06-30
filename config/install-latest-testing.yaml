@@ -58642,10 +58642,10 @@ spec:
             - --v=2
           resources:
             limits:
-              cpu: 200m
+              cpu: 100m
               memory: 256Mi
             requests:
-              cpu: 100m
+              cpu: 10m
               memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
@@ -58719,7 +58719,7 @@ spec:
             limits:
               memory: 384Mi
             requests:
-              cpu: 200m
+              cpu: 100m
               memory: 128Mi
           securityContext:
             allowPrivilegeEscalation: false
@@ -58890,7 +58890,7 @@ spec:
             limits:
               memory: 128Mi
             requests:
-              cpu: 200m
+              cpu: 100m
               memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
@@ -59004,7 +59004,7 @@ spec:
             limits:
               memory: 128Mi
             requests:
-              cpu: 200m
+              cpu: 100m
               memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
@@ -59149,7 +59149,7 @@ spec:
             limits:
               memory: 128Mi
             requests:
-              cpu: 200m
+              cpu: 100m
               memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
