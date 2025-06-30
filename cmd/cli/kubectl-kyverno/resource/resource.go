@@ -50,6 +50,7 @@ func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error)
 	if err != nil {
 		return nil, err
 	}
+	normalizeEmptyFields(resource.Object)
 	if decodeErr == nil {
 		resource.SetGroupVersionKind(*metaData)
 	}
@@ -126,5 +127,24 @@ func GetFileBytes(path string) ([]byte, error) {
 			return nil, err
 		}
 		return file, nil
+	}
+}
+
+func normalizeEmptyFields(obj map[string]interface{}) {
+	for key, val := range obj {
+		switch v := val.(type) {
+		case nil:
+			obj[key] = map[string]interface{}{}
+		case map[string]interface{}:
+			normalizeEmptyFields(v)
+		case []interface{}:
+			for i, item := range v {
+				if item == nil {
+					v[i] = map[string]interface{}{}
+				} else if nestedObj, ok := item.(map[string]interface{}); ok {
+					normalizeEmptyFields(nestedObj)
+				}
+			}
+		}
 	}
 }
