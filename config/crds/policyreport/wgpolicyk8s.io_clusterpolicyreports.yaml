@@ -12,7 +12,7 @@ spec:
     listKind: ClusterPolicyReportList
     plural: clusterpolicyreports
     shortNames:
-    - cr
+    - cpolr
     singular: clusterpolicyreport
   scope: Cluster
   versions:
