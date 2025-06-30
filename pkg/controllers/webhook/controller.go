@@ -1338,7 +1338,7 @@ func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
 	}
 	mpols := make([]engineapi.GenericPolicy, 0)
 	for _, mpol := range policies {
-		if mpol.Spec.AdmissionEnabled() {
+		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated {
 			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
 		}
 	}

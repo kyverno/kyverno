@@ -7,10 +7,8 @@ permissions: {}
 on:
   pull_request:
     branches:
-      - "main"
-      - "release*"
-  schedule:
-    - cron: "43 0 * * 0"
+      - main
+      - release*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -335,6 +333,27 @@ jobs:
           kyverno-configs: standard,generate-validating-admission-policy
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
+          upgrade-scenario: ${{ matrix.upgrade }}
+  
+  generate-mutating-admission-policy:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.32.5, v1.33.1]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+          kyverno-configs: standard,generate-mutating-admission-policy
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: generate-mutating-admission-policy
           upgrade-scenario: ${{ matrix.upgrade }}
 
   globalcontext:
@@ -819,7 +838,7 @@ jobs:
           verify: true
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@e069d099ee4924f0c125e5e25e631ad706035e33
+        uses: sigstore/scaffolding/actions/setup@819d566d24a563bb99666dbda770871eb85710a1
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version }}
@@ -1204,6 +1223,7 @@ jobs:
       - force-failure-policy-ignore
       - generate
       - generate-validating-admission-policy
+      - generate-mutating-admission-policy
       - generating-policies
       - globalcontext
       - image-validating-policies
@@ -1249,6 +1269,7 @@ jobs:
       - force-failure-policy-ignore
       - generate
       - generate-validating-admission-policy
+      - generate-mutating-admission-policy
       - generating-policies
       - globalcontext
       - image-validating-policies

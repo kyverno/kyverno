@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -117,6 +118,21 @@ func NewProvider(
 			Policy:         policy,
 			CompiledPolicy: compiled,
 		})
+		generated, err := autogen.Autogen(&policy)
+		if err != nil {
+			return nil, err
+		}
+		for _, autogen := range generated {
+			policy.Spec = *autogen.Spec
+			compiled, errs := compiler.Compile(&policy, matchedExceptions)
+			if len(errs) > 0 {
+				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
+			}
+			out = append(out, Policy{
+				Policy:         policy,
+				CompiledPolicy: compiled,
+			})
+		}
 	}
 	return func(context.Context) ([]Policy, error) {
 		return out, nil

@@ -223,7 +223,6 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	case webhook.GeneratingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName())
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
-		backgroundOnly = (!policy.AsGeneratingPolicy().GetSpec().AdmissionEnabled() && policy.AsGeneratingPolicy().GetSpec().BackgroundEnabled())
 	}
 
 	if !backgroundOnly {

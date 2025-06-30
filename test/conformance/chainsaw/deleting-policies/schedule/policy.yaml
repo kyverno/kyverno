@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: DeletingPolicy
+metadata:
+  name: restart-test-delete-policy
+spec:
+  schedule: "*/1 * * * *"
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  conditions:
+    - name: is-nginx
+      expression: >
+        object.spec.containers.all(c, c.image.startsWith("nginx"))

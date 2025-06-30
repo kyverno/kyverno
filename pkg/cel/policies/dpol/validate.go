@@ -1,4 +1,4 @@
-package gpol
+package dpol
 
 import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
