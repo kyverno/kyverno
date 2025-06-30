@@ -39,14 +39,6 @@ func CheckTest(out io.Writer, path string, resource *v1alpha1.Test) bool {
 			}
 			return true
 		}
-		for _, result := range resource.Results {
-			if result.TestResultDeprecated.Status != "" || result.TestResultDeprecated.Namespace != "" || result.TestResultDeprecated.Resource != "" || result.TestResultDeprecated.PatchedResource != "" {
-				if out != nil {
-					fmt.Fprintf(out, "\nWARNING: test file (%s) uses a deprecated schema that will be removed in 1.15\n", path)
-				}
-				return true
-			}
-		}
 	}
 	return false
 }
