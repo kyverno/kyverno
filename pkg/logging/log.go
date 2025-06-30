@@ -58,13 +58,14 @@ func Setup(logFormat string, loggingTimestampFormat string, level int, disableCo
 	zerologr.SetMaxV(level)
 
 	var logger zerolog.Logger
+	output := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: disableColor}
+	output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
+
 	switch logFormat {
 	case TextFormat:
-		output := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: disableColor}
-		output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
 		logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 	case JSONFormat:
-		logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+		logger = zerolog.New(output).With().Timestamp().Logger()
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
