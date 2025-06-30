@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -19,6 +20,7 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -29,6 +31,7 @@ type handler struct {
 	reportsBreaker breaker.Breaker
 	kyvernoClient  versioned.Interface
 	reportsConfig  reportutils.ReportingConfiguration
+	urGenerator    webhookgenerate.Generator
 }
 
 func New(
@@ -37,6 +40,7 @@ func New(
 	reportsBreaker breaker.Breaker,
 	kyvernoClient versioned.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
+	urGenerator webhookgenerate.Generator,
 ) *handler {
 	return &handler{
 		context:        context,
@@ -44,6 +48,7 @@ func New(
 		reportsBreaker: reportsBreaker,
 		kyvernoClient:  kyvernoClient,
 		reportsConfig:  reportsConfig,
+		urGenerator:    urGenerator,
 	}
 }
 
@@ -69,6 +74,18 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 	go func() {
 		if err := h.createReports(context.TODO(), response, request); err != nil {
 			logger.Error(err, "failed to create reports")
+		}
+	}()
+
+	go func() {
+		mpols, resource := h.engine.MatchedMutateExistingPolicies(ctx, request)
+		for _, p := range mpols {
+			if err := h.urGenerator.Apply(ctx, kyvernov2.UpdateRequestSpec{
+				Policy:   p,
+				Resource: resource,
+			}); err != nil {
+				logger.Error(err, "failed to create update request for mutate existing policy", "policy", p, "resource", resource)
+			}
 		}
 	}()
 
