@@ -352,7 +352,7 @@ func (c *GenerateController) createReports(
 	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
 		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient, nil)
 			return err
 		})
 		if err != nil {

@@ -77,6 +77,7 @@ require (
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.33.2
 	k8s.io/apiextensions-apiserver v0.33.2
+	openreports.io v0.0.0-00010101000000-000000000000
 	k8s.io/apimachinery v0.33.2
 	k8s.io/apiserver v0.33.2
 	k8s.io/cli-runtime v0.33.2
@@ -393,4 +394,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
 
-replace k8s.io/pod-security-admission v0.33.1 => github.com/kyverno/pod-security-admission v0.0.0-20250314164903-c9a58987cebb
+replace (
+	k8s.io/pod-security-admission v0.33.1 => github.com/kyverno/pod-security-admission v0.0.0-20250314164903-c9a58987cebb
+    openreports.io => github.com/openreports/reports-api v0.0.0-20250321064407-5081e5b516e8
+)

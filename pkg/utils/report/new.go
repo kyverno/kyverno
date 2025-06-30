@@ -1,15 +1,17 @@
 package report
 
 import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, resource unstructured.Unstructured) reportsv1.ReportInterface {
@@ -72,17 +74,34 @@ func BuildGenerateReport(namespace string, gvk schema.GroupVersionKind, owner st
 	return report
 }
 
-func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, results ...policyreportv1alpha2.PolicyReportResult) reportsv1.ReportInterface {
+func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, useOpenreports bool, results ...openreportsv1alpha1.ReportResult) reportsv1.ReportInterface {
 	var report reportsv1.ReportInterface
-	if namespace == "" {
-		report = &policyreportv1alpha2.ClusterPolicyReport{
-			Scope: scope,
+	if useOpenreports {
+		if namespace == "" {
+			report = &openreports.ClusterReportAdapter{
+				ClusterReport: &openreportsv1alpha1.ClusterReport{
+					Scope: scope,
+				},
+			}
+		} else {
+			report = &openreports.ReportAdapter{
+				Report: &openreportsv1alpha1.Report{
+					Scope: scope,
+				},
+			}
 		}
 	} else {
-		report = &policyreportv1alpha2.PolicyReport{
-			Scope: scope,
+		if namespace == "" {
+			report = openreports.NewWGCpolAdapter(&v1alpha2.ClusterPolicyReport{
+				Scope: scope,
+			})
+		} else {
+			report = openreports.NewWGPolAdapter(&v1alpha2.PolicyReport{
+				Scope: scope,
+			})
 		}
 	}
+
 	report.SetName(name)
 	report.SetNamespace(namespace)
 	SetManagedByKyvernoLabel(report)

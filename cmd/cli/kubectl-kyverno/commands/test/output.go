@@ -9,11 +9,11 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -266,7 +266,7 @@ func printTestResult(
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
 
-								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+								success := ok || (!ok && test.Result == openreports.StatusFail)
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
@@ -284,7 +284,7 @@ func printTestResult(
 								continue
 							}
 
-							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+							success := ok || (!ok && test.Result == openreports.StatusFail)
 							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 						} else {
@@ -292,7 +292,7 @@ func printTestResult(
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
 
-								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+								success := ok || (!ok && test.Result == openreports.StatusFail)
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
@@ -330,7 +330,7 @@ func printTestResult(
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r)
 
-					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+					success := ok || (!ok && test.Result == openreports.StatusFail)
 					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
@@ -376,7 +376,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 	}
 	if success {
 		row.Result = color.ResultPass()
-		if test.Result == policyreportv1alpha2.StatusSkip {
+		if test.Result == openreports.StatusSkip {
 			rc.Skip++
 		} else {
 			rc.Pass++
