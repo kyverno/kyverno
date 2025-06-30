@@ -1,4 +1,5 @@
 {{- if not .Values.templating.debug -}}
+{{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -92,6 +93,7 @@ spec:
         {{- end }}
       {{- end }}
       serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      automountServiceAccountToken: {{ $automountSAToken }}
       initContainers:
         {{- with .Values.admissionController.extraInitContainers }}
         {{- toYaml . | nindent 8 }}
@@ -140,6 +142,12 @@ spec:
           {{- with (concat .Values.global.extraEnvVars .Values.admissionController.initContainer.extraEnvVars) }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+          {{- if not $automountSAToken }}
+          volumeMounts:
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          {{- end }}
       containers:
         {{- with .Values.admissionController.extraContainers }}
         {{- toYaml . | nindent 8 }}
@@ -187,14 +195,15 @@ spec:
               {{- join "," $secretNames -}}
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride)
-              "reporting"
               "admissionReports"
               "autoUpdateWebhooks"
               "configMapCaching"
+              "controllerRuntimeMetrics"
               "deferredLoading"
               "dumpPayload"
               "forceFailurePolicyIgnore"
               "generateValidatingAdmissionPolicy"
+              "generateMutatingAdmissionPolicy"
               "dumpPatches"
               "globalContext"
               "logging"
@@ -202,6 +211,7 @@ spec:
               "policyExceptions"
               "protectManagedResources"
               "registryClient"
+              "reporting"
               "tuf"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.container.extraArgs }}
@@ -281,6 +291,11 @@ spec:
               subPath: ca-certificates.crt
               {{- end }}
             {{- end }}
+            {{- if not $automountSAToken }}
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+            {{- end }}
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.admissionController.sigstoreVolume entry is required" .Values.admissionController.sigstoreVolume) | nindent 8 }}
@@ -296,5 +311,25 @@ spec:
       - name: ca-certificates
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- end }}
+      {{- if not $automountSAToken }}
+      - name: serviceaccount-token
+        projected:
+          defaultMode: 0444
+          sources:
+            - serviceAccountToken:
+                expirationSeconds: 3607
+                path: token
+            - configMap:
+                name: kube-root-ca.crt
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+            - downwardAPI:
+                items:
+                  - path: namespace
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.namespace
       {{- end }}
 {{- end -}}

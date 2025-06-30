@@ -96,13 +96,15 @@ crds:
       policies: true
       policyexceptions: true
       updaterequests: true
-      validatingpolicies: true
 
     # -- Install CRDs in group `policies.kyverno.io`
     policies:
       validatingpolicies: true
       policyexceptions: true
       imagevalidatingpolicies: true
+      mutatingpolicies: true
+      generatingpolicies: true
+      deletingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -200,6 +202,10 @@ crds:
       requests:
         cpu: 10m
         memory: 64Mi
+
+    serviceAccount:
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
 
 # Configuration
 config:
@@ -363,10 +369,10 @@ config:
         values:
           - kube-system
     # Exclude objects
-    # - objectSelector:
-    #     matchExpressions:
-    #     - key: webhooks.kyverno.io/exclude
-    #       operator: DoesNotExist
+    # objectSelector:
+    #   matchExpressions:
+    #   - key: webhooks.kyverno.io/exclude
+    #     operator: DoesNotExist
 
   # -- Defines annotations to set on webhook configurations.
   webhookAnnotations:
@@ -506,6 +512,15 @@ test:
     seccompProfile:
       type: RuntimeDefault
 
+  # -- Toggle automounting of the ServiceAccount
+  automountServiceAccountToken: true
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
 # -- Additional labels
 customLabels: {}
 
@@ -579,6 +594,10 @@ webhooksCleanup:
     requests:
       cpu: 10m
       memory: 64Mi
+
+  serviceAccount:
+    # -- Toggle automounting of the ServiceAccount
+    automountServiceAccountToken: true
 
 policyReportsCleanup:
   # -- Create a helm post-upgrade hook to cleanup the old policy reports.
@@ -715,6 +734,9 @@ features:
   configMapCaching:
     # -- Enables the feature
     enabled: true
+  controllerRuntimeMetrics:
+    # -- Bind address for controller-runtime metrics (use "0" to disable it)
+    bindAddress: ":8080"
   deferredLoading:
     # -- Enables the feature
     enabled: true
@@ -725,6 +747,9 @@ features:
     # -- Enables the feature
     enabled: false
   generateValidatingAdmissionPolicy:
+    # -- Enables the feature
+    enabled: false
+  generateMutatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
   dumpPatches:
@@ -818,6 +843,9 @@ admissionController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -1147,6 +1175,9 @@ admissionController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   metricsService:
     # -- Create service.
@@ -1161,6 +1192,9 @@ admissionController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   networkPolicy:
     # -- When true, use a NetworkPolicy to allow ingress to the webhook
@@ -1248,6 +1282,9 @@ backgroundController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -1472,6 +1509,9 @@ backgroundController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   networkPolicy:
 
@@ -1560,6 +1600,9 @@ cleanupController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1786,6 +1829,9 @@ cleanupController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   metricsService:
     # -- Create service.
@@ -1800,6 +1846,9 @@ cleanupController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   networkPolicy:
 
@@ -1889,6 +1938,9 @@ reportsController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+      # -- Toggle automounting of the ServiceAccount
+      automountServiceAccountToken: true
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -2102,6 +2154,9 @@ reportsController:
     nodePort: ~
     # -- Service annotations.
     annotations: {}
+    # -- (string) Service traffic distribution policy.
+    # Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs.
+    trafficDistribution: ~
 
   networkPolicy:
 
