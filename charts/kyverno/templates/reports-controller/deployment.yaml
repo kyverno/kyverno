@@ -1,5 +1,6 @@
 {{- if .Values.reportsController.enabled -}}
 {{- if not .Values.templating.debug -}}
+{{- $automountSAToken := .Values.reportsController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -83,6 +84,7 @@ spec:
         {{- end }}
       {{- end }}
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+      automountServiceAccountToken: {{ $automountSAToken }}
       containers:
         - name: controller
           image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
@@ -192,6 +194,11 @@ spec:
               subPath: ca-certificates.crt
               {{- end }}
             {{- end }}
+            {{- if not $automountSAToken }}
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+            {{- end }}
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.reportsController.sigstoreVolume entry is required" .Values.reportsController.sigstoreVolume) | nindent 8 }}
@@ -207,6 +214,26 @@ spec:
       - name: ca-certificates
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- end }}
+      {{- if not $automountSAToken }}
+      - name: serviceaccount-token
+        projected:
+          defaultMode: 0444
+          sources:
+            - serviceAccountToken:
+                expirationSeconds: 3607
+                path: token
+            - configMap:
+                name: kube-root-ca.crt
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+            - downwardAPI:
+                items:
+                  - path: namespace
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.namespace
       {{- end }}
 {{- end -}}
 {{- end -}}

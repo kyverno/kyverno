@@ -10,6 +10,7 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
+	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -64,12 +65,14 @@ func createrLeaderControllers(
 	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, error) {
+	watchManager := gpol.NewWatchManager(logging.WithName("WatchManager"), dynamicClient)
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
 		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -79,6 +82,7 @@ func createrLeaderControllers(
 		metricsConfig,
 		jp,
 		urGenerator,
+		watchManager,
 	)
 	if err != nil {
 		return nil, err
@@ -94,6 +98,7 @@ func createrLeaderControllers(
 		context,
 		gpolEngine,
 		gpolProvider,
+		watchManager,
 		eventGenerator,
 		configuration,
 		jp,
@@ -263,6 +268,8 @@ func main() {
 				gpolProvider := gpolengine.NewFetchProvider(
 					compiler,
 					kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister(),
+					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
 				gpolEngine := gpolengine.NewEngine(

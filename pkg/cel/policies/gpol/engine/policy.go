@@ -7,5 +7,6 @@ import (
 
 type Policy struct {
 	Policy         policiesv1alpha1.GeneratingPolicy
+	Exceptions     []*policiesv1alpha1.PolicyException
 	CompiledPolicy *compiler.Policy
 }

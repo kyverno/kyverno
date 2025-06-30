@@ -1,0 +1,21 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isMutatingPolicy: true
+  kind: Deployment
+  policy: test-mpol-jsonpatch
+  resources:
+  - dev/dev-deploy-2
+  result: pass
+- isMutatingPolicy: true
+  kind: Deployment
+  policy: test-mpol-jsonpatch
+  resources:
+  - default/dev-deploy-1
+  result: skip

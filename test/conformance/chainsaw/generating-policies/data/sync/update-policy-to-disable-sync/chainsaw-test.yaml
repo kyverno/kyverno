@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: update-policy-to-disable-sync
+spec:
+  steps:
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: check that the downstream is generated
+    try:
+    - assert:
+        file: configmap-assert.yaml
+  - name: delete the downstream
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ConfigMap
+          name: update-policy-to-disable-sync
+          namespace: update-policy-to-disable-sync
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the downstream is re-generated
+    try:
+    - assert:
+        file: configmap-assert.yaml
+  - name: update policy to disable sync
+    try:
+    - apply:
+        file: policy-modified.yaml
+  - name: delete the downstream
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ConfigMap
+          name: update-policy-to-disable-sync
+          namespace: update-policy-to-disable-sync
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the downstream is not re-generated
+    try:
+    - error:
+        file: configmap-error.yaml

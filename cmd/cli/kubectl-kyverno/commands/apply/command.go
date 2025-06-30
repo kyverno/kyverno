@@ -227,7 +227,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, err := c.loadPolicies()
+	kpols, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -249,6 +249,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	for _, pol := range dps {
 		genericPolicies = append(genericPolicies, engineapi.NewDeletingPolicy(&pol))
+	}
+	for _, pol := range mps {
+		genericPolicies = append(genericPolicies, engineapi.NewMutatingPolicy(&pol))
 	}
 	var targetResources []*unstructured.Unstructured
 	if len(c.TargetResourcePaths) > 0 {
@@ -291,6 +294,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(maps)
 		policyRulesCount += len(gps)
 		policyRulesCount += len(dps)
+		policyRulesCount += len(mps)
 		exceptionsCount := len(exceptions)
 		exceptionsCount += len(celexceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
@@ -309,6 +313,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		vapBindings,
 		vps,
 		gps,
+		mps,
 		maps,
 		mapBindings,
 		resources,
@@ -363,6 +368,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	vpols []policiesv1alpha1.ValidatingPolicy,
 	gpols []policiesv1alpha1.GeneratingPolicy,
+	mpols []policiesv1alpha1.MutatingPolicy,
 	maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
@@ -405,6 +411,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
 			GeneratingPolicies:                gpols,
+			MutatingPolicies:                  mpols,
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			Resource:                          *resource,
@@ -443,6 +450,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
+			MutatingPolicies:                  mpols,
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			JsonPayload:                       *resource,
@@ -716,6 +724,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1alpha1.ImageValidatingPolicy,
 	[]policiesv1alpha1.GeneratingPolicy,
 	[]policiesv1alpha1.DeletingPolicy,
+	[]policiesv1alpha1.MutatingPolicy,
 	error,
 ) {
 	// load policies
@@ -728,17 +737,18 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var ivps []policiesv1alpha1.ImageValidatingPolicy
 	var gps []policiesv1alpha1.GeneratingPolicy
 	var dps []policiesv1alpha1.DeletingPolicy
+	var mps []policiesv1alpha1.MutatingPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -751,11 +761,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -775,6 +785,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
+				mps = append(mps, loaderResults.MutatingPolicies...)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -795,6 +806,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
+				mps = append(mps, loaderResults.MutatingPolicies...)
 			}
 		}
 		for _, policy := range policies {
@@ -803,7 +815,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		}
 	}
-	return policies, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, nil
+	return policies, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {

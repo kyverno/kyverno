@@ -165,7 +165,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 			var gvk schema.GroupVersionKind
 			gvk, err = c.client.Discovery().GetGVKFromGVR(schema.GroupVersionResource(admissionRequest.Resource))
 			if err != nil {
-				logger.WithName(rule.Name).Error(err, "failed to get GVK from GVR", "GVR", admissionRequest.Resource)
+				logger.WithName(rule.Name).Error(err, "failed to get GVK from GVR", "GVR", admissionRequest.Resource.String())
 				errs = append(errs, err)
 				continue
 			}
@@ -208,7 +208,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 					parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
 					parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
 					if err != nil {
-						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
+						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR.String())
 						errs = append(errs, err)
 						continue
 					}

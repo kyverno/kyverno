@@ -6,6 +6,7 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -72,6 +73,22 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		Policy:         policy,
 		CompiledPolicy: compiled,
 	}}
+
+	generated, err := autogen.Autogen(&policy)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	for _, autogen := range generated {
+		policy.Spec = *autogen.Spec
+		compiled, errs := r.compiler.Compile(&policy, exceptions)
+		if len(errs) > 0 {
+			return ctrl.Result{}, errs[0]
+		}
+		policies = append(policies, Policy{
+			Policy:         policy,
+			CompiledPolicy: compiled,
+		})
+	}
 
 	r.lock.Lock()
 	r.policies[req.NamespacedName.String()] = policies

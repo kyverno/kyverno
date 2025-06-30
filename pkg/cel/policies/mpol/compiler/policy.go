@@ -24,7 +24,7 @@ func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
 	namespace *corev1.Namespace,
-	tcm patch.TypeConverterManager,
+	tcm TypeConverterManager,
 ) *EvaluationResult {
 	if p.evaluator.CompositionEnv != nil {
 		ctx = p.evaluator.CompositionEnv.CreateContext(ctx)
@@ -61,7 +61,6 @@ func (p *Policy) Evaluate(
 			return &EvaluationResult{Error: err}
 		}
 
-		// Always treat the object as unstructured
 		versionedAttributes.Dirty = true
 		versionedAttributes.VersionedObject = newVersionedObject
 	}
