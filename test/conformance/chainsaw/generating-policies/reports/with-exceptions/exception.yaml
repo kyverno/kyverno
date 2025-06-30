@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: reports-with-exceptions
+spec:
+  policyRefs:
+  - name: reports-with-exceptions
+    kind: GeneratingPolicy
+  matchConditions:
+    - name: "check-namespace-name"
+      expression: "object.metadata.name == 'testing'"
+  

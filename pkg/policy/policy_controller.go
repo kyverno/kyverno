@@ -33,6 +33,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
@@ -102,6 +104,9 @@ type policyController struct {
 	urGenerator generator.UpdateRequestGenerator
 
 	watchManager *gpol.WatchManager
+
+	// mapper
+	restMapper meta.RESTMapper
 }
 
 // NewPolicyController create a new PolicyController
@@ -155,6 +160,8 @@ func NewPolicyController(
 		urGenerator:     urGenerator,
 		watchManager:    watchManager,
 	}
+	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
+	pc.restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 
 	pc.pLister = pInformer.Lister()
 	pc.npLister = npInformer.Lister()
@@ -203,6 +210,14 @@ func (pc *policyController) addPolicy(obj interface{}) {
 		if !pc.canBackgroundProcess(kpol) {
 			return
 		}
+	} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		if gpol.Spec.GenerateExistingEnabled() {
+			logger.V(2).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
+			err := pc.handleGenerateExisting(gpol)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", gpol.GetName(), err))
+			}
+		}
 	}
 
 	logger.V(4).Info("queuing policy for background processing", "name", policy.GetName())
@@ -241,6 +256,19 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		if datautils.DeepEqual(oldgpol.Spec, newgpol.Spec) {
 			return
 		}
+		// If the policy is updated to disable synchronization, we need to remove the watchers.
+		if oldgpol.Spec.SynchronizationEnabled() && !newgpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("removing watchers for generating policy", "name", oldgpol.GetName())
+			pc.watchManager.RemoveWatchersForPolicy(oldgpol.GetName(), false)
+		}
+		// create UR to update/generate downstream resources
+		if newgpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("creating UR for generating policy", "name", newgpol.GetName())
+			err := pc.createURForGeneratingPolicy(newgpol)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", newgpol.GetName(), err))
+			}
+		}
 	}
 
 	logger.V(2).Info("updating policy", "name", oldPolicy.GetName())
@@ -268,7 +296,11 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 		p = engineapi.NewKyvernoPolicy(pol)
 	case *policiesv1alpha1.GeneratingPolicy:
 		gpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.GeneratingPolicy)
-		pc.watchManager.RemoveWatchersForPolicy(gpol.GetName())
+		if gpol.Spec.OrphanDownstreamOnPolicyDeleteEnabled() {
+			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), false)
+		} else {
+			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
+		}
 		p = engineapi.NewGeneratingPolicy(gpol)
 	default:
 		logger.Info("Failed to get deleted object", "obj", obj)

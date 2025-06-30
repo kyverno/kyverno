@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sync-modify-policy-and-downstream-kind
+  namespace: sync-modify-policy-and-downstream-kind
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

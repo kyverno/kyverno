@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	dpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/dpol"
 	gpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/gpol"
+	mpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/mpol"
 	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
@@ -41,7 +42,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		warnings, err := vpolvalidation.Validate(vpol)
 		if err != nil {
-			logger.Error(err, "validating policy validation errors")
+			logger.Error(err, "ValidatingPolicy validation errors")
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
@@ -49,7 +50,15 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
 		warnings, err := eval.Validate(ivpol, h.client.GetKubeClient().CoreV1().Secrets(""))
 		if err != nil {
-			logger.Error(err, "validating policy validation errors")
+			logger.Error(err, "ImageValidatingPolicy validation errors")
+		}
+		return admissionutils.Response(request.UID, err, warnings...)
+	}
+
+	if mpol := policy.AsMutatingPolicy(); mpol != nil {
+		warnings, err := mpolvalidation.Validate(mpol)
+		if err != nil {
+			logger.Error(err, "MutatingPolicy validation errors")
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
@@ -57,7 +66,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
 		warnings, err := gpolvalidation.Validate(gpol)
 		if err != nil {
-			logger.Error(err, "generating policy validation errors")
+			logger.Error(err, "GeneratingPolicy validation errors")
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
@@ -65,7 +74,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	if dpol := policy.AsDeletingPolicy(); dpol != nil {
 		warnings, err := dpolvalidation.Validate(dpol)
 		if err != nil {
-			logger.Error(err, "deleting policy validation errors")
+			logger.Error(err, "DeletingPolicy validation errors")
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}

@@ -2,8 +2,6 @@ package fix
 
 import (
 	"cmp"
-	"errors"
-	"fmt"
 	"slices"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -33,34 +31,10 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 	}
 	results := make([]v1alpha1.TestResult, 0, len(test.Results))
 	for _, result := range test.Results {
-		if result.Resource != "" && len(result.Resources) != 0 {
-			messages = append(messages, "test result should not use both `resource` and `resources` fields")
-		}
-		if result.Resource != "" {
-			var resources []string
-			messages = append(messages, "test result uses deprecated `resource` field, moving it into the `resources` field")
-			resources = append(resources, result.Resources...)
-			resources = append(resources, result.Resource)
-			result.Resources = resources
-			result.Resource = ""
-		}
 		unique := sets.New(result.Resources...)
 		if len(result.Resources) != len(unique) {
 			messages = append(messages, "test results contains duplicate resources")
 			result.Resources = unique.UnsortedList()
-		}
-		if result.Namespace != "" {
-			messages = append(messages, "test result uses deprecated `namespace` field, replacing `policy` with a `<namespace>/<name>` pattern")
-			result.Policy = fmt.Sprintf("%s/%s", result.Namespace, result.Policy)
-			result.Namespace = ""
-		}
-		if result.Status != "" && result.Result != "" {
-			return test, messages, errors.New("test result should not use both `status` and `result` fields")
-		}
-		if result.Status != "" && result.Result == "" {
-			messages = append(messages, "test result uses deprecated `status` field, moving it into the `result` field")
-			result.Result = result.Status
-			result.Status = ""
 		}
 		results = append(results, result)
 	}
@@ -96,9 +70,6 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			return x
 		}
 		if x := cmp.Compare(a.Kind, b.Kind); x != 0 {
-			return x
-		}
-		if x := cmp.Compare(a.PatchedResource, b.PatchedResource); x != 0 {
 			return x
 		}
 		if x := cmp.Compare(a.GeneratedResource, b.GeneratedResource); x != 0 {
