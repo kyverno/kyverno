@@ -1,0 +1,31 @@
+apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- exception.yaml
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- generatedResource: generated-resource1.yaml
+  isGeneratingPolicy: true
+  kind: Namespace
+  policy: generate-cm
+  resources:
+  - production
+  result: pass
+- generatedResource: generated-resource2.yaml
+  isGeneratingPolicy: true
+  kind: Namespace
+  policy: generate-cm
+  resources:
+  - staging
+  result: pass
+- isGeneratingPolicy: true
+  kind: Namespace
+  policy: generate-cm
+  resources:
+  - testing
+  result: skip

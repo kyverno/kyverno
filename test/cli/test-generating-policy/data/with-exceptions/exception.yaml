@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: exclude-namespace-by-name
+spec:
+  policyRefs:
+  - name: "generate-cm"
+    kind: GeneratingPolicy
+  matchConditions:
+    - name: "check-namespace-name"
+      expression: "object.metadata.name == 'testing'"
+  
