@@ -260,14 +260,17 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 			}
 
 			for _, uid := range uidsToDelete {
+				res := watcher.metadataCache[uid]
+				// delete the downstream if the policy is deleted and it is the only source that generated it.
 				if deleteDownstream {
-					res := watcher.metadataCache[uid]
-					logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-					err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
-					if err != nil {
-						logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
-					} else {
-						logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
+					if _, exists := res.Labels[common.GenerateSourceUIDLabel]; !exists {
+						logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
+						err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+						if err != nil {
+							logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
+						} else {
+							logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
+						}
 					}
 				}
 				// remove the resource from the metadata cache

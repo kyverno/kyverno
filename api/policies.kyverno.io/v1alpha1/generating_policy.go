@@ -120,6 +120,20 @@ type GeneratingPolicySpec struct {
 	Generation []Generation `json:"generate"`
 }
 
+func (s GeneratingPolicySpec) OrphanDownstreamOnPolicyDeleteEnabled() bool {
+	const defaultValue = false
+	if s.EvaluationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled
+}
+
 func (s GeneratingPolicySpec) GenerateExistingEnabled() bool {
 	const defaultValue = false
 	if s.EvaluationConfiguration == nil {
