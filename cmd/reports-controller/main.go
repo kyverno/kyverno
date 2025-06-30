@@ -75,20 +75,41 @@ func sanityChecks(logger logr.Logger, apiserverClient apiserver.Interface, polrC
 
 		for _, r := range polrs.Items {
 			or := r.ToOpenReports()
-			_, err := orClient.Reports(r.Namespace).Create(context.Background(), or, metav1.CreateOptions{})
-			logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
+			// reset resource version, self link and other fields that shouldn't exist on creation
+			or.ObjectMeta = metav1.ObjectMeta{
+				Name:        or.Name,
+				Namespace:   or.Namespace,
+				Labels:      or.Labels,
+				Annotations: or.Annotations,
+			}
+			grCounter := 0
+			if grCounter < 4 {
 
-			err = polrClient.PolicyReports(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{})
-			logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+			}
+			if _, err := orClient.Reports(r.Namespace).Create(context.Background(), or, metav1.CreateOptions{}); err != nil {
+				logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
+			}
+
+			if err = polrClient.PolicyReports(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{}); err != nil {
+				logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+			}
 		}
 
 		for _, r := range cpolrs.Items {
 			or := r.ToOpenReports()
-			_, err := orClient.ClusterReports().Create(context.Background(), or, metav1.CreateOptions{})
-			logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
+			or.ObjectMeta = metav1.ObjectMeta{
+				Name:        or.Name,
+				Namespace:   or.Namespace,
+				Labels:      or.Labels,
+				Annotations: or.Annotations,
+			}
+			if _, err := orClient.ClusterReports().Create(context.Background(), or, metav1.CreateOptions{}); err != nil {
+				logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
+			}
 
-			err = polrClient.ClusterPolicyReports().Delete(context.Background(), r.Name, metav1.DeleteOptions{})
-			logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+			if err = polrClient.ClusterPolicyReports().Delete(context.Background(), r.Name, metav1.DeleteOptions{}); err != nil {
+				logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+			}
 		}
 		return nil
 	}
