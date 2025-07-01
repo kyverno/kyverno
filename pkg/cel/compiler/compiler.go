@@ -203,8 +203,8 @@ func compileGeneration(path *field.Path, env *cel.Env, generation policiesv1alph
 		if err := issues.Err(); err != nil {
 			return nil, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
 		}
-		if !ast.OutputType().IsExactType(types.NullType) {
-			msg := fmt.Sprintf("output is expected to be of type %s", types.NullType.TypeName())
+		if !ast.OutputType().IsExactType(types.BoolType) {
+			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, generation.Expression, msg))
 		}
 		prog, err := env.Program(ast)
