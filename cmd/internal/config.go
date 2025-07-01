@@ -2,6 +2,7 @@ package internal
 
 import (
 	"flag"
+	"fmt"
 )
 
 type Configuration interface {
@@ -25,7 +26,8 @@ type Configuration interface {
 	UsesReporting() bool
 	UsesRestConfig() bool
 	UsesOpenreports() bool
-	EnableOpenreports()
+	GetFlagValue(string) (string, error)
+	AddFlagSet(*flag.FlagSet)
 	FlagSets() []*flag.FlagSet
 }
 
@@ -129,12 +131,6 @@ func WithMetadataClient() ConfigurationOption {
 	}
 }
 
-func WithOpenreports() ConfigurationOption {
-	return func(c *configuration) {
-		c.usesOpenreports = true
-	}
-}
-
 func WithKyvernoDynamicClient() ConfigurationOption {
 	return func(c *configuration) {
 		// requires dynamic client
@@ -146,6 +142,12 @@ func WithKyvernoDynamicClient() ConfigurationOption {
 func WithEventsClient() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesEventsClient = true
+	}
+}
+
+func WithOpenreports() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesOpenreports = true
 	}
 }
 
@@ -178,7 +180,6 @@ type configuration struct {
 	usesCosign               bool
 	usesRegistryClient       bool
 	usesImageVerifyCache     bool
-	usesOpenreports          bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
 	usesDynamicClient        bool
@@ -186,6 +187,7 @@ type configuration struct {
 	usesMetadataClient       bool
 	usesKyvernoDynamicClient bool
 	usesEventsClient         bool
+	usesOpenreports          bool
 	usesReporting            bool
 	usesRestConfig           bool
 	flagSets                 []*flag.FlagSet
@@ -207,6 +209,10 @@ func (c *configuration) UsesKubeconfig() bool {
 	return c.usesKubeconfig
 }
 
+func (c *configuration) UsesOpenreports() bool {
+	return c.usesOpenreports
+}
+
 func (c *configuration) UsesPolicyExceptions() bool {
 	return c.usesPolicyExceptions
 }
@@ -221,14 +227,6 @@ func (c *configuration) UsesDeferredLoading() bool {
 
 func (c *configuration) UsesCosign() bool {
 	return c.usesCosign
-}
-
-func (c *configuration) EnableOpenreports() {
-	c.usesOpenreports = true
-}
-
-func (c *configuration) UsesOpenreports() bool {
-	return c.usesOpenreports
 }
 
 func (c *configuration) UsesRegistryClient() bool {
@@ -277,4 +275,18 @@ func (c *configuration) UsesRestConfig() bool {
 
 func (c *configuration) FlagSets() []*flag.FlagSet {
 	return c.flagSets
+}
+
+func (c *configuration) AddFlagSet(fs *flag.FlagSet) {
+	c.flagSets = append(c.flagSets, fs)
+}
+
+func (c *configuration) GetFlagValue(flagName string) (string, error) {
+	for _, fs := range c.FlagSets() {
+		or := fs.Lookup(flagName)
+		if or != nil {
+			return or.Value.String(), nil
+		}
+	}
+	return "", fmt.Errorf("flag not found in flagset")
 }

@@ -288,7 +288,6 @@ func main() {
 		skipResourceFilters              bool
 		maxAPICallResponseLength         int64
 		maxBackgroundReports             int
-		openreportsEnabled               bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
@@ -305,7 +304,6 @@ func main() {
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
 	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
-	flagset.BoolVar(&openreportsEnabled, "openreportsEnabled", false, "Use openreports.io/v1alpha1 for the reporting group")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -327,6 +325,7 @@ func main() {
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 		internal.WithReporting(),
+		internal.WithOpenreports(),
 	)
 	// parse flags
 	internal.ParseFlags(
@@ -337,9 +336,6 @@ func main() {
 	var wg wait.Group
 	func() {
 		// setup
-		if openreportsEnabled {
-			appConfig.EnableOpenreports()
-		}
 		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
 		defer sdown()
 		// THIS IS AN UGLY FIX

@@ -5,17 +5,21 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	coordinationv1 "k8s.io/api/coordination/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -32,6 +36,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithOpenreports(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -86,6 +91,23 @@ func main() {
 		}
 
 		os.Exit(0)
+	}
+
+	if setup.OpenreportsClient != nil {
+		logger := logging.WithName("kyvernopre/wgpolicyreport-cleanup")
+		err := kubeutils.CRDsInstalled(setup.ApiServerClient, "clusterpolicyreports.wgpolicyk8s.io", "policyreports.wgpolicyk8s.io")
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				logger.Error(err, "error checking if reports CRDs are installed to clean them up")
+				os.Exit(1)
+			}
+			// error was nil, meaning the cluster has the wg policy api and it should be cleaned
+		} else {
+			if err := cleanUpWgPolicyReports(logger, setup.KyvernoClient.Wgpolicyk8sV1alpha2()); err != nil {
+				logger.Error(err, "error cleaning up reports belonging to wgpolicyk8s")
+				os.Exit(1)
+			}
+		}
 	}
 
 	le, err := leaderelection.New(
@@ -214,4 +236,29 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 		close(out)
 	}()
 	return out
+}
+
+func cleanUpWgPolicyReports(logger logr.Logger, wgpolicyClient wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface) error {
+	polrs, err := wgpolicyClient.PolicyReports(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	cpolrs, err := wgpolicyClient.ClusterPolicyReports().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for _, r := range polrs.Items {
+		if err = wgpolicyClient.PolicyReports(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{}); err != nil {
+			logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+		}
+	}
+
+	for _, r := range cpolrs.Items {
+		if err = wgpolicyClient.ClusterPolicyReports().Delete(context.Background(), r.Name, metav1.DeleteOptions{}); err != nil {
+			logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+		}
+	}
+	return nil
 }

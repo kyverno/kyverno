@@ -120,24 +120,31 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesRestConfig() {
 		restConfig = createClientConfig(logger, clientRateLimitQPS, clientRateLimitBurst)
 	}
+
 	var orClient openreportsclient.OpenreportsV1alpha1Interface
-	// in case there's no uses openreports in the config, this will remain nil. which says that wgpolicy will be used
 	if config.UsesOpenreports() {
-		orClient = createOpenReportsClient(logger, clientRateLimitQPS, clientRateLimitBurst)
+		openreportsEnabled, err := config.GetFlagValue("openreportsEnabled")
+		if err != nil {
+			logger.Error(err, "error parsing openreports flag")
+		}
+		if openreportsEnabled == "true" {
+			orClient = createOpenReportsClient(logger, clientRateLimitQPS, clientRateLimitBurst)
+		}
 	}
+
 	return ctx,
 		SetupResult{
 			Logger:                 logger,
 			Configuration:          configuration,
 			MetricsConfiguration:   metricsConfiguration,
 			MetricsManager:         metricsManager,
-			OpenreportsClient:      orClient,
 			Jp:                     jmespath.New(configuration),
 			KubeClient:             client,
 			LeaderElectionClient:   leaderElectionClient,
 			RegistryClient:         registryClient,
 			ImageVerifyCacheClient: imageVerifyCache,
 			RegistrySecretLister:   registrySecretLister,
+			OpenreportsClient:      orClient,
 			KyvernoClient:          kyvernoClient,
 			DynamicClient:          dynamicClient,
 			ApiServerClient:        apiServerClient,
