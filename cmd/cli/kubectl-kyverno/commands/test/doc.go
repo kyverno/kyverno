@@ -1,6 +1,6 @@
 package test
 
-var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#test`
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/usage/test/`
 
 var description = []string{
 	`Run tests from a local filesystem or a remote git repository.`,

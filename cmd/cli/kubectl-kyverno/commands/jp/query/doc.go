@@ -1,6 +1,6 @@
 package query
 
-var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#jp`
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/usage/jp/`
 
 var description = []string{
 	`Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.`,
