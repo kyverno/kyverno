@@ -34,7 +34,7 @@ jobs:
       uses: ./.github/actions/setup-build-env
       timeout-minutes: 10
       with:
-        free-disk-space: false
+        free-disk-space: true
     - name: Unit test
       run: make test-unit
     - name: Upload coverage

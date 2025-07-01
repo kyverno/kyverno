@@ -45,7 +45,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
         with:
-          free-disk-space: false
+          free-disk-space: true
       - name: ko build
         shell: bash
         run: |
@@ -74,7 +74,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
         with:
-          free-disk-space: false
+          free-disk-space: true
       - name: Build CLI
         shell: bash
         run: |
