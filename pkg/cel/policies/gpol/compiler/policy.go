@@ -6,6 +6,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
@@ -13,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
@@ -22,6 +24,7 @@ type Policy struct {
 	matchConditions []cel.Program
 	variables       map[string]cel.Program
 	generations     []cel.Program
+	exceptions      []compiler.Exception
 }
 
 func (p *Policy) Evaluate(
@@ -30,17 +33,33 @@ func (p *Policy) Evaluate(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context libs.Context,
-) error {
+) ([]*unstructured.Unstructured, []*policiesv1alpha1.PolicyException, error) {
 	data, err := prepareData(attr, request, namespace, context)
 	if err != nil {
-		return err
+		return nil, nil, err
+	}
+	// check if the resource matches an exception
+	if len(p.exceptions) > 0 {
+		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+		for _, polex := range p.exceptions {
+			match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, polex.MatchConditions)
+			if err != nil {
+				return nil, nil, err
+			}
+			if match {
+				matchedExceptions = append(matchedExceptions, polex.Exception)
+			}
+		}
+		if len(matchedExceptions) > 0 {
+			return nil, matchedExceptions, nil
+		}
 	}
 	match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, p.matchConditions)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	if !match {
-		return nil
+		return nil, nil, nil
 	}
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew := map[string]any{
@@ -67,10 +86,13 @@ func (p *Policy) Evaluate(
 	for _, generation := range p.generations {
 		_, _, err := generation.ContextEval(ctx, dataNew)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 	}
-	return nil
+
+	generatedResources := data.Context.GetGeneratedResources()
+	data.Context.ClearGeneratedResources()
+	return generatedResources, nil, nil
 }
 
 func (p *Policy) match(

@@ -20,19 +20,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          build-cache-key: lint
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: golangci-lint
         uses: golangci/golangci-lint-action@55c2c1448f86e01eaae002a5a3a9624417608d84 # v6.5.2
         with:
-          version: v1.60
+          version: v1.64
           skip-cache: true
       - name: go fmt check
         run: make fmt-check

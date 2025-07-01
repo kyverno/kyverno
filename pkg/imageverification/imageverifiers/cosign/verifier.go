@@ -33,7 +33,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestor", attestor.Name)
 	logger.V(2).Info("verifying cosign image signature", "image", image.Image)
 
-	cOpts, err := checkOptions(ctx, attestor.Cosign, image.RemoteOpts, image.NameOpts, v.secretInterface)
+	cOpts, err := checkOptions(ctx, attestor.Cosign, image.RemoteOpts(), image.NameOpts(), v.secretInterface)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to build cosign verification opts")
 		logger.Error(err, "image verification failed")
@@ -41,7 +41,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	}
 	cOpts.ClaimVerifier = cosign.SimpleClaimVerifier
 
-	sigs, verified, err := cosign.VerifyImageSignatures(ctx, image.NameRef, cOpts)
+	sigs, verified, err := cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
@@ -81,14 +81,14 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name, "attestor", attestor.Name)
 	logger.V(2).Info("verifying cosign attestation signature", "image", image.Image)
 
-	cOpts, err := checkOptions(ctx, attestor.Cosign, image.RemoteOpts, image.NameOpts, v.secretInterface)
+	cOpts, err := checkOptions(ctx, attestor.Cosign, image.RemoteOpts(), image.NameOpts(), v.secretInterface)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to build cosign verification opts")
 		logger.Error(err, "image verification failed")
 		return err
 	}
 	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
-	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef, cOpts)
+	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")

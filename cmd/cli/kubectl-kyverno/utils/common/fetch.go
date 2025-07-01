@@ -140,6 +140,14 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = vp.Spec.MatchConstraints
 			} else if ivp := policy.AsImageValidatingPolicy(); ivp != nil {
 				matchResources = ivp.Spec.MatchConstraints
+			} else if dp := policy.AsDeletingPolicy(); dp != nil {
+				matchResources = dp.Spec.MatchConstraints
+			} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
+				// Convert v1alpha1.MatchResources to v1.MatchResources using the shared function
+				converted := admissionpolicy.ConvertMatchResources(*mapPolicy.GetDefinition().Spec.MatchConstraints)
+				matchResources = &converted
+			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+				matchResources = gpol.Spec.MatchConstraints
 			}
 			rf.getKindsFromPolicy(matchResources, info)
 		}

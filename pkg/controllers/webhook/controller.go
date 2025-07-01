@@ -122,6 +122,7 @@ type controller struct {
 	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
 	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
+	mpolLister        policiesv1alpha1listers.MutatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
@@ -165,6 +166,7 @@ func NewController(
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
@@ -200,6 +202,7 @@ func NewController(
 		vpolLister:          vpolInformer.Lister(),
 		gpolLister:          gpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
+		mpolLister:          mpolInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
@@ -718,6 +721,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
 			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
+				c.stateRecorder.Reset()
 				return err
 			}
 			if err := c.updatePolicyStatuses(ctx, config.MutatingWebhookConfigurationName); err != nil {
@@ -921,18 +925,31 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return nil
 	}
 
-	ivpols, err := c.getImageValidatingPolicies()
+	mpols, err := c.getMutatingPolicies()
 	if err != nil {
 		return err
 	}
 
 	validate := buildWebhookRules(cfg,
 		c.server,
+		config.MutatingPolicyWebhookName,
+		"/mpol",
+		c.servicePort,
+		caBundle,
+		mpols)
+
+	ivpols, err := c.getImageValidatingPolicies()
+	if err != nil {
+		return err
+	}
+
+	validate = append(validate, buildWebhookRules(cfg,
+		c.server,
 		config.ImageValidatingPolicyMutateWebhookName,
 		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
-		ivpols)
+		ivpols)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
 	for _, w := range validate {
@@ -950,6 +967,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
+	c.recordPolicyState(mpols...)
 	return nil
 }
 
@@ -1154,7 +1172,9 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		ivpols)...)
 
-	c.recordPolicyState(append(pols, ivpols...)...)
+	policies := append(pols, gpols...)
+	policies = append(policies, ivpols...)
+	c.recordPolicyState(policies...)
 	return nil
 }
 
@@ -1292,7 +1312,9 @@ func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) 
 	}
 	gpols := make([]engineapi.GenericPolicy, 0)
 	for _, gpol := range generatingpolicies {
-		gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+		if gpol.Spec.AdmissionEnabled() {
+			gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+		}
 	}
 	return gpols, nil
 }
@@ -1309,6 +1331,20 @@ func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, er
 		}
 	}
 	return ivpols, nil
+}
+
+func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
+	policies, err := c.mpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	mpols := make([]engineapi.GenericPolicy, 0)
+	for _, mpol := range policies {
+		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated {
+			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
+		}
+	}
+	return mpols, nil
 }
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {

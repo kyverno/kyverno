@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-deploy-1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-deploy-2
+  namespace: applyconfiguration
+  labels:
+    foo: bar

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"reflect"
 
 	"github.com/kyverno/kyverno-json/pkg/payload"
@@ -29,6 +30,8 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
+	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -41,6 +44,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -61,6 +65,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
 	var dClient dclient.Interface
+	contextPath := ""
+	if testCase.Test.Context != "" {
+		contextPath = filepath.Join(testDir, testCase.Test.Context)
+	}
 	// values/variables
 	fmt.Fprintln(out, "  Loading values/variables", "...")
 	vars, err := variables.New(out, testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
@@ -159,7 +167,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies)
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
@@ -242,6 +250,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
+			GeneratingPolicies:                results.GeneratingPolicies,
+			MutatingPolicies:                  results.MutatingPolicies,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			Resource:                          *resource,
@@ -249,7 +259,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
-			ContextPath:                       testCase.Test.Context,
+			ContextPath:                       contextPath,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -275,7 +285,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
-				testCase.Test.Context,
+				contextPath,
 				false,
 			)
 			if err != nil {
@@ -283,10 +293,29 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			}
 			ers = append(ers, ivpols...)
 		}
+
+		if len(results.DeletingPolicies) != 0 {
+			dpols, err := applyDeletingPolicies(
+				results.DeletingPolicies,
+				[]*unstructured.Unstructured{resource},
+				polexLoader.CELExceptions,
+				vars.Namespace,
+				&resultCounts,
+				dClient,
+				true,
+				contextPath,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
+			}
+			ers = append(ers, dpols...)
+		}
+
 		resourceKey := generateResourceKey(resource)
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
 	}
+
 	if json != nil {
 		// the policy processor is for multiple policies at once
 		processor := processor.PolicyProcessor{
@@ -296,13 +325,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
+			MutatingPolicies:                  results.MutatingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
-			ContextPath:                       testCase.Test.Context,
+			ContextPath:                       contextPath,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -328,7 +358,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
-				testCase.Test.Context,
+				contextPath,
 				false,
 			)
 			if err != nil {
@@ -336,6 +366,24 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			}
 			ers = append(ers, ivpols...)
 		}
+
+		if len(results.DeletingPolicies) != 0 {
+			dpols, err := applyDeletingPolicies(
+				results.DeletingPolicies,
+				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				polexLoader.CELExceptions,
+				vars.Namespace,
+				&resultCounts,
+				dClient,
+				true,
+				contextPath,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
+			}
+			ers = append(ers, dpols...)
+		}
+
 		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
@@ -383,37 +431,11 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	gctxStore := gctxstore.New()
-	var contextProvider libs.Context
-	if dclient != nil {
-		contextProvider, err = libs.NewContextProvider(
-			dclient,
-			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
-			gctxStore,
-		)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fakeContextProvider := libs.NewFakeContextProvider()
-		if contextPath != "" {
-			ctx, err := clicontext.Load(nil, contextPath)
-			if err != nil {
-				return nil, err
-			}
-			for _, resource := range ctx.ContextSpec.Resources {
-				gvk := resource.GroupVersionKind()
-				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-				if err != nil {
-					return nil, err
-				}
-				if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
-					return nil, err
-				}
-			}
-		}
-		contextProvider = fakeContextProvider
+	contextProvider, err := newContextProvider(dclient, restMapper, contextPath, registryAccess)
+	if err != nil {
+		return nil, err
 	}
+
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		gvk := resource.GroupVersionKind()
@@ -506,6 +528,77 @@ func applyImageValidatingPolicies(
 	return responses, nil
 }
 
+func applyDeletingPolicies(
+	dps []policiesv1alpha1.DeletingPolicy,
+	resources []*unstructured.Unstructured,
+	celExceptions []*policiesv1alpha1.PolicyException,
+	namespaceProvider func(string) *corev1.Namespace,
+	rc *processor.ResultCounts,
+	dclient dclient.Interface,
+	registryAccess bool,
+	contextPath string,
+) ([]engineapi.EngineResponse, error) {
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
+	if err != nil {
+		return nil, err
+	}
+
+	restMapper, err := utils.GetRESTMapper(dclient, true)
+	if err != nil {
+		return nil, err
+	}
+
+	contextProvider, err := newContextProvider(dclient, restMapper, contextPath, registryAccess)
+	if err != nil {
+		return nil, err
+	}
+
+	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
+
+	policies, err := provider.Fetch(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]engineapi.EngineResponse, 0)
+	for _, resource := range resources {
+		for _, dpol := range policies {
+			resp, err := engine.Handle(context.TODO(), dpol, *resource)
+			if err != nil {
+				fmt.Printf("failed to apply policy %s on JSON payload: %v\n", resource.GetName(), err)
+
+				response := engineapi.NewEngineResponse(*resource, engineapi.NewDeletingPolicy(&dpol.Policy), nil)
+				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
+					*engineapi.NewRuleResponse(dpol.Policy.Name, engineapi.Deletion, err.Error(), engineapi.RuleStatusError, nil),
+				}})
+
+				responses = append(responses, response)
+				rc.AddValidatingPolicyResponse(response)
+
+				continue
+			}
+
+			status := engineapi.RuleStatusPass
+			message := "resource matched"
+			if !resp.Match {
+				status = engineapi.RuleStatusFail
+				message = "resource did not match"
+			}
+
+			response := engineapi.NewEngineResponse(*resource, engineapi.NewDeletingPolicy(&dpol.Policy), nil)
+			response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
+				*engineapi.NewRuleResponse(dpol.Policy.Name, engineapi.Deletion, message, status, nil),
+			}})
+
+			responses = append(responses, response)
+
+			rc.AddValidatingPolicyResponse(response)
+		}
+	}
+
+	return responses, nil
+}
+
 func generateResourceKey(resource *unstructured.Unstructured) string {
 	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
@@ -546,4 +639,34 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 		res.Object = convertNumericValuesToFloat64(res.Object).(map[string]interface{})
 	}
 	return resources
+}
+
+func newContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, contextPath string, registryAccess bool) (libs.Context, error) {
+	if dclient != nil {
+		return libs.NewContextProvider(
+			dclient,
+			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
+			gctxstore.New(),
+		)
+	}
+
+	fakeContextProvider := libs.NewFakeContextProvider()
+	if contextPath != "" {
+		ctx, err := clicontext.Load(nil, contextPath)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, resource := range ctx.ContextSpec.Resources {
+			gvk := resource.GroupVersionKind()
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return nil, err
+			}
+			if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return fakeContextProvider, nil
 }

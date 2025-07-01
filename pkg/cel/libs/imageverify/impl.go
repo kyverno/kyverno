@@ -25,14 +25,18 @@ type ivfuncs struct {
 	imgCtx          imagedataloader.ImageContext
 	creds           *v1alpha1.Credentials
 	imgRules        []compiler.MatchImageReference
-	attestorList    map[string]v1alpha1.Attestor
 	attestationList map[string]v1alpha1.Attestation
-	lister          k8scorev1.SecretInterface
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
 }
 
-func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface, adapter types.Adapter) (*ivfuncs, error) {
+func ImageVerifyCELFuncs(
+	logger logr.Logger,
+	imgCtx imagedataloader.ImageContext,
+	ivpol *v1alpha1.ImageValidatingPolicy,
+	lister k8scorev1.SecretInterface,
+	adapter types.Adapter,
+) (*ivfuncs, error) {
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
 	}
@@ -49,9 +53,7 @@ func ImageVerifyCELFuncs(logger logr.Logger, imgCtx imagedataloader.ImageContext
 		imgCtx:          imgCtx,
 		creds:           ivpol.Spec.Credentials,
 		imgRules:        imgRules,
-		attestorList:    attestorMap(ivpol),
 		attestationList: attestationMap(ivpol),
-		lister:          lister,
 		cosignVerifier:  cosign.NewVerifier(lister, logger),
 		notaryVerifier:  notary.NewVerifier(logger),
 	}, nil
@@ -84,7 +86,14 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 					count += 1
 				}
 			} else if attestor.IsNotary() {
-				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
+				var certs, tsaCerts string
+				if attestor.Notary.Certs != nil {
+					certs = attestor.Notary.Certs.Value
+				}
+				if attestor.Notary.TSACerts != nil {
+					tsaCerts = attestor.Notary.TSACerts.Value
+				}
+				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
 					f.logger.Info("failed to verify image notary: %v", err)
 				} else {
 					count += 1
@@ -130,7 +139,17 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 					count += 1
 				}
 			} else if attestor.IsNotary() {
-				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
+				if attest.Referrer == nil {
+					return types.NewErr("notary verifier only supports oci 1.1 referrers as attestations")
+				}
+				var certs, tsaCerts string
+				if attestor.Notary.Certs != nil {
+					certs = attestor.Notary.Certs.Value
+				}
+				if attestor.Notary.TSACerts != nil {
+					tsaCerts = attestor.Notary.TSACerts.Value
+				}
+				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
 					f.logger.Info("failed to verify attestation notary: %v", err)
 				} else {
 					count += 1

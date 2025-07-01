@@ -28,10 +28,25 @@ type TestResultBase struct {
 	// +optional
 	IsValidatingPolicy bool `json:"isValidatingPolicy,omitempty"`
 
+	// IsDeletingPolicy indicates if the policy is a deleting policy.
+	// It's required in case the policy is a deleting policy.
+	// +optional
+	IsDeletingPolicy bool `json:"isDeletingPolicy,omitempty"`
+
 	// IsImageValidatingPolicy indicates if the policy is an image validating policy.
 	// It's required in case the policy is an image validating policy.
 	// +optional
 	IsImageValidatingPolicy bool `json:"isImageValidatingPolicy,omitempty"`
+
+	// IsGeneratingPolicy indicates if the policy is a generating policy.
+	// It's required in case the policy is a generating policy.
+	// +optional
+	IsGeneratingPolicy bool `json:"isGeneratingPolicy,omitempty"`
+
+	// IsMutatingPolicy indicates if the policy is a mutating policy.
+	// It's required in case the policy is a mutating policy.
+	// +optional
+	IsMutatingPolicy bool `json:"isMutatingPolicy,omitempty"`
 
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
@@ -54,27 +69,6 @@ type TestResultBase struct {
 	CloneSourceResource string `json:"cloneSourceResource,omitempty"`
 }
 
-// TestResultBase declares a test result deprecated fields
-type TestResultDeprecated struct {
-	// Status mentions the status that the user is expecting.
-	// Possible values are pass, fail and skip.
-	// This is DEPRECATED, use `Result` instead.
-	Status policyreportv1alpha2.PolicyResult `json:"status,omitempty"`
-
-	// Resource mentions the name of the resource on which the policy is to be applied.
-	// This is DEPRECATED, use `Resources` instead.
-	Resource string `json:"resource,omitempty"`
-
-	// Namespace mentions the namespace of the policy which has namespace scope.
-	// This is DEPRECATED, use a name in the form `<namespace>/<name>` for policies and/or resources instead.
-	Namespace string `json:"namespace,omitempty"`
-
-	// PatchedResource takes a resource configuration file in yaml format from
-	// the user to compare it against the Kyverno mutated resource configuration.
-	// This is DEPRECATED, Use `patchedResources` instead.
-	PatchedResource string `json:"patchedResource,omitempty"`
-}
-
 // TestResultData declares a test result data
 type TestResultData struct {
 	// Resources gives us the list of resources on which the policy is going to be applied.
@@ -86,7 +80,6 @@ type TestResultData struct {
 
 // TestResult declares a test result
 type TestResult struct {
-	TestResultBase       `json:",inline"`
-	TestResultDeprecated `json:",inline"`
-	TestResultData       `json:",inline"`
+	TestResultBase `json:",inline"`
+	TestResultData `json:",inline"`
 }

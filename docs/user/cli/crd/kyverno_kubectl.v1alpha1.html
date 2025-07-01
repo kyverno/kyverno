@@ -2279,38 +2279,6 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     
     
       <tr>
-        <td><code>TestResultDeprecated</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <a href="#cli-kyverno-io-v1alpha1-TestResultDeprecated">
-                <span style="font-family: monospace">TestResultDeprecated</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-            <p>(Members of <code>TestResultDeprecated</code> are embedded into this type.)</p>
-          
-
-          
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
         <td><code>TestResultData</code>
           
           <span style="color:blue;"> *</span>
@@ -2519,6 +2487,34 @@ It's required in case the policy is a validating policy.</p>
     
     
       <tr>
+        <td><code>isDeletingPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IsDeletingPolicy indicates if the policy is a deleting policy.
+It's required in case the policy is a deleting policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>isImageValidatingPolicy</code>
           
           </br>
@@ -2535,6 +2531,62 @@ It's required in case the policy is a validating policy.</p>
 
           <p>IsImageValidatingPolicy indicates if the policy is an image validating policy.
 It's required in case the policy is an image validating policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>isGeneratingPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IsGeneratingPolicy indicates if the policy is a generating policy.
+It's required in case the policy is a generating policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>isMutatingPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IsMutatingPolicy indicates if the policy is a mutating policy.
+It's required in case the policy is a mutating policy.</p>
 
 
           
@@ -2781,164 +2833,6 @@ from the user which is meant to be cloned by the generate rule.</p>
           
 
           <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-
-      </tbody>
-    </table>
-  
-
-  <H3 id="cli-kyverno-io-v1alpha1-TestResultDeprecated">TestResultDeprecated
-    </H3>
-
-  
-    <p>
-      (<em>Appears in:</em>
-        <a href="#cli-kyverno-io-v1alpha1-TestResult">TestResult</a>)
-    </p>
-  
-
-  <p><p>TestResultBase declares a test result deprecated fields</p>
-</p>
-
-  
-    <table class="table table-striped">
-      <thead class="thead-dark">
-        <tr>
-          <th>Field</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-        
-
-        
-        
-
-  
-  
-    
-    
-      <tr>
-        <td><code>status</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyResult</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Status mentions the status that the user is expecting.
-Possible values are pass, fail and skip.
-This is DEPRECATED, use <code>Result</code> instead.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>resource</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Resource mentions the name of the resource on which the policy is to be applied.
-This is DEPRECATED, use <code>Resources</code> instead.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>namespace</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Namespace mentions the namespace of the policy which has namespace scope.
-This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;</code> for policies and/or resources instead.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>patchedResource</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.
-This is DEPRECATED, Use <code>patchedResources</code> instead.</p>
 
 
           

@@ -1,0 +1,45 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: restart-survivability-cleanup-controller
+  namespace: default
+spec:
+  steps:
+    - name: step-00
+      try:
+        - apply:
+            file: rbac.yaml
+
+    - name: step-01
+      try:
+        - apply:
+            file: pod.yaml
+        - apply:
+            file: policy.yaml
+
+    - name: step-02
+      try:
+        - apply:
+            file: pod-assert.yaml
+
+    - name: step-03
+      try:
+        - script:
+            timeout: 150s
+            content: | 
+              #!/bin/bash
+              echo "Restarting kyverno cleanup-controller..."
+              kubectl delete pod -n kyverno -l app.kubernetes.io/component=cleanup-controller
+              echo "Waiting for new cleanup controller pod to be ready..."
+              kubectl wait --for=condition=ready pod -n kyverno -l app.kubernetes.io/component=cleanup-controller --timeout=120s
+              echo "Cleanup controller restarted"
+
+    - name: step-04
+      try:
+        - sleep:
+            duration: 65s
+      
+    - name: step-05
+      try:
+        - error:
+            file: pod-assert.yaml
