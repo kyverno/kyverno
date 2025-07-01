@@ -204,6 +204,30 @@ func (s *MutatingPolicySpec) GetMatchConditions() []admissionregistrationv1.Matc
 	return out
 }
 
+// GenerateMutatingAdmissionPolicyEnabled checks if mutating admission policy generation is enabled
+func (s MutatingPolicySpec) GenerateMutatingAdmissionPolicyEnabled() bool {
+	const defaultValue = false
+	if s.AutogenConfiguration == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.MutatingAdmissionPolicy == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.MutatingAdmissionPolicy.Enabled == nil {
+		return defaultValue
+	}
+	return *s.AutogenConfiguration.MutatingAdmissionPolicy.Enabled
+}
+
+// GetReinvocationPolicy returns the reinvocation policy of the MutatingPolicy
+func (s *MutatingPolicySpec) GetReinvocationPolicy() admissionregistrationv1alpha1.ReinvocationPolicyType {
+	const defaultValue = admissionregistrationv1alpha1.NeverReinvocationPolicy
+	if s.ReinvocationPolicy == "" {
+		return defaultValue
+	}
+	return s.ReinvocationPolicy
+}
+
 func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail

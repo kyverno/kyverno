@@ -1,0 +1,12 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: mpol-add-label-applyconfiguration-binding
+  ownerReferences:
+  - apiVersion: policies.kyverno.io/v1alpha1
+    kind: MutatingPolicy
+    name: add-label-applyconfiguration
+spec:
+  policyName: mpol-add-label-applyconfiguration

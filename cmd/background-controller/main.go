@@ -268,6 +268,8 @@ func main() {
 				gpolProvider := gpolengine.NewFetchProvider(
 					compiler,
 					kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister(),
+					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
 				gpolEngine := gpolengine.NewEngine(

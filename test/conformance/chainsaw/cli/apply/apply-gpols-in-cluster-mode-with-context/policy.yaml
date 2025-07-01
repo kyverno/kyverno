@@ -1,0 +1,19 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: generate-cm
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+      resourceNames: ["test-ns-2"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: sources
+      expression: resource.List("v1", "secrets", "default")
+  generate:
+    - expression: generator.Apply(variables.nsName, [variables.sources])

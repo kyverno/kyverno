@@ -31,4 +31,12 @@ spec:
         - /bin/sh
         - -c
         - sleep {{ .Values.test.sleep }} ; wget -O- -S --no-check-certificate http://{{ template "kyverno.admission-controller.serviceName" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.admissionController.metricsService.port }}/metrics
+  {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
+  nodeSelector:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
+  {{- with .Values.test.tolerations | default .Values.global.tolerations}}
+  tolerations:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
 {{- end -}}

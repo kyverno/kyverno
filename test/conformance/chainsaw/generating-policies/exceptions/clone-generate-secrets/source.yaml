@@ -1,0 +1,26 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: clone-generate-secrets-1
+  namespace: default
+type: Opaque
+--- 
+apiVersion: v1
+data:
+  key: dmFsdWU=
+kind: Secret
+metadata:
+  name: clone-generate-secrets-2
+  namespace: default
+type: Opaque
+---
+apiVersion: v1
+data:
+  color: Ymx1ZQ==
+kind: Secret
+metadata:
+  name: clone-generate-secrets-3
+  namespace: default
+type: Opaque

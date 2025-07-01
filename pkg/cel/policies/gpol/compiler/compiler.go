@@ -11,7 +11,7 @@ import (
 )
 
 type Compiler interface {
-	Compile(policy *policiesv1alpha1.GeneratingPolicy) (*Policy, field.ErrorList)
+	Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -20,7 +20,7 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -81,9 +81,22 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy) (*Poli
 		}
 		generations = append(generations, programs...)
 	}
+	// exceptions' match conditions
+	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		compiledExceptions = append(compiledExceptions, compiler.Exception{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
+		})
+	}
 	return &Policy{
 		matchConditions: matchConditions,
 		variables:       variables,
 		generations:     generations,
+		exceptions:      compiledExceptions,
 	}, nil
 }

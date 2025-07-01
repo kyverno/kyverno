@@ -55,6 +55,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Finastra](https://www.finastra.com/) | Currently exploring and leveraging Kyverno to enforce our security and compliance for our K8s deployments in a financial context. | 
 | [SingleStore](https://www.singlestore.com/) | We use Kyverno to enforce container images were signed by SingleStore, ensure safer rollouts, and ensure other security practices such as restrict escalation on roles. |
 | [Educates Training Platform](https://educates.dev) | Educates is a FOSS Cloud Native Hands-on Training Platform in which we use Kyverno to provide proper workshop isolation between different sessions and enforcing workshop specific related policies | 
+| [Kubermatic](https://www.kubermatic.com) | Kyverno is fully integrated across platform, project, and cluster levels in KKP - enabling platform teams to declaratively define, automate, and consistently enforce security, compliance, and operational policies across multi-tenant Kubernetes environments, all seamlessly managed through the KKP UI. | 
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->

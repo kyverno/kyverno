@@ -24,6 +24,9 @@ func NewCompiler() Compiler {
 type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+	if policy == nil {
+		return nil, field.ErrorList{field.Required(field.NewPath("policy"), "policy must not be nil")}
+	}
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {

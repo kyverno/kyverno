@@ -11,7 +11,7 @@ func Validate(gpol *v1alpha1.GeneratingPolicy) ([]string, error) {
 	err := make(field.ErrorList, 0)
 
 	compiler := compiler.NewCompiler()
-	_, errList := compiler.Compile(gpol)
+	_, errList := compiler.Compile(gpol, nil)
 	if errList != nil {
 		err = errList
 	}
