@@ -29,11 +29,7 @@ runs:
         git fetch --prune --unshallow
     - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
       with:
-        go-version-file: go.mod'
-        cache: false
+        go-version-file: go.mod
     - shell: bash
       run: |
         go mod download
-    - shell: bash
-      run: |
-        GOCACHE=~/.cache/kyverno/tools make install-tools
