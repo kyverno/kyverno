@@ -51,6 +51,8 @@ rules:
       - policies.kyverno.io
     resources:
       - generatingpolicies
+      - mutatingpolicies
+      - policyexceptions
     verbs:
       - create
       - delete
