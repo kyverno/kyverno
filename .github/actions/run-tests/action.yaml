@@ -39,7 +39,7 @@ runs:
       id: helm
       uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
     - name: Install Cosign
-      uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+      uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
     - name: Install chainsaw
       uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
       with:
@@ -48,7 +48,7 @@ runs:
     - name: Create kind cluster
       uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
       with:
-        version: v0.27.0
+        version: v0.29.0
         node_image: kindest/node:${{ inputs.k8s-version }}
         cluster_name: kind
         config: ${{ inputs.kind-config }}

@@ -189,12 +189,16 @@ func (s *scanner) ScanResource(
 				false,
 				nil,
 			)
-			engineResponse, err := engine.Handle(ctx, request)
+			engineResponse, err := engine.Handle(ctx, request, nil)
+			rules := make([]engineapi.RuleResponse, 0)
+			for _, policy := range engineResponse.Policies {
+				rules = append(rules, policy.Rules...)
+			}
+
 			response := engineapi.EngineResponse{
 				Resource: resource,
 				PolicyResponse: engineapi.PolicyResponse{
-					// TODO: policies at index 0
-					Rules: engineResponse.Policies[0].Rules,
+					Rules: rules,
 				},
 			}.WithPolicy(vpols[i])
 			results[&vpols[i]] = ScanResult{&response, err}
@@ -240,7 +244,7 @@ func (s *scanner) ScanResource(
 				false,
 				nil,
 			)
-			engineResponse, _, err := engine.HandleMutating(ctx, request)
+			engineResponse, _, err := engine.HandleMutating(ctx, request, nil)
 			response := engineapi.EngineResponse{
 				Resource:       resource,
 				PolicyResponse: engineapi.PolicyResponse{},

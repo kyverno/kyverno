@@ -711,6 +711,7 @@ spec:
                 enum:
                 - mutate
                 - generate
+                - cel-generate
                 type: string
               resource:
                 description: ResourceSpec is the information to identify the trigger

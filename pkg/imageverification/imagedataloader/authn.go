@@ -13,17 +13,41 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"k8s.io/apimachinery/pkg/util/sets"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-var acrRE = regexp.MustCompile(`.*\.azurecr\.io|.*\.azurecr\.cn|.*\.azurecr\.de|.*\.azurecr\.us`)
+var (
+	AnonymousKeychain authn.Keychain = anonymousKeyChain{}
+	AzureKeychain     authn.Keychain = azureKeyChain{}
+	acrRE                            = regexp.MustCompile(`.*\.azurecr\.io|.*\.azurecr\.cn|.*\.azurecr\.de|.*\.azurecr\.us`)
+)
+
+func KeychainsForProviders(credentialProviders ...string) []authn.Keychain {
+	var chains []authn.Keychain
+	helpers := sets.New(credentialProviders...)
+	if helpers.Has("default") {
+		chains = append(chains, authn.DefaultKeychain)
+	}
+	if helpers.Has("google") {
+		chains = append(chains, google.Keychain)
+	}
+	if helpers.Has("amazon") {
+		chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
+	}
+	if helpers.Has("azure") {
+		chains = append(chains, AzureKeychain)
+	}
+	if helpers.Has("github") {
+		chains = append(chains, github.Keychain)
+	}
+	return chains
+}
 
 type autoRefreshSecrets struct {
-	lister           k8scorev1.SecretInterface
+	lister           SecretInterface
 	imagePullSecrets []string
 }
 
-func NewAutoRefreshSecretsKeychain(lister k8scorev1.SecretInterface, imagePullSecrets ...string) (authn.Keychain, error) {
+func NewAutoRefreshSecretsKeychain(lister SecretInterface, imagePullSecrets ...string) (authn.Keychain, error) {
 	return &autoRefreshSecrets{
 		lister:           lister,
 		imagePullSecrets: imagePullSecrets,
@@ -38,19 +62,15 @@ func (kc *autoRefreshSecrets) Resolve(resource authn.Resource) (authn.Authentica
 	return inner.Resolve(resource)
 }
 
-type anonymuskc struct{}
+type anonymousKeyChain struct{}
 
-var AnonymousKeychain authn.Keychain = anonymuskc{}
-
-func (anonymuskc) Resolve(_ authn.Resource) (authn.Authenticator, error) {
+func (anonymousKeyChain) Resolve(_ authn.Resource) (authn.Authenticator, error) {
 	return authn.Anonymous, nil
 }
 
-type azurekeychain struct{}
+type azureKeyChain struct{}
 
-var AzureKeychain authn.Keychain = azurekeychain{}
-
-func (azurekeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+func (azureKeyChain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
 	if !isACRRegistry(resource.RegistryStr()) {
 		return authn.Anonymous, nil
 	}
@@ -73,29 +93,6 @@ func isACRRegistry(input string) bool {
 	if err != nil {
 		return false
 	}
-
 	matches := acrRE.FindStringSubmatch(serverURL.Hostname())
 	return len(matches) != 0
-}
-
-func KeychainsForProviders(credentialProviders ...string) []authn.Keychain {
-	var chains []authn.Keychain
-	helpers := sets.New(credentialProviders...)
-	if helpers.Has("default") {
-		chains = append(chains, authn.DefaultKeychain)
-	}
-	if helpers.Has("google") {
-		chains = append(chains, google.Keychain)
-	}
-	if helpers.Has("amazon") {
-		chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
-	}
-	if helpers.Has("azure") {
-		chains = append(chains, AzureKeychain)
-	}
-	if helpers.Has("github") {
-		chains = append(chains, github.Keychain)
-	}
-
-	return chains
 }

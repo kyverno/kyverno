@@ -68,10 +68,19 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
+
+	env, err = env.Extend(
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+	)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
 	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
+
 	validations := make([]compiler.Validation, 0, len(policy.Spec.Validations))
 	{
 		path := path.Child("validations")
@@ -115,8 +124,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
-		// TODO: proper error handling
-		panic(err)
+		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	options = append(options, declOptions...)
 	// TODO: params, authorizer, authorizer.requestResource ?

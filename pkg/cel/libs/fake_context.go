@@ -10,7 +10,15 @@ import (
 )
 
 type FakeContextProvider struct {
-	resources map[string]map[string]map[string]*unstructured.Unstructured
+	resources          map[string]map[string]map[string]*unstructured.Unstructured
+	generatedResources []*unstructured.Unstructured
+	policyName         string
+	triggerName        string
+	triggerNamespace   string
+	triggerAPIVersion  string
+	triggerGroup       string
+	triggerKind        string
+	triggerUID         string
 }
 
 func NewFakeContextProvider() *FakeContextProvider {
@@ -87,4 +95,46 @@ func (cp *FakeContextProvider) GetResource(apiVersion, resource, namespace, name
 
 func (cp *FakeContextProvider) PostResource(string, string, string, map[string]any) (*unstructured.Unstructured, error) {
 	panic("not implemented")
+}
+
+func (cp *FakeContextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
+	for _, data := range dataList {
+		resource := &unstructured.Unstructured{Object: data}
+		resource.SetNamespace(namespace)
+		if resource.IsList() {
+			resourceList, err := resource.ToList()
+			if err != nil {
+				return err
+			}
+			for i := range resourceList.Items {
+				item := &resourceList.Items[i]
+				item.SetNamespace(namespace)
+				cp.generatedResources = append(cp.generatedResources, item)
+			}
+		} else {
+			cp.generatedResources = append(cp.generatedResources, resource)
+		}
+	}
+	return nil
+}
+
+func (cp *FakeContextProvider) GetGeneratedResources() []*unstructured.Unstructured {
+	return cp.generatedResources
+}
+
+func (cp *FakeContextProvider) ClearGeneratedResources() {
+	cp.generatedResources = make([]*unstructured.Unstructured, 0)
+}
+
+func (cp *FakeContextProvider) SetPolicyName(name string) {
+	cp.policyName = name
+}
+
+func (cp *FakeContextProvider) SetTriggerMetadata(name, namespace, uid, apiVersion, group, kind string) {
+	cp.triggerName = name
+	cp.triggerNamespace = namespace
+	cp.triggerUID = uid
+	cp.triggerAPIVersion = apiVersion
+	cp.triggerGroup = group
+	cp.triggerKind = kind
 }
