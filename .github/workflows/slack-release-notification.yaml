@@ -1,0 +1,18 @@
+name: Slack Notify on GitHub Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify-slack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack Notification
+        uses: rtCamp/action-slack-notify@v2.3.2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.KYVERNO_RELEASE_WEBHOOK_URL }}
+          SLACK_COLOR: '#36a64f'
+          SLACK_MESSAGE: |
+            🎉 New release published: *${{ github.event.release.tag_name }}*
+            👉 <${{ github.event.release.html_url }}|View on GitHub>
