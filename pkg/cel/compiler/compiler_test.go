@@ -690,7 +690,7 @@ generator.Apply(
 			Type:     field.ErrorTypeInvalid,
 			Field:    "[0].expression",
 			BadValue: `"foo"`,
-			Detail:   "output is expected to be of type null_type",
+			Detail:   "output is expected to be of type bool",
 		}},
 	}}
 	for _, tt := range tests {
