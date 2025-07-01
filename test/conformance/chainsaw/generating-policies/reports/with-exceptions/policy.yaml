@@ -1,11 +1,8 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: GeneratingPolicy
 metadata:
-  name: zk-kafka-address
+  name: reports-with-exceptions
 spec:
-  evaluation:
-    synchronize:
-      enabled: true
   matchConstraints:
     resourceRules:
     - apiGroups:   [""]
@@ -22,7 +19,7 @@ spec:
             "kind": dyn("ConfigMap"),
             "apiVersion": dyn("v1"),
             "metadata": dyn({
-              "name": "data-sync-delete-policy",
+              "name": "zk-kafka-address",
               "namespace": string(variables.nsName),
             }),
             "data": dyn({

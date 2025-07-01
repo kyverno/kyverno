@@ -238,6 +238,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	for _, pol := range vaps {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
 	}
+	for _, pol := range maps {
+		genericPolicies = append(genericPolicies, engineapi.NewMutatingAdmissionPolicy(&pol))
+	}
 	for _, pol := range vps {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingPolicy(&pol))
 	}

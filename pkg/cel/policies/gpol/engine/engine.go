@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"strings"
 
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/client-go/tools/cache"
 )
 
 type Engine struct {
@@ -82,9 +84,24 @@ func (e *Engine) generate(ctx context.Context, policy Policy, attr admission.Att
 	}
 	context.SetPolicyName(policy.Policy.Name)
 	context.SetTriggerMetadata(request.Name, attr.GetNamespace(), triggerUID, request.Kind.Version, request.Kind.Group, request.Kind.Kind)
-	generatedResources, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
+	generatedResources, exceptions, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
 		response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to evaluate policy", err, nil)
+		return response
+	}
+	if len(exceptions) != 0 {
+		genericpolex := make([]engineapi.GenericException, 0, len(exceptions))
+		var keys []string
+		for i := range exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(exceptions[i])
+			if err != nil {
+				response.Result = engineapi.RuleError("exception", engineapi.Generation, "failed to compute exception key", err, nil)
+				return response
+			}
+			keys = append(keys, key)
+			genericpolex = append(genericpolex, engineapi.NewCELPolicyException(exceptions[i]))
+		}
+		response.Result = engineapi.RuleSkip(policy.Policy.Name, engineapi.Generation, "policy is skipped due to policy exceptions: "+strings.Join(keys, ", "), nil).WithExceptions(genericpolex)
 		return response
 	}
 	response.Result = engineapi.RulePass(policy.Policy.Name, engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)

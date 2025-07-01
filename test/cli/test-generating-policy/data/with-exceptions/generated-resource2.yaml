@@ -4,5 +4,5 @@ data:
   ZK_ADDRESS: 192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181
 kind: ConfigMap
 metadata:
-  name: data-sync-delete-policy
-  namespace: data-sync-delete-policy
+  name: zk-kafka-address
+  namespace: staging

@@ -22,6 +22,10 @@ type GeneratingPolicy struct {
 	Status GeneratingPolicyStatus `json:"status,omitempty"`
 }
 
+func (s *GeneratingPolicy) GetKind() string {
+	return "GeneratingPolicy"
+}
+
 func (s *GeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
 	if s.Spec.MatchConstraints == nil {
 		return admissionregistrationv1.MatchResources{}
@@ -118,6 +122,34 @@ type GeneratingPolicySpec struct {
 	// Required.
 	// +kubebuilder:validation:MinItems=1
 	Generation []Generation `json:"generate"`
+}
+
+func (s GeneratingPolicySpec) OrphanDownstreamOnPolicyDeleteEnabled() bool {
+	const defaultValue = false
+	if s.EvaluationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled
+}
+
+func (s GeneratingPolicySpec) GenerateExistingEnabled() bool {
+	const defaultValue = false
+	if s.EvaluationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.GenerateExistingConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled
 }
 
 func (s GeneratingPolicySpec) SynchronizationEnabled() bool {

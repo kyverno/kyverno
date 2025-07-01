@@ -1312,7 +1312,9 @@ func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) 
 	}
 	gpols := make([]engineapi.GenericPolicy, 0)
 	for _, gpol := range generatingpolicies {
-		gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+		if gpol.Spec.AdmissionEnabled() {
+			gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+		}
 	}
 	return gpols, nil
 }
