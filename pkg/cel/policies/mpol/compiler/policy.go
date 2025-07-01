@@ -67,3 +67,20 @@ func (p *Policy) Evaluate(
 
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
+
+func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) bool {
+	if p.evaluator.Matcher != nil {
+		versionedAttributes := &admission.VersionedAttributes{
+			Attributes:      attr,
+			VersionedObject: attr.GetObject(),
+			VersionedKind:   attr.GetKind(),
+		}
+		matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, namespace, nil)
+		if matchResult.Error != nil || !matchResult.Matches {
+			return false
+		}
+		return true
+	}
+
+	return false
+}
