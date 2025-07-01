@@ -146,6 +146,8 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				// Convert v1alpha1.MatchResources to v1.MatchResources using the shared function
 				converted := admissionpolicy.ConvertMatchResources(*mapPolicy.GetDefinition().Spec.MatchConstraints)
 				matchResources = &converted
+			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+				matchResources = gpol.Spec.MatchConstraints
 			}
 			rf.getKindsFromPolicy(matchResources, info)
 		}
