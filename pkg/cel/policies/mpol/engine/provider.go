@@ -118,9 +118,6 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 	for _, mpol := range policies {
 		matcher := matching.NewMatcher()
 		matchConstraints := mpol.Policy.GetMatchConstraints()
-		if mpol.Policy.GetSpec().TargetMatchConstraints != nil {
-			matchConstraints = mpol.Policy.GetTargetMatchConstraints()
-		}
 		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: &matchConstraints}, attr, namespace); err != nil || !ok {
 			continue
 		}

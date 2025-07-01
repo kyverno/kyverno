@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -20,7 +19,8 @@ import (
 
 type Engine interface {
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
-	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) ([]string, kyvernov1.ResourceSpec)
+	Evaluate(context.Context, admission.Attributes, Predicate) (EngineResponse, error)
+	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
 }
 
 type EngineResponse struct {
@@ -66,6 +66,25 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 		matcher:       matcher,
 		typeConverter: typeConverter,
 	}
+}
+
+func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, predicate Predicate) (EngineResponse, error) {
+	mpols, err := e.provider.Fetch(ctx, true)
+	if err != nil {
+		return EngineResponse{}, err
+	}
+
+	response := EngineResponse{}
+	for _, mpol := range mpols {
+		if predicate != nil && predicate(mpol.Policy) {
+			r, patched := e.handlePolicy(ctx, mpol, attr, nil)
+			response.Policies = append(response.Policies, r)
+			if patched != nil {
+				response.PatchedResource = patched
+			}
+		}
+	}
+	return response, nil
 }
 
 func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
@@ -146,10 +165,10 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	return ruleResponse, result.PatchedResource
 }
 
-func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) ([]string, kyvernov1.ResourceSpec) {
+func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {
-		return nil, kyvernov1.ResourceSpec{}
+		return nil
 	}
 	dryRun := false
 	if request.Request.DryRun != nil {
@@ -176,11 +195,5 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		namespace = e.nsResolver(ns)
 	}
 
-	return e.provider.MatchesMutateExisting(ctx, attr, namespace),
-		kyvernov1.ResourceSpec{
-			APIVersion: object.GetAPIVersion(),
-			Kind:       object.GetKind(),
-			Namespace:  object.GetNamespace(),
-			UID:        object.GetUID(),
-		}
+	return e.provider.MatchesMutateExisting(ctx, attr, namespace)
 }

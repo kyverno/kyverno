@@ -26,12 +26,13 @@ import (
 )
 
 type handler struct {
-	context        libs.Context
-	engine         mpolengine.Engine
-	reportsBreaker breaker.Breaker
-	kyvernoClient  versioned.Interface
-	reportsConfig  reportutils.ReportingConfiguration
-	urGenerator    webhookgenerate.Generator
+	context                      libs.Context
+	engine                       mpolengine.Engine
+	reportsBreaker               breaker.Breaker
+	kyvernoClient                versioned.Interface
+	reportsConfig                reportutils.ReportingConfiguration
+	urGenerator                  webhookgenerate.Generator
+	backgroundServiceAccountName string
 }
 
 func New(
@@ -41,14 +42,16 @@ func New(
 	kyvernoClient versioned.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
 	urGenerator webhookgenerate.Generator,
+	backgroundServiceAccountName string,
 ) *handler {
 	return &handler{
-		context:        context,
-		engine:         engine,
-		reportsBreaker: reportsBreaker,
-		kyvernoClient:  kyvernoClient,
-		reportsConfig:  reportsConfig,
-		urGenerator:    urGenerator,
+		context:                      context,
+		engine:                       engine,
+		reportsBreaker:               reportsBreaker,
+		kyvernoClient:                kyvernoClient,
+		reportsConfig:                reportsConfig,
+		urGenerator:                  urGenerator,
+		backgroundServiceAccountName: backgroundServiceAccountName,
 	}
 }
 
@@ -78,13 +81,27 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 	}()
 
 	go func() {
-		mpols, resource := h.engine.MatchedMutateExistingPolicies(ctx, request)
-		for _, p := range mpols {
-			if err := h.urGenerator.Apply(ctx, kyvernov2.UpdateRequestSpec{
-				Policy:   p,
-				Resource: resource,
-			}); err != nil {
-				logger.Error(err, "failed to create update request for mutate existing policy", "policy", p, "resource", resource)
+		if h.backgroundServiceAccountName != request.AdmissionRequest().UserInfo.Username {
+			mpols := h.engine.MatchedMutateExistingPolicies(ctx, request)
+			for _, p := range mpols {
+				logger.V(4).Info("creating a UR for mpol", "name", p)
+				if err := h.urGenerator.Apply(ctx, kyvernov2.UpdateRequestSpec{
+					Type:   kyvernov2.CELMutate,
+					Policy: p,
+					Context: kyvernov2.UpdateRequestSpecContext{
+						UserRequestInfo: kyvernov2.RequestInfo{
+							Roles:             admissionRequest.Roles,
+							ClusterRoles:      admissionRequest.ClusterRoles,
+							AdmissionUserInfo: *admissionRequest.UserInfo.DeepCopy(),
+						},
+						AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+							AdmissionRequest: &admissionRequest.AdmissionRequest,
+							Operation:        admissionRequest.Operation,
+						},
+					},
+				}); err != nil {
+					logger.Error(err, "failed to create update request for mutate existing policy", "policy", p)
+				}
 			}
 		}
 	}()
