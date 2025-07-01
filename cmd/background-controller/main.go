@@ -277,6 +277,15 @@ func main() {
 					setup.Logger.Error(err, "failed to create cel context provider")
 					os.Exit(1)
 				}
+
+				namespaceGetter := func(ctx context.Context, name string) *corev1.Namespace {
+					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+					if err != nil {
+						return nil
+					}
+					return ns
+				}
+
 				// create compiler
 				compiler := gpolcompiler.NewCompiler()
 				// create provider
@@ -289,11 +298,7 @@ func main() {
 				// create engine
 				gpolEngine := gpolengine.NewEngine(
 					func(name string) *corev1.Namespace {
-						ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
-						if err != nil {
-							return nil
-						}
-						return ns
+						return namespaceGetter(signalCtx, name)
 					},
 					matching.NewMatcher(),
 				)
@@ -313,37 +318,33 @@ func main() {
 					setup.Logger.Error(err, "failed to create controller-runtime manager")
 					os.Exit(1)
 				}
-				// create a cancellable context
-				ctx, cancel := context.WithCancel(signalCtx)
-				// start manager
-				wg.StartWithContext(ctx, func(ctx context.Context) {
-					// cancel context at the end
-					defer cancel()
+
+				mgrCtx, mgrCancel := context.WithCancel(signalCtx)
+				defer mgrCancel()
+
+				wg.StartWithContext(mgrCtx, func(ctx context.Context) {
 					if err := mgr.Start(ctx); err != nil {
 						setup.Logger.Error(err, "failed to start manager")
 						os.Exit(1)
 					}
 				})
-				if !mgr.GetCache().WaitForCacheSync(ctx) {
-					defer cancel()
-					setup.Logger.Error(nil, "failed to create policy provider")
+
+				if !mgr.GetCache().WaitForCacheSync(mgrCtx) {
+					setup.Logger.Error(nil, "failed to sync cache for manager")
 					os.Exit(1)
 				}
 
 				c := mpolcompiler.NewCompiler()
-				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 				if err != nil {
 					setup.Logger.Error(err, "failed to create mpol provider")
 					os.Exit(1)
 				}
+
 				mpolEngine := mpolengine.NewEngine(
 					mpolProvider,
 					func(name string) *corev1.Namespace {
-						ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
-						if err != nil {
-							return nil
-						}
-						return ns
+						return namespaceGetter(mgrCtx, name)
 					},
 					nil,
 					typeConverter,

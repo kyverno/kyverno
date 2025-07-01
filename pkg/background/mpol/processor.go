@@ -15,7 +15,7 @@ import (
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,7 +45,7 @@ func NewProcessor(client dclient.Interface, kyvernoClient versioned.Interface, m
 
 func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	var failures []error
-	mpol, err := p.kyvernoClient.PoliciesV1alpha1().MutatingPolicies().Get(context.TODO(), ur.Spec.Policy, v1.GetOptions{})
+	mpol, err := p.kyvernoClient.PoliciesV1alpha1().MutatingPolicies().Get(context.TODO(), ur.Spec.Policy, metav1.GetOptions{})
 	if err != nil {
 		failures = append(failures, fmt.Errorf("failed to fetch mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 		return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
@@ -85,7 +85,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		attr := admission.NewAttributesRecord(
 			object,
 			nil,
-			schema.GroupVersionKind(object.GroupVersionKind()),
+			object.GroupVersionKind(),
 			object.GetNamespace(),
 			object.GetName(),
 			mapping.Resource,
