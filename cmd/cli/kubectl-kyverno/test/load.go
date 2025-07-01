@@ -1,15 +1,13 @@
 package test
 
 import (
-	"bufio"
-	"bytes"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -68,25 +66,17 @@ func LoadTest(fs billy.Filesystem, path string) TestCases {
 		}
 		yamlBytes = data
 	}
-
 	testCases := make(TestCases, 0)
-	reader := yaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(yamlBytes)))
-
-	for {
-		yamlBytes, err := reader.Read()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-
-			testCases = append(testCases, TestCase{
-				Path: path,
-				Fs:   fs,
-				Err:  err,
-			})
-			return testCases
-		}
-
+	documents, err := extyaml.SplitDocuments(yamlBytes)
+	if err != nil {
+		testCases = append(testCases, TestCase{
+			Path: path,
+			Fs:   fs,
+			Err:  err,
+		})
+		return testCases
+	}
+	for _, yamlBytes := range documents {
 		var test v1alpha1.Test
 		if err := yaml.UnmarshalStrict(yamlBytes, &test); err != nil {
 			testCases = append(testCases, TestCase{
@@ -96,7 +86,6 @@ func LoadTest(fs billy.Filesystem, path string) TestCases {
 			})
 			return testCases
 		}
-
 		cleanTest(&test)
 		testCases = append(testCases, TestCase{
 			Path: path,
@@ -104,7 +93,6 @@ func LoadTest(fs billy.Filesystem, path string) TestCases {
 			Test: &test,
 		})
 	}
-
 	return testCases
 }
 
