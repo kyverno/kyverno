@@ -8,10 +8,10 @@ metadata:
   {{- else }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- end }}
+  {{- with .Values.admissionController.serviceMonitor.additionalAnnotations }}
   annotations:
-    {{- with .Values.admissionController.serviceMonitor.additionalAnnotations }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
     {{- with .Values.admissionController.serviceMonitor.additionalLabels }}

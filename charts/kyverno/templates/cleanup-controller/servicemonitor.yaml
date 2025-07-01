@@ -9,10 +9,10 @@ metadata:
   {{- else }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- end }}
+  {{- with .Values.cleanupController.serviceMonitor.additionalAnnotations }}
   annotations:
-    {{- with .Values.cleanupController.serviceMonitor.additionalAnnotations }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- end }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
     {{- with .Values.cleanupController.serviceMonitor.additionalLabels }}

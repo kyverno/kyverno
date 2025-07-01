@@ -9,10 +9,10 @@ metadata:
   {{- else }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- end }}
+  {{- with .Values.reportsController.serviceMonitor.additionalAnnotations }}
   annotations:
-    {{- with .Values.reportsController.serviceMonitor.additionalAnnotations }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- end }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
     {{- with .Values.reportsController.serviceMonitor.additionalLabels }}
