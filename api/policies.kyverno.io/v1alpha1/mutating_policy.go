@@ -232,6 +232,9 @@ func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.Matc
 }
 
 func (s *MutatingPolicySpec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	if s.MatchConditions == nil {
+		return nil
+	}
 	in := s.MatchConditions
 	out := make([]admissionregistrationv1.MatchCondition, len(in))
 	for i := range in {

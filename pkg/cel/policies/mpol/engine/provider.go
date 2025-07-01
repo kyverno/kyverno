@@ -111,7 +111,7 @@ func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) ([]Poli
 func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
 	policies, err := r.Fetch(ctx, true)
 	if err != nil {
-
+		return nil
 	}
 
 	matchedPolicies := []string{}
@@ -122,8 +122,10 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 			continue
 		}
 
-		if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
-			continue
+		if mpol.Policy.GetSpec().GetMatchConditions() != nil {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+				continue
+			}
 		}
 		matchedPolicies = append(matchedPolicies, mpol.Policy.GetName())
 	}

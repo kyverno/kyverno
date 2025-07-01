@@ -48360,6 +48360,7 @@ spec:
                 - mutate
                 - generate
                 - cel-generate
+                - cel-mutate
                 type: string
               resource:
                 description: ResourceSpec is the information to identify the trigger
@@ -57475,6 +57476,8 @@ rules:
       - policies.kyverno.io
     resources:
       - generatingpolicies
+      - mutatingpolicies
+      - policyexceptions
     verbs:
       - create
       - delete

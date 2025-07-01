@@ -103,9 +103,16 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, 
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	var policies []Policy
+	if !mutateExisting {
+		for _, p := range r.policies {
+			policies = append(policies, p...)
+		}
+		return policies, nil
+	}
+
 	for _, p := range r.policies {
 		for _, mpol := range p {
-			if mutateExisting == mpol.Policy.GetSpec().MutateExistingEnabled() {
+			if mpol.Policy.GetSpec().MutateExistingEnabled() {
 				policies = append(policies, mpol)
 			}
 		}
@@ -116,7 +123,7 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, 
 func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
 	policies, err := r.Fetch(ctx, true)
 	if err != nil {
-
+		return nil
 	}
 
 	matchedPolicies := []string{}
@@ -126,9 +133,10 @@ func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.A
 		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: &matchConstraints}, attr, namespace); err != nil || !ok {
 			continue
 		}
-
-		if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
-			continue
+		if mpol.Policy.GetSpec().GetMatchConditions() != nil {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+				continue
+			}
 		}
 		matchedPolicies = append(matchedPolicies, mpol.Policy.GetName())
 	}
