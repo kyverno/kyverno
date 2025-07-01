@@ -24,10 +24,6 @@ jobs:
         uses: ./.github/actions/is-defined
         with:
           value: ${{ secrets.FOSSA_API_KEY }}
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
       - name: Setup build env
         if: steps.checksecret.outputs.result == 'true'
         uses: ./.github/actions/setup-build-env
