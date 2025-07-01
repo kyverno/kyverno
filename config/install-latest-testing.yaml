@@ -49136,18 +49136,6 @@ spec:
                           Optional. Default value is "true".
                         type: boolean
                     type: object
-                  background:
-                    description: Background  controls policy evaluation during background
-                      scan.
-                    properties:
-                      enabled:
-                        default: true
-                        description: |-
-                          Enabled controls if rules are applied to existing resources during a background scan.
-                          Optional. Default value is "true". The value must be set to "false" if the policy rule
-                          uses variables that are only available in the admission review request (e.g. user name).
-                        type: boolean
-                    type: object
                   generateExisting:
                     description: GenerateExisting defines the configuration for generating
                       resources for existing triggeres.
@@ -57536,6 +57524,17 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - policyexceptions
+    verbs:
+      - create
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
       - ''
     resources:
       - namespaces
@@ -58715,6 +58714,7 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
+            - --generateMutatingAdmissionPolicy=false
             - --dumpPatches=false
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text

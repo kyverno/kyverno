@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: sync-modify-policy-to-change-source
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: source
+      expression: resource.Get("v1", "configmaps", "default", "sync-modify-policy-to-change-source")
+  generate:
+    - expression: generator.Apply(variables.nsName, [variables.source])
