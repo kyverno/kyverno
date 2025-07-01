@@ -2,14 +2,11 @@ package image
 
 import (
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/go-containerregistry/pkg/name"
 )
 
 const libraryName = "kyverno.image"
 
-func ImageLib() cel.EnvOption {
+func Lib() cel.EnvOption {
 	return cel.Lib(imageLib)
 }
 
@@ -27,7 +24,16 @@ func (*imageLibType) Types() []*cel.Type {
 
 func (*imageLibType) declarations() map[string][]cel.FunctionOpt {
 	return map[string][]cel.FunctionOpt{
+		// DEPRECATED: alias for backward compatibility — use parseImageReference() instead
 		"image": {
+			cel.Overload(
+				"string_to_image_deprecated",
+				[]*cel.Type{cel.StringType},
+				ImageType,
+				cel.UnaryBinding(stringToImage),
+			),
+		},
+		"parseImageReference": {
 			cel.Overload(
 				"string_to_image",
 				[]*cel.Type{cel.StringType},
@@ -105,96 +111,4 @@ func (i *imageLibType) CompileOptions() []cel.EnvOption {
 
 func (*imageLibType) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
-}
-
-func isImage(arg ref.Val) ref.Val {
-	str, ok := arg.Value().(string)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(arg)
-	}
-
-	_, err := name.ParseReference(str)
-	if err != nil {
-		return types.Bool(false)
-	}
-
-	return types.Bool(true)
-}
-
-func stringToImage(arg ref.Val) ref.Val {
-	str, ok := arg.Value().(string)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(arg)
-	}
-
-	v, err := name.ParseReference(str)
-	if err != nil {
-		return types.WrapErr(err)
-	}
-
-	return Image{ImageReference: ConvertToImageRef(v)}
-}
-
-func imageContainsDigest(arg ref.Val) ref.Val {
-	v, ok := arg.Value().(ImageReference)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(arg)
-	}
-	return types.Bool(len(v.Digest) != 0)
-}
-
-func imageRegistry(arg ref.Val) ref.Val {
-	v, ok := arg.Value().(ImageReference)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(arg)
-	}
-	return types.String(v.Registry)
-}
-
-func imageRepository(arg ref.Val) ref.Val {
-	v, ok := arg.Value().(ImageReference)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(arg)
-	}
-	return types.String(v.Repository)
-}
-
-func imageIdentifier(arg ref.Val) ref.Val {
-	v, ok := arg.Value().(ImageReference)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(arg)
-	}
-	return types.String(v.Identifier)
-}
-
-func imageTag(arg ref.Val) ref.Val {
-	v, ok := arg.Value().(ImageReference)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(arg)
-	}
-	return types.String(v.Tag)
-}
-
-func imageDigest(arg ref.Val) ref.Val {
-	v, ok := arg.Value().(ImageReference)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(arg)
-	}
-	return types.String(v.Digest)
-}
-
-func ConvertToImageRef(ref name.Reference) ImageReference {
-	var img ImageReference
-	img.Image = ref.String()
-	img.Registry = ref.Context().RegistryStr()
-	img.Repository = ref.Context().RepositoryStr()
-	img.Identifier = ref.Identifier()
-
-	if _, ok := ref.(name.Tag); ok {
-		img.Tag = ref.Identifier()
-	} else {
-		img.Digest = ref.Identifier()
-	}
-
-	return img
 }

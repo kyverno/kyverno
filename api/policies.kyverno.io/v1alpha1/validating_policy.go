@@ -5,13 +5,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type EvaluationMode string
-
-const (
-	EvaluationModeKubernetes EvaluationMode = "Kubernetes"
-	EvaluationModeJSON       EvaluationMode = "JSON"
-)
-
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
@@ -30,30 +23,21 @@ type ValidatingPolicy struct {
 	Status ValidatingPolicyStatus `json:"status,omitempty"`
 }
 
+// BackgroundEnabled checks if background is set to true
+func (s ValidatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
 type ValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
-	Autogen AutogenStatus `json:"autogen"`
+	Autogen ValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
 
 	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
-}
-
-// AutogenStatus contains autogen status information.
-type AutogenStatus struct {
-	// Rules is a list of Rule instances. It contains auto generated rules added for pod controllers
-	Rules []AutogenRule `json:"rules,omitempty"`
-}
-
-type AutogenRule struct {
-	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
-	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
-	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
-	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
-	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
 }
 
 func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -112,8 +96,6 @@ type ValidatingPolicyList struct {
 type ValidatingPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to validate.
 	// The AdmissionPolicy cares about a request if it matches _all_ Constraints.
-	// However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
-	// ValidatingAdmissionPolicy cannot match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
 	// Required.
 	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints,omitempty"`
 
@@ -128,16 +110,13 @@ type ValidatingPolicySpec struct {
 	// occur from CEL expression parse errors, type check errors, runtime errors and invalid
 	// or mis-configured policy definitions or bindings.
 	//
-	// A policy is invalid if spec.paramKind refers to a non-existent Kind.
-	// A binding is invalid if spec.paramRef.name refers to a non-existent resource.
-	//
 	// failurePolicy does not define how validations that evaluate to false are handled.
 	//
-	// When failurePolicy is set to Fail, ValidatingAdmissionPolicyBinding validationActions
-	// define how failures are enforced.
+	// When failurePolicy is set to Fail, the validationActions field define how failures are enforced.
 	//
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
+	// +kubebuilder:validation:Enum=Ignore;Fail
 	FailurePolicy *admissionregistrationv1.FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// auditAnnotations contains CEL expressions which are used to produce audit
@@ -245,9 +224,10 @@ func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
 	return s.EvaluationConfiguration.Mode
 }
 
+// ValidationActions returns the validation actions.
 func (s ValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
 	const defaultValue = admissionregistrationv1.Deny
-	if s.ValidationAction == nil {
+	if len(s.ValidationAction) == 0 {
 		return []admissionregistrationv1.ValidationAction{defaultValue}
 	}
 	return s.ValidationAction
@@ -271,37 +251,4 @@ type WebhookConfiguration struct {
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
-}
-
-type EvaluationConfiguration struct {
-	// Mode is the mode of policy evaluation.
-	// Allowed values are "Kubernetes" or "JSON".
-	// Optional. Default value is "Kubernetes".
-	// +optional
-	Mode EvaluationMode `json:"mode,omitempty"`
-
-	// Admission controls policy evaluation during admission.
-	// +optional
-	Admission *AdmissionConfiguration `json:"admission,omitempty"`
-
-	// Background  controls policy evaluation during background scan.
-	// +optional
-	Background *BackgroundConfiguration `json:"background,omitempty"`
-}
-
-type AdmissionConfiguration struct {
-	// Enabled controls if rules are applied during admission.
-	// Optional. Default value is "true".
-	// +optional
-	// +kubebuilder:default=true
-	Enabled *bool `json:"enabled,omitempty"`
-}
-
-type BackgroundConfiguration struct {
-	// Enabled controls if rules are applied to existing resources during a background scan.
-	// Optional. Default value is "true". The value must be set to "false" if the policy rule
-	// uses variables that are only available in the admission review request (e.g. user name).
-	// +optional
-	// +kubebuilder:default=true
-	Enabled *bool `json:"enabled,omitempty"`
 }

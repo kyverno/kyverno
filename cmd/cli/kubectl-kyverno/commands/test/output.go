@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -178,9 +180,6 @@ func printTestResult(
 	for _, test := range tests {
 		var resources []string
 		// The test specifies certain resources to check, results will be checked for those resources only
-		if test.Resource != "" {
-			test.Resources = append(test.Resources, test.Resource)
-		}
 		if test.Resources != nil {
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
@@ -246,7 +245,11 @@ func printTestResult(
 					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
 						r := response.Resource
 
-						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy {
+						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
+							if test.IsMutatingPolicy {
+								r = response.PatchedResource
+							}
+
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
 							if strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
@@ -255,6 +258,18 @@ func printTestResult(
 
 							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
+							continue
+						}
+
+						if test.IsGeneratingPolicy {
+							generatedResources := rule.GeneratedResources()
+							for _, r := range generatedResources {
+								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
+
+								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								rows = append(rows, resourceRows...)
+							}
 							continue
 						}
 
@@ -291,7 +306,7 @@ func printTestResult(
 								ID:        testCount,
 								Policy:    color.Policy("", test.Policy),
 								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+								Resource:  color.Resource(test.Kind, "", strings.Replace(resource, ",", "/", -1)),
 								Result:    color.ResultPass(),
 								Reason:    color.Excluded(),
 								IsFailure: false,
@@ -327,7 +342,7 @@ func printTestResult(
 						ID:        testCount,
 						Policy:    color.Policy("", test.Policy),
 						Rule:      color.Rule(test.Rule),
-						Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
+						Resource:  color.Resource(test.Kind, "", strings.Replace(resource, ",", "/", -1)),
 						IsFailure: true,
 						Result:    color.ResultFail(),
 						Reason:    color.NotFound(),
@@ -353,7 +368,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 			ID:        *globalTestCounter,
 			Policy:    color.Policy("", test.Policy),
 			Rule:      color.Rule(test.Rule),
-			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]),
+			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
 			Reason:    reason,
 			IsFailure: !success,
 		},
@@ -380,7 +395,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 				ID:        *globalTestCounter,
 				Policy:    color.Policy("", test.Policy),
 				Rule:      color.Rule(test.Rule),
-				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]), // todo: handle namespace
+				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]), // todo: handle namespace
 				Result:    color.ResultPass(),
 				Reason:    color.Excluded(),
 				IsFailure: false,
@@ -417,4 +432,94 @@ func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResu
 	fmt.Fprintf(out, "Aggregated Failed Test Cases : ")
 	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
+}
+
+func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Table, detailedResults bool) {
+	output := make([]interface{}, 0, len(resultTable.RawRows))
+	failedTests := 0
+	for _, row := range resultTable.RawRows {
+		rowMap := map[string]interface{}{
+			"ID":       row.ID,
+			"POLICY":   row.Policy,
+			"RULE":     row.Rule,
+			"RESOURCE": row.Resource,
+			"RESULT":   row.Result,
+			"REASON":   row.Reason,
+		}
+		if detailedResults {
+			rowMap["Message"] = row.Message
+		}
+		if row.IsFailure {
+			failedTests++
+		}
+		output = append(output, rowMap)
+	}
+	var finalOutput []byte
+	if outputFormat == "markdown" {
+		var b strings.Builder
+		headers := []string{"ID", "POLICY", "RULE", "RESOURCE", "RESULT", "REASON"}
+		if detailedResults {
+			headers = append(headers, "MESSAGE")
+		}
+		b.WriteString("| " + strings.Join(headers, " | ") + " | \n")
+		b.WriteString("|" + strings.Repeat("----|", len(headers)) + "\n")
+		for _, row := range resultTable.RawRows {
+			b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %s |",
+				row.ID, row.Policy, row.Rule, row.Resource, row.Result, row.Reason))
+			if detailedResults {
+				b.WriteString(fmt.Sprintf(" %s |\n", row.Message))
+			} else {
+				b.WriteString("\n")
+			}
+		}
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, b.String())
+		fmt.Fprintln(out)
+	} else if outputFormat == "junit" {
+		var b strings.Builder
+		b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+		b.WriteString(fmt.Sprintf("<testsuites tests=\"%d\" failures=\"%d\">\n", len(output), failedTests))
+		suites := make(map[string][]table.Row)
+		for _, row := range resultTable.RawRows {
+			suites[row.Policy] = append(suites[row.Policy], row)
+		}
+		for policyName, rows := range suites {
+			failures := 0
+			for _, row := range rows {
+				if row.IsFailure {
+					failures++
+				}
+			}
+			b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", policyName, len(rows), failures))
+			for _, policyRow := range rows {
+				b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", policyRow.Rule, policyRow.Resource))
+				if policyRow.IsFailure {
+					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource, policyRow.Result))
+					if detailedResults {
+						b.WriteString(fmt.Sprintf("    Message: %s\n   </failure>\n", policyRow.Message))
+					}
+				} else {
+					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource))
+					if detailedResults {
+						b.WriteString(fmt.Sprintf("    Message: %s\n   ]]></system-out>\n", policyRow.Message))
+					}
+				}
+				b.WriteString("  </testcase>\n")
+			}
+			b.WriteString(" </testsuite>\n")
+		}
+		b.WriteString("</testsuites>")
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, b.String())
+		fmt.Fprintln(out)
+	} else {
+		if outputFormat == "json" {
+			finalOutput, _ = json.MarshalIndent(output, "", "  ")
+		} else if outputFormat == "yaml" {
+			finalOutput, _ = yaml.Marshal(output)
+		}
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, string(finalOutput))
+		fmt.Fprintln(out)
+	}
 }

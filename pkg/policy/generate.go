@@ -9,9 +9,9 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
@@ -40,7 +40,7 @@ func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.Po
 func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterface, deleteDownstream bool) error {
 	var errs []error
 	var err error
-	ur := newGenerateUR(policy)
+	ur := newGenerateUR(engineapi.NewKyvernoPolicy(policy))
 	for _, rule := range policy.GetSpec().Rules {
 		if !rule.HasGenerate() {
 			continue
@@ -86,7 +86,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 	var triggers []*unstructured.Unstructured
 	policyNew := policy.CreateDeepCopy()
 	policyNew.GetSpec().Rules = nil
-	ur := newGenerateUR(policy)
+	ur := newGenerateUR(engineapi.NewKyvernoPolicy(policy))
 	logger := pc.log.WithName("handleGenerateForExisting")
 	for _, rule := range policy.GetSpec().Rules {
 		if !rule.HasGenerate() {
@@ -151,7 +151,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	var errs []error
 	var err error
 	rules := autogen.Default.ComputeRules(policy, "")
-	ur := newGenerateUR(policy)
+	ur := newGenerateUR(engineapi.NewKyvernoPolicy(policy))
 	for _, r := range rules {
 		if !r.HasGenerate() {
 			continue
@@ -237,9 +237,9 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 		for _, kind := range ruleSelector.kinds {
 			updated, err := pc.client.ListResource(context.TODO(), "", kind, "", &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					backgroundcommon.GeneratePolicyLabel:          selector.policy,
-					backgroundcommon.GeneratePolicyNamespaceLabel: selector.policyNamespace,
-					backgroundcommon.GenerateRuleLabel:            ruleSelector.rule,
+					common.GeneratePolicyLabel:          selector.policy,
+					common.GeneratePolicyNamespaceLabel: selector.policyNamespace,
+					common.GenerateRuleLabel:            ruleSelector.rule,
 				},
 			},
 			)
@@ -250,9 +250,9 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 
 			for _, obj := range updated.Items {
 				labels := obj.GetLabels()
-				delete(labels, backgroundcommon.GeneratePolicyLabel)
-				delete(labels, backgroundcommon.GeneratePolicyNamespaceLabel)
-				delete(labels, backgroundcommon.GenerateRuleLabel)
+				delete(labels, common.GeneratePolicyLabel)
+				delete(labels, common.GeneratePolicyNamespaceLabel)
+				delete(labels, common.GenerateRuleLabel)
 				obj.SetLabels(labels)
 				_, err = pc.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), &obj, false)
 				if err != nil {

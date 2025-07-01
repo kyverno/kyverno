@@ -21,6 +21,7 @@ metadata:
       ensures nothing but the default procMount can be specified. Note that in order for users
       to deviate from the `Default` procMount requires setting a feature gate at the API
       server.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}

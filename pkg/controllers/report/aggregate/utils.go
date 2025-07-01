@@ -20,6 +20,8 @@ type maps struct {
 	vap   sets.Set[string]
 	vpol  sets.Set[string]
 	ivpol sets.Set[string]
+	gpol  sets.Set[string]
+	mpol  sets.Set[string]
 }
 
 func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
@@ -47,8 +49,26 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 						accumulator[key] = result
 					}
 				}
+			case reportutils.SourceGeneratingPolicy:
+				if maps.gpol != nil && maps.gpol.Has(result.Policy) {
+					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					if rule, exists := accumulator[key]; !exists {
+						accumulator[key] = result
+					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+						accumulator[key] = result
+					}
+				}
 			case reportutils.SourceValidatingAdmissionPolicy:
 				if maps.vap != nil && maps.vap.Has(result.Policy) {
+					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					if rule, exists := accumulator[key]; !exists {
+						accumulator[key] = result
+					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+						accumulator[key] = result
+					}
+				}
+			case reportutils.SourceMutatingPolicy:
+				if maps.mpol != nil && maps.mpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result

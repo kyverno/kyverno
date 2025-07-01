@@ -1,0 +1,29 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: v1
+    kind: Namespace
+    name: test-ns
+results:
+- message: policy evaluated successfully
+  policy: zk-kafka-address
+  properties:
+    generated-resources: /v1, Kind=ConfigMap Name=zk-kafka-address Namespace=test-ns
+    process: admission review
+  result: pass
+  rule: zk-kafka-address
+  scored: true
+  source: KyvernoGeneratingPolicy
+scope:
+  apiVersion: v1
+  kind: Namespace
+  name: test-ns
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

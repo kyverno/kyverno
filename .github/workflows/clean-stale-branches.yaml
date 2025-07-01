@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cleanup Stale Branches
-        uses: cbrgm/cleanup-stale-branches-action@cefae1c0debad60e5ec3cd0295773f0538544983 # v1.1.28
+        uses: cbrgm/cleanup-stale-branches-action@416428b3d915645f29d9359c4955a17c5bd2ff28 # v1.1.30
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
