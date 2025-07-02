@@ -19,6 +19,8 @@ import (
 
 type Engine interface {
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
+	Evaluate(context.Context, admission.Attributes, Predicate) (EngineResponse, error)
+	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
 }
 
 type EngineResponse struct {
@@ -66,9 +68,28 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 	}
 }
 
+func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, predicate Predicate) (EngineResponse, error) {
+	mpols, err := e.provider.Fetch(ctx, true)
+	if err != nil {
+		return EngineResponse{}, err
+	}
+
+	response := EngineResponse{}
+	for _, mpol := range mpols {
+		if predicate != nil && predicate(mpol.Policy) {
+			r, patched := e.handlePolicy(ctx, mpol, attr, nil)
+			response.Policies = append(response.Policies, r)
+			if patched != nil {
+				response.PatchedResource = patched
+			}
+		}
+	}
+	return response, nil
+}
+
 func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
 	var response EngineResponse
-	mpols, err := e.provider.Fetch(ctx)
+	mpols, err := e.provider.Fetch(ctx, false)
 	if err != nil {
 		return response, err
 	}
@@ -142,4 +163,37 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RulePass("", engineapi.Mutation, "success", nil))
 	}
 	return ruleResponse, result.PatchedResource
+}
+
+func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
+	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
+	if err != nil {
+		return nil
+	}
+	dryRun := false
+	if request.Request.DryRun != nil {
+		dryRun = *request.Request.DryRun
+	}
+
+	attr := admission.NewAttributesRecord(
+		&object,
+		&oldObject,
+		schema.GroupVersionKind(request.Request.Kind),
+		request.Request.Namespace,
+		request.Request.Name,
+		schema.GroupVersionResource(request.Request.Resource),
+		request.Request.SubResource,
+		admission.Operation(request.Request.Operation),
+		nil,
+		dryRun,
+		// TODO
+		nil,
+	)
+
+	var namespace *corev1.Namespace
+	if ns := request.Request.Namespace; ns != "" {
+		namespace = e.nsResolver(ns)
+	}
+
+	return e.provider.MatchesMutateExisting(ctx, attr, namespace)
 }

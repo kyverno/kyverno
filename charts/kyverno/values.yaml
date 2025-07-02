@@ -1206,6 +1206,8 @@ admissionController:
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
+    # -- Additional annotations
+    additionalAnnotations: {}
     # -- Additional labels
     additionalLabels: {}
     # -- (string) Override namespace
@@ -1525,6 +1527,8 @@ backgroundController:
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
+    # -- Additional annotations
+    additionalAnnotations: {}
     # -- Additional labels
     additionalLabels: {}
     # -- (string) Override namespace
@@ -1862,6 +1866,8 @@ cleanupController:
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
+    # -- Additional annotations
+    additionalAnnotations: {}
     # -- Additional labels
     additionalLabels: {}
     # -- (string) Override namespace
@@ -2170,6 +2176,8 @@ reportsController:
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
+    # -- Additional annotations
+    additionalAnnotations: {}
     # -- Additional labels
     additionalLabels: {}
     # -- (string) Override namespace

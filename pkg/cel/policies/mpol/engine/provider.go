@@ -6,10 +6,12 @@ import (
 
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/client-go/openapi"
 	workqueue "k8s.io/client-go/util/workqueue"
@@ -20,12 +22,9 @@ import (
 	reconcile "sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type Provider = engine.Provider[Policy]
-
-type ProviderFunc func(context.Context) ([]Policy, error)
-
-func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
-	return f(ctx)
+type Provider interface {
+	Fetch(context.Context, bool) ([]Policy, error)
+	MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace) []string
 }
 
 func NewKubeProvider(
@@ -95,11 +94,49 @@ func NewKubeProvider(
 	return reconciler, typeConverter, nil
 }
 
+type staticProvider struct {
+	policies []Policy
+}
+
+func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, error) {
+	var filtered []Policy
+	for _, pol := range p.policies {
+		if mutateExisting == pol.Policy.GetSpec().MutateExistingEnabled() {
+			filtered = append(filtered, pol)
+		}
+	}
+	return filtered, nil
+}
+
+func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
+	policies, err := r.Fetch(ctx, true)
+	if err != nil {
+		return nil
+	}
+
+	matchedPolicies := []string{}
+	for _, mpol := range policies {
+		matcher := matching.NewMatcher()
+		matchConstraints := mpol.Policy.GetMatchConstraints()
+		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: &matchConstraints}, attr, namespace); err != nil || !ok {
+			continue
+		}
+
+		if mpol.Policy.GetSpec().GetMatchConditions() != nil {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+				continue
+			}
+		}
+		matchedPolicies = append(matchedPolicies, mpol.Policy.GetName())
+	}
+	return matchedPolicies
+}
+
 func NewProvider(
 	compiler compiler.Compiler,
 	policies []v1alpha1.MutatingPolicy,
 	exceptions []*v1alpha1.PolicyException,
-) (ProviderFunc, error) {
+) (Provider, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
 		var matchedExceptions []*v1alpha1.PolicyException
@@ -134,7 +171,5 @@ func NewProvider(
 			})
 		}
 	}
-	return func(context.Context) ([]Policy, error) {
-		return out, nil
-	}, nil
+	return &staticProvider{policies: out}, nil
 }
