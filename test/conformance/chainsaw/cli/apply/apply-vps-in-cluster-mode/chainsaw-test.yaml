@@ -1,0 +1,26 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apply-vps-in-cluster-mode
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: kubectl apply -f deployment1.yaml
+  - name: step-02
+    try:
+    - script:
+        content: kubectl apply -f deployment2.yaml
+  - name: step-03
+    try:
+    - script:
+        content: kyverno apply policy.yaml --cluster
+        check:
+          (trim_space($stdout)): |-
+            Applying 1 policy rule(s) to 4 resource(s)...
+            policy check-deployment-labels -> resource default/Deployment/bad-deployment failed:
+            1 -  Deployment labels must be env=prod
+
+
+            pass: 1, fail: 1, warn: 0, error: 0, skip: 0

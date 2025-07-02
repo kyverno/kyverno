@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: set-replicas-color-red
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [ "apps" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "deployments" ]
+  failurePolicy: Fail
+  matchConditions:
+    - name: check-color
+      expression: "object.metadata.labels['color'] == 'red'"
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          [
+            JSONPatch{
+              op: "replace",
+              path: "/spec/replicas",
+              value: int(object.spec.replicas != null ? object.spec.replicas : 1) + 5
+            }
+          ]

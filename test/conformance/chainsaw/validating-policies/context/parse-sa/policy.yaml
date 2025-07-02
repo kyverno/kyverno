@@ -14,7 +14,7 @@ spec:
     variables:
       - name: sa
         expression: >-
-          user.ParseServiceAccount(request.userInfo.username)
+          parseServiceAccount(request.userInfo.username)
     validations:
      - expression: >-
           variables.sa.Name== "my-sa"
@@ -23,5 +23,5 @@ spec:
      - expression: >-
           variables.sa.Namespace == "default"
        message: >-
-          ServiceAccount must in default namespace
+          ServiceAccount must be in default namespace
       

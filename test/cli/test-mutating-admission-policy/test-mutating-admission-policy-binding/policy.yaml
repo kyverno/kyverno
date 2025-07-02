@@ -1,0 +1,36 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: set-replicas
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [ "apps" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "deployments" ]
+  failurePolicy: Fail
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          [
+            JSONPatch{
+              op: "replace",
+              path: "/spec/replicas",
+              value: int(object.spec.replicas != null ? object.spec.replicas : 1) + 2
+            }
+          ]
+
+---
+# binding.yaml
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: set-replicas-binding
+spec:
+  policyName: set-replicas
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        env: test

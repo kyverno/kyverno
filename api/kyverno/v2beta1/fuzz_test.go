@@ -12,7 +12,7 @@ func FuzzV2beta1PolicyValidate(f *testing.F) {
 		ff := fuzz.NewConsumer(data)
 		p := Policy{}
 		ff.GenerateStruct(&p)
-		_ = p.Validate(nil)
+		_, _ = p.Validate(nil)
 	})
 }
 

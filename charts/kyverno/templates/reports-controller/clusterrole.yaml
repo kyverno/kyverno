@@ -59,6 +59,8 @@ rules:
       - validatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
+      - generatingpolicies
+      - mutatingpolicies
     verbs:
       - create
       - delete

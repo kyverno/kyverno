@@ -162,9 +162,6 @@ func TestGetPartialObjectMetadatas(t *testing.T) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", nil_object, nil_object, p1, p2)
 				}
 			} else if test.args.request.Operation != admissionv1.Update {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
 				if !reflect.DeepEqual(object, p1) || !reflect.DeepEqual(nil_object, p2) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", object, nil_object, p1, p2)
 				}

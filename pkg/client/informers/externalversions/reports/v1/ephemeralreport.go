@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	apireportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/kyverno/kyverno/pkg/client/listers/reports/v1"
+	reportsv1 "github.com/kyverno/kyverno/pkg/client/listers/reports/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // EphemeralReports.
 type EphemeralReportInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.EphemeralReportLister
+	Lister() reportsv1.EphemeralReportLister
 }
 
 type ephemeralReportInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredEphemeralReportInformer(client versioned.Interface, namespace st
 				return client.ReportsV1().EphemeralReports(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&reportsv1.EphemeralReport{},
+		&apireportsv1.EphemeralReport{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *ephemeralReportInformer) defaultInformer(client versioned.Interface, re
 }
 
 func (f *ephemeralReportInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&reportsv1.EphemeralReport{}, f.defaultInformer)
+	return f.factory.InformerFor(&apireportsv1.EphemeralReport{}, f.defaultInformer)
 }
 
-func (f *ephemeralReportInformer) Lister() v1.EphemeralReportLister {
-	return v1.NewEphemeralReportLister(f.Informer().GetIndexer())
+func (f *ephemeralReportInformer) Lister() reportsv1.EphemeralReportLister {
+	return reportsv1.NewEphemeralReportLister(f.Informer().GetIndexer())
 }

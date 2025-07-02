@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: default
+  name: test-api
+  labels:
+    app: test-api
+spec:
+  containers:
+  - name: test-api
+    image: python:3.9-slim
+    command: ["sh", "-c"]
+    args:
+    - |
+      pip install flask &&
+      echo 'from flask import Flask, request, jsonify
+      app = Flask(__name__)
+      @app.route("/", methods=["POST"])
+      def json_api():
+          data = request.get_json()
+          key = data.get("labels")
+          return jsonify({"received": key})
+      if __name__ == "__main__":
+          app.run(host="0.0.0.0", port=5000)' > app.py &&
+            python app.py
+    ports:
+    - containerPort: 5000
+

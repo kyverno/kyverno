@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-good
+  labels:
+    app: busybox
+spec:
+  containers:
+  - name: busybox
+    image: busybox:latest
+

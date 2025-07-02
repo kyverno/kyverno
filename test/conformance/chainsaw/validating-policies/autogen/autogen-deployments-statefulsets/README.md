@@ -1,6 +1,6 @@
 ## Description
 
-The policy should contain autogen rules for cronjobs and deployments because it has the `pod-policies.kyverno.io/autogen-controllers: deployments,statefulsets` annotation.
+The policy should contain autogen rules for statefulsets and deployments.
 
 ## Expected Behavior
 

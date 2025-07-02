@@ -98,17 +98,17 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesApiServerClient() {
 		apiServerClient = createApiServerClient(logger, apiserverclient.WithMetrics(metricsManager, metrics.ApiServerClient), apiserverclient.WithTracing())
 	}
+	var metadataClient metadataclient.UpstreamInterface
+	if config.UsesMetadataClient() {
+		metadataClient = createMetadataClient(logger, metadataclient.WithMetrics(metricsManager, metrics.MetadataClient), metadataclient.WithTracing())
+	}
 	var dClient dclient.Interface
 	if config.UsesKyvernoDynamicClient() {
-		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, resyncPeriod)
+		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, resyncPeriod, crdWatcher, metadataClient)
 	}
 	var eventsClient eventsv1.EventsV1Interface
 	if config.UsesEventsClient() {
 		eventsClient = createEventsClient(logger, metricsManager)
-	}
-	var metadataClient metadataclient.UpstreamInterface
-	if config.UsesMetadataClient() {
-		metadataClient = createMetadataClient(logger, metadataclient.WithMetrics(metricsManager, metrics.MetadataClient), metadataclient.WithTracing())
 	}
 	var reportingConfig reportutils.ReportingConfiguration
 	if config.UsesReporting() {

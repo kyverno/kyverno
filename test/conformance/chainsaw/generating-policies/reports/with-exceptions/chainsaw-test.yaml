@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: reports-with-exceptions
+spec:
+  steps:
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create triggers
+    try:
+    - apply:
+        file: triggers.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the reports are generated
+    try:
+    - assert:
+        file: report-assert.yaml

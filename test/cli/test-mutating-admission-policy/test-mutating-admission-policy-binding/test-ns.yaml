@@ -1,0 +1,7 @@
+# test-ns.yaml (namespace that matches binding)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-ns
+  labels:
+    env: test

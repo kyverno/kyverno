@@ -2,6 +2,7 @@ package generate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -26,11 +27,16 @@ type Generate struct {
 
 // NewGenerateFactory returns a new instance of Generate validation checker
 func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger) *Generate {
+	var authCheckerReports auth.AuthChecks
+	if reportsSA != "" {
+		authCheckerReports = auth.NewAuth(client, reportsSA, log)
+	}
+
 	g := Generate{
 		user:               user,
 		rule:               rule,
 		authChecker:        auth.NewAuth(client, user, log),
-		authCheckerReports: auth.NewAuth(client, reportsSA, log),
+		authCheckerReports: authCheckerReports,
 		log:                log,
 	}
 
@@ -110,7 +116,7 @@ func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namesp
 	}
 
 	if !ok {
-		return fmt.Errorf(msg) //nolint:all
+		return errors.New(msg)
 	}
 
 	return nil
@@ -126,6 +132,10 @@ func parseCloneKind(gvks string) (gvk, sub string) {
 }
 
 func (g *Generate) validateAuthReports(ctx context.Context) (warnings []string, err error) {
+	if g.authCheckerReports == nil {
+		return nil, nil
+	}
+
 	kinds := g.rule.MatchResources.GetKinds()
 	for _, k := range kinds {
 		if wildcard.ContainsWildcard(k) {

@@ -1,0 +1,28 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: zk-kafka-address
+spec:
+  matchConditions:
+    - expression: "object.metadata.labels['color'] == 'red'"
+      name: "red-label"
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: configmap
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": "zk-kafka-address",
+              "namespace": string(variables.nsName)
+            }),
+            "data": dyn({
+              "random-key": "random-value"
+            })
+          }
+        ]
+  generate:
+    - expression: generator.Apply(variables.nsName, variables.configmap)

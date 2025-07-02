@@ -26,6 +26,46 @@ func TestCommandWithInvalidArg(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
+func TestCommandNoTests(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetErr(errBuffer)
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetArgs([]string{"."})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+	out, err := io.ReadAll(outBuffer)
+	assert.NoError(t, err)
+	expected := `No test yamls available`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+	errOut, err := io.ReadAll(errBuffer)
+	assert.NoError(t, err)
+	expected = ``
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
+}
+
+func TestCommandRequireTests(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetErr(errBuffer)
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetArgs([]string{".", "--require-tests"})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	out, err := io.ReadAll(outBuffer)
+	assert.NoError(t, err)
+	expected := `No test yamls available`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+	errOut, err := io.ReadAll(errBuffer)
+	assert.NoError(t, err)
+	expected = `Error: no tests found`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
+}
+
 func TestCommandWithInvalidFlag(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -66,7 +106,10 @@ func Test_JSONPayload(t *testing.T) {
 	}
 
 	testFile := filepath.Join(testDir, "kyverno-test.yaml")
-	testCase := test.LoadTest(nil, testFile)
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
 
 	out := &bytes.Buffer{}
 	t.Logf("Running test with files from %s", testCase.Dir())

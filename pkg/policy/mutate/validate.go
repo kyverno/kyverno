@@ -2,6 +2,7 @@ package mutate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -26,11 +27,14 @@ type Mutate struct {
 // NewMutateFactory returns a new instance of Mutate validation checker
 func NewMutateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) *Mutate {
 	var authCheckBackground, authCheckerReports auth.AuthChecks
-	if mock {
+	if mock || backgroundSA == "" {
 		authCheckBackground = fake.NewFakeAuth()
-		authCheckerReports = fake.NewFakeAuth()
 	} else {
 		authCheckBackground = auth.NewAuth(client, backgroundSA, logging.GlobalLogger())
+	}
+	if mock || reportsSA == "" {
+		authCheckerReports = fake.NewFakeAuth()
+	} else {
 		authCheckerReports = auth.NewAuth(client, reportsSA, logging.GlobalLogger())
 	}
 
@@ -123,7 +127,7 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 			return err
 		}
 		if !ok {
-			errs = append(errs, fmt.Errorf(msg)) //nolint:all
+			errs = append(errs, errors.New(msg))
 		}
 	}
 

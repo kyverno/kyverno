@@ -27,6 +27,9 @@ func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 		if x := cmp.Compare(a.Rule, b.Rule); x != 0 {
 			return x
 		}
+		if x := cmp.Compare(a.Source, b.Source); x != 0 {
+			return x
+		}
 		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
 			return x
 		}
@@ -92,6 +95,7 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.RuleResponse, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
 	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
 	annotations := pol.GetAnnotations()
+
 	result := policyreportv1alpha2.PolicyReportResult{
 		Source:     SourceKyverno,
 		Policy:     policyName,
@@ -107,48 +111,61 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 	}
 
-	source := ""
-	if kyvernoPolicy := pol.AsKyvernoPolicy(); kyvernoPolicy != nil {
-		if kyvernoPolicy.BackgroundProcessingEnabled() {
-			source = "background scan"
-		} else if kyvernoPolicy.AdmissionProcessingEnabled() {
-			source = "admission review"
+	var process string
+
+	switch {
+	case pol.AsValidatingAdmissionPolicy() != nil:
+		result.Source = SourceValidatingAdmissionPolicy
+		result.Policy = ruleResult.Name()
+		process = "admission review"
+		if binding := ruleResult.ValidatingAdmissionPolicyBinding(); binding != nil {
+			addProperty("binding", binding.Name, &result)
 		}
+
+	case pol.AsValidatingPolicy() != nil:
+		vp := pol.AsValidatingPolicy()
+		result.Source = SourceValidatingPolicy
+		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
+
+	case pol.AsMutatingPolicy() != nil:
+		mpol := pol.AsMutatingPolicy()
+		result.Source = SourceMutatingPolicy
+		process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
+
+	case pol.AsImageValidatingPolicy() != nil:
+		ivp := pol.AsImageValidatingPolicy()
+		result.Source = SourceImageValidatingPolicy
+		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
+
+	case pol.AsGeneratingPolicy() != nil:
+		result.Source = SourceGeneratingPolicy
+		process = "admission review"
+
+	case pol.AsKyvernoPolicy() != nil:
+		kyvernoPolicy := pol.AsKyvernoPolicy()
+		result.Source = SourceKyverno
+		process = selectProcess(kyvernoPolicy.BackgroundProcessingEnabled(), kyvernoPolicy.AdmissionProcessingEnabled())
 	}
-	addProperty("source", source, &result)
+	addProperty("process", process, &result)
 
 	if result.Result == "fail" && !result.Scored {
 		result.Result = "warn"
 	}
+
 	if resource != nil {
-		result.Resources = []corev1.ObjectReference{
-			*resource,
-		}
+		result.Resources = []corev1.ObjectReference{*resource}
 	}
-	exceptions := ruleResult.Exceptions()
-	if len(exceptions) > 0 {
+
+	if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
 		var names []string
-		for _, exception := range exceptions {
-			names = append(names, exception.GetName())
+		for _, e := range exceptions {
+			names = append(names, e.GetName())
 		}
 		addProperty("exceptions", strings.Join(names, ","), &result)
 	}
-	pss := ruleResult.PodSecurityChecks()
-	if pss != nil && len(pss.Checks) > 0 {
+
+	if pss := ruleResult.PodSecurityChecks(); pss != nil && len(pss.Checks) > 0 {
 		addPodSecurityProperties(pss, &result)
-	}
-	if pol.AsValidatingAdmissionPolicy() != nil {
-		result.Source = SourceValidatingAdmissionPolicy
-		result.Policy = ruleResult.Name()
-		if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
-			addProperty("binding", ruleResult.ValidatingAdmissionPolicyBinding().Name, &result)
-		}
-	}
-	if pol.AsValidatingPolicy() != nil {
-		result.Source = SourceValidatingPolicy
-	}
-	if pol.AsImageVerificationPolicy() != nil {
-		result.Source = SourceImageVerificationPolicy
 	}
 	return result
 }
@@ -159,6 +176,17 @@ func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
 	}
 
 	result.Properties[k] = v
+}
+
+func selectProcess(background, admission bool) string {
+	switch {
+	case background:
+		return "background scan"
+	case admission:
+		return "admission review"
+	default:
+		return ""
+	}
 }
 
 type Control struct {

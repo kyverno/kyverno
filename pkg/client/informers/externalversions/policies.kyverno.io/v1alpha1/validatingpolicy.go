@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	apipolicieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ValidatingPolicies.
 type ValidatingPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ValidatingPolicyLister
+	Lister() policieskyvernoiov1alpha1.ValidatingPolicyLister
 }
 
 type validatingPolicyInformer struct {
@@ -70,7 +70,7 @@ func NewFilteredValidatingPolicyInformer(client versioned.Interface, resyncPerio
 				return client.PoliciesV1alpha1().ValidatingPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&policieskyvernoiov1alpha1.ValidatingPolicy{},
+		&apipolicieskyvernoiov1alpha1.ValidatingPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +81,9 @@ func (f *validatingPolicyInformer) defaultInformer(client versioned.Interface, r
 }
 
 func (f *validatingPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policieskyvernoiov1alpha1.ValidatingPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apipolicieskyvernoiov1alpha1.ValidatingPolicy{}, f.defaultInformer)
 }
 
-func (f *validatingPolicyInformer) Lister() v1alpha1.ValidatingPolicyLister {
-	return v1alpha1.NewValidatingPolicyLister(f.Informer().GetIndexer())
+func (f *validatingPolicyInformer) Lister() policieskyvernoiov1alpha1.ValidatingPolicyLister {
+	return policieskyvernoiov1alpha1.NewValidatingPolicyLister(f.Informer().GetIndexer())
 }

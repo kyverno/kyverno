@@ -1,0 +1,20 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apply-ivps-in-cluster-mode
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: kubectl apply -f bad-pod.yaml
+  - name: step-02
+    try:
+    - script:
+        content: kubectl apply -f good-pod.yaml
+  - name: step-03
+    try:
+    - script:
+        content: kyverno apply policy.yaml --cluster
+        check:
+          (contains($stdout, 'policy ivpol-sample -> resource default/Pod/bad-pod failed:')): true

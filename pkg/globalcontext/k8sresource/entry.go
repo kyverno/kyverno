@@ -18,6 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,19 +40,24 @@ func New(
 	ctx context.Context,
 	gce *kyvernov2alpha1.GlobalContextEntry,
 	eventGen event.Interface,
-	client dynamic.Interface,
+	kubeClient kubernetes.Interface,
+	dClient dynamic.Interface,
 	logger logr.Logger,
 	gvr schema.GroupVersionResource,
 	namespace string,
 	jp jmespath.Interface,
 ) (store.Entry, error) {
-	indexers := cache.Indexers{
-		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
-	}
 	if namespace == "" {
 		namespace = metav1.NamespaceAll
 	}
-	informer := dynamicinformer.NewFilteredDynamicInformer(client, gvr, namespace, 0, indexers, nil)
+
+	factory := informers.NewSharedInformerFactoryWithOptions(kubeClient, 0, informers.WithNamespace(namespace))
+	informer, err := factory.ForResource(gvr)
+	if err != nil {
+		logger.Info("no built-in informer found, use dynamic informer", "gvr", gvr)
+		informer = dynamicinformer.NewFilteredDynamicInformer(dClient, gvr, namespace, 0, nil, nil)
+	}
+
 	var group wait.Group
 	ctx, cancel := context.WithCancel(ctx)
 	stop := func() {
@@ -59,7 +66,7 @@ func New(
 		group.Wait()
 	}
 
-	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	err = informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		eventErr := fmt.Errorf("failed to run informer for %s", gvr)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,

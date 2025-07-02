@@ -8,15 +8,23 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func testImageLib(t *testing.T, expr string, expectResult ref.Val, expectRuntimeErrPattern string, expectCompileErrs []string) {
-	env, err := cel.NewEnv(
-		image.ImageLib(),
-	)
+	base, err := compiler.NewBaseEnv()
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	options := []cel.EnvOption{
+		image.Lib(),
+	}
+	env, err := base.Extend(options...)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -86,9 +94,6 @@ func testImageLib(t *testing.T, expr string, expectResult ref.Val, expectRuntime
 }
 
 func TestImage(t *testing.T) {
-	trueVal := types.Bool(true)
-	falseVal := types.Bool(false)
-
 	cases := []struct {
 		name               string
 		expr               string
@@ -98,23 +103,23 @@ func TestImage(t *testing.T) {
 	}{
 		{
 			name:        "parse",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:latest")`,
-			expectValue: image.Image{ImageReference: image.ConvertToImageRef(name.MustParseReference("registry.k8s.io/kube-apiserver-arm64:latest"))},
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:latest")`,
+			expectValue: image.Image{Reference: name.MustParseReference("registry.k8s.io/kube-apiserver-arm64:latest")},
 		},
 		{
 			name:               "parse_invalid_image",
-			expr:               `image("registry.k8s.io/kube-apiserver-arm64:@")`,
+			expr:               `parseImageReference("registry.k8s.io/kube-apiserver-arm64:@")`,
 			expectedRuntimeErr: "could not parse reference: registry.k8s.io/kube-apiserver-arm64:@",
 		},
 		{
 			name:        "isImage",
 			expr:        `isImage("registry.k8s.io/kube-apiserver-arm64:latest")`,
-			expectValue: trueVal,
+			expectValue: types.True,
 		},
 		{
 			name:        "isImage_false",
 			expr:        `isImage("registry.k8s.io/kube-apiserver-arm64:@")`,
-			expectValue: falseVal,
+			expectValue: types.False,
 		},
 		{
 			name:               "isImage_noOverload",
@@ -123,98 +128,98 @@ func TestImage(t *testing.T) {
 		},
 		{
 			name:        "contains_digest_no_identifier",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64").containsDigest()`,
-			expectValue: falseVal,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64").containsDigest()`,
+			expectValue: types.False,
 		},
 		{
 			name:        "contains_digest_tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:latest").containsDigest()`,
-			expectValue: falseVal,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:latest").containsDigest()`,
+			expectValue: types.False,
 		},
 		{
 			name:        "contains_digest_true",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").containsDigest()`,
-			expectValue: trueVal,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").containsDigest()`,
+			expectValue: types.True,
 		},
 		{
 			name:        "contains_digest_with_tag_true",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:latest@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").containsDigest()`,
-			expectValue: trueVal,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:latest@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").containsDigest()`,
+			expectValue: types.True,
 		},
 		{
 			name:        "registry",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64").registry() == "registry.k8s.io"`,
-			expectValue: trueVal,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64").registry() == "registry.k8s.io"`,
+			expectValue: types.True,
 		},
 		{
 			name:        "registry_matches",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64").registry().matches("(registry.k8s.io|ghcr.io)")`,
-			expectValue: trueVal,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64").registry().matches("(registry.k8s.io|ghcr.io)")`,
+			expectValue: types.True,
 		},
 		{
 			name:        "repository",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64").repository() == "kube-apiserver-arm64"`,
-			expectValue: trueVal,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64").repository() == "kube-apiserver-arm64"`,
+			expectValue: types.True,
 		},
 		{
 			name:        "identifier_tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:testtag").identifier()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:testtag").identifier()`,
 			expectValue: types.String("testtag"),
 		},
 		{
 			name:        "default_identifier",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64").identifier()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64").identifier()`,
 			expectValue: types.String("latest"),
 		},
 		{
 			name:        "identifer_digest",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").identifier()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").identifier()`,
 			expectValue: types.String("sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2"),
 		},
 		{
 			name:        "identifer_digest_and_tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:latest@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").identifier()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:latest@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").identifier()`,
 			expectValue: types.String("sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2"),
 		},
 		{
 			name:        "tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:testtag").tag()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:testtag").tag()`,
 			expectValue: types.String("testtag"),
 		},
 		{
 			name:        "default_tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64").tag()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64").tag()`,
 			expectValue: types.String("latest"),
 		},
 		{
 			name:        "no_tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").tag()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").tag()`,
 			expectValue: types.String(""),
 		},
 		{
 			name:        "identifier_tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:testtag").identifier()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:testtag").identifier()`,
 			expectValue: types.String("testtag"),
 		},
 		{
 			name:        "no_digest",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64").digest()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64").digest()`,
 			expectValue: types.String(""),
 		},
 		{
 			name:        "digest_tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:testtag").digest()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:testtag").digest()`,
 			expectValue: types.String(""),
 		},
 		{
 			name:        "digest",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").digest()`,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").digest()`,
 			expectValue: types.String("sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2"),
 		},
 		{
 			name:        "digest_digest_and_tag",
-			expr:        `image("registry.k8s.io/kube-apiserver-arm64:latest@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").digest() == "sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2"`,
-			expectValue: trueVal,
+			expr:        `parseImageReference("registry.k8s.io/kube-apiserver-arm64:latest@sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2").digest() == "sha256:6aefddb645ee6963afd681b1845c661d0ea4c3b20ab9db86d9e753b203d385f2"`,
+			expectValue: types.True,
 		},
 	}
 

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: with-exception
+spec:
+  steps:
+  - name: create skipped deployment
+    try:
+    - create:
+        file: skipped-deployment.yaml
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 10s
+  - name: check report for the skipped deployment
+    try:
+    - assert:
+        file: skipped-report-assert.yaml
+  - name: create bad deployment
+    try:
+    - create:
+        file: bad-deployment.yaml
+    - sleep:
+        duration: 10s
+  - name: check report for the bad deployment
+    try:
+    - assert:
+        file: fail-report-assert.yaml

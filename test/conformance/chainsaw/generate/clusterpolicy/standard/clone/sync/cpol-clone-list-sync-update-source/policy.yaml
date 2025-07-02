@@ -18,15 +18,23 @@ spec:
           - default
           - kube-public
           - kyverno
+    context:
+    - name: namespace
+      variable:
+        value: default
+    - name: cm
+      configMap:
+        name: bootstrap-config
+        namespace: "{{namespace}}"
     generate:
       generateExisting: false
       namespace: "{{request.object.metadata.name}}"
-      synchronize : true
+      synchronize: true
       cloneList:
-        namespace: default
+        namespace: "{{namespace}}"
         kinds:
           - v1/Secret
           - v1/ConfigMap
         selector:
           matchLabels:
-            allowedToBeCloned: "true"
+            allowedToBeCloned: "{{cm.metadata.labels.allowedToBeCloned}}"

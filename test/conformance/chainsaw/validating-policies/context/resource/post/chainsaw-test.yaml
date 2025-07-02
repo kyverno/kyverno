@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: check-subjectaccessreview
+spec:
+  steps:
+  - name: create user
+    try:
+    - script:
+        content: |
+          #!/bin/bash
+          set -eu
+          cp $KUBECONFIG temp
+          export KUBECONFIG=./temp
+          export USERNAME=subreviewuser
+          export BADUSERNAME=badsubreviewuser
+          export CA=ca.crt
+          #### Get CA certificate from kubeconfig assuming it's the first in the list.
+          kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' | base64 --decode > ./ca.crt
+          #### Set CLUSTER_SERVER from kubeconfig assuming it's the first in the list.
+          CLUSTER_SERVER="$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.server}')"
+          #### Set CLUSTER from kubeconfig assuming it's the first in the list.
+          CLUSTER="$(kubectl config view --raw -o jsonpath='{.clusters[0].name}')"
+          #### Generate private key
+          openssl genrsa -out $USERNAME.key 2048
+          openssl genrsa -out $BADUSERNAME.key 2048
+          #### Create CSR
+          openssl req -new -key $USERNAME.key -out $USERNAME.csr -subj "/O=testorg/CN=$USERNAME"
+          openssl req -new -key $BADUSERNAME.key -out $BADUSERNAME.csr -subj "/O=testorg/CN=$BADUSERNAME"
+          #### Send CSR to kube-apiserver for approval
+          cat <<EOF | kubectl apply -f -
+          apiVersion: certificates.k8s.io/v1
+          kind: CertificateSigningRequest
+          metadata:
+            name: $USERNAME
+          spec:
+            request: $(cat $USERNAME.csr | base64 | tr -d '\n')
+            signerName: kubernetes.io/kube-apiserver-client
+            usages:
+            - client auth
+          EOF
+          cat <<EOF | kubectl apply -f -
+          apiVersion: certificates.k8s.io/v1
+          kind: CertificateSigningRequest
+          metadata:
+            name: $BADUSERNAME
+          spec:
+            request: $(cat $BADUSERNAME.csr | base64 | tr -d '\n')
+            signerName: kubernetes.io/kube-apiserver-client
+            usages:
+            - client auth
+          EOF
+          #### Approve CSR
+          kubectl certificate approve $USERNAME
+          kubectl certificate approve $BADUSERNAME
+          #### Download certificate
+          kubectl get csr $USERNAME -o jsonpath='{.status.certificate}' | base64 --decode > $USERNAME.crt
+          kubectl get csr $BADUSERNAME -o jsonpath='{.status.certificate}' | base64 --decode > $BADUSERNAME.crt
+          ####
+          #### Create the credential object and output the new kubeconfig file
+          kubectl config set-credentials $USERNAME --client-certificate=$USERNAME.crt --client-key=$USERNAME.key --embed-certs
+          kubectl config set-credentials $BADUSERNAME --client-certificate=$BADUSERNAME.crt --client-key=$BADUSERNAME.key --embed-certs
+          #### Set the context
+          kubectl config set-context $USERNAME-context --user=$USERNAME --cluster=$CLUSTER
+          kubectl config set-context $BADUSERNAME-context --user=$BADUSERNAME --cluster=$CLUSTER
+          # Delete CSR
+          kubectl delete csr $USERNAME
+          kubectl delete csr $BADUSERNAME
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: check-subjectaccessreview.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-subjectaccessreview
+  - name: apply-resources
+    try:
+    - apply:
+        file: chainsaw-step-03-apply-1.yaml
+    - apply:
+        file: chainsaw-step-03-apply-2.yaml
+    - apply:
+        file: chainsaw-step-03-apply-3.yaml
+    - apply:
+        file: chainsaw-step-03-apply-4.yaml
+    - apply:
+        file: chainsaw-step-03-apply-5.yaml
+    - apply:
+        file: ns.yaml
+    - script:
+        content: |
+          set -eu
+          export KUBECONFIG=./temp
+          kubectl create --context=subreviewuser-context -f cm-one.yaml
+    - script:
+        content: |
+          set -eu
+          export KUBECONFIG=./temp
+          if kubectl create --context=badsubreviewuser-context -f cm-two.yaml; then exit 1; else exit 0; fi
+    finally:
+    - script:
+        content: |
+          set -e
+          kubectl delete -f cm-one.yaml --ignore-not-found
+    - script:
+        content: |
+          set -e
+          kubectl delete -f cm-two.yaml --ignore-not-found
+    - script:
+        content: |
+          set -e
+          rm ./temp

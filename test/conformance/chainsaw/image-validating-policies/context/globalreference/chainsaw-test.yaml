@@ -1,0 +1,39 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apicall-correct
+spec:
+  steps:
+  - try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: main-deployment.yaml
+    - apply:
+        file: gctxentry.yaml
+    - assert:
+        file: gctx-assert.yaml
+    - sleep:
+        duration: 3s
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-image-validating-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-apicall-correct
+  - try:
+    - apply:
+        file: new-deployment.yaml
+        timeout: 60s
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-ivpol-apicall-correct" denied the request: Policy ivpol-apicall-correct failed: cannot create new deployment as main-deployment already exists, variables.dcount: 1

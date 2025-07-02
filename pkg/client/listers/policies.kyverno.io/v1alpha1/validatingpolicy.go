@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ValidatingPolicyLister helps list ValidatingPolicies.
@@ -30,39 +30,19 @@ import (
 type ValidatingPolicyLister interface {
 	// List lists all ValidatingPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ValidatingPolicy, err error)
+	List(selector labels.Selector) (ret []*policieskyvernoiov1alpha1.ValidatingPolicy, err error)
 	// Get retrieves the ValidatingPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.ValidatingPolicy, error)
+	Get(name string) (*policieskyvernoiov1alpha1.ValidatingPolicy, error)
 	ValidatingPolicyListerExpansion
 }
 
 // validatingPolicyLister implements the ValidatingPolicyLister interface.
 type validatingPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*policieskyvernoiov1alpha1.ValidatingPolicy]
 }
 
 // NewValidatingPolicyLister returns a new ValidatingPolicyLister.
 func NewValidatingPolicyLister(indexer cache.Indexer) ValidatingPolicyLister {
-	return &validatingPolicyLister{indexer: indexer}
-}
-
-// List lists all ValidatingPolicies in the indexer.
-func (s *validatingPolicyLister) List(selector labels.Selector) (ret []*v1alpha1.ValidatingPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ValidatingPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the ValidatingPolicy from the index for a given name.
-func (s *validatingPolicyLister) Get(name string) (*v1alpha1.ValidatingPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("validatingpolicy"), name)
-	}
-	return obj.(*v1alpha1.ValidatingPolicy), nil
+	return &validatingPolicyLister{listers.New[*policieskyvernoiov1alpha1.ValidatingPolicy](indexer, policieskyvernoiov1alpha1.Resource("validatingpolicy"))}
 }

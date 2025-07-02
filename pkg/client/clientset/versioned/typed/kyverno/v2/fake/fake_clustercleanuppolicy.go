@@ -19,114 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	kyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeClusterCleanupPolicies implements ClusterCleanupPolicyInterface
-type FakeClusterCleanupPolicies struct {
+// fakeClusterCleanupPolicies implements ClusterCleanupPolicyInterface
+type fakeClusterCleanupPolicies struct {
+	*gentype.FakeClientWithList[*v2.ClusterCleanupPolicy, *v2.ClusterCleanupPolicyList]
 	Fake *FakeKyvernoV2
 }
 
-var clustercleanuppoliciesResource = v2.SchemeGroupVersion.WithResource("clustercleanuppolicies")
-
-var clustercleanuppoliciesKind = v2.SchemeGroupVersion.WithKind("ClusterCleanupPolicy")
-
-// Get takes name of the clusterCleanupPolicy, and returns the corresponding clusterCleanupPolicy object, and an error if there is any.
-func (c *FakeClusterCleanupPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.ClusterCleanupPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(clustercleanuppoliciesResource, name), &v2.ClusterCleanupPolicy{})
-	if obj == nil {
-		return nil, err
+func newFakeClusterCleanupPolicies(fake *FakeKyvernoV2) kyvernov2.ClusterCleanupPolicyInterface {
+	return &fakeClusterCleanupPolicies{
+		gentype.NewFakeClientWithList[*v2.ClusterCleanupPolicy, *v2.ClusterCleanupPolicyList](
+			fake.Fake,
+			"",
+			v2.SchemeGroupVersion.WithResource("clustercleanuppolicies"),
+			v2.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"),
+			func() *v2.ClusterCleanupPolicy { return &v2.ClusterCleanupPolicy{} },
+			func() *v2.ClusterCleanupPolicyList { return &v2.ClusterCleanupPolicyList{} },
+			func(dst, src *v2.ClusterCleanupPolicyList) { dst.ListMeta = src.ListMeta },
+			func(list *v2.ClusterCleanupPolicyList) []*v2.ClusterCleanupPolicy {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v2.ClusterCleanupPolicyList, items []*v2.ClusterCleanupPolicy) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v2.ClusterCleanupPolicy), err
-}
-
-// List takes label and field selectors, and returns the list of ClusterCleanupPolicies that match those selectors.
-func (c *FakeClusterCleanupPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v2.ClusterCleanupPolicyList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(clustercleanuppoliciesResource, clustercleanuppoliciesKind, opts), &v2.ClusterCleanupPolicyList{})
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v2.ClusterCleanupPolicyList{ListMeta: obj.(*v2.ClusterCleanupPolicyList).ListMeta}
-	for _, item := range obj.(*v2.ClusterCleanupPolicyList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested clusterCleanupPolicies.
-func (c *FakeClusterCleanupPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(clustercleanuppoliciesResource, opts))
-}
-
-// Create takes the representation of a clusterCleanupPolicy and creates it.  Returns the server's representation of the clusterCleanupPolicy, and an error, if there is any.
-func (c *FakeClusterCleanupPolicies) Create(ctx context.Context, clusterCleanupPolicy *v2.ClusterCleanupPolicy, opts v1.CreateOptions) (result *v2.ClusterCleanupPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(clustercleanuppoliciesResource, clusterCleanupPolicy), &v2.ClusterCleanupPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.ClusterCleanupPolicy), err
-}
-
-// Update takes the representation of a clusterCleanupPolicy and updates it. Returns the server's representation of the clusterCleanupPolicy, and an error, if there is any.
-func (c *FakeClusterCleanupPolicies) Update(ctx context.Context, clusterCleanupPolicy *v2.ClusterCleanupPolicy, opts v1.UpdateOptions) (result *v2.ClusterCleanupPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(clustercleanuppoliciesResource, clusterCleanupPolicy), &v2.ClusterCleanupPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.ClusterCleanupPolicy), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeClusterCleanupPolicies) UpdateStatus(ctx context.Context, clusterCleanupPolicy *v2.ClusterCleanupPolicy, opts v1.UpdateOptions) (*v2.ClusterCleanupPolicy, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(clustercleanuppoliciesResource, "status", clusterCleanupPolicy), &v2.ClusterCleanupPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.ClusterCleanupPolicy), err
-}
-
-// Delete takes name of the clusterCleanupPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeClusterCleanupPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(clustercleanuppoliciesResource, name, opts), &v2.ClusterCleanupPolicy{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeClusterCleanupPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(clustercleanuppoliciesResource, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v2.ClusterCleanupPolicyList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched clusterCleanupPolicy.
-func (c *FakeClusterCleanupPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.ClusterCleanupPolicy, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(clustercleanuppoliciesResource, name, pt, data, subresources...), &v2.ClusterCleanupPolicy{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.ClusterCleanupPolicy), err
 }

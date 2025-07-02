@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/assert"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 )
@@ -555,7 +556,6 @@ func Test_MutateResource(t *testing.T) {
 }`),
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			expectedResource, err := kubeutils.BytesToUnstructured(tt.expectedRawResource)
@@ -568,7 +568,16 @@ func Test_MutateResource(t *testing.T) {
 			resource, err := kubeutils.BytesToUnstructured(tt.rawResource)
 			assert.NilError(t, err)
 
-			response, err := mutateResource(policy, *resource)
+			gvk := resource.GroupVersionKind()
+
+			restMapper, err := utils.GetRESTMapper(nil, false)
+			assert.NilError(t, err)
+
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			assert.NilError(t, err)
+
+			gvr := mapping.Resource
+			response, err := mutateResource(policy, nil, *resource, gvr, nil, map[string]map[string]string{}, true)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)

@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: filtered-np-0
+  namespace: filtered-ns-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: filtered-np-2
+  namespace: filtered-ns-3
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

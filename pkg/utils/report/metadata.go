@@ -4,7 +4,6 @@ import (
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -36,9 +35,13 @@ const (
 	LabelDomainClusterPolicy                    = "cpol.kyverno.io"
 	LabelDomainPolicy                           = "pol.kyverno.io"
 	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
+	LabelDomainImageValidatingPolicy            = "ivpol.kyverno.io"
+	LabelDomainGeneratingPolicy                 = "gpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
 	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
+	LabelPrefixImageValidatingPolicy            = LabelDomainImageValidatingPolicy + "/"
+	LabelPrefixGeneratingPolicy                 = LabelDomainGeneratingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
@@ -50,21 +53,11 @@ func IsPolicyLabel(label string) bool {
 	return strings.HasPrefix(label, LabelPrefixPolicy) ||
 		strings.HasPrefix(label, LabelPrefixClusterPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixImageValidatingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixGeneratingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
-}
-
-func PolicyNameFromLabel(namespace, label string) (string, error) {
-	names := strings.Split(label, "/")
-	if len(names) == 2 {
-		if names[0] == LabelDomainClusterPolicy {
-			return names[1], nil
-		} else if names[0] == LabelDomainPolicy {
-			return namespace + "/" + names[1], nil
-		}
-	}
-	return "", fmt.Errorf("cannot get policy name from label, incorrect format: %s", label)
 }
 
 func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
@@ -76,6 +69,12 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	}
 	if policy.AsValidatingPolicy() != nil {
 		return LabelPrefixValidatingPolicy
+	}
+	if policy.AsImageValidatingPolicy() != nil {
+		return LabelPrefixImageValidatingPolicy
+	}
+	if policy.AsGeneratingPolicy() != nil {
+		return LabelPrefixGeneratingPolicy
 	}
 	// TODO: detect potential type not detected
 	return LabelPrefixValidatingAdmissionPolicy
