@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: data-generate-nps
+spec:
+  steps:
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create namespaces
+    try:
+    - apply:
+        file: namespaces.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the networkpolicies are not generated in the namespace that does not have the label
+    try:
+    - error:
+        file: downstream-error.yaml
+  - name: check that the networkpolicies are generated in the namespace that has the label
+    try:
+    - assert:
+        file: downstream-assert.yaml
