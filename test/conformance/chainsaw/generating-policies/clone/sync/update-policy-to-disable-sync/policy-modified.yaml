@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: clone-update-policy-to-disable-sync
+spec:
+  evaluation:
+    synchronize:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: source
+      expression: resource.Get("v1", "secrets", "default", "clone-update-policy-to-disable-sync")
+  generate:
+    - expression: generator.Apply(variables.nsName, [variables.source])

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: sync-modify-policy-and-downstream-kind
+spec:
+  steps:
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: check that configmap is generated
+    try:
+    - assert:
+        file: configmap-assert.yaml
+  - name: modify the policy
+    try:
+    - apply:
+        file: policy-modified.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the old downstream type is deleted
+    try:
+    - error:
+        file: configmap-error.yaml
+  - name: check that the new downstream type is generated
+    try:
+    - assert:
+        file: networkpolicy-assert.yaml

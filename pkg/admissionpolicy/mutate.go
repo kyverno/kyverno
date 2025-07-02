@@ -212,7 +212,7 @@ func Mutate(
 
 	// no bindings: offline CEL matcher
 	if len(bindings) == 0 {
-		pr := convertMatchResources(*policy.Spec.MatchConstraints)
+		pr := ConvertMatchResources(*policy.Spec.MatchConstraints)
 		isMatch, err := offlineMatcher.Match(
 			&celmatching.MatchCriteria{Constraints: &pr},
 			a,
@@ -261,7 +261,7 @@ func Mutate(
 	} else {
 		offline := celmatching.NewMatcher()
 		// 1) policy-level
-		pr := convertMatchResources(*policy.Spec.MatchConstraints)
+		pr := ConvertMatchResources(*policy.Spec.MatchConstraints)
 		ok, err := offline.Match(
 			&celmatching.MatchCriteria{Constraints: &pr},
 			a,
@@ -279,7 +279,7 @@ func Mutate(
 			if binding.Spec.MatchResources == nil {
 				continue
 			}
-			pr := convertMatchResources(*binding.Spec.MatchResources)
+			pr := ConvertMatchResources(*binding.Spec.MatchResources)
 			ok, err := offline.Match(
 				&celmatching.MatchCriteria{Constraints: &pr},
 				a,
@@ -303,8 +303,8 @@ func Mutate(
 	}
 }
 
-// convertMatchResources turns a v1alpha1.MatchResources into a v1.MatchResources
-func convertMatchResources(in admissionregistrationv1alpha1.MatchResources) admissionregistrationv1.MatchResources {
+// ConvertMatchResources turns a v1alpha1.MatchResources into a v1.MatchResources
+func ConvertMatchResources(in admissionregistrationv1alpha1.MatchResources) admissionregistrationv1.MatchResources {
 	resourceRules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(in.ResourceRules))
 	for _, r := range in.ResourceRules {
 		resourceRules = append(resourceRules, admissionregistrationv1.NamedRuleWithOperations{

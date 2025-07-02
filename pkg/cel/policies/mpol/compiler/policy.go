@@ -24,7 +24,7 @@ func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
 	namespace *corev1.Namespace,
-	tcm patch.TypeConverterManager,
+	tcm TypeConverterManager,
 ) *EvaluationResult {
 	if p.evaluator.CompositionEnv != nil {
 		ctx = p.evaluator.CompositionEnv.CreateContext(ctx)
@@ -61,10 +61,26 @@ func (p *Policy) Evaluate(
 			return &EvaluationResult{Error: err}
 		}
 
-		// Always treat the object as unstructured
 		versionedAttributes.Dirty = true
 		versionedAttributes.VersionedObject = newVersionedObject
 	}
 
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
+}
+
+func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) bool {
+	if p.evaluator.Matcher != nil {
+		versionedAttributes := &admission.VersionedAttributes{
+			Attributes:      attr,
+			VersionedObject: attr.GetObject(),
+			VersionedKind:   attr.GetKind(),
+		}
+		matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, namespace, nil)
+		if matchResult.Error != nil || !matchResult.Matches {
+			return false
+		}
+		return true
+	}
+
+	return false
 }

@@ -127,6 +127,11 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		result.Source = SourceValidatingPolicy
 		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
 
+	case pol.AsMutatingPolicy() != nil:
+		mpol := pol.AsMutatingPolicy()
+		result.Source = SourceMutatingPolicy
+		process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
+
 	case pol.AsImageValidatingPolicy() != nil:
 		ivp := pol.AsImageValidatingPolicy()
 		result.Source = SourceImageValidatingPolicy

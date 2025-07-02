@@ -6,6 +6,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -14,12 +15,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
-	"k8s.io/client-go/openapi"
 )
 
 type Engine interface {
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
+	Evaluate(context.Context, admission.Attributes, Predicate) (EngineResponse, error)
+	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
 }
 
 type EngineResponse struct {
@@ -52,24 +53,43 @@ type MutatingPolicyResponse struct {
 type Predicate = func(policiesv1alpha1.MutatingPolicy) bool
 
 type engineImpl struct {
-	provider   Provider
-	client     openapi.Client
-	nsResolver engine.NamespaceResolver
-	matcher    matching.Matcher
+	provider      Provider
+	nsResolver    engine.NamespaceResolver
+	matcher       matching.Matcher
+	typeConverter compiler.TypeConverterManager
 }
 
-func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, client openapi.Client, matcher matching.Matcher) *engineImpl {
+func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher, typeConverter compiler.TypeConverterManager) *engineImpl {
 	return &engineImpl{
-		provider:   provider,
-		nsResolver: nsResolver,
-		client:     client,
-		matcher:    matcher,
+		provider:      provider,
+		nsResolver:    nsResolver,
+		matcher:       matcher,
+		typeConverter: typeConverter,
 	}
+}
+
+func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, predicate Predicate) (EngineResponse, error) {
+	mpols, err := e.provider.Fetch(ctx, true)
+	if err != nil {
+		return EngineResponse{}, err
+	}
+
+	response := EngineResponse{}
+	for _, mpol := range mpols {
+		if predicate != nil && predicate(mpol.Policy) {
+			r, patched := e.handlePolicy(ctx, mpol, attr, nil)
+			response.Policies = append(response.Policies, r)
+			if patched != nil {
+				response.PatchedResource = patched
+			}
+		}
+	}
+	return response, nil
 }
 
 func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
 	var response EngineResponse
-	mpols, err := e.provider.Fetch(ctx)
+	mpols, err := e.provider.Fetch(ctx, false)
 	if err != nil {
 		return response, err
 	}
@@ -104,12 +124,11 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		namespace = e.nsResolver(ns)
 	}
 
-	typeConverter := patch.NewTypeConverterManager(nil, e.client)
 	for _, mpol := range mpols {
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, namespace, typeConverter)
+		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, namespace)
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
@@ -118,7 +137,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, namespace *corev1.Namespace, typeConverter patch.TypeConverterManager) (MutatingPolicyResponse, *unstructured.Unstructured) {
+func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, namespace *corev1.Namespace) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: &mpol.Policy,
 	}
@@ -133,7 +152,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			return ruleResponse, nil
 		}
 	}
-	result := mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, typeConverter)
+	result := mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, e.typeConverter)
 	if result == nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RuleSkip("", engineapi.Mutation, "skip", nil))
 		return ruleResponse, nil
@@ -144,4 +163,37 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RulePass("", engineapi.Mutation, "success", nil))
 	}
 	return ruleResponse, result.PatchedResource
+}
+
+func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
+	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
+	if err != nil {
+		return nil
+	}
+	dryRun := false
+	if request.Request.DryRun != nil {
+		dryRun = *request.Request.DryRun
+	}
+
+	attr := admission.NewAttributesRecord(
+		&object,
+		&oldObject,
+		schema.GroupVersionKind(request.Request.Kind),
+		request.Request.Namespace,
+		request.Request.Name,
+		schema.GroupVersionResource(request.Request.Resource),
+		request.Request.SubResource,
+		admission.Operation(request.Request.Operation),
+		nil,
+		dryRun,
+		// TODO
+		nil,
+	)
+
+	var namespace *corev1.Namespace
+	if ns := request.Request.Namespace; ns != "" {
+		namespace = e.nsResolver(ns)
+	}
+
+	return e.provider.MatchesMutateExisting(ctx, attr, namespace)
 }

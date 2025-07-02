@@ -84,7 +84,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, fmt.Errorf("error: failed to load request info (%s)", err)
 		}
-		deprecations.CheckUserInfo(out, testCase.Test.UserInfo, info)
+		if deprecations.CheckUserInfo(out, testCase.Test.UserInfo, info) {
+			return nil, fmt.Errorf("userInfo file %s uses a deprecated schema — please migrate to the latest format", testCase.Test.UserInfo)
+		}
 		userInfo = &info.RequestInfo
 	}
 	// policies
@@ -167,7 +169,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies)
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
@@ -251,6 +253,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			GeneratingPolicies:                results.GeneratingPolicies,
+			MutatingPolicies:                  results.MutatingPolicies,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			Resource:                          *resource,
@@ -324,6 +327,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
+			MutatingPolicies:                  results.MutatingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
 			PolicyExceptions:                  polexLoader.Exceptions,

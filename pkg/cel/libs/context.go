@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
@@ -29,6 +31,8 @@ type Context interface {
 
 	GetGeneratedResources() []*unstructured.Unstructured
 	ClearGeneratedResources()
+	SetPolicyName(name string)
+	SetTriggerMetadata(name, namespace, uid, apiVersion, group, kind string)
 }
 
 type contextProvider struct {
@@ -36,6 +40,13 @@ type contextProvider struct {
 	imagedata          imagedataloader.Fetcher
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
+	policyName         string
+	triggerName        string
+	triggerNamespace   string
+	triggerAPIVersion  string
+	triggerGroup       string
+	triggerKind        string
+	triggerUID         string
 }
 
 func NewContextProvider(
@@ -118,8 +129,6 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
-		resource.SetNamespace(namespace)
-		resource.SetResourceVersion("")
 		if resource.IsList() {
 			resourceList, err := resource.ToList()
 			if err != nil {
@@ -127,23 +136,72 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			}
 			for i := range resourceList.Items {
 				item := &resourceList.Items[i]
+				labels := item.GetLabels()
+				if labels == nil {
+					labels = make(map[string]string, 9)
+				}
+				labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
+				labels[common.GenerateSourceUIDLabel] = string(item.GetUID())
+				labels[common.GeneratePolicyLabel] = cp.policyName
+				// add trigger metadata labels
+				labels[common.GenerateTriggerNameLabel] = cp.triggerName
+				labels[common.GenerateTriggerNSLabel] = cp.triggerNamespace
+				labels[common.GenerateTriggerUIDLabel] = cp.triggerUID
+				labels[common.GenerateTriggerKindLabel] = cp.triggerKind
+				labels[common.GenerateTriggerGroupLabel] = cp.triggerGroup
+				labels[common.GenerateTriggerVersionLabel] = cp.triggerAPIVersion
+
+				item.SetLabels(labels)
 				item.SetNamespace(namespace)
 				item.SetResourceVersion("")
-				cp.generatedResources = append(cp.generatedResources, item)
-				_, err := cp.client.CreateResource(context.TODO(), item.GetAPIVersion(), item.GetKind(), namespace, item, false)
+				generatedRes, err := cp.client.CreateResource(context.TODO(), item.GetAPIVersion(), item.GetKind(), namespace, item, false)
 				if err != nil {
 					return err
 				}
+				cp.generatedResources = append(cp.generatedResources, generatedRes)
 			}
 		} else {
-			cp.generatedResources = append(cp.generatedResources, resource)
-			_, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
+			labels := resource.GetLabels()
+			if labels == nil {
+				labels = make(map[string]string, 8)
+			}
+			labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
+			labels[common.GeneratePolicyLabel] = cp.policyName
+			// add trigger metadata labels
+			labels[common.GenerateTriggerNameLabel] = cp.triggerName
+			labels[common.GenerateTriggerNSLabel] = cp.triggerNamespace
+			labels[common.GenerateTriggerUIDLabel] = cp.triggerUID
+			labels[common.GenerateTriggerKindLabel] = cp.triggerKind
+			labels[common.GenerateTriggerGroupLabel] = cp.triggerGroup
+			labels[common.GenerateTriggerVersionLabel] = cp.triggerAPIVersion
+			// add source labels
+			if resource.GetResourceVersion() != "" {
+				labels[common.GenerateSourceUIDLabel] = string(resource.GetUID())
+			}
+			resource.SetLabels(labels)
+			resource.SetNamespace(namespace)
+			resource.SetResourceVersion("")
+			generatedRes, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
 			if err != nil {
 				return err
 			}
+			cp.generatedResources = append(cp.generatedResources, generatedRes)
 		}
 	}
 	return nil
+}
+
+func (cp *contextProvider) SetPolicyName(name string) {
+	cp.policyName = name
+}
+
+func (cp *contextProvider) SetTriggerMetadata(name, namespace, uid, apiVersion, group, kind string) {
+	cp.triggerName = name
+	cp.triggerNamespace = namespace
+	cp.triggerUID = uid
+	cp.triggerAPIVersion = apiVersion
+	cp.triggerGroup = group
+	cp.triggerKind = kind
 }
 
 func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {
