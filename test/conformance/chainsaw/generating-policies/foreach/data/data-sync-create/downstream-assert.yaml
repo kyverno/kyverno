@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: foreach-data-sync-create
+  namespace: foreach-data-sync-create-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: foreach-data-sync-create
+  namespace: foreach-data-sync-create-2
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: foreach-data-sync-create
+  namespace: foreach-data-sync-create-3
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

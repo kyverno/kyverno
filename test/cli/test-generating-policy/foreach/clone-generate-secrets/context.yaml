@@ -1,0 +1,14 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Context
+metadata:
+  name: context
+spec:
+  resources:
+  - apiVersion: v1
+    data:
+      foo: YmFy
+    kind: Secret
+    metadata:
+      name: foreach-clone-sync-create
+      namespace: default
+    type: Opaque

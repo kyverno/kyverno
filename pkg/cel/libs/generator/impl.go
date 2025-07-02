@@ -26,6 +26,6 @@ func (c *impl) apply_generator_string_list(args ...ref.Val) ref.Val {
 		if err := self.GenerateResources(namespace, resources); err != nil {
 			return types.NewErr("failed to generate resources: %v", err)
 		}
-		return types.NullValue
+		return types.True
 	}
 }

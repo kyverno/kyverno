@@ -186,6 +186,64 @@ func TestLoadTests(t *testing.T) {
 			},
 		}},
 		wantErr: false,
+	}, {
+		name:     "several-tests-in-one-yaml",
+		dirPath:  "../_testdata/tests/test-3",
+		fileName: "kyverno-test.yaml",
+		want: []TestCase{{
+			Path: "../_testdata/tests/test-3/kyverno-test.yaml",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-something-1",
+				},
+				Policies:  []string{"policy-1.yaml"},
+				Resources: []string{"resources-1.yaml"},
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
+						Kind:   "Deployment",
+						Policy: "policy-1",
+						Result: policyreportv1alpha2.StatusPass,
+						Rule:   "rule-1",
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources: []string{
+							"test-1",
+						},
+					},
+				}},
+			},
+		}, {
+			Path: "../_testdata/tests/test-3/kyverno-test.yaml",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-something-2",
+				},
+				Policies:  []string{"policy-2.yaml"},
+				Resources: []string{"resources-2.yaml"},
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
+						Kind:   "Pod",
+						Policy: "policy-2",
+						Result: policyreportv1alpha2.StatusSkip,
+						Rule:   "rule-2",
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources: []string{
+							"test-2",
+						},
+					},
+				}},
+			},
+		}},
+		wantErr: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -320,7 +378,11 @@ func TestLoadTest(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := LoadTest(tt.fs, tt.path)
+			testCases := LoadTest(tt.fs, tt.path)
+			if len(testCases) != 1 {
+				t.Fatalf("LoadTest() = %d test cases, want 1", len(testCases))
+			}
+			got := testCases[0]
 			if (got.Err != nil) != tt.wantErr {
 				t.Errorf("LoadTest() error = %v, wantErr %v", got.Err, tt.wantErr)
 				return
