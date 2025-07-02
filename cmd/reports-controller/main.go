@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -31,9 +30,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -52,60 +49,6 @@ func sanityChecks(logger logr.Logger, apiserverClient apiserver.Interface, polrC
 		err := kubeutils.CRDsInstalled(apiserverClient, crdNames...)
 		if err != nil {
 			return err
-		}
-
-		err = kubeutils.CRDsInstalled(apiserverClient, "clusterpolicyreports.wgpolicyk8s.io", "policyreports.wgpolicyk8s.io")
-		// there was no wgpolicy reports in the cluster, exit the function successfully
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil
-			}
-			return err
-		}
-		// error was nil, migrate wgpolicyreports to openreports
-		polrs, err := polrClient.PolicyReports(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-
-		cpolrs, err := polrClient.ClusterPolicyReports().List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-
-		for _, r := range polrs.Items {
-			or := r.ToOpenReports()
-			// reset resource version, self link and other fields that shouldn't exist on creation
-			or.ObjectMeta = metav1.ObjectMeta{
-				Name:        or.Name,
-				Namespace:   or.Namespace,
-				Labels:      or.Labels,
-				Annotations: or.Annotations,
-			}
-			if _, err := orClient.Reports(r.Namespace).Create(context.Background(), or, metav1.CreateOptions{}); err != nil {
-				logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
-			}
-
-			if err = polrClient.PolicyReports(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{}); err != nil {
-				logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
-			}
-		}
-
-		for _, r := range cpolrs.Items {
-			or := r.ToOpenReports()
-			or.ObjectMeta = metav1.ObjectMeta{
-				Name:        or.Name,
-				Namespace:   or.Namespace,
-				Labels:      or.Labels,
-				Annotations: or.Annotations,
-			}
-			if _, err := orClient.ClusterReports().Create(context.Background(), or, metav1.CreateOptions{}); err != nil {
-				logger.Error(err, fmt.Sprintf("error moving report %s to openreports", r.Name))
-			}
-
-			if err = polrClient.ClusterPolicyReports().Delete(context.Background(), r.Name, metav1.DeleteOptions{}); err != nil {
-				logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
-			}
 		}
 		return nil
 	}
