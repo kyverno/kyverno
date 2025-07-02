@@ -1,0 +1,37 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: foreach-data-indexed-resource
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["configmaps"]
+  variables:
+    # nsList is ["ns1", "ns2", "ns3"]
+    - name: nsList
+      expression: "object.data.namespaces.split(',')"
+    # indexed is [0, 1, 2]
+    - name: indexed
+      expression: >
+        variables.nsList.map(ns, variables.nsList.indexOf(ns))
+  generate:
+    - expression: >
+        variables.indexed.all(i, generator.Apply(variables.nsList[i], [
+          {
+            "kind": dyn("NetworkPolicy"),
+            "apiVersion": dyn("networking.k8s.io/v1"),
+            "metadata": dyn({
+              "name": "np-" + string(i),
+            }),
+            "spec": dyn({
+              "podSelector": dyn({}),
+              "policyTypes": dyn(["Ingress", "Egress"])
+            })
+          }]
+        ))

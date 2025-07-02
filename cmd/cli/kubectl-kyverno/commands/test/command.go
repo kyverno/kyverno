@@ -113,6 +113,7 @@ func testCommandExecute(
 			fmt.Fprintln(out, "  Path:", e.Path)
 			fmt.Fprintln(out, "    Error:", e.Err)
 		}
+		return fmt.Errorf("found %d errors after loading tests", len(errs))
 	}
 	if len(tests) == 0 {
 		if requireTests {
@@ -191,17 +192,7 @@ func testCommandExecute(
 
 func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured) (bool, string, string) {
 	expected := test.Result
-	// fallback to the deprecated field
-	if expected == "" {
-		expected = test.Status
-	}
-
 	expectedPatchResources := test.PatchedResources
-	if expectedPatchResources == "" {
-		// fallback on deprecated field
-		expectedPatchResources = test.PatchedResource
-	}
-
 	if expectedPatchResources != "" {
 		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, expectedPatchResources))
 		if err != nil {

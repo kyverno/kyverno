@@ -217,8 +217,7 @@ runs:
           --config ${{ inputs.chainsaw-config }} \
           --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
           --shard-index ${{ inputs.shard-index }} \
-          --shard-count ${{ inputs.shard-count }} \
-          --cleanup-delay 20s
+          --shard-count ${{ inputs.shard-count }}
     # debug
     - name: Debug failure
       if: failure()

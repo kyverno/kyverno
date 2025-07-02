@@ -258,8 +258,8 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.reportsServer.enabled | bool | `false` | Kyverno reports-server is used in your cluster |
-| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true,"validatingpolicies":true}` | Install CRDs in group `kyverno.io` |
-| crds.groups.policies | object | `{"imagevalidatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
+| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
+| crds.groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
 | crds.groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
 | crds.groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
@@ -349,6 +349,7 @@ The chart values are organised per component.
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
 | features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
+| features.generateMutatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
 | features.logging.format | string | `"text"` | Logging format |
@@ -456,6 +457,7 @@ The chart values are organised per component.
 | admissionController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | admissionController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| admissionController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -537,6 +539,7 @@ The chart values are organised per component.
 | backgroundController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | backgroundController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | backgroundController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| backgroundController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | backgroundController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | backgroundController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -625,6 +628,7 @@ The chart values are organised per component.
 | cleanupController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | cleanupController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| cleanupController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | cleanupController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | cleanupController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -710,6 +714,7 @@ The chart values are organised per component.
 | reportsController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | reportsController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| reportsController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | reportsController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | reportsController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -783,6 +788,8 @@ The chart values are organised per component.
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | test.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
+| test.nodeSelector | object | `{}` | Node labels for pod assignment |
+| test.tolerations | list | `[]` | List of node taints to tolerate |
 
 ### Api version override
 

@@ -1312,7 +1312,9 @@ func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) 
 	}
 	gpols := make([]engineapi.GenericPolicy, 0)
 	for _, gpol := range generatingpolicies {
-		gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+		if gpol.Spec.AdmissionEnabled() {
+			gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+		}
 	}
 	return gpols, nil
 }
@@ -1338,7 +1340,7 @@ func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
 	}
 	mpols := make([]engineapi.GenericPolicy, 0)
 	for _, mpol := range policies {
-		if mpol.Spec.AdmissionEnabled() {
+		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated {
 			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
 		}
 	}

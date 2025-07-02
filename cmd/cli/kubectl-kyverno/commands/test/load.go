@@ -72,7 +72,7 @@ func loadTest(path string, fileName string, gitBranch string) (test.TestCases, e
 			for _, yamlFilePath := range yamlFiles {
 				if filepath.Base(yamlFilePath) == fileName {
 					// resoucePath := strings.Trim(yamlFilePath, fileName)
-					tests = append(tests, test.LoadTest(fs, yamlFilePath))
+					tests = append(tests, test.LoadTest(fs, yamlFilePath)...)
 				}
 			}
 		}

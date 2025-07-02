@@ -22,6 +22,10 @@ type GeneratingPolicy struct {
 	Status GeneratingPolicyStatus `json:"status,omitempty"`
 }
 
+func (s *GeneratingPolicy) GetKind() string {
+	return "GeneratingPolicy"
+}
+
 func (s *GeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
 	if s.Spec.MatchConstraints == nil {
 		return admissionregistrationv1.MatchResources{}
@@ -120,6 +124,34 @@ type GeneratingPolicySpec struct {
 	Generation []Generation `json:"generate"`
 }
 
+func (s GeneratingPolicySpec) OrphanDownstreamOnPolicyDeleteEnabled() bool {
+	const defaultValue = false
+	if s.EvaluationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled
+}
+
+func (s GeneratingPolicySpec) GenerateExistingEnabled() bool {
+	const defaultValue = false
+	if s.EvaluationConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.GenerateExistingConfiguration == nil {
+		return defaultValue
+	}
+	if s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled
+}
+
 func (s GeneratingPolicySpec) SynchronizationEnabled() bool {
 	const defaultValue = false
 	if s.EvaluationConfiguration == nil {
@@ -141,22 +173,10 @@ func (s GeneratingPolicySpec) AdmissionEnabled() bool {
 	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
-// BackgroundEnabled checks if background is set to true
-func (s GeneratingPolicySpec) BackgroundEnabled() bool {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return true
-	}
-	return *s.EvaluationConfiguration.Background.Enabled
-}
-
 type GeneratingPolicyEvaluationConfiguration struct {
 	// Admission controls policy evaluation during admission.
 	// +optional
 	Admission *AdmissionConfiguration `json:"admission,omitempty"`
-
-	// Background  controls policy evaluation during background scan.
-	// +optional
-	Background *BackgroundConfiguration `json:"background,omitempty"`
 
 	// GenerateExisting defines the configuration for generating resources for existing triggeres.
 	// +optional
