@@ -206,7 +206,7 @@ func TestLoadTests(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Deployment",
 						Policy: "policy-1",
-						Result: policyreportv1alpha2.StatusPass,
+						Result: openreports.StatusPass,
 						Rule:   "rule-1",
 					},
 					TestResultData: v1alpha1.TestResultData{
@@ -232,7 +232,7 @@ func TestLoadTests(t *testing.T) {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:   "Pod",
 						Policy: "policy-2",
-						Result: policyreportv1alpha2.StatusSkip,
+						Result: openreports.StatusSkip,
 						Rule:   "rule-2",
 					},
 					TestResultData: v1alpha1.TestResultData{
