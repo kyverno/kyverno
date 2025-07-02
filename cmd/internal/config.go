@@ -283,9 +283,9 @@ func (c *configuration) AddFlagSet(fs *flag.FlagSet) {
 
 func (c *configuration) GetFlagValue(flagName string) (string, error) {
 	for _, fs := range c.FlagSets() {
-		or := fs.Lookup(flagName)
-		if or != nil {
-			return or.Value.String(), nil
+		f := fs.Lookup(flagName)
+		if f != nil {
+			return f.Value.String(), nil
 		}
 	}
 	return "", fmt.Errorf("flag not found in flagset")
