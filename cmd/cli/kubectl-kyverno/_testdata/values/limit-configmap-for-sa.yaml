@@ -1,3 +1,5 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
 policies:
   - name: limit-configmap-for-sa
     resources:
@@ -7,7 +9,6 @@ policies:
       - name: any-configmap-name-bad
         values:
           request.operation: UPDATE
-
 namespaceSelector:
   - name: test1
     labels:

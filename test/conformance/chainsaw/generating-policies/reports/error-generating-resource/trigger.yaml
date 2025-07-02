@@ -1,0 +1,7 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: error-generating-resource
+  namespace: default
+data:
+  namespaces: error-generating-resource-1,error-generating-resource-2,error-generating-resource-3

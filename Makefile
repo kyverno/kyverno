@@ -740,7 +740,7 @@ codegen-manifest-all: codegen-manifest-debug
 .PHONY: codegen-fix-tests
 codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
 	@echo Fix CLI test files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test . --save --compress --force
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test test --save --compress --force
 
 .PHONY: codegen-fix-policies
 codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
@@ -1025,6 +1025,7 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \
+		--values ./scripts/config/resources/kyverno.yaml \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
 		$(EXPLICIT_INSTALL_SETTINGS)
 

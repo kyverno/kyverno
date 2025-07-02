@@ -6,7 +6,7 @@ Provides a command-line interface to JMESPath, enhanced with Kyverno specific cu
 
 Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
 
-  For more information visit https://kyverno.io/docs/kyverno-cli/#jp
+  For more information visit https://kyverno.io/docs/kyverno-cli/usage/jp/
 
 ```
 kyverno jp [flags]

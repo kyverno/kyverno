@@ -113,6 +113,7 @@ func testCommandExecute(
 			fmt.Fprintln(out, "  Path:", e.Path)
 			fmt.Fprintln(out, "    Error:", e.Err)
 		}
+		return fmt.Errorf("found %d errors after loading tests", len(errs))
 	}
 	if len(tests) == 0 {
 		if requireTests {
@@ -130,7 +131,10 @@ func testCommandExecute(
 	var fullTable table.Table
 	for _, test := range tests {
 		if test.Err == nil {
-			deprecations.CheckTest(out, test.Path, test.Test)
+			if deprecations.CheckTest(out, test.Path, test.Test) {
+				return fmt.Errorf("test file %s uses a deprecated schema — please migrate to the latest format", test.Path)
+			}
+
 			// filter results
 			var filteredResults []v1alpha1.TestResult
 			for _, res := range test.Test.Results {

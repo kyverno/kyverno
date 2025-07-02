@@ -22,6 +22,10 @@ type GeneratingPolicy struct {
 	Status GeneratingPolicyStatus `json:"status,omitempty"`
 }
 
+func (s *GeneratingPolicy) GetKind() string {
+	return "GeneratingPolicy"
+}
+
 func (s *GeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
 	if s.Spec.MatchConstraints == nil {
 		return admissionregistrationv1.MatchResources{}

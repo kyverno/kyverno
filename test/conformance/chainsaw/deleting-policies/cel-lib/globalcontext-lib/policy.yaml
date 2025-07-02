@@ -1,0 +1,14 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: DeletingPolicy
+metadata:
+  name: delete-if-deployment-exists
+spec:
+  schedule: "*/1 * * * *"
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  conditions:
+    - name: require-deployment
+      expression: globalContext.Get("gctxentry-apicall-correct", "") != 0

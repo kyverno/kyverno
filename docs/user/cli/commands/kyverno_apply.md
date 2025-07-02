@@ -6,7 +6,7 @@ Applies policies on resources.
 
 Applies policies on resources.
 
-  For more information visit https://kyverno.io/docs/kyverno-cli/#apply
+  For more information visit https://kyverno.io/docs/kyverno-cli/usage/apply/
 
 ```
 kyverno apply [flags]
