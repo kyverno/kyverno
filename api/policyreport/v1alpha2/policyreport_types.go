@@ -19,6 +19,8 @@ import (
 	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
+const kyvernoSource = "kyverno"
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -32,9 +34,6 @@ import (
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=polr
-
-const kyvernoSource = "kyverno"
-
 // PolicyReport is the Schema for the policyreports API
 type PolicyReport struct {
 	metav1.TypeMeta   `json:",inline"`
