@@ -19,12 +19,26 @@ background-color: #1589dd;
 <ul style="list-style:none">
 <li>
 <a href="#kyverno.io%2fv1"><b style="color: white">kyverno.io/v1</b></a>
+</li>
+<li>
 <a href="#kyverno.io%2fv1beta1"><b style="color: white">kyverno.io/v1beta1</b></a>
+</li>
+<li>
 <a href="#kyverno.io%2fv2"><b style="color: white">kyverno.io/v2</b></a>
+</li>
+<li>
 <a href="#kyverno.io%2fv2alpha1"><b style="color: white">kyverno.io/v2alpha1</b></a>
+</li>
+<li>
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
+</li>
+<li>
 <a href="#policies.kyverno.io%2fv1alpha1"><b style="color: white">policies.kyverno.io/v1alpha1</b></a>
+</li>
+<li>
 <a href="#reports.kyverno.io%2fv1"><b style="color: white">reports.kyverno.io/v1</b></a>
+</li>
+<li>
 <a href="#wgpolicyk8s.io%2fv1alpha2"><b style="color: white">wgpolicyk8s.io/v1alpha2</b></a>
 </li>
 </ul>
@@ -33,6 +47,7 @@ background-color: #1589dd;
 Resource Types:
 <ul><li>
 <a href="#kyverno.io/v1.ClusterPolicy">ClusterPolicy</a>
+</li><li>
 <a href="#kyverno.io/v1.Policy">Policy</a>
 </li></ul>
 <hr />
@@ -5762,8 +5777,11 @@ int
 Resource Types:
 <ul><li>
 <a href="#kyverno.io/v2.CleanupPolicy">CleanupPolicy</a>
+</li><li>
 <a href="#kyverno.io/v2.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+</li><li>
 <a href="#kyverno.io/v2.PolicyException">PolicyException</a>
+</li><li>
 <a href="#kyverno.io/v2.UpdateRequest">UpdateRequest</a>
 </li></ul>
 <hr />
@@ -7689,9 +7707,13 @@ If left empty for namespaced resources, all resources from all namespaces will b
 Resource Types:
 <ul><li>
 <a href="#kyverno.io/v2beta1.CleanupPolicy">CleanupPolicy</a>
+</li><li>
 <a href="#kyverno.io/v2beta1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+</li><li>
 <a href="#kyverno.io/v2beta1.ClusterPolicy">ClusterPolicy</a>
+</li><li>
 <a href="#kyverno.io/v2beta1.Policy">Policy</a>
+</li><li>
 <a href="#kyverno.io/v2beta1.PolicyException">PolicyException</a>
 </li></ul>
 <hr />
@@ -10153,10 +10175,15 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 Resource Types:
 <ul><li>
 <a href="#policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy</a>
+</li><li>
 <a href="#policies.kyverno.io/v1alpha1.GeneratingPolicy">GeneratingPolicy</a>
+</li><li>
 <a href="#policies.kyverno.io/v1alpha1.ImageValidatingPolicy">ImageValidatingPolicy</a>
+</li><li>
 <a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>
+</li><li>
 <a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>
+</li><li>
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>
 </li></ul>
 <hr />
@@ -14696,6 +14723,7 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
 Resource Types:
 <ul><li>
 <a href="#reports.kyverno.io/v1.ClusterEphemeralReport">ClusterEphemeralReport</a>
+</li><li>
 <a href="#reports.kyverno.io/v1.EphemeralReport">EphemeralReport</a>
 </li></ul>
 <hr />
@@ -14965,7 +14993,7 @@ openreports.io/apis/openreports.io/v1alpha1.ReportSummary
 Resource Types:
 <ul><li>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>
-</ul>
+</li></ul>
 <hr />
 <h3 id="wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport
 </h3>
@@ -15162,8 +15190,9 @@ PolicyReportSummary
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>,
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>)</p>
+<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>)
+</p>
 <p>
 <p>PolicyReportResult provides the result for an individual policy</p>
 </p>
@@ -15333,8 +15362,9 @@ PolicySeverity
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>,
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>)</p>
+<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>)
+</p>
 <p>
 <p>PolicyReportSummary provides a status count summary</p>
 </p>
