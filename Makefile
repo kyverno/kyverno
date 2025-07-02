@@ -740,7 +740,7 @@ codegen-manifest-all: codegen-manifest-debug
 .PHONY: codegen-fix-tests
 codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
 	@echo Fix CLI test files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test . --save --compress --force
+	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test test --save --compress --force
 
 .PHONY: codegen-fix-policies
 codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
