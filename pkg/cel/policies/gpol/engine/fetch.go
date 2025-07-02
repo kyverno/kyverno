@@ -56,7 +56,7 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 		}
 	}
 	compiled, errList := fp.compiler.Compile(policy, matchedExceptions)
-	if err != nil {
+	if errList != nil {
 		return Policy{}, errList.ToAggregate()
 	}
 

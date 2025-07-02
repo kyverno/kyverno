@@ -43,7 +43,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			cel.MemberOverload(
 				"generator_apply_string_list",
 				[]*cel.Type{ContextType, types.StringType, types.NewListType(types.NewMapType(types.StringType, types.AnyType))},
-				types.NullType,
+				types.BoolType,
 				cel.FunctionBinding(impl.apply_generator_string_list),
 			),
 		},
