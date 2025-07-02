@@ -54,7 +54,7 @@ func sanityChecks(logger logr.Logger, apiserverClient apiserver.Interface, polrC
 	}
 
 	crdNames = append(crdNames, "clusterpolicyreports.wgpolicyk8s.io", "policyreports.wgpolicyk8s.io")
-	return kubeutils.CRDsInstalled(apiserverClient)
+	return kubeutils.CRDsInstalled(apiserverClient, crdNames...)
 }
 
 func createReportControllers(
