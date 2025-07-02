@@ -18,7 +18,9 @@ func New(out io.Writer, fs billy.Filesystem, resourcePath string, path string, v
 		if err != nil {
 			return nil, fmt.Errorf("unable to load variable file: %s (%w)", path, err)
 		}
-		deprecations.CheckValues(out, path, v)
+		if deprecations.CheckValues(out, path, v) {
+			return nil, fmt.Errorf("values file %s uses a deprecated schema — please migrate to the latest format", path)
+		}
 		vals = &v.ValuesSpec
 	}
 	variables := Variables{
