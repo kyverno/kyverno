@@ -1,0 +1,40 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: foreach-data-filtered-resource
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["configmaps"]
+  variables:
+    # nsList is ["filtered-ns-1", "filtered-ns-2", "filtered-ns-3"]
+    - name: nsList
+      expression: "object.data.namespaces.split(',')"
+    # filteredList is ["filtered-ns-1", "filtered-ns-3"]
+    - name: filteredList
+      expression: "variables.nsList.filter(ns, ['filtered-ns-1', 'filtered-ns-3'].exists(v, v == ns))"
+    # indexed is [0, 2]
+    - name: indexed
+      expression: >
+        variables.filteredList.map(ns, variables.nsList.indexOf(ns))
+  generate:
+    - expression: >
+        variables.indexed.all(i, generator.Apply(variables.nsList[i], [
+          {
+            "kind": dyn("NetworkPolicy"),
+            "apiVersion": dyn("networking.k8s.io/v1"),
+            "metadata": dyn({
+              "name": "filtered-np-" + string(i),
+            }),
+            "spec": dyn({
+              "podSelector": dyn({}),
+              "policyTypes": dyn(["Ingress", "Egress"])
+            })
+          }]
+        ))

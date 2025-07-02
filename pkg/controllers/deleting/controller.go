@@ -186,60 +186,69 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			if c.metrics.deletingFailuresTotal != nil {
 				c.metrics.deletingFailuresTotal.Add(ctx, 1, metric.WithAttributes(commonLabels...))
 			}
-		} else {
-			for i := range list.Items {
-				resource := list.Items[i]
+			// Check if this is a recoverable error (permission denied, resource not found, etc.)
+			if dclient.IsRecoverableError(err) {
+				logger.V(2).Info("skipping resource kind due to access restrictions", "kind", kind, "error", err.Error())
+			} else {
+				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
+				errs = append(errs, err)
+			}
 
-				namespace := resource.GetNamespace()
-				name := resource.GetName()
-				debug := logger.WithValues("name", name, "namespace", namespace)
-				gvk := resource.GroupVersionKind()
-				// Skip if resource matches resourceFilters from config
-				if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
-					debug.Info("skipping resource due to resourceFilters in ConfigMap")
-					continue
-				}
-				// check if the resource is owned by Kyverno
-				if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
-					continue
-				}
+			continue
+		}
 
-				engineResult, err := c.engine.Handle(ctx, ePolicy, resource)
-				if err != nil {
-					debug.Error(err, "failed to process resource")
-					errs = append(errs, err)
-					continue
-				}
+		for i := range list.Items {
+			resource := list.Items[i]
 
-				if !engineResult.Match {
-					debug.Error(err, "policy did not match match")
-					errs = append(errs, err)
-					continue
-				}
+			namespace := resource.GetNamespace()
+			name := resource.GetName()
+			debug := logger.WithValues("name", name, "namespace", namespace)
+			gvk := resource.GroupVersionKind()
+			// Skip if resource matches resourceFilters from config
+			if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
+				debug.Info("skipping resource due to resourceFilters in ConfigMap")
+				continue
+			}
+			// check if the resource is owned by Kyverno
+			if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
+				continue
+			}
 
-				var labels []attribute.KeyValue
-				labels = append(labels, commonLabels...)
-				labels = append(labels, attribute.String("resource_namespace", namespace))
-				if deleteOptions.PropagationPolicy != nil {
-					labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
+			engineResult, err := c.engine.Handle(ctx, ePolicy, resource)
+			if err != nil {
+				debug.Error(err, "failed to process resource")
+				errs = append(errs, err)
+				continue
+			}
+
+			if !engineResult.Match {
+				debug.Error(err, "policy did not match match")
+				errs = append(errs, err)
+				continue
+			}
+
+			var labels []attribute.KeyValue
+			labels = append(labels, commonLabels...)
+			labels = append(labels, attribute.String("resource_namespace", namespace))
+			if deleteOptions.PropagationPolicy != nil {
+				labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
+			}
+			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
+			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
+				if c.metrics.deletingFailuresTotal != nil {
+					c.metrics.deletingFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 				}
-				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
-					if c.metrics.deletingFailuresTotal != nil {
-						c.metrics.deletingFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
-					}
-					debug.Error(err, "failed to delete resource")
-					errs = append(errs, err)
-					e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, err)
-					c.eventGen.Add(e)
-				} else {
-					if c.metrics.deletedObjectsTotal != nil {
-						c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
-					}
-					debug.Info("resource deleted")
-					e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
-					c.eventGen.Add(e)
+				debug.Error(err, "failed to delete resource")
+				errs = append(errs, err)
+				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, err)
+				c.eventGen.Add(e)
+			} else {
+				if c.metrics.deletedObjectsTotal != nil {
+					c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 				}
+				debug.Info("resource deleted")
+				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
+				c.eventGen.Add(e)
 			}
 		}
 	}

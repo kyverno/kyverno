@@ -48,9 +48,6 @@ type DeletingPolicySpec struct {
 	// namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
 	// There are a maximum of 64 conditions allowed.
 	//
-	// If a parameter object is provided, it can be accessed via the `params` handle in the same
-	// manner as validation expressions.
-	//
 	// The exact matching logic is (in order):
 	//   1. If ANY condition evaluates to FALSE, the policy is skipped.
 	//   2. If ALL conditions evaluate to TRUE, the policy is executed.
