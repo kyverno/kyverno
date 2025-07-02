@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np1
+  namespace: data-generate-nps-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np2
+  namespace: data-generate-nps-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np3
+  namespace: data-generate-nps-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
