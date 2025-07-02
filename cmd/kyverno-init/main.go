@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	policyReportKind        string = "PolicyReport"
-	clusterPolicyReportKind string = "ClusterPolicyReport"
+	policyReportKind              string = "PolicyReport"
+	clusterPolicyReportKind       string = "ClusterPolicyReport"
+	managedByKyvernoLabelSelector string = "app.kubernetes.io/managed-by=kyverno"
 )
 
 func main() {
@@ -239,12 +240,16 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 }
 
 func cleanUpWgPolicyReports(logger logr.Logger, wgpolicyClient wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface) error {
-	polrs, err := wgpolicyClient.PolicyReports(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	polrs, err := wgpolicyClient.PolicyReports(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+		LabelSelector: managedByKyvernoLabelSelector,
+	})
 	if err != nil {
 		return err
 	}
 
-	cpolrs, err := wgpolicyClient.ClusterPolicyReports().List(context.Background(), metav1.ListOptions{})
+	cpolrs, err := wgpolicyClient.ClusterPolicyReports().List(context.Background(), metav1.ListOptions{
+		LabelSelector: managedByKyvernoLabelSelector,
+	})
 	if err != nil {
 		return err
 	}
