@@ -8,11 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -38,12 +36,12 @@ import (
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
-func sanityChecks(logger logr.Logger, apiserverClient apiserver.Interface, polrClient wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) error {
+func sanityChecks(apiserverClient apiserver.Interface, openreportsEnabled bool) error {
 	crdNames := []string{
 		"ephemeralreports.reports.kyverno.io",
 		"clusterephemeralreports.reports.kyverno.io",
 	}
-	if orClient != nil {
+	if openreportsEnabled {
 		crdNames = append(crdNames, "reports.openreports.io", "clusterreports.openreports.io")
 		err := kubeutils.CRDsInstalled(apiserverClient, crdNames...)
 		if err != nil {
@@ -283,7 +281,7 @@ func main() {
 		// THIS IS AN UGLY FIX
 		// ELSE KYAML IS NOT THREAD SAFE
 		kyamlopenapi.Schema()
-		if err := sanityChecks(setup.Logger.WithName("sanity-checks"), setup.ApiServerClient, setup.KyvernoClient.Wgpolicyk8sV1alpha2(), setup.OpenreportsClient); err != nil {
+		if err := sanityChecks(setup.ApiServerClient, setup.OpenreportsClient != nil); err != nil {
 			setup.Logger.Error(err, "sanity checks failed")
 			if reportsCRDsSanityChecks {
 				os.Exit(1)
