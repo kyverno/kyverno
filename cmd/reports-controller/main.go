@@ -234,7 +234,7 @@ func main() {
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
 	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
-	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", false, "Enable or disable validating admission policy reports.")
+	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", true, "Enable or disable ValidatingAdmissionPolicy reports.")
 	flagset.IntVar(&aggregationWorkers, "aggregationWorkers", aggregatereportcontroller.Workers, "Configure the number of ephemeral reports aggregation workers.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
