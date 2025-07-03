@@ -29,9 +29,8 @@ type Policy struct {
 	exceptions []compiler.Exception
 }
 
-// compositionContext implements the CompositionContext interface
 type compositionContext struct {
-	ctx             context.Context
+	ctx             context.Context //nolint:containedctx
 	evaluator       *mutating.PolicyEvaluator
 	contextProvider libs.Context
 	accumulatedCost int64
