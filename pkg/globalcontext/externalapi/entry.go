@@ -28,6 +28,7 @@ type entry struct {
 	dataMap     map[string]any
 	err         error
 	stop        func()
+	jp          jmespath.Interface
 	projections []store.Projection
 }
 
@@ -69,6 +70,7 @@ func New(
 	e := &entry{
 		dataMap:     make(map[string]any),
 		stop:        stop,
+		jp:          jp,
 		projections: projections,
 	}
 
@@ -106,7 +108,7 @@ func New(
 	return e, nil
 }
 
-func (e *entry) Get(projection string) (any, error) {
+func (e *entry) Get(projection, jmesPath string) (any, error) {
 	e.Lock()
 	defer e.Unlock()
 
@@ -119,7 +121,11 @@ func (e *entry) Get(projection string) (any, error) {
 		return nil, fmt.Errorf("no data available")
 	}
 
-	return data, nil
+	if jmesPath == "" {
+		return data, nil
+	}
+
+	return e.jp.Search(jmesPath, data)
 }
 
 func (e *entry) Stop() {
