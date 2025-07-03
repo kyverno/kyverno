@@ -1,8 +1,6 @@
 package v1alpha1
 
-import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-)
+import openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 
 // TestResultBase declares a test result base fields
 type TestResultBase struct {
@@ -50,7 +48,7 @@ type TestResultBase struct {
 
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
-	Result policyreportv1alpha2.PolicyResult `json:"result"`
+	Result openreportsv1alpha1.Result `json:"result"`
 
 	// Kind mentions the kind of the resource on which the policy is to be applied.
 	Kind string `json:"kind"`

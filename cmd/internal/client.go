@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 )
 
 func createClientConfig(logger logr.Logger, rateLimitQPS float64, rateLimitBurst int) *rest.Config {
@@ -43,6 +44,14 @@ func createKubernetesClient(logger logr.Logger, rateLimitQPS float64, rateLimitB
 	logger.V(2).Info("create kube client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := kubeclient.NewForConfig(createClientConfig(logger, rateLimitQPS, rateLimitBurst), opts...)
 	checkError(logger, err, "failed to create kubernetes client")
+	return client
+}
+
+func createOpenReportsClient(logger logr.Logger, rateLimitQPS float64, rateLimitBurst int) openreportsclient.OpenreportsV1alpha1Interface {
+	logger = logger.WithName("openreports-client")
+	logger.V(2).Info("create openreports client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	client, err := openreportsclient.NewForConfig(createClientConfig(logger, rateLimitQPS, rateLimitBurst))
+	checkError(logger, err, "failed to create openreports client")
 	return client
 }
 
