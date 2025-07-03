@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foreach-clone-sync-create-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foreach-clone-sync-create-2
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foreach-clone-sync-create-3

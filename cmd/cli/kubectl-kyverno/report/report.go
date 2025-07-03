@@ -1,14 +1,15 @@
 package report
 
 import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
-func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) policyreportv1alpha2.PolicyReportResult {
+func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) openreportsv1alpha1.ReportResult {
 	resource := engineResponse.Resource
 	resorceRef := &corev1.ObjectReference{
 		Kind:            resource.GetKind(),
@@ -19,18 +20,18 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 		ResourceVersion: resource.GetResourceVersion(),
 	}
 	result := reportutils.ToPolicyReportResult(engineResponse.Policy(), ruleResponse, resorceRef)
-	if result.Result == policyreportv1alpha2.StatusFail {
+	if result.Result == openreports.StatusFail {
 		audit := engineResponse.GetValidationFailureAction().Audit()
 		if audit && auditWarn {
-			result.Result = policyreportv1alpha2.StatusWarn
+			result.Result = openreports.StatusWarn
 		}
 	}
 
 	return result
 }
 
-func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engineapi.EngineResponse) map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult {
-	results := map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult{}
+func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engineapi.EngineResponse) map[engineapi.GenericPolicy][]openreportsv1alpha1.ReportResult {
+	results := map[engineapi.GenericPolicy][]openreportsv1alpha1.ReportResult{}
 	for _, engineResponse := range engineResponses {
 		if len(engineResponse.PolicyResponse.Rules) == 0 {
 			continue
@@ -50,16 +51,16 @@ func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engi
 	return results
 }
 
-func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) ([]policyreportv1alpha2.ClusterPolicyReport, []policyreportv1alpha2.PolicyReport) {
-	var clustered []policyreportv1alpha2.ClusterPolicyReport
-	var namespaced []policyreportv1alpha2.PolicyReport
+func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) ([]openreportsv1alpha1.ClusterReport, []openreportsv1alpha1.Report) {
+	var clustered []openreportsv1alpha1.ClusterReport
+	var namespaced []openreportsv1alpha1.Report
 	perPolicyResults := ComputePolicyReportResultsPerPolicy(auditWarn, engineResponses...)
 	for policy, results := range perPolicyResults {
 		if policy.GetNamespace() == "" {
-			report := policyreportv1alpha2.ClusterPolicyReport{
+			report := openreportsv1alpha1.ClusterReport{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
-					Kind:       "ClusterPolicyReport",
+					APIVersion: openreportsv1alpha1.SchemeGroupVersion.String(),
+					Kind:       "ClusterReport",
 				},
 				Results: results,
 				Summary: reportutils.CalculateSummary(results),
@@ -67,9 +68,9 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 			report.SetName(policy.GetName())
 			clustered = append(clustered, report)
 		} else {
-			report := policyreportv1alpha2.PolicyReport{
+			report := openreportsv1alpha1.Report{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
+					APIVersion: openreportsv1alpha1.SchemeGroupVersion.String(),
 					Kind:       "PolicyReport",
 				},
 				Results: results,
@@ -83,15 +84,15 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 	return clustered, namespaced
 }
 
-func MergeClusterReports(clustered []policyreportv1alpha2.ClusterPolicyReport) policyreportv1alpha2.ClusterPolicyReport {
-	var results []policyreportv1alpha2.PolicyReportResult
+func MergeClusterReports(clustered []openreportsv1alpha1.ClusterReport) openreportsv1alpha1.ClusterReport {
+	var results []openreportsv1alpha1.ReportResult
 	for _, report := range clustered {
 		results = append(results, report.Results...)
 	}
-	return policyreportv1alpha2.ClusterPolicyReport{
+	return openreportsv1alpha1.ClusterReport{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "ClusterPolicyReport",
-			APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
+			Kind:       "ClusterReport",
+			APIVersion: openreportsv1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "merged",

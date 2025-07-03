@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-generate-nps-1
+  labels:
+    networkpolicies: "np1-np2-np3"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-generate-nps-2

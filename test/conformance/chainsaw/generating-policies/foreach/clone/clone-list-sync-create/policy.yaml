@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: foreach-clone-list-sync-create
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["configmaps"]
+  variables:
+    - name: nsList
+      expression: "object.data.namespaces.split(',')"
+    - name: sources
+      expression: resource.List("v1", "secrets", "default")
+  generate:
+    - expression: >
+        variables.nsList.all(ns, generator.Apply(ns, [variables.sources]))

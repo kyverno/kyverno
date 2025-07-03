@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: foreach-clone-list-sync-create
+spec:
+  steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
+  - name: create namespaces
+    try:
+    - apply:
+        file: namespaces.yaml
+  - name: create source
+    try:
+    - create:
+        file: source.yaml
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create trigger
+    try:
+    - apply:
+        file: trigger.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that three secrets are generated in each namespace
+    try:
+    - assert:
+        file: downstream-assert1.yaml
+    - assert:
+        file: downstream-assert2.yaml
+    - assert:
+        file: downstream-assert3.yaml

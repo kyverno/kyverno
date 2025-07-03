@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: error-generating-resource
+  namespace: error-generating-resource-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: error-generating-resource
+  namespace: error-generating-resource-2
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: error-generating-resource
+  namespace: error-generating-resource-3
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

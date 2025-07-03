@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -28,57 +29,71 @@ func loadLocalTest(path string, fileName string) (TestCases, error) {
 			}
 			tests = append(tests, ps...)
 		} else if file.Name() == fileName {
-			tests = append(tests, LoadTest(nil, filepath.Join(path, fileName)))
+			tests = append(tests, LoadTest(nil, filepath.Join(path, fileName))...)
 		}
 	}
 	return tests, nil
 }
 
-func LoadTest(fs billy.Filesystem, path string) TestCase {
+func LoadTest(fs billy.Filesystem, path string) TestCases {
 	var yamlBytes []byte
 	if fs != nil {
 		file, err := fs.Open(path)
 		if err != nil {
-			return TestCase{
+			return TestCases{{
 				Path: path,
 				Fs:   fs,
 				Err:  err,
-			}
+			}}
 		}
 		data, err := io.ReadAll(file)
 		if err != nil {
-			return TestCase{
+			return TestCases{{
 				Path: path,
 				Fs:   fs,
 				Err:  err,
-			}
+			}}
 		}
 		yamlBytes = data
 	} else {
 		data, err := os.ReadFile(path) // #nosec G304
 		if err != nil {
-			return TestCase{
+			return TestCases{{
 				Path: path,
 				Fs:   fs,
 				Err:  err,
-			}
+			}}
 		}
 		yamlBytes = data
 	}
-	var test v1alpha1.Test
-	if err := yaml.UnmarshalStrict(yamlBytes, &test); err != nil {
-		return TestCase{
+	testCases := make(TestCases, 0)
+	documents, err := extyaml.SplitDocuments(yamlBytes)
+	if err != nil {
+		testCases = append(testCases, TestCase{
 			Path: path,
 			Fs:   fs,
 			Err:  err,
+		})
+		return testCases
+	}
+	for _, yamlBytes := range documents {
+		var test v1alpha1.Test
+		if err := yaml.UnmarshalStrict(yamlBytes, &test); err != nil {
+			testCases = append(testCases, TestCase{
+				Path: path,
+				Fs:   fs,
+				Err:  err,
+			})
+			return testCases
 		}
+		cleanTest(&test)
+		testCases = append(testCases, TestCase{
+			Path: path,
+			Fs:   fs,
+			Test: &test,
+		})
 	}
-	cleanTest(&test)
-	return TestCase{
-		Path: path,
-		Fs:   fs,
-		Test: &test,
-	}
+	return testCases
 }
 
 func cleanTest(test *v1alpha1.Test) {

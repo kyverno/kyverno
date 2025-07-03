@@ -20,6 +20,7 @@ import (
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
@@ -40,6 +41,7 @@ type SetupResult struct {
 	MetricsManager         metrics.MetricsConfigManager
 	Jp                     jmespath.Interface
 	KubeClient             kubeclient.UpstreamInterface
+	OpenreportsClient      openreportsclient.OpenreportsV1alpha1Interface
 	LeaderElectionClient   kubeclient.UpstreamInterface
 	RegistryClient         registryclient.Client
 	ImageVerifyCacheClient imageverifycache.Client
@@ -118,6 +120,18 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesRestConfig() {
 		restConfig = createClientConfig(logger, clientRateLimitQPS, clientRateLimitBurst)
 	}
+
+	var orClient openreportsclient.OpenreportsV1alpha1Interface
+	if config.UsesOpenreports() {
+		openreportsEnabled, err := config.GetFlagValue("openreportsEnabled")
+		if err != nil {
+			logger.Error(err, "error parsing openreports flag")
+		}
+		if openreportsEnabled == "true" {
+			orClient = createOpenReportsClient(logger, clientRateLimitQPS, clientRateLimitBurst)
+		}
+	}
+
 	return ctx,
 		SetupResult{
 			Logger:                 logger,
@@ -130,6 +144,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			RegistryClient:         registryClient,
 			ImageVerifyCacheClient: imageVerifyCache,
 			RegistrySecretLister:   registrySecretLister,
+			OpenreportsClient:      orClient,
 			KyvernoClient:          kyvernoClient,
 			DynamicClient:          dynamicClient,
 			ApiServerClient:        apiServerClient,

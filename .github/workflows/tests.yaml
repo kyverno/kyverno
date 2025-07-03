@@ -24,17 +24,11 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-    - name: Setup caches
-      uses: ./.github/actions/setup-caches
-      timeout-minutes: 5
-      continue-on-error: true
-      with:
-        build-cache-key: tests
     - name: Setup build env
       uses: ./.github/actions/setup-build-env
       timeout-minutes: 10
       with:
-        free-disk-space: false
+        free-disk-space: true
     - name: Unit test
       run: make test-unit
     - name: Upload coverage

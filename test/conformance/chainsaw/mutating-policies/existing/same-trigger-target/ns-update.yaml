@@ -1,0 +1,7 @@
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: test-mpol-same-trigger-target-1
+  labels:
+    color: green

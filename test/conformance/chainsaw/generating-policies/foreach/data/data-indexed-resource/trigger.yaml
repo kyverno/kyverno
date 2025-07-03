@@ -1,0 +1,7 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: foreach-data-indexed-resource
+  namespace: default
+data:
+  namespaces: foreach-data-indexed-resource-1,foreach-data-indexed-resource-2,foreach-data-indexed-resource-3

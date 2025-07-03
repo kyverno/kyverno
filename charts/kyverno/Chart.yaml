@@ -37,6 +37,10 @@ annotations:
       description: Ensure spec.template.metadata isn't null
     - kind: removed
       description: Remove the `delete` permission for policyexceptions in the admission controller
+    - kind: changed
+      description: Enable the flag `--generateValidatingAdmissionPolicy` by default in the admission controller.
+    - kind: changed
+      description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
 dependencies:
   - name: grafana
     version: v0.0.0

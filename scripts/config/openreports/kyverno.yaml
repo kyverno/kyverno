@@ -1,0 +1,82 @@
+features:
+  policyExceptions:
+    enabled: true
+    namespace: "*"
+  omitEvents:
+    eventTypes: []
+
+reportsController:
+  extraArgs:
+    openreportsEnabled: true
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - 'openreports.io'
+          resources:
+            - '*'
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
+            - get
+            - list
+
+admissionController:
+  extraArgs:
+    v: 4
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - secrets
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
+            - get
+            - list
+
+backgroundController:
+  extraArgs:
+    v: 4
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - configmaps
+            - networkpolicies
+            - resourcequotas
+            - secrets
+            - roles
+            - rolebindings
+            - limitranges
+            - namespaces
+            - nodes
+            - nodes/status
+            - pods
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
+            - get
+            - list
+
+cleanupController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - pods
+          verbs:
+            - list
+            - delete

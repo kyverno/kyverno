@@ -2,7 +2,6 @@ package cleanup
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -217,48 +216,64 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(commonLabels...))
 			}
 			// Check if this is a recoverable error (permission denied, resource not found, etc.)
-			if isRecoverableError(err) {
+			if dclient.IsRecoverableError(err) {
 				logger.V(2).Info("skipping resource kind due to access restrictions", "kind", kind, "error", err.Error())
-				// Continue processing other resource kinds instead of failing the entire cleanup
-				continue
 			} else {
 				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
 				errs = append(errs, err)
 			}
-		} else {
-			for i := range list.Items {
-				resource := list.Items[i]
-				namespace := resource.GetNamespace()
-				name := resource.GetName()
-				debug := debug.WithValues("name", name, "namespace", namespace)
-				gvk := resource.GroupVersionKind()
-				// Skip if resource matches resourceFilters from config
-				if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
-					debug.Info("skipping resource due to resourceFilters in ConfigMap")
-					continue
-				}
-				// check if the resource is owned by Kyverno
-				if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
-					continue
-				}
 
-				var nsLabels map[string]string
-				if namespace != "" {
-					ns, err := c.nsLister.Get(namespace)
-					if err != nil {
-						debug.Error(err, "failed to get namespace labels")
-						errs = append(errs, err)
-					}
-					nsLabels = ns.GetLabels()
+			continue
+		}
+
+		for i := range list.Items {
+			resource := list.Items[i]
+			namespace := resource.GetNamespace()
+			name := resource.GetName()
+			debug := debug.WithValues("name", name, "namespace", namespace)
+			gvk := resource.GroupVersionKind()
+			// Skip if resource matches resourceFilters from config
+			if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
+				debug.Info("skipping resource due to resourceFilters in ConfigMap")
+				continue
+			}
+			// check if the resource is owned by Kyverno
+			if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
+				continue
+			}
+
+			var nsLabels map[string]string
+			if namespace != "" {
+				ns, err := c.nsLister.Get(namespace)
+				if err != nil {
+					debug.Error(err, "failed to get namespace labels")
+					errs = append(errs, err)
 				}
-				// match namespaces
-				if err := match.CheckNamespace(policy.GetNamespace(), resource); err != nil {
-					debug.Info("resource namespace didn't match policy namespace", "result", err)
-				}
-				// match resource with match/exclude clause
-				matched := match.CheckMatchesResources(
+				nsLabels = ns.GetLabels()
+			}
+			// match namespaces
+			if err := match.CheckNamespace(policy.GetNamespace(), resource); err != nil {
+				debug.Info("resource namespace didn't match policy namespace", "result", err)
+			}
+			// match resource with match/exclude clause
+			matched := match.CheckMatchesResources(
+				resource,
+				spec.MatchResources,
+				nsLabels,
+				// TODO(eddycharly): we don't have user info here, we should check that
+				// we don't have user conditions in the policy rule
+				kyvernov2.RequestInfo{},
+				resource.GroupVersionKind(),
+				"",
+			)
+			if matched != nil {
+				debug.Info("resource/match didn't match", "result", matched)
+				continue
+			}
+			if spec.ExcludeResources != nil {
+				excluded := match.CheckMatchesResources(
 					resource,
-					spec.MatchResources,
+					*spec.ExcludeResources,
 					nsLabels,
 					// TODO(eddycharly): we don't have user info here, we should check that
 					// we don't have user conditions in the policy rule
@@ -266,80 +281,64 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					resource.GroupVersionKind(),
 					"",
 				)
-				if matched != nil {
-					debug.Info("resource/match didn't match", "result", matched)
+				if excluded == nil {
+					debug.Info("resource/exclude matched")
+					continue
+				} else {
+					debug.Info("resource/exclude didn't match", "result", excluded)
+				}
+			}
+			// check conditions
+			if spec.Conditions != nil {
+				enginectx.Reset()
+				if err := enginectx.SetTargetResource(resource.Object); err != nil {
+					debug.Error(err, "failed to add resource in context")
+					errs = append(errs, err)
 					continue
 				}
-				if spec.ExcludeResources != nil {
-					excluded := match.CheckMatchesResources(
-						resource,
-						*spec.ExcludeResources,
-						nsLabels,
-						// TODO(eddycharly): we don't have user info here, we should check that
-						// we don't have user conditions in the policy rule
-						kyvernov2.RequestInfo{},
-						resource.GroupVersionKind(),
-						"",
-					)
-					if excluded == nil {
-						debug.Info("resource/exclude matched")
-						continue
-					} else {
-						debug.Info("resource/exclude didn't match", "result", excluded)
-					}
-				}
-				// check conditions
-				if spec.Conditions != nil {
-					enginectx.Reset()
-					if err := enginectx.SetTargetResource(resource.Object); err != nil {
-						debug.Error(err, "failed to add resource in context")
-						errs = append(errs, err)
-						continue
-					}
-					if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
-						debug.Error(err, "failed to add namespace in context")
-						errs = append(errs, err)
-						continue
-					}
-					if err := enginectx.AddImageInfos(&resource, c.configuration); err != nil {
-						debug.Error(err, "failed to add image infos in context")
-						errs = append(errs, err)
-						continue
-					}
-					passed, err := conditions.CheckAnyAllConditions(logger, enginectx, *spec.Conditions)
-					if err != nil {
-						debug.Error(err, "failed to check condition")
-						errs = append(errs, err)
-						continue
-					}
-					if !passed {
-						debug.Info("conditions did not pass")
-						continue
-					}
-				}
-				var labels []attribute.KeyValue
-				labels = append(labels, commonLabels...)
-				labels = append(labels, attribute.String("resource_namespace", namespace))
-				if deleteOptions.PropagationPolicy != nil {
-					labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
-				}
-				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
-					if c.metrics.cleanupFailuresTotal != nil {
-						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
-					}
-					debug.Error(err, "failed to delete resource")
+				if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
+					debug.Error(err, "failed to add namespace in context")
 					errs = append(errs, err)
-					e := event.NewCleanupPolicyEvent(policy, resource, err)
-					c.eventGen.Add(e)
-				} else {
-					if c.metrics.deletedObjectsTotal != nil {
-						c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
-					}
-					debug.Info("resource deleted")
-					e := event.NewCleanupPolicyEvent(policy, resource, nil)
-					c.eventGen.Add(e)
+					continue
 				}
+				if err := enginectx.AddImageInfos(&resource, c.configuration); err != nil {
+					debug.Error(err, "failed to add image infos in context")
+					errs = append(errs, err)
+					continue
+				}
+				passed, err := conditions.CheckAnyAllConditions(logger, enginectx, *spec.Conditions)
+				if err != nil {
+					debug.Error(err, "failed to check condition")
+					errs = append(errs, err)
+					continue
+				}
+				if !passed {
+					debug.Info("conditions did not pass")
+					continue
+				}
+			}
+			var labels []attribute.KeyValue
+			labels = append(labels, commonLabels...)
+			labels = append(labels, attribute.String("resource_namespace", namespace))
+			if deleteOptions.PropagationPolicy != nil {
+				labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
+			}
+			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
+			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
+				if c.metrics.cleanupFailuresTotal != nil {
+					c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+				}
+				debug.Error(err, "failed to delete resource")
+				errs = append(errs, err)
+				e := event.NewCleanupPolicyEvent(policy, resource, err)
+				c.eventGen.Add(e)
+			} else {
+				if c.metrics.deletedObjectsTotal != nil {
+					c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+				}
+				debug.Info("resource deleted")
+				e := event.NewCleanupPolicyEvent(policy, resource, nil)
+				c.eventGen.Add(e)
 			}
 		}
 	}
@@ -410,76 +409,4 @@ func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyver
 		logging.V(3).Info("updated cleanup policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", new.Status)
 	}
 	return nil
-}
-
-func isRecoverableError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// Check for Kubernetes API errors that are permanent access issues (should skip, not retry)
-	if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
-		return true
-	}
-
-	// Check for resource not found/not available errors that are permanent (should skip, not retry)
-	if apierrors.IsNotFound(err) || apierrors.IsMethodNotSupported(err) {
-		return true
-	}
-
-	// Check for specific error messages that indicate permanent permission or resource type issues
-	errStr := err.Error()
-	permanentErrorPatterns := []string{
-		"is forbidden",
-		"Operation on Calico tiered policy is forbidden",
-		"the server could not find the requested resource",
-		"no Kind is registered for the type",
-	}
-
-	for _, pattern := range permanentErrorPatterns {
-		if strings.Contains(errStr, pattern) {
-			return true
-		}
-	}
-
-	// Check for temporary errors that might resolve on retry
-	// These patterns indicate potentially temporary issues that should NOT be skipped
-	temporaryErrorPatterns := []string{
-		"connection refused",
-		"connection reset",
-		"timeout",
-		"deadline exceeded",
-		"service unavailable",
-		"internal server error",
-		"server is currently unable to handle the request",
-		"too many requests",
-	}
-
-	for _, pattern := range temporaryErrorPatterns {
-		if strings.Contains(strings.ToLower(errStr), strings.ToLower(pattern)) {
-			// These are temporary errors - should NOT be recovered (should trigger retry)
-			return false
-		}
-	}
-
-	// For resource discovery errors, check if they contain specific patterns
-	// "no matches for kind" and "unable to recognize" could be temporary during API discovery
-	discoveryErrorPatterns := []string{
-		"no matches for kind",
-		"unable to recognize",
-	}
-
-	for _, pattern := range discoveryErrorPatterns {
-		if strings.Contains(errStr, pattern) {
-			// These could be temporary during API server startup or CRD installation
-			// However, if they persist, they indicate the resource type doesn't exist
-			// For cleanup controller, it's safer to skip these since they likely indicate
-			// resource types that don't exist in the cluster
-			return true
-		}
-	}
-
-	// Default: treat unknown errors as non-recoverable (should trigger retry)
-	// This ensures that unexpected errors get retried rather than silently ignored
-	return false
 }

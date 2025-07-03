@@ -1,16 +1,20 @@
 package report
 
 import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	"github.com/kyverno/kyverno/pkg/openreports"
 )
 
 func DeepCopy(report reportsv1.ReportInterface) reportsv1.ReportInterface {
 	switch v := report.(type) {
-	case *policyreportv1alpha2.PolicyReport:
-		return v.DeepCopy()
-	case *policyreportv1alpha2.ClusterPolicyReport:
-		return v.DeepCopy()
+	case *openreports.ReportAdapter:
+		return &openreports.ReportAdapter{Report: v.DeepCopy()}
+	case *openreports.ClusterReportAdapter:
+		return &openreports.ClusterReportAdapter{ClusterReport: v.DeepCopy()}
+	case *openreports.WgpolicyReportAdapter:
+		return openreports.NewWGPolAdapter(v.DeepCopy())
+	case *openreports.WgpolicyClusterReportAdapter:
+		return openreports.NewWGCpolAdapter(v.DeepCopy())
 	case *reportsv1.EphemeralReport:
 		return v.DeepCopy()
 	case *reportsv1.ClusterEphemeralReport:
