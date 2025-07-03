@@ -5,6 +5,7 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -53,18 +54,20 @@ type MutatingPolicyResponse struct {
 type Predicate = func(policiesv1alpha1.MutatingPolicy) bool
 
 type engineImpl struct {
-	provider      Provider
-	nsResolver    engine.NamespaceResolver
-	matcher       matching.Matcher
-	typeConverter compiler.TypeConverterManager
+	provider        Provider
+	nsResolver      engine.NamespaceResolver
+	matcher         matching.Matcher
+	typeConverter   compiler.TypeConverterManager
+	contextProvider libs.Context
 }
 
-func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher, typeConverter compiler.TypeConverterManager) *engineImpl {
+func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher, typeConverter compiler.TypeConverterManager, contextProvider libs.Context) *engineImpl {
 	return &engineImpl{
-		provider:      provider,
-		nsResolver:    nsResolver,
-		matcher:       matcher,
-		typeConverter: typeConverter,
+		provider:        provider,
+		nsResolver:      nsResolver,
+		matcher:         matcher,
+		typeConverter:   typeConverter,
+		contextProvider: contextProvider,
 	}
 }
 
@@ -152,7 +155,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			return ruleResponse, nil
 		}
 	}
-	result := mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, e.typeConverter)
+	result := mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, e.typeConverter, e.contextProvider)
 	if result == nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RuleSkip("", engineapi.Mutation, "skip", nil))
 		return ruleResponse, nil
