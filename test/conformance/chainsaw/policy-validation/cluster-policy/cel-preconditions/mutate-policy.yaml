@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-mutate
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: "none"
+spec:
+  background: false
+  validationFailureAction: Audit
+  rules:
+  - name: controller-pod-nodeaffinity
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    celPreconditions:
+    - name: require-app-nginx
+      expression: object.metadata.labels.app == 'nginx'
+    mutate:
+      patchStrategicMerge:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: eks.amazonaws.com/nodegroup
+                    operator: In
+                    values: ["my-nodegroup"]
