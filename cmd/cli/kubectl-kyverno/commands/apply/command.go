@@ -407,6 +407,33 @@ func (c *ApplyCommandConfig) applyPolicies(
 	}
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
+		// Filter MutatingAdmissionPolicies by resourceNames if set
+		filteredMaps := make([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, 0, len(maps))
+		for _, mapol := range maps {
+			include := false
+			if mapol.Spec.MatchConstraints != nil && len(mapol.Spec.MatchConstraints.ResourceRules) > 0 {
+				for _, rule := range mapol.Spec.MatchConstraints.ResourceRules {
+					if len(rule.ResourceNames) == 0 {
+						include = true // No resourceNames means match all
+						break
+					}
+					for _, rn := range rule.ResourceNames {
+						if resource.GetName() == rn {
+							include = true
+							break
+						}
+					}
+					if include {
+						break
+					}
+				}
+			} else {
+				include = true // No matchConstraints or rules means match all
+			}
+			if include {
+				filteredMaps = append(filteredMaps, mapol)
+			}
+		}
 		processor := processor.PolicyProcessor{
 			Store:                             store,
 			Policies:                          validPolicies,
@@ -415,7 +442,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingPolicies:                vpols,
 			GeneratingPolicies:                gpols,
 			MutatingPolicies:                  mpols,
-			MutatingAdmissionPolicies:         maps,
+			MutatingAdmissionPolicies:         filteredMaps, // Use filtered list
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			Resource:                          *resource,
 			PolicyExceptions:                  exceptions,
