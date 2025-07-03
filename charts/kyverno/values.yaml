@@ -75,6 +75,10 @@ rbac:
       admin: true
       view: true
 
+# Use openreports.io as the API group for reporting
+openreports:
+  enabled: false
+
 # CRDs configuration
 crds:
 
@@ -115,6 +119,11 @@ crds:
     wgpolicyk8s:
       clusterpolicyreports: true
       policyreports: true
+
+    # -- Install CRDs in group `openreports.io`
+    openreports:
+      reports: false
+      clusterreports: false
 
   # -- Additional CRDs annotations
   annotations: {}
