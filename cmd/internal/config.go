@@ -2,6 +2,7 @@ package internal
 
 import (
 	"flag"
+	"fmt"
 )
 
 type Configuration interface {
@@ -24,6 +25,9 @@ type Configuration interface {
 	UsesEventsClient() bool
 	UsesReporting() bool
 	UsesRestConfig() bool
+	UsesOpenreports() bool
+	GetFlagValue(string) (string, error)
+	AddFlagSet(*flag.FlagSet)
 	FlagSets() []*flag.FlagSet
 }
 
@@ -141,6 +145,12 @@ func WithEventsClient() ConfigurationOption {
 	}
 }
 
+func WithOpenreports() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesOpenreports = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -177,6 +187,7 @@ type configuration struct {
 	usesMetadataClient       bool
 	usesKyvernoDynamicClient bool
 	usesEventsClient         bool
+	usesOpenreports          bool
 	usesReporting            bool
 	usesRestConfig           bool
 	flagSets                 []*flag.FlagSet
@@ -196,6 +207,10 @@ func (c *configuration) UsesProfiling() bool {
 
 func (c *configuration) UsesKubeconfig() bool {
 	return c.usesKubeconfig
+}
+
+func (c *configuration) UsesOpenreports() bool {
+	return c.usesOpenreports
 }
 
 func (c *configuration) UsesPolicyExceptions() bool {
@@ -260,4 +275,18 @@ func (c *configuration) UsesRestConfig() bool {
 
 func (c *configuration) FlagSets() []*flag.FlagSet {
 	return c.flagSets
+}
+
+func (c *configuration) AddFlagSet(fs *flag.FlagSet) {
+	c.flagSets = append(c.flagSets, fs)
+}
+
+func (c *configuration) GetFlagValue(flagName string) (string, error) {
+	for _, fs := range c.FlagSets() {
+		f := fs.Lookup(flagName)
+		if f != nil {
+			return f.Value.String(), nil
+		}
+	}
+	return "", fmt.Errorf("flag not found in flagset")
 }
