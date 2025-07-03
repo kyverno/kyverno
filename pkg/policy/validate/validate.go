@@ -88,6 +88,9 @@ func (v *Validate) Validate(ctx context.Context, _ []string) (warnings []string,
 			}
 		}
 	}
+	if v.rule.CELPreconditions != nil && v.validationRule.CEL == nil {
+		return nil, "", fmt.Errorf("celPrecondition can only be used with validate.cel")
+	}
 
 	if v.validationRule.CEL != nil {
 		for _, expression := range v.validationRule.CEL.Expressions {
