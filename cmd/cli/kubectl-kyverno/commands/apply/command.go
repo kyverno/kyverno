@@ -442,7 +442,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingPolicies:                vpols,
 			GeneratingPolicies:                gpols,
 			MutatingPolicies:                  mpols,
-			MutatingAdmissionPolicies:         filteredMaps, // Use filtered list
+			MutatingAdmissionPolicies:         filteredMaps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			Resource:                          *resource,
 			PolicyExceptions:                  exceptions,
