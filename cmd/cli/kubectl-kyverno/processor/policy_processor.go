@@ -272,7 +272,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if resource.Object != nil {
 			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
 
-			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm)
+			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
 				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
