@@ -40,6 +40,11 @@ groups:
   wgpolicyk8s:
     clusterpolicyreports: true
     policyreports: true
+  
+  # -- Install CRDs in group `openreports.io`
+  openreports:
+    reports: false
+    clusterreports: false
 
 # -- Additional CRDs annotations
 # -- This field can be overwritten by setting crds.annotations in the parent chart
