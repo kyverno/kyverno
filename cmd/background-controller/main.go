@@ -211,7 +211,7 @@ func main() {
 				gcstore,
 				eventGenerator,
 				maxAPICallResponseLength,
-				false,
+				true,
 				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
