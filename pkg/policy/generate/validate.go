@@ -51,6 +51,9 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 			return nil, "selector", fmt.Errorf("wildcard characters `*/?` not supported")
 		}
 	}
+	if g.rule.CELPreconditions != nil && g.rule.Generation != nil {
+		return nil, "", fmt.Errorf("celPrecondition can only be used with validate.cel")
+	}
 
 	if target := rule.Generation.GetData(); target != nil {
 		// TODO: is this required ?? as anchors can only be on pattern and not resource

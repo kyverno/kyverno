@@ -332,7 +332,7 @@ The chart values are organised per component.
 | features.admissionReports.enabled | bool | `true` | Enables the feature |
 | features.aggregateReports.enabled | bool | `true` | Enables the feature |
 | features.policyReports.enabled | bool | `true` | Enables the feature |
-| features.validatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
+| features.validatingAdmissionPolicyReports.enabled | bool | `true` | Enables the feature |
 | features.reporting.validate | bool | `true` | Enables the feature |
 | features.reporting.mutate | bool | `true` | Enables the feature |
 | features.reporting.mutateExisting | bool | `true` | Enables the feature |
@@ -348,7 +348,7 @@ The chart values are organised per component.
 | features.deferredLoading.enabled | bool | `true` | Enables the feature |
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
-| features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
+| features.generateValidatingAdmissionPolicy.enabled | bool | `true` | Enables the feature |
 | features.generateMutatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |

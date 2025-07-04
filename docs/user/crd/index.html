@@ -14801,9 +14801,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
+openreports.io/apis/openreports.io/v1alpha1.ReportSummary
 </em>
 </td>
 <td>
@@ -14815,9 +14813,7 @@ PolicyReportSummary
 <td>
 <code>results</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
+[]openreports.io/apis/openreports.io/v1alpha1.ReportResult
 </em>
 </td>
 <td>
@@ -14905,9 +14901,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
+openreports.io/apis/openreports.io/v1alpha1.ReportSummary
 </em>
 </td>
 <td>
@@ -14919,9 +14913,7 @@ PolicyReportSummary
 <td>
 <code>results</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
+[]openreports.io/apis/openreports.io/v1alpha1.ReportResult
 </em>
 </td>
 <td>
@@ -14969,9 +14961,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
+openreports.io/apis/openreports.io/v1alpha1.ReportSummary
 </em>
 </td>
 <td>
@@ -14983,9 +14973,7 @@ PolicyReportSummary
 <td>
 <code>results</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
+[]openreports.io/apis/openreports.io/v1alpha1.ReportResult
 </em>
 </td>
 <td>
@@ -15005,8 +14993,6 @@ PolicyReportSummary
 Resource Types:
 <ul><li>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>
-</li><li>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>
 </li></ul>
 <hr />
 <h3 id="wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport
@@ -15128,23 +15114,6 @@ PolicyReportSummary
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-wgpolicyk8s.io/v1alpha2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>PolicyReport</code></td>
-</tr>
-<tr>
-<td>
 <code>metadata</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
@@ -15222,8 +15191,7 @@ PolicyReportSummary
 <p>
 (<em>Appears on:</em>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
-<a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>)
 </p>
 <p>
 <p>PolicyReportResult provides the result for an individual policy</p>
@@ -15395,8 +15363,7 @@ PolicySeverity
 <p>
 (<em>Appears on:</em>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
-<a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>)
 </p>
 <p>
 <p>PolicyReportSummary provides a status count summary</p>

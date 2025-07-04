@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-generate
+spec:
+  rules:
+    - name: generate-configmap
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      celPreconditions:
+        - name: require-app-nginx
+          expression: object.metadata.labels.app == 'nginx'
+      generate:
+        apiVersion: v1
+        kind: ConfigMap
+        name: demo-config
+        namespace: default
+        data:
+          data:
+            example: "value"

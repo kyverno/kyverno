@@ -747,6 +747,7 @@ func main() {
 				},
 				matching.NewMatcher(),
 				typeConverter,
+				contextProvider,
 			)
 		}
 		var reportsBreaker breaker.Breaker

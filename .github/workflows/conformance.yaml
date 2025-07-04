@@ -317,8 +317,7 @@ jobs:
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,generate-validating-admission-policy
+          kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
           upgrade-scenario: ${{ matrix.upgrade }}
@@ -549,8 +548,7 @@ jobs:
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,validating-admission-policy-reports
+          kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-admission-policy-reports
           upgrade-scenario: ${{ matrix.upgrade }}

@@ -2,8 +2,16 @@ package compiler
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -12,6 +20,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
 type Policy struct {
@@ -20,16 +29,86 @@ type Policy struct {
 	exceptions []compiler.Exception
 }
 
+type compositionContext struct {
+	ctx             context.Context //nolint:containedctx
+	evaluator       *mutating.PolicyEvaluator
+	contextProvider libs.Context
+	accumulatedCost int64
+}
+
+func (c *compositionContext) Variables(activation any) ref.Val {
+	// Create lazy map using the composition environment's map type
+	lazyMap := lazy.NewMapValue(c.evaluator.CompositionEnv.MapType)
+
+	// Extract object and oldObject from the activation context
+	var objectVal, oldObjectVal interface{}
+	if evalActivation, ok := activation.(interface {
+		ResolveName(string) (interface{}, bool)
+	}); ok {
+		if obj, found := evalActivation.ResolveName("object"); found {
+			objectVal = obj
+		}
+		if oldObj, found := evalActivation.ResolveName("oldObject"); found {
+			oldObjectVal = oldObj
+		}
+	}
+
+	// Set up context data for variable evaluation
+	ctxData := map[string]interface{}{
+		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: c.contextProvider},
+		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
+		compiler.ImageDataKey:     imagedata.Context{ContextInterface: c.contextProvider},
+		compiler.ResourceKey:      resource.Context{ContextInterface: c.contextProvider},
+		compiler.VariablesKey:     lazyMap,
+		compiler.ObjectKey:        objectVal,
+		compiler.OldObjectKey:     oldObjectVal,
+	}
+
+	for name, result := range c.evaluator.CompositionEnv.CompiledVariables {
+		lazyMap.Append(name, func(*lazy.MapValue) ref.Val {
+			out, _, err := result.Program.ContextEval(c.ctx, ctxData)
+			if out != nil {
+				return out
+			}
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return nil
+		})
+	}
+
+	return lazyMap
+}
+
+func (c *compositionContext) GetAndResetCost() int64 {
+	cost := c.accumulatedCost
+	c.accumulatedCost = 0
+	return cost
+}
+
+func (c *compositionContext) Deadline() (deadline time.Time, ok bool) {
+	return c.ctx.Deadline()
+}
+
+func (c *compositionContext) Done() <-chan struct{} {
+	return c.ctx.Done()
+}
+
+func (c *compositionContext) Err() error {
+	return c.ctx.Err()
+}
+
+func (c *compositionContext) Value(key interface{}) interface{} {
+	return c.ctx.Value(key)
+}
+
 func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
 	namespace *corev1.Namespace,
 	tcm TypeConverterManager,
+	contextProvider libs.Context,
 ) *EvaluationResult {
-	if p.evaluator.CompositionEnv != nil {
-		ctx = p.evaluator.CompositionEnv.CreateContext(ctx)
-	}
-
 	versionedAttributes := &admission.VersionedAttributes{
 		Attributes:      attr,
 		VersionedObject: attr.GetObject(),
@@ -46,6 +125,12 @@ func (p *Policy) Evaluate(
 		}
 	}
 
+	compositionCtx := &compositionContext{
+		ctx:             ctx,
+		evaluator:       &p.evaluator,
+		contextProvider: contextProvider,
+	}
+
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	for _, patcher := range p.evaluator.Mutators {
 		patchRequest := patch.Request{
@@ -56,7 +141,8 @@ func (p *Policy) Evaluate(
 			Namespace:           namespace,
 			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
 		}
-		newVersionedObject, err := patcher.Patch(ctx, patchRequest, celconfig.RuntimeCELCostBudget)
+
+		newVersionedObject, err := patcher.Patch(compositionCtx, patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
 			return &EvaluationResult{Error: err}
 		}

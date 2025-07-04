@@ -1,0 +1,29 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: add-env-label
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  variables:
+    - name: pod
+      expression: >-
+        resource.Get("v1", "pods", object.metadata.namespace, "policy-pod")
+    - name: envLabel
+      expression: >-
+        has(variables.pod) && has(variables.pod.metadata) && has(variables.pod.metadata.labels) && 'env' in variables.pod.metadata.labels ? variables.pod.metadata.labels.env : 'unknown'
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >-
+          Object{
+            metadata: Object.metadata{
+              labels: Object.metadata.labels{
+                env: variables.envLabel
+              }
+            }
+          } 

@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 // +genclient
@@ -79,4 +80,38 @@ type ClusterPolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ClusterPolicyReport `json:"items"`
+}
+
+func (r *ClusterPolicyReport) ToOpenReports() *openreportsv1alpha1.ClusterReport {
+	res := []openreportsv1alpha1.ReportResult{}
+	for _, r := range r.GetResults() {
+		res = append(res, openreportsv1alpha1.ReportResult{
+			Source:           r.Source,
+			Policy:           r.Policy,
+			Rule:             r.Rule,
+			Category:         r.Category,
+			Timestamp:        r.Timestamp,
+			Severity:         openreportsv1alpha1.ResultSeverity(r.Severity),
+			Result:           openreportsv1alpha1.Result(r.Result),
+			Subjects:         r.Resources,
+			ResourceSelector: r.ResourceSelector,
+			Scored:           r.Scored,
+			Description:      r.Message,
+			Properties:       r.Properties,
+		})
+	}
+	return &openreportsv1alpha1.ClusterReport{
+		ObjectMeta:    r.ObjectMeta,
+		Scope:         r.Scope,
+		ScopeSelector: r.ScopeSelector,
+		Source:        kyvernoSource,
+		Summary: openreportsv1alpha1.ReportSummary{
+			Pass:  r.Summary.Pass,
+			Fail:  r.Summary.Fail,
+			Warn:  r.Summary.Warn,
+			Error: r.Summary.Error,
+			Skip:  r.Summary.Skip,
+		},
+		Results: res,
+	}
 }
