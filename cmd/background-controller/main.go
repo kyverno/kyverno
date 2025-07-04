@@ -348,6 +348,7 @@ func main() {
 					},
 					nil,
 					typeConverter,
+					contextProvider,
 				)
 
 				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
