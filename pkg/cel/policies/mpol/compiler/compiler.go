@@ -77,6 +77,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		compositedCompiler.CompileAndStoreVariables(convertVariables(policy.Spec.Variables), optionsVars, environment.StoredExpressions)
 	}
 
+	// Compile match conditions and collect errors
 	var matcher matchconditions.Matcher = nil
 	matchConditions := policy.Spec.MatchConditions
 	if len(matchConditions) > 0 {
@@ -84,8 +85,14 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		for i := range matchConditions {
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
-		failurePolicy := policy.GetFailurePolicy()
-		matcher = matchconditions.NewMatcher(compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions), &failurePolicy, "policy", "validate", policy.Name)
+		// TODO (): Check if you can do something with this unused returned variable.
+		_, err := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), extendedEnvSet.StoredExpressionsEnv(), policy.Spec.GetMatchConditions()...)
+		if err != nil {
+			allErrs = append(allErrs, err...)
+		} else {
+			failurePolicy := policy.GetFailurePolicy()
+			matcher = matchconditions.NewMatcher(compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions), &failurePolicy, "policy", "validate", policy.Name)
+		}
 	}
 
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))

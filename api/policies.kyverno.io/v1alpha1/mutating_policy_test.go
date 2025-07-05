@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +16,8 @@ func TestGetMatchConstraints(t *testing.T) {
 		}
 
 		result := mpol.GetMatchConstraints()
+
+		//assert.Equal(t, nil, result.NamespaceSelector, "expected empty MatchResources, got %+v", result)
 		if result.NamespaceSelector != nil || result.ObjectSelector != nil ||
 			len(result.ResourceRules) != 0 || len(result.ExcludeResourceRules) != 0 ||
 			result.MatchPolicy != nil {
@@ -35,9 +38,9 @@ func TestGetMatchConstraints(t *testing.T) {
 		}
 
 		result := mpol.GetMatchConstraints()
-		if result.MatchPolicy == nil || *result.MatchPolicy != mp {
-			t.Errorf("expected MatchPolicy %s, got %v", mp, result.MatchPolicy)
-		}
+
+		assert.NotEqual(t, result.MatchPolicy, nil, "expected MatchPolicy %s, got %v", mp, result.MatchPolicy)
+		assert.Equal(t, *result.MatchPolicy, mp, "expected MatchPolicy %s, got %v", mp, result.MatchPolicy)
 	})
 }
 
@@ -51,17 +54,15 @@ func TestGetMatchConditions(t *testing.T) {
 		},
 	}
 	result := mpol.GetMatchConditions()
-	if len(result) != 1 || result[0].Name != "test" {
-		t.Errorf("expected 1 match condition named 'test', got %+v", result)
-	}
+
+	assert.Equal(t, len(result), 1, "expected 1 match condition named 'test', got %+v", result)
+	assert.Equal(t, result[0].Name, "test", "expected 1 match condition named 'test', got %+v", result)
 }
 
 func TestGenerateMutatingAdmissionPolicyEnabled(t *testing.T) {
 	t.Run("returns default false if nil", func(t *testing.T) {
 		spec := MutatingPolicySpec{}
-		if spec.GenerateMutatingAdmissionPolicyEnabled() {
-			t.Errorf("expected false when configuration is nil")
-		}
+		assert.False(t, spec.GenerateMutatingAdmissionPolicyEnabled(), "expected false when configuration is nil")
 	})
 
 	t.Run("returns false when MutatingAdmissionPolicy is nil", func(t *testing.T) {
@@ -71,9 +72,7 @@ func TestGenerateMutatingAdmissionPolicyEnabled(t *testing.T) {
 			},
 		}
 
-		if spec.GenerateMutatingAdmissionPolicyEnabled() {
-			t.Errorf("expected false when MutatingAdmissionPolicy is nil")
-		}
+		assert.False(t, spec.GenerateMutatingAdmissionPolicyEnabled(), "expected false when MutatingAdmissionPolicy is nil")
 	})
 
 	t.Run("returns false when Enabled is nil", func(t *testing.T) {
@@ -85,9 +84,7 @@ func TestGenerateMutatingAdmissionPolicyEnabled(t *testing.T) {
 			},
 		}
 
-		if spec.GenerateMutatingAdmissionPolicyEnabled() {
-			t.Errorf("expected false when Enabled is nil")
-		}
+		assert.False(t, spec.GenerateMutatingAdmissionPolicyEnabled(), "expected false when Enabled is nil")
 	})
 
 	t.Run("returns true when explicitly enabled", func(t *testing.T) {
@@ -100,9 +97,7 @@ func TestGenerateMutatingAdmissionPolicyEnabled(t *testing.T) {
 			},
 		}
 
-		if !spec.GenerateMutatingAdmissionPolicyEnabled() {
-			t.Errorf("expected true when enabled is true")
-		}
+		assert.True(t, spec.GenerateMutatingAdmissionPolicyEnabled(), "expected true when enabled is true")
 	})
 }
 
@@ -112,36 +107,27 @@ func TestGetFailurePolicy(t *testing.T) {
 			Spec: MutatingPolicySpec{},
 		}
 
-		if mpol.GetFailurePolicy() != admissionregistrationv1.Fail {
-			t.Errorf("expected default failure policy 'Fail'")
-		}
+		assert.Equal(t, mpol.GetFailurePolicy(), admissionregistrationv1.Fail, "expected default failure policy 'Fail'")
 	})
 
 	t.Run("returns provided value", func(t *testing.T) {
 		val := admissionregistrationv1alpha1.Ignore
-		// Check it here once before push!!
-		val2 := admissionregistrationv1.FailurePolicyType(val)
+		valAlpha := admissionregistrationv1.FailurePolicyType(val)
 		mpol := MutatingPolicy{
 			Spec: MutatingPolicySpec{
-				FailurePolicy: (*admissionregistrationv1alpha1.FailurePolicyType)(&val2),
+				FailurePolicy: (*admissionregistrationv1alpha1.FailurePolicyType)(&valAlpha),
 			},
 		}
 
-		if mpol.GetFailurePolicy() != val2 {
-			t.Errorf("expected %s, got %s", val, mpol.GetFailurePolicy())
-		}
+		assert.Equal(t, mpol.GetFailurePolicy(), valAlpha, "expected %s, got %s", val, mpol.GetFailurePolicy())
 	})
 }
 
 func TestAdmissionAndBackgroundEnabled(t *testing.T) {
 	t.Run("defaults to true if nil", func(t *testing.T) {
 		spec := MutatingPolicySpec{}
-		if !spec.AdmissionEnabled() {
-			t.Errorf("expected AdmissionEnabled to default to  true")
-		}
-		if !spec.BackgroundEnabled() {
-			t.Errorf("expected BackgroundEnabled to default to true")
-		}
+		assert.True(t, spec.AdmissionEnabled(), "expected AdmissionEnabled to default to true")
+		assert.True(t, spec.BackgroundEnabled(), "expected BackgroundEnabled to default to true")
 	})
 
 	t.Run("returns set values", func(t *testing.T) {
@@ -161,12 +147,8 @@ func TestAdmissionAndBackgroundEnabled(t *testing.T) {
 			},
 		}
 
-		if spec.AdmissionEnabled() {
-			t.Errorf("expected AdmissionEnabled to be false")
-		}
-		if !spec.BackgroundEnabled() {
-			t.Errorf("expected BackgroundEnabled to be true")
-		}
+		assert.False(t, spec.AdmissionEnabled(), "expected AdmissionEnabled to be false")
+		assert.True(t, spec.BackgroundEnabled(), "expected BackgroundEnabled to be true")
 	})
 }
 
@@ -207,19 +189,16 @@ func TestGetAndSetMatchConstrainst(t *testing.T) {
 
 		var spec MutatingPolicySpec
 		spec.SetMatchConstraints(input)
-
 		result := spec.GetMatchConstraints()
-		if result.MatchPolicy == nil || *result.MatchPolicy != mp {
-			t.Errorf("expected MatchPolicy %s, got %+v", mp, result.MatchPolicy)
-		}
+
+		assert.NotEqual(t, nil, result.MatchPolicy, "expected MatchPolicy %s, got %+v", mp, result.MatchPolicy)
+		assert.Equal(t, *result.MatchPolicy, mp, "expected MatchPolicy %s, got %+v", mp, result.MatchPolicy)
 	})
 
 	t.Run("returns nil if no match constraints are provided", func(t *testing.T) {
 		var spec MutatingPolicySpec
 		result := spec.GetMatchConstraints()
-		if result.MatchPolicy != nil {
-			t.Errorf("expected nil MatchPolicy")
-		}
+		assert.Equal(t, nil, result.MatchPolicy, "expected nil MatchPolicy")
 	})
 }
 
@@ -231,9 +210,7 @@ func TestGetWebhookConfiguration(t *testing.T) {
 			},
 		}
 		result := policy.GetWebhookConfiguration()
-		if result != nil {
-			t.Errorf("expected nil, got %+v", result)
-		}
+		assert.Equal(t, nil, result, "expected nil, got %+v", result)
 	})
 
 	t.Run("returns non-nil WebhookConfiguration", func(t *testing.T) {
@@ -244,9 +221,7 @@ func TestGetWebhookConfiguration(t *testing.T) {
 			},
 		}
 		result := policy.GetWebhookConfiguration()
-		if result != cfg {
-			t.Errorf("expected %+v, got %+v", cfg, result)
-		}
+		assert.Equal(t, result, cfg, "expected %+v, got %+v", cfg, result)
 	})
 }
 
@@ -258,9 +233,7 @@ func TestGetVariables(t *testing.T) {
 			},
 		}
 		result := policy.GetVariables()
-		if len(result) != 0 {
-			t.Errorf("expected empty slice, got %v", result)
-		}
+		assert.Equal(t, 0, len(result), "expected empty slice, got %v", result)
 	})
 
 	t.Run("returns copied slice of variables", func(t *testing.T) {
@@ -278,12 +251,9 @@ func TestGetVariables(t *testing.T) {
 		}
 		result := policy.GetVariables()
 
-		if len(result) != 2 {
-			t.Fatalf("expected 2 variables, got %d", len(result))
-		}
-		if result[0].Name != "foo" || result[1].Name != "bar" {
-			t.Errorf("unexpected values: %+v", result)
-		}
+		assert.Equal(t, len(result), 2, "expected 2 variables, got %d", len(result))
+		assert.Equal(t, "foo", result[0].Name, "unexpected values: %+v", result)
+		assert.Equal(t, "bar", result[1].Name, "unexpected values: %+v", result)
 	})
 }
 
@@ -294,9 +264,7 @@ func TestGetReinvocationPolicy(t *testing.T) {
 		}
 		expected := admissionregistrationv1alpha1.NeverReinvocationPolicy
 		result := spec.GetReinvocationPolicy()
-		if result != expected {
-			t.Errorf("expected %s, got %s", expected, result)
-		}
+		assert.Equal(t, result, expected, "expected %s, got %s", expected, result)
 	})
 
 	t.Run("returns explicitly set ReinvocationPolicy", func(t *testing.T) {
@@ -305,9 +273,7 @@ func TestGetReinvocationPolicy(t *testing.T) {
 			ReinvocationPolicy: expected,
 		}
 		result := spec.GetReinvocationPolicy()
-		if result != expected {
-			t.Errorf("expected %s, got %s", expected, result)
-		}
+		assert.Equal(t, result, expected, "expected %s, got %s", expected, result)
 	})
 }
 
@@ -323,21 +289,16 @@ func TestMutatingPolicy_Getters(t *testing.T) {
 			Status: expected,
 		}
 		result := policy.GetStatus()
-		if result == nil {
-			t.Fatal("expected non-nil status")
-		}
-		if result.ConditionStatus.Ready != &val {
-			t.Errorf("expected Ready=true, got %+v", result.ConditionStatus.Ready)
-		}
+		assert.NotEqual(t, nil, result, "expected non-nil status")
+		assert.Equal(t, result.ConditionStatus.Ready, &val, "expected Ready-true, got %+v", result.ConditionStatus.Ready)
 	})
 
 	t.Run("GetKind returns 'MutatingPolicy'", func(t *testing.T) {
 		policy := MutatingPolicy{}
 		result := policy.GetKind()
 		expected := "MutatingPolicy"
-		if result != expected {
-			t.Errorf("expected kind %q, got %q", expected, result)
-		}
+
+		assert.Equal(t, expected, result, "expected kind %q, got %q", expected, result)
 	})
 
 	t.Run("GetSpec returns pointer to Spec field", func(t *testing.T) {
@@ -348,12 +309,9 @@ func TestMutatingPolicy_Getters(t *testing.T) {
 			Spec: expected,
 		}
 		result := policy.GetSpec()
-		if result == nil {
-			t.Fatal("expected non-nil spec")
-		}
-		if result.ReinvocationPolicy != "IfNeeded" {
-			t.Errorf("expected ReinvocationPolicy 'IfNeeded', got %s", result.ReinvocationPolicy)
-		}
+
+		assert.NotEqual(t, result, nil, "expected non-nil spec")
+		assert.Equal(t, "IfNeeded", result.ReinvocationPolicy, "expected ReinvocationPolicy 'IfNeeded', got %s", result.ReinvocationPolicy)
 	})
 
 	t.Run("GetConditionStatus returns pointer to embedded ConditionStatus", func(t *testing.T) {
@@ -364,11 +322,8 @@ func TestMutatingPolicy_Getters(t *testing.T) {
 			},
 		}
 		result := status.GetConditionStatus()
-		if result == nil {
-			t.Fatal("expected non-nil ConditionStatus")
-		}
-		if result.Ready != &val {
-			t.Errorf("expected Ready=true, got %v", result.Ready)
-		}
+
+		assert.NotEqual(t, result, nil, "expected non-nil ConditionStatus")
+		assert.Equal(t, result.Ready, &val, "expected Ready=true, got %v", result.Ready)
 	})
 }
