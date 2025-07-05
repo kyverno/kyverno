@@ -155,7 +155,11 @@ func BuildValidatingAdmissionPolicyBinding(
 		rule := cpol.GetSpec().Rules[0]
 		validateAction := rule.Validation.FailureAction
 		if validateAction != nil {
-			if validateAction.Enforce() {
+			if validateAction.DeferEnforce() {
+				// For DeferEnforce, reject the request but show warnings for all violations
+				validationActions = append(validationActions, admissionregistrationv1.Deny)
+				validationActions = append(validationActions, admissionregistrationv1.Warn)
+			} else if validateAction.Enforce() {
 				validationActions = append(validationActions, admissionregistrationv1.Deny)
 			} else if validateAction.Audit() {
 				validationActions = append(validationActions, admissionregistrationv1.Audit)
@@ -163,7 +167,11 @@ func BuildValidatingAdmissionPolicyBinding(
 			}
 		} else {
 			validateAction := cpol.GetSpec().ValidationFailureAction
-			if validateAction.Enforce() {
+			if validateAction.DeferEnforce() {
+				// For DeferEnforce, reject the request but show warnings for all violations
+				validationActions = append(validationActions, admissionregistrationv1.Deny)
+				validationActions = append(validationActions, admissionregistrationv1.Warn)
+			} else if validateAction.Enforce() {
 				validationActions = append(validationActions, admissionregistrationv1.Deny)
 			} else if validateAction.Audit() {
 				validationActions = append(validationActions, admissionregistrationv1.Audit)
