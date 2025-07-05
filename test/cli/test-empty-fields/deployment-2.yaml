@@ -11,8 +11,12 @@ spec:
     metadata:
       labels:
         app: app
-      annotations: null
+      annotations:
+        foo: bar
     spec:
       containers:
-      - name: container01
-        image: dummyimagename
+        - name: container01
+          image: dummyimagename
+        - null
+        - name: container02
+          image: dummy2:latest

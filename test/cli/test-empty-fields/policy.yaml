@@ -1,18 +1,22 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: test-normalization
+  name: basic-pod-validation
 spec:
-  validationFailureAction: audit  
+  validationFailureAction: enforce  
   background: false
   rules:
-    - name: check-annotations
+    - name: validate-containers
       match:
         any:
-        - resources:
-            kinds: [Pod]
+          - resources:
+              kinds:
+                - Deployment
       validate:
-        message: "Annotations should normalize to {}"
+        message: "Deployment must have at least one container with an image"
         pattern:
-          metadata:
-            annotations: {}  
+          spec:
+            template:
+              spec:
+                containers:
+                  - image: "*"

@@ -4,31 +4,30 @@ import (
 	"testing"
 
 	"gotest.tools/assert"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestNormalizeEmptyFields(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    map[string]interface{}
-		expected map[string]interface{}
+		name            string
+		input           map[string]interface{}
+		dropEmptyFields bool
+		expected        map[string]interface{}
+		expectError     bool
 	}{
 		{
-			name:     "empty input",
-			input:    map[string]interface{}{},
-			expected: map[string]interface{}{},
+			name:            "empty input, drop = true",
+			input:           map[string]interface{}{},
+			dropEmptyFields: true,
+			expected:        map[string]interface{}{},
 		},
 		{
-			name: "nil field",
-			input: map[string]interface{}{
-				"metadata": nil,
-			},
-			expected: map[string]interface{}{
-				"metadata": map[string]interface{}{},
-			},
+			name:            "nil field dropped",
+			input:           map[string]interface{}{"metadata": nil},
+			dropEmptyFields: true,
+			expected:        map[string]interface{}{},
 		},
 		{
-			name: "nested nil in deployment",
+			name: "nested nil dropped",
 			input: map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": map[string]interface{}{
@@ -38,18 +37,17 @@ func TestNormalizeEmptyFields(t *testing.T) {
 					},
 				},
 			},
+			dropEmptyFields: true,
 			expected: map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": map[string]interface{}{
-						"metadata": map[string]interface{}{
-							"annotations": map[string]interface{}{},
-						},
+						"metadata": map[string]interface{}{},
 					},
 				},
 			},
 		},
 		{
-			name: "list with nil elements",
+			name: "list with nil elements dropped",
 			input: map[string]interface{}{
 				"containers": []interface{}{
 					nil,
@@ -58,23 +56,45 @@ func TestNormalizeEmptyFields(t *testing.T) {
 					},
 				},
 			},
+			dropEmptyFields: true,
 			expected: map[string]interface{}{
 				"containers": []interface{}{
 					map[string]interface{}{},
-					map[string]interface{}{
-						"env": map[string]interface{}{},
+				},
+			},
+		},
+		{
+			name:            "error on top-level nil when drop=false",
+			input:           map[string]interface{}{"metadata": nil},
+			dropEmptyFields: false,
+			expectError:     true,
+		},
+		{
+			name: "error on nested nil when drop=false",
+			input: map[string]interface{}{
+				"spec": map[string]interface{}{
+					"template": map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"annotations": nil,
+						},
 					},
 				},
 			},
+			dropEmptyFields: false,
+			expectError:     true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resource := &unstructured.Unstructured{Object: tt.input}
-			normalizeEmptyFields(resource.Object)
+			err := NormalizeEmptyFields(tt.input, tt.dropEmptyFields)
 
-			assert.DeepEqual(t, tt.expected, resource.Object)
+			if tt.expectError {
+				assert.Assert(t, err != nil, "expected error but got nil")
+			} else {
+				assert.NilError(t, err)
+				assert.DeepEqual(t, tt.expected, tt.input)
+			}
 		})
 	}
 }
