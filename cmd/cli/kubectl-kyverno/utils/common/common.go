@@ -53,6 +53,9 @@ func GetResourceAccordingToResourcePath(
 
 				yamlBytes := []byte(resourceStr)
 				resources, err = resource.GetUnstructuredResources(yamlBytes)
+				if err != nil {
+					return nil, fmt.Errorf("failed to extract the resources (%w)", err)
+				}
 			}
 		} else {
 			if len(resourcePaths) > 0 {
