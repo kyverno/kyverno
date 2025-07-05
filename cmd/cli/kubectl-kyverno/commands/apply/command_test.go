@@ -196,9 +196,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
-				PolicyReport:  true,
+				PolicyPaths:     []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
+				PolicyReport:    true,
+				DropEmptyFields: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -212,9 +213,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
-				PolicyReport:  true,
+				PolicyPaths:     []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
+				PolicyReport:    true,
+				DropEmptyFields: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -385,6 +387,26 @@ func Test_Apply(t *testing.T) {
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  3,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-empty-fields/policy.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/cli/test-empty-fields/deployment-1.yaml",
+					"../../../../../test/cli/test-empty-fields/deployment-2.yaml",
+				},
+				PolicyReport:    true,
+				DropEmptyFields: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  2,
 					Fail:  0,
 					Skip:  0,
 					Error: 0,

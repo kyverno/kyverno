@@ -128,3 +128,38 @@ func GetFileBytes(path string) ([]byte, error) {
 		return file, nil
 	}
 }
+
+func NormalizeEmptyFields(obj map[string]interface{}, dropEmptyFields bool) error {
+	for key, val := range obj {
+		switch v := val.(type) {
+		case nil:
+			if dropEmptyFields {
+				delete(obj, key)
+			} else {
+				return fmt.Errorf("field %q is null", key)
+			}
+		case map[string]interface{}:
+			if err := NormalizeEmptyFields(v, dropEmptyFields); err != nil {
+				return err
+			}
+		case []interface{}:
+			var filtered []interface{}
+			for _, item := range v {
+				if item == nil {
+					if !dropEmptyFields {
+						return fmt.Errorf("list %q contains nil item", key)
+					}
+					continue
+				}
+				if nestedMap, ok := item.(map[string]interface{}); ok {
+					if err := NormalizeEmptyFields(nestedMap, dropEmptyFields); err != nil {
+						return err
+					}
+				}
+				filtered = append(filtered, item)
+			}
+			obj[key] = filtered
+		}
+	}
+	return nil
+}
