@@ -11,8 +11,8 @@ spec:
     metadata:
       labels:
         app: app
-      annotations:
+        annotations: 
     spec:
       containers:
-      - name: container01
-        image: dummyimagename
+        - name: container01
+          image: dummyimagename

@@ -35,6 +35,7 @@ func GetResourceAccordingToResourcePath(
 	policyReport bool,
 	clusterWideResources bool,
 	policyResourcePath string,
+	dropEmptyFields bool,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
 		resources, err = GetResourcesWithTest(out, fs, resourcePaths, policyResourcePath)
@@ -52,9 +53,6 @@ func GetResourceAccordingToResourcePath(
 
 				yamlBytes := []byte(resourceStr)
 				resources, err = resource.GetUnstructuredResources(yamlBytes)
-				if err != nil {
-					return nil, fmt.Errorf("failed to extract the resources (%w)", err)
-				}
 			}
 		} else {
 			if len(resourcePaths) > 0 {
@@ -111,6 +109,12 @@ func GetResourceAccordingToResourcePath(
 				return resources, err
 			}
 			resources = append(resources, namespaceResources...)
+		}
+	}
+	for _, res := range resources {
+		err := resource.NormalizeEmptyFields(res.Object, dropEmptyFields)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return resources, err
