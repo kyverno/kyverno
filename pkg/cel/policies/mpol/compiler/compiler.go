@@ -85,7 +85,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		for i := range matchConditions {
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
-		// TODO (): Check if you can do something with this unused returned variable.
+		// TODO (): Check if you can do something with this unused returned
 		_, err := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), extendedEnvSet.StoredExpressionsEnv(), policy.Spec.GetMatchConditions()...)
 		if err != nil {
 			allErrs = append(allErrs, err...)
