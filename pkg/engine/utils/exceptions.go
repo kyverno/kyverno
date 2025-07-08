@@ -13,6 +13,22 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// matchesResource returns true if the incoming request Kind/Subresource
+// matches any of the configured kinds (e.g. "Pod" or "Pod/exec").
+func matchesResource(kinds []string, reqKind, reqSubresource string) bool {
+	full := reqKind
+	if reqSubresource != "" {
+		full = reqKind + "/" + reqSubresource
+	}
+	for _, kind := range kinds {
+		// exact match on subresource ("Pod/exec") or base-kind ("Pod")
+		if kind == full || kind == reqKind {
+			return true
+		}
+	}
+	return false
+}
+
 // MatchesException takes a list of exceptions and checks if there is an exception applies to the incoming resource.
 // It returns the matched policy exception.
 func MatchesException(polexs []*kyvernov2.PolicyException, policyContext engineapi.PolicyContext, logger logr.Logger) []kyvernov2.PolicyException {
@@ -96,7 +112,7 @@ func checkResourceDescription(
 	subresource string,
 ) bool {
 	if len(conditionBlock.Kinds) > 0 {
-		if !matched.CheckKind(conditionBlock.Kinds, gvk, subresource, true) {
+		if !matchesResource(conditionBlock.Kinds, gvk.Kind, subresource) {
 			return false
 		}
 	}
