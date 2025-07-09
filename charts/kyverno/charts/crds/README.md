@@ -11,6 +11,7 @@
 | groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `reports.kyverno.io` |
 | groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | This field can be overwritten by setting crds.labels in the parent chart |
 | groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | This field can be overwritten by setting crds.labels in the parent chart |
+| groups.openreports | object | `{"clusterreports":false,"reports":false}` | Install CRDs in group `openreports.io` |
 | annotations | object | `{}` | This field can be overwritten by setting crds.annotations in the parent chart |
 | customLabels | object | `{}` | This field can be overwritten by setting crds.labels in the parent chart |
 
