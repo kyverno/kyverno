@@ -1006,6 +1006,7 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 .PHONY: kind-install-kyverno
 kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
+	@$(HELM) dependency build
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
