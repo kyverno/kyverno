@@ -18,6 +18,7 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
