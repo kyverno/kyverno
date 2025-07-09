@@ -1006,6 +1006,7 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 
 .PHONY: kind-install-kyverno
 kind-install-kyverno: $(HELM) ## Install kyverno helm chart
+	@$(HELM)repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) dependency build ./charts/kyverno
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
