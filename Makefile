@@ -910,6 +910,7 @@ test-cli-local-scenarios: $(CLI_BIN) ## Run local CLI scenarios tests
 .PHONY: helm-test
 helm-test: $(HELM) ## Run helm test
 	@echo Running helm test... >&2
+	@$(HELM) dependency build ./charts/kyverno
 	@$(HELM) test --namespace kyverno kyverno
 
 #################
@@ -1005,8 +1006,8 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 
 .PHONY: kind-install-kyverno
 kind-install-kyverno: $(HELM) ## Install kyverno helm chart
+	@$(HELM) dependency build ./charts/kyverno
 	@echo Install kyverno chart... >&2
-	@$(HELM) dependency build
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
