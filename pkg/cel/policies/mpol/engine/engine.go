@@ -78,6 +78,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, pr
 	}
 
 	response := EngineResponse{}
+
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
 			r, patched := e.handlePolicy(ctx, mpol, attr, nil)

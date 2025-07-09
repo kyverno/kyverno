@@ -17,12 +17,11 @@ func TestGetMatchConstraints(t *testing.T) {
 
 		result := mpol.GetMatchConstraints()
 
-		//assert.Equal(t, nil, result.NamespaceSelector, "expected empty MatchResources, got %+v", result)
-		if result.NamespaceSelector != nil || result.ObjectSelector != nil ||
-			len(result.ResourceRules) != 0 || len(result.ExcludeResourceRules) != 0 ||
-			result.MatchPolicy != nil {
-			t.Errorf("expected empty MatchResources, got %+v", result)
-		}
+		assert.Nil(t, result.NamespaceSelector, "NamespaceSelector should be nil")
+		assert.Nil(t, result.ObjectSelector, "ObjectSelector should be nil")
+		assert.Nil(t, result.MatchPolicy, "MatchPolicy should be nil")
+		assert.Empty(t, result.ResourceRules, "ResourceRules should be empty")
+		assert.Empty(t, result.ExcludeResourceRules, "ExcludeResourceRules should be empty")
 	})
 
 	t.Run("returns copied MatchConstraints", func(t *testing.T) {
@@ -39,7 +38,7 @@ func TestGetMatchConstraints(t *testing.T) {
 
 		result := mpol.GetMatchConstraints()
 
-		assert.NotEqual(t, result.MatchPolicy, nil, "expected MatchPolicy %s, got %v", mp, result.MatchPolicy)
+		assert.NotNil(t, result.MatchPolicy, "expected MatchPolicy %s, got %v", mp, result.MatchPolicy)
 		assert.Equal(t, *result.MatchPolicy, mp, "expected MatchPolicy %s, got %v", mp, result.MatchPolicy)
 	})
 }
@@ -131,18 +130,16 @@ func TestAdmissionAndBackgroundEnabled(t *testing.T) {
 	})
 
 	t.Run("returns set values", func(t *testing.T) {
-		admit := false
-		bg := true
+		admission := false
+		existing := true
 
 		spec := MutatingPolicySpec{
 			EvaluationConfiguration: &MutatingPolicyEvaluationConfiguration{
-				EvaluationConfiguration: EvaluationConfiguration{
-					Admission: &AdmissionConfiguration{
-						Enabled: &admit,
-					},
-					Background: &BackgroundConfiguration{
-						Enabled: &bg,
-					},
+				Admission: &AdmissionConfiguration{
+					Enabled: &admission,
+				},
+				MutateExistingConfiguration: &MutateExistingConfiguration{
+					Enabled: &existing,
 				},
 			},
 		}
@@ -191,14 +188,14 @@ func TestGetAndSetMatchConstrainst(t *testing.T) {
 		spec.SetMatchConstraints(input)
 		result := spec.GetMatchConstraints()
 
-		assert.NotEqual(t, nil, result.MatchPolicy, "expected MatchPolicy %s, got %+v", mp, result.MatchPolicy)
+		assert.NotNil(t, result.MatchPolicy, "expected MatchPolicy %s, got %+v", mp, result.MatchPolicy)
 		assert.Equal(t, *result.MatchPolicy, mp, "expected MatchPolicy %s, got %+v", mp, result.MatchPolicy)
 	})
 
 	t.Run("returns nil if no match constraints are provided", func(t *testing.T) {
 		var spec MutatingPolicySpec
 		result := spec.GetMatchConstraints()
-		assert.Equal(t, nil, result.MatchPolicy, "expected nil MatchPolicy")
+		assert.Nil(t, result.MatchPolicy, "expected nil MatchPolicy")
 	})
 }
 
@@ -210,7 +207,7 @@ func TestGetWebhookConfiguration(t *testing.T) {
 			},
 		}
 		result := policy.GetWebhookConfiguration()
-		assert.Equal(t, nil, result, "expected nil, got %+v", result)
+		assert.Nil(t, result, "expected nil, got %+v", result)
 	})
 
 	t.Run("returns non-nil WebhookConfiguration", func(t *testing.T) {
@@ -233,7 +230,7 @@ func TestGetVariables(t *testing.T) {
 			},
 		}
 		result := policy.GetVariables()
-		assert.Equal(t, 0, len(result), "expected empty slice, got %v", result)
+		assert.Empty(t, result, "expected empty slice, got %v", result)
 	})
 
 	t.Run("returns copied slice of variables", func(t *testing.T) {
@@ -323,7 +320,7 @@ func TestMutatingPolicy_Getters(t *testing.T) {
 		}
 		result := status.GetConditionStatus()
 
-		assert.NotEqual(t, result, nil, "expected non-nil ConditionStatus")
+		assert.NotNil(t, result, "expected non-nil ConditionStatus")
 		assert.Equal(t, result.Ready, &val, "expected Ready=true, got %v", result.Ready)
 	})
 }
