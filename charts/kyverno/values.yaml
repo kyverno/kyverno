@@ -120,11 +120,6 @@ crds:
       clusterpolicyreports: true
       policyreports: true
 
-    # -- Install CRDs in group `openreports.io`
-    openreports:
-      reports: false
-      clusterreports: false
-
   # -- Additional CRDs annotations
   annotations: {}
     # argocd.argoproj.io/sync-options: Replace=true
