@@ -52,6 +52,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				types.DynType,
 				cel.FunctionBinding(impl.get_string_string),
 			),
+			cel.MemberOverload(
+				"globalcontext_get_string_string_string",
+				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType},
+				types.DynType,
+				cel.FunctionBinding(impl.get_string_string_string),
+			),
 		},
 	}
 	// create env options corresponding to our function overloads

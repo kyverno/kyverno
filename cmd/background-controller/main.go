@@ -269,6 +269,7 @@ func main() {
 				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				contextProvider, err := libs.NewContextProvider(
+					logger.WithName("context-provider"),
 					setup.KyvernoDynamicClient,
 					nil,
 					gcstore,
