@@ -59102,6 +59102,7 @@ spec:
             - --aggregateReports=true
             - --policyReports=true
             - --validatingAdmissionPolicyReports=true
+            - --mutatingAdmissionPolicyReports=false
             - --backgroundScan=true
             - --backgroundScanWorkers=2
             - --backgroundScanInterval=1h
