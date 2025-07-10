@@ -250,13 +250,13 @@ func printTestResult(
 								r = response.PatchedResource
 							}
 
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
+							ok, message, reason, status := checkResult(test, fs, resoucePath, response, rule, r)
 							if strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1), status)
 							rows = append(rows, resourceRows...)
 							continue
 						}
@@ -264,10 +264,10 @@ func printTestResult(
 						if test.IsGeneratingPolicy {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
+								ok, message, reason, status := checkResult(test, fs, resoucePath, response, rule, *r)
 
 								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName(), status)
 								rows = append(rows, resourceRows...)
 							}
 							continue
@@ -278,22 +278,22 @@ func printTestResult(
 								r = response.PatchedResource
 							}
 
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
+							ok, message, reason, status := checkResult(test, fs, resoucePath, response, rule, r)
 							if strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
 							}
 
 							success := ok || (!ok && test.Result == openreports.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1), status)
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
+								ok, message, reason, status := checkResult(test, fs, resoucePath, response, rule, *r)
 
 								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName(), status)
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -328,10 +328,10 @@ func printTestResult(
 					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
 
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
-					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r)
+					ok, message, reason, status := checkResult(test, fs, resoucePath, response, *rule, *r)
 
 					success := ok || (!ok && test.Result == openreports.StatusFail)
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1), status)
 					rows = append(rows, resourceRows...)
 				}
 			}
@@ -360,7 +360,7 @@ func printTestResult(
 	return nil
 }
 
-func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
+func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, success bool, message string, reason string, resourceGVKAndName string, status engineapi.RuleStatus) []table.Row {
 	resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
 	row := table.Row{
@@ -374,7 +374,10 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 		},
 		Message: message,
 	}
-	if success {
+	if status == engineapi.RuleStatusWarn {
+		row.Result = color.ResultWarn()
+		rc.Warn++
+	} else if success {
 		row.Result = color.ResultPass()
 		if test.Result == openreports.StatusSkip {
 			rc.Skip++

@@ -71,6 +71,8 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 				if policyRule.Name == ruleResponse.Name() {
 					if ruleResponse.Status() == engineapi.RuleStatusPass {
 						rc.Pass++
+					} else if ruleResponse.Status() == engineapi.RuleStatusWarn {
+						rc.Warn++
 					} else {
 						rc.Fail++
 					}

@@ -53,6 +53,7 @@ func Command() *cobra.Command {
 type resultCounts struct {
 	Skip int
 	Pass int
+	Warn int
 	Fail int
 }
 
@@ -193,36 +194,36 @@ func testCommandExecute(
 	return nil
 }
 
-func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured) (bool, string, string) {
+func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured) (bool, string, string, engineapi.RuleStatus) {
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
 		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, expectedPatchResources))
 		if err != nil {
-			return false, err.Error(), "Resource error"
+			return false, err.Error(), "Resource error", rule.Status()
 		}
 		if !equals {
 			dmp := diffmatchpatch.New()
 			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
-			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff", rule.Status()
 		}
 	}
 	if test.GeneratedResource != "" {
 		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource))
 		if err != nil {
-			return false, err.Error(), "Resource error"
+			return false, err.Error(), "Resource error", rule.Status()
 		}
 		if !equals {
 			dmp := diffmatchpatch.New()
 			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
-			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff", rule.Status()
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
-		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
+		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result), rule.Status()
 	}
-	return true, result.Description, "Ok"
+	return true, result.Description, "Ok", rule.Status()
 }
 
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
