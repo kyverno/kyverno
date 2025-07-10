@@ -649,6 +649,11 @@ define generate_crd
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 endef
 
+.PHONY: helm-setup-openreports
+helm-setup-openreports: $(HELM) ## Add openreports helm repo and build dependencies
+	@$(HELM) repo add openreports https://openreports.github.io/reports-api
+	@$(HELM) dependency build ./charts/kyverno
+
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
@@ -687,9 +692,7 @@ codegen-helm-all: codegen-helm-docs
 
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: ## Create install_latest manifest
-codegen-manifest-install-latest: $(HELM)
-	@$(HELM) repo add openreports https://openreports.github.io/reports-api
-	@$(HELM) dependency build ./charts/kyverno
+codegen-manifest-install-latest: helm-setup-openreports
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -1007,9 +1010,7 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
 .PHONY: kind-install-kyverno
-kind-install-kyverno: $(HELM) ## Install kyverno helm chart
-	@$(HELM) repo add openreports https://openreports.github.io/reports-api
-	@$(HELM) dependency build ./charts/kyverno
+kind-install-kyverno: helm-setup-openreports ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
