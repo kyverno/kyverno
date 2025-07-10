@@ -133,6 +133,7 @@ spec:
               "aggregateReports"
               "policyReports"
               "validatingAdmissionPolicyReports"
+              "mutatingAdmissionPolicyReports"
               "backgroundScan"
               "configMapCaching"
               "deferredLoading"

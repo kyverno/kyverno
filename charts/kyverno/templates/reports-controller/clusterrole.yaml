@@ -90,6 +90,17 @@ rules:
       - list
       - watch
 {{- end }}
+{{- if .Values.features.mutatingAdmissionPolicyReports.enabled }}
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - mutatingadmissionpolicies
+      - mutatingadmissionpolicybindings
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
   - apiGroups:
       - reports.kyverno.io
     resources:

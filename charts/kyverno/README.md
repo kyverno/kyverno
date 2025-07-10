@@ -333,6 +333,7 @@ The chart values are organised per component.
 | features.aggregateReports.enabled | bool | `true` | Enables the feature |
 | features.policyReports.enabled | bool | `true` | Enables the feature |
 | features.validatingAdmissionPolicyReports.enabled | bool | `true` | Enables the feature |
+| features.mutatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
 | features.reporting.validate | bool | `true` | Enables the feature |
 | features.reporting.mutate | bool | `true` | Enables the feature |
 | features.reporting.mutateExisting | bool | `true` | Enables the feature |
