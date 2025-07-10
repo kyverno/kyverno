@@ -46,7 +46,6 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 				cel.Variable(compiler.HttpKey, http.ContextType),
 				cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 				cel.Variable(compiler.ResourceKey, resource.ContextType),
-				// TODO(shuting): add variables provider
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
 				globalcontext.Lib(),
