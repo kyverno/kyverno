@@ -118,9 +118,17 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	case pol.AsValidatingAdmissionPolicy() != nil:
 		result.Source = SourceValidatingAdmissionPolicy
 		result.Policy = ruleResult.Name()
-		process = "admission review"
+		process = "background scan"
 		if binding := ruleResult.ValidatingAdmissionPolicyBinding(); binding != nil {
 			addProperty("binding", binding.Name, &result)
+		}
+
+	case pol.AsMutatingAdmissionPolicy() != nil:
+		result.Source = SourceMutatingAdmissionPolicy
+		result.Policy = ruleResult.Name()
+		process = "background scan"
+		if binding := ruleResult.MutatingAdmissionPolicyBinding(); binding != nil {
+			addProperty("mapBinding", binding.Name, &result)
 		}
 
 	case pol.AsValidatingPolicy() != nil:
