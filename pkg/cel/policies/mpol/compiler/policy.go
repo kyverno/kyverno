@@ -183,6 +183,7 @@ func (p *Policy) Evaluate(
 
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
+
 func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) ([]*policiesv1alpha1.PolicyException, error) {
 	var errs []error
 	matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
