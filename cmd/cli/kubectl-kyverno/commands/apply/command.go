@@ -406,7 +406,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		validPolicies = append(validPolicies, pol)
 	}
 	var responses []engineapi.EngineResponse
-	var namespaceCache = make(map[string]*unstructured.Unstructured)
+	namespaceCache := make(map[string]*unstructured.Unstructured)
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
