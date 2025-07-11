@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"time"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -35,10 +37,11 @@ func (status *ConditionStatus) SetReadyByCondition(c PolicyConditionType, s meta
 		reason = "Failed"
 	}
 	newCondition := metav1.Condition{
-		Type:    string(c),
-		Reason:  reason,
-		Status:  s,
-		Message: message,
+		Type:               string(c),
+		Reason:             reason,
+		Status:             s,
+		Message:            message,
+		LastTransitionTime: metav1.NewTime(time.Now().Truncate(time.Second)),
 	}
 	meta.SetStatusCondition(&status.Conditions, newCondition)
 }
