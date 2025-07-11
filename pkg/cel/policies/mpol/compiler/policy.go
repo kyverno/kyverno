@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -126,6 +127,7 @@ func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
 	namespace *corev1.Namespace,
+	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
 	contextProvider libs.Context,
 ) *EvaluationResult {
@@ -136,7 +138,7 @@ func (p *Policy) Evaluate(
 	}
 
 	if len(p.exceptions) > 0 {
-		matchedExceptions, err := p.matchExceptions(ctx, attr, namespace)
+		matchedExceptions, err := p.matchExceptions(ctx, attr, request, namespace)
 		if err != nil {
 			return &EvaluationResult{Error: err}
 		}
@@ -184,7 +186,7 @@ func (p *Policy) Evaluate(
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
 
-func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) ([]*policiesv1alpha1.PolicyException, error) {
+func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) ([]*policiesv1alpha1.PolicyException, error) {
 	var errs []error
 	matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
 	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
@@ -199,11 +201,15 @@ func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes,
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
+	requestVal, err := utils.ConvertObjectToUnstructured(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+	}
 	data := map[string]any{
 		compiler.NamespaceObjectKey: namespaceVal,
 		compiler.ObjectKey:          objectVal,
 		compiler.OldObjectKey:       oldObjectVal,
-		// compiler.RequestKey:         attr.GetRequest(),
+		compiler.RequestKey:         requestVal,
 	}
 
 	for _, polex := range p.exceptions {
