@@ -9,6 +9,7 @@ import (
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/assert"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/apiserver/pkg/admission"
 )
 
 func Test_MutateResource(t *testing.T) {
@@ -578,7 +579,8 @@ func Test_MutateResource(t *testing.T) {
 			assert.NilError(t, err)
 
 			gvr := mapping.Resource
-			response, err := mutateResource(policy, nil, *resource, gvr, false)
+			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+			response, err := mutateResource(&policy, nil, *resource, gvr, nil, a, false)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)
@@ -740,7 +742,8 @@ func Test_MutateResourceWithBackgroundScanEnabled(t *testing.T) {
 			assert.NilError(t, err)
 
 			gvr := mapping.Resource
-			response, err := mutateResource(policy, nil, *resource, gvr, true)
+			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+			response, err := mutateResource(&policy, nil, *resource, gvr, nil, a, true)
 			assert.NilError(t, err)
 
 			assert.Equal(t, len(response.PolicyResponse.Rules), 1)

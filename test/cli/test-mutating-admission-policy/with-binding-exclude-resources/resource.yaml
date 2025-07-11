@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matched-cm
+  labels:
+    color: red
+data:
+  player_initial_lives: "3"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: unmatched-cm
+  labels:
+    color: blue
+data:
+  player_initial_lives: "3"

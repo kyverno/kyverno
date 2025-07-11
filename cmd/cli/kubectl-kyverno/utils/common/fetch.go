@@ -143,9 +143,8 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 			} else if dp := policy.AsDeletingPolicy(); dp != nil {
 				matchResources = dp.Spec.MatchConstraints
 			} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
-				// Convert v1alpha1.MatchResources to v1.MatchResources using the shared function
-				converted := admissionpolicy.ConvertMatchResources(*mapPolicy.GetDefinition().Spec.MatchConstraints)
-				matchResources = &converted
+				converted := admissionpolicy.ConvertMatchResources(mapPolicy.GetDefinition().Spec.MatchConstraints)
+				matchResources = converted
 			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
 				matchResources = gpol.Spec.MatchConstraints
 			}
