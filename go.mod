@@ -69,7 +69,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.37.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/multierr v1.11.0
-	golang.org/x/crypto v0.39.0
+	golang.org/x/crypto v0.40.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/grpc v1.73.0
 	gopkg.in/inf.v0 v0.9.1
@@ -77,7 +77,6 @@ require (
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.33.2
 	k8s.io/apiextensions-apiserver v0.33.2
-	openreports.io v0.0.0-00010101000000-000000000000
 	k8s.io/apimachinery v0.33.2
 	k8s.io/apiserver v0.33.2
 	k8s.io/cli-runtime v0.33.2
@@ -86,6 +85,7 @@ require (
 	k8s.io/kube-aggregator v0.33.2
 	k8s.io/pod-security-admission v0.33.1
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
+	openreports.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5
 	sigs.k8s.io/kustomize/api v0.20.0
@@ -369,10 +369,10 @@ require (
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sync v0.15.0
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/sync v0.16.0
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/term v0.33.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/api v0.233.0 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
@@ -396,5 +396,5 @@ require (
 
 replace (
 	k8s.io/pod-security-admission v0.33.1 => github.com/kyverno/pod-security-admission v0.0.0-20250314164903-c9a58987cebb
-    openreports.io => github.com/openreports/reports-api v0.0.0-20250321064407-5081e5b516e8
+	openreports.io => github.com/openreports/reports-api v0.0.0-20250321064407-5081e5b516e8
 )
