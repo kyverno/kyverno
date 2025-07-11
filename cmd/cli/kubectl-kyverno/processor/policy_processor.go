@@ -250,7 +250,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					}
 				}
 				// apply the MAP
-				mutateResponse, err := admissionpolicy.Mutate(*data, resource, gvr, p.Client, p.NamespaceSelectorMap, !p.Cluster)
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue
