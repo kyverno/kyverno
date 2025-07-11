@@ -708,7 +708,7 @@ codegen-manifest-install-latest: helm-setup-openreports
 
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: ## Create debug manifest
-codegen-manifest-debug: helm-setup-openreportss
+codegen-manifest-debug: helm-setup-openreports
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -724,7 +724,7 @@ codegen-manifest-debug: helm-setup-openreportss
 
 .PHONY: codegen-manifest-release
 codegen-manifest-release: ## Create release manifest
-codegen-manifest-release: helm-setup-openreports
+codegen-manifest-release: helm-setup-openreportss
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
