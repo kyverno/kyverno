@@ -2,16 +2,20 @@ package compiler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/utils"
+	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,8 +28,7 @@ import (
 )
 
 type Policy struct {
-	evaluator mutating.PolicyEvaluator
-	// TODO(shuting)
+	evaluator  mutating.PolicyEvaluator
 	exceptions []compiler.Exception
 }
 
@@ -102,6 +105,23 @@ func (c *compositionContext) Value(key interface{}) interface{} {
 	return c.ctx.Value(key)
 }
 
+func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) bool {
+	if p.evaluator.Matcher != nil {
+		versionedAttributes := &admission.VersionedAttributes{
+			Attributes:      attr,
+			VersionedObject: attr.GetObject(),
+			VersionedKind:   attr.GetKind(),
+		}
+		matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, namespace, nil)
+		if matchResult.Error != nil || !matchResult.Matches {
+			return false
+		}
+		return true
+	}
+
+	return false
+}
+
 func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
@@ -113,6 +133,16 @@ func (p *Policy) Evaluate(
 		Attributes:      attr,
 		VersionedObject: attr.GetObject(),
 		VersionedKind:   attr.GetKind(),
+	}
+
+	if len(p.exceptions) > 0 {
+		matchedExceptions, err := p.matchExceptions(ctx, attr, namespace)
+		if err != nil {
+			return &EvaluationResult{Error: err}
+		}
+		if len(matchedExceptions) > 0 {
+			return &EvaluationResult{Exceptions: matchedExceptions}
+		}
 	}
 
 	if p.evaluator.Matcher != nil {
@@ -153,20 +183,47 @@ func (p *Policy) Evaluate(
 
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
-
-func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) bool {
-	if p.evaluator.Matcher != nil {
-		versionedAttributes := &admission.VersionedAttributes{
-			Attributes:      attr,
-			VersionedObject: attr.GetObject(),
-			VersionedKind:   attr.GetKind(),
-		}
-		matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, namespace, nil)
-		if matchResult.Error != nil || !matchResult.Matches {
-			return false
-		}
-		return true
+func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) ([]*policiesv1alpha1.PolicyException, error) {
+	var errs []error
+	matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+	}
+	namespaceVal, err := utils.ObjectToResolveVal(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+	}
+	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+	}
+	data := map[string]any{
+		compiler.NamespaceObjectKey: namespaceVal,
+		compiler.ObjectKey:          objectVal,
+		compiler.OldObjectKey:       oldObjectVal,
+		// compiler.RequestKey:         attr.GetRequest(),
 	}
 
-	return false
+	for _, polex := range p.exceptions {
+		for _, condition := range polex.MatchConditions {
+			out, _, err := condition.ContextEval(ctx, data)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			result, err := utils.ConvertToNative[bool](out)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			if !result {
+				break
+			}
+			if err := multierr.Combine(errs...); err == nil {
+				matchedExceptions = append(matchedExceptions, polex.Exception)
+			}
+		}
+	}
+	return matchedExceptions, multierr.Combine(errs...)
 }
