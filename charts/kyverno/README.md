@@ -816,6 +816,7 @@ The chart values are organised per component.
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
 | rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
+| openreports.enabled | bool | `false` |  |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
@@ -898,6 +899,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | 3.5.0-alpha.1 |
 |  | grafana | 3.5.0-alpha.1 |
+| https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
 
