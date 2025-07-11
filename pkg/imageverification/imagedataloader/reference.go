@@ -1,6 +1,8 @@
 package imagedataloader
 
 import (
+	"strings"
+
 	"github.com/google/go-containerregistry/pkg/name"
 )
 
@@ -25,10 +27,21 @@ func ParseImageReference(image string, options ...Option) (ImageReference, error
 		Repository: ref.Context().RepositoryStr(),
 		Identifier: ref.Identifier(),
 	}
-	if _, ok := ref.(name.Tag); ok {
-		img.Tag = ref.Identifier()
-	} else {
-		img.Digest = ref.Identifier()
+	
+	if digest, ok := ref.(name.Digest); ok {
+		img.Digest = digest.DigestStr()
+		if colonIdx := strings.Index(image, ":"); colonIdx != -1 {
+			if atIdx := strings.Index(image, "@"); atIdx != -1 && colonIdx < atIdx {
+				imageWithoutDigest := image[:atIdx]
+				if tagOnlyRef, err := name.ParseReference(imageWithoutDigest, nameOptions(options...)...); err == nil {
+					if tag, ok := tagOnlyRef.(name.Tag); ok {
+						img.Tag = tag.TagStr()
+					}
+				}
+			}
+		}
+	} else if tag, ok := ref.(name.Tag); ok {
+		img.Tag = tag.TagStr()
 	}
 	return img, nil
 }
