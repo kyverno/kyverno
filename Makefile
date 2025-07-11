@@ -763,7 +763,6 @@ codegen-all: codegen-helm-all
 codegen-all: codegen-manifest-all
 codegen-all: codegen-fix-all
 
-# TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
 	@echo Updating Chart.yaml files... >&2
