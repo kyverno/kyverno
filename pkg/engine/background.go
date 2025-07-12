@@ -91,6 +91,10 @@ func (e *engine) filterRule(
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
 
+	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
+		return engineapi.RuleWarn(rule.Name, ruleType,
+			"A clusterpolicy should not have the namespace defined", rule.ReportProperties)
+	}
 	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err != nil {
 		logger.V(4).Info("new resource does not match...", "reason", err.Error())
 		if ruleType == engineapi.Generation {
