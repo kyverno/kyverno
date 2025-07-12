@@ -79,6 +79,12 @@ func (c *controller) enqueueCELException(obj *policiesv1alpha1.PolicyException) 
 				return
 			}
 			c.enqueueVP(vpol)
+		} else if policy.Kind == "MutatingPolicy" {
+			mpol, err := c.getMutatingPolicy(policy.Name)
+			if err != nil {
+				return
+			}
+			c.enqueueMP(mpol)
 		}
 	}
 }
