@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-demo
+  labels:
+    app: game
+data:
+  player_initial_lives: "3"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm
+  labels:
+    app: game
+data:
+  player_initial_lives: "3"

@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: Test
+metadata:
+  name: test
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isMutatingAdmissionPolicy: true
+  kind: Pod
+  patchedResources: patched-resource.yaml
+  policy: add-security-context-to-pods
+  resources:
+  - example-pod
+  result: pass
