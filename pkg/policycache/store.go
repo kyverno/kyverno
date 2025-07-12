@@ -91,6 +91,18 @@ func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
 	return false
 }
 
+func computeDeferEnforcePolicy(spec *kyvernov1.Spec) bool {
+	if spec.ValidationFailureAction.DeferEnforce() {
+		return true
+	}
+	for _, k := range spec.ValidationFailureActionOverrides {
+		if k.Action.DeferEnforce() {
+			return true
+		}
+	}
+	return false
+}
+
 func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 	if value {
 		return set.Insert(item)
@@ -102,6 +114,7 @@ func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	var errs []error
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
+	deferEnforcePolicy := computeDeferEnforcePolicy(policy.GetSpec())
 	auditWarning := false
 	if policy.GetSpec().EmitWarning != nil && *policy.GetSpec().EmitWarning {
 		auditWarning = true
@@ -114,8 +127,13 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		if rule.HasValidate() {
 			action := rule.Validation.FailureAction
-			if action != nil && action.Enforce() {
-				enforcePolicy = true
+			if action != nil {
+				if action.Enforce() {
+					enforcePolicy = true
+				}
+				if action.DeferEnforce() {
+					deferEnforcePolicy = true
+				}
 			}
 			for _, k := range rule.Validation.FailureActionOverrides {
 				if k.Action.Enforce() {
@@ -174,6 +192,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 				ValidateEnforce:      sets.New[string](),
 				ValidateAudit:        sets.New[string](),
 				ValidateAuditWarn:    sets.New[string](),
+				ValidateDeferEnforce: sets.New[string](),
 				Generate:             sets.New[string](),
 				VerifyImagesMutate:   sets.New[string](),
 				VerifyImagesValidate: sets.New[string](),
@@ -181,8 +200,9 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 		}
 		m.kindType[gvrs][Mutate] = set(m.kindType[gvrs][Mutate], key, state.hasMutate)
 		m.kindType[gvrs][ValidateEnforce] = set(m.kindType[gvrs][ValidateEnforce], key, state.hasValidate && enforcePolicy)
-		m.kindType[gvrs][ValidateAudit] = set(m.kindType[gvrs][ValidateAudit], key, state.hasValidate && !enforcePolicy)
-		m.kindType[gvrs][ValidateAuditWarn] = set(m.kindType[gvrs][ValidateAuditWarn], key, state.hasValidate && !enforcePolicy && auditWarning)
+		m.kindType[gvrs][ValidateAudit] = set(m.kindType[gvrs][ValidateAudit], key, state.hasValidate && !enforcePolicy && !deferEnforcePolicy)
+		m.kindType[gvrs][ValidateAuditWarn] = set(m.kindType[gvrs][ValidateAuditWarn], key, state.hasValidate && !enforcePolicy && !deferEnforcePolicy && auditWarning)
+		m.kindType[gvrs][ValidateDeferEnforce] = set(m.kindType[gvrs][ValidateDeferEnforce], key, state.hasValidate && deferEnforcePolicy)
 		m.kindType[gvrs][Generate] = set(m.kindType[gvrs][Generate], key, state.hasGenerate)
 		m.kindType[gvrs][VerifyImagesMutate] = set(m.kindType[gvrs][VerifyImagesMutate], key, state.hasVerifyImages)
 		m.kindType[gvrs][VerifyImagesValidate] = set(m.kindType[gvrs][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)
