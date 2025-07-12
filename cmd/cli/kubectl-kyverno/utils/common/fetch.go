@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -37,6 +38,8 @@ type ResourceFetcher struct {
 	Namespace            string
 	PolicyReport         bool
 	ClusterWideResources bool
+	ResourceOptions      loader.ResourceOptions
+	ShowPerformance      bool
 }
 
 // GetResources gets matched resources by the given policies
@@ -95,10 +98,48 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	}
 	// extract the matched resources from the policies.
 	rf.extractResourcesFromPolicies(info)
+	resourceMap := make(map[string]*unstructured.Unstructured)
+	var err error
 	// fetch the resources from the cluster.
-	resourceMap, err := rf.listResources(info)
-	if err != nil {
-		return nil, err
+	if rf.ResourceOptions.Concurrency > 1 {
+		fmt.Println("Loading resources concurrently...", len(info.gvkMap))
+		// Convert gvkMaps to slice
+		var gvks []schema.GroupVersionKind
+		for gvk := range info.gvkMap {
+			gvks = append(gvks, gvk)
+		}
+		rf.ResourceOptions.ResourceTypes = gvks
+		resourceList, err := loader.LoadResourcesConcurrent(rf.Policies, rf.Client, rf.ResourceOptions, rf.ShowPerformance)
+		if err != nil {
+			return nil, err
+		}
+		for _, resource := range resourceList {
+			key := fmt.Sprintf("%s-%s-%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+			resourceMap[key] = resource.DeepCopy()
+		}
+
+		if len(info.subresourceMap) > 0 {
+			var subResourceGvks []schema.GroupVersionKind
+			for subGvk := range info.subresourceMap {
+				subResourceGvks = append(subResourceGvks, subGvk)
+			}
+			rf.ResourceOptions.ResourceTypes = subResourceGvks
+			subResourceList, err := loader.LoadResourcesConcurrent(rf.Policies, rf.Client, rf.ResourceOptions, rf.ShowPerformance)
+			fmt.Println("Loading sublist concurrently...", len(subResourceList))
+			if err != nil {
+				return nil, err
+			}
+			for _, resource := range subResourceList {
+				key := fmt.Sprintf("%s-%s-%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+				resourceMap[key] = resource.DeepCopy()
+			}
+		}
+
+	} else {
+		resourceMap, err = rf.listResources(info)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(rf.ResourcePaths) == 0 {
 		for _, rr := range resourceMap {
