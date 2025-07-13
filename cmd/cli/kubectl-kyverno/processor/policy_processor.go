@@ -126,7 +126,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	isCluster := false
 	if p.CrdPath != "" {
-		if err := common.LoadCrdFromPath(p.CrdPath); err != nil {
+		if err := p.loadCrd(); err != nil {
 			return nil, err
 		}
 	}
@@ -1153,6 +1153,10 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 		return false
 	}
 	return true
+}
+
+func (p *PolicyProcessor) loadCrd() error {
+	return common.LoadCrdFromPath(p.CrdPath)
 }
 
 func getAbsPath(path string) string {

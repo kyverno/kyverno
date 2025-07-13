@@ -9,14 +9,15 @@ import (
 )
 
 var (
-	scheme  = runtime.NewScheme()
-	codecs  = serializer.NewCodecFactory(scheme)
-	Decoder = codecs.UniversalDeserializer()
+	Decoder runtime.Decoder
 	once    sync.Once
 )
 
 func Setup() {
 	once.Do(func() {
+		scheme := runtime.NewScheme()
 		_ = apiextensionsv1.AddToScheme(scheme)
+		codecs := serializer.NewCodecFactory(scheme)
+		Decoder = codecs.UniversalDeserializer()
 	})
 }

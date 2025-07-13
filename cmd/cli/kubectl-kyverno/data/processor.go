@@ -18,11 +18,11 @@ func InjectProcessor(p *crdProcessor) {
 	})
 }
 
-func GetProcessor() (*crdProcessor, error) {
+func GetProcessor() *crdProcessor {
 	procMu.RLock()
 	defer procMu.RUnlock()
 	if processor == nil {
-		InjectProcessor(NewCRDProcessor(nil))
+		return nil
 	}
-	return processor, nil
+	return processor
 }

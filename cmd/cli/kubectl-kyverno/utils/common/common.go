@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
@@ -17,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	crdscheme "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/scheme"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -251,19 +249,14 @@ func LoadCrdFromPath(path string) error {
 	if err != nil {
 		return err
 	}
-	crdscheme.Setup()
 	crd, err := readCRDFromFile(absPath)
 	if err != nil {
 		return err
 	}
 	apiGroupResource := apiGroupResourcesFromCRD(crd)
-	genericImageExtractors := GenerateImageExtractorsForCRD(crd)
-	addGenericImageExtractor(genericImageExtractors)
-
 	if err = addResourceGroup(apiGroupResource); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -295,6 +288,7 @@ func readCRDFromFile(path string) (*apiv1.CustomResourceDefinition, error) {
 	if err != nil {
 		return nil, err
 	}
+	crdscheme.Setup()
 	obj, _, err := crdscheme.Decoder.Decode(jsonData, nil, nil)
 	if err != nil {
 		return nil, err
@@ -389,84 +383,10 @@ func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.A
 }
 
 func addResourceGroup(resource *restmapper.APIGroupResources) error {
-	processor, err := data.GetProcessor()
-	if err != nil {
-		return err
-	}
+	processor := data.GetProcessor()
 	if processor == nil {
 		panic("adding a resource group to a nil crd processor. exiting")
 	}
-	processor.AddResourceGroup(resource)
+	processor.UpdateResourceGroup(resource)
 	return nil
-}
-
-func GenerateImageExtractorsForCRD(crd *apiv1.CustomResourceDefinition) []policiesv1alpha1.ImageExtractor {
-	extractors := make([]policiesv1alpha1.ImageExtractor, 0, len(crd.Spec.Versions))
-
-	for _, version := range crd.Spec.Versions {
-		if version.Schema == nil || version.Schema.OpenAPIV3Schema == nil {
-			continue
-		}
-		specSchema := version.Schema.OpenAPIV3Schema.Properties["spec"]
-		imagePaths := extractImagePathsFromSpec(&specSchema, "spec")
-		extractors = append(extractors, buildImageExtractors(imagePaths)...)
-	}
-
-	return extractors
-}
-
-func extractImagePathsFromSpec(schema *apiv1.JSONSchemaProps, prefix string) []string {
-	var paths []string
-
-	if schema.Type == "array" && schema.Items != nil && schema.Items.Schema != nil {
-		if imageProp, ok := schema.Items.Schema.Properties["image"]; ok && imageProp.Type == "string" {
-			fieldName := baseFieldName(prefix)
-			if fieldName == "containers" || fieldName == "initContainers" || fieldName == "ephemeralContainers" {
-				paths = append(paths, prefix)
-			}
-		}
-	}
-
-	if schema.Type == "object" {
-		for name, prop := range schema.Properties {
-			subPrefix := prefix + "." + name
-			paths = append(paths, extractImagePathsFromSpec(&prop, subPrefix)...)
-		}
-	}
-
-	return paths
-}
-
-func buildImageExtractors(paths []string) []policiesv1alpha1.ImageExtractor {
-	extractors := make([]policiesv1alpha1.ImageExtractor, 0, len(paths))
-
-	for _, path := range paths {
-		safeNav := toSafeNavigation(path)
-		expr := fmt.Sprintf("(object != null ? object : oldObject).%s.orValue([]).map(e, e.image)", safeNav)
-		extractors = append(extractors, policiesv1alpha1.ImageExtractor{
-			Name:       baseFieldName(path),
-			Expression: expr,
-		})
-	}
-
-	return extractors
-}
-
-func toSafeNavigation(path string) string {
-	parts := strings.Split(path, ".")
-	for i := range parts {
-		if i > 0 { // first is "spec", leave as-is
-			parts[i] = "?" + parts[i]
-		}
-	}
-	return strings.Join(parts, ".")
-}
-
-func baseFieldName(path string) string {
-	parts := strings.Split(path, ".")
-	return parts[len(parts)-1]
-}
-
-func addGenericImageExtractor(genericImageExtractor []policiesv1alpha1.ImageExtractor) {
-	compiler.SetGenericExtractors(genericImageExtractor)
 }

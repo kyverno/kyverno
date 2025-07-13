@@ -43,7 +43,7 @@ func NewCRDProcessor(resources *restmapper.APIGroupResources) *crdProcessor {
 	}
 }
 
-func (p *crdProcessor) AddResourceGroup(resources *restmapper.APIGroupResources) {
+func (p *crdProcessor) UpdateResourceGroup(resources *restmapper.APIGroupResources) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	p.apiGroupResource = resources

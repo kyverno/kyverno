@@ -10,10 +10,9 @@ import (
 )
 
 func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
-	var (
-		restMapper        meta.RESTMapper
-		apiGroupResources []*restmapper.APIGroupResources
-	)
+	var restMapper meta.RESTMapper
+
+	var apiGroupResources []*restmapper.APIGroupResources
 	// check that it is not a fake client
 	isFake := false
 	if client != nil {
@@ -29,31 +28,18 @@ func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
 		cachedDiscovery := memory.NewMemCacheClient(dc)
 		restMapper = restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscovery)
 	} else {
-		processor, err := data.GetProcessor()
-		if err != nil {
-			return nil, err
-		}
+		processor := data.GetProcessor()
 		if processor != nil {
-			// there's an initialized crd processor but it wasn't passed a crd
-			if crdProcessorApiGroupResources := processor.GetResourceGroup(); crdProcessorApiGroupResources != nil {
-				apiGroupResources = append(apiGroupResources, crdProcessorApiGroupResources)
+			apiGroupResources1 := processor.GetResourceGroup()
+			if apiGroupResources1 != nil {
+				apiGroupResources = append(apiGroupResources, apiGroupResources1)
 			}
-		}
-
-		originalApiGroupResources, err := data.APIGroupResources()
-		if err != nil {
-			return nil, err
-		}
-		apiGroupResources1 := processor.GetResourceGroup()
-		if apiGroupResources1 != nil {
-			apiGroupResources = append(apiGroupResources, apiGroupResources1)
 		}
 		apiGroupResources2, err := data.APIGroupResources()
 		if err != nil {
 			return nil, err
 		}
 		apiGroupResources = append(apiGroupResources, apiGroupResources2...)
-		apiGroupResources = append(apiGroupResources, originalApiGroupResources...)
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	}
 	return restMapper, nil
