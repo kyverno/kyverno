@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	listers "k8s.io/client-go/listers"
-	cache "k8s.io/client-go/tools/cache"
+	v1 "github.com/kyverno/kyverno/api/reports/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/cache"
 )
 
 // EphemeralReportLister helps list EphemeralReports.
@@ -30,7 +30,7 @@ import (
 type EphemeralReportLister interface {
 	// List lists all EphemeralReports in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*reportsv1.EphemeralReport, err error)
+	List(selector labels.Selector) (ret []*v1.EphemeralReport, err error)
 	// EphemeralReports returns an object that can list and get EphemeralReports.
 	EphemeralReports(namespace string) EphemeralReportNamespaceLister
 	EphemeralReportListerExpansion
@@ -38,17 +38,25 @@ type EphemeralReportLister interface {
 
 // ephemeralReportLister implements the EphemeralReportLister interface.
 type ephemeralReportLister struct {
-	listers.ResourceIndexer[*reportsv1.EphemeralReport]
+	indexer cache.Indexer
 }
 
 // NewEphemeralReportLister returns a new EphemeralReportLister.
 func NewEphemeralReportLister(indexer cache.Indexer) EphemeralReportLister {
-	return &ephemeralReportLister{listers.New[*reportsv1.EphemeralReport](indexer, reportsv1.Resource("ephemeralreport"))}
+	return &ephemeralReportLister{indexer: indexer}
+}
+
+// List lists all EphemeralReports in the indexer.
+func (s *ephemeralReportLister) List(selector labels.Selector) (ret []*v1.EphemeralReport, err error) {
+	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
+		ret = append(ret, m.(*v1.EphemeralReport))
+	})
+	return ret, err
 }
 
 // EphemeralReports returns an object that can list and get EphemeralReports.
 func (s *ephemeralReportLister) EphemeralReports(namespace string) EphemeralReportNamespaceLister {
-	return ephemeralReportNamespaceLister{listers.NewNamespaced[*reportsv1.EphemeralReport](s.ResourceIndexer, namespace)}
+	return ephemeralReportNamespaceLister{indexer: s.indexer, namespace: namespace}
 }
 
 // EphemeralReportNamespaceLister helps list and get EphemeralReports.
@@ -56,15 +64,36 @@ func (s *ephemeralReportLister) EphemeralReports(namespace string) EphemeralRepo
 type EphemeralReportNamespaceLister interface {
 	// List lists all EphemeralReports in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*reportsv1.EphemeralReport, err error)
+	List(selector labels.Selector) (ret []*v1.EphemeralReport, err error)
 	// Get retrieves the EphemeralReport from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*reportsv1.EphemeralReport, error)
+	Get(name string) (*v1.EphemeralReport, error)
 	EphemeralReportNamespaceListerExpansion
 }
 
 // ephemeralReportNamespaceLister implements the EphemeralReportNamespaceLister
 // interface.
 type ephemeralReportNamespaceLister struct {
-	listers.ResourceIndexer[*reportsv1.EphemeralReport]
+	indexer   cache.Indexer
+	namespace string
+}
+
+// List lists all EphemeralReports in the indexer for a given namespace.
+func (s ephemeralReportNamespaceLister) List(selector labels.Selector) (ret []*v1.EphemeralReport, err error) {
+	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
+		ret = append(ret, m.(*v1.EphemeralReport))
+	})
+	return ret, err
+}
+
+// Get retrieves the EphemeralReport from the indexer for a given namespace and name.
+func (s ephemeralReportNamespaceLister) Get(name string) (*v1.EphemeralReport, error) {
+	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(v1.Resource("ephemeralreport"), name)
+	}
+	return obj.(*v1.EphemeralReport), nil
 }

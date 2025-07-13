@@ -29,11 +29,11 @@ type FakeWgpolicyk8sV1alpha2 struct {
 }
 
 func (c *FakeWgpolicyk8sV1alpha2) ClusterPolicyReports() v1alpha2.ClusterPolicyReportInterface {
-	return newFakeClusterPolicyReports(c)
+	return &FakeClusterPolicyReports{c}
 }
 
 func (c *FakeWgpolicyk8sV1alpha2) PolicyReports(namespace string) v1alpha2.PolicyReportInterface {
-	return newFakePolicyReports(c, namespace)
+	return &FakePolicyReports{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

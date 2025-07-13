@@ -29,11 +29,11 @@ type FakeReportsV1 struct {
 }
 
 func (c *FakeReportsV1) ClusterEphemeralReports() v1.ClusterEphemeralReportInterface {
-	return newFakeClusterEphemeralReports(c)
+	return &FakeClusterEphemeralReports{c}
 }
 
 func (c *FakeReportsV1) EphemeralReports(namespace string) v1.EphemeralReportInterface {
-	return newFakeEphemeralReports(c, namespace)
+	return &FakeEphemeralReports{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

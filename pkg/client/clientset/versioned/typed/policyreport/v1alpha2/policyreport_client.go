@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	http "net/http"
+	"net/http"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -90,10 +90,10 @@ func New(c rest.Interface) *Wgpolicyk8sV1alpha2Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := policyreportv1alpha2.SchemeGroupVersion
+	gv := v1alpha2.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
+	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

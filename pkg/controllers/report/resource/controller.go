@@ -27,9 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
-	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
 	"k8s.io/client-go/util/workqueue"
@@ -87,7 +85,6 @@ type controller struct {
 	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
 	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
-	mapLister   admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -104,7 +101,6 @@ func NewController(
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
-	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
 		client:     client,
@@ -131,12 +127,6 @@ func NewController(
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue); err != nil {
-			logger.Error(err, "failed to register event handlers")
-		}
-	}
-	if mapInformer != nil {
-		c.mapLister = mapInformer.Lister()
-		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mapInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -224,7 +214,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			}
 			return watch, err
 		}
-		watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+		watchInterface, err := watchTools.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 		if err != nil {
 			logger.Error(err, "failed to create watcher")
 			return nil, err
@@ -283,23 +273,6 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		// fetch kinds from validating admission policies
 		for _, policy := range vapPolicies {
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			if err != nil {
-				return err
-			}
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.mapLister != nil {
-		mapPolicies, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
-		if err != nil {
-			return err
-		}
-		for _, policy := range mapPolicies {
-			converted := admissionpolicy.ConvertMatchResources(*policy.Spec.MatchConstraints)
-			kinds, err := admissionpolicy.GetKinds(&converted, restMapper)
 			if err != nil {
 				return err
 			}

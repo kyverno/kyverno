@@ -8,8 +8,6 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
-	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_readFile(t *testing.T) {
@@ -111,10 +109,6 @@ func TestLoad(t *testing.T) {
 		name:     "valid",
 		filepath: "../_testdata/values/limit-configmap-for-sa.yaml",
 		want: &v1alpha1.Values{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "cli.kyverno.io/v1alpha1",
-				Kind:       "Values",
-			},
 			ValuesSpec: v1alpha1.ValuesSpec{
 				NamespaceSelectors: []v1alpha1.NamespaceSelector{{
 					Name: "test1",
@@ -147,7 +141,9 @@ func TestLoad(t *testing.T) {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.Equal(t, got, tt.want)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Load() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

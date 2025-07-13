@@ -5,7 +5,6 @@ import (
 
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
@@ -45,10 +44,8 @@ type RuleResponse struct {
 	podSecurityChecks *PodSecurityChecks
 	// exceptions are the exceptions applied (if any)
 	exceptions []GenericException
-	// vapbinding is the validatingadmissionpolicybinding (if any)
-	vapBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	// mapbinding is the mutatingadmissionpolicybinding (if any)
-	mapBinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	// binding is the validatingadmissionpolicybinding (if any)
+	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
 	// properties are the additional properties from the rule that will be added to the policy report result
@@ -98,13 +95,8 @@ func (r RuleResponse) WithExceptions(exceptions []GenericException) *RuleRespons
 	return &r
 }
 
-func (r RuleResponse) WithVAPBinding(binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) *RuleResponse {
-	r.vapBinding = binding
-	return &r
-}
-
-func (r RuleResponse) WithMAPBinding(binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) *RuleResponse {
-	r.mapBinding = binding
+func (r RuleResponse) WithBinding(binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) *RuleResponse {
+	r.binding = binding
 	return &r
 }
 
@@ -149,11 +141,7 @@ func (r *RuleResponse) Exceptions() []GenericException {
 }
 
 func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
-	return r.vapBinding
-}
-
-func (r *RuleResponse) MutatingAdmissionPolicyBinding() *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
-	return r.mapBinding
+	return r.binding
 }
 
 func (r *RuleResponse) IsException() bool {

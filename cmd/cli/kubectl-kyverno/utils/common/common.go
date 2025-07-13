@@ -33,7 +33,6 @@ func GetResourceAccordingToResourcePath(
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
-	clusterWideResources bool,
 	policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
@@ -77,40 +76,19 @@ func GetResourceAccordingToResourcePath(
 					resourcePaths = listOfFiles
 				}
 			}
-			if clusterWideResources {
-				fetcher := &ResourceFetcher{
-					Out:                  out,
-					Policies:             policies,
-					ResourcePaths:        resourcePaths,
-					Client:               dClient,
-					Cluster:              cluster,
-					Namespace:            "",
-					PolicyReport:         policyReport,
-					ClusterWideResources: clusterWideResources,
-				}
-				resources, err := fetcher.GetResources()
-				if err != nil {
-					return resources, err
-				}
-				if namespace == "" {
-					return resources, nil
-				}
-			}
 			fetcher := &ResourceFetcher{
-				Out:                  out,
-				Policies:             policies,
-				ResourcePaths:        resourcePaths,
-				Client:               dClient,
-				Cluster:              cluster,
-				Namespace:            namespace,
-				PolicyReport:         policyReport,
-				ClusterWideResources: false,
+				Out:           out,
+				Policies:      policies,
+				ResourcePaths: resourcePaths,
+				Client:        dClient,
+				Cluster:       cluster,
+				Namespace:     namespace,
+				PolicyReport:  policyReport,
 			}
-			namespaceResources, err := fetcher.GetResources()
+			resources, err = fetcher.GetResources()
 			if err != nil {
 				return resources, err
 			}
-			resources = append(resources, namespaceResources...)
 		}
 	}
 	return resources, err

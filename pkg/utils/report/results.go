@@ -9,19 +9,18 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/openreports"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
-func SortReportResults(results []openreportsv1alpha1.ReportResult) {
-	slices.SortFunc(results, func(a openreportsv1alpha1.ReportResult, b openreportsv1alpha1.ReportResult) int {
+func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
+	slices.SortFunc(results, func(a policyreportv1alpha2.PolicyReportResult, b policyreportv1alpha2.PolicyReportResult) int {
 		if x := cmp.Compare(a.Policy, b.Policy); x != 0 {
 			return x
 		}
@@ -31,11 +30,11 @@ func SortReportResults(results []openreportsv1alpha1.ReportResult) {
 		if x := cmp.Compare(a.Source, b.Source); x != 0 {
 			return x
 		}
-		if x := cmp.Compare(len(a.Subjects), len(b.Subjects)); x != 0 {
+		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
 			return x
 		}
-		for i := range a.Subjects {
-			if x := cmp.Compare(a.Subjects[i].UID, b.Subjects[i].UID); x != 0 {
+		for i := range a.Resources {
+			if x := cmp.Compare(a.Resources[i].UID, b.Resources[i].UID); x != 0 {
 				return x
 			}
 		}
@@ -43,68 +42,68 @@ func SortReportResults(results []openreportsv1alpha1.ReportResult) {
 	})
 }
 
-func CalculateSummary(results []openreportsv1alpha1.ReportResult) (summary openreportsv1alpha1.ReportSummary) {
+func CalculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
 	for _, res := range results {
 		switch res.Result {
-		case openreports.StatusPass:
+		case policyreportv1alpha2.StatusPass:
 			summary.Pass++
-		case openreports.StatusFail:
+		case policyreportv1alpha2.StatusFail:
 			summary.Fail++
-		case openreports.StatusWarn:
+		case policyreportv1alpha2.StatusWarn:
 			summary.Warn++
-		case openreports.StatusError:
+		case policyreportv1alpha2.StatusError:
 			summary.Error++
-		case openreports.StatusSkip:
+		case policyreportv1alpha2.StatusSkip:
 			summary.Skip++
 		}
 	}
 	return
 }
 
-func toPolicyResult(status engineapi.RuleStatus) openreportsv1alpha1.Result {
+func toPolicyResult(status engineapi.RuleStatus) policyreportv1alpha2.PolicyResult {
 	switch status {
 	case engineapi.RuleStatusPass:
-		return openreports.StatusPass
+		return policyreportv1alpha2.StatusPass
 	case engineapi.RuleStatusFail:
-		return openreports.StatusFail
+		return policyreportv1alpha2.StatusFail
 	case engineapi.RuleStatusError:
-		return openreports.StatusError
+		return policyreportv1alpha2.StatusError
 	case engineapi.RuleStatusWarn:
-		return openreports.StatusWarn
+		return policyreportv1alpha2.StatusWarn
 	case engineapi.RuleStatusSkip:
-		return openreports.StatusSkip
+		return policyreportv1alpha2.StatusSkip
 	}
 	return ""
 }
 
-func SeverityFromString(severity string) openreportsv1alpha1.ResultSeverity {
+func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	switch severity {
 	case "critical":
-		return openreports.SeverityCritical
+		return policyreportv1alpha2.SeverityCritical
 	case "high":
-		return openreports.SeverityHigh
+		return policyreportv1alpha2.SeverityHigh
 	case "medium":
-		return openreports.SeverityMedium
+		return policyreportv1alpha2.SeverityMedium
 	case "low":
-		return openreports.SeverityLow
+		return policyreportv1alpha2.SeverityLow
 	case "info":
-		return openreports.SeverityInfo
+		return policyreportv1alpha2.SeverityInfo
 	}
 	return ""
 }
 
-func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.RuleResponse, resource *corev1.ObjectReference) openreportsv1alpha1.ReportResult {
+func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.RuleResponse, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
 	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
 	annotations := pol.GetAnnotations()
 
-	result := openreportsv1alpha1.ReportResult{
-		Source:      SourceKyverno,
-		Policy:      policyName,
-		Rule:        ruleResult.Name(),
-		Description: ruleResult.Message(),
-		Properties:  ruleResult.Properties(),
-		Result:      toPolicyResult(ruleResult.Status()),
-		Scored:      annotations[kyverno.AnnotationPolicyScored] != "false",
+	result := policyreportv1alpha2.PolicyReportResult{
+		Source:     SourceKyverno,
+		Policy:     policyName,
+		Rule:       ruleResult.Name(),
+		Message:    ruleResult.Message(),
+		Properties: ruleResult.Properties(),
+		Result:     toPolicyResult(ruleResult.Status()),
+		Scored:     annotations[kyverno.AnnotationPolicyScored] != "false",
 		Timestamp: metav1.Timestamp{
 			Seconds: time.Now().Unix(),
 		},
@@ -118,17 +117,9 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	case pol.AsValidatingAdmissionPolicy() != nil:
 		result.Source = SourceValidatingAdmissionPolicy
 		result.Policy = ruleResult.Name()
-		process = "background scan"
+		process = "admission review"
 		if binding := ruleResult.ValidatingAdmissionPolicyBinding(); binding != nil {
 			addProperty("binding", binding.Name, &result)
-		}
-
-	case pol.AsMutatingAdmissionPolicy() != nil:
-		result.Source = SourceMutatingAdmissionPolicy
-		result.Policy = ruleResult.Name()
-		process = "background scan"
-		if binding := ruleResult.MutatingAdmissionPolicyBinding(); binding != nil {
-			addProperty("mapBinding", binding.Name, &result)
 		}
 
 	case pol.AsValidatingPolicy() != nil:
@@ -136,19 +127,10 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		result.Source = SourceValidatingPolicy
 		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
 
-	case pol.AsMutatingPolicy() != nil:
-		mpol := pol.AsMutatingPolicy()
-		result.Source = SourceMutatingPolicy
-		process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
-
 	case pol.AsImageValidatingPolicy() != nil:
 		ivp := pol.AsImageValidatingPolicy()
 		result.Source = SourceImageValidatingPolicy
 		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
-
-	case pol.AsGeneratingPolicy() != nil:
-		result.Source = SourceGeneratingPolicy
-		process = "admission review"
 
 	case pol.AsKyvernoPolicy() != nil:
 		kyvernoPolicy := pol.AsKyvernoPolicy()
@@ -162,7 +144,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	}
 
 	if resource != nil {
-		result.Subjects = []corev1.ObjectReference{*resource}
+		result.Resources = []corev1.ObjectReference{*resource}
 	}
 
 	if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
@@ -176,10 +158,11 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	if pss := ruleResult.PodSecurityChecks(); pss != nil && len(pss.Checks) > 0 {
 		addPodSecurityProperties(pss, &result)
 	}
+
 	return result
 }
 
-func addProperty(k, v string, result *openreportsv1alpha1.ReportResult) {
+func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
 	if result.Properties == nil {
 		result.Properties = map[string]string{}
 	}
@@ -204,7 +187,7 @@ type Control struct {
 	Images []string
 }
 
-func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *openreportsv1alpha1.ReportResult) {
+func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyreportv1alpha2.PolicyReportResult) {
 	if pss == nil {
 		return
 	}
@@ -233,8 +216,8 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *openrepo
 	}
 }
 
-func EngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
-	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
+func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		results = append(results, result)
@@ -243,8 +226,8 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []openrepo
 	return results
 }
 
-func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
-	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
+func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
@@ -256,8 +239,8 @@ func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []
 	return results
 }
 
-func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
-	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
+func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
@@ -273,8 +256,8 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 	return results
 }
 
-func SplitResultsByPolicy(logger logr.Logger, results []openreportsv1alpha1.ReportResult) map[string][]openreportsv1alpha1.ReportResult {
-	resultsMap := map[string][]openreportsv1alpha1.ReportResult{}
+func SplitResultsByPolicy(logger logr.Logger, results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
+	resultsMap := map[string][]policyreportv1alpha2.PolicyReportResult{}
 	keysMap := map[string]string{}
 	for _, result := range results {
 		if keysMap[result.Policy] == "" {
@@ -297,14 +280,14 @@ func SplitResultsByPolicy(logger logr.Logger, results []openreportsv1alpha1.Repo
 	return resultsMap
 }
 
-func SetResults(report reportsv1.ReportInterface, results ...openreportsv1alpha1.ReportResult) {
+func SetResults(report reportsv1.ReportInterface, results ...policyreportv1alpha2.PolicyReportResult) {
 	SortReportResults(results)
 	report.SetResults(results)
 	report.SetSummary(CalculateSummary(results))
 }
 
 func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
@@ -314,7 +297,7 @@ func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi
 }
 
 func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
@@ -324,7 +307,7 @@ func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...e
 }
 
 func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)

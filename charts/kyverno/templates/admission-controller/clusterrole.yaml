@@ -104,10 +104,6 @@ rules:
       - validatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
-      - generatingpolicies
-      - generatingpolicies/status
-      - mutatingpolicies
-      - mutatingpolicies/status
     verbs:
       - create
       - delete

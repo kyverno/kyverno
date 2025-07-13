@@ -25,9 +25,6 @@
 {{- with .validatingAdmissionPolicyReports -}}
   {{- $flags = append $flags (print "--validatingAdmissionPolicyReports=" .enabled) -}}
 {{- end -}}
-{{- with .mutatingAdmissionPolicyReports -}}
-  {{- $flags = append $flags (print "--mutatingAdmissionPolicyReports=" .enabled) -}}
-{{- end -}}
 {{- with .autoUpdateWebhooks -}}
   {{- $flags = append $flags (print "--autoUpdateWebhooks=" .enabled) -}}
 {{- end -}}
@@ -54,9 +51,6 @@
 {{- end -}}
 {{- with .generateValidatingAdmissionPolicy -}}
   {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
-{{- end -}}
-{{- with .generateMutatingAdmissionPolicy -}}
-  {{- $flags = append $flags (print "--generateMutatingAdmissionPolicy=" .enabled) -}}
 {{- end -}}
 {{- with .dumpPatches -}}
   {{- $flags = append $flags (print "--dumpPatches=" .enabled) -}}

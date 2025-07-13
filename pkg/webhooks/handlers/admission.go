@@ -41,7 +41,7 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 		}
 		logger := logger.WithValues(
 			"gvk", admissionReview.Request.Kind,
-			"gvr", admissionReview.Request.Resource.String(),
+			"gvr", admissionReview.Request.Resource,
 			"namespace", admissionReview.Request.Namespace,
 			"name", admissionReview.Request.Name,
 			"operation", admissionReview.Request.Operation,

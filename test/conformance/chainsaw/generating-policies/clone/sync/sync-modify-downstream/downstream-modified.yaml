@@ -1,8 +1,0 @@
-apiVersion: v1
-data:
-  foo: modifiedDATA
-kind: Secret
-metadata:
-  name: sync-modify-downstream
-  namespace: sync-modify-downstream
-type: Opaque

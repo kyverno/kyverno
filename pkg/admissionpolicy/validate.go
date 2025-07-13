@@ -282,7 +282,7 @@ func validateResource(
 	}
 
 	if binding != nil {
-		ruleResp = ruleResp.WithVAPBinding(binding)
+		ruleResp = ruleResp.WithBinding(binding)
 	}
 	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	engineResponse = engineResponse.WithPolicyResponse(policyResp)

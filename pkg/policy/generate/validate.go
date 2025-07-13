@@ -2,7 +2,6 @@ package generate
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -50,9 +49,6 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 		if wildcard.ContainsWildcard(rule.Generation.CloneList.Selector.String()) {
 			return nil, "selector", fmt.Errorf("wildcard characters `*/?` not supported")
 		}
-	}
-	if g.rule.CELPreconditions != nil && g.rule.Generation != nil {
-		return nil, "", fmt.Errorf("celPrecondition can only be used with validate.cel")
 	}
 
 	if target := rule.Generation.GetData(); target != nil {
@@ -119,7 +115,7 @@ func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namesp
 	}
 
 	if !ok {
-		return errors.New(msg)
+		return fmt.Errorf(msg) //nolint:all
 	}
 
 	return nil

@@ -18,7 +18,4 @@ minAvailable: {{ default 1 .minAvailable }}
 {{- if .maxUnavailable }}
 maxUnavailable: {{ .maxUnavailable }}
 {{- end }}
-{{- if .unhealthyPodEvictionPolicy }}
-unhealthyPodEvictionPolicy: {{ .unhealthyPodEvictionPolicy }}
-{{- end }}
 {{- end -}}

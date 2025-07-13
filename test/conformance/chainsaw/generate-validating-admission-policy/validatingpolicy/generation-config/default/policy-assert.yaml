@@ -4,13 +4,14 @@ metadata:
   name: check-deployment-labels
 status:
   conditionStatus:
-    (conditions[?type == 'WebhookConfigured']):
+    conditions:
     - message: Webhook configured.
       reason: Succeeded
       status: "True"
-    (conditions[?type == 'RBACPermissionsGranted']):
+      type: WebhookConfigured
     - message: Policy is ready for reporting.
       reason: Succeeded
       status: "True"
+      type: RBACPermissionsGranted
     ready: true
   generated: false

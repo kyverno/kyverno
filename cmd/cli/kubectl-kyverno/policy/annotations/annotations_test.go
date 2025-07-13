@@ -4,10 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
-
 	"github.com/kyverno/kyverno/api/kyverno"
-	"github.com/kyverno/kyverno/pkg/openreports"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 )
 
 func TestScored(t *testing.T) {
@@ -61,7 +59,7 @@ func TestSeverity(t *testing.T) {
 	tests := []struct {
 		name        string
 		annotations map[string]string
-		want        openreportsv1alpha1.ResultSeverity
+		want        policyreportv1alpha2.PolicySeverity
 	}{{
 		name:        "nil",
 		annotations: nil,
@@ -81,31 +79,31 @@ func TestSeverity(t *testing.T) {
 		annotations: map[string]string{
 			kyverno.AnnotationPolicySeverity: "critical",
 		},
-		want: openreports.SeverityCritical,
+		want: policyreportv1alpha2.SeverityCritical,
 	}, {
 		name: "high",
 		annotations: map[string]string{
 			kyverno.AnnotationPolicySeverity: "high",
 		},
-		want: openreports.SeverityHigh,
+		want: policyreportv1alpha2.SeverityHigh,
 	}, {
 		name: "medium",
 		annotations: map[string]string{
 			kyverno.AnnotationPolicySeverity: "medium",
 		},
-		want: openreports.SeverityMedium,
+		want: policyreportv1alpha2.SeverityMedium,
 	}, {
 		name: "low",
 		annotations: map[string]string{
 			kyverno.AnnotationPolicySeverity: "low",
 		},
-		want: openreports.SeverityLow,
+		want: policyreportv1alpha2.SeverityLow,
 	}, {
 		name: "info",
 		annotations: map[string]string{
 			kyverno.AnnotationPolicySeverity: "info",
 		},
-		want: openreports.SeverityInfo,
+		want: policyreportv1alpha2.SeverityInfo,
 	}, {
 		name: "bar",
 		annotations: map[string]string{
