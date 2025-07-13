@@ -43,6 +43,7 @@ kyverno apply [flags]
       --context string                     The name of the kubeconfig context to use
       --context-file string                File containing context data for CEL policies
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
+      --crdpath string                     crd path to be used for apply command
       --detailed-results                   If set to true, display detailed results
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
       --exceptions strings                 Policy exception to be considered when evaluating policies against resources
