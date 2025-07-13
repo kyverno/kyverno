@@ -1,4 +1,4 @@
-apiVersion: policies.kyverno.io/v1
+apiVersion: policies.kyverno.io/v1alpha1
 kind: GeneratingPolicy
 metadata:
   name: generate-secrets
@@ -16,3 +16,4 @@ spec:
       expression: resource.List("v1", "secrets", "my-ns")
   generate:
     - expression: generator.Apply(variables.nsName, [variables.sources])
+

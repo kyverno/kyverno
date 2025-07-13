@@ -5,13 +5,15 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/cel/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-var genericImageExtractors []v1beta1.ImageExtractor
+var genericImageExtractors []v1alpha1.ImageExtractor
+
 var (
 	podImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -129,6 +131,6 @@ func ExtractImages(data map[string]any, extractors map[string]ImageExtractor) (m
 	return result, nil
 }
 
-func SetGenericExtractors(extractors []v1beta1.ImageExtractor) {
+func SetGenericExtractors(extractors []v1alpha1.ImageExtractor) {
 	genericImageExtractors = extractors
 }

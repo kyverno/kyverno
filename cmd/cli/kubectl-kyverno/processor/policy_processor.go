@@ -126,7 +126,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	isCluster := false
 	if p.CrdPath != "" {
-		if err := common.LoadCrdFromPath(p.CrdPath); err != nil {
+		if err := p.loadCrd(); err != nil {
 			return nil, err
 		}
 	}
@@ -1117,6 +1117,10 @@ func discoverCELTargets(
 		result[pol.Policy.GetName()] = targetKeys
 	}
 	return result, nil
+}
+
+func (p *PolicyProcessor) loadCrd() error {
+	return common.LoadCrdFromPath(p.CrdPath)
 }
 
 func getAbsPath(path string) string {

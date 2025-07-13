@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	policyV1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
@@ -389,20 +389,16 @@ func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.A
 }
 
 func addResourceGroup(resource *restmapper.APIGroupResources) error {
-	processor, err := data.GetProcessor()
-	if err != nil {
-		return err
-	}
+	processor := data.GetProcessor()
 	if processor == nil {
 		panic("adding a resource group to a nil crd processor. exiting")
 	}
-	processor.AddResourceGroup(resource)
+	processor.UpdateResourceGroup(resource)
 	return nil
 }
 
-func GenerateImageExtractorsForCRD(crd *apiv1.CustomResourceDefinition) []policiesv1alpha1.ImageExtractor {
-	extractors := make([]policiesv1alpha1.ImageExtractor, 0, len(crd.Spec.Versions))
-
+func GenerateImageExtractorsForCRD(crd *apiv1.CustomResourceDefinition) []policyV1alpha1.ImageExtractor {
+	extractors := make([]policyV1alpha1.ImageExtractor, 0, len(crd.Spec.Versions))
 	for _, version := range crd.Spec.Versions {
 		if version.Schema == nil || version.Schema.OpenAPIV3Schema == nil {
 			continue
@@ -437,13 +433,13 @@ func extractImagePathsFromSpec(schema *apiv1.JSONSchemaProps, prefix string) []s
 	return paths
 }
 
-func buildImageExtractors(paths []string) []policiesv1alpha1.ImageExtractor {
-	extractors := make([]policiesv1alpha1.ImageExtractor, 0, len(paths))
+func buildImageExtractors(paths []string) []policyV1alpha1.ImageExtractor {
+	extractors := make([]policyV1alpha1.ImageExtractor, 0, len(paths))
 
 	for _, path := range paths {
 		safeNav := toSafeNavigation(path)
 		expr := fmt.Sprintf("(object != null ? object : oldObject).%s.orValue([]).map(e, e.image)", safeNav)
-		extractors = append(extractors, policiesv1alpha1.ImageExtractor{
+		extractors = append(extractors, policyV1alpha1.ImageExtractor{
 			Name:       baseFieldName(path),
 			Expression: expr,
 		})
@@ -467,6 +463,6 @@ func baseFieldName(path string) string {
 	return parts[len(parts)-1]
 }
 
-func addGenericImageExtractor(genericImageExtractor []policiesv1alpha1.ImageExtractor) {
+func addGenericImageExtractor(genericImageExtractor []policyV1alpha1.ImageExtractor) {
 	compiler.SetGenericExtractors(genericImageExtractor)
 }
