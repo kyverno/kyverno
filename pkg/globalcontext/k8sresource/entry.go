@@ -276,7 +276,7 @@ func (e *entry) recomputeProjections() {
 	}
 }
 
-func (e *entry) Get(projection string) (any, error) {
+func (e *entry) Get(projection, jmesPath string) (any, error) {
 	e.objectsMu.RLock()
 	defer e.objectsMu.RUnlock()
 
@@ -285,11 +285,17 @@ func (e *entry) Get(projection string) (any, error) {
 		for _, obj := range e.objects {
 			list = append(list, obj)
 		}
-		return list, nil
+		if jmesPath == "" {
+			return list, nil
+		}
+		return e.jp.Search(jmesPath, list)
 	}
 
 	if result, ok := e.projected[projection]; ok {
-		return result, nil
+		if jmesPath == "" {
+			return result, nil
+		}
+		return e.jp.Search(jmesPath, result)
 	}
 	return nil, fmt.Errorf("projection %q not found", projection)
 }

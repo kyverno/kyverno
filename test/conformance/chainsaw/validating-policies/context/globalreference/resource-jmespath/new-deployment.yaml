@@ -1,19 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: main-deployment
-  namespace: test-globalcontext-apicall-correct
+  name: new-deployment
+  namespace: test-globalcontext-resource-jmespath
   labels:
-    app: main-deployment
+    app: new-deployment
+    env: prod
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: main-deployment
+      app: new-deployment
+      env: prod
   template:
     metadata:
       labels:
-        app: main-deployment
+        app: new-deployment
+        env: prod
     spec:
       containers:
         - name: pause

@@ -3,6 +3,7 @@ package processor
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -23,6 +24,7 @@ func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool
 func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, contextPath string, registryAccess bool, isFake bool) (libs.Context, error) {
 	if dclient != nil && !isFake {
 		return libs.NewContextProvider(
+			log.Log.WithName("context-provider"),
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 			gctxstore.New(),
