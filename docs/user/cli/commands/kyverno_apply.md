@@ -44,6 +44,7 @@ kyverno apply [flags]
       --context-file string                File containing context data for CEL policies
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
       --detailed-results                   If set to true, display detailed results
+      --drop-empty-fields                  If set to true, will drop empty fields from resources before applying them
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
       --exceptions strings                 Policy exception to be considered when evaluating policies against resources
       --exceptions-with-resources          Evaluate policy exceptions from the resources path

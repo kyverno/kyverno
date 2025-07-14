@@ -199,7 +199,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
-	cmd.Flags().BoolVarP(&applyCommandConfig.DropEmptyFields, "drop-empty-fields", "", false, "If set to true, will drop empty fields from resources and policies before applying them")
+	cmd.Flags().BoolVarP(&applyCommandConfig.DropEmptyFields, "drop-empty-fields", "", false, "If set to true, will drop empty fields from resources before applying them")
 	return cmd
 }
 
