@@ -141,7 +141,7 @@ func NewController(
 }
 
 func (c controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
+	controllerutils.Run(ctx, logger, ControllerName, time.Minute, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
 }
 
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {

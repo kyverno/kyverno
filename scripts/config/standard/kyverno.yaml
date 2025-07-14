@@ -1,7 +1,6 @@
 features:
   policyExceptions:
     enabled: true
-    namespace: "*"
   omitEvents:
     eventTypes: []
 
@@ -12,7 +11,7 @@ admissionController:
     clusterRole:
       extraResources:
         - apiGroups:
-            - '*'
+            - "*"
           resources:
             - secrets
           verbs:
@@ -22,6 +21,10 @@ admissionController:
             - delete
             - get
             - list
+  profiling:
+    enabled: true
+    serviceType: NodePort
+    nodePort: 30950
 
 backgroundController:
   extraArgs:
@@ -30,7 +33,7 @@ backgroundController:
     clusterRole:
       extraResources:
         - apiGroups:
-            - '*'
+            - "*"
           resources:
             - configmaps
             - networkpolicies
@@ -56,7 +59,7 @@ cleanupController:
     clusterRole:
       extraResources:
         - apiGroups:
-            - ''
+            - ""
           resources:
             - pods
           verbs:

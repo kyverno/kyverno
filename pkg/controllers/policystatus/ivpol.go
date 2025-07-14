@@ -3,6 +3,7 @@ package policystatus
 import (
 	"context"
 	"fmt"
+	"log"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
@@ -42,6 +43,7 @@ func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1alph
 		}
 		return nil
 	}
+	log.Printf("Updating status for ImageValidatingPolicy %s", ivpol.GetName())
 	err := controllerutils.UpdateStatus(ctx,
 		ivpol,
 		c.client.PoliciesV1alpha1().ImageValidatingPolicies(),
