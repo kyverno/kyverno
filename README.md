@@ -67,8 +67,7 @@ Kyverno installation and reference documentation is available at [kyverno.io](ht
 ## 🎥 Demos & Tutorials
 
 - ▶️ [Getting Started with Kyverno – YouTube](https://www.youtube.com/results?search_query=kyverno+tutorial)
-- 🧪 [Kyverno Playground](https://kyverno.io/playground/)
-- 🧭 [Hands-On Labs](https://kyverno.io/labs/)
+- 🧪 [Kyverno Playground](https://playground.kyverno.io/)
 
 ## 🎯 Popular Use Cases
 
@@ -125,12 +124,6 @@ All Kyverno images include a Software Bill of Materials (SBOM) in [CycloneDX](ht
 
 👉 [`ghcr.io/kyverno/sbom`](https://github.com/orgs/kyverno/packages?tab=packages&q=sbom)  
 👉 [Fetching the SBOM](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno)
-
-## 🌍 Community Highlights
-
-- 🎤 [Kyverno at KubeCon EU 2024](https://www.cncf.io/kubecon-eu-2024/)
-- 🏢 [Case Study: How [Company] uses Kyverno for Policy-as-Code](https://kyverno.io/blog/)
-- 📰 [Blog: Best Practices for Writing Kyverno Policies](https://kyverno.io/blog/)
 
 ## 👥 Contributors
 
