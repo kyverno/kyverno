@@ -89,10 +89,10 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		_, err := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), extendedEnvSet.StoredExpressionsEnv(), policy.Spec.GetMatchConditions()...)
 		if err != nil {
 			allErrs = append(allErrs, err...)
-		} else {
-			failurePolicy := policy.GetFailurePolicy()
-			matcher = matchconditions.NewMatcher(compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions), &failurePolicy, "policy", "validate", policy.Name)
 		}
+		failurePolicy := policy.GetFailurePolicy()
+		matcher = matchconditions.NewMatcher(compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions), &failurePolicy, "policy", "validate", policy.Name)
+
 	}
 
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
