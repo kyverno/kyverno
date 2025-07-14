@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"fmt"
+
 	cel "github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -85,14 +87,21 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		for i := range matchConditions {
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
-		// TODO (): Check if you can do something with this unused returned
-		_, err := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), extendedEnvSet.StoredExpressionsEnv(), policy.Spec.GetMatchConditions()...)
-		if err != nil {
-			allErrs = append(allErrs, err...)
-		}
-		failurePolicy := policy.GetFailurePolicy()
-		matcher = matchconditions.NewMatcher(compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions), &failurePolicy, "policy", "validate", policy.Name)
 
+		evaluator := compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions)
+		for _, err := range evaluator.CompilationErrors() {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec").Child("matchConditions"),
+				nil,
+				fmt.Sprintf("failed to compile CEL expressions: %v", err),
+			))
+		}
+
+		failurePolicy := policy.GetFailurePolicy()
+		matcher = matchconditions.NewMatcher(
+			evaluator,
+			&failurePolicy,
+			"policy", "validate", policy.Name)
 	}
 
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
