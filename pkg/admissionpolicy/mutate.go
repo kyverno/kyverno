@@ -33,9 +33,7 @@ func mutateResource(
 	binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
 	gvr schema.GroupVersionResource,
-	client dclient.Interface,
-	namespaceSelectorMap map[string]map[string]string,
-	isFake bool,
+	backgroundScan bool,
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
@@ -123,6 +121,7 @@ func mutateResource(
 		}
 		original := versionedAttributes.VersionedObject
 		ruleName := policy.GetName()
+		var ruleResp *engineapi.RuleResponse
 
 		newVersionedObject, err := patcher.Patch(context.TODO(), patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
@@ -131,23 +130,32 @@ func mutateResource(
 
 			if binding != nil {
 				logger.V(4).Info("matched MAP binding", "policy", policy.GetName(), "binding", binding.GetName())
+				ruleResp = ruleResp.WithMAPBinding(binding)
 			}
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 			continue
 		}
 
 		if equality.Semantic.DeepEqual(original, newVersionedObject) {
-			ruleResp := engineapi.RuleSkip(ruleName, engineapi.Mutation, "mutation had no effect", nil)
+			if backgroundScan {
+				ruleResp = engineapi.RulePass(ruleName, engineapi.Mutation, "mutation is successfully applied", nil)
+			} else {
+				ruleResp = engineapi.RuleSkip(ruleName, engineapi.Mutation, "mutation had no effect", nil)
+			}
 			if binding != nil {
-				logger.V(4).Info("mutation had no effect", "binding", binding.GetName())
+				ruleResp = ruleResp.WithMAPBinding(binding)
 			}
 			policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 			continue
 		}
 		versionedAttributes.VersionedObject = newVersionedObject
-		ruleResp := engineapi.RulePass(ruleName, engineapi.Mutation, "", nil)
+		if backgroundScan {
+			ruleResp = engineapi.RuleFail(ruleName, engineapi.Mutation, "mutation is not applied", nil)
+		} else {
+			ruleResp = engineapi.RulePass(ruleName, engineapi.Mutation, "mutation applied", nil)
+		}
 		if binding != nil {
-			logger.V(4).Info("mutation applied", "binding", binding.GetName())
+			ruleResp = ruleResp.WithMAPBinding(binding)
 		}
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	}
@@ -156,7 +164,7 @@ func mutateResource(
 	if err != nil {
 		ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil)
 		if binding != nil {
-			logger.V(4).Info("mutation applied", "binding", binding.GetName())
+			ruleResp = ruleResp.WithMAPBinding(binding)
 		}
 		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 		return engineResponse.WithPolicyResponse(policyResp), nil
@@ -172,12 +180,13 @@ func mutateResource(
 }
 
 func Mutate(
-	data engineapi.MutatingAdmissionPolicyData,
+	data *engineapi.MutatingAdmissionPolicyData,
 	resource unstructured.Unstructured,
 	gvr schema.GroupVersionResource,
-	client dclient.Interface,
 	namespaceSelectorMap map[string]map[string]string,
+	client dclient.Interface,
 	isFake bool,
+	backgroundScan bool,
 ) (engineapi.EngineResponse, error) {
 	var emptyResp engineapi.EngineResponse
 
@@ -225,7 +234,7 @@ func Mutate(
 			return emptyResp, nil
 		}
 
-		return mutateResource(*policy, nil, resource, gvr, client, namespaceSelectorMap, isFake)
+		return mutateResource(*policy, nil, resource, gvr, backgroundScan)
 	}
 
 	// bindings exist
@@ -255,7 +264,7 @@ func Mutate(
 			}
 
 			logger.V(3).Info("mutate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return mutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
+			return mutateResource(*policy, &bindings[i], resource, gvr, backgroundScan)
 		}
 		return emptyResp, nil
 	} else {
@@ -291,7 +300,7 @@ func Mutate(
 			if !ok {
 				continue
 			}
-			return mutateResource(*policy, &bindings[i], resource, gvr, client, namespaceSelectorMap, isFake)
+			return mutateResource(*policy, &bindings[i], resource, gvr, backgroundScan)
 		}
 
 		ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Mutation, "no binding matched (offline)", nil)

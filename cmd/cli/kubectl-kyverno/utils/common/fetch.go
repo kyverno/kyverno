@@ -180,7 +180,8 @@ func (rf *ResourceFetcher) getKindsFromRule(
 
 // getKindsFromPolicy will return the kinds from the following policies match block:
 // 1. K8s ValidatingAdmissionPolicy
-// 2. ValidatingPolicy
+// 2. K8s MutatingAdmissionPolicy
+// 3. ValidatingPolicy
 func (rf *ResourceFetcher) getKindsFromPolicy(
 	matchResources *admissionregistrationv1.MatchResources,
 	info *resourceTypeInfo,

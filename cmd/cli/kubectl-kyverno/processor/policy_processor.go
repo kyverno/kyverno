@@ -84,6 +84,7 @@ type PolicyProcessor struct {
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
+	NamespaceCache            map[string]*unstructured.Unstructured
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -138,10 +139,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	} else {
 		if len(namespaceLabels) == 0 && resourceKind != "Namespace" && resourceNamespace != "" {
-			ns, err := p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resourceNamespace)
-			if err != nil {
-				log.Log.Error(err, "failed to get the resource's namespace")
-				return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+			var ns *unstructured.Unstructured
+			var err error
+			if cached, ok := p.NamespaceCache[resourceNamespace]; ok {
+				ns = cached
+			} else {
+				ns, err = p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resourceNamespace)
+				if err != nil {
+					log.Log.Error(err, "failed to get the resource's namespace")
+					return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+				}
+				p.NamespaceCache[resourceNamespace] = ns
 			}
 			namespaceLabels = ns.GetLabels()
 		}
@@ -242,7 +250,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					}
 				}
 				// apply the MAP
-				mutateResponse, err := admissionpolicy.Mutate(*data, resource, gvr, p.Client, p.NamespaceSelectorMap, !p.Cluster)
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: default
+  name: test-pod
+  labels:
+    app: demo
+    env: test  # This label should be added by the mutating policy
+spec:
+  containers:
+    - name: pause
+      image: registry.k8s.io/pause:latest

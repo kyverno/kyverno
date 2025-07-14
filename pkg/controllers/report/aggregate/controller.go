@@ -31,7 +31,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -62,6 +64,7 @@ type controller struct {
 	gpolLister  policiesv1alpha1listers.GeneratingPolicyLister
 	mpolLister  policiesv1alpha1listers.MutatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapLister   admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
 
@@ -87,6 +90,7 @@ func NewController(
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -213,6 +217,17 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if mapInformer != nil {
+		c.mapLister = mapInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			mapInformer.Informer(),
+			func(_ metav1.Object) { enqueueAll() },
+			func(_, _ metav1.Object) { enqueueAll() },
+			func(_ metav1.Object) { enqueueAll() },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	return &c
 }
 
@@ -269,6 +284,20 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 		}
 		for _, vap := range vaps {
 			results.Insert(cache.MetaObjectToName(vap).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createMappolMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.mapLister != nil {
+		maps, err := c.mapLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, pol := range maps {
+			results.Insert(cache.MetaObjectToName(pol).String())
 		}
 	}
 	return results, nil
@@ -572,6 +601,10 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
+	mappolMap, err := c.createMappolMap()
+	if err != nil {
+		return err
+	}
 	vpolMap, err := c.createVPolMap()
 	if err != nil {
 		return err
@@ -589,12 +622,13 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		return err
 	}
 	maps := maps{
-		pol:   policyMap,
-		vap:   vapMap,
-		vpol:  vpolMap,
-		ivpol: ivpolMap,
-		gpol:  gpolMap,
-		mpol:  mpolMap,
+		pol:    policyMap,
+		vap:    vapMap,
+		mappol: mappolMap,
+		vpol:   vpolMap,
+		ivpol:  ivpolMap,
+		gpol:   gpolMap,
+		mpol:   mpolMap,
 	}
 	reports = append(reports, ephemeralReports...)
 	merged := map[string]openreportsv1alpha1.ReportResult{}

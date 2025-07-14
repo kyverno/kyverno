@@ -111,6 +111,7 @@ spec:
             {{- end }}
             {{- end }}
             - --disableMetrics={{ .Values.reportsController.metering.disabled }}
+            - --openreportsEnabled={{ .Values.openreports.enabled }}
             {{- if not .Values.reportsController.metering.disabled }}
             - --otelConfig={{ .Values.reportsController.metering.config }}
             - --metricsPort={{ .Values.reportsController.metering.port }}
@@ -132,6 +133,7 @@ spec:
               "aggregateReports"
               "policyReports"
               "validatingAdmissionPolicyReports"
+              "mutatingAdmissionPolicyReports"
               "backgroundScan"
               "configMapCaching"
               "deferredLoading"

@@ -32,6 +32,10 @@ jobs:
           python-version: 3.13.1
       - name: Set up chart-testing
         uses: helm/chart-testing-action@0d28d3144d3a25ea2cc349d6e59901c4ff469b3b # v2.7.0
+      - name: Add Helm repos and build dependencies
+        run: |
+          helm repo add openreports https://openreports.github.io/reports-api
+          helm repo update
       - name: Run chart-testing (lint)
         run: |
           if [[ $(ct list-changed --target-branch=main) ]];
