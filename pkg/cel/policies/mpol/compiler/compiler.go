@@ -1,8 +1,6 @@
 package compiler
 
 import (
-	"fmt"
-
 	cel "github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -92,8 +90,8 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		for _, err := range evaluator.CompilationErrors() {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("matchConditions"),
-				nil,
-				fmt.Sprintf("failed to compile CEL expressions: %v", err),
+				matchConditions[0].Expression,
+				err.Error(),
 			))
 		}
 
