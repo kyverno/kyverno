@@ -62,7 +62,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -657,6 +656,9 @@ func main() {
 			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
 		}
+
+		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+
 		var vpolEngine vpolengine.Engine
 		var ivpolEngine ivpolengine.Engine
 		var mpolEngine mpolengine.Engine
@@ -715,7 +717,7 @@ func main() {
 			vpolEngine = vpolengine.NewEngine(
 				vpolProvider,
 				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -726,7 +728,7 @@ func main() {
 			ivpolEngine = ivpolengine.NewEngine(
 				ivpolProvider,
 				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -739,7 +741,7 @@ func main() {
 			mpolEngine = mpolengine.NewEngine(
 				mpolProvider,
 				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -777,7 +779,7 @@ func main() {
 			setup.Configuration,
 			setup.MetricsManager,
 			policyCache,
-			kubeInformer.Core().V1().Namespaces().Lister(),
+			nsLister,
 			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
@@ -798,6 +800,7 @@ func main() {
 			setup.KyvernoClient,
 			admissionReports,
 			reportsBreaker,
+			setup.ReportingConfiguration,
 		)
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
