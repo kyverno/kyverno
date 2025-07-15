@@ -103,6 +103,13 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 			c.updatePolicyStatus(ctx, policy, false, reason)
 			return nil
 		}
+		celexceptions, err := c.getCELExceptions(policy.GetName())
+		if err != nil {
+			return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
+		}
+		for _, exception := range celexceptions {
+			genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
+		}
 	}
 
 	if vapErr != nil {
@@ -124,14 +131,6 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 				Name: vapBindingName,
 			},
 		}
-	}
-
-	celexceptions, err := c.getCELExceptions(policy.GetName())
-	if err != nil {
-		return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
-	}
-	for _, exception := range celexceptions {
-		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
 	}
 
 	if observedVAP.ResourceVersion == "" {
