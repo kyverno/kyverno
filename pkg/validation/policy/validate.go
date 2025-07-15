@@ -1135,7 +1135,7 @@ func validateConditions(conditions any, schemaKey string) (string, error) {
 		// validating the conditions under 'any', if there are any
 		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
 			for i, condition := range typedConditions.AnyConditions {
-				if path, err := validateConditionValues(condition); err != nil {
+				if path, err := validateConditionFields(condition); err != nil {
 					return fmt.Sprintf("%s.any[%d].%s", schemaKey, i, path), err
 				}
 			}
@@ -1143,7 +1143,7 @@ func validateConditions(conditions any, schemaKey string) (string, error) {
 		// validating the conditions under 'all', if there are any
 		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
 			for i, condition := range typedConditions.AllConditions {
-				if path, err := validateConditionValues(condition); err != nil {
+				if path, err := validateConditionFields(condition); err != nil {
 					return fmt.Sprintf("%s.all[%d].%s", schemaKey, i, path), err
 				}
 			}
@@ -1151,7 +1151,7 @@ func validateConditions(conditions any, schemaKey string) (string, error) {
 
 	case []kyvernov1.Condition: // backwards compatibility
 		for i, condition := range typedConditions {
-			if path, err := validateConditionValues(condition); err != nil {
+			if path, err := validateConditionFields(condition); err != nil {
 				return fmt.Sprintf("%s[%d].%s", schemaKey, i, path), err
 			}
 		}
@@ -1159,13 +1159,19 @@ func validateConditions(conditions any, schemaKey string) (string, error) {
 	return "", nil
 }
 
-// validateConditionValues validates whether all the values under the 'value' field of a 'conditions' field
-// are apt with respect to the provided 'condition.key'
-func validateConditionValues(c kyvernov1.Condition) (string, error) {
+// validateConditionFields validates condition fields and whether values
+// are valid with respect to the provided 'condition.key'
+func validateConditionFields(c kyvernov1.Condition) (string, error) {
 	k := c.GetKey()
+	if k == nil {
+		return "", fmt.Errorf("key is required")
+	}
 	v := c.GetValue()
-	if k == nil || v == nil || c.Operator == "" {
-		return "", fmt.Errorf("entered value of `key`, `value` or `operator` is missing or misspelled")
+	if v == nil {
+		return "", fmt.Errorf("value is required")
+	}
+	if c.Operator == "" {
+		return "", fmt.Errorf("operator is required")
 	}
 	switch reflect.TypeOf(k).Kind() {
 	case reflect.String:
@@ -1178,7 +1184,7 @@ func validateConditionValues(c kyvernov1.Condition) (string, error) {
 
 func validateOperator(c kyvernov1.ConditionOperator) (string, error) {
 	if !operator.IsOperatorValid(c) {
-		return "", fmt.Errorf("entered value of `operator` is invalid. valid values: %+q", operator.GetAllConditionOperators())
+		return "", fmt.Errorf("invalid operator: allowed values are %+q", operator.GetAllConditionOperators())
 	}
 	return "", nil
 }
