@@ -3,6 +3,7 @@ package adapters
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -53,13 +54,33 @@ func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.Ima
 			return nil, fmt.Errorf("failed to fetch image index for image reference: %s, error: %v", ref, err)
 		}
 	}
+	var tag string
+	var identifier string
+
+	if _, ok := parsedRef.(name.Digest); ok {
+		if idx := strings.Index(ref, "@"); idx != -1 {
+			reference := ref[:idx]
+			originalDigest := ref[idx+1:] // Extract the original digest
+			if tagIdx := strings.Index(reference, ":"); tagIdx != -1 {
+				tag = reference[tagIdx+1:]
+				// Include both tag and original digest in identifier
+				identifier = fmt.Sprintf("%s@%s", tag, originalDigest)
+			} else {
+				identifier = originalDigest
+			}
+		} else {
+			identifier = desc.Digest.String()
+		}
+	} else {
+		identifier = parsedRef.Identifier()
+	}
 
 	data := engineapi.ImageData{
 		Image:         ref,
 		ResolvedImage: fmt.Sprintf("%s@%s", parsedRef.Context().Name(), desc.Digest.String()),
 		Registry:      parsedRef.Context().RegistryStr(),
 		Repository:    parsedRef.Context().RepositoryStr(),
-		Identifier:    parsedRef.Identifier(),
+		Identifier:    identifier,
 		ManifestList:  rawManifestList,
 		Manifest:      rawManifest,
 		Config:        rawConfig,
