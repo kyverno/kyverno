@@ -20,8 +20,8 @@ spec:
         globalContext.Get("missing-entry-2", "")
     - name: combinedCheck
       expression: >-
-        (globalContext.Get("missing-entry-1", "count") == null) && 
-        (globalContext.Get("missing-entry-2", "") == null)
+        globalContext.Get("missing-entry-1", "count") == null && 
+        globalContext.Get("missing-entry-2", "") == null
   validations:
     - expression: >-
         variables.count1 == null
