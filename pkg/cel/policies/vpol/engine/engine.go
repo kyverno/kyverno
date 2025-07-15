@@ -11,7 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,8 +37,8 @@ type engineImpl struct {
 
 func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) Engine {
 	return &engineImpl{
-		provider:   provider,
-		nsResolver: nsResolver,
+		provider:   engine.ProviderWithTrace(provider),
+		nsResolver: engine.NamespaceResolverWithTrace(nsResolver),
 		matcher:    matcher,
 	}
 }
@@ -90,13 +92,17 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	if ns := request.Request.Namespace; ns != "" {
 		namespace = e.nsResolver(ns)
 	}
-	// evaluate policies
-	for _, policy := range policies {
-		if predicate != nil && !predicate(policy.Policy) {
-			continue
+
+	tracing.Span(ctx, "engine", "handle/policies", func(ctx context.Context, s trace.Span) {
+		// evaluate policies
+		for _, policy := range policies {
+			if predicate != nil && !predicate(policy.Policy) {
+				continue
+			}
+			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context))
 		}
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context))
-	}
+	})
+
 	return response, nil
 }
 

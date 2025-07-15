@@ -12,7 +12,7 @@ admissionController:
     clusterRole:
       extraResources:
         - apiGroups:
-            - '*'
+            - "*"
           resources:
             - secrets
           verbs:
@@ -30,7 +30,7 @@ backgroundController:
     clusterRole:
       extraResources:
         - apiGroups:
-            - '*'
+            - "*"
           resources:
             - configmaps
             - networkpolicies
@@ -56,7 +56,7 @@ cleanupController:
     clusterRole:
       extraResources:
         - apiGroups:
-            - ''
+            - ""
           resources:
             - pods
           verbs:
