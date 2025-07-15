@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: jsonpatch
+spec:
+  steps:
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: check mutatingadmissionpolicy
+    try:
+    - assert:
+        file: mutatingadmissionpolicy.yaml
+  - name: check mutatingadmissionpolicybinding
+    try:
+    - assert:
+        file: mutatingadmissionpolicybinding.yaml
+  - name: check mutatingwebhookconfiguration
+    try:
+    - assert:
+        file: mutatingwebhookconfiguration.yaml

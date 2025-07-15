@@ -5,13 +5,16 @@ metadata:
   name: generate-on-subresource-trigger
 spec:
   steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
   - name: create policy
-    use:
-      template: ../../../../_step-templates/create-policy.yaml
-      with:
-        bindings:
-        - name: file
-          value: policy.yaml
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
   - name: create namespace
     try:
     - apply:

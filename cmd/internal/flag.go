@@ -41,6 +41,7 @@ var (
 	enablePolicyException  bool
 	exceptionNamespace     string
 	enableConfigMapCaching bool
+	openreportsEnabled     bool
 	// cosign
 	enableTUF  bool
 	tufMirror  string
@@ -153,6 +154,12 @@ func initReportingFlags() {
 	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
 }
 
+func initOpenreportsFlagSet() *flag.FlagSet {
+	flagset := flag.NewFlagSet("openreports", flag.ExitOnError)
+	flagset.BoolVar(&openreportsEnabled, "openreportsEnabled", false, "Use openreports.io/v1alpha1 for the reporting group")
+	return flagset
+}
+
 func lookupKubeconfigFlag() {
 	if f := flag.Lookup("kubeconfig"); f != nil {
 		kubeconfig = f.Value.String()
@@ -246,6 +253,11 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesReporting() {
 		initReportingFlags()
 	}
+
+	if config.UsesOpenreports() {
+		config.AddFlagSet(initOpenreportsFlagSet())
+	}
+
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {

@@ -71,6 +71,20 @@ func NewServer(
 	verifyLogger := logger.WithName("verify")
 	vpolLogger := logger.WithName("vpol")
 	ivpolLogger := logger.WithName("ivpol")
+	mpolLogger := logger.WithName("mpol")
+	mux.HandlerFunc(
+		"POST",
+		"/mpol/*policies",
+		handlerFunc("MUTATE", resourceHandlers.MutatingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(mpolLogger.WithName("mutate")).
+			ToHandlerFunc("MPOL"),
+	)
 	// new vpol and ivpol handlers
 	mux.HandlerFunc(
 		"POST",

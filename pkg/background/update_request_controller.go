@@ -10,10 +10,12 @@ import (
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
+	"github.com/kyverno/kyverno/pkg/background/mpol"
 	"github.com/kyverno/kyverno/pkg/background/mutate"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
@@ -26,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -62,8 +65,13 @@ type controller struct {
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
 
-	context        libs.Context
-	gpolEngine     gpolengine.Engine
+	context      libs.Context
+	gpolEngine   gpolengine.Engine
+	gpolProvider gpolengine.Provider
+	watchManager *gpol.WatchManager
+
+	mpolEngine     mpolengine.Engine
+	restMapper     meta.RESTMapper
 	eventGen       event.Interface
 	configuration  config.Configuration
 	jp             jmespath.Interface
@@ -82,6 +90,10 @@ func NewController(
 	namespaceInformer corev1informers.NamespaceInformer,
 	context libs.Context,
 	gpolEngine gpolengine.Engine,
+	gpolProvider gpolengine.Provider,
+	watchManager *gpol.WatchManager,
+	mpolEngine mpolengine.Engine,
+	restMapper meta.RESTMapper,
 	eventGen event.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
@@ -103,6 +115,10 @@ func NewController(
 		),
 		context:        context,
 		gpolEngine:     gpolEngine,
+		gpolProvider:   gpolProvider,
+		watchManager:   watchManager,
+		mpolEngine:     mpolEngine,
+		restMapper:     restMapper,
 		eventGen:       eventGen,
 		configuration:  configuration,
 		jp:             jp,
@@ -246,8 +262,11 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp, c.reportsConfig, c.reportsBreaker)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.CELGenerate:
-		ctrl := gpol.NewCELGenerateController(c.client, c.context, c.gpolEngine, statusControl, logger)
+		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.reportsConfig, c.reportsBreaker, logger)
 		return ctrl.ProcessUR(ur)
+	case kyvernov2.CELMutate:
+		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl)
+		return processor.Process(ur)
 	}
 	return nil
 }

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matched-cm-1
+  namespace: staging
+  labels:
+    color: red
+    lfx-mentorship: kyverno
+data:
+  player_initial_lives: "3"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matched-cm-2
+  namespace: production
+  labels:
+    color: red
+    lfx-mentorship: kyverno
+data:
+  player_initial_lives: "3"

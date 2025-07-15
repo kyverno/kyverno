@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -31,17 +32,28 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
+	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
-func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsInstalled(apiserverClient,
-		"clusterpolicyreports.wgpolicyk8s.io",
-		"policyreports.wgpolicyk8s.io",
+func sanityChecks(apiserverClient apiserver.Interface, openreportsEnabled bool) error {
+	crdNames := []string{
 		"ephemeralreports.reports.kyverno.io",
 		"clusterephemeralreports.reports.kyverno.io",
-	)
+	}
+	if openreportsEnabled {
+		crdNames = append(crdNames, "reports.openreports.io", "clusterreports.openreports.io")
+		err := kubeutils.CRDsInstalled(apiserverClient, crdNames...)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	crdNames = append(crdNames, "clusterpolicyreports.wgpolicyk8s.io", "policyreports.wgpolicyk8s.io")
+	return kubeutils.CRDsInstalled(apiserverClient, crdNames...)
 }
 
 func createReportControllers(
@@ -51,10 +63,12 @@ func createReportControllers(
 	aggregateReports bool,
 	policyReports bool,
 	validatingAdmissionPolicyReports bool,
+	mutatingAdmissionPolicyReports bool,
 	aggregationWorkers int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -69,10 +83,15 @@ func createReportControllers(
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-	// check if validating admission policies are registered in the API server
+	var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
+	var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 	if validatingAdmissionPolicyReports {
 		vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 		vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
+	}
+	if mutatingAdmissionPolicyReports {
+		mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+		mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
@@ -85,6 +104,7 @@ func createReportControllers(
 			policiesV1alpha1.ValidatingPolicies(),
 			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
+			mapInformer,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)
@@ -99,13 +119,17 @@ func createReportControllers(
 				aggregatereportcontroller.ControllerName,
 				aggregatereportcontroller.NewController(
 					kyvernoClient,
+					orClient,
 					client,
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					policiesV1alpha1.ValidatingPolicies(),
 					policiesV1alpha1.ImageValidatingPolicies(),
+					policiesV1alpha1.GeneratingPolicies(),
+					policiesV1alpha1.MutatingPolicies(),
 					vapInformer,
+					mapInformer,
 				),
 				aggregationWorkers,
 			))
@@ -124,6 +148,8 @@ func createReportControllers(
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
+				mapInformer,
+				mapBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,
 				backgroundScanInterval,
@@ -159,12 +185,14 @@ func createrLeaderControllers(
 	aggregateReports bool,
 	policyReports bool,
 	validatingAdmissionPolicyReports bool,
+	mutatingAdmissionPolicyReports bool,
 	aggregationWorkers int,
 	backgroundScanWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	metadataInformer metadatainformers.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
+	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	dynamicClient dclient.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
@@ -179,10 +207,12 @@ func createrLeaderControllers(
 		aggregateReports,
 		policyReports,
 		validatingAdmissionPolicyReports,
+		mutatingAdmissionPolicyReports,
 		aggregationWorkers,
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
+		orClient,
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
@@ -203,6 +233,7 @@ func main() {
 		aggregateReports                 bool
 		policyReports                    bool
 		validatingAdmissionPolicyReports bool
+		mutatingAdmissionPolicyReports   bool
 		reportsCRDsSanityChecks          bool
 		backgroundScanWorkers            int
 		backgroundScanInterval           time.Duration
@@ -218,7 +249,8 @@ func main() {
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
 	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
-	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", false, "Enable or disable validating admission policy reports.")
+	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", true, "Enable or disable ValidatingAdmissionPolicy reports.")
+	flagset.BoolVar(&mutatingAdmissionPolicyReports, "mutatingAdmissionPolicyReports", false, "Enable or disable MutatingAdmissionPolicy reports.")
 	flagset.IntVar(&aggregationWorkers, "aggregationWorkers", aggregatereportcontroller.Workers, "Configure the number of ephemeral reports aggregation workers.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
@@ -249,6 +281,7 @@ func main() {
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 		internal.WithReporting(),
+		internal.WithOpenreports(),
 	)
 	// parse flags
 	internal.ParseFlags(
@@ -264,9 +297,16 @@ func main() {
 		// THIS IS AN UGLY FIX
 		// ELSE KYAML IS NOT THREAD SAFE
 		kyamlopenapi.Schema()
-		if err := sanityChecks(setup.ApiServerClient); err != nil {
+		if err := sanityChecks(setup.ApiServerClient, setup.OpenreportsClient != nil); err != nil {
 			setup.Logger.Error(err, "sanity checks failed")
 			if reportsCRDsSanityChecks {
+				os.Exit(1)
+			}
+		}
+		if mutatingAdmissionPolicyReports {
+			registered, err := admissionpolicy.IsMutatingAdmissionPolicyRegistered(setup.KubeClient)
+			if !registered {
+				setup.Logger.Error(err, "MutatingAdmissionPolicies isn't supported in the API server")
 				os.Exit(1)
 			}
 		}
@@ -290,6 +330,7 @@ func main() {
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
 				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
@@ -359,12 +400,14 @@ func main() {
 					aggregateReports,
 					policyReports,
 					validatingAdmissionPolicyReports,
+					mutatingAdmissionPolicyReports,
 					aggregationWorkers,
 					backgroundScanWorkers,
 					kubeInformer,
 					kyvernoInformer,
 					metadataInformer,
 					setup.KyvernoClient,
+					setup.OpenreportsClient,
 					setup.KyvernoDynamicClient,
 					setup.Configuration,
 					setup.Jp,

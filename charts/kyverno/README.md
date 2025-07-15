@@ -257,8 +257,9 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
-| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true,"validatingpolicies":true}` | Install CRDs in group `kyverno.io` |
-| crds.groups.policies | object | `{"imagevalidatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
+| crds.reportsServer.enabled | bool | `false` | Kyverno reports-server is used in your cluster |
+| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
+| crds.groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
 | crds.groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
 | crds.groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
@@ -282,6 +283,7 @@ The chart values are organised per component.
 | crds.migration.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 | crds.migration.podResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | crds.migration.podResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| crds.migration.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 
 ### Config
 
@@ -330,7 +332,8 @@ The chart values are organised per component.
 | features.admissionReports.enabled | bool | `true` | Enables the feature |
 | features.aggregateReports.enabled | bool | `true` | Enables the feature |
 | features.policyReports.enabled | bool | `true` | Enables the feature |
-| features.validatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
+| features.validatingAdmissionPolicyReports.enabled | bool | `true` | Enables the feature |
+| features.mutatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
 | features.reporting.validate | bool | `true` | Enables the feature |
 | features.reporting.mutate | bool | `true` | Enables the feature |
 | features.reporting.mutateExisting | bool | `true` | Enables the feature |
@@ -342,10 +345,12 @@ The chart values are organised per component.
 | features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |
 | features.backgroundScan.skipResourceFilters | bool | `true` | Skips resource filters in background scan |
 | features.configMapCaching.enabled | bool | `true` | Enables the feature |
+| features.controllerRuntimeMetrics.bindAddress | string | `":8080"` | Bind address for controller-runtime metrics (use "0" to disable it) |
 | features.deferredLoading.enabled | bool | `true` | Enables the feature |
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
-| features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
+| features.generateValidatingAdmissionPolicy.enabled | bool | `true` | Enables the feature |
+| features.generateMutatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
 | features.logging.format | string | `"text"` | Logging format |
@@ -378,6 +383,7 @@ The chart values are organised per component.
 | admissionController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| admissionController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | admissionController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
@@ -442,14 +448,17 @@ The chart values are organised per component.
 | admissionController.service.type | string | `"ClusterIP"` | Service type. |
 | admissionController.service.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | admissionController.service.annotations | object | `{}` | Service annotations. |
+| admissionController.service.trafficDistribution | string | `nil` | Service traffic distribution policy. Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs. |
 | admissionController.metricsService.create | bool | `true` | Create service. |
 | admissionController.metricsService.port | int | `8000` | Service port. Kyverno's metrics server will be exposed at this port. |
 | admissionController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | admissionController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | admissionController.metricsService.annotations | object | `{}` | Service annotations. |
+| admissionController.metricsService.trafficDistribution | string | `nil` | Service traffic distribution policy. Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs. |
 | admissionController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | admissionController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| admissionController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -483,6 +492,7 @@ The chart values are organised per component.
 | backgroundController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| backgroundController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | backgroundController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | backgroundController.image.registry | string | `nil` | Image registry |
@@ -526,9 +536,11 @@ The chart values are organised per component.
 | backgroundController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | backgroundController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | backgroundController.metricsService.annotations | object | `{}` | Service annotations. |
+| backgroundController.metricsService.trafficDistribution | string | `nil` | Service traffic distribution policy. Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs. |
 | backgroundController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | backgroundController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | backgroundController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| backgroundController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | backgroundController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | backgroundController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -561,6 +573,7 @@ The chart values are organised per component.
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | cleanupController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| cleanupController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | cleanupController.image.registry | string | `nil` | Image registry |
@@ -606,14 +619,17 @@ The chart values are organised per component.
 | cleanupController.service.type | string | `"ClusterIP"` | Service type. |
 | cleanupController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
 | cleanupController.service.annotations | object | `{}` | Service annotations. |
+| cleanupController.service.trafficDistribution | string | `nil` | Service traffic distribution policy. Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs. |
 | cleanupController.metricsService.create | bool | `true` | Create service. |
 | cleanupController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
 | cleanupController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | cleanupController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | cleanupController.metricsService.annotations | object | `{}` | Service annotations. |
+| cleanupController.metricsService.trafficDistribution | string | `nil` | Service traffic distribution policy. Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs. |
 | cleanupController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | cleanupController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| cleanupController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | cleanupController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | cleanupController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -647,6 +663,7 @@ The chart values are organised per component.
 | reportsController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| reportsController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | reportsController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | reportsController.image.registry | string | `nil` | Image registry |
@@ -694,9 +711,11 @@ The chart values are organised per component.
 | reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | reportsController.metricsService.annotations | object | `{}` | Service annotations. |
+| reportsController.metricsService.trafficDistribution | string | `nil` | Service traffic distribution policy. Set to `PreferClose` to route traffic to nearby endpoints, reducing latency and cross-zone costs. |
 | reportsController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | reportsController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| reportsController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | reportsController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | reportsController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -754,6 +773,7 @@ The chart values are organised per component.
 | webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 | webhooksCleanup.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | webhooksCleanup.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| webhooksCleanup.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 
 ### Test
 
@@ -768,6 +788,9 @@ The chart values are organised per component.
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
+| test.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
+| test.nodeSelector | object | `{}` | Node labels for pod assignment |
+| test.tolerations | list | `[]` | List of node taints to tolerate |
 
 ### Api version override
 
@@ -793,6 +816,7 @@ The chart values are organised per component.
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
 | rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
+| openreports.enabled | bool | `false` |  |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
@@ -875,6 +899,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
+| https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
 

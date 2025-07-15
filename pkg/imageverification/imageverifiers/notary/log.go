@@ -8,14 +8,14 @@ import (
 	notationlog "github.com/notaryproject/notation-go/log"
 )
 
+type notaryLoggerAdapter struct {
+	logger logr.Logger
+}
+
 func NotaryLoggerAdapter(logger logr.Logger) notationlog.Logger {
 	return &notaryLoggerAdapter{
 		logger: logger.V(4),
 	}
-}
-
-type notaryLoggerAdapter struct {
-	logger logr.Logger
 }
 
 func (nla *notaryLoggerAdapter) Debug(args ...interface{}) {
