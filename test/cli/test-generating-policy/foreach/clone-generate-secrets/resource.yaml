@@ -1,0 +1,7 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: foreach-clone-sync-create
+  namespace: default
+data:
+  namespaces: foreach-clone-sync-create-1,foreach-clone-sync-create-2,foreach-clone-sync-create-3

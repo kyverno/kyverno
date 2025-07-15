@@ -238,6 +238,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	for _, pol := range vaps {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
 	}
+	for _, pol := range maps {
+		genericPolicies = append(genericPolicies, engineapi.NewMutatingAdmissionPolicy(&pol))
+	}
 	for _, pol := range vps {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingPolicy(&pol))
 	}
@@ -403,6 +406,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		validPolicies = append(validPolicies, pol)
 	}
 	var responses []engineapi.EngineResponse
+	namespaceCache := make(map[string]*unstructured.Unstructured)
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
@@ -432,6 +436,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
+			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -471,6 +476,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
+			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
