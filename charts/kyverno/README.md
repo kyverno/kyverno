@@ -332,7 +332,8 @@ The chart values are organised per component.
 | features.admissionReports.enabled | bool | `true` | Enables the feature |
 | features.aggregateReports.enabled | bool | `true` | Enables the feature |
 | features.policyReports.enabled | bool | `true` | Enables the feature |
-| features.validatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
+| features.validatingAdmissionPolicyReports.enabled | bool | `true` | Enables the feature |
+| features.mutatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
 | features.reporting.validate | bool | `true` | Enables the feature |
 | features.reporting.mutate | bool | `true` | Enables the feature |
 | features.reporting.mutateExisting | bool | `true` | Enables the feature |
@@ -348,7 +349,7 @@ The chart values are organised per component.
 | features.deferredLoading.enabled | bool | `true` | Enables the feature |
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
-| features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
+| features.generateValidatingAdmissionPolicy.enabled | bool | `true` | Enables the feature |
 | features.generateMutatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
@@ -457,6 +458,7 @@ The chart values are organised per component.
 | admissionController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | admissionController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| admissionController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -538,6 +540,7 @@ The chart values are organised per component.
 | backgroundController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | backgroundController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | backgroundController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| backgroundController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | backgroundController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | backgroundController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -626,6 +629,7 @@ The chart values are organised per component.
 | cleanupController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | cleanupController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| cleanupController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | cleanupController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | cleanupController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -711,6 +715,7 @@ The chart values are organised per component.
 | reportsController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | reportsController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| reportsController.serviceMonitor.additionalAnnotations | object | `{}` | Additional annotations |
 | reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | reportsController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | reportsController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
@@ -811,6 +816,7 @@ The chart values are organised per component.
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
 | rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
+| openreports.enabled | bool | `false` |  |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
@@ -893,6 +899,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
+| https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
 

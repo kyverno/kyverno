@@ -143,9 +143,8 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 			} else if dp := policy.AsDeletingPolicy(); dp != nil {
 				matchResources = dp.Spec.MatchConstraints
 			} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
-				// Convert v1alpha1.MatchResources to v1.MatchResources using the shared function
-				converted := admissionpolicy.ConvertMatchResources(*mapPolicy.GetDefinition().Spec.MatchConstraints)
-				matchResources = &converted
+				converted := admissionpolicy.ConvertMatchResources(mapPolicy.GetDefinition().Spec.MatchConstraints)
+				matchResources = converted
 			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
 				matchResources = gpol.Spec.MatchConstraints
 			}
@@ -180,7 +179,8 @@ func (rf *ResourceFetcher) getKindsFromRule(
 
 // getKindsFromPolicy will return the kinds from the following policies match block:
 // 1. K8s ValidatingAdmissionPolicy
-// 2. ValidatingPolicy
+// 2. K8s MutatingAdmissionPolicy
+// 3. ValidatingPolicy
 func (rf *ResourceFetcher) getKindsFromPolicy(
 	matchResources *admissionregistrationv1.MatchResources,
 	info *resourceTypeInfo,

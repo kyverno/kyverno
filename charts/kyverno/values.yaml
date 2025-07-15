@@ -75,6 +75,10 @@ rbac:
       admin: true
       view: true
 
+# Use openreports.io as the API group for reporting
+openreports:
+  enabled: false
+
 # CRDs configuration
 crds:
 
@@ -707,6 +711,9 @@ features:
     enabled: true
   validatingAdmissionPolicyReports:
     # -- Enables the feature
+    enabled: true
+  mutatingAdmissionPolicyReports:
+    # -- Enables the feature
     enabled: false
   reporting:
     # -- Enables the feature
@@ -748,7 +755,7 @@ features:
     enabled: false
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
-    enabled: false
+    enabled: true
   generateMutatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
@@ -1206,6 +1213,8 @@ admissionController:
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
+    # -- Additional annotations
+    additionalAnnotations: {}
     # -- Additional labels
     additionalLabels: {}
     # -- (string) Override namespace
@@ -1525,6 +1534,8 @@ backgroundController:
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
+    # -- Additional annotations
+    additionalAnnotations: {}
     # -- Additional labels
     additionalLabels: {}
     # -- (string) Override namespace
@@ -1862,6 +1873,8 @@ cleanupController:
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
+    # -- Additional annotations
+    additionalAnnotations: {}
     # -- Additional labels
     additionalLabels: {}
     # -- (string) Override namespace
@@ -2170,6 +2183,8 @@ reportsController:
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
+    # -- Additional annotations
+    additionalAnnotations: {}
     # -- Additional labels
     additionalLabels: {}
     # -- (string) Override namespace

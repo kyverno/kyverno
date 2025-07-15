@@ -152,7 +152,7 @@ func Validate(
 		if !isMatch {
 			return engineResponse, nil
 		}
-		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
+		vapLogger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
 		return validateResource(policy, nil, resource, namespace, a)
 	}
 
@@ -186,7 +186,7 @@ func Validate(
 				continue
 			}
 
-			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+			vapLogger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	} else {
@@ -208,7 +208,7 @@ func Validate(
 					continue
 				}
 			}
-			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+			vapLogger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	}
@@ -282,7 +282,7 @@ func validateResource(
 	}
 
 	if binding != nil {
-		ruleResp = ruleResp.WithBinding(binding)
+		ruleResp = ruleResp.WithVAPBinding(binding)
 	}
 	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	engineResponse = engineResponse.WithPolicyResponse(policyResp)

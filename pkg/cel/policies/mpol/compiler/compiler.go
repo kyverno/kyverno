@@ -46,7 +46,6 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 				cel.Variable(compiler.HttpKey, http.ContextType),
 				cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 				cel.Variable(compiler.ResourceKey, resource.ContextType),
-				// TODO(shuting): add variables provider
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
 				globalcontext.Lib(),
@@ -78,6 +77,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		compositedCompiler.CompileAndStoreVariables(convertVariables(policy.Spec.Variables), optionsVars, environment.StoredExpressions)
 	}
 
+	// Compile match conditions and collect errors
 	var matcher matchconditions.Matcher = nil
 	matchConditions := policy.Spec.MatchConditions
 	if len(matchConditions) > 0 {
@@ -85,8 +85,21 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		for i := range matchConditions {
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
+
+		evaluator := compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions)
+		for _, err := range evaluator.CompilationErrors() {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec").Child("matchConditions"),
+				matchConditions[0].Expression,
+				err.Error(),
+			))
+		}
+
 		failurePolicy := policy.GetFailurePolicy()
-		matcher = matchconditions.NewMatcher(compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions), &failurePolicy, "policy", "validate", policy.Name)
+		matcher = matchconditions.NewMatcher(
+			evaluator,
+			&failurePolicy,
+			"policy", "validate", policy.Name)
 	}
 
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))

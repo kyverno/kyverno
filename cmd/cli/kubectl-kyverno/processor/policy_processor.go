@@ -84,6 +84,7 @@ type PolicyProcessor struct {
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
+	NamespaceCache            map[string]*unstructured.Unstructured
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -138,10 +139,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	} else {
 		if len(namespaceLabels) == 0 && resourceKind != "Namespace" && resourceNamespace != "" {
-			ns, err := p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resourceNamespace)
-			if err != nil {
-				log.Log.Error(err, "failed to get the resource's namespace")
-				return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+			var ns *unstructured.Unstructured
+			var err error
+			if cached, ok := p.NamespaceCache[resourceNamespace]; ok {
+				ns = cached
+			} else {
+				ns, err = p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resourceNamespace)
+				if err != nil {
+					log.Log.Error(err, "failed to get the resource's namespace")
+					return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+				}
+				p.NamespaceCache[resourceNamespace] = ns
 			}
 			namespaceLabels = ns.GetLabels()
 		}
@@ -234,15 +242,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			gvr := mapping.Resource
 
 			for _, mapPolicy := range p.MutatingAdmissionPolicies {
-				// build the policy+binding data
 				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
 				for _, b := range p.MutatingAdmissionPolicyBindings {
 					if b.Spec.PolicyName == mapPolicy.Name {
 						data.AddBinding(b)
 					}
 				}
-				// apply the MAP
-				mutateResponse, err := admissionpolicy.Mutate(*data, resource, gvr, p.Client, p.NamespaceSelectorMap, !p.Cluster)
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue
@@ -272,7 +278,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if resource.Object != nil {
 			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
 
-			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm)
+			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
 				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)

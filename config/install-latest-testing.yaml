@@ -48360,6 +48360,7 @@ spec:
                 - mutate
                 - generate
                 - cel-generate
+                - cel-mutate
                 type: string
               resource:
                 description: ResourceSpec is the information to identify the trigger
@@ -48549,9 +48550,6 @@ spec:
                   Conditions filter resources that have already been matched by the match constraints,
                   namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
                   There are a maximum of 64 conditions allowed.
-
-                  If a parameter object is provided, it can be accessed via the `params` handle in the same
-                  manner as validation expressions.
 
                   The exact matching logic is (in order):
                     1. If ANY condition evaluates to FALSE, the policy is skipped.
@@ -52077,24 +52075,6 @@ spec:
                           Optional. Default value is "true".
                         type: boolean
                     type: object
-                  background:
-                    description: Background  controls policy evaluation during background
-                      scan.
-                    properties:
-                      enabled:
-                        default: true
-                        description: |-
-                          Enabled controls if rules are applied to existing resources during a background scan.
-                          Optional. Default value is "true". The value must be set to "false" if the policy rule
-                          uses variables that are only available in the admission review request (e.g. user name).
-                        type: boolean
-                    type: object
-                  mode:
-                    description: |-
-                      Mode is the mode of policy evaluation.
-                      Allowed values are "Kubernetes" or "JSON".
-                      Optional. Default value is "Kubernetes".
-                    type: string
                   mutateExisting:
                     description: MutateExisting controls whether existing resources
                       are mutated.
@@ -52102,8 +52082,8 @@ spec:
                       enabled:
                         default: false
                         description: |-
-                          Enabled enables mutation of existing resources. Default is `false`.
-                          When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+                          Enabled enables mutation of existing resources. Default is false.
+                          When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.
                         type: boolean
                     type: object
                 type: object
@@ -53091,24 +53071,6 @@ spec:
                                         Optional. Default value is "true".
                                       type: boolean
                                   type: object
-                                background:
-                                  description: Background  controls policy evaluation
-                                    during background scan.
-                                  properties:
-                                    enabled:
-                                      default: true
-                                      description: |-
-                                        Enabled controls if rules are applied to existing resources during a background scan.
-                                        Optional. Default value is "true". The value must be set to "false" if the policy rule
-                                        uses variables that are only available in the admission review request (e.g. user name).
-                                      type: boolean
-                                  type: object
-                                mode:
-                                  description: |-
-                                    Mode is the mode of policy evaluation.
-                                    Allowed values are "Kubernetes" or "JSON".
-                                    Optional. Default value is "Kubernetes".
-                                  type: string
                                 mutateExisting:
                                   description: MutateExisting controls whether existing
                                     resources are mutated.
@@ -53116,8 +53078,8 @@ spec:
                                     enabled:
                                       default: false
                                       description: |-
-                                        Enabled enables mutation of existing resources. Default is `false`.
-                                        When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+                                        Enabled enables mutation of existing resources. Default is false.
+                                        When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.
                                       type: boolean
                                   type: object
                               type: object
@@ -55984,7 +55946,7 @@ spec:
               results:
                 description: PolicyReportResult provides result details
                 items:
-                  description: PolicyReportResult provides the result for an individual
+                  description: ReportResult provides the result for an individual
                     policy
                   properties:
                     category:
@@ -56005,10 +55967,10 @@ spec:
                       type: object
                     resourceSelector:
                       description: |-
-                        SubjectSelector is an optional label selector for checked Kubernetes resources.
+                        ResourceSelector is an optional label selector for checked Kubernetes resources.
                         For example, a policy result may apply to all pods that match a label.
-                        Either a Subject or a SubjectSelector can be specified.
-                        If neither are provided, the result is assumed to be for the policy report scope.
+                        Either a Subject or a ResourceSelector can be specified. If neither are provided, the
+                        result is assumed to be for the policy report scope.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
@@ -56128,8 +56090,10 @@ spec:
                       - info
                       type: string
                     source:
-                      description: Source is an identifier for the policy engine that
-                        manages this report
+                      description: |-
+                        Source is an identifier for the policy engine that manages this report
+                        If the Source is specified at this level, it will override the Source
+                        field set at the Report level
                       type: string
                     timestamp:
                       description: Timestamp indicates the time the result was found
@@ -56326,7 +56290,7 @@ spec:
               results:
                 description: PolicyReportResult provides result details
                 items:
-                  description: PolicyReportResult provides the result for an individual
+                  description: ReportResult provides the result for an individual
                     policy
                   properties:
                     category:
@@ -56347,10 +56311,10 @@ spec:
                       type: object
                     resourceSelector:
                       description: |-
-                        SubjectSelector is an optional label selector for checked Kubernetes resources.
+                        ResourceSelector is an optional label selector for checked Kubernetes resources.
                         For example, a policy result may apply to all pods that match a label.
-                        Either a Subject or a SubjectSelector can be specified.
-                        If neither are provided, the result is assumed to be for the policy report scope.
+                        Either a Subject or a ResourceSelector can be specified. If neither are provided, the
+                        result is assumed to be for the policy report scope.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
@@ -56470,8 +56434,10 @@ spec:
                       - info
                       type: string
                     source:
-                      description: Source is an identifier for the policy engine that
-                        manages this report
+                      description: |-
+                        Source is an identifier for the policy engine that manages this report
+                        If the Source is specified at this level, it will override the Source
+                        field set at the Report level
                       type: string
                     timestamp:
                       description: Timestamp indicates the time the result was found
@@ -57307,6 +57273,8 @@ rules:
     resources:
       - mutatingwebhookconfigurations
       - validatingwebhookconfigurations
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
     verbs:
       - create
       - delete
@@ -57514,6 +57482,8 @@ rules:
       - policies.kyverno.io
     resources:
       - generatingpolicies
+      - mutatingpolicies
+      - policyexceptions
     verbs:
       - create
       - delete
@@ -58006,6 +57976,15 @@ rules:
       - list
       - watch
   - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports
@@ -58026,6 +58005,22 @@ rules:
       - policyreports/status
       - clusterpolicyreports
       - clusterpolicyreports/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - openreports.io
+    resources:
+      - reports
+      - reports/status
+      - clusterreports
+      - clusterreports/status
     verbs:
       - create
       - delete
@@ -58651,6 +58646,7 @@ spec:
           args:
             - --loggingFormat=text
             - --v=2
+            - --openreportsEnabled=false
           resources:
             limits:
               cpu: 100m
@@ -58713,7 +58709,7 @@ spec:
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
-            - --generateValidatingAdmissionPolicy=false
+            - --generateValidatingAdmissionPolicy=true
             - --generateMutatingAdmissionPolicy=false
             - --dumpPatches=false
             - --maxAPICallResponseLength=2000000
@@ -59116,13 +59112,15 @@ spec:
           
           args:
             - --disableMetrics=false
+            - --openreportsEnabled=false
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --resyncPeriod=15m
             - --admissionReports=true
             - --aggregateReports=true
             - --policyReports=true
-            - --validatingAdmissionPolicyReports=false
+            - --validatingAdmissionPolicyReports=true
+            - --mutatingAdmissionPolicyReports=false
             - --backgroundScan=true
             - --backgroundScanWorkers=2
             - --backgroundScanInterval=1h

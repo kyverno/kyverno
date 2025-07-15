@@ -94,24 +94,6 @@ spec:
                           Optional. Default value is "true".
                         type: boolean
                     type: object
-                  background:
-                    description: Background  controls policy evaluation during background
-                      scan.
-                    properties:
-                      enabled:
-                        default: true
-                        description: |-
-                          Enabled controls if rules are applied to existing resources during a background scan.
-                          Optional. Default value is "true". The value must be set to "false" if the policy rule
-                          uses variables that are only available in the admission review request (e.g. user name).
-                        type: boolean
-                    type: object
-                  mode:
-                    description: |-
-                      Mode is the mode of policy evaluation.
-                      Allowed values are "Kubernetes" or "JSON".
-                      Optional. Default value is "Kubernetes".
-                    type: string
                   mutateExisting:
                     description: MutateExisting controls whether existing resources
                       are mutated.
@@ -119,8 +101,8 @@ spec:
                       enabled:
                         default: false
                         description: |-
-                          Enabled enables mutation of existing resources. Default is `false`.
-                          When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+                          Enabled enables mutation of existing resources. Default is false.
+                          When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.
                         type: boolean
                     type: object
                 type: object
@@ -1108,24 +1090,6 @@ spec:
                                         Optional. Default value is "true".
                                       type: boolean
                                   type: object
-                                background:
-                                  description: Background  controls policy evaluation
-                                    during background scan.
-                                  properties:
-                                    enabled:
-                                      default: true
-                                      description: |-
-                                        Enabled controls if rules are applied to existing resources during a background scan.
-                                        Optional. Default value is "true". The value must be set to "false" if the policy rule
-                                        uses variables that are only available in the admission review request (e.g. user name).
-                                      type: boolean
-                                  type: object
-                                mode:
-                                  description: |-
-                                    Mode is the mode of policy evaluation.
-                                    Allowed values are "Kubernetes" or "JSON".
-                                    Optional. Default value is "Kubernetes".
-                                  type: string
                                 mutateExisting:
                                   description: MutateExisting controls whether existing
                                     resources are mutated.
@@ -1133,8 +1097,8 @@ spec:
                                     enabled:
                                       default: false
                                       description: |-
-                                        Enabled enables mutation of existing resources. Default is `false`.
-                                        When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+                                        Enabled enables mutation of existing resources. Default is false.
+                                        When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.
                                       type: boolean
                                   type: object
                               type: object
