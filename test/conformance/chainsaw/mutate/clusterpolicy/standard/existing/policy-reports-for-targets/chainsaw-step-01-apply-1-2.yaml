@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: target-secret
+  namespace: test-reports
+data:
+  key: dmFsdWU=  # base64 encoded "value" 
