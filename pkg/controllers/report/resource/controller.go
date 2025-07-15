@@ -298,8 +298,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			return err
 		}
 		for _, policy := range mapPolicies {
-			converted := admissionpolicy.ConvertMatchResources(*policy.Spec.MatchConstraints)
-			kinds, err := admissionpolicy.GetKinds(&converted, restMapper)
+			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(converted, restMapper)
 			if err != nil {
 				return err
 			}

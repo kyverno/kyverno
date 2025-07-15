@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-pod
+spec:
+  initContainers:
+  - name: myapp-initializer
+    image: example/initializer:v1.0.0
+  containers:
+  - name: myapp
+    image: example/myapp:v1.0.0
+  securityContext:
+    runAsNonRoot: false
+    fsGroup: 1000

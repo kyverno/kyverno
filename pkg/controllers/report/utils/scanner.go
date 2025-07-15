@@ -282,7 +282,7 @@ func (s *scanner) ScanResource(
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := admissionpolicy.Mutate(policyData, resource, gvr, map[string]map[string]string{}, s.client, false, true)
+			res, err := admissionpolicy.Mutate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, false, true)
 			results[&maps[i]] = ScanResult{&res, err}
 		}
 	}
