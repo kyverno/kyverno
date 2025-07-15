@@ -1,0 +1,26 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: foreach-clone-sync-create
+  namespace: foreach-clone-sync-create-1
+type: Opaque
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: foreach-clone-sync-create
+  namespace: foreach-clone-sync-create-2
+type: Opaque
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: foreach-clone-sync-create
+  namespace: foreach-clone-sync-create-3
+type: Opaque

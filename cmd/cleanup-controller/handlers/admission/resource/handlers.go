@@ -31,7 +31,7 @@ func (h *validationHandlers) Validate(ctx context.Context, logger logr.Logger, r
 		return admissionutils.ResponseSuccess(request.UID, err.Error())
 	}
 	if !manager.HasResourcePermissions(logger, schema.GroupVersionResource(request.AdmissionRequest.Resource), h.checker) {
-		logger.Info("doesn't have required permissions for deletion", "gvr", request.AdmissionRequest.Resource)
+		logger.Info("doesn't have required permissions for deletion", "gvr", request.AdmissionRequest.Resource.String())
 	}
 	if err := validation.ValidateTtlLabel(ctx, metadata); err != nil {
 		logger.Error(err, "metadata validation errors")

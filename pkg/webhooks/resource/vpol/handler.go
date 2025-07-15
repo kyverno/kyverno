@@ -17,6 +17,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -28,6 +29,7 @@ type handler struct {
 	kyvernoClient    versioned.Interface
 	admissionReports bool
 	reportsBreaker   breaker.Breaker
+	reportConfig     reportutils.ReportingConfiguration
 }
 
 func New(
@@ -36,6 +38,7 @@ func New(
 	kyvernoClient versioned.Interface,
 	admissionReports bool,
 	reportsBreaker breaker.Breaker,
+	reportConfig reportutils.ReportingConfiguration,
 ) *handler {
 	return &handler{
 		context:          context,
@@ -43,6 +46,7 @@ func New(
 		kyvernoClient:    kyvernoClient,
 		admissionReports: admissionReports,
 		reportsBreaker:   reportsBreaker,
+		reportConfig:     reportConfig,
 	}
 }
 
@@ -61,7 +65,7 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
-		if h.admissionReports {
+		if validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
 			err := h.admissionReport(ctx, request, response)
 			if err != nil {
 				logger.Error(err, "failed to create report")
@@ -122,7 +126,7 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 	report := reportutils.BuildAdmissionReport(object, admissionRequest, responses...)
 	if len(report.GetResults()) > 0 {
 		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, h.kyvernoClient)
+			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
 			return err
 		})
 		if err != nil {

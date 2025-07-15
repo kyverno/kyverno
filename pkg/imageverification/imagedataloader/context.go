@@ -43,7 +43,6 @@ func (idc *imageContext) AddImages(ctx context.Context, images []string, opts ..
 	g.SetLimit(workers)
 
 	for _, img := range images {
-		img := img
 		g.Go(func() error {
 			if _, found := idc.list[img]; found {
 				return nil

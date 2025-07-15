@@ -43,7 +43,7 @@ data:
   {{- else if .Values.config.webhooks }}
   webhooks: {{ .Values.config.webhooks | toJson | quote }}
   {{- else if .Values.config.excludeKyvernoNamespace }}
-  webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
+  webhooks: '{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}'
   {{- end -}}
   {{- with .Values.config.webhookAnnotations }}
   webhookAnnotations: {{ toJson . | quote }}

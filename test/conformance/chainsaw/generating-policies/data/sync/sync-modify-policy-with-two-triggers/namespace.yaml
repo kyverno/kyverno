@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sync-modify-policy-ns-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sync-modify-policy-ns-2

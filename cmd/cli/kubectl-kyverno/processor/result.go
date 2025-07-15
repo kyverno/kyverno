@@ -65,19 +65,25 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 
 func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 	genericPolicy := response.Policy()
-	if genericPolicy.AsKyvernoPolicy() == nil {
-		return
-	}
-	policy := genericPolicy.AsKyvernoPolicy()
-	for _, policyRule := range autogen.Default.ComputeRules(policy, "") {
-		for _, ruleResponse := range response.PolicyResponse.Rules {
-			if policyRule.Name == ruleResponse.Name() {
-				if ruleResponse.Status() == engineapi.RuleStatusPass {
-					rc.Pass++
-				} else {
-					rc.Fail++
+	if kyvernoPolicy := genericPolicy.AsKyvernoPolicy(); kyvernoPolicy != nil {
+		for _, policyRule := range autogen.Default.ComputeRules(kyvernoPolicy, "") {
+			for _, ruleResponse := range response.PolicyResponse.Rules {
+				if policyRule.Name == ruleResponse.Name() {
+					if ruleResponse.Status() == engineapi.RuleStatusPass {
+						rc.Pass++
+					} else {
+						rc.Fail++
+					}
+					continue
 				}
-				continue
+			}
+		}
+	} else if gpol := genericPolicy.AsGeneratingPolicy(); gpol != nil {
+		for _, ruleResponse := range response.PolicyResponse.Rules {
+			if ruleResponse.Status() == engineapi.RuleStatusPass {
+				rc.Pass++
+			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
+				rc.Fail++
 			}
 		}
 	}
@@ -137,6 +143,24 @@ func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) boo
 			}
 		}
 	}
+
+	// Handle MutatingPolicies
+	if policy := genericPolicy.AsMutatingPolicy(); policy != nil {
+		for _, rule := range response.PolicyResponse.Rules {
+			switch rule.Status() {
+			case engineapi.RuleStatusPass:
+				rc.Pass++
+				printMutatedRes = true
+			case engineapi.RuleStatusFail:
+				rc.Fail++
+			case engineapi.RuleStatusSkip:
+				rc.Skip++
+			case engineapi.RuleStatusError:
+				rc.Error++
+			}
+		}
+	}
+
 	return printMutatedRes
 }
 

@@ -1,0 +1,16 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apply-gpols-in-cluster-mode
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: kubectl create namespace test-ns-1
+  - name: step-02
+    try:
+    - script:
+        content: kyverno apply policy.yaml --cluster
+        check:
+          (contains($stdout, 'Generation completed successfully.')): true
