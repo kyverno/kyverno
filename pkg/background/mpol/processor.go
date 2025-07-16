@@ -60,7 +60,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	results := collectGVK(p.client, p.mapper, targetConstraints)
 	for ns, gvks := range results {
 		for r := range gvks {
-			if r.Kind == "Namespace" {
+			if r.Kind == "Namespace" || ns == "*" {
 				ns = ""
 			}
 			targets, err = p.client.ListResource(context.TODO(), r.GroupVersion().String(), r.Kind, ns, targetConstraints.ObjectSelector)
