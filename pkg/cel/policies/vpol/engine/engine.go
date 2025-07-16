@@ -12,9 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -103,9 +101,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		}
 
 		group.Submit(func() engine.ValidatingPolicyResponse {
-			return tracing.ChildSpan1(ctx, "engine", "handle/"+policy.Policy.Name, func(ctx context.Context, s trace.Span) engine.ValidatingPolicyResponse {
-				return e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
-			})
+			return e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
 		})
 	}
 
