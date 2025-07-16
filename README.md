@@ -29,7 +29,7 @@ limitations under the License.
 [![codecov](https://codecov.io/gh/kyverno/kyverno/branch/main/graph/badge.svg)](https://app.codecov.io/gh/kyverno/kyverno/branch/main)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno?ref=badge_shield)
 
-<a href="https://kyverno.io" rel="kyverno.io"><img src="img/Kyverno_Horizontal.png" alt="Kyverno Logo" width="400"></a>
+<p align="center"><a href="https://kyverno.io" rel="kyverno.io"><img src="img/Kyverno_Horizontal.png" alt="Kyverno Logo" width="400"></a></p>
 
 ## 📑 Table of Contents
 
@@ -37,6 +37,7 @@ limitations under the License.
 - [Documentation](#-documentation)
 - [Demos & Tutorials](#-demos--tutorials)
 - [Popular Use Cases](#-popular-use-cases)
+- [Explore the Policy Library](#-explore-the-policy-library)
 - [Getting Help](#-getting-help)
 - [Contributing](#-contributing)
 - [Software Bill of Materials](#software-bill-of-materials)
@@ -50,7 +51,7 @@ Kyverno is a Kubernetes-native policy engine designed for platform engineering t
 
 - Validate, mutate, generate, and clean up resources using Kubernetes admission controls and background scans.
 - Verify container image signatures for supply chain security.
-- Operate directly with Kubernetes-native tools like `kubectl`, `kustomize`, and Git—no new language required.
+- Operate with tools you already use — like `kubectl`, `kustomize`, and Git.
 
 <a href="https://opensourcesecurityindex.io/" target="_blank" rel="noopener">
   <img src="https://opensourcesecurityindex.io/badge.svg" alt="Open Source Security Index badge" width="282" height="56" />
@@ -62,7 +63,7 @@ Kyverno installation and reference documentation is available at [kyverno.io](ht
 
 - 👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
 - 👉 **[Installation Guide](https://kyverno.io/docs/installation/)**
-- 👉 **[Sample Policies](https://kyverno.io/policies/)**
+- 👉 **[Policy Library](https://kyverno.io/policies/)**
 
 ## 🎥 Demos & Tutorials
 
@@ -97,7 +98,11 @@ Kyverno helps platform teams enforce best practices and security standards. Some
 - Validate container image versions
 - Auto-inject config maps or secrets
 
-Browse more in the [Policy Library](https://kyverno.io/policies/).
+## 📚 Explore the Policy Library
+
+Discover hundreds of production-ready Kyverno policies for security, operations, cost control, and developer enablement.
+
+👉 [Browse the Policy Library](https://kyverno.io/policies/)
 
 ## 🙋 Getting Help
 
@@ -114,7 +119,7 @@ Thank you for your interest in contributing to Kyverno!
 
 - ✅ Read the [Contribution Guidelines](/CONTRIBUTING.md)
 - 🧵 Join [GitHub Discussions](https://github.com/kyverno/kyverno/discussions)
-- 📖 Read the [Development Wiki](https://github.com/kyverno/kyverno/wiki)
+- 📖 Read the [Development Guide](/DEVELOPMENT.md)
 - 🏁 Check [Good First Issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) and request with `/assign`
 - 🌱 Explore the [Community page](https://kyverno.io/community/)
 
@@ -122,8 +127,8 @@ Thank you for your interest in contributing to Kyverno!
 
 All Kyverno images include a Software Bill of Materials (SBOM) in [CycloneDX](https://cyclonedx.org/) format. SBOMs are available at:
 
-👉 [`ghcr.io/kyverno/sbom`](https://github.com/orgs/kyverno/packages?tab=packages&q=sbom)  
-👉 [Fetching the SBOM](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno)
+- 👉 [`ghcr.io/kyverno/sbom`](https://github.com/orgs/kyverno/packages?tab=packages&q=sbom)
+- 👉 [Fetching the SBOM](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno)
 
 ## 👥 Contributors
 
@@ -137,6 +142,7 @@ _Made with [contributors-img](https://contrib.rocks)_
 
 ## 📄 License
 
-Copyright 2025, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
+Copyright 2025, the Kyverno project. All rights reserved.  
+Kyverno is licensed under the [Apache License 2.0](LICENSE).
 
 Kyverno is a [Cloud Native Computing Foundation (CNCF) Incubating project](https://www.cncf.io/projects/) and was contributed by [Nirmata](https://nirmata.com/?utm_source=github&utm_medium=repository).
