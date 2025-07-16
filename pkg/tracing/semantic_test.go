@@ -9,8 +9,27 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// setupTestTracer sets up a proper OpenTelemetry tracer provider for testing
+func setupTestTracer(t *testing.T) func() {
+	// Create a new tracer provider with an in-memory exporter for testing
+	tp := sdktrace.NewTracerProvider()
+
+	// Store the original provider to restore it later
+	originalProvider := otel.GetTracerProvider()
+
+	// Set the test provider globally
+	otel.SetTracerProvider(tp)
+
+	// Return a cleanup function
+	return func() {
+		// Restore the original provider
+		otel.SetTracerProvider(originalProvider)
+	}
+}
 
 func TestNewSemanticTracer(t *testing.T) {
 	st := NewSemanticTracer()
@@ -19,6 +38,9 @@ func TestNewSemanticTracer(t *testing.T) {
 }
 
 func TestSemanticTracer_TracePolicy(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
 	st := NewSemanticTracer()
 	ctx := context.Background()
 
@@ -41,6 +63,9 @@ func TestSemanticTracer_TracePolicy(t *testing.T) {
 }
 
 func TestSemanticTracer_TraceRule(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
 	st := NewSemanticTracer()
 	ctx := context.Background()
 
@@ -55,6 +80,9 @@ func TestSemanticTracer_TraceRule(t *testing.T) {
 }
 
 func TestSemanticTracer_TraceResource(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
 	st := NewSemanticTracer()
 	ctx := context.Background()
 
@@ -69,6 +97,9 @@ func TestSemanticTracer_TraceResource(t *testing.T) {
 }
 
 func TestSemanticTracer_TraceCacheOperation(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
 	st := NewSemanticTracer()
 	ctx := context.Background()
 
@@ -98,6 +129,9 @@ func TestSemanticTracer_TraceCacheOperation(t *testing.T) {
 }
 
 func TestSemanticTracer_TraceAdmissionRequest(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
 	st := NewSemanticTracer()
 	ctx := context.Background()
 
@@ -112,6 +146,9 @@ func TestSemanticTracer_TraceAdmissionRequest(t *testing.T) {
 }
 
 func TestSemanticTracer_TraceValidation(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
 	st := NewSemanticTracer()
 	ctx := context.Background()
 
@@ -145,6 +182,9 @@ func TestSemanticTracer_TraceValidation(t *testing.T) {
 }
 
 func TestSemanticTracer_TraceMutation(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
 	st := NewSemanticTracer()
 	ctx := context.Background()
 
@@ -178,6 +218,9 @@ func TestSemanticTracer_TraceMutation(t *testing.T) {
 }
 
 func TestSemanticTracer_TraceGeneration(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
 	st := NewSemanticTracer()
 	ctx := context.Background()
 
