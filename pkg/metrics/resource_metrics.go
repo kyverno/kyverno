@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"math"
 	"runtime"
 	"time"
 
@@ -146,13 +147,21 @@ func NewResourceMetrics(logger logr.Logger) (*ResourceMetrics, error) {
 	return rm, nil
 }
 
+// safeUint64ToInt64 safely converts uint64 to int64, capping at MaxInt64 to prevent overflow
+func safeUint64ToInt64(val uint64) int64 {
+	if val > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(val)
+}
+
 // collectRuntimeMetrics collects runtime and system metrics
 func (rm *ResourceMetrics) collectRuntimeMetrics(ctx context.Context, observer metric.Observer) error {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	// Memory metrics
-	observer.ObserveInt64(rm.memoryUsageGauge, int64(m.Alloc))
+	// Memory metrics - use safe conversion to prevent integer overflow
+	observer.ObserveInt64(rm.memoryUsageGauge, safeUint64ToInt64(m.Alloc))
 
 	// Goroutine count
 	observer.ObserveInt64(rm.goroutineCountGauge, int64(runtime.NumGoroutine()))
