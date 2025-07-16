@@ -1,7 +1,7 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: MutatingPolicy
 metadata:
-  name: test-mpol-same-trigger-target
+  name: test-mpol-different-trigger-target
 spec:
   failurePolicy: Fail
   evaluation:
@@ -13,6 +13,16 @@ spec:
       apiVersions: [ "v1" ]
       operations: [ "CREATE", "UPDATE"]
       resources: [ "namespaces" ]
+      resourceNames: ["test-mpol-different-trigger-target-ns"]
+  targetMatchConstraints:
+    namespaceSelector:
+      matchLabels:
+        test: "enabled"
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE", "UPDATE"]
+      resources: [ "configmaps" ]
   mutations:
   - patchType: ApplyConfiguration
     applyConfiguration:
@@ -23,4 +33,4 @@ spec:
               foo: "bar"
             }
           }
-        }
+        } 

@@ -1,18 +1,14 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: MutatingPolicy
 metadata:
-  name: test-mpol-same-trigger-target
+  name: add-deployment-labels
 spec:
-  failurePolicy: Fail
-  evaluation:
-    mutateExisting:
-      enabled: true
   matchConstraints:
     resourceRules:
-    - apiGroups: [ "" ]
+    - apiGroups: [ "apps" ]
       apiVersions: [ "v1" ]
-      operations: [ "CREATE", "UPDATE"]
-      resources: [ "namespaces" ]
+      operations: [ "CREATE" ]
+      resources: [ "deployments" ]
   mutations:
   - patchType: ApplyConfiguration
     applyConfiguration:
@@ -23,4 +19,4 @@ spec:
               foo: "bar"
             }
           }
-        }
+        }  

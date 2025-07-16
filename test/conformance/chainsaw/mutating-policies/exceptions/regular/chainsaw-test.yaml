@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: exception-test
+spec:
+  steps:
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 5s
+  - name: create policy
+    use:
+      template: ..//../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-mutating-policy-ready
+    use:
+      template: ..//../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: add-deployment-labels
+  - name: create good deployment
+    try:
+    - sleep:
+        duration: 10s
+    - create:
+        file: good-deployment.yaml
+    - assert:
+        file: good-deployment-assert.yaml
+  - name: create skipped deployment
+    try:
+    - create:
+        file: skipped-deployment.yaml
+  - name: verify foo label not present on skipped deployment
+    try:
+    - script:
+        content: |
+          # Check if foo label is present on skipped-deployment
+          FOO_LABEL=$(kubectl get deployment skipped-deployment -o jsonpath='{.metadata.labels.foo}' 2>/dev/null || echo "")
+          if [ -n "$FOO_LABEL" ]; then
+            echo "ERROR: foo label found on skipped-deployment: $FOO_LABEL"
+            exit 1
+          else
+            echo "SUCCESS: foo label not present on skipped-deployment"
+          fi
