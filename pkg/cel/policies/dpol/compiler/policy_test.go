@@ -73,9 +73,10 @@ func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { ret
 func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
 	return &unstructured.Unstructured{}, nil
 }
-func (f *fakeContext) ClearGeneratedResources()                                                {}
-func (f *fakeContext) SetPolicyName(name string)                                               {}
-func (f *fakeContext) SetTriggerMetadata(name, namespace, uid, apiVersion, group, kind string) {}
+func (f *fakeContext) ClearGeneratedResources() {}
+func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+	panic("not implemented")
+}
 
 func TestEvaluate(t *testing.T) {
 	ctx := context.Background()

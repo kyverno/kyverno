@@ -71,7 +71,7 @@ func addGeneratedResources(ur *kyvernov2.UpdateRequest, downstream unstructured.
 	)
 }
 
-func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvernov1.ResourceSpec, deleteDownstream bool) {
+func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvernov1.ResourceSpec, deleteDownstream, cacheRestore bool) {
 	ur.Spec.RuleContext = append(ur.Spec.RuleContext, kyvernov2.RuleContext{
 		Rule: ruleName,
 		Trigger: kyvernov1.ResourceSpec{
@@ -82,5 +82,6 @@ func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvern
 			UID:        trigger.GetUID(),
 		},
 		DeleteDownstream: deleteDownstream,
+		CacheRestore:     cacheRestore,
 	})
 }
