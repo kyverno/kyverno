@@ -10,7 +10,7 @@ spec:
     - create:
         file: exception.yaml
     - sleep:
-        duration: 10s
+        duration: 5s
   - name: create policy
     use:
       template: ..//../../_step-templates/create-policy.yaml
@@ -28,7 +28,7 @@ spec:
   - name: create good deployment
     try:
     - sleep:
-        duration: 3s
+        duration: 10s
     - create:
         file: good-deployment.yaml
     - assert:

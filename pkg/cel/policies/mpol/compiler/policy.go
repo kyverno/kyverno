@@ -3,6 +3,7 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/cel-go/common/types"
@@ -197,21 +198,28 @@ func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes,
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
 	}
-	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-	requestVal, err := utils.ConvertObjectToUnstructured(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-	}
+
 	data := map[string]any{
 		compiler.NamespaceObjectKey: namespaceVal,
 		compiler.ObjectKey:          objectVal,
-		compiler.OldObjectKey:       oldObjectVal,
-		compiler.RequestKey:         requestVal,
 	}
 
+	if attr.GetOldObject() != nil {
+		oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+		}
+		data[compiler.OldObjectKey] = oldObjectVal
+	}
+
+	if reflect.DeepEqual(request, admissionv1.AdmissionRequest{}) {
+		requestVal, err := utils.ConvertObjectToUnstructured(request)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		}
+		data[compiler.RequestKey] = requestVal
+
+	}
 	for _, polex := range p.exceptions {
 		for _, condition := range polex.MatchConditions {
 			out, _, err := condition.ContextEval(ctx, data)
