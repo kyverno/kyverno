@@ -218,7 +218,6 @@ func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes,
 			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 		}
 		data[compiler.RequestKey] = requestVal
-
 	}
 	for _, polex := range p.exceptions {
 		for _, condition := range polex.MatchConditions {
