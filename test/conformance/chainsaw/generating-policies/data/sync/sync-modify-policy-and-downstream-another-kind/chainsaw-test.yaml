@@ -11,6 +11,10 @@ spec:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
   - name: create namespace
     try:
     - apply:

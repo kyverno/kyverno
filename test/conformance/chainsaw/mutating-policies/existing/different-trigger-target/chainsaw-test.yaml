@@ -2,13 +2,19 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: data-indexed-resource
+  name: different-trigger-target
 spec:
   steps:
-  - name: create namespaces
+  - name: create namespace and configmaps
     try:
-    - apply:
-        file: namespaces.yaml
+    - create:
+        file: test-namespace.yaml
+    - assert:
+        file: test-namespace.yaml
+    - create:
+        file: configmaps.yaml
+    - assert:
+        file: configmaps.yaml
   - name: create policy
     try:
     - create:
@@ -19,15 +25,11 @@ spec:
     try:
     - sleep:
         duration: 5s
-  - name: create trigger
+  - name: trigger mutation by updating namespace
     try:
     - apply:
-        file: trigger.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
-  - name: check that the networkpolicy is generated in each namespace
+        file: test-namespace-update.yaml
+  - name: verify configmaps are mutated
     try:
     - assert:
-        file: downstream-assert.yaml
+        file: configmaps-assert.yaml 
