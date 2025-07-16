@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,8 +33,18 @@ type Context interface {
 
 	GetGeneratedResources() []*unstructured.Unstructured
 	ClearGeneratedResources()
-	SetPolicyName(name string)
-	SetTriggerMetadata(name, namespace, uid, apiVersion, group, kind string)
+	SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool)
+}
+
+type generateContext struct {
+	policyName        string
+	triggerName       string
+	triggerNamespace  string
+	triggerAPIVersion string
+	triggerGroup      string
+	triggerKind       string
+	triggerUID        string
+	restoreCache      bool
 }
 
 type contextProvider struct {
@@ -41,13 +52,7 @@ type contextProvider struct {
 	imagedata          imagedataloader.Fetcher
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
-	policyName         string
-	triggerName        string
-	triggerNamespace   string
-	triggerAPIVersion  string
-	triggerGroup       string
-	triggerKind        string
-	triggerUID         string
+	genCtx             generateContext
 }
 
 func NewContextProvider(
@@ -132,79 +137,92 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
+
+		var items []*unstructured.Unstructured
 		if resource.IsList() {
 			resourceList, err := resource.ToList()
 			if err != nil {
 				return err
 			}
 			for i := range resourceList.Items {
-				item := &resourceList.Items[i]
-				labels := item.GetLabels()
-				if labels == nil {
-					labels = make(map[string]string, 9)
-				}
-				labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
-				labels[common.GenerateSourceUIDLabel] = string(item.GetUID())
-				labels[common.GeneratePolicyLabel] = cp.policyName
-				// add trigger metadata labels
-				labels[common.GenerateTriggerNameLabel] = cp.triggerName
-				labels[common.GenerateTriggerNSLabel] = cp.triggerNamespace
-				labels[common.GenerateTriggerUIDLabel] = cp.triggerUID
-				labels[common.GenerateTriggerKindLabel] = cp.triggerKind
-				labels[common.GenerateTriggerGroupLabel] = cp.triggerGroup
-				labels[common.GenerateTriggerVersionLabel] = cp.triggerAPIVersion
-
-				item.SetLabels(labels)
-				item.SetNamespace(namespace)
-				item.SetResourceVersion("")
-				generatedRes, err := cp.client.CreateResource(context.TODO(), item.GetAPIVersion(), item.GetKind(), namespace, item, false)
-				if err != nil {
-					return err
-				}
-				cp.generatedResources = append(cp.generatedResources, generatedRes)
+				items = append(items, &resourceList.Items[i])
 			}
 		} else {
-			labels := resource.GetLabels()
-			if labels == nil {
-				labels = make(map[string]string, 8)
-			}
-			labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
-			labels[common.GeneratePolicyLabel] = cp.policyName
-			// add trigger metadata labels
-			labels[common.GenerateTriggerNameLabel] = cp.triggerName
-			labels[common.GenerateTriggerNSLabel] = cp.triggerNamespace
-			labels[common.GenerateTriggerUIDLabel] = cp.triggerUID
-			labels[common.GenerateTriggerKindLabel] = cp.triggerKind
-			labels[common.GenerateTriggerGroupLabel] = cp.triggerGroup
-			labels[common.GenerateTriggerVersionLabel] = cp.triggerAPIVersion
-			// add source labels
-			if resource.GetResourceVersion() != "" {
-				labels[common.GenerateSourceUIDLabel] = string(resource.GetUID())
-			}
-			resource.SetLabels(labels)
-			resource.SetNamespace(namespace)
-			resource.SetResourceVersion("")
-			generatedRes, err := cp.client.CreateResource(context.TODO(), resource.GetAPIVersion(), resource.GetKind(), namespace, resource, false)
-			if err != nil {
+			items = append(items, resource)
+		}
+
+		for _, item := range items {
+			cp.addGenerateLabels(item)
+			item.SetNamespace(namespace)
+			item.SetResourceVersion("")
+			// check if the resource is already generated
+			_, err := cp.client.GetResource(
+				context.TODO(),
+				item.GetAPIVersion(),
+				item.GetKind(),
+				namespace,
+				item.GetName(),
+			)
+
+			// if the resource is not found, create it
+			if err != nil && apierrors.IsNotFound(err) {
+				if !cp.genCtx.restoreCache {
+					generatedRes, err := cp.client.CreateResource(
+						context.TODO(),
+						item.GetAPIVersion(),
+						item.GetKind(),
+						namespace,
+						item,
+						false,
+					)
+					if err != nil {
+						return err
+					}
+					cp.generatedResources = append(cp.generatedResources, generatedRes)
+				}
+			} else if err != nil {
 				return err
 			}
-			cp.generatedResources = append(cp.generatedResources, generatedRes)
 		}
 	}
 	return nil
 }
 
-func (cp *contextProvider) SetPolicyName(name string) {
-	cp.policyName = name
+func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
+	labels := obj.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string, 8)
+	}
+
+	labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
+	labels[common.GeneratePolicyLabel] = cp.genCtx.policyName
+	labels[common.GenerateTriggerNameLabel] = cp.genCtx.triggerName
+	labels[common.GenerateTriggerNSLabel] = cp.genCtx.triggerNamespace
+	labels[common.GenerateTriggerUIDLabel] = cp.genCtx.triggerUID
+	labels[common.GenerateTriggerKindLabel] = cp.genCtx.triggerKind
+	labels[common.GenerateTriggerGroupLabel] = cp.genCtx.triggerGroup
+	labels[common.GenerateTriggerVersionLabel] = cp.genCtx.triggerAPIVersion
+
+	// Only set source UID label if the object has a resource version
+	if obj.GetResourceVersion() != "" {
+		labels[common.GenerateSourceUIDLabel] = string(obj.GetUID())
+	}
+
+	obj.SetLabels(labels)
 }
 
-func (cp *contextProvider) SetTriggerMetadata(name, namespace, uid, apiVersion, group, kind string) {
-	cp.triggerName = name
-	cp.triggerNamespace = namespace
-	cp.triggerUID = uid
-	cp.triggerAPIVersion = apiVersion
-	cp.triggerGroup = group
-	cp.triggerKind = kind
+func (cp *contextProvider) SetGenerateContext(
+	polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string,
+	restoreCache bool,
+) {
+	cp.genCtx.policyName = polName
+	cp.genCtx.triggerName = triggerName
+	cp.genCtx.triggerNamespace = triggerNamespace
+	cp.genCtx.triggerAPIVersion = triggerAPIVersion
+	cp.genCtx.triggerGroup = triggerGroup
+	cp.genCtx.triggerKind = triggerKind
+	cp.genCtx.triggerUID = triggerUID
+	cp.genCtx.restoreCache = restoreCache
 }
 
 func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {

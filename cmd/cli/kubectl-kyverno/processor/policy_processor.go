@@ -477,7 +477,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				nil,
 			)
 			for _, policy := range compiledPolicies {
-				engineResponse, err := engine.Handle(request, policy)
+				engineResponse, err := engine.Handle(request, policy, false)
 				if err != nil {
 					return nil, err
 				}
