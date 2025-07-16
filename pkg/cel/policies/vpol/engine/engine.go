@@ -38,8 +38,8 @@ type engineImpl struct {
 
 func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) Engine {
 	return &engineImpl{
-		provider:   engine.ProviderWithTrace(provider),
-		nsResolver: engine.NamespaceResolverWithTrace(nsResolver),
+		provider:   provider,
+		nsResolver: nsResolver,
 		matcher:    matcher,
 	}
 }
@@ -94,33 +94,27 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		namespace = e.nsResolver(ns)
 	}
 
-	err = tracing.ChildSpan1(ctx, "engine", "handle/policies", func(ctx context.Context, s trace.Span) error {
-		pool := pond.NewResultPool[engine.ValidatingPolicyResponse](10, pond.WithNonBlocking(true))
-		group := pool.NewGroup()
-		// evaluate policies
-		for _, policy := range policies {
-			if predicate != nil && !predicate(policy.Policy) {
-				continue
-			}
-
-			group.Submit(func() engine.ValidatingPolicyResponse {
-				return tracing.ChildSpan1(ctx, "engine", "handle/"+policy.Policy.Name, func(ctx context.Context, s trace.Span) engine.ValidatingPolicyResponse {
-					return e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
-				})
-			})
+	pool := pond.NewResultPool[engine.ValidatingPolicyResponse](10, pond.WithNonBlocking(true))
+	group := pool.NewGroup()
+	// evaluate policies
+	for _, policy := range policies {
+		if predicate != nil && !predicate(policy.Policy) {
+			continue
 		}
 
-		return tracing.ChildSpan1(ctx, "engine", "handle/wait", func(ctx context.Context, s trace.Span) error {
-			results, err := group.Wait()
-			if err != nil {
-				return err
-			}
-
-			response.Policies = append(response.Policies, results...)
-
-			return nil
+		group.Submit(func() engine.ValidatingPolicyResponse {
+			return tracing.ChildSpan1(ctx, "engine", "handle/"+policy.Policy.Name, func(ctx context.Context, s trace.Span) engine.ValidatingPolicyResponse {
+				return e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
+			})
 		})
-	})
+	}
+
+	results, err := group.Wait()
+	if err != nil {
+		return response, err
+	}
+
+	response.Policies = append(response.Policies, results...)
 
 	return response, err
 }
