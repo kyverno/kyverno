@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/alitto/pond/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -93,17 +94,31 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		namespace = e.nsResolver(ns)
 	}
 
-	tracing.Span(ctx, "engine", "handle/policies", func(ctx context.Context, s trace.Span) {
+	err = tracing.Span1(ctx, "engine", "handle/policies", func(ctx context.Context, s trace.Span) error {
+		pool := pond.NewResultPool[engine.ValidatingPolicyResponse](10, pond.WithNonBlocking(true))
+		group := pool.NewGroup()
 		// evaluate policies
 		for _, policy := range policies {
 			if predicate != nil && !predicate(policy.Policy) {
 				continue
 			}
-			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context))
+
+			group.Submit(func() engine.ValidatingPolicyResponse {
+				return e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
+			})
 		}
+
+		results, err := group.Wait()
+		if err != nil {
+			return err
+		}
+
+		response.Policies = append(response.Policies, results...)
+
+		return nil
 	})
 
-	return response, nil
+	return response, err
 }
 
 func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context) engine.ValidatingPolicyResponse {
