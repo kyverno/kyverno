@@ -32,6 +32,7 @@ type engineImpl struct {
 	provider   Provider
 	nsResolver engine.NamespaceResolver
 	matcher    matching.Matcher
+	pool       pond.ResultPool[engine.ValidatingPolicyResponse]
 }
 
 func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) Engine {
@@ -39,6 +40,7 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 		provider:   provider,
 		nsResolver: nsResolver,
 		matcher:    matcher,
+		pool:       pond.NewResultPool[engine.ValidatingPolicyResponse](100, pond.WithNonBlocking(true)),
 	}
 }
 
@@ -92,8 +94,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		namespace = e.nsResolver(ns)
 	}
 
-	pool := pond.NewResultPool[engine.ValidatingPolicyResponse](10, pond.WithNonBlocking(true))
-	group := pool.NewGroup()
+	group := e.pool.NewGroup()
 	// evaluate policies
 	for _, policy := range policies {
 		if predicate != nil && !predicate(policy.Policy) {
