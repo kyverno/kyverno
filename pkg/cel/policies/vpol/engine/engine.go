@@ -94,7 +94,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		namespace = e.nsResolver(ns)
 	}
 
-	err = tracing.Span1(ctx, "engine", "handle/policies", func(ctx context.Context, s trace.Span) error {
+	err = tracing.ChildSpan1(ctx, "engine", "handle/policies", func(ctx context.Context, s trace.Span) error {
 		pool := pond.NewResultPool[engine.ValidatingPolicyResponse](10, pond.WithNonBlocking(true))
 		group := pool.NewGroup()
 		// evaluate policies
@@ -110,14 +110,16 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 			})
 		}
 
-		results, err := group.Wait()
-		if err != nil {
-			return err
-		}
+		return tracing.ChildSpan1(ctx, "engine", "handle/wait", func(ctx context.Context, s trace.Span) error {
+			results, err := group.Wait()
+			if err != nil {
+				return err
+			}
 
-		response.Policies = append(response.Policies, results...)
+			response.Policies = append(response.Policies, results...)
 
-		return nil
+			return nil
+		})
 	})
 
 	return response, err
