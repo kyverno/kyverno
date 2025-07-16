@@ -104,7 +104,9 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 			}
 
 			group.Submit(func() engine.ValidatingPolicyResponse {
-				return e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
+				return tracing.ChildSpan1(ctx, "engine", "handle/"+policy.Policy.Name, func(ctx context.Context, s trace.Span) engine.ValidatingPolicyResponse {
+					return e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
+				})
 			})
 		}
 
