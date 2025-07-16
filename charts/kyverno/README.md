@@ -817,6 +817,7 @@ The chart values are organised per component.
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | nameOverride | string | `nil` | Override the name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
+| openreports.enabled | bool | `false` |  |
 | policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | policyReportsCleanup.image.registry | string | `nil` | Image registry |
@@ -898,6 +899,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | 3.5.0-rc.1 |
 |  | grafana | 3.5.0-rc.1 |
+| https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
 
