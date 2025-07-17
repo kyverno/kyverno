@@ -1,0 +1,57 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: globalreference-missing-edge-cases
+spec:
+  description: |
+    This test covers edge cases for graceful handling of missing GlobalContextEntries:
+    - Multiple missing references in a single policy
+    - Nested expressions with missing global context
+    - Policy enforcement mode vs audit mode with missing entries
+  steps:
+  - name: create namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: create policy with multiple missing references
+    try:
+    - apply:
+        file: policy-multiple-missing.yaml
+    - assert:
+        file: policy-multiple-missing.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: vpol-multiple-missing-refs
+        - name: namespace
+          value: default
+  - name: create pod - should succeed with multiple null references
+    try:
+    - apply:
+        file: pod-test.yaml
+    - assert:
+        file: pod-test.yaml
+  - name: create enforce mode policy with missing reference
+    try:
+    - apply:
+        file: policy-enforce-missing.yaml
+    - assert:
+        file: policy-enforce-missing.yaml
+  - name: wait enforce policy ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: vpol-enforce-missing-ref
+        - name: namespace
+          value: default
+  - name: create pod with enforce policy - should still succeed gracefully
+    try:
+    - apply:
+        file: pod-test-2.yaml
+    - assert:
+        file: pod-test-2.yaml 
