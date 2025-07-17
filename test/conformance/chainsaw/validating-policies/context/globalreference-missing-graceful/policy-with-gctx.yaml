@@ -4,7 +4,7 @@ metadata:
   name: vpol-with-gctx-works
 spec:
   validationActions:
-    - Audit
+    - Deny
   matchConstraints:
     resourceRules:
       - apiGroups: [""]

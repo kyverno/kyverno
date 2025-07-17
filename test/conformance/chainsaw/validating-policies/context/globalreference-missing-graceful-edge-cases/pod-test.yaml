@@ -9,11 +9,3 @@ spec:
   containers:
   - name: test
     image: registry.k8s.io/pause:latest
-    resources:
-      requests:
-        cpu: 10m
-        memory: 10Mi
-      limits:
-        cpu: 10m
-        memory: 10Mi
-  terminationGracePeriodSeconds: 0 
