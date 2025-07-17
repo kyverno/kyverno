@@ -38,6 +38,7 @@ type scanner struct {
 	jp              jmespath.Interface
 	client          dclient.Interface
 	reportingConfig reportutils.ReportingConfiguration
+	gctxStore       gctxstore.Store
 }
 
 type ScanResult struct {
@@ -66,6 +67,7 @@ func NewScanner(
 	jp jmespath.Interface,
 	client dclient.Interface,
 	reportingConfig reportutils.ReportingConfiguration,
+	gctxStore gctxstore.Store,
 ) Scanner {
 	return &scanner{
 		logger:          logger,
@@ -74,6 +76,7 @@ func NewScanner(
 		jp:              jp,
 		client:          client,
 		reportingConfig: reportingConfig,
+		gctxStore:       gctxStore,
 	}
 }
 
@@ -166,14 +169,14 @@ func (s *scanner) ScanResource(
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 			)
-			gctxStore := gctxstore.New()
+			// use the shared global context store instead of creating a new empty one
 			// create context provider
 			context, err := libs.NewContextProvider(
 				s.client,
 				nil,
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
-				gctxStore,
+				s.gctxStore,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
@@ -229,7 +232,7 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			// create context provider
-			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New())
+			context, err := libs.NewContextProvider(s.client, nil, s.gctxStore)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
