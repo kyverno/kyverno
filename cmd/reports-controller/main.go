@@ -78,6 +78,7 @@ func createReportControllers(
 	eventGenerator event.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
+	gcstore store.Store,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -159,6 +160,7 @@ func createReportControllers(
 				policyReports,
 				reportsConfig,
 				reportsBreaker,
+				gcstore,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -199,6 +201,7 @@ func createrLeaderControllers(
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
 	reportsBreaker breaker.Breaker,
+	gcstore store.Store,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		eng,
@@ -222,6 +225,7 @@ func createrLeaderControllers(
 		eventGenerator,
 		reportsConfig,
 		reportsBreaker,
+		gcstore,
 	)
 	return reportControllers, warmup, nil
 }
@@ -414,6 +418,7 @@ func main() {
 					eventGenerator,
 					backgroundScanInterval,
 					reportsBreaker,
+					gcstore,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")
