@@ -95,16 +95,8 @@ func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOper
 		name := attr.GetName()
 
 		if name == "" {
-			obj := attr.GetObject()
-			if obj != nil {
-				if accessor, err := meta.Accessor(obj); err == nil {
-					genName := accessor.GetGenerateName()
-					for _, matchedName := range namedRule.ResourceNames {
-						if strings.HasPrefix(genName, matchedName) {
-							return true, nil
-						}
-					}
-				}
+			if matchesGeneratedName(namedRule, attr) {
+				return true, nil
 			}
 
 			log.Log.V(2).Info(fmt.Sprintf("Skipping name match due to empty name and no matching generateName for resource: %+v", attr))
@@ -118,4 +110,25 @@ func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOper
 		}
 	}
 	return false, nil
+}
+
+func matchesGeneratedName(rule admissionregistrationv1.NamedRuleWithOperations, attr admission.Attributes) bool {
+	obj := attr.GetObject()
+	if obj == nil {
+		return false
+	}
+
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return false
+	}
+
+	genName := accessor.GetGenerateName()
+	for _, matchedName := range rule.ResourceNames {
+		if strings.HasPrefix(genName, matchedName) {
+			return true
+		}
+	}
+
+	return false
 }
