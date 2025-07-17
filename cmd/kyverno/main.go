@@ -651,6 +651,7 @@ func main() {
 			nil,
 			gcstore,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			false,
 		)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create cel context provider")
