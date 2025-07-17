@@ -516,3 +516,56 @@ func Test_Condition_Messages(t *testing.T) {
 	assert.Equal(t, false, val)
 	assert.Contains(t, msg, "invalid name; invalid foo; invalid foo2")
 }
+
+func Test_Enhanced_Logging_Context(t *testing.T) {
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"spec": {
+			"foo": "bar",
+			"foo2": "bar2"
+		}
+	}
+	`)
+
+	ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
+	err := context.AddResource(ctx, resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Test conditions that will fail to trigger the enhanced logging
+	conditions := []kyverno.AnyAllConditions{
+		{
+			AnyConditions: []kyverno.Condition{
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
+					Operator: kyverno.ConditionOperators["Equal"],
+					RawValue: kyverno.ToJSON("nonexistent"),
+					Message:  "name mismatch",
+				},
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.spec.foo}}"),
+					Operator: kyverno.ConditionOperators["Equal"],
+					RawValue: kyverno.ToJSON("nonexistent"),
+					Message:  "foo mismatch",
+				},
+			},
+		},
+	}
+
+	// test with context type - this should not panic and should return false
+	val, msg, err := EvaluateAnyAllConditionsWithContext(logr.Discard(), ctx, conditions, "test precondition")
+	assert.Nil(t, err)
+	assert.Equal(t, false, val)
+	assert.Contains(t, msg, "name mismatch; foo mismatch")
+
+	// test without context type - should still work
+	val2, msg2, err2 := EvaluateAnyAllConditions(logr.Discard(), ctx, conditions)
+	assert.Nil(t, err2)
+	assert.Equal(t, false, val2)
+	assert.Equal(t, msg, msg2)
+}

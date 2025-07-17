@@ -1,0 +1,34 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: enhanced-logging-any-block
+spec:
+  description: >
+    This test verifies that enhanced logging for 'any' block failures provides
+    better context information including index and context type.
+  steps:
+  - name: create-policy
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: test-enhanced-logging
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: failing-pod.yaml
+    catch:
+    - describe:
+        apiVersion: kyverno.io/v1
+        kind: ClusterPolicy
+        name: enhanced-logging-test
+  - name: cleanup
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: enhanced-logging-test

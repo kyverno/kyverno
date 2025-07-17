@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enhanced-logging-test
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: test-precondition-logging
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    preconditions:
+      any:
+      - key: "{{ request.object.metadata.name }}"
+        operator: Equals
+        value: "allowed-name"
+        message: "Name must be 'allowed-name'"
+      - key: "{{ request.object.metadata.labels.env || '' }}"
+        operator: Equals
+        value: "prod"
+        message: "Must have env=prod label"
+    validate:
+      message: "Precondition validation failed"
+      pattern:
+        metadata:
+          name: "*"
+  - name: test-deny-condition-logging
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      deny:
+        conditions:
+          any:
+          - key: "{{ request.object.spec.containers[].image }}"
+            operator: Contains
+            value: "latest"
+            message: "Cannot use latest tag"
+          - key: "{{ request.object.spec.securityContext.runAsRoot || false }}"
+            operator: Equals
+            value: true
+            message: "Cannot run as root"
+      message: "Security validation failed"

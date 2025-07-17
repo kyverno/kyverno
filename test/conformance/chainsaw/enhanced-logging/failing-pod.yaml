@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-failing-pod
+  namespace: default
+  labels:
+    app: test
+    # Missing env=prod label to trigger precondition failure
+spec:
+  containers:
+  - name: app
+    image: nginx:latest  # Will trigger deny condition
+  securityContext:
+    runAsUser: 0  # Will trigger runAsRoot deny condition
