@@ -10,6 +10,7 @@ import (
 	cel2 "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/stretchr/testify/assert"
+	admissionv1 "k8s.io/api/admission/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -332,7 +333,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
 		assert.NotNil(t, res)
 		assert.EqualError(t, res.Error, "match error")
 	})
@@ -346,7 +347,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, &fakeTCM{}, &fakeContext{})
+		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
 		assert.Nil(t, resp)
 	})
 
@@ -365,7 +366,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
 		assert.NotNil(t, res)
 		assert.EqualError(t, res.Error, "patch failed")
 	})
@@ -386,7 +387,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
 	})
