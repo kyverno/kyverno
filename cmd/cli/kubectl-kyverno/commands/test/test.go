@@ -649,6 +649,7 @@ func newContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, c
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 			gctxstore.New(),
+			true,
 		)
 	}
 

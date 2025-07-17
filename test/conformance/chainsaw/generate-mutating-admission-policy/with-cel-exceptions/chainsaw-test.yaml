@@ -5,20 +5,16 @@ metadata:
   name: with-cel-exceptions
 spec:
   steps:
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
   - name: create policy
     try:
     - create:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
-  - name: create exception
-    try:
-    - create:
-        file: exception.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check mutatingadmissionpolicy
     try:
     - assert:

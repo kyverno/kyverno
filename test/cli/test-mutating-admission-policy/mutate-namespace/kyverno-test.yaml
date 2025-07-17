@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: Test
+metadata:
+  name: test
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isMutatingAdmissionPolicy: true
+  kind: Namespace
+  patchedResources: patched-resource.yaml
+  policy: add-label-to-namespace
+  resources:
+  - test-namespace
+  result: pass

@@ -160,9 +160,10 @@ func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { ret
 func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
 	return &unstructured.Unstructured{}, nil
 }
-func (f *fakeContext) ClearGeneratedResources()                                                {}
-func (f *fakeContext) SetPolicyName(name string)                                               {}
-func (f *fakeContext) SetTriggerMetadata(name, namespace, uid, apiVersion, group, kind string) {}
+func (f *fakeContext) ClearGeneratedResources() {}
+func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+	panic("not implemented")
+}
 
 type mockAttributes struct{}
 
@@ -239,7 +240,7 @@ func TestEvaluate(t *testing.T) {
 
 		assert.NoError(t, err)
 		engine := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
-		resp, err := engine.Evaluate(ctx, &mockAttributes{}, predicate)
+		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.NotNil(t, resp)
 		assert.NoError(t, err)
@@ -247,7 +248,7 @@ func TestEvaluate(t *testing.T) {
 
 	t.Run("provider fetch failure returns error and empty response", func(t *testing.T) {
 		engine := NewEngine(&mockFailingProvider{}, nsResolver, matcher, typeConverter, &fakeContext{})
-		resp, err := engine.Evaluate(ctx, &mockAttributes{}, predicate)
+		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.Error(t, err)
 		assert.Equal(t, EngineResponse{}, resp)
@@ -300,7 +301,7 @@ func TestEvaluate(t *testing.T) {
 			func(ns string) *corev1.Namespace {
 				return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
 			}, matcher, &fakeTypeConverter{}, &fakeContext{})
-		resp, err := engine.Evaluate(ctx, &mockAttributes{}, predicate)
+		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.NotNil(t, resp)
 		assert.NoError(t, err)
