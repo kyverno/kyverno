@@ -71,13 +71,12 @@ require (
 	go.uber.org/multierr v1.11.0
 	golang.org/x/crypto v0.39.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
-	google.golang.org/grpc v1.73.0
+	google.golang.org/grpc v1.74.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.33.2
 	k8s.io/apiextensions-apiserver v0.33.2
-	openreports.io v0.0.0-00010101000000-000000000000
 	k8s.io/apimachinery v0.33.2
 	k8s.io/apiserver v0.33.2
 	k8s.io/cli-runtime v0.33.2
@@ -86,6 +85,7 @@ require (
 	k8s.io/kube-aggregator v0.33.2
 	k8s.io/pod-security-admission v0.33.1
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
+	openreports.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5
 	sigs.k8s.io/kustomize/api v0.20.0
@@ -101,11 +101,11 @@ require (
 )
 
 require (
-	cel.dev/expr v0.23.0 // indirect
+	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go v0.120.0 // indirect
 	cloud.google.com/go/auth v0.16.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
-	cloud.google.com/go/compute/metadata v0.6.0 // indirect
+	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	cloud.google.com/go/iam v1.5.0 // indirect
 	cloud.google.com/go/kms v1.21.2 // indirect
 	cloud.google.com/go/longrunning v0.6.6 // indirect
@@ -396,5 +396,5 @@ require (
 
 replace (
 	k8s.io/pod-security-admission v0.33.1 => github.com/kyverno/pod-security-admission v0.0.0-20250314164903-c9a58987cebb
-    openreports.io => github.com/openreports/reports-api v0.0.0-20250321064407-5081e5b516e8
+	openreports.io => github.com/openreports/reports-api v0.0.0-20250321064407-5081e5b516e8
 )
