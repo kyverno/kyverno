@@ -177,6 +177,7 @@ func (s *scanner) ScanResource(
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 				s.gctxStore,
+				false,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
@@ -232,7 +233,7 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			// create context provider
-			context, err := libs.NewContextProvider(s.client, nil, s.gctxStore)
+			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New(), false)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
