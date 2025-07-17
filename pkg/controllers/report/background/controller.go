@@ -27,6 +27,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -93,6 +94,7 @@ type controller struct {
 	policyReports bool
 	reportsConfig reportutils.ReportingConfiguration
 	breaker       breaker.Breaker
+	gctxStore     gctxstore.Store
 }
 
 func NewController(
@@ -119,6 +121,7 @@ func NewController(
 	policyReports bool,
 	reportsConfig reportutils.ReportingConfiguration,
 	breaker breaker.Breaker,
+	gctxStore gctxstore.Store,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -145,6 +148,7 @@ func NewController(
 		policyReports:  policyReports,
 		reportsConfig:  reportsConfig,
 		breaker:        breaker,
+		gctxStore:      gctxStore,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -578,7 +582,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig, c.gctxStore)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
