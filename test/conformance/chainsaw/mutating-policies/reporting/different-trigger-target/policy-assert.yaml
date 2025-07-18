@@ -1,7 +1,7 @@
 apiVersion: policies.kyverno.io/v1alpha1
-kind: GeneratingPolicy
+kind: MutatingPolicy
 metadata:
-  name: sync-modify-policy-and-downstream-name
+  name: test-mpol-reporting-different-trigger-target
 status:
   conditionStatus:
     conditions:
@@ -13,5 +13,4 @@ status:
       reason: Succeeded
       status: "True"
       type: RBACPermissionsGranted
-    message: ""
-    ready: true
+    ready: true 
