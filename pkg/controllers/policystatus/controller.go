@@ -212,17 +212,21 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName())
 		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsValidatingPolicy().GetSpec().BackgroundEnabled())
+		status = &policy.AsValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.ImageValidatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName())
 		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled())
+		status = &policy.AsImageValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.MutatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName())
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsMutatingPolicy().GetSpec().BackgroundEnabled())
+		status = &policy.AsMutatingPolicy().GetStatus().ConditionStatus
 	case webhook.GeneratingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName())
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
+		status = &policy.AsGeneratingPolicy().GetStatus().ConditionStatus
 	}
 
 	if !backgroundOnly {
