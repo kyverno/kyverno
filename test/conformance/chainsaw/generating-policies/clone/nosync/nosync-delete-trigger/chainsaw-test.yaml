@@ -22,7 +22,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: generate-secret
+          value: generate-networkpolicy
   - name: create the source
     try:
     - apply:
