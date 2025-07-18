@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/background/mpol"
 	"github.com/kyverno/kyverno/pkg/background/mutate"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -69,12 +70,13 @@ type controller struct {
 	gpolProvider gpolengine.Provider
 	watchManager *gpol.WatchManager
 
-	mpolEngine    mpolengine.Engine
-	restMapper    meta.RESTMapper
-	eventGen      event.Interface
-	configuration config.Configuration
-	jp            jmespath.Interface
-	reportsConfig reportutils.ReportingConfiguration
+	mpolEngine     mpolengine.Engine
+	restMapper     meta.RESTMapper
+	eventGen       event.Interface
+	configuration  config.Configuration
+	jp             jmespath.Interface
+	reportsConfig  reportutils.ReportingConfiguration
+	reportsBreaker breaker.Breaker
 }
 
 // NewController returns an instance of the Generate-Request Controller
@@ -96,6 +98,7 @@ func NewController(
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
@@ -110,16 +113,17 @@ func NewController(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: "background"},
 		),
-		context:       context,
-		gpolEngine:    gpolEngine,
-		gpolProvider:  gpolProvider,
-		watchManager:  watchManager,
-		mpolEngine:    mpolEngine,
-		restMapper:    restMapper,
-		eventGen:      eventGen,
-		configuration: configuration,
-		jp:            jp,
-		reportsConfig: reportsConfig,
+		context:        context,
+		gpolEngine:     gpolEngine,
+		gpolProvider:   gpolProvider,
+		watchManager:   watchManager,
+		mpolEngine:     mpolEngine,
+		restMapper:     restMapper,
+		eventGen:       eventGen,
+		configuration:  configuration,
+		jp:             jp,
+		reportsConfig:  reportsConfig,
+		reportsBreaker: reportsBreaker,
 	}
 	_, _ = urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
@@ -261,7 +265,7 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.reportsConfig, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.CELMutate:
-		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl, c.reportsConfig)
+		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, c.reportsConfig, c.reportsBreaker, statusControl)
 		return processor.Process(ur)
 	}
 	return nil

@@ -8,10 +8,12 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	libs "github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -31,7 +33,9 @@ type processor struct {
 	mapper        meta.RESTMapper
 	context       libs.Context
 	statusControl common.StatusControlInterface
-	reportsConfig reportutils.ReportingConfiguration
+
+	reportsConfig  reportutils.ReportingConfiguration
+	reportsBreaker breaker.Breaker
 }
 
 func NewProcessor(client dclient.Interface,
@@ -39,17 +43,19 @@ func NewProcessor(client dclient.Interface,
 	mpolEngine mpolengine.Engine,
 	mapper meta.RESTMapper,
 	context libs.Context,
-	statusControl common.StatusControlInterface,
 	reportsConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
+	statusControl common.StatusControlInterface,
 ) *processor {
 	return &processor{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		engine:        mpolEngine,
-		mapper:        mapper,
-		context:       context,
-		statusControl: statusControl,
-		reportsConfig: reportsConfig,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		engine:         mpolEngine,
+		mapper:         mapper,
+		context:        context,
+		statusControl:  statusControl,
+		reportsConfig:  reportsConfig,
+		reportsBreaker: reportsBreaker,
 	}
 }
 
@@ -123,9 +129,40 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			if _, err := p.client.UpdateResource(context.TODO(), new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.Object, false, ""); err != nil {
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			}
+
+			if p.reportsConfig.MutateExistingReportsEnabled() {
+				err := p.createReports(object, &response)
+				if err != nil {
+					logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+				}
+			}
 		}
 	}
 	return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
+}
+
+func (p *processor) createReports(object *unstructured.Unstructured, response *mpolengine.EngineResponse) error {
+	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	for _, res := range response.Policies {
+		engineResponses = append(engineResponses, engineapi.EngineResponse{
+			Resource: *response.PatchedResource,
+			PolicyResponse: engineapi.PolicyResponse{
+				Rules: res.Rules,
+			},
+		}.WithPolicy(engineapi.NewMutatingPolicy(res.Policy)))
+	}
+
+	report := reportutils.BuildMutateExistingReport(object.GetNamespace(), object.GroupVersionKind(), object.GetName(), object.GetUID(), engineResponses...)
+	if len(report.GetResults()) > 0 {
+		err := p.reportsBreaker.Do(context.TODO(), func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, p.kyvernoClient)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources) map[string]sets.Set[schema.GroupVersionKind] {
@@ -155,7 +192,6 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 		}
 	}
 
-	result["*"] = gvkSet
 	if m.NamespaceSelector != nil {
 		namespaces, err := client.ListResource(context.TODO(), "v1", "Namespace", "", m.NamespaceSelector)
 		if err != nil {
@@ -165,6 +201,8 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 		for _, ns := range namespaces.Items {
 			result[ns.GetName()] = gvkSet
 		}
+	} else {
+		result["*"] = gvkSet
 	}
 	return result
 }
