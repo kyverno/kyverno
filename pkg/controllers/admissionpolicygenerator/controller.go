@@ -20,6 +20,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -169,6 +170,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	polType := strings.Split(key, "/")[0]
 	if polType == "ClusterPolicy" {
+		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
+		if !generateValidatingAdmissionPolicy {
+			return nil
+		}
 		cpol, err := c.getClusterPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -187,6 +192,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 	} else if polType == "ValidatingPolicy" {
+		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
+		if !generateValidatingAdmissionPolicy {
+			return nil
+		}
 		vpol, err := c.getValidatingPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -201,6 +210,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 	} else if polType == "MutatingPolicy" {
+		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		if !generateMutatingAdmissionPolicy {
+			return nil
+		}
 		mpol, err := c.getMutatingPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
