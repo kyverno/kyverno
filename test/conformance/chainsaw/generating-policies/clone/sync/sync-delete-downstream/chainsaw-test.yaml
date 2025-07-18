@@ -22,7 +22,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: generate-networkpolicy
+          value: generate-secret
   - name: sleep
     try:
     - sleep:

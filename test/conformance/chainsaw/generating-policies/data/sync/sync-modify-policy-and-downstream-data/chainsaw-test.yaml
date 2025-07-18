@@ -18,7 +18,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: sync-modify-policy-and-downstream-kind
+          value: sync-modify-policy-and-downstream-data
   - name: sleep
     try:
     - sleep:
