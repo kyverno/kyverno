@@ -28,6 +28,8 @@ spec:
           value: vpol-missing-gctx-graceful
         - name: namespace
           value: default
+        - name: message
+          value: ""
   - name: create pod with missing globalcontext - should succeed gracefully
     try:
     - apply:
@@ -59,6 +61,8 @@ spec:
           value: vpol-with-gctx-works
         - name: namespace
           value: default
+        - name: message
+          value: ""
   - name: create pod with existing globalcontext - should work normally
     try:
     - apply:

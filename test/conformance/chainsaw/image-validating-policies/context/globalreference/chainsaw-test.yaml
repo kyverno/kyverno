@@ -29,6 +29,8 @@ spec:
         bindings:
         - name: name
           value: ivpol-apicall-correct
+        - name: message
+          value: ""
   - try:
     - apply:
         file: new-deployment.yaml

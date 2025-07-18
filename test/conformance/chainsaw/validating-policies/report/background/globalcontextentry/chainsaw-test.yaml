@@ -33,6 +33,8 @@ spec:
         bindings:
         - name: name
           value: test-globalcontext-validatingpolicy-audit-report
+        - name: message
+          value: ""
 
   - name: create-bare-pod
     description: Create a bare pod to trigger policy evaluation

@@ -19,6 +19,8 @@ spec:
         bindings:
         - name: name
           value: ivpol-autogen-sample
+        - name: message
+          value: ""
   - name: check autogen policy
     try:
     - assert:

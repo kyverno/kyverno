@@ -24,6 +24,8 @@ spec:
         bindings:
         - name: name
           value: check-deployment-labels
+        - name: message
+          value: ""
   - name: create bad-deployment.yaml
     try:
     - apply:

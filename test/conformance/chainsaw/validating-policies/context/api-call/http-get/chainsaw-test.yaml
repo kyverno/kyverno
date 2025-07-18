@@ -25,6 +25,8 @@ spec:
         bindings:
         - name: name
           value: vpol-http-get
+        - name: message
+          value: ""
   - try:
     - apply: 
        file: good-pod.yaml
