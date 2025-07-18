@@ -1,0 +1,44 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mpol-admission-reporting
+spec:
+  steps:
+  - name: create namespace
+    try:
+    - apply:
+        file: ns.yaml
+  - name: create policy
+    try:
+    - apply: 
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+
+  - name: sleep
+    try:
+    - sleep:
+        duration: 10s
+
+  - name: create ConfigMap
+    try:
+    - apply:
+        file: configmap.yaml
+    - assert:
+        file: configmap.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 10s
+  - name: verify mutated configmap
+    try:
+    - assert:
+        file: configmap-assert.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 30s
+  - name: verify-policy-report
+    try:
+    - assert:
+        file: report.yaml
