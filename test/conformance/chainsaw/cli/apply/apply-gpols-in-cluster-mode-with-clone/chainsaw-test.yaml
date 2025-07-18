@@ -1,7 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: apply-gpols-in-cluster-mode-with-context
+  name: apply-gpols-in-cluster-mode-with-clone
 spec:
   steps:
   - name: step-01
@@ -11,7 +11,11 @@ spec:
   - name: step-02
     try:
     - script:
-        content: kyverno apply policy.yaml --context-file context.yaml --cluster
+        content: kubectl apply -f sources.yaml
+  - name: step-03
+    try:
+    - script:
+        content: kyverno apply policy.yaml --cluster
         check:
           (contains($stdout, 'Generation completed successfully.')): true
 
