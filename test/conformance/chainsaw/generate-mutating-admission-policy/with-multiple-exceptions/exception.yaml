@@ -20,4 +20,4 @@ spec:
     kind: MutatingPolicy
   matchConditions:
     - name: "check-namespace"
-      expression: "namespaceObject.metadata.name == 'testing-ns'"
+      expression: "object.metadata.namespace == 'testing-ns'"
