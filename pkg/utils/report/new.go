@@ -68,6 +68,12 @@ func BuildMutateExistingReport(namespace string, gvk schema.GroupVersionKind, ow
 	return report
 }
 
+func BuildBackgroundScanReport(namespace string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewBackgroundScanReport(namespace, string(uid), gvk, owner, uid)
+	SetResponses(report, responses...)
+	return report
+}
+
 func BuildGenerateReport(namespace string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
 	report := NewBackgroundScanReport(namespace, string(uid), gvk, owner, uid)
 	SetGenerationResponses(report, responses...)
