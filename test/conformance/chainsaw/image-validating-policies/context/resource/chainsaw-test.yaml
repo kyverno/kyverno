@@ -19,8 +19,6 @@ spec:
         bindings:
         - name: name
           value: ivpol-resource-lookup-sample
-        - name: message
-          value: ""
   - name: create pod
     try:
     - create:

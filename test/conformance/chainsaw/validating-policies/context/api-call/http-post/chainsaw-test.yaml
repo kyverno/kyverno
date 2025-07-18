@@ -26,8 +26,6 @@ spec:
         bindings:
         - name: name
           value: vpol-http-post
-        - name: message
-          value: ""
   - try:
     - apply: 
         file: good-pod.yaml

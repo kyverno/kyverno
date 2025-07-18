@@ -24,5 +24,4 @@ spec:
               status: "True"
               type: RBACPermissionsGranted
             (length(conditions)): 2
-            message: ""
             ready: true 

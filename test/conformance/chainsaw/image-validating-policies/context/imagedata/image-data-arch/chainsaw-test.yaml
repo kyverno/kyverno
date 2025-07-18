@@ -19,8 +19,6 @@ spec:
         bindings:
         - name: name
           value: ivpol-image-data-arch-sample
-        - name: message
-          value: ""
   - name: create good pod
     try:
     - create:

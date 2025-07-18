@@ -27,8 +27,6 @@ spec:
         bindings:
         - name: name
           value: disallow-privilege-escalation
-        - name: message
-          value: ""
   - name: check autogen policy
     try:
     - assert:

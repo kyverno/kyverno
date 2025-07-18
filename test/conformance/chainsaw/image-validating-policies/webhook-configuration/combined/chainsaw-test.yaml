@@ -26,8 +26,6 @@ spec:
         bindings:
         - name: name
           value: check-signed-images-finegrained
-        - name: message
-          value: ""
   - name: wait-policy-ready
     use:
       template: ../../../_step-templates/image-validating-policy-ready.yaml
@@ -35,8 +33,6 @@ spec:
         bindings:
         - name: name
           value: check-signed-images-basic
-        - name: message
-          value: ""
   - name: check webhooks
     try:
     - assert:

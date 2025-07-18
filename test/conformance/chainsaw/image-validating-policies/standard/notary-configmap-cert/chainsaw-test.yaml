@@ -23,8 +23,6 @@ spec:
         bindings:
         - name: name
           value: ivpol-sample
-        - name: message
-          value: ""
   - name: create bad pod
     try:
     - create:

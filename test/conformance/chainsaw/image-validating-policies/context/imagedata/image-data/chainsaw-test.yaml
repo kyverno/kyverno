@@ -19,8 +19,6 @@ spec:
         bindings:
         - name: name
           value: ivpol-image-data-sample
-        - name: message
-          value: ""
   - name: create deployment
     try:
     - create:

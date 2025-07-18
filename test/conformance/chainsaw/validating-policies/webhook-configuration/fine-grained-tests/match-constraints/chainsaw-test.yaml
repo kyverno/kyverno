@@ -19,8 +19,6 @@ spec:
         bindings:
         - name: name
           value: check-deployment-labels
-        - name: message
-          value: ""
   - name: check webhooks
     try:
     - assert:

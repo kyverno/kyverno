@@ -19,8 +19,6 @@ spec:
         bindings:
         - name: name
           value: check-deployment-labels
-        - name: message
-          value: ""
   - name: create pod
     try:
     - create:

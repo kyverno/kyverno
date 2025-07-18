@@ -19,8 +19,6 @@ spec:
         bindings:
         - name: name
           value: disallow-privilege-escalation
-        - name: message
-          value: ""
   - name: create good pod
     try:
     - create:

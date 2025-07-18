@@ -23,5 +23,4 @@ spec:
               reason: Succeeded
               status: "True"
               type: RBACPermissionsGranted
-            message: ($message)
             ready: true

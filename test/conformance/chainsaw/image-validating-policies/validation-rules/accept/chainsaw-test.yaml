@@ -19,8 +19,6 @@ spec:
         bindings:
         - name: name
           value: check-signed-images
-        - name: message
-          value: ""
   - name: create deployment
     try:
     - create:

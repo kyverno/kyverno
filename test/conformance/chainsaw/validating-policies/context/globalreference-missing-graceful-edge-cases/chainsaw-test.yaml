@@ -28,8 +28,6 @@ spec:
           value: vpol-multiple-missing-refs
         - name: namespace
           value: default
-        - name: message
-          value: ""
   - name: create pod - should succeed with multiple null references
     try:
     - apply:
@@ -51,8 +49,6 @@ spec:
           value: vpol-enforce-missing-ref
         - name: namespace
           value: default
-        - name: message
-          value: ""
   - name: create pod with enforce policy - should still succeed gracefully
     try:
     - apply:

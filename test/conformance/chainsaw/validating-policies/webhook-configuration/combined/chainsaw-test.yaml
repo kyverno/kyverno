@@ -26,8 +26,6 @@ spec:
         bindings:
         - name: name
           value: disallow-privilege-escalation
-        - name: message
-          value: ""
   - name: wait-policy-ready
     use:
       template: ../../../_step-templates/validating-policy-ready.yaml
@@ -35,8 +33,6 @@ spec:
         bindings:
         - name: name
           value: check-deployment-labels-2
-        - name: message
-          value: ""
   - name: check webhooks
     try:
     - assert:

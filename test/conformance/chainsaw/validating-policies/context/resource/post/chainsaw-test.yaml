@@ -82,8 +82,6 @@ spec:
         bindings:
         - name: name
           value: check-subjectaccessreview
-        - name: message
-          value: ""
   - name: apply-resources
     try:
     - apply:
