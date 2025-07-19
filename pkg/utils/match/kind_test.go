@@ -53,3 +53,57 @@ func Test_CheckKind(t *testing.T) {
 	match = CheckKind([]string{"v1alpha1/Pod.eviction"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "eviction", false)
 	assert.Equal(t, match, false)
 }
+
+func Test_CheckKind_PolicyExceptionSubresources(t *testing.T) {
+	// Test that parent resource in exception matches subresources in policy
+	// This is the main fix for issue #13086
+	// Note: Using allowEphemeralContainers=true because that's how exceptions call this function
+
+	// PolicyException specifies "Pod", policy matches on "Pod/exec" - should match
+	match := CheckKind([]string{"Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "exec", true)
+	assert.Equal(t, match, true, "Parent resource 'Pod' should match subresource 'exec'")
+
+	// PolicyException specifies "Pod", policy matches on "Pod/log" - should match
+	match = CheckKind([]string{"Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "log", true)
+	assert.Equal(t, match, true, "Parent resource 'Pod' should match subresource 'log'")
+
+	// PolicyException specifies "Pod", policy matches on "Pod/attach" - should match
+	match = CheckKind([]string{"Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "attach", true)
+	assert.Equal(t, match, true, "Parent resource 'Pod' should match subresource 'attach'")
+
+	// PolicyException specifies "Pod", policy matches on "Pod/portforward" - should match
+	match = CheckKind([]string{"Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "portforward", true)
+	assert.Equal(t, match, true, "Parent resource 'Pod' should match subresource 'portforward'")
+
+	// PolicyException specifies "v1/Pod", policy matches on "Pod/exec" - should match
+	match = CheckKind([]string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "exec", true)
+	assert.Equal(t, match, true, "Versioned parent resource 'v1/Pod' should match subresource 'exec'")
+
+	// PolicyException specifies "Deployment", policy matches on "Deployment/scale" - should match
+	match = CheckKind([]string{"Deployment"}, schema.GroupVersionKind{Kind: "Deployment", Group: "apps", Version: "v1"}, "scale", true)
+	assert.Equal(t, match, true, "Parent resource 'Deployment' should match subresource 'scale'")
+
+	// PolicyException specifies "apps/v1/Deployment", policy matches on "Deployment/scale" - should match
+	match = CheckKind([]string{"apps/v1/Deployment"}, schema.GroupVersionKind{Kind: "Deployment", Group: "apps", Version: "v1"}, "scale", true)
+	assert.Equal(t, match, true, "Fully qualified parent resource should match subresource 'scale'")
+
+	// PolicyException specifies "Service", policy matches on "Pod/exec" - should NOT match
+	match = CheckKind([]string{"Service"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "exec", true)
+	assert.Equal(t, match, false, "Different resource kind should not match")
+
+	// PolicyException specifies exact subresource "Pod/log", policy matches on "Pod/exec" - should NOT match
+	match = CheckKind([]string{"Pod/log"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "exec", true)
+	assert.Equal(t, match, false, "Different subresources should not match")
+
+	// PolicyException specifies wildcard "*", policy matches on "Pod/exec" - should match
+	match = CheckKind([]string{"*"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "exec", true)
+	assert.Equal(t, match, true, "Wildcard should match any subresource")
+
+	// Multiple kinds in exception, one matches parent to subresource
+	match = CheckKind([]string{"Service", "Pod", "ConfigMap"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "exec", true)
+	assert.Equal(t, match, true, "Should match when one of multiple kinds matches")
+
+	// Test with allowEphemeralContainers=false to ensure backward compatibility
+	match = CheckKind([]string{"Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "exec", false)
+	assert.Equal(t, match, false, "With allowEphemeralContainers=false, parent should NOT match subresource")
+}
