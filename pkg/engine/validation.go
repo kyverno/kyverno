@@ -37,7 +37,8 @@ func (e *engine) validate(
 				return nil, nil
 			}
 			if hasValidate {
-				if rule.Validation.Assert.Value != nil {
+				hasValidateAssert := rule.HasValidateAssert()
+				if hasValidateAssert && rule.Validation.Assert.Value != nil {
 					return validation.NewValidateAssertHandler()
 				}
 				hasVerifyManifest := rule.HasVerifyManifests()
