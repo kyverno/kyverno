@@ -19,6 +19,12 @@ func CheckKind(kinds []string, gvk schema.GroupVersionKind, subresource string, 
 				return true
 			} else if allowEphemeralContainers && gvk == podGVK && subresource == "ephemeralcontainers" {
 				return true
+			} else if allowEphemeralContainers && sub == "" && subresource != "" {
+				// NEW FIX: If we're in exception matching mode (allowEphemeralContainers=true)
+				// and the exception doesn't specify a subresource (sub == "")
+				// but we're matching against a subresource (subresource != ""),
+				// then the parent resource exception should match the subresource
+				return true
 			}
 		}
 	}
