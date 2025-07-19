@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -3508,5 +3509,51 @@ func Test_isMapStringString(t *testing.T) {
 				t.Errorf("checkLabelAnnotation() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+func Test_NoSubresourceWarnings(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "test-policy"
+		},
+		"spec": {
+			"rules": [
+				{
+					"name": "test-replicas",
+					"match": {
+						"any": [{"resources": {"kinds": ["PodDisruptionBudget"]}}]
+					},
+					"validate": {
+						"message": "test replicas usage",
+						"pattern": {"spec": {"replicas": "?*"}}
+					}
+				},
+				{
+					"name": "test-status",
+					"match": {
+						"any": [{"resources": {"kinds": ["Pod"]}}]
+					},
+					"validate": {
+						"message": "test status usage",
+						"pattern": {"status": {"phase": "Running"}}
+					}
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	warnings, err := Validate(policy, nil, nil, true, "", "")
+	assert.Nil(t, err)
+
+	// Verify no subresource warnings are generated
+	for _, warning := range warnings {
+		assert.False(t, strings.Contains(warning, "scale subresource"), "Scale subresource warning should not be generated")
+		assert.False(t, strings.Contains(warning, "status subresource"), "Status subresource warning should not be generated")
 	}
 }
