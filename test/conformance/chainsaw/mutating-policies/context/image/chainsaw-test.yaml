@@ -8,13 +8,20 @@ spec:
       try:
         - apply:
             file: ns.yaml
-    - name: apply policy and verify existence
-      try:
-        - apply:
-            file: policy.yaml
-        - assert:
-            file: policy-assert.yaml
-
+    - name: create policy
+      use:
+        template: ../../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+          - name: file
+            value: policy.yaml
+    - name: verify-policy
+      use:
+        template: ../../../_step-templates/mutating-policy-ready.yaml
+        with:
+          bindings:
+          - name: name
+            value: mpol-lib-image
     - name: sleep
       try:
         - sleep:
