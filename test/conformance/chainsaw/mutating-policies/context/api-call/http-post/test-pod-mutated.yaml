@@ -4,8 +4,8 @@ metadata:
   namespace: default
   name: test-pod
   labels:
-    postLabel: "from-post"
-    env: test  # This label should be added by the mutating policy
+    app: demo 
+    postLabel: from-post
 spec:
   containers:
     - name: pause
