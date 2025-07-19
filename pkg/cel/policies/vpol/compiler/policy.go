@@ -142,6 +142,10 @@ func (p *Policy) evaluateWithData(
 					message = msg
 				}
 			}
+			// Add default message if empty
+			if message == "" {
+				message = fmt.Sprintf("CEL validation at index %d failed", index)
+			}
 			auditAnnotations := make(map[string]string, 0)
 			for key, annotation := range p.auditAnnotations {
 				out, _, err := annotation.ContextEval(ctx, dataNew)
