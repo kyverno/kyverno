@@ -14,14 +14,17 @@ spec:
             file: policy.yaml
         - assert:
             file: policy-assert.yaml
+
+    - name: sleep
+      try:
+        - sleep:
+            duration: 10s
     - name: create pods 
       try:
         - apply:
             file: pod.yaml
-    - name: sleep
-      try:
-        - sleep:
-            duration: 5s
+        - assert:
+            file: pod.yaml
     - name: verify mutated pods
       try:
         - assert:
