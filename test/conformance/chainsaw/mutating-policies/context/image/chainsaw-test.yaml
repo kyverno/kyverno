@@ -1,0 +1,44 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-image-lib
+spec:
+  steps:
+    - name: create namespace
+      try:
+        - apply:
+            file: ns.yaml
+    - name: create policy
+      use:
+        template: ../../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+          - name: file
+            value: policy.yaml
+    - name: verify-policy
+      use:
+        template: ../../../_step-templates/mutating-policy-ready.yaml
+        with:
+          bindings:
+          - name: name
+            value: mpol-lib-image
+    - name: sleep
+      try:
+        - sleep:
+            duration: 10s
+    - name: create pods 
+      try:
+        - apply:
+            file: pod.yaml
+        - assert:
+            file: pod.yaml
+    - name: verify mutated pods
+      try:
+        - assert:
+            file: pod-assert.yaml
+    - name: invalid-pod-verification
+      try:
+        - apply: 
+            file: invalid-pod.yaml
+        - assert:
+            file: invalid-pod.yaml
