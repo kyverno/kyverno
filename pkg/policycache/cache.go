@@ -52,7 +52,7 @@ func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, su
 	if pkey == ValidateAudit {
 		result = append(result, c.store.get(ValidateEnforce, gvr, subresource, "")...)
 	}
-	if pkey == ValidateAudit || pkey == ValidateEnforce {
+	if pkey == ValidateAudit || pkey == ValidateEnforce || pkey == ValidateDeferEnforce {
 		result = filterPolicies(pkey, result, nspace)
 	}
 	return result
@@ -66,9 +66,11 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace 
 		keepPolicy := true
 		switch pkey {
 		case ValidateAudit:
-			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, nspace, policy)
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, false, nspace, policy)
 		case ValidateEnforce:
-			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, false, nspace, policy)
+		case ValidateDeferEnforce:
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, true, nspace, policy)
 		}
 		// add policy to result
 		if keepPolicy {
@@ -78,7 +80,7 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace 
 	return policies
 }
 
-func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
+func checkValidationFailureActionOverrides(enforce bool, deferEnforce bool, ns string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
 	filteredRules := make([]kyvernov1.Rule, 0, len(policy.GetSpec().Rules))
 
 	// Use pointer to avoid copying the rule in each iteration
@@ -106,16 +108,26 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyver
 		for _, action := range validationFailureActionOverrides {
 			if ns != "" && wildcard.CheckPatterns(action.Namespaces, ns) {
 				overrideMatched = true
-				if action.Action.Enforce() == enforce {
-					filteredRules = append(filteredRules, *rule)
+				if deferEnforce {
+					if action.Action.DeferEnforce() {
+						filteredRules = append(filteredRules, *rule)
+					}
+				} else {
+					if action.Action.Enforce() == enforce {
+						filteredRules = append(filteredRules, *rule)
+					}
 				}
 				break // Stop once we find a matching override
 			}
 		}
 
 		// If no override matched for the namespace, apply the default validation failure action
-		if !overrideMatched && validationFailureAction.Enforce() == enforce {
-			filteredRules = append(filteredRules, *rule)
+		if !overrideMatched {
+			if deferEnforce && validationFailureAction.DeferEnforce() {
+				filteredRules = append(filteredRules, *rule)
+			} else if !deferEnforce && validationFailureAction.Enforce() == enforce {
+				filteredRules = append(filteredRules, *rule)
+			}
 		}
 	}
 
