@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mpol-http-get
+spec:
+  steps:
+  - name: setup-http-service
+    try:
+    - apply:
+        file: http-pod.yaml
+    - apply:
+        file: service.yaml
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-api
+            namespace: default
+          status:
+            phase: Running
+    - sleep:
+        duration: 30s
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-mutating-policy-ready
+    use:
+      template: ../../../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: mpol-http-get
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: test-mutation
+    try:
+    - create:
+        file: test-pod.yaml
+    - assert:
+        timeout: 30s
+        file: test-pod-mutated.yaml 
