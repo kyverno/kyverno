@@ -1,14 +1,14 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: StepTemplate
 metadata:
-  name: validating-policy-ready
+  name: generating-policy-ready
 spec:
   try:
   - assert:
       template: true
       resource:
         apiVersion: policies.kyverno.io/v1alpha1
-        kind: ValidatingPolicy
+        kind: GeneratingPolicy
         metadata:
           name: ($name)
         status:
