@@ -48,10 +48,20 @@ func (c *counter) Count() (int, bool) {
 	return c.entries.Len(), c.retryWatcher.IsRunning()
 }
 
+type fakeCounter struct{}
+
+func (fc *fakeCounter) Count() (int, bool) {
+	return 0, true
+}
+
+func NewFakeCounter() Counter {
+	return &fakeCounter{}
+}
+
 func StartResourceCounter(ctx context.Context, client metadataclient.Interface, gvr schema.GroupVersionResource, tweakListOptions internalinterfaces.TweakListOptionsFunc) (*counter, error) {
 	objs, err := client.Resource(gvr).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, err
+		return &counter{entries: sets.Set[types.UID]{}, retryWatcher: &watchtools.RetryWatcher{}}, nil
 	}
 	watcher := &cache.ListWatch{
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
@@ -63,7 +73,7 @@ func StartResourceCounter(ctx context.Context, client metadataclient.Interface, 
 	}
 	watchInterface, err := watchtools.NewRetryWatcher(objs.GetResourceVersion(), watcher)
 	if err != nil {
-		return nil, err
+		return &counter{entries: sets.Set[types.UID]{}, retryWatcher: &watchtools.RetryWatcher{}}, nil
 	}
 	entries := sets.New[types.UID]()
 	for _, entry := range objs.Items {
