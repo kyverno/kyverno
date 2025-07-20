@@ -49,6 +49,7 @@ type SetupResult struct {
 	KyvernoClient          kyvernoclient.UpstreamInterface
 	DynamicClient          dynamicclient.UpstreamInterface
 	ApiServerClient        apiserverclient.UpstreamInterface
+	RestClient             rest.Interface
 	MetadataClient         metadataclient.UpstreamInterface
 	KyvernoDynamicClient   dclient.Interface
 	EventsClient           eventsv1.EventsV1Interface
@@ -112,6 +113,10 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	if config.UsesEventsClient() {
 		eventsClient = createEventsClient(logger, metricsManager)
 	}
+	var restClient rest.Interface
+	if config.UsesRestClient() {
+		restClient = createRestClient(logger)
+	}
 	var reportingConfig reportutils.ReportingConfiguration
 	if config.UsesReporting() {
 		reportingConfig = setupReporting(logger)
@@ -149,6 +154,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			DynamicClient:          dynamicClient,
 			ApiServerClient:        apiServerClient,
 			MetadataClient:         metadataClient,
+			RestClient:             restClient,
 			KyvernoDynamicClient:   dClient,
 			EventsClient:           eventsClient,
 			ReportingConfiguration: reportingConfig,

@@ -34,6 +34,7 @@ import (
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
+	"k8s.io/client-go/rest"
 	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -67,6 +68,7 @@ func createReportControllers(
 	aggregationWorkers int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
+	restClient rest.Interface,
 	kyvernoClient versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
@@ -103,6 +105,7 @@ func createReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1alpha1.MutatingPolicies(),
 			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 			mapInformer,
@@ -140,10 +143,12 @@ func createReportControllers(
 				client,
 				kyvernoClient,
 				eng,
+				restClient,
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
 				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1alpha1.MutatingPolicies(),
 				policiesV1alpha1.ImageValidatingPolicies(),
 				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
@@ -196,6 +201,7 @@ func createrLeaderControllers(
 	kyvernoClient versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	dynamicClient dclient.Interface,
+	restClient rest.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
@@ -214,6 +220,7 @@ func createrLeaderControllers(
 		aggregationWorkers,
 		backgroundScanWorkers,
 		dynamicClient,
+		restClient,
 		kyvernoClient,
 		orClient,
 		metadataInformer,
@@ -413,6 +420,7 @@ func main() {
 					setup.KyvernoClient,
 					setup.OpenreportsClient,
 					setup.KyvernoDynamicClient,
+					setup.RestClient,
 					setup.Configuration,
 					setup.Jp,
 					eventGenerator,

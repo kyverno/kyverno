@@ -127,7 +127,6 @@ func TestAdmissionAndBackgroundEnabled(t *testing.T) {
 	t.Run("defaults to true if nil", func(t *testing.T) {
 		spec := MutatingPolicySpec{}
 		assert.True(t, spec.AdmissionEnabled(), "expected AdmissionEnabled to default to true")
-		assert.True(t, spec.BackgroundEnabled(), "expected BackgroundEnabled to default to true")
 	})
 
 	t.Run("returns set values", func(t *testing.T) {
@@ -146,7 +145,6 @@ func TestAdmissionAndBackgroundEnabled(t *testing.T) {
 		}
 
 		assert.False(t, spec.AdmissionEnabled(), "expected AdmissionEnabled to be false")
-		assert.True(t, spec.BackgroundEnabled(), "expected BackgroundEnabled to be true")
 	})
 }
 

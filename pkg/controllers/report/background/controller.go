@@ -45,6 +45,7 @@ import (
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
@@ -64,11 +65,13 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
+	restClient    rest.Interface
 
 	// listers
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
+	mpolLister       policiesv1alpha1listers.MutatingPolicyLister
 	ivpolLister      policiesv1alpha1listers.ImageValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
 	celpolexListener policiesv1alpha1listers.PolicyExceptionLister
@@ -101,10 +104,12 @@ func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	engine engineapi.Engine,
+	restClient rest.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
@@ -133,6 +138,7 @@ func NewController(
 		client:         client,
 		kyvernoClient:  kyvernoClient,
 		engine:         engine,
+		restClient:     restClient,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
 		polexLister:    polexInformer.Lister(),
@@ -153,6 +159,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mpolInformer != nil {
+		c.mpolLister = mpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mpolInformer.Informer(), c.addMP, c.updateMP, c.deleteMP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -273,6 +285,20 @@ func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
 }
 
 func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addMP(obj *policiesv1alpha1.MutatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateMP(old, obj *policiesv1alpha1.MutatingPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteMP(obj *policiesv1alpha1.MutatingPolicy) {
 	c.enqueueResources()
 }
 
@@ -510,6 +536,8 @@ func (c *controller) reconcileReport(
 				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
 			} else if policy.AsImageValidatingPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsImageValidatingPolicy()).String()
+			} else if policy.AsMutatingPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsMutatingPolicy()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
@@ -582,7 +610,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig, c.gctxStore)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.restClient, c.reportsConfig, c.gctxStore)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
@@ -699,6 +727,16 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
 			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
+		}
+	}
+	if c.mpolLister != nil {
+		// load mutating policies
+		vpols, err := utils.FetchMutatingPolicies(c.mpolLister)
+		if err != nil {
+			return err
+		}
+		for _, mpol := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
+			policies = append(policies, engineapi.NewMutatingPolicy(&mpol))
 		}
 	}
 	if c.ivpolLister != nil {

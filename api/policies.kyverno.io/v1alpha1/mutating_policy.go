@@ -295,7 +295,7 @@ func (s MutatingPolicySpec) AdmissionEnabled() bool {
 }
 
 // BackgroundEnabled checks if background is set to true
-func (s MutatingPolicySpec) BackgroundEnabled() bool {
+func (s MutatingPolicy) BackgroundEnabled() bool {
 	return true
 }
 
