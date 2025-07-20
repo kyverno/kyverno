@@ -28,7 +28,6 @@ import (
 type handler struct {
 	context                      libs.Context
 	engine                       mpolengine.Engine
-	reportsBreaker               breaker.Breaker
 	kyvernoClient                versioned.Interface
 	reportsConfig                reportutils.ReportingConfiguration
 	urGenerator                  webhookgenerate.Generator
@@ -38,7 +37,6 @@ type handler struct {
 func New(
 	context libs.Context,
 	engine mpolengine.Engine,
-	reportsBreaker breaker.Breaker,
 	kyvernoClient versioned.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
 	urGenerator webhookgenerate.Generator,
@@ -47,7 +45,6 @@ func New(
 	return &handler{
 		context:                      context,
 		engine:                       engine,
-		reportsBreaker:               reportsBreaker,
 		kyvernoClient:                kyvernoClient,
 		reportsConfig:                reportsConfig,
 		urGenerator:                  urGenerator,
@@ -134,7 +131,7 @@ func (h *handler) createReports(ctx context.Context, response mpolengine.EngineR
 
 	report := reportutils.BuildMutationReport(*response.Resource, request.Request, engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
 			return err
 		})
