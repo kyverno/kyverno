@@ -54,8 +54,8 @@ type ImageData struct {
 }
 
 type ImageDataClient interface {
-	ForRef(ctx context.Context, ref string) (*ImageData, error)
-	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
+	ForRef(ctx context.Context, ref, platform string) (*ImageData, error)
+	FetchImageDescriptor(context.Context, string, string) (*gcrremote.Descriptor, error)
 }
 
 type KeychainClient interface {
