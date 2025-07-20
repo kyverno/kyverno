@@ -35,11 +35,11 @@ func TestFetchImageDescriptor(t *testing.T) {
 	c, err := New()
 	assert.NilError(t, err)
 
-	tagDesc, err := c.FetchImageDescriptor(context.Background(), "ghcr.io/kyverno/test-verify-image:signed-keyless")
+	tagDesc, err := c.FetchImageDescriptor(context.Background(), "ghcr.io/kyverno/test-verify-image:signed-keyless", "")
 	assert.NilError(t, err)
 	assert.Equal(t, tagDesc.Digest.String(), "sha256:445a99db22e9add9bfb15ddb1980861a329e5dff5c88d7eec9cbf08b6b2f4eb1")
 
-	digestDesc, err := c.FetchImageDescriptor(context.Background(), "ghcr.io/kyverno/test-verify-image@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
+	digestDesc, err := c.FetchImageDescriptor(context.Background(), "ghcr.io/kyverno/test-verify-image@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", "")
 	assert.NilError(t, err)
 	assert.Equal(t, digestDesc.Digest.String(), "sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
 }

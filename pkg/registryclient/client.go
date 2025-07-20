@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -33,7 +34,7 @@ type Client interface {
 
 	// FetchImageDescriptor fetches Descriptor from registry with given imageRef
 	// and provides access to metadata about remote artifact.
-	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
+	FetchImageDescriptor(context.Context, string, string) (*gcrremote.Descriptor, error)
 
 	// Options returns remote.Option configuration for the client.
 	Options(context.Context) ([]gcrremote.Option, error)
@@ -176,7 +177,7 @@ func (c *client) NameOptions() []name.Option {
 
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef
 // and provides access to metadata about remote artifact.
-func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gcrremote.Descriptor, error) {
+func (c *client) FetchImageDescriptor(ctx context.Context, imageRef, platform string) (*gcrremote.Descriptor, error) {
 	nameOpts := c.NameOptions()
 	parsedRef, err := name.ParseReference(imageRef, nameOpts...)
 	if err != nil {
@@ -186,6 +187,15 @@ func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gc
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gcr remote opts: %s, error: %v", imageRef, err)
 	}
+	// If a platform was specified in the policy, parse it and add it to the remote options.
+	if platform != "" {
+		p, err := gcrv1.ParsePlatform(platform)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse platform: %s, error: %v", platform, err)
+		}
+		remoteOpts = append(remoteOpts, gcrremote.WithPlatform(*p))
+	}
+
 	desc, err := gcrremote.Get(parsedRef, remoteOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
