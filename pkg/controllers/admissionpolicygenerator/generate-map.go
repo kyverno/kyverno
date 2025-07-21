@@ -64,6 +64,10 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1al
 		return nil
 	}
 
+	celexceptions, err := c.getCELExceptions(mpol.GetName())
+	if err != nil {
+		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
+	}
 	if mapErr != nil {
 		if !apierrors.IsNotFound(mapErr) {
 			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %v", mapName, mapErr)
@@ -86,7 +90,7 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1al
 	}
 
 	if observedMAP.ResourceVersion == "" {
-		admissionpolicy.BuildMutatingAdmissionPolicy(observedMAP, mpol)
+		admissionpolicy.BuildMutatingAdmissionPolicy(observedMAP, mpol, celexceptions)
 		_, err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Create(ctx, observedMAP, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
@@ -97,7 +101,7 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1al
 			observedMAP,
 			c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1alpha1.MutatingAdmissionPolicy) error {
-				admissionpolicy.BuildMutatingAdmissionPolicy(observedMAP, mpol)
+				admissionpolicy.BuildMutatingAdmissionPolicy(observedMAP, mpol, celexceptions)
 				return nil
 			})
 		if err != nil {
