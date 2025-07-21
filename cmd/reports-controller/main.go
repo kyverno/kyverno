@@ -390,7 +390,7 @@ func main() {
 			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", func(context.Context) bool {
 				return true
 			})
-			// no error occured, create a normal breaker
+			// no error occurred, create a normal breaker
 		} else {
 			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
 		}

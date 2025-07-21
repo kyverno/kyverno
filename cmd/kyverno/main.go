@@ -782,7 +782,7 @@ func main() {
 				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
 					return true
 				})
-				// no error has occured, create a normal breaker
+				// no error has occurred, create a normal breaker
 			} else {
 				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
 			}
