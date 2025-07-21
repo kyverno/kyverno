@@ -1,0 +1,28 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: mpol-lib-image
+  namespace: isolated-ns
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE]
+        resources: [pods]
+  variables:
+    - name: registry
+      expression: >-
+        image(object.spec.containers[0].image).registry()
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >-
+          Object{
+            metadata: Object.metadata{
+              labels: Object.metadata.labels{
+                source: variables.registry
+              }
+            }
+          }
+        
