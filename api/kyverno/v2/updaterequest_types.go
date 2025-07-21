@@ -121,6 +121,9 @@ type RuleContext struct {
 
 	// ResourceSpec is the information to identify the trigger resource.
 	Trigger kyvernov1.ResourceSpec `json:"trigger"`
+
+	// CacheRestore indicates whether the cache should be restored.
+	CacheRestore bool `json:"cacheRestore,omitempty"`
 }
 
 // UpdateRequestSpecContext stores the context to be shared.

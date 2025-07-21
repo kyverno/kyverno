@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: different-trigger-target
+spec:
+  steps:
+  - name: create namespace and configmaps
+    try:
+    - create:
+        file: test-namespace.yaml
+    - assert:
+        file: test-namespace.yaml
+    - create:
+        file: configmaps.yaml
+    - assert:
+        file: configmaps.yaml
+  - name: create policy
+    use:
+      template: ..//../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-mutating-policy-ready
+    use:
+      template: ..//../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-mpol-different-trigger-target
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: trigger mutation by updating namespace
+    try:
+    - apply:
+        file: test-namespace-update.yaml
+  - name: verify configmaps are mutated
+    try:
+    - assert:
+        file: configmaps-assert.yaml 
+  - name: verify-default-namespace-configmap-no-foo-bar-label
+    description: Fetch ConfigMap in default namespace and assert it doesn't have label foo=bar
+    try:
+    - script:
+        content: |
+          echo "Checking ConfigMaps for label foo=bar..."
+          
+          # Get all foo label values from ConfigMaps across all namespaces
+          FOO_LABELS=$(kubectl get configmaps -o jsonpath='{.items[*].metadata.labels.foo}' -n default)
+          
+          echo "Found foo label values: $FOO_LABELS"
+          
+          # Check if any foo label equals "bar"
+          if echo "$FOO_LABELS" | grep -q "bar"; then
+            echo "❌ FAIL: Found ConfigMap with label foo=bar"
+            exit 1
+          else
+            echo "✅ SUCCESS: No ConfigMaps have label foo=bar"
+          fi
