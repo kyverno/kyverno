@@ -47,7 +47,6 @@ func NewValidationHandler(
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
 	reportConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -61,7 +60,6 @@ func NewValidationHandler(
 		cfg:              cfg,
 		nsLister:         nsLister,
 		reportConfig:     reportConfig,
-		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -77,7 +75,6 @@ type validationHandler struct {
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
 	reportConfig     reportutils.ReportingConfiguration
-	reportsBreaker   breaker.Breaker
 }
 
 func (v *validationHandler) HandleValidationEnforce(
@@ -257,7 +254,7 @@ func (v *validationHandler) createReports(
 ) error {
 	report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			// no need to set up open reports enabled here. create report is for an admission report (ephemeral)
 			_, err := reportutils.CreateEphemeralReport(ctx, report, v.kyvernoClient)
 			return err
