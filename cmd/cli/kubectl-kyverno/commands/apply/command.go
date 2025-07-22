@@ -406,7 +406,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 		validPolicies = append(validPolicies, pol)
 	}
 	var responses []engineapi.EngineResponse
-	namespaceCache := make(map[string]*unstructured.Unstructured)
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
@@ -436,7 +435,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
-			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -476,7 +474,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
-			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
