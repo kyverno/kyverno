@@ -62,7 +62,6 @@ func (s *ImageValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration 
 func (s *ImageValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
 	if toggle.IsForceFailurePolicyIgnoreEnabled() {
 		return admissionregistrationv1.Ignore
-
 	}
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail

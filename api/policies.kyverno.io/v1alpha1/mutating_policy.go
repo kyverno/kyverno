@@ -271,7 +271,6 @@ func (s *MutatingPolicySpec) GetReinvocationPolicy() admissionregistrationv1alph
 func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
 	if toggle.IsForceFailurePolicyIgnoreEnabled() {
 		return admissionregistrationv1.Ignore
-
 	}
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail

@@ -53,9 +53,8 @@ func (s *ValidatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchC
 }
 
 func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	if toggle.IsForceFailurePolicyIgnoreEnabled()  {
+	if toggle.IsForceFailurePolicyIgnoreEnabled() {
 		return admissionregistrationv1.Ignore
-
 	}
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail
