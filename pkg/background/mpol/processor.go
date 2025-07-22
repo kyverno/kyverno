@@ -70,7 +70,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	results := collectGVK(p.client, p.mapper, targetConstraints)
 	for ns, gvks := range results {
 		for r := range gvks {
-			if r.Kind == "Namespace" {
+			if r.Kind == "Namespace" || ns == "*" {
 				ns = ""
 			}
 			targets, err = p.client.ListResource(context.TODO(), r.GroupVersion().String(), r.Kind, ns, targetConstraints.ObjectSelector)
@@ -84,6 +84,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 	}
 
+	ar := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	for _, target := range targets.Items {
 		object := &target
 		mapping, err := p.mapper.RESTMapping(target.GroupVersionKind().GroupKind(), target.GroupVersionKind().Version)
@@ -107,7 +108,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			nil,
 		)
 
-		response, err := p.engine.Evaluate(context.TODO(), attr, mpolengine.MatchNames(ur.Spec.Policy))
+		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.MatchNames(ur.Spec.Policy))
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue

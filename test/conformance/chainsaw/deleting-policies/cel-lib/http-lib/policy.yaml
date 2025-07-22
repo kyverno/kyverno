@@ -5,7 +5,8 @@ metadata:
 spec:
   conditions:
   - name: http-200-check
-    expression: http.Get("https://httpbin.org/json").slideshow.author == "Yours Truly"
+    expression: >
+      http.Get("http://test-api-service.default.svc.cluster.local:80").metadata.labels.app == "test"
   matchConstraints:
     resourceRules:
     - apiGroups: [""]

@@ -289,6 +289,7 @@ func main() {
 					setup.KyvernoDynamicClient,
 					nil,
 					gcstore,
+					false,
 				)
 				if err != nil {
 					setup.Logger.Error(err, "failed to create cel context provider")
