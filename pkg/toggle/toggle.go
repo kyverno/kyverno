@@ -83,6 +83,9 @@ func (t *toggle) Parse(in string) error {
 		return nil
 	}
 }
+func IsForceFailurePolicyIgnoreEnabled() bool {
+	return ForceFailurePolicyIgnore.enabled()
+}
 
 func (t *toggle) enabled() bool {
 	if t.value != nil {
