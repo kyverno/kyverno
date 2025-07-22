@@ -12,6 +12,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -30,9 +31,17 @@ type processor struct {
 	mapper        meta.RESTMapper
 	context       libs.Context
 	statusControl common.StatusControlInterface
+	reportsConfig reportutils.ReportingConfiguration
 }
 
-func NewProcessor(client dclient.Interface, kyvernoClient versioned.Interface, mpolEngine mpolengine.Engine, mapper meta.RESTMapper, context libs.Context, statusControl common.StatusControlInterface) *processor {
+func NewProcessor(client dclient.Interface,
+	kyvernoClient versioned.Interface,
+	mpolEngine mpolengine.Engine,
+	mapper meta.RESTMapper,
+	context libs.Context,
+	statusControl common.StatusControlInterface,
+	reportsConfig reportutils.ReportingConfiguration,
+) *processor {
 	return &processor{
 		client:        client,
 		kyvernoClient: kyvernoClient,
@@ -40,6 +49,7 @@ func NewProcessor(client dclient.Interface, kyvernoClient versioned.Interface, m
 		mapper:        mapper,
 		context:       context,
 		statusControl: statusControl,
+		reportsConfig: reportsConfig,
 	}
 }
 

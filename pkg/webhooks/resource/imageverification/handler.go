@@ -41,7 +41,6 @@ type imageVerificationHandler struct {
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
 	reportConfig     reportutils.ReportingConfiguration
-	reportsBreaker   breaker.Breaker
 }
 
 func NewImageVerificationHandler(
@@ -53,7 +52,6 @@ func NewImageVerificationHandler(
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
 	reportConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -64,7 +62,6 @@ func NewImageVerificationHandler(
 		cfg:              cfg,
 		nsLister:         nsLister,
 		reportConfig:     reportConfig,
-		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -191,7 +188,7 @@ func (v *imageVerificationHandler) handleAudit(
 			if createReport {
 				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
 				if len(report.GetResults()) > 0 {
-					err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+					err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 						_, err := reportutils.CreateEphemeralReport(context.Background(), report, v.kyvernoClient)
 						return err
 					})
