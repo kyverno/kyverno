@@ -103,15 +103,6 @@ func createEventsClient(logger logr.Logger, metricsManager metrics.MetricsConfig
 	return client.EventsV1()
 }
 
-func createRestClient(logger logr.Logger) rest.Interface {
-	logger = logger.WithName("rest-client")
-	logger.V(2).Info("create REST client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	config := createClientConfig(logger, clientRateLimitQPS, clientRateLimitBurst)
-	restClient, err := rest.RESTClientFor(config)
-	checkError(logger, err, "failed to create REST client")
-	return restClient
-}
-
 func CreateAggregatorClient(logger logr.Logger, opts ...agg.NewOption) aggregator.Interface {
 	logger = logger.WithName("aggregator-client")
 	logger.V(2).Info("create aggregator client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
