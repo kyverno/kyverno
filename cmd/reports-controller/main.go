@@ -79,7 +79,6 @@ func createReportControllers(
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 	gcstore store.Store,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
@@ -164,7 +163,6 @@ func createReportControllers(
 				eventGenerator,
 				policyReports,
 				reportsConfig,
-				reportsBreaker,
 				gcstore,
 			)
 			ctrls = append(ctrls, internal.NewController(
@@ -206,7 +204,6 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
-	reportsBreaker breaker.Breaker,
 	gcstore store.Store,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
@@ -231,7 +228,6 @@ func createrLeaderControllers(
 		jp,
 		eventGenerator,
 		reportsConfig,
-		reportsBreaker,
 		gcstore,
 	)
 	return reportControllers, warmup, nil
@@ -374,19 +370,37 @@ func main() {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
+		ephrCounterFunc := func(c breaker.Counter) func(context.Context) bool {
+			return func(context.Context) bool {
+				count, isRunning := c.Count()
+				if !isRunning {
+					return true
+				}
+				return count > maxBackgroundReports
+			}
+		}
 		ephrs, err := breaker.StartBackgroundReportsCounter(ctx, setup.MetadataClient)
 		if err != nil {
-			setup.Logger.Error(err, "failed to start background-scan reports watcher")
-			os.Exit(1)
-		}
-		// create the circuit breaker
-		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
-			count, isRunning := ephrs.Count()
-			if !isRunning {
+			go func() {
+				for {
+					ephrs, err := breaker.StartBackgroundReportsCounter(ctx, setup.MetadataClient)
+					if err != nil {
+						setup.Logger.Error(err, "failed to start background scan reports watcher, retrying...")
+						time.Sleep(2 * time.Second)
+						continue
+					}
+					breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+					return
+				}
+			}()
+			// create a temporary breaker until the retrying goroutine succeeds
+			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", func(context.Context) bool {
 				return true
-			}
-			return count > maxBackgroundReports
-		})
+			})
+			// no error occurred, create a normal breaker
+		} else {
+			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+		}
 		// setup leader election
 		le, err := leaderelection.New(
 			setup.Logger.WithName("leader-election"),
@@ -425,7 +439,6 @@ func main() {
 					setup.Jp,
 					eventGenerator,
 					backgroundScanInterval,
-					reportsBreaker,
 					gcstore,
 				)
 				if err != nil {

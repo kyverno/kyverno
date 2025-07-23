@@ -56,8 +56,7 @@ type GenerateController struct {
 	log logr.Logger
 	jp  jmespath.Interface
 
-	reportsConfig  reportutils.ReportingConfiguration
-	reportsBreaker breaker.Breaker
+	reportsConfig reportutils.ReportingConfiguration
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -75,23 +74,21 @@ func NewGenerateController(
 	log logr.Logger,
 	jp jmespath.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) *GenerateController {
 	c := GenerateController{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		statusControl:  statusControl,
-		engine:         engine,
-		policyLister:   policyLister,
-		npolicyLister:  npolicyLister,
-		urLister:       urLister,
-		nsLister:       nsLister,
-		configuration:  dynamicConfig,
-		eventGen:       eventGen,
-		log:            log,
-		jp:             jp,
-		reportsConfig:  reportsConfig,
-		reportsBreaker: reportsBreaker,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		urLister:      urLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
+		jp:            jp,
+		reportsConfig: reportsConfig,
 	}
 	return &c
 }
@@ -351,7 +348,7 @@ func (c *GenerateController) createReports(
 ) error {
 	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, report, c.kyvernoClient)
 			return err
 		})
