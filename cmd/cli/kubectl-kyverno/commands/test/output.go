@@ -301,7 +301,6 @@ func printTestResult(
 
 					// if there are no RuleResponse, the resource has been excluded. This is a pass.
 					if len(rows) == 0 && !resourceSkipped {
-						// Use the same pattern as createRowsAccordingToResults
 						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
 						resourceParts := strings.Split(resourceGVKAndName, "/")
 
@@ -341,7 +340,6 @@ func printTestResult(
 			}
 
 			if len(rows) == 0 && !resourceSkipped {
-				// Use the same pattern as createRowsAccordingToResults
 				resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
 				resourceParts := strings.Split(resourceGVKAndName, "/")
 
