@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -60,7 +61,7 @@ func (s *ImageValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration 
 }
 
 func (s *ImageValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	if toggle.IsForceFailurePolicyIgnoreEnabled() {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
 		return admissionregistrationv1.Ignore
 	}
 	if s.Spec.FailurePolicy == nil {
