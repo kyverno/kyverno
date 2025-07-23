@@ -70,9 +70,9 @@ type controller struct {
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
 
-	cacheMu                 *sync.Mutex
 	// reportUUIDToPolicyCache maps report UUIDs to policies that affect them for targeted reconciliation.
 	// This avoids processing all reports when a single policy changes.
+	cacheMu                 *sync.Mutex
 	reportUUIDToPolicyCache map[string]sets.Set[string]
 
 	// queues
