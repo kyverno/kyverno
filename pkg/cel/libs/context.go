@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,12 +53,14 @@ type contextProvider struct {
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
 	genCtx             generateContext
+	cliEvaluation      bool
 }
 
 func NewContextProvider(
 	client dclient.Interface,
 	imageOpts []imagedataloader.Option,
 	gctxStore gctxstore.Store,
+	cliEvaluation bool,
 ) (Context, error) {
 	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
 	if err != nil {
@@ -67,6 +70,7 @@ func NewContextProvider(
 		client:             client,
 		imagedata:          idl,
 		gctxStore:          gctxStore,
+		cliEvaluation:      cliEvaluation,
 		generatedResources: make([]*unstructured.Unstructured, 0),
 	}, nil
 }
@@ -74,7 +78,9 @@ func NewContextProvider(
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
 	ent, ok := cp.gctxStore.Get(name)
 	if !ok {
-		return nil, errors.New("global context entry not found")
+		logger := logging.GlobalLogger()
+		logger.V(2).Info("global context entry not found, returning nil", "entry", name, "projection", projection)
+		return nil, nil
 	}
 	data, err := ent.Get(projection)
 	if err != nil {
@@ -149,6 +155,18 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 		}
 
 		for _, item := range items {
+			// In CLI evaluation mode, we do not create the resource in the cluster
+			// but just store it in the generated resources list.
+			if cp.cliEvaluation {
+				item.SetUID("")
+				item.SetManagedFields(nil)
+				item.SetAnnotations(nil)
+				item.SetNamespace(namespace)
+				item.SetResourceVersion("")
+				item.SetCreationTimestamp(metav1.Time{})
+				cp.generatedResources = append(cp.generatedResources, item)
+				continue
+			}
 			cp.addGenerateLabels(item)
 			item.SetNamespace(namespace)
 			item.SetResourceVersion("")
