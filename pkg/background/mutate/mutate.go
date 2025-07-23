@@ -47,8 +47,7 @@ type mutateExistingController struct {
 	log logr.Logger
 	jp  jmespath.Interface
 
-	reportsConfig  reportutils.ReportingConfiguration
-	reportsBreaker breaker.Breaker
+	reportsConfig reportutils.ReportingConfiguration
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -65,22 +64,20 @@ func NewMutateExistingController(
 	log logr.Logger,
 	jp jmespath.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) *mutateExistingController {
 	c := mutateExistingController{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		statusControl:  statusControl,
-		engine:         engine,
-		policyLister:   policyLister,
-		npolicyLister:  npolicyLister,
-		nsLister:       nsLister,
-		configuration:  dynamicConfig,
-		eventGen:       eventGen,
-		log:            log,
-		jp:             jp,
-		reportsConfig:  reportsConfig,
-		reportsBreaker: reportsBreaker,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
+		jp:            jp,
+		reportsConfig: reportsConfig,
 	}
 	return &c
 }
@@ -283,7 +280,7 @@ func (c *mutateExistingController) createReports(
 ) error {
 	report := reportutils.BuildMutateExistingReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, report, c.kyvernoClient)
 			return err
 		})

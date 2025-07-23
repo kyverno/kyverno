@@ -1,4 +1,4 @@
-FROM ubuntu:24.04@sha256:e356c061e8d56c58b708d0907925a9bd54cc8f467f05bfa3d714d1d0a4883d97
+FROM ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061
 
 RUN apt-get update && apt-get install -y sudo git curl apt-transport-https ca-certificates gnupg-agent software-properties-common
 ARG USERNAME=root
