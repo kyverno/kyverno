@@ -93,7 +93,6 @@ type controller struct {
 	eventGen      event.Interface
 	policyReports bool
 	reportsConfig reportutils.ReportingConfiguration
-	breaker       breaker.Breaker
 	gctxStore     gctxstore.Store
 }
 
@@ -120,7 +119,6 @@ func NewController(
 	eventGen event.Interface,
 	policyReports bool,
 	reportsConfig reportutils.ReportingConfiguration,
-	breaker breaker.Breaker,
 	gctxStore gctxstore.Store,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
@@ -147,7 +145,6 @@ func NewController(
 		eventGen:       eventGen,
 		policyReports:  policyReports,
 		reportsConfig:  reportsConfig,
-		breaker:        breaker,
 		gctxStore:      gctxStore,
 	}
 	if vpolInformer != nil {
@@ -629,7 +626,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 	if !hasReport && !wantsReport {
 		return nil
 	} else if !hasReport && wantsReport {
-		err = c.breaker.Do(ctx, func(context.Context) error {
+		err = breaker.GetReportsBreaker().Do(ctx, func(context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, desired, c.kyvernoClient)
 			if err != nil {
 				return err
