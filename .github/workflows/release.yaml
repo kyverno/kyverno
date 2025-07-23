@@ -29,7 +29,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 30
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37 # v0.31.0
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4 # v0.32.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -269,7 +269,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@bda4c8187e436462be0d072e728b67afa215c593 # v2.6.3
+        uses: fluxcd/flux2/action@6bf37f6a560fd84982d67f853162e4b3c2235edb # v2.6.4
         with:
           version: 0.35.0
       - name: Install Cosign
@@ -277,14 +277,14 @@ jobs:
       - name: Build yaml manifest
         run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
-        uses: svenstaro/upload-release-action@5e35e583720436a2cc5f9682b6f55657101c1ea1 # 2.11.1
+        uses: svenstaro/upload-release-action@81c65b7cd4de9b2570615ce3aad67a41de5b1a13 # 2.11.2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
       - name: Upload CRD manifest
-        uses: svenstaro/upload-release-action@5e35e583720436a2cc5f9682b6f55657101c1ea1 # 2.11.1
+        uses: svenstaro/upload-release-action@81c65b7cd4de9b2570615ce3aad67a41de5b1a13 # 2.11.2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: config/crds/**/*.yaml

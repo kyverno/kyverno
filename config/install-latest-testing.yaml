@@ -48391,6 +48391,10 @@ spec:
                   optional
                 items:
                   properties:
+                    cacheRestore:
+                      description: CacheRestore indicates whether the cache should
+                        be restored.
+                      type: boolean
                     deleteDownstream:
                       description: DeleteDownstream represents whether the downstream
                         needs to be deleted.
@@ -58015,6 +58019,22 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - openreports.io
+    resources:
+      - reports
+      - reports/status
+      - clusterreports
+      - clusterreports/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
       - ''
       - events.k8s.io
     resources:
@@ -58630,6 +58650,7 @@ spec:
           args:
             - --loggingFormat=text
             - --v=2
+            - --openreportsEnabled=false
           resources:
             limits:
               cpu: 100m
@@ -59095,6 +59116,7 @@ spec:
           
           args:
             - --disableMetrics=false
+            - --openreportsEnabled=false
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --resyncPeriod=15m
@@ -59102,6 +59124,7 @@ spec:
             - --aggregateReports=true
             - --policyReports=true
             - --validatingAdmissionPolicyReports=true
+            - --mutatingAdmissionPolicyReports=false
             - --backgroundScan=true
             - --backgroundScanWorkers=2
             - --backgroundScanInterval=1h

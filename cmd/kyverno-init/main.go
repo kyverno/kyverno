@@ -38,6 +38,7 @@ func main() {
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithOpenreports(),
+		internal.WithApiServerClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)

@@ -210,14 +210,6 @@ func (pc *policyController) addPolicy(obj interface{}) {
 		if !pc.canBackgroundProcess(kpol) {
 			return
 		}
-	} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
-		if gpol.Spec.GenerateExistingEnabled() {
-			logger.V(2).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
-			err := pc.handleGenerateExisting(gpol)
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", gpol.GetName(), err))
-			}
-		}
 	}
 
 	logger.V(4).Info("queuing policy for background processing", "name", policy.GetName())
@@ -260,14 +252,6 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		if oldgpol.Spec.SynchronizationEnabled() && !newgpol.Spec.SynchronizationEnabled() {
 			logger.V(2).Info("removing watchers for generating policy", "name", oldgpol.GetName())
 			pc.watchManager.RemoveWatchersForPolicy(oldgpol.GetName(), false)
-		}
-		// create UR to update/generate downstream resources
-		if newgpol.Spec.SynchronizationEnabled() {
-			logger.V(2).Info("creating UR for generating policy", "name", newgpol.GetName())
-			err := pc.createURForGeneratingPolicy(newgpol)
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", newgpol.GetName(), err))
-			}
 		}
 	}
 
@@ -429,6 +413,30 @@ func (pc *policyController) syncPolicy(key string) error {
 			err = pc.handleGenerate(polName, policy)
 			if err != nil {
 				logger.Error(err, "failed to updateUR on generate policy update")
+			}
+		}
+	} else if polType == "gpol" {
+		gpol, err := pc.gpolLister.Get(polName)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		// create UR on policy events to update/generate downstream resources
+		if gpol.Spec.SynchronizationEnabled() {
+			logger.V(4).Info("creating UR on generating policy events", "name", gpol.GetName())
+			err := pc.createURForGeneratingPolicy(gpol)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("failed to create UR on generating policy events %s: %v", gpol.GetName(), err))
+			}
+		}
+		// generate resources for existing triggers
+		if gpol.Spec.GenerateExistingEnabled() {
+			logger.V(4).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
+			err := pc.handleGenerateExisting(gpol)
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", gpol.GetName(), err))
 			}
 		}
 	}

@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-with-gctx-works
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: deploymentCount
+      expression: >-
+        globalContext.Get("gctxentry-test-deployments", "count")
+  validations:
+    - expression: >-
+        variables.deploymentCount >= 0
+      messageExpression: "'Deployment count from existing gctx: ' + string(variables.deploymentCount)" 

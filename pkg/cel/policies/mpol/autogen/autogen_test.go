@@ -431,6 +431,37 @@ func TestAutogenIntegration(t *testing.T) {
 		assert.Contains(t, convertedExpr, "jobTemplate.spec.template.spec.containers")
 		assert.NotContains(t, convertedExpr, "object.spec.containers")
 	})
+
+	t.Run("nil-policy", func(t *testing.T) {
+		result, err := Autogen(nil)
+		require.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("non-autogenable match constraints", func(t *testing.T) {
+		pol := &policiesv1alpha1.MutatingPolicy{
+			Spec: policiesv1alpha1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
+					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"custom.group.io"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"customresources"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Connect},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		result, err := Autogen(pol)
+		assert.NoError(t, err)
+		assert.Nil(t, result)
+	})
 }
 
 func TestMutationConversionEdgeCases(t *testing.T) {

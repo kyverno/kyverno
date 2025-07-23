@@ -28,7 +28,7 @@ spec:
           value: vpol-http-post
   - try:
     - apply: 
-       file: good-pod.yaml
+        file: good-pod.yaml
     - create:
         file: bad-pod.yaml
         expect:

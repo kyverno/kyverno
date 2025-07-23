@@ -13,9 +13,6 @@ spec:
       apiVersions: [ "v1" ]
       operations: [ "CREATE", "UPDATE"]
       resources: [ "namespaces" ]
-  # matchConditions:
-  # - name: is-target-namespace
-  #   expression: object.metadata.name == 'test-mpol-same-trigger-target-1'
   mutations:
   - patchType: ApplyConfiguration
     applyConfiguration:

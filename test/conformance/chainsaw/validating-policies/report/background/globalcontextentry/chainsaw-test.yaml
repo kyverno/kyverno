@@ -1,0 +1,68 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: validating-policy-audit-globalcontext
+spec:
+  description: Test ValidatingPolicy background reporting with GlobalContextEntry
+  steps:
+  - name: create-test-deployment
+    description: Create test deployment first to establish baseline
+    try:
+    - apply:
+        file: test-deployment.yaml
+    - assert:
+        file: test-deployment.yaml
+
+  - name: create-globalcontextentry
+    description: Create GlobalContextEntry to fetch deployments
+    try:
+    - apply:
+        file: globalcontextentry.yaml
+    - assert:
+        file: globalcontextentry.yaml
+
+  - name: create-validating-policy
+    description: Create ValidatingPolicy that uses GlobalContextEntry
+    try:
+    - apply:
+        file: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-globalcontext-validatingpolicy-audit-report
+
+  - name: create-bare-pod
+    description: Create a bare pod to trigger policy evaluation
+    try:
+    - sleep:
+        duration: 3s
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-bare-pod
+            namespace: test-globalcontext-validatingpolicy-audit-report-ns
+          spec:
+            containers:
+            - name: test
+              image: nginx:latest
+    
+  - name: verify-policy-report-with-debug-message
+    description: Verify policy report contains debug=1 message (1 deployment found)
+    try:
+    - assert:
+        resource:
+          apiVersion: wgpolicyk8s.io/v1alpha2
+          kind: PolicyReport
+          metadata:
+            namespace: test-globalcontext-validatingpolicy-audit-report-ns
+          results:
+          - policy: test-globalcontext-validatingpolicy-audit-report
+            result: fail
+            message: "debug=1"
+            source: KyvernoValidatingPolicy
+        timeout: 60s

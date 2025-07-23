@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: test-globalcontext-validatingpolicy-audit-report
+spec:
+  validationActions:
+    - Audit
+  failurePolicy: Ignore
+  evaluation:
+    background:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  variables:
+    - name: deployments
+      expression: >-
+        globalContext.Get("all-deployments", "")
+  validations:
+    - expression: "0 == 1"
+      messageExpression: '"debug=" + string(variables.deployments.size())' 

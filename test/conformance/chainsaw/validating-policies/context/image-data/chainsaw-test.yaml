@@ -5,7 +5,6 @@ metadata:
   name: image-data
 spec:
   steps:
-
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
