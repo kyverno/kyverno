@@ -5,6 +5,8 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -61,9 +63,13 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 	env, err = env.Extend(
 		cel.Variable(compiler.GeneratorKey, generator.ContextType),
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 		generator.Lib(),
 		resource.Lib(),
+		globalcontext.Lib(),
+		http.Lib(),
 	)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
