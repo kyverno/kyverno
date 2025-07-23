@@ -349,15 +349,16 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from validating admission policies
 		for _, policy := range mpols {
-			kinds, err := admissionpolicy.GetKindsMpol(policy.Spec.MatchConstraints, restMapper)
+			matchConstraints := policy.Spec.GetMatchConstraints()
+			kinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 			if err != nil {
 				return err
 			}
 
 			for _, policy := range policy.Status.Autogen.Configs {
-				genKinds, err := admissionpolicy.GetKindsMpol(policy.Spec.MatchConstraints, restMapper)
+				matchConstraints := policy.Spec.GetMatchConstraints()
+				genKinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 				if err != nil {
 					return err
 				}

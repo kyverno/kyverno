@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -45,7 +46,6 @@ import (
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
@@ -65,7 +65,6 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
-	restClient    rest.Interface
 
 	// listers
 	polLister        kyvernov1listers.PolicyLister
@@ -97,13 +96,14 @@ type controller struct {
 	policyReports bool
 	reportsConfig reportutils.ReportingConfiguration
 	gctxStore     gctxstore.Store
+
+	typeConverter patch.TypeConverterManager
 }
 
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	engine engineapi.Engine,
-	restClient rest.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
@@ -125,6 +125,7 @@ func NewController(
 	policyReports bool,
 	reportsConfig reportutils.ReportingConfiguration,
 	gctxStore gctxstore.Store,
+	typeConverter patch.TypeConverterManager,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -136,7 +137,6 @@ func NewController(
 		client:         client,
 		kyvernoClient:  kyvernoClient,
 		engine:         engine,
-		restClient:     restClient,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
 		polexLister:    polexInformer.Lister(),
@@ -152,6 +152,7 @@ func NewController(
 		policyReports:  policyReports,
 		reportsConfig:  reportsConfig,
 		gctxStore:      gctxStore,
+		typeConverter:  typeConverter,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -607,7 +608,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.restClient, c.reportsConfig, c.gctxStore)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig, c.gctxStore, c.typeConverter)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
@@ -710,14 +711,13 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 		kyvernoPolicies = append(kyvernoPolicies, pols...)
 	}
-	// load background policies
+
 	kyvernoPolicies = utils.RemoveNonBackgroundPolicies(kyvernoPolicies...)
 	policies := make([]engineapi.GenericPolicy, 0, len(kyvernoPolicies))
 	for _, pol := range kyvernoPolicies {
 		policies = append(policies, engineapi.NewKyvernoPolicy(pol))
 	}
 	if c.vpolLister != nil {
-		// load validating policies
 		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
 		if err != nil {
 			return err
@@ -727,17 +727,15 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 	}
 	if c.mpolLister != nil {
-		// load mutating policies
-		vpols, err := utils.FetchMutatingPolicies(c.mpolLister)
+		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
 		if err != nil {
 			return err
 		}
-		for _, mpol := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
+		for _, mpol := range celpolicies.RemoveNoneBackgroundPolicies(mpols) {
 			policies = append(policies, engineapi.NewMutatingPolicy(&mpol))
 		}
 	}
 	if c.ivpolLister != nil {
-		// load validating policies
 		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
 		if err != nil {
 			return err
@@ -747,7 +745,6 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 	}
 	if c.vapLister != nil {
-		// load validating admission policies
 		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
 		if err != nil {
 			return err

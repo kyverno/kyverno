@@ -31,8 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/openapi"
-	"k8s.io/client-go/rest"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 )
 
 type scanner struct {
@@ -41,9 +40,9 @@ type scanner struct {
 	config          config.Configuration
 	jp              jmespath.Interface
 	client          dclient.Interface
-	restClient      rest.Interface
 	reportingConfig reportutils.ReportingConfiguration
 	gctxStore       gctxstore.Store
+	typeConverter   patch.TypeConverterManager
 }
 
 type ScanResult struct {
@@ -71,9 +70,9 @@ func NewScanner(
 	config config.Configuration,
 	jp jmespath.Interface,
 	client dclient.Interface,
-	restClient rest.Interface,
 	reportingConfig reportutils.ReportingConfiguration,
 	gctxStore gctxstore.Store,
+	typeConverter patch.TypeConverterManager,
 ) Scanner {
 	return &scanner{
 		logger:          logger,
@@ -81,9 +80,9 @@ func NewScanner(
 		config:          config,
 		jp:              jp,
 		client:          client,
-		restClient:      restClient,
 		reportingConfig: reportingConfig,
 		gctxStore:       gctxStore,
+		typeConverter:   typeConverter,
 	}
 }
 
@@ -160,96 +159,21 @@ func (s *scanner) ScanResource(
 			results[&kpols[i]] = ScanResult{response, multierr.Combine(errors...)}
 		}
 	}
-	// evaluate validating policies
+
 	for i, policy := range vpols {
-		if pol := policy.AsMutatingPolicy(); pol != nil {
-			// create compiler
-			compiler := mpolcompiler.NewCompiler()
-			// create provider
-			provider, err := mpolengine.NewProvider(compiler, []policiesv1alpha1.MutatingPolicy{*pol}, exceptions)
-			if err != nil {
-				logger.Error(err, "failed to create policy provider")
-				results[&vpols[i]] = ScanResult{nil, err}
-				continue
-			}
-			// use the shared global context store instead of creating a new empty one
-			// create context provider
-			context, err := libs.NewContextProvider(
-				s.client,
-				nil,
-				// TODO
-				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
-				s.gctxStore,
-				false,
-			)
-			typeconverter := mpolcompiler.NewStaticTypeConverterManager(openapi.NewClient(s.restClient))
-
-			// context provider
-			// type converter
-			// create engine
-			engine := mpolengine.NewEngine(
-				provider,
-				func(name string) *corev1.Namespace { return ns },
-				matching.NewMatcher(),
-				typeconverter,
-				context,
-			)
-
-			if err != nil {
-				logger.Error(err, "failed to create cel context provider")
-				results[&vpols[i]] = ScanResult{nil, err}
-				continue
-			}
-			request := celengine.Request(
-				context,
-				resource.GroupVersionKind(),
-				gvr,
-				subResource,
-				resource.GetName(),
-				resource.GetNamespace(),
-				admissionv1.Create,
-				authenticationv1.UserInfo{},
-				&resource,
-				nil,
-				false,
-				nil,
-			)
-			engineResponse, err := engine.Handle(ctx, request, nil)
-			rules := make([]engineapi.RuleResponse, 0)
-			for _, policy := range engineResponse.Policies {
-				rules = append(rules, policy.Rules...)
-			}
-
-			response := engineapi.EngineResponse{
-				Resource: resource,
-				PolicyResponse: engineapi.PolicyResponse{
-					Rules: rules,
-				},
-			}.WithPolicy(vpols[i])
-			results[&vpols[i]] = ScanResult{&response, err}
-		}
-	}
-
-	// evaluate validating policies
-	for i, policy := range mpols {
 		if pol := policy.AsValidatingPolicy(); pol != nil {
-			// create compiler
 			compiler := vpolcompiler.NewCompiler()
-			// create provider
 			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
 				continue
 			}
-			// create engine
 			engine := vpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 			)
-			// use the shared global context store instead of creating a new empty one
-			// create context provider
 			context, err := libs.NewContextProvider(
 				s.client,
 				nil,
@@ -293,17 +217,74 @@ func (s *scanner) ScanResource(
 		}
 	}
 
-	// evaluate image verification policies
+	for i, policy := range mpols {
+		if pol := policy.AsMutatingPolicy(); pol != nil {
+			compiler := mpolcompiler.NewCompiler()
+			provider, err := mpolengine.NewProvider(compiler, []policiesv1alpha1.MutatingPolicy{*pol}, exceptions)
+			if err != nil {
+				logger.Error(err, "failed to create policy provider")
+				results[&vpols[i]] = ScanResult{nil, err}
+				continue
+			}
+			context, err := libs.NewContextProvider(
+				s.client,
+				nil,
+				// TODO
+				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+				s.gctxStore,
+				false,
+			)
+			engine := mpolengine.NewEngine(
+				provider,
+				func(name string) *corev1.Namespace { return ns },
+				matching.NewMatcher(),
+				s.typeConverter,
+				context,
+			)
+
+			if err != nil {
+				logger.Error(err, "failed to create cel context provider")
+				results[&vpols[i]] = ScanResult{nil, err}
+				continue
+			}
+			request := celengine.Request(
+				context,
+				resource.GroupVersionKind(),
+				gvr,
+				subResource,
+				resource.GetName(),
+				resource.GetNamespace(),
+				admissionv1.Create,
+				authenticationv1.UserInfo{},
+				&resource,
+				nil,
+				false,
+				nil,
+			)
+			engineResponse, err := engine.Handle(ctx, request, nil)
+			rules := make([]engineapi.RuleResponse, 0)
+			for _, policy := range engineResponse.Policies {
+				rules = append(rules, policy.Rules...)
+			}
+
+			response := engineapi.EngineResponse{
+				Resource: resource,
+				PolicyResponse: engineapi.PolicyResponse{
+					Rules: rules,
+				},
+			}.WithPolicy(vpols[i])
+			results[&vpols[i]] = ScanResult{&response, err}
+		}
+	}
+
 	for i, policy := range ivpols {
 		if pol := policy.AsImageValidatingPolicy(); pol != nil {
-			// create provider
 			provider, err := ivpolengine.NewProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
 				continue
 			}
-			// create engine
 			engine := ivpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
@@ -311,7 +292,6 @@ func (s *scanner) ScanResource(
 				s.client.GetKubeClient().CoreV1().Secrets(""),
 				nil,
 			)
-			// create context provider
 			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New(), false)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
@@ -345,7 +325,7 @@ func (s *scanner) ScanResource(
 			results[&ivpols[i]] = ScanResult{&response, err}
 		}
 	}
-	// evaluate validating admission policies
+
 	for i, policy := range vaps {
 		if policyData := policy.AsValidatingAdmissionPolicy(); policyData != nil {
 			for _, binding := range vapBindings {
@@ -357,7 +337,7 @@ func (s *scanner) ScanResource(
 			results[&vaps[i]] = ScanResult{&res, err}
 		}
 	}
-	// evaluate mutating admission policies
+
 	for i, policy := range maps {
 		if policyData := policy.AsMutatingAdmissionPolicy(); policyData != nil {
 			for _, binding := range mapBindings {

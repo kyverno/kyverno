@@ -30,11 +30,11 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
-	"k8s.io/client-go/rest"
 	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -68,7 +68,6 @@ func createReportControllers(
 	aggregationWorkers int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
-	restClient rest.Interface,
 	kyvernoClient versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
@@ -80,6 +79,7 @@ func createReportControllers(
 	eventGenerator event.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
 	gcstore store.Store,
+	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -142,7 +142,6 @@ func createReportControllers(
 				client,
 				kyvernoClient,
 				eng,
-				restClient,
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
@@ -164,6 +163,7 @@ func createReportControllers(
 				policyReports,
 				reportsConfig,
 				gcstore,
+				typeConverter,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -199,12 +199,12 @@ func createrLeaderControllers(
 	kyvernoClient versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	dynamicClient dclient.Interface,
-	restClient rest.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
 	gcstore store.Store,
+	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		eng,
@@ -217,7 +217,6 @@ func createrLeaderControllers(
 		aggregationWorkers,
 		backgroundScanWorkers,
 		dynamicClient,
-		restClient,
 		kyvernoClient,
 		orClient,
 		metadataInformer,
@@ -229,6 +228,7 @@ func createrLeaderControllers(
 		eventGenerator,
 		reportsConfig,
 		gcstore,
+		typeConverter,
 	)
 	return reportControllers, warmup, nil
 }
@@ -401,6 +401,10 @@ func main() {
 		} else {
 			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
 		}
+
+		typeConverter := patch.NewTypeConverterManager(nil, setup.KubeClient.Discovery().OpenAPIV3())
+		go typeConverter.Run(ctx)
+
 		// setup leader election
 		le, err := leaderelection.New(
 			setup.Logger.WithName("leader-election"),
@@ -434,12 +438,12 @@ func main() {
 					setup.KyvernoClient,
 					setup.OpenreportsClient,
 					setup.KyvernoDynamicClient,
-					setup.RestClient,
 					setup.Configuration,
 					setup.Jp,
 					eventGenerator,
 					backgroundScanInterval,
 					gcstore,
+					typeConverter,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")

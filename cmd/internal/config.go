@@ -23,7 +23,6 @@ type Configuration interface {
 	UsesMetadataClient() bool
 	UsesKyvernoDynamicClient() bool
 	UsesEventsClient() bool
-	UsesRestClient() bool
 	UsesReporting() bool
 	UsesRestConfig() bool
 	UsesOpenreports() bool
@@ -188,7 +187,6 @@ type configuration struct {
 	usesMetadataClient       bool
 	usesKyvernoDynamicClient bool
 	usesEventsClient         bool
-	usesRestClient           bool
 	usesOpenreports          bool
 	usesReporting            bool
 	usesRestConfig           bool
@@ -229,10 +227,6 @@ func (c *configuration) UsesDeferredLoading() bool {
 
 func (c *configuration) UsesCosign() bool {
 	return c.usesCosign
-}
-
-func (c *configuration) UsesRestClient() bool {
-	return c.usesRestClient
 }
 
 func (c *configuration) UsesRegistryClient() bool {
