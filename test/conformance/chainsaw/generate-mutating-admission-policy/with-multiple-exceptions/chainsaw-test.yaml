@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: with-cel-exceptions
+  name: with-multiple-exceptions
 spec:
   steps:
   - name: create exception
