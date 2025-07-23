@@ -1,0 +1,9 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: test-pod
+  namespace: test-globalcontext-apicall-mpol-ns
+spec:
+  containers:
+    - name: test-container
+      image: nginx:latest

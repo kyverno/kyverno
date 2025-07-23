@@ -13,27 +13,12 @@ spec:
         - name: file
           value: policy.yaml
   - name: wait-mutating-policy-ready
-    try:
-    - assert:
-        template: true
-        resource:
-          apiVersion: policies.kyverno.io/v1alpha1
-          kind: MutatingPolicy
-          metadata:
-            name: add-env-label
-          status:
-            conditionStatus:
-              conditions:
-              - message: Webhook configured.
-                reason: Succeeded
-                status: "True"
-                type: WebhookConfigured
-              - message: Policy is ready for reporting.
-                reason: Succeeded
-                status: "True"
-                type: RBACPermissionsGranted
-              message: ""
-              ready: true
+    use:
+      template: ../../../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: add-env-label
   - name: create test namespace
     try:
     - create:
