@@ -223,7 +223,7 @@ func (s *scanner) ScanResource(
 			provider, err := mpolengine.NewProvider(compiler, []policiesv1alpha1.MutatingPolicy{*pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
-				results[&vpols[i]] = ScanResult{nil, err}
+				results[&mpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			context, err := libs.NewContextProvider(
@@ -264,6 +264,11 @@ func (s *scanner) ScanResource(
 			engineResponse, err := engine.Handle(ctx, request, nil)
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
+				for j, r := range policy.Rules {
+					if r.Status() == engineapi.RuleStatusPass {
+						policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+					}
+				}
 				rules = append(rules, policy.Rules...)
 			}
 
@@ -272,8 +277,8 @@ func (s *scanner) ScanResource(
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: rules,
 				},
-			}.WithPolicy(vpols[i])
-			results[&vpols[i]] = ScanResult{&response, err}
+			}.WithPolicy(mpols[i])
+			results[&mpols[i]] = ScanResult{&response, err}
 		}
 	}
 
