@@ -21,8 +21,13 @@ func RegistryClient(client registryclient.Client) engineapi.RegistryClient {
 	return &rclientAdapter{client}
 }
 
-func (a *rclientAdapter) ForRef(ctx context.Context, ref, platform string) (*engineapi.ImageData, error) {
-	desc, err := a.Client.FetchImageDescriptor(ctx, ref, platform)
+func (a *rclientAdapter) ForRef(ctx context.Context, ref string, platform ...string) (*engineapi.ImageData, error) {
+	platformStr := ""
+	if len(platform) > 0 {
+		platformStr = platform[0]
+	}
+
+	desc, err := a.Client.FetchImageDescriptor(ctx, ref, platformStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
 	}
