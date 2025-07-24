@@ -12,7 +12,6 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,32 +28,6 @@ import (
 )
 
 func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]string, error) {
-	if matchResources == nil {
-		return nil, nil
-	}
-
-	var kindList []string
-	for _, rule := range matchResources.ResourceRules {
-		if len(rule.APIGroups) == 0 || len(rule.APIVersions) == 0 {
-			continue
-		}
-
-		for _, group := range rule.APIGroups {
-			for _, version := range rule.APIVersions {
-				for _, resource := range rule.Resources {
-					kinds, err := resolveKinds(group, version, resource, mapper)
-					if err != nil {
-						return kindList, err
-					}
-					kindList = append(kindList, kinds...)
-				}
-			}
-		}
-	}
-	return kindList, nil
-}
-
-func GetKindsMpol(matchResources *admissionregistrationv1alpha1.MatchResources, mapper meta.RESTMapper) ([]string, error) {
 	if matchResources == nil {
 		return nil, nil
 	}
