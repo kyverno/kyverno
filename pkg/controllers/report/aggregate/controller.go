@@ -184,32 +184,32 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
-	if gpolInformer != nil {
-		c.gpolLister = gpolInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(
-			gpolInformer.Informer(),
-			func(_ metav1.Object) { enqueueAll() },
-			func(_, _ metav1.Object) { enqueueAll() },
-			func(_ metav1.Object) { enqueueAll() },
-		); err != nil {
-			logger.Error(err, "failed to register event handlers")
-		}
-	}
-	if gpolInformer != nil {
-		c.gpolLister = gpolInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(
-			gpolInformer.Informer(),
-			func(_ metav1.Object) { enqueueAll() },
-			func(_, _ metav1.Object) { enqueueAll() },
-			func(_ metav1.Object) { enqueueAll() },
-		); err != nil {
-			logger.Error(err, "failed to register event handlers")
-		}
-	}
 	if mpolInformer != nil {
 		c.mpolLister = mpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
 			mpolInformer.Informer(),
+			func(_ metav1.Object) { enqueueAll() },
+			func(_, _ metav1.Object) { enqueueAll() },
+			func(_ metav1.Object) { enqueueAll() },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if gpolInformer != nil {
+		c.gpolLister = gpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			gpolInformer.Informer(),
+			func(_ metav1.Object) { enqueueAll() },
+			func(_, _ metav1.Object) { enqueueAll() },
+			func(_ metav1.Object) { enqueueAll() },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if vapInformer != nil {
+		c.vapLister = vapInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			vapInformer.Informer(),
 			func(_ metav1.Object) { enqueueAll() },
 			func(_, _ metav1.Object) { enqueueAll() },
 			func(_ metav1.Object) { enqueueAll() },
