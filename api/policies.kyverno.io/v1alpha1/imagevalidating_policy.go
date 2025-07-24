@@ -1,12 +1,14 @@
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,6 +61,9 @@ func (s *ImageValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration 
 }
 
 func (s *ImageValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
+		return admissionregistrationv1.Ignore
+	}
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail
 	}
