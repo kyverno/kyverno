@@ -293,6 +293,10 @@ func (s *MutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return out
 }
 
+func (s MutatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
 func (s MutatingPolicySpec) AdmissionEnabled() bool {
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
 		return true
@@ -300,7 +304,6 @@ func (s MutatingPolicySpec) AdmissionEnabled() bool {
 	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
-// BackgroundEnabled checks if background is set to true
 func (s MutatingPolicySpec) BackgroundEnabled() bool {
 	return true
 }
