@@ -1,0 +1,39 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    admissions.enforcer/disabled: "true"
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-mutating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1
+  failurePolicy: Ignore
+  matchPolicy: Equivalent
+  name: mpol.validate.kyverno.svc-ignore
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
+  objectSelector: {}
+  reinvocationPolicy: Never
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - namespaces
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10
