@@ -426,7 +426,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			checkForDeprecatedFieldsInVerifyImages(rule, &warnings)
-
 		}
 
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
