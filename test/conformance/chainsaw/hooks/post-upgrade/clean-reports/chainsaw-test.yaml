@@ -1,0 +1,109 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: concurrent-policy-execution
+spec:
+  steps:
+  - name: install-kyverno
+    try:
+      - script:
+          content: |
+            #!/bin/bash
+            set -eu
+            helm repo add kyverno https://kyverno.github.io/kyverno
+            helm repo add openreports https://openreports.github.io/reports-api
+            helm repo update
+            helm dependency build ../../../../../../charts/kyverno
+            helm install kyverno ../../../../../../charts/kyverno --namespace kyverno --create-namespace --wait
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: validate
+  - name: create test-namespace
+    try:
+    - apply:
+        file: ns.yaml
+  - name: create-test-pods
+    try:
+      - apply:
+          file: pod.yaml
+  - name: create crd
+    try:
+      - apply:
+          file: crd.yaml
+  - name: wait-for-policy-reports
+    try:
+      - sleep:
+          duration: 1m
+  - name: check-policy-reports
+    try:
+      - script:
+          content: |
+            kubectl get polr -n test -o json | jq '{count: (.items | length | tostring) }'
+          outputs:
+            - name: result
+              value: (json_parse($stdout))
+      - assert:
+          resource: 
+            ($result):
+              (count != '0'): true
+  - name: check-cluster-policy-reports
+    try:
+      - script:
+          content: |
+            kubectl get cpolr -o json | jq '{count: (.items | length | tostring) }'
+          outputs:
+          - name: result
+            value: (json_parse($stdout))
+      - assert:
+          resource: 
+            ($result):
+              (count != '0'): true
+  - name: update-kyverno
+    try:
+      - script:
+          content: |
+            #!/bin/bash
+            set -eu
+            helm -n kyverno upgrade kyverno ../../../../../../charts/kyverno --wait
+  - name: check-policy-reports
+    try:
+      - script:
+          content: |
+            kubectl get polr -n test -o json | jq '{count: (.items | length | tostring) }'
+          outputs:
+            - name: result
+              value: (json_parse($stdout))
+      - assert:
+          resource: 
+            ($result):
+              (count == '0'): true
+  - name: check-cluster-policy-reports
+    try:
+      - script:
+          content: |
+            kubectl get cpolr -o json | jq '{count: (.items | length | tostring) }'
+          outputs:
+          - name: result
+            value: (json_parse($stdout))
+      - assert:
+          resource: 
+            ($result):
+              (count == '0'): true
+  - name: uninstall-kyverno
+    try:
+      - script:
+          content: |
+            #!/bin/bash
+            set -eu
+            helm uninstall kyverno -n kyverno

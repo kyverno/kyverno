@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate
+spec:
+  admission: true
+  rules:
+  - name: validate-namespace-scoped
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      failureAction: Audit
+      deny: {}
+  - name: validate-cluster-scoped
+    match:
+      any:
+      - resources:
+          kinds:
+          - CustomResourceDefinition
+    validate:
+      failureAction: Audit
+      deny: {}
