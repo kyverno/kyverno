@@ -1,6 +1,9 @@
 package v1alpha1
 
 import (
+	"context"
+
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -268,6 +271,9 @@ func (s *MutatingPolicySpec) GetReinvocationPolicy() admissionregistrationv1alph
 }
 
 func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
+		return admissionregistrationv1.Ignore
+	}
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail
 	}
