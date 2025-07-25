@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-replicas-policy
+spec:
+  background: false
+  validationFailureAction: Enforce
+  rules:
+    - name: block-replicas-zero
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - TestResource
+      validate:
+        failureAction: Enforce
+        message: "Resources must have spec.replicas greater than 0"
+        pattern:
+          spec:
+            replicas: ">0"
