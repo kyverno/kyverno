@@ -169,6 +169,10 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 					message = msg
 				}
 			}
+			// Add default message if empty
+			if message == "" {
+				message = fmt.Sprintf("Image validation at index %d failed", i)
+			}
 			auditAnnotations := make(map[string]string, 0)
 			for key, annotation := range c.auditAnnotations {
 				out, _, err := annotation.ContextEval(ctx, data)
