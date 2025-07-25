@@ -26,6 +26,7 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.background-controller.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ template "kyverno.background-controller.name" . }}
         {{- with .Values.backgroundController.podLabels }}
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}

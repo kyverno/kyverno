@@ -12,7 +12,7 @@ metadata:
   - kyverno.io/exceptionwebhooks
   - kyverno.io/globalcontextwebhooks
   {{- end }}
-  {{- end }}
+  {{- end }}  
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
   {{- with .Values.admissionController.annotations }}
@@ -35,6 +35,7 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.admission-controller.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ template "kyverno.admission-controller.name" . }}
         {{- with .Values.admissionController.podLabels }}
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
