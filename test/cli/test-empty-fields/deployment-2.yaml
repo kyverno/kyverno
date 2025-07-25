@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment02
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+      annotations:
+        foo: bar
+    spec:
+      containers:
+        - name: container01
+          image: dummyimagename
+        - null
+        - name: container02
+          image: dummy2:latest
