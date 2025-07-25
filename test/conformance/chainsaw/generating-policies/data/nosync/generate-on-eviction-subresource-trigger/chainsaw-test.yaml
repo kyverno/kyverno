@@ -39,15 +39,6 @@ spec:
         entrypoint: kubectl
     - command:
         args:
-        - wait
-        - --for=condition=Ready
-        - pod/nginx
-        - -n
-        - test-generate-eviction
-        - --timeout=30s
-        entrypoint: kubectl
-    - command:
-        args:
         - evict
         - nginx
         - -n
