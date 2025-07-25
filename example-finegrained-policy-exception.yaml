@@ -1,0 +1,84 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: development-environment-exceptions
+  namespace: dev
+spec:
+  # Match criteria for resources this exception applies to
+  match:
+    any:
+    - resources:
+        kinds: ["Deployment", "Pod"]
+        namespaces: ["dev", "staging"]
+  
+  # List of policy exceptions with fine-grained control
+  exceptions:
+  
+  # Example 1: Image-based exception with warning reporting
+  - policyName: "require-signed-images"
+    ruleNames: ["verify-image-signatures"]
+    # Allow specific legacy images to bypass signature verification
+    images:
+    - imageReferences:
+      - "registry.company.com/legacy/*"
+      - "gcr.io/legacy-project/*:v1.*"
+      - "debug-tools:latest"
+    # Report as warning instead of skipping entirely
+    reportAs: "warn"
+  
+  # Example 2: Value-based exception for security contexts
+  - policyName: "require-non-root-user"
+    ruleNames: ["check-security-context"]
+    # Allow specific user IDs to run as root
+    values:
+    - path: "spec.containers[*].securityContext.runAsUser"
+      values: ["1000", "1001"]  # Allow these specific user IDs
+      operator: "in"
+    - path: "metadata.labels.environment"
+      values: ["debug", "troubleshooting"]
+      operator: "in"
+    reportAs: "pass"
+  
+  # Example 3: Image-based exception for registry policies
+  - policyName: "allowed-registries"
+    ruleNames: ["check-registry"]
+    # Allow internal and approved external registries
+    images:
+    - imageReferences:
+      - "internal-registry.company.com/*"
+      - "registry.redhat.io/*"
+      - "quay.io/approved-org/*"
+    reportAs: "skip"
+  
+  # Example 4: Value-based exception for resource limits
+  - policyName: "require-resource-limits"
+    ruleNames: ["check-cpu-memory-limits"]
+    # Allow exempting resources with specific annotations
+    values:
+    - path: "metadata.annotations['resource-policy.company.com/exempt']"
+      values: ["true", "development"]
+      operator: "in"
+    - path: "metadata.labels.app"
+      values: ["monitoring", "logging"]
+      operator: "in"
+    reportAs: "warn"
+
+  # Example 5: Complex value-based exception for container configurations
+  - policyName: "container-security-standards"
+    ruleNames: ["check-privileged-containers"]
+    # Allow privileged containers for specific use cases
+    values:
+    - path: "spec.containers[*].name"
+      values: ["istio-proxy", "fluent-bit", "system-monitor"]
+      operator: "in"
+    - path: "metadata.annotations['security.company.com/privileged-allowed']"
+      values: ["system-component"]
+      operator: "equals"
+    reportAs: "pass"
+
+  # Example 6: Traditional rule-level exception (backwards compatibility)
+  - policyName: "pod-security-standards"
+    ruleNames: ["*"]  # All rules in this policy
+    # No fine-grained criteria means this applies to all matching resources
+    # and uses traditional skip behavior
+    reportAs: "skip" 
