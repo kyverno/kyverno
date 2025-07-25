@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: target-secret
+  namespace: test-reports
+  labels:
+    app: mutated
+    mutated-by: kyverno 
