@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,7 +16,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 	logger = logger.WithName("metrics")
 	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
 	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+	metricsConfig, metricsProvider, err := metrics.InitMetrics(
 		ctx,
 		disableMetricsExport,
 		otel,
@@ -32,28 +31,12 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 	// Pass logger to opentelemetry so JSON format is used (when configured)
 	otlp.SetLogger(logger)
 	var cancel context.CancelFunc
-	if otel == "grpc" {
+	if otel == "grpc" || otel == "prometheus" {
 		cancel = func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
-			metrics.ShutDownController(ctx, metricsPusher)
+			metrics.ShutDownController(ctx, metricsProvider)
 		}
-	}
-	if otel == "prometheus" {
-		go func() {
-			server := &http.Server{
-				Addr:              metricsAddr,
-				Handler:           metricsServerMux,
-				ReadTimeout:       30 * time.Second,
-				WriteTimeout:      30 * time.Second,
-				ReadHeaderTimeout: 30 * time.Second,
-				IdleTimeout:       5 * time.Minute,
-				ErrorLog:          logging.StdLogger(logging.WithName("prometheus-server"), ""),
-			}
-			if err := server.ListenAndServe(); err != nil {
-				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
-			}
-		}()
 	}
 	return metricsConfig, cancel
 }
