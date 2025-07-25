@@ -28,6 +28,10 @@ spec:
             file: pod.yaml
         - assert:
             file: pod.yaml
+    - name: sleep
+      try:
+        - sleep:
+            duration: 5s
     - name: verify mutated pods
       try:
         - assert:
