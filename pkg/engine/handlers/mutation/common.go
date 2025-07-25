@@ -77,6 +77,8 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	}
 	if reverse {
 		elements = engineutils.InvertElements(elements)
+	} else {
+		engineutils.ReversePatchedListIfAscending(foreach, &patchedResource.unstructured)
 	}
 
 	for index, element := range elements {
