@@ -93,7 +93,7 @@ func (wp *WorkerPool) worker(id int) {
 
 func (wp *WorkerPool) processTask(task LoadTask) LoadTaskResult {
 	start := time.Now()
-	result := LoadTaskResult{TaskID: task.ID, APICall: true}
+	result := LoadTaskResult{TaskID: task.ID}
 
 	var allResources []*unstructured.Unstructured
 	continueToken := ""
@@ -108,7 +108,7 @@ func (wp *WorkerPool) processTask(task LoadTask) LoadTaskResult {
 	for {
 		opts.Continue = continueToken
 
-		list, err := task.Client.List(context.TODO(), *opts)
+		list, err := task.Client.List(wp.ctx, *opts)
 		if err != nil {
 			result.Error = err
 			break
@@ -131,8 +131,16 @@ func (wp *WorkerPool) processTask(task LoadTask) LoadTaskResult {
 
 func (wp *WorkerPool) SubmitTask(task LoadTask) {
 	select {
-	case wp.taskQueue <- task:
 	case <-wp.ctx.Done():
+		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
+		return
+	default:
+		select {
+		case wp.taskQueue <- task:
+			return
+		default:
+			wp.logger.Debug("task queue is full; ignoring submitted task: ", task.ID)
+		}
 	}
 }
 

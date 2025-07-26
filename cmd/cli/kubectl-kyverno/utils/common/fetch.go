@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -134,12 +135,14 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 				resourceMap[key] = resource.DeepCopy()
 			}
 		}
-
 	} else {
+		start := time.Now()
+		fmt.Println("Loading resources sequentially...")
 		resourceMap, err = rf.listResources(info)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("Loaded resources in", time.Since(start))
 	}
 	if len(rf.ResourcePaths) == 0 {
 		for _, rr := range resourceMap {

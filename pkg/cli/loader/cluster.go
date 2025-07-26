@@ -3,69 +3,49 @@ package loader
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 )
 
 type ClusterLoader struct {
-	client     dynamic.Interface
-	discovery  discovery.DiscoveryInterface
-	workerPool *WorkerPool
-	logger     *logrus.Logger
-	config     ClusterLoaderConfig
-	mutex      sync.RWMutex
-	closed     bool
+	client          dclient.Interface
+	discovery       discovery.DiscoveryInterface
+	workerPool      *WorkerPool
+	resourceOptions ResourceOptions
+	logger          *logrus.Logger
+	mutex           sync.RWMutex
+	closed          bool
 }
 
-type ClusterLoaderConfig struct {
-	DefaultConcurrency int
-	DefaultBatchSize   int
-	DefaultTimeout     time.Duration
-	DefaultMaxRetries  int
-}
-
-func NewClusterLoader(client dynamic.Interface, config ClusterLoaderConfig) (*ClusterLoader, error) {
+func NewClusterLoader(client dclient.Interface, resourceOptions ResourceOptions) (*ClusterLoader, error) {
 	if client == nil {
 		return nil, fmt.Errorf("dynamic client cannot be nil")
 	}
-
-	if config.DefaultConcurrency <= 0 {
-		config.DefaultConcurrency = 4
-	}
-	if config.DefaultBatchSize <= 0 {
-		config.DefaultBatchSize = 100
-	}
-	if config.DefaultTimeout <= 0 {
-		config.DefaultTimeout = 30 * time.Second
-	}
-	if config.DefaultMaxRetries <= 0 {
-		config.DefaultMaxRetries = 3
-	}
-
+	resourceOptions.Timeout = 5 * time.Minute
 	cl := &ClusterLoader{
-		client: client,
-		config: config,
-		logger: logrus.New(),
+		client:          client,
+		resourceOptions: resourceOptions,
+		logger:          logrus.New(),
 	}
 
 	cl.workerPool = NewWorkerPool(WorkerPoolConfig{
-		Workers:   config.DefaultConcurrency,
-		QueueSize: config.DefaultConcurrency * 2,
+		Workers:   resourceOptions.Concurrency,
+		QueueSize: resourceOptions.Concurrency * 2,
 		Logger:    cl.logger,
 	})
 
 	return cl, nil
 }
 
-func (cl *ClusterLoader) LoadResources(ctx context.Context, options ResourceOptions) (*ResourceResult, error) {
+func (cl *ClusterLoader) LoadResources(ctx context.Context) (*ResourceResult, error) {
 	startTime := time.Now()
 
 	cl.mutex.RLock()
@@ -75,38 +55,20 @@ func (cl *ClusterLoader) LoadResources(ctx context.Context, options ResourceOpti
 	}
 	cl.mutex.RUnlock()
 
-	options = cl.applyDefaults(options)
-
-	if err := cl.validateOptions(options); err != nil {
+	if err := cl.validateOptions(cl.resourceOptions); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
-	tasks := cl.createLoadingTasks(options.ResourceTypes, options)
+	tasks := cl.createLoadingTasks()
 
-	results, err := cl.executeTasks(ctx, tasks, options)
+	results, err := cl.executeTasks(ctx, tasks)
 	if err != nil {
 		return nil, fmt.Errorf("task execution failed: %w", err)
 	}
 
-	finalResult := cl.aggregateResults(results, startTime, options.Concurrency)
+	finalResult := cl.aggregateResults(results, startTime, cl.resourceOptions.Concurrency)
 
 	return finalResult, nil
-}
-
-func (cl *ClusterLoader) applyDefaults(options ResourceOptions) ResourceOptions {
-	if options.Concurrency <= 0 {
-		options.Concurrency = cl.config.DefaultConcurrency
-	}
-	if options.BatchSize <= 0 {
-		options.BatchSize = cl.config.DefaultBatchSize
-	}
-	if options.Timeout <= 0 {
-		options.Timeout = cl.config.DefaultTimeout
-	}
-	if options.MaxRetries <= 0 {
-		options.MaxRetries = cl.config.DefaultMaxRetries
-	}
-	return options
 }
 
 func (cl *ClusterLoader) validateOptions(options ResourceOptions) error {
@@ -114,50 +76,53 @@ func (cl *ClusterLoader) validateOptions(options ResourceOptions) error {
 		return fmt.Errorf("at least one resource type must be specified")
 	}
 
+	if options.Concurrency < 1 {
+		return fmt.Errorf("concurrency must be greater than 1")
+	}
+
 	if options.Concurrency > 32 {
 		return fmt.Errorf("concurrency cannot exceed 32")
 	}
 
-	if options.BatchSize > 2000 {
-		return fmt.Errorf("batch size cannot exceed 2000")
+	if options.BatchSize < 100 {
+		return fmt.Errorf("batch size cannot be less than 100")
+	}
+
+	if options.BatchSize > 20000 {
+		return fmt.Errorf("batch size cannot exceed 20000")
 	}
 
 	return nil
 }
 
-func (cl *ClusterLoader) createLoadingTasks(gvks []schema.GroupVersionKind, options ResourceOptions) []LoadTask {
+func (cl *ClusterLoader) createLoadingTasks() []LoadTask {
 	var tasks []LoadTask
 	taskID := 0
-
+	gvks := cl.resourceOptions.ResourceTypes
+	restMapper, err := utils.GetRESTMapper(cl.client, true)
+	if err != nil {
+		return nil
+	}
 	for _, gvk := range gvks {
-		gvr := schema.GroupVersionResource{
-			Group:    gvk.Group,
-			Version:  gvk.Version,
-			Resource: cl.pluralizeKind(gvk.Kind),
+		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			return nil
 		}
-
-		client := cl.client.Resource(gvr)
+		gvr := mapping.Resource
+		client := cl.client.GetDynamicInterface().Resource(gvr)
 
 		listOptions := metav1.ListOptions{
-			Limit: int64(options.BatchSize),
+			Limit: int64(cl.resourceOptions.BatchSize),
 		}
 
-		if options.LabelSelector != "" {
-			listOptions.LabelSelector = options.LabelSelector
-		}
-
-		if options.FieldSelector != "" {
-			listOptions.FieldSelector = options.FieldSelector
-		}
-
-		if options.Namespace != "" {
+		if cl.resourceOptions.Namespace != "" {
 			tasks = append(tasks, LoadTask{
 				ID:          fmt.Sprintf("task-%d", taskID),
 				GVK:         gvk,
 				GVR:         gvr,
-				Namespace:   options.Namespace,
+				Namespace:   cl.resourceOptions.Namespace,
 				ListOptions: listOptions,
-				Client:      client.Namespace(options.Namespace),
+				Client:      client.Namespace(cl.resourceOptions.Namespace),
 			})
 		} else {
 			tasks = append(tasks, LoadTask{
@@ -176,18 +141,9 @@ func (cl *ClusterLoader) createLoadingTasks(gvks []schema.GroupVersionKind, opti
 	return tasks
 }
 
-func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask, options ResourceOptions) ([]LoadTaskResult, error) {
+func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask) ([]LoadTaskResult, error) {
 	if len(tasks) == 0 {
 		return nil, nil
-	}
-
-	if options.Concurrency != cl.workerPool.workers {
-		cl.workerPool.Close()
-		cl.workerPool = NewWorkerPool(WorkerPoolConfig{
-			Workers:   options.Concurrency,
-			QueueSize: options.Concurrency * 2,
-			Logger:    cl.logger,
-		})
 	}
 
 	for _, task := range tasks {
@@ -203,8 +159,8 @@ func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask, opt
 			return nil, ctx.Err()
 		case result := <-cl.workerPool.GetResults():
 			results = append(results, result)
-		case <-time.After(options.Timeout):
-			if !options.ContinueOnError {
+		case <-time.After(cl.resourceOptions.Timeout):
+			if !cl.resourceOptions.ContinueOnError {
 				return nil, fmt.Errorf("timeout waiting for task results")
 			}
 			break
@@ -249,17 +205,6 @@ func (cl *ClusterLoader) aggregateResults(results []LoadTaskResult, startTime ti
 			ConcurrentWorkers:  workers,
 		},
 	}
-}
-
-func (cl *ClusterLoader) pluralizeKind(kind string) string {
-	kind = strings.ToLower(kind)
-	if strings.HasSuffix(kind, "s") {
-		return kind + "es"
-	}
-	if strings.HasSuffix(kind, "y") {
-		return strings.TrimSuffix(kind, "y") + "ies"
-	}
-	return kind + "s"
 }
 
 func (cl *ClusterLoader) isClusterScoped(gvr schema.GroupVersionResource) bool {
