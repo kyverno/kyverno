@@ -198,11 +198,17 @@ func NewController(
 				}
 				for _, polNsName := range sets.List(policiesForReport) {
 					policyNameParts := strings.Split(polNsName, "/")
-					if o.GetNamespace() != policyNameParts[0] {
-						continue
-					}
-					if o.GetName() != policyNameParts[1] {
-						continue
+					if o.GetNamespace() == "" { // if its a cluster policy the cache will contain the policy name only
+						if o.GetName() != policyNameParts[0] {
+							continue
+						}
+					} else {
+						if o.GetNamespace() != policyNameParts[0] {
+							continue
+						}
+						if o.GetName() != policyNameParts[1] {
+							continue
+						}
 					}
 					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
 				}
