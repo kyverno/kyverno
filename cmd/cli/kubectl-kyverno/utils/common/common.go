@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"github.com/kyverno/kyverno/pkg/cli/loader"
 )
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
@@ -35,6 +36,8 @@ func GetResourceAccordingToResourcePath(
 	policyReport bool,
 	clusterWideResources bool,
 	policyResourcePath string,
+	resourceOptions loader.ResourceOptions,
+	showPerformance bool,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
 		resources, err = GetResourcesWithTest(out, fs, resourcePaths, policyResourcePath)
@@ -87,6 +90,8 @@ func GetResourceAccordingToResourcePath(
 					Namespace:            "",
 					PolicyReport:         policyReport,
 					ClusterWideResources: clusterWideResources,
+					ResourceOptions:      resourceOptions,
+					ShowPerformance:      showPerformance,
 				}
 				resources, err := fetcher.GetResources()
 				if err != nil {
@@ -105,6 +110,8 @@ func GetResourceAccordingToResourcePath(
 				Namespace:            namespace,
 				PolicyReport:         policyReport,
 				ClusterWideResources: false,
+				ResourceOptions:      resourceOptions,
+				ShowPerformance:      showPerformance,
 			}
 			namespaceResources, err := fetcher.GetResources()
 			if err != nil {
