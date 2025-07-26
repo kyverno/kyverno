@@ -87,6 +87,7 @@ type controller struct {
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
 	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	mpolLister  policiesv1alpha1listers.MutatingPolicyLister
 	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	mapLister   admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
@@ -105,6 +106,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
@@ -124,6 +126,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mpolInformer != nil {
+		c.mpolLister = mpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mpolInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -348,6 +356,34 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 
 			for _, autogen := range policy.Status.Autogen.Configs {
 				genKinds, err := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
+				if err != nil {
+					return err
+				}
+
+				kinds = append(kinds, genKinds...)
+			}
+
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.mpolLister != nil {
+		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
+		if err != nil {
+			return err
+		}
+		for _, policy := range mpols {
+			matchConstraints := policy.Spec.GetMatchConstraints()
+			kinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
+
+			for _, policy := range policy.Status.Autogen.Configs {
+				matchConstraints := policy.Spec.GetMatchConstraints()
+				genKinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 				if err != nil {
 					return err
 				}

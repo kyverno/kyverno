@@ -31,6 +31,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -80,6 +81,7 @@ func createReportControllers(
 	eventGenerator event.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
 	gcstore store.Store,
+	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -104,6 +106,7 @@ func createReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1alpha1.MutatingPolicies(),
 			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 			mapInformer,
@@ -146,6 +149,7 @@ func createReportControllers(
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
 				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1alpha1.MutatingPolicies(),
 				policiesV1alpha1.ImageValidatingPolicies(),
 				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
@@ -162,6 +166,7 @@ func createReportControllers(
 				policyReports,
 				reportsConfig,
 				gcstore,
+				typeConverter,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -203,6 +208,7 @@ func createrLeaderControllers(
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
 	gcstore store.Store,
+	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		eng,
@@ -227,6 +233,7 @@ func createrLeaderControllers(
 		eventGenerator,
 		reportsConfig,
 		gcstore,
+		typeConverter,
 	)
 	return reportControllers, warmup, nil
 }
@@ -400,6 +407,10 @@ func main() {
 		} else {
 			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
 		}
+
+		typeConverter := patch.NewTypeConverterManager(nil, setup.KubeClient.Discovery().OpenAPIV3())
+		go typeConverter.Run(ctx)
+
 		// setup leader election
 		le, err := leaderelection.New(
 			setup.Logger.WithName("leader-election"),
@@ -439,6 +450,7 @@ func main() {
 					eventGenerator,
 					backgroundScanInterval,
 					gcstore,
+					typeConverter,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")
