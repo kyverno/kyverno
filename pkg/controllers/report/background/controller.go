@@ -790,14 +790,14 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		return err
 	}
 	// we have the resource, check if we need to reconcile
-	if observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, exceptions, vapBindings, mapBindings, policies...); err != nil {
+	if _, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, exceptions, vapBindings, mapBindings, policies...); err != nil {
 		return err
 	} else {
 		defer func() {
 			c.queue.AddAfter(key, c.forceDelay)
 		}()
 		if needsReconcile {
-			c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: name, Namespace: namespace, Hash: observedHash})
+			// c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: name, Namespace: namespace, Hash: observedHash})
 			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, exceptions, celexceptions, vapBindings, mapBindings, policies...)
 		}
 	}
