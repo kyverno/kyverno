@@ -71,7 +71,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	golang.org/x/crypto v0.40.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
-	google.golang.org/grpc v1.74.0
+	google.golang.org/grpc v1.74.2
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -91,7 +91,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.20.0
 	sigs.k8s.io/kustomize/kyaml v0.20.0
 	sigs.k8s.io/release-utils v0.12.0
-	sigs.k8s.io/yaml v1.5.0
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
