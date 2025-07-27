@@ -246,11 +246,10 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			return nil, err
 		}
 		resourceVersion = metadata.GetResourceVersion()
-
 		hashes = w.hashes
-		for uid := range hashes {
-			c.notify(Added, uid, gvk, hashes[uid])
-		}
+	}
+	for uid := range hashes {
+		c.notify(Added, uid, gvk, hashes[uid])
 	}
 
 	logger = logger.WithValues("resourceVersion", resourceVersion)
