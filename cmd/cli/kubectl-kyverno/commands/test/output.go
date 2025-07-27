@@ -337,21 +337,42 @@ func printTestResult(
 			}
 
 			if len(rows) == 0 && !resourceSkipped {
-				row := table.Row{
-					RowCompact: table.RowCompact{
-						ID:        testCount,
-						Policy:    color.Policy("", test.Policy),
-						Rule:      color.Rule(test.Rule),
-						Resource:  color.Resource(test.Kind, "", strings.Replace(resource, ",", "/", -1)),
-						IsFailure: true,
-						Result:    color.ResultFail(),
-						Reason:    color.NotFound(),
-					},
-					Message: color.NotFound(),
+				// Check if this policy was skipped during validation
+				policyName := strings.Split(test.Policy, "/")[len(strings.Split(test.Policy, "/"))-1]
+				var row table.Row
+				if _, wasSkippedDuringValidation := responses.SkippedPolicies[policyName]; wasSkippedDuringValidation {
+					// Policy was skipped during validation - treat as skip
+					row = table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(test.Kind, "", strings.Replace(resource, ",", "/", -1)),
+							Result:    color.ResultPass(),
+							Reason:    color.Excluded(),
+							IsFailure: false,
+						},
+						Message: responses.SkippedPolicies[policyName],
+					}
+					rc.Skip++
+				} else {
+					// Policy wasn't skipped during validation but no responses - actual error
+					row = table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(test.Kind, "", strings.Replace(resource, ",", "/", -1)),
+							IsFailure: true,
+							Result:    color.ResultFail(),
+							Reason:    color.NotFound(),
+						},
+						Message: color.NotFound(),
+					}
+					rc.Fail++
 				}
 				testCount++
 				resultsTable.Add(row)
-				rc.Fail++
 			} else {
 				resultsTable.Add(rows...)
 			}
