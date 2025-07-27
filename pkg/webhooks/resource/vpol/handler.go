@@ -28,7 +28,6 @@ type handler struct {
 	engine           vpolengine.Engine
 	kyvernoClient    versioned.Interface
 	admissionReports bool
-	reportsBreaker   breaker.Breaker
 	reportConfig     reportutils.ReportingConfiguration
 }
 
@@ -37,7 +36,6 @@ func New(
 	context libs.Context,
 	kyvernoClient versioned.Interface,
 	admissionReports bool,
-	reportsBreaker breaker.Breaker,
 	reportConfig reportutils.ReportingConfiguration,
 ) *handler {
 	return &handler{
@@ -45,7 +43,6 @@ func New(
 		engine:           engine,
 		kyvernoClient:    kyvernoClient,
 		admissionReports: admissionReports,
-		reportsBreaker:   reportsBreaker,
 		reportConfig:     reportConfig,
 	}
 }
@@ -125,7 +122,7 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 	}
 	report := reportutils.BuildAdmissionReport(object, admissionRequest, responses...)
 	if len(report.GetResults()) > 0 {
-		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
 			return err
 		})

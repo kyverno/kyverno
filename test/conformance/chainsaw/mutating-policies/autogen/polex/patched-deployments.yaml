@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-deploy
+  namespace: autogen-applyconfiguration
+spec:
+  template:
+    spec:
+      containers:
+      - name: nginx
+      - name: nginx2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deploy
+  namespace: autogen-applyconfiguration
+spec:
+  template:
+    spec:
+      containers:
+      - name: nginx
+        securityContext:
+          allowPrivilegeEscalation: false
+      - name: nginx2
+        securityContext:
+          allowPrivilegeEscalation: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-deploy
+spec:
+  template:
+    spec:
+      containers:
+      - name: nginx
+      - name: nginx2 
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prod-deploy
+  namespace: autogen-applyconfiguration
+spec:
+  template:
+    spec:
+      containers:
+      - name: nginx
+      - name: nginx2

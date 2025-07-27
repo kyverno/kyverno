@@ -19,6 +19,8 @@ spec:
           bindings:
           - name: name
             value: check-images
+          - name: message
+            value: ""
     - name: create deployment
       try:
         - create:

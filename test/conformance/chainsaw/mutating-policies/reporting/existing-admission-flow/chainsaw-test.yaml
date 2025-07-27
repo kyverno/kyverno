@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: different-trigger-target
+spec:
+  steps:
+  - name: create namespace and configmaps
+    try:
+    - create:
+        file: test-namespace.yaml
+    - assert:
+        file: test-namespace.yaml
+    - create:
+        file: configmaps.yaml
+    - assert:
+        file: configmaps.yaml
+  - name: create policy
+    use:
+      template: ..//../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-mutating-policy-ready
+    use:
+      template: ..//../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-mpol-reporting-different-trigger-target
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: trigger mutation by updating namespace
+    try:
+    - apply:
+        file: test-namespace-update.yaml
+  - name: verify configmaps are mutated
+    try:
+    - assert:
+        file: configmaps-assert.yaml 
+  - name: verify-policy-report
+    description: Verify PolicyReport for the mutating policy
+    try:
+    - assert:
+        file: policyreport-assert.yaml
+        timeout: 60s
