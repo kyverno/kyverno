@@ -38,7 +38,7 @@ require (
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-go v1.3.2
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/gomega v1.38.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/errors v0.9.1
@@ -88,14 +88,13 @@ require (
 	openreports.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5
-	sigs.k8s.io/kustomize/api v0.20.0
-	sigs.k8s.io/kustomize/kyaml v0.20.0
+	sigs.k8s.io/kustomize/api v0.20.1
+	sigs.k8s.io/kustomize/kyaml v0.20.1
 	sigs.k8s.io/release-utils v0.12.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
-	github.com/carapace-sh/carapace-shlex v1.0.1 // indirect
 	github.com/grafana/regexp v0.0.0-20240518133315-a468a5bfb3bc // indirect
 	github.com/prometheus/otlptranslator v0.0.0-20250717125610-8549f4ab4f8f // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
