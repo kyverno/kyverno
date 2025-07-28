@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 )
@@ -183,7 +184,13 @@ func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall
 
 func updateStatus(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry, kyvernoClient versioned.Interface) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		return controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+		// Fetch the latest version of the GlobalContextEntry
+		latest, err := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().Get(ctx, gce.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		return controllerutils.UpdateStatus(ctx, latest, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
 			if latest == nil {
 				return fmt.Errorf("failed to update status: %s", gce.GetName())
 			}
