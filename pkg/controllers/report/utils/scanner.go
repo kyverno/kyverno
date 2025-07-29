@@ -307,7 +307,7 @@ func (s *scanner) ScanResource(
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: rules,
 				},
-			}
+			}.WithPolicy(mpols[i])
 
 			if new != nil {
 				response.PatchedResource = *new
