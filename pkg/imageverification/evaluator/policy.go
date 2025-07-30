@@ -171,7 +171,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			}
 			// Add default message if empty
 			if message == "" {
-				message = fmt.Sprintf("Image validation at index %d failed", i)
+				message = fmt.Sprintf("CEL expression validation failed at index %d", i)
 			}
 			auditAnnotations := make(map[string]string, 0)
 			for key, annotation := range c.auditAnnotations {
