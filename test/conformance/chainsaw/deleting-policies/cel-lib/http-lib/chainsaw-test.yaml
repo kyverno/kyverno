@@ -8,7 +8,10 @@ spec:
       try: 
         - apply:
             file: rbac.yaml
-
+        - apply:
+            file: http-pod.yaml
+        - apply:
+            file: service.yaml
     - name: step-02
       try:
         - apply:

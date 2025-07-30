@@ -18,6 +18,8 @@ spec:
           bindings:
           - name: name
             value: parse-sa-test
+          - name: message
+            value: ""
     - name: create service account
       try:
         - create:
