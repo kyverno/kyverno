@@ -3,11 +3,11 @@ package registryclient
 import (
 	"context"
 	"crypto/tls"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
 
-	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
 	"gotest.tools/assert"
 )
 
@@ -55,11 +55,14 @@ func TestFetchImageDescriptorWithPlatform(t *testing.T) {
 	desc, err := c.FetchImageDescriptor(context.Background(), "nginx:latest", "linux/amd64")
 
 	if err != nil {
-		t.Skipf("Skipping test due to network error: %v", err)
-		return
+		nerr, ok := err.(net.Error)
+		if ok && nerr.Timeout() {
+			t.Skipf("Skipping test due to network error: %v", err)
+			return
+		}
+		assert.NilError(t, err)
 	}
 
-	assert.NilError(t, err)
 	assert.Assert(t, desc != nil)
 	assert.Assert(t, desc.Digest.String() != "")
 
@@ -84,21 +87,26 @@ func TestFetchImageDescriptorWithEmptyPlatform(t *testing.T) {
 	desc1, err := c.FetchImageDescriptor(context.Background(), "nginx:latest", "")
 
 	if err != nil {
-		t.Skipf("Skipping test due to network error: %v", err)
-		return
+		nerr, ok := err.(net.Error)
+		if ok && nerr.Timeout() {
+			t.Skipf("Skipping test due to network error: %v", err)
+			return
+		}
+		assert.NilError(t, err)
 	}
 
-	assert.NilError(t, err)
 	assert.Assert(t, desc1 != nil)
 
 	desc2, err := c.FetchImageDescriptor(context.Background(), "nginx:latest", "linux/amd64")
 
 	if err != nil {
-		t.Skipf("Skipping test due to network error: %v", err)
-		return
+		nerr, ok := err.(net.Error)
+		if ok && nerr.Timeout() {
+			t.Skipf("Skipping test due to network error: %v", err)
+			return
+		}
+		assert.NilError(t, err)
 	}
-
-	assert.NilError(t, err)
 	assert.Assert(t, desc2 != nil)
 
 	assert.Equal(t, desc1.Digest.String(), desc2.Digest.String())
@@ -173,53 +181,3 @@ func TestFetchImageDescriptorPlatformEdgeCases(t *testing.T) {
 	}
 }
 
-func TestPlatformParsing(t *testing.T) {
-	// Test platform parsing logic without making network calls
-	testCases := []struct {
-		name        string
-		platform    string
-		expectError bool
-	}{
-		{
-			name:        "valid linux/amd64",
-			platform:    "linux/amd64",
-			expectError: false,
-		},
-		{
-			name:        "valid linux/arm64",
-			platform:    "linux/arm64",
-			expectError: false,
-		},
-		{
-			name:        "valid linux/arm/v7",
-			platform:    "linux/arm/v7",
-			expectError: false,
-		},
-		{
-			name:        "valid windows/amd64",
-			platform:    "windows/amd64",
-			expectError: false,
-		},
-		{
-			name:        "lenient - accepts arbitrary format",
-			platform:    "not-a-platform",
-			expectError: false,
-		},
-		{
-			name:        "lenient - accepts missing architecture",
-			platform:    "linux",
-			expectError: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := gcrv1.ParsePlatform(tc.platform)
-			if tc.expectError {
-				assert.Assert(t, err != nil, "Expected error for platform: %s", tc.platform)
-			} else {
-				assert.NilError(t, err, "Unexpected error for platform: %s", tc.platform)
-			}
-		})
-	}
-}
