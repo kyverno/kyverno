@@ -30,6 +30,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -77,8 +78,8 @@ func createReportControllers(
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 	gcstore store.Store,
+	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -103,6 +104,7 @@ func createReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1alpha1.MutatingPolicies(),
 			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 			mapInformer,
@@ -144,6 +146,7 @@ func createReportControllers(
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
 				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1alpha1.MutatingPolicies(),
 				policiesV1alpha1.ImageValidatingPolicies(),
 				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
@@ -159,8 +162,8 @@ func createReportControllers(
 				eventGenerator,
 				policyReports,
 				reportsConfig,
-				reportsBreaker,
 				gcstore,
+				typeConverter,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -200,8 +203,8 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
-	reportsBreaker breaker.Breaker,
 	gcstore store.Store,
+	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		eng,
@@ -224,8 +227,8 @@ func createrLeaderControllers(
 		jp,
 		eventGenerator,
 		reportsConfig,
-		reportsBreaker,
 		gcstore,
+		typeConverter,
 	)
 	return reportControllers, warmup, nil
 }
@@ -367,19 +370,41 @@ func main() {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
+		ephrCounterFunc := func(c breaker.Counter) func(context.Context) bool {
+			return func(context.Context) bool {
+				count, isRunning := c.Count()
+				if !isRunning {
+					return true
+				}
+				return count > maxBackgroundReports
+			}
+		}
 		ephrs, err := breaker.StartBackgroundReportsCounter(ctx, setup.MetadataClient)
 		if err != nil {
-			setup.Logger.Error(err, "failed to start background-scan reports watcher")
-			os.Exit(1)
-		}
-		// create the circuit breaker
-		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
-			count, isRunning := ephrs.Count()
-			if !isRunning {
+			go func() {
+				for {
+					ephrs, err := breaker.StartBackgroundReportsCounter(ctx, setup.MetadataClient)
+					if err != nil {
+						setup.Logger.Error(err, "failed to start background scan reports watcher, retrying...")
+						time.Sleep(2 * time.Second)
+						continue
+					}
+					breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+					return
+				}
+			}()
+			// create a temporary breaker until the retrying goroutine succeeds
+			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", func(context.Context) bool {
 				return true
-			}
-			return count > maxBackgroundReports
-		})
+			})
+			// no error occurred, create a normal breaker
+		} else {
+			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+		}
+
+		typeConverter := patch.NewTypeConverterManager(nil, setup.KubeClient.Discovery().OpenAPIV3())
+		go typeConverter.Run(ctx)
+
 		// setup leader election
 		le, err := leaderelection.New(
 			setup.Logger.WithName("leader-election"),
@@ -417,8 +442,8 @@ func main() {
 					setup.Jp,
 					eventGenerator,
 					backgroundScanInterval,
-					reportsBreaker,
 					gcstore,
+					typeConverter,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")

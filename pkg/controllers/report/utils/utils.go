@@ -189,6 +189,18 @@ func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicy
 	return policies, nil
 }
 
+func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyLister) ([]policiesv1alpha1.MutatingPolicy, error) {
+	var policies []policiesv1alpha1.MutatingPolicy
+	if pols, err := mpolLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, *pol)
+		}
+	}
+	return policies, nil
+}
+
 func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister) ([]policiesv1alpha1.ImageValidatingPolicy, error) {
 	var policies []policiesv1alpha1.ImageValidatingPolicy
 	if pols, err := ivpolLister.List(labels.Everything()); err != nil {
