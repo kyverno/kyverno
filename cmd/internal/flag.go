@@ -292,8 +292,9 @@ func LeaderElectionRetryPeriod() time.Duration {
 }
 
 func CleanupServerPort() int32 {
-	return int32(cleanupServerPort) // go:nosec
+	return int32(cleanupServerPort) //nolint:gosec
 }
+
 func CleanupServerHost() string {
 	return cleanupServerHost
 }
