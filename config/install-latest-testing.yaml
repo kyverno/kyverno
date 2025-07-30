@@ -58991,7 +58991,6 @@ spec:
             - --tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
             - --servicePort=443
             - --cleanupServerPort=9443
-            - --webhookServerPort=9443
             - --resyncPeriod=15m
             - --disableMetrics=false
             - --otelConfig=prometheus
