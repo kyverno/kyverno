@@ -66,7 +66,7 @@ type resourceHandlers struct {
 	reportsServiceAccountName    string
 	auditPool                    *pond.WorkerPool
 	reportingConfig              reportutils.ReportingConfiguration
-	reportsBreaker               breaker.Breaker
+	breaker.Breaker
 }
 
 func NewHandlers(
@@ -89,7 +89,6 @@ func NewHandlers(
 	maxAuditWorkers int,
 	maxAuditCapacity int,
 	reportingConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) *resourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -110,7 +109,6 @@ func NewHandlers(
 		reportsServiceAccountName:    reportsServiceAccountName,
 		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
 		reportingConfig:              reportingConfig,
-		reportsBreaker:               reportsBreaker,
 	}
 }
 
@@ -142,7 +140,6 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.configuration,
 		h.nsLister,
 		h.reportingConfig,
-		h.reportsBreaker,
 	)
 	var wg wait.Group
 	var ok bool
@@ -201,7 +198,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports, h.reportingConfig, h.reportsBreaker)
+	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports, h.reportingConfig)
 	patches, warnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime, h.configuration)
 	if err != nil {
 		logger.Error(err, "mutation failed")
@@ -224,7 +221,6 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 			h.configuration,
 			h.nsLister,
 			h.reportingConfig,
-			h.reportsBreaker,
 		)
 		imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 		if err != nil {

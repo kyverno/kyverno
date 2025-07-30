@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: context-api-call
+spec:
+  steps:
+  - name: setup-http-service
+    try:
+    - apply:
+        file: http-pod.yaml
+    - apply:
+        file: service.yaml
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-api
+            namespace: default
+          status:
+            phase: Running
+    - sleep:
+        duration: 30s
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: context-api-call
+  - name: create namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: check that the configmap is generated
+    try:
+    - assert:
+        file: configmap-assert.yaml

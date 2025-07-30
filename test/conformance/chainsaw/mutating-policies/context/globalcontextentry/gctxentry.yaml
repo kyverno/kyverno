@@ -1,0 +1,12 @@
+apiVersion: kyverno.io/v2alpha1
+kind: GlobalContextEntry
+metadata:
+  name: gctxentry-apicall-mpol
+spec:
+  apiCall:
+    urlPath: "/api/v1/namespaces/test-globalcontext-apicall-mpol-ns/configmaps"
+    refreshInterval: 1h
+  projections:
+    - name: app_label
+      jmesPath: "items[?metadata.name=='test-cm'].metadata.labels.app | [0]"
+
