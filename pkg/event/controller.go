@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	invalidChars           = regexp.MustCompile(`[^a-z0-9.\-]`)
+	invalidChars           = regexp.MustCompile(`[^a-z0-9\.\-]`)
 	startsWithAlphaNumeric = regexp.MustCompile(`^[a-z0-9]`)
 	endsWithAlphaNumeric   = regexp.MustCompile(`[a-z0-9]$`)
 )
