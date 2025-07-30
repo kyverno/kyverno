@@ -23,7 +23,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		ctx,
 		disableMetricsExport,
 		otel,
-		metricsAddr,
+		metricsPort,
 		otelCollector,
 		metricsConfiguration,
 		transportCreds,
