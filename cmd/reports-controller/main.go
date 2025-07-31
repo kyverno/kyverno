@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
@@ -71,6 +72,7 @@ func createReportControllers(
 	kyvernoClient versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
+	metaClient metaclient.UpstreamInterface,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	backgroundScanInterval time.Duration,
@@ -108,6 +110,7 @@ func createReportControllers(
 			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 			mapInformer,
+			metaClient,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)
@@ -196,6 +199,7 @@ func createrLeaderControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	metadataInformer metadatainformers.SharedInformerFactory,
+	metaClient metaclient.UpstreamInterface,
 	kyvernoClient versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	dynamicClient dclient.Interface,
@@ -220,6 +224,7 @@ func createrLeaderControllers(
 		kyvernoClient,
 		orClient,
 		metadataInformer,
+		metaClient,
 		kubeInformer,
 		kyvernoInformer,
 		backgroundScanInterval,
@@ -289,6 +294,7 @@ func main() {
 		internal.WithFlagSets(flagset),
 		internal.WithReporting(),
 		internal.WithOpenreports(),
+		internal.WithMetadataClient(),
 	)
 	// parse flags
 	internal.ParseFlags(
@@ -435,6 +441,7 @@ func main() {
 					kubeInformer,
 					kyvernoInformer,
 					metadataInformer,
+					setup.MetadataClient,
 					setup.KyvernoClient,
 					setup.OpenreportsClient,
 					setup.KyvernoDynamicClient,
