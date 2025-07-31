@@ -1,6 +1,6 @@
 # crds
 
-![Version: 3.5.0-rc.4](https://img.shields.io/badge/Version-3.5.0--rc.4-informational?style=flat-square)
+![Version: 3.5.0](https://img.shields.io/badge/Version-3.5.0-informational?style=flat-square)
 
 Kyverno Custom Resource Definitions
 

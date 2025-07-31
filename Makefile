@@ -698,7 +698,7 @@ codegen-helm-all: codegen-helm-docs
 
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: ## Create install_latest manifest
-codegen-manifest-install-latest: helm-setup-openreports
+codegen-manifest-install-latest:
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
