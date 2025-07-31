@@ -58990,8 +58990,8 @@ spec:
             - --caSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-ca
             - --tlsSecretName=kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair
             - --servicePort=443
-            - --cleanupServerPort=9443
             - --resyncPeriod=15m
+            - --cleanupServerPort=9443
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
