@@ -4,15 +4,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "kyverno.fullname" . }}-scale-to-zero
+  name: {{ template "kyverno.fullname" . }}-remove-mutatingwebhookconfiguration
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: pre-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
-    {{/* Make sure this runs before other pre-delete jobs that removes webhooksconfiguration*/}}
-    helm.sh/hook-weight: "90"
+    helm.sh/hook-weight: "100"
 spec:
   backoffLimit: 2
   template:
@@ -45,13 +44,10 @@ spec:
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
           command:
             - kubectl
-            - scale
-            - -n
-            - {{ template "kyverno.namespace" . }}
-            - deployment
+            - delete
+            - mutatingwebhookconfiguration
             - -l
-            - app.kubernetes.io/part-of={{ template "kyverno.fullname" . }}
-            - --replicas=0
+            - webhook.kyverno.io/managed-by=kyverno
           {{- with .Values.webhooksCleanup.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
