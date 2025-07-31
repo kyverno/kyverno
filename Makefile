@@ -654,6 +654,11 @@ helm-setup-openreports: $(HELM) ## Add openreports helm repo and build dependenc
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) dependency build ./charts/kyverno
 
+.PHONY: helm-dependency-update
+helm-dependency-update: $(HELM) ## Update helm dependencies
+	@echo Updating helm dependencies... >&2
+	@cd charts/kyverno && $(HELM) dependency update
+
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
@@ -683,16 +688,17 @@ codegen-helm-crds: codegen-crds-all
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
 	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION) -s file
+	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION)
 
 .PHONY: codegen-helm-all
 codegen-helm-all: ## Generate helm docs and CRDs
+codegen-helm-all: helm-setup-openreports
 codegen-helm-all: codegen-helm-crds
 codegen-helm-all: codegen-helm-docs
 
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: ## Create install_latest manifest
-codegen-manifest-install-latest: helm-setup-openreports
+codegen-manifest-install-latest:
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -768,7 +774,6 @@ codegen-all: codegen-helm-all
 codegen-all: codegen-manifest-all
 codegen-all: codegen-fix-all
 
-# TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
 	@echo Updating Chart.yaml files... >&2

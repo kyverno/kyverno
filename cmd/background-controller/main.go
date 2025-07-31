@@ -73,6 +73,7 @@ func createrLeaderControllers(
 	mpolEngine mpolengine.Engine,
 	mapper meta.RESTMapper,
 	reportsConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, error) {
 	watchManager := gpol.NewWatchManager(logging.WithName("WatchManager"), dynamicClient)
 	policyCtrl, err := policy.NewPolicyController(
@@ -114,6 +115,7 @@ func createrLeaderControllers(
 		configuration,
 		jp,
 		reportsConfig,
+		reportsBreaker,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -395,6 +397,7 @@ func main() {
 					mpolEngine,
 					restMapper,
 					setup.ReportingConfiguration,
+					breaker.ReportsBreaker,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")

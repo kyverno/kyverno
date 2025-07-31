@@ -34,7 +34,8 @@ type processor struct {
 	context       libs.Context
 	statusControl common.StatusControlInterface
 
-	reportsConfig reportutils.ReportingConfiguration
+	reportsConfig  reportutils.ReportingConfiguration
+	reportsBreaker breaker.Breaker
 }
 
 func NewProcessor(client dclient.Interface,
@@ -43,16 +44,18 @@ func NewProcessor(client dclient.Interface,
 	mapper meta.RESTMapper,
 	context libs.Context,
 	reportsConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
 	statusControl common.StatusControlInterface,
 ) *processor {
 	return &processor{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		engine:        mpolEngine,
-		mapper:        mapper,
-		context:       context,
-		statusControl: statusControl,
-		reportsConfig: reportsConfig,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		engine:         mpolEngine,
+		mapper:         mapper,
+		context:        context,
+		statusControl:  statusControl,
+		reportsConfig:  reportsConfig,
+		reportsBreaker: reportsBreaker,
 	}
 }
 
@@ -151,7 +154,7 @@ func (p *processor) createReports(object *unstructured.Unstructured, response *m
 
 	report := reportutils.BuildMutateExistingReport(object.GetNamespace(), object.GroupVersionKind(), object.GetName(), object.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := breaker.GetReportsBreaker().Do(context.TODO(), func(ctx context.Context) error {
+		err := p.reportsBreaker.Do(context.TODO(), func(ctx context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, report, p.kyvernoClient)
 			return err
 		})

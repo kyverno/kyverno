@@ -41,7 +41,6 @@ type imageVerificationHandler struct {
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
 	reportConfig     reportutils.ReportingConfiguration
-	breaker.Breaker
 }
 
 func NewImageVerificationHandler(

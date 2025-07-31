@@ -1,5 +1,5 @@
 <!--
-Copyright 2025 The Kyverno Authors
+Copyright 2024 The Kyverno Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ limitations under the License.
 
 **Cloud Native Policy Management 🎉**
 
-[![Build Status](https://github.com/kyverno/kyverno/actions/workflows/test.yml/badge.svg)](https://github.com/kyverno/kyverno/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno)
 ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 [![GitHub Repo stars](https://img.shields.io/github/stars/kyverno/kyverno)](https://github.com/kyverno/kyverno/stargazers)
@@ -29,120 +28,104 @@ limitations under the License.
 [![codecov](https://codecov.io/gh/kyverno/kyverno/branch/main/graph/badge.svg)](https://app.codecov.io/gh/kyverno/kyverno/branch/main)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno?ref=badge_shield)
 
-<p align="center"><a href="https://kyverno.io" rel="kyverno.io"><img src="img/Kyverno_Horizontal.png" alt="Kyverno Logo" width="400"></a></p>
 
-## 📑 Table of Contents
+<a href="https://kyverno.io" rel="kyverno.io">![logo](img/Kyverno_Horizontal.png)</a>
 
-- [About Kyverno](#about-kyverno)
-- [Documentation](#-documentation)
-- [Demos & Tutorials](#-demos--tutorials)
-- [Popular Use Cases](#-popular-use-cases)
-- [Explore the Policy Library](#-explore-the-policy-library)
-- [Getting Help](#-getting-help)
-- [Contributing](#-contributing)
-- [Software Bill of Materials](#software-bill-of-materials)
-- [Community Highlights](#-community-highlights)
-- [Contributors](#contributors)
-- [License](#license)
+<p class="callout info" style="font-size: 100%;">
+Kyverno is a policy engine designed for cloud native platform engineering teams. It enables security, automation, compliance, and governance using policy-as-code. Kyverno can validate, mutate, generate, and cleanup configurations using Kubernetes admission controls, background scans, and source code respository scans. Kyverno policies can also be used to verify OCI images, for software supply chain security. Kyverno policies can be managed as Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
+</p>
 
-## About Kyverno
-
-Kyverno is a Kubernetes-native policy engine designed for platform engineering teams. It enables security, compliance, automation, and governance through policy-as-code. Kyverno can:
-
-- Validate, mutate, generate, and clean up resources using Kubernetes admission controls and background scans.
-- Verify container image signatures for supply chain security.
-- Operate with tools you already use — like `kubectl`, `kustomize`, and Git.
-
-<a href="https://opensourcesecurityindex.io/" target="_blank" rel="noopener">
-  <img src="https://opensourcesecurityindex.io/badge.svg" alt="Open Source Security Index badge" width="282" height="56" />
+<a href="https://opensourcesecurityindex.io/" target="_blank" rel="noopener"> <img
+        style="width: 282px; height: 56px"
+        src="https://opensourcesecurityindex.io/badge.svg"
+        alt="Open Source Security Index - Fastest Growing Open Source Security Projects"
+        width="282"
+        height="56"
+    />
 </a>
 
 ## 📙 Documentation
 
-Kyverno installation and reference documentation is available at [kyverno.io](https://kyverno.io).
+Kyverno installation and reference documents are available at [kyverno.io](https://kyverno.io).
 
-- 👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
-- 👉 **[Installation Guide](https://kyverno.io/docs/installation/)**
-- 👉 **[Policy Library](https://kyverno.io/policies/)**
+👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
 
-## 🎥 Demos & Tutorials
+👉 **[Installation](https://kyverno.io/docs/installation/)**
 
-- ▶️ [Getting Started with Kyverno – YouTube](https://www.youtube.com/results?search_query=kyverno+tutorial)
-- 🧪 [Kyverno Playground](https://playground.kyverno.io/)
+👉 **[Sample Policies](https://kyverno.io/policies/)**
 
 ## 🎯 Popular Use Cases
 
-Kyverno helps platform teams enforce best practices and security standards. Some common use cases include:
+Kyverno helps platform teams enforce best practices and security policies. Here are some common use cases:
 
-### 1. **Security & Compliance**
-- Enforce Pod Security Standards (PSS)
-- Require specific security contexts
-- Validate container image sources and signatures
-- Enforce CIS Benchmark policies
+1. **Security & Compliance**
+   - Enforce pod security standards
+   - Require specific security contexts
+   - Validate image sources and signatures
+   - Ensure resource limits and requests
 
-### 2. **Operational Excellence**
-- Auto-label workloads
-- Enforce naming conventions
-- Generate default configurations (e.g., NetworkPolicies)
-- Validate YAML and Helm manifests
+2. **Operational Excellence**
+   - Automatically add labels and annotations
+   - Enforce naming conventions
+   - Generate default network policies
+   - Validate resource configurations
 
-### 3. **Cost Optimization**
-- Enforce resource quotas and limits
-- Require cost allocation labels
-- Validate instance types
-- Clean up unused resources
+3. **Cost Optimization**
+   - Enforce resource quotas
+   - Require cost allocation labels
+   - Clean up unused resources
+   - Validate instance types
 
-### 4. **Developer Guardrails**
-- Require readiness/liveness probes
-- Enforce ingress/egress policies
-- Validate container image versions
-- Auto-inject config maps or secrets
+4. **Developer Guardrails**
+   - Enforce ingress/egress rules
+   - Require liveness/readiness probes
+   - Validate container images
+   - Auto-mount configuration
 
-## 📚 Explore the Policy Library
+Each use case includes ready-to-use policies in our [policy library](https://kyverno.io/policies/).
 
-Discover hundreds of production-ready Kyverno policies for security, operations, cost control, and developer enablement.
+## 🙋‍♂️ Getting Help
 
-👉 [Browse the Policy Library](https://kyverno.io/policies/)
+We are here to help!
 
-## 🙋 Getting Help
+👉 For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
 
-We’re here to help:
+👉 For discussions or questions, join the [Kyverno Slack channel](https://slack.k8s.io/#kyverno).
 
-- 🐞 File a [GitHub Issue](https://github.com/kyverno/kyverno/issues)
-- 💬 Join the [Kyverno Slack Channel](https://slack.k8s.io/#kyverno)
-- 📅 Attend [Community Meetings](https://kyverno.io/community/#community-meetings)
-- ⭐️ [Star this repository](https://github.com/kyverno/kyverno/stargazers) to stay updated
+👉 For community meeting access, see [mailing list](https://kyverno.io/community/#community-meetings).
+
+👉 To get follow updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
 
 ## ➕ Contributing
 
-Thank you for your interest in contributing to Kyverno!
+Thanks for your interest in contributing to Kyverno! Here are some steps to help get you started:
 
-- ✅ Read the [Contribution Guidelines](/CONTRIBUTING.md)
-- 🧵 Join [GitHub Discussions](https://github.com/kyverno/kyverno/discussions)
-- 📖 Read the [Development Guide](/DEVELOPMENT.md)
-- 🏁 Check [Good First Issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) and request with `/assign`
-- 🌱 Explore the [Community page](https://kyverno.io/community/)
+✔ Read and agree to the [Contribution Guidelines](/CONTRIBUTING.md).
 
-## 🧾 Software Bill of Materials
+✔ Browse through the [GitHub discussions](https://github.com/kyverno/kyverno/discussions).
 
-All Kyverno images include a Software Bill of Materials (SBOM) in [CycloneDX](https://cyclonedx.org/) format. SBOMs are available at:
+✔ Read Kyverno design and development details on the [GitHub Wiki](https://github.com/kyverno/kyverno/wiki).
 
-- 👉 [`ghcr.io/kyverno/sbom`](https://github.com/orgs/kyverno/packages?tab=packages&q=sbom)
-- 👉 [Fetching the SBOM](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno)
+✔ Check out the [good first issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) list. Add a comment with `/assign` to request assignment of the issue.
 
-## 👥 Contributors
+✔ Check out the Kyverno [Community page](https://kyverno.io/community/) for other ways to get involved.
+
+## Software Bill of Materials
+
+All Kyverno images include a Software Bill of Materials (SBOM) in [CycloneDX](https://cyclonedx.org/) JSON format. SBOMs for Kyverno images are stored in a separate repository at `ghcr.io/kyverno/sbom`. More information on this is available at [Fetching the SBOM for Kyverno](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno). 
+
+## Contributors
 
 Kyverno is built and maintained by our growing community of contributors!
 
 <a href="https://github.com/kyverno/kyverno/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=kyverno/kyverno" alt="Contributors image" />
+  <img src="https://contrib.rocks/image?repo=kyverno/kyverno" />
 </a>
 
-_Made with [contributors-img](https://contrib.rocks)_
+Made with [contributors-img](https://contrib.rocks).
 
-## 📄 License
+## License
 
-Copyright 2025, the Kyverno project. All rights reserved.  
-Kyverno is licensed under the [Apache License 2.0](LICENSE).
+Copyright 2025, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
 
 Kyverno is a [Cloud Native Computing Foundation (CNCF) Incubating project](https://www.cncf.io/projects/) and was contributed by [Nirmata](https://nirmata.com/?utm_source=github&utm_medium=repository).
