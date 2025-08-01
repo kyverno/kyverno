@@ -22,6 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -31,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 )
 
@@ -244,7 +246,7 @@ func (s *scanner) ScanResource(
 
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
-				results[&vpols[i]] = ScanResult{nil, err}
+				results[&mpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			request := celengine.Request(
@@ -261,23 +263,57 @@ func (s *scanner) ScanResource(
 				false,
 				nil,
 			)
-			engineResponse, err := engine.Handle(ctx, request, nil)
+			object, oldObject, _ := admissionutils.ExtractResources(nil, request.Request)
+
+			attr := admission.NewAttributesRecord(
+				&object,
+				&oldObject,
+				schema.GroupVersionKind(request.Request.Kind),
+				request.Request.Namespace,
+				request.Request.Name,
+				schema.GroupVersionResource(request.Request.Resource),
+				request.Request.SubResource,
+				admission.Operation(request.Request.Operation),
+				nil,
+				false,
+				nil,
+			)
+
+			targetMpols := provider.MatchesMutateExisting(ctx, attr, nil)
+			predicate := mpolengine.MatchNames(targetMpols...)
+			if !pol.Spec.MutateExistingEnabled() {
+				predicate = nil
+			}
+			engineResponse, err := engine.Handle(ctx, request, predicate)
+
+			new := engineResponse.PatchedResource
+			if new != nil {
+				s.client.UpdateResource(ctx, new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.Object, false, "")
+			}
+
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
-				for j, r := range policy.Rules {
-					if r.Status() == engineapi.RuleStatusPass {
-						policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+				if !policy.Policy.Spec.MutateExistingEnabled() {
+					for j, r := range policy.Rules {
+						if r.Status() == engineapi.RuleStatusPass {
+							policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+						}
 					}
 				}
 				rules = append(rules, policy.Rules...)
 			}
 
 			response := engineapi.EngineResponse{
-				Resource: resource,
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: rules,
 				},
 			}.WithPolicy(mpols[i])
+
+			if new != nil {
+				response.PatchedResource = *new
+			} else {
+				response.Resource = *engineResponse.Resource
+			}
 			results[&mpols[i]] = ScanResult{&response, err}
 		}
 	}
