@@ -48,6 +48,7 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
@@ -70,6 +71,7 @@ type PolicyProcessor struct {
 	MutateLogPath                     string
 	MutateLogPathIsDir                bool
 	Variables                         *variables.Variables
+	ParameterResources                []runtime.Object
 	// TODO
 	ContextPath               string
 	Cluster                   bool
@@ -240,7 +242,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		} else {
 			gvr := mapping.Resource
-
 			for _, mapPolicy := range p.MutatingAdmissionPolicies {
 				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
 				for _, b := range p.MutatingAdmissionPolicyBindings {
@@ -248,19 +249,24 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						data.AddBinding(b)
 					}
 				}
-				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
+				for _, param := range p.ParameterResources {
+					data.AddParam(param)
+				}
+				mutateResponses, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue
 				}
-				if mutateResponse.IsEmpty() {
-					continue
+				for _, r := range mutateResponses {
+					if r.IsEmpty() {
+						continue
+					}
+					if err := p.processMutateEngineResponse(r, resPath); err != nil {
+						log.Log.Error(err, "failed to log MAP mutation")
+					}
+					resource = r.PatchedResource
+					responses = append(responses, r)
 				}
-				if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
-					log.Log.Error(err, "failed to log MAP mutation")
-				}
-				resource = mutateResponse.PatchedResource
-				responses = append(responses, mutateResponse)
 			}
 		}
 	}
@@ -349,9 +355,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					policyData.AddBinding(binding)
 				}
 			}
+			for _, param := range p.ParameterResources {
+				policyData.AddParam(param)
+			}
 			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster)
-			vapResponses = append(vapResponses, validateResponse)
-			p.Rc.addValidatingAdmissionResponse(validateResponse)
+			vapResponses = append(vapResponses, validateResponse...)
+			for _, r := range vapResponses {
+				p.Rc.addValidatingAdmissionResponse(r)
+			}
 		}
 	}
 	// validating policies

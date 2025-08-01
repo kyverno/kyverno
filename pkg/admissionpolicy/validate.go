@@ -8,6 +8,7 @@ import (
 
 	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -112,16 +113,15 @@ func Validate(
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
 	isFake bool,
-) (engineapi.EngineResponse, error) {
-	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	policy := policyData.GetDefinition()
-	bindings := policyData.GetBindings()
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+) ([]engineapi.EngineResponse, error) {
+	var (
+		resPath       = fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
+		policy        = policyData.GetDefinition()
+		bindings      = policyData.GetBindings()
+		namespace     *corev1.Namespace
+		namespaceName = resource.GetNamespace()
+	)
 
-	var namespace *corev1.Namespace
-	namespaceName := resource.GetNamespace()
-	// Special case, the namespace object has the namespace of itself.
-	// unset it if the incoming object is a namespace
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 	}
@@ -138,88 +138,116 @@ func Validate(
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 	if len(bindings) == 0 {
-		matcher := celmatching.NewMatcher()
-		isMatch, err := matcher.Match(
-			&celmatching.MatchCriteria{
-				Constraints: policy.Spec.MatchConstraints,
-			},
-			a,
-			namespace,
-		)
-		if err != nil {
-			return engineResponse, err
-		}
-		if !isMatch {
-			return engineResponse, nil
-		}
-		vapLogger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-		return validateResource(policy, nil, resource, namespace, a)
+		return processVAPNoBindings(policy, resource, namespace, a, resPath)
 	}
 
 	if client != nil && !isFake {
-		nsLister := NewCustomNamespaceLister(client)
-		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
+		return processVAPWithClient(policy, bindings, resource, namespaceName, namespace, client, a, resPath)
+	}
 
-		// check if policy matches the incoming resource
-		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
+	return processVAPWithoutClient(policy, bindings, resource, namespace, policyData.GetParams(), a, resPath)
+}
+
+func processVAPNoBindings(policy *admissionregistrationv1.ValidatingAdmissionPolicy, resource unstructured.Unstructured, namespace *corev1.Namespace, a admission.Attributes, resPath string) ([]engineapi.EngineResponse, error) {
+	matcher := celmatching.NewMatcher()
+	isMatch, err := matcher.Match(&celmatching.MatchCriteria{Constraints: policy.Spec.MatchConstraints}, a, namespace)
+	if err != nil || !isMatch {
+		return nil, err
+	}
+	mapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
+	er, err := validateResource(policy, nil, resource, nil, namespace, a)
+	if err != nil {
+		return nil, nil
+	}
+	return []engineapi.EngineResponse{er}, nil
+}
+
+func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, a admission.Attributes, resPath string) ([]engineapi.EngineResponse, error) {
+	nsLister := NewCustomNamespaceLister(client)
+	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
+	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
+	isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
+	if err != nil || !isMatch {
+		return nil, err
+	}
+
+	if namespaceName != "" {
+		namespace, err = client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
 		if err != nil {
-			return engineResponse, err
-		}
-		if !isMatch {
-			return engineResponse, nil
-		}
-
-		if namespaceName != "" {
-			namespace, err = client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
-			if err != nil {
-				return engineResponse, err
-			}
-		}
-
-		for i, binding := range bindings {
-			isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&binding))
-			if err != nil {
-				return engineResponse, err
-			}
-			if !isMatch {
-				continue
-			}
-
-			vapLogger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, namespace, a)
-		}
-	} else {
-		matcher := celmatching.NewMatcher()
-		for i, binding := range bindings {
-			// check if the binding matches the incoming resource
-			if binding.Spec.MatchResources != nil {
-				bindingMatches, err := matcher.Match(
-					&celmatching.MatchCriteria{
-						Constraints: binding.Spec.MatchResources,
-					},
-					a,
-					namespace,
-				)
-				if err != nil {
-					return engineResponse, err
-				}
-				if !bindingMatches {
-					continue
-				}
-			}
-			vapLogger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, namespace, a)
+			return nil, err
 		}
 	}
 
-	return engineResponse, nil
+	var ers []engineapi.EngineResponse
+	for i, binding := range bindings {
+		isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&binding))
+		if err != nil || !isMatch {
+			continue
+		}
+
+		if binding.Spec.ParamRef != nil {
+			params, err := CollectParams(context.TODO(), adapters.Client(client), &admissionregistrationv1.ParamKind{APIVersion: policy.Spec.ParamKind.APIVersion, Kind: policy.Spec.ParamKind.APIVersion}, &admissionregistrationv1.ParamRef{Name: binding.Spec.ParamRef.Name, Namespace: binding.Spec.ParamRef.Namespace, Selector: binding.Spec.ParamRef.Selector, ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction)}, resource.GetNamespace())
+			if err != nil {
+				return nil, err
+			}
+			for _, p := range params {
+				engineResponse, err := validateResource(policy, &bindings[i], resource, p, namespace, a)
+				if err == nil {
+					ers = append(ers, engineResponse)
+				}
+			}
+			continue
+		}
+
+		engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
+		if err == nil {
+			ers = append(ers, engineResponse)
+		}
+	}
+	return ers, nil
+}
+
+func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespace *corev1.Namespace, params []runtime.Object, a admission.Attributes, resPath string) ([]engineapi.EngineResponse, error) {
+	matcher := celmatching.NewMatcher()
+	var ers []engineapi.EngineResponse
+
+	for i, binding := range bindings {
+		if binding.Spec.MatchResources != nil {
+			bindingMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: binding.Spec.MatchResources}, a, namespace)
+			if err != nil || !bindingMatches {
+				continue
+			}
+		}
+		if binding.Spec.ParamRef != nil {
+			for _, param := range params {
+				var matchedParams []runtime.Object
+				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
+				obj := &unstructured.Unstructured{Object: unstructuredMap}
+				if matchesSelector(obj, &admissionregistrationv1.ParamRef{
+					Name:                    binding.Spec.ParamRef.Name,
+					Namespace:               binding.Spec.ParamRef.Namespace,
+					Selector:                binding.Spec.ParamRef.Selector,
+					ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction),
+				}) {
+					matchedParams = append(matchedParams, param)
+				}
+				for _, p := range matchedParams {
+					er, err := validateResource(policy, &bindings[i], resource, p, namespace, a)
+					if err == nil {
+						ers = append(ers, er)
+					}
+				}
+			}
+		}
+	}
+	return ers, nil
 }
 
 func validateResource(
 	policy *admissionregistrationv1.ValidatingAdmissionPolicy,
 	binding *admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
+	parameterResource runtime.Object,
 	namespace *corev1.Namespace,
 	a admission.Attributes,
 ) (engineapi.EngineResponse, error) {
@@ -257,7 +285,7 @@ func validateResource(
 		policy.Spec.FailurePolicy,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
-	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil)
+	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, parameterResource, namespace, celconfig.RuntimeCELCostBudget, nil)
 
 	// no validations are returned if match conditions aren't met
 	if datautils.DeepEqual(validateResult, validating.ValidateResult{}) {

@@ -8,6 +8,7 @@ import (
 	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
 	celutils "github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/managedfields"
@@ -37,19 +39,19 @@ func Mutate(
 	client dclient.Interface,
 	isFake bool,
 	backgroundScan bool,
-) (engineapi.EngineResponse, error) {
-	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	policy := data.GetDefinition()
-	bindings := data.GetBindings()
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)
+) ([]engineapi.EngineResponse, error) {
+	var (
+		resPath       = fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
+		policy        = data.GetDefinition()
+		bindings      = data.GetBindings()
+		namespace     *corev1.Namespace
+		namespaceName = resource.GetNamespace()
+	)
 
-	var namespace *corev1.Namespace
-	namespaceName := resource.GetNamespace()
-	// Special case, the namespace object has the namespace of itself.
-	// unset it if the incoming object is a namespace
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 	}
+
 	if namespaceName != "" {
 		namespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -58,92 +60,130 @@ func Mutate(
 			},
 		}
 	}
+
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 	if len(bindings) == 0 {
-		matchResources := ConvertMatchResources(policy.Spec.MatchConstraints)
-		matcher := celmatching.NewMatcher()
-		isMatch, err := matcher.Match(
-			&celmatching.MatchCriteria{
-				Constraints: matchResources,
-			},
-			a,
-			namespace,
-		)
-		if err != nil {
-			return engineResponse, err
-		}
-		if !isMatch {
-			return engineResponse, nil
-		}
-		mapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
-		return mutateResource(policy, nil, resource, gvr, namespace, a, backgroundScan)
+		return processMAPNoBindings(policy, resource, namespace, gvr, a, resPath, backgroundScan)
 	}
 
 	if client != nil && !isFake {
-		nsLister := NewCustomNamespaceLister(client)
-		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
+		return processMAPWithClient(policy, bindings, resource, namespaceName, namespace, client, gvr, a, resPath, backgroundScan)
+	}
 
-		// check if policy matches the incoming resource
-		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(policy))
+	return processMAPWithoutClient(policy, bindings, resource, namespace, data.GetParams(), gvr, a, resPath, backgroundScan)
+}
+
+func processMAPNoBindings(policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy, resource unstructured.Unstructured, namespace *corev1.Namespace, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) ([]engineapi.EngineResponse, error) {
+	matcher := celmatching.NewMatcher()
+	matchResources := ConvertMatchResources(policy.Spec.MatchConstraints)
+	isMatch, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
+	if err != nil || !isMatch {
+		return nil, err
+	}
+	mapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
+	er, err := mutateResource(policy, nil, resource, nil, gvr, namespace, a, backgroundScan)
+	if err != nil {
+		return nil, nil
+	}
+	return []engineapi.EngineResponse{er}, nil
+}
+
+func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy, bindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) ([]engineapi.EngineResponse, error) {
+	nsLister := NewCustomNamespaceLister(client)
+	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
+	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
+	isMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(policy))
+	if err != nil || !isMatch {
+		return nil, err
+	}
+
+	if namespaceName != "" {
+		namespace, err = client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
 		if err != nil {
-			return engineResponse, err
-		}
-		if !isMatch {
-			return engineResponse, nil
-		}
-
-		if namespaceName != "" {
-			namespace, err = client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
-			if err != nil {
-				return engineResponse, err
-			}
-		}
-
-		for i, binding := range bindings {
-			isMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
-			if err != nil {
-				return engineResponse, err
-			}
-			if !isMatch {
-				fmt.Println("bindings does not match the incoming resource, skipping mutations")
-				continue
-			}
-
-			mapLogger.V(3).Info("apply mutatingadmissionpolicy %s with its binding %s to the resource %s", policy.GetName(), binding.GetName(), resPath)
-			return mutateResource(policy, &bindings[i], resource, gvr, namespace, a, backgroundScan)
-		}
-	} else {
-		matcher := celmatching.NewMatcher()
-		for i, binding := range bindings {
-			// check if the binding matches the incoming resource
-			if binding.Spec.MatchResources != nil {
-				matchResources := ConvertMatchResources(binding.Spec.MatchResources)
-				bindingMatches, err := matcher.Match(
-					&celmatching.MatchCriteria{
-						Constraints: matchResources,
-					},
-					a,
-					namespace,
-				)
-				if err != nil {
-					return engineResponse, err
-				}
-				if !bindingMatches {
-					continue
-				}
-			}
-			return mutateResource(policy, &bindings[i], resource, gvr, namespace, a, backgroundScan)
+			return nil, err
 		}
 	}
-	return engineResponse, nil
+
+	var ers []engineapi.EngineResponse
+	for i, binding := range bindings {
+		isMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
+		if err != nil || !isMatch {
+			continue
+		}
+
+		if binding.Spec.ParamRef != nil {
+			params, err := CollectParams(context.TODO(), adapters.Client(client), &admissionregistrationv1.ParamKind{APIVersion: policy.Spec.ParamKind.APIVersion, Kind: policy.Spec.ParamKind.APIVersion}, &admissionregistrationv1.ParamRef{Name: binding.Spec.ParamRef.Name, Namespace: binding.Spec.ParamRef.Namespace, Selector: binding.Spec.ParamRef.Selector, ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction)}, resource.GetNamespace())
+			if err != nil {
+				return nil, err
+			}
+			for _, p := range params {
+				engineResponse, err := mutateResource(policy, &bindings[i], resource, p, gvr, namespace, a, backgroundScan)
+				if err == nil {
+					ers = append(ers, engineResponse)
+				}
+			}
+			continue
+		}
+
+		engineResponse, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
+		if err == nil {
+			ers = append(ers, engineResponse)
+		}
+	}
+	return ers, nil
+}
+
+func processMAPWithoutClient(policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy, bindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespace *corev1.Namespace, params []runtime.Object, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) ([]engineapi.EngineResponse, error) {
+	matcher := celmatching.NewMatcher()
+	var ers []engineapi.EngineResponse
+
+	for i, binding := range bindings {
+		if binding.Spec.MatchResources != nil {
+			matchResources := ConvertMatchResources(binding.Spec.MatchResources)
+			bindingMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
+			if err != nil || !bindingMatches {
+				continue
+			}
+		}
+		if binding.Spec.ParamRef != nil {
+			for _, param := range params {
+				var matchedParams []runtime.Object
+				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
+				obj := &unstructured.Unstructured{Object: unstructuredMap}
+				if matchesSelector(obj, &admissionregistrationv1.ParamRef{
+					Name:                    binding.Spec.ParamRef.Name,
+					Namespace:               binding.Spec.ParamRef.Namespace,
+					Selector:                binding.Spec.ParamRef.Selector,
+					ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction),
+				}) {
+					matchedParams = append(matchedParams, param)
+				}
+				for _, p := range matchedParams {
+					er, err := mutateResource(policy, &bindings[i], resource, p, gvr, namespace, a, backgroundScan)
+					if err == nil {
+						ers = append(ers, er)
+					}
+				}
+			}
+		}
+	}
+	return ers, nil
+}
+
+func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv1.ParamRef) bool {
+	if ref.Selector != nil {
+		selector, _ := metav1.LabelSelectorAsSelector(ref.Selector)
+		return selector.Matches(labels.Set(obj.GetLabels()))
+	}
+	return obj.GetName() == ref.Name
 }
 
 func mutateResource(
 	policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
+	param runtime.Object,
 	gvr schema.GroupVersionResource,
 	namespace *corev1.Namespace,
 	a admission.Attributes,
@@ -204,7 +244,7 @@ func mutateResource(
 				MatchedResource:     gvr,
 				VersionedAttributes: versionedAttributes,
 				ObjectInterfaces:    o,
-				OptionalVariables:   cel.OptionalVariableBindings{VersionedParams: nil, Authorizer: nil},
+				OptionalVariables:   cel.OptionalVariableBindings{VersionedParams: param, Authorizer: nil},
 				Namespace:           namespace,
 				TypeConverter:       managedfields.NewDeducedTypeConverter(),
 			}

@@ -81,6 +81,7 @@ type ApplyCommandConfig struct {
 	ResourcePaths         []string
 	PolicyPaths           []string
 	TargetResourcePaths   []string
+	ParamResources        []string
 	GitBranch             string
 	GitUsername           string
 	GitPassword           string
@@ -189,6 +190,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.ParamResources, "parameter-resource", "", []string{}, "Path to resource files that act as validating admission policy parameters")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
@@ -263,7 +265,15 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 			return nil, nil, skippedInvalidPolicies, nil, err
 		}
 	}
-	dClient, err := c.initStoreAndClusterClient(&store, targetResources...)
+	var parameterResources []*unstructured.Unstructured
+	if len(c.ParamResources) > 0 {
+		parameterResources, _, err = c.loadResources(out, c.ParamResources, genericPolicies, nil)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, err
+		}
+	}
+
+	dClient, err := c.initStoreAndClusterClient(&store, append(targetResources, parameterResources...)...)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}

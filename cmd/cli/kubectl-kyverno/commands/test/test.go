@@ -138,13 +138,22 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
-	targets := []runtime.Object{}
+	clientResources := []runtime.Object{}
 	for _, t := range targetResources {
-		targets = append(targets, t)
+		clientResources = append(clientResources, t)
+	}
+
+	parameterResourcesPath := path.GetFullPaths(testCase.Test.ParamResources, testDir, isGit)
+	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, parameterResourcesPath, false, genericPolicies, dClient, "", false, false, testDir)
+	if err != nil {
+		return nil, fmt.Errorf("error: failed to load parameter resources (%s)", err)
+	}
+	for _, t := range paramResources {
+		clientResources = append(clientResources, t)
 	}
 
 	// this will be a dclient containing all target resources. a policy may not do anything with any targets in these
-	dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targets...)
+	dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, clientResources...)
 	if err != nil {
 		return nil, err
 	}
@@ -259,6 +268,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Resource:                          *resource,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
+			ParameterResources:                nil,
 			MutateLogPath:                     "",
 			Variables:                         vars,
 			ContextPath:                       contextPath,
