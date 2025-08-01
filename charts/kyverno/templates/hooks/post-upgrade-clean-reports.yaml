@@ -46,21 +46,21 @@ spec:
 
               for ns in ${NAMESPACES[@]};
               do
-                COUNT=$(kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '/pol/{print $1}' | wc -l)
+                COUNT=$(kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '{print $1}' | wc -l)
 
                 if [ $COUNT -gt 0 ]; then
                   echo "deleting $COUNT policyreports in namespace $ns"
-                  kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '/pol/{print $1}' | xargs kubectl delete -n $ns policyreports.wgpolicyk8s.io
+                  kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '{print $1}' | xargs kubectl delete -n $ns policyreports.wgpolicyk8s.io
                 else
                   echo "no policyreports in namespace $ns"
                 fi
               done
 
-              COUNT=$(kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | wc -l)
+              COUNT=$(kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '{print $1}' | wc -l)
 
               if [ $COUNT -gt 0 ]; then
                 echo "deleting $COUNT clusterpolicyreports"
-                kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | xargs kubectl delete clusterpolicyreports.wgpolicyk8s.io
+                kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '{print $1}' | xargs kubectl delete clusterpolicyreports.wgpolicyk8s.io
               else
                 echo "no clusterpolicyreports"
               fi
