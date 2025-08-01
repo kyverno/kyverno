@@ -129,6 +129,10 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
+	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
+		warnings = append(warnings, "A clusterpolicy should not have the namespace defined")
+		return warnings, fmt.Errorf("A clusterpolicy should not have the namespace defined")
+	}
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	if policy.GetSpec().CustomWebhookMatchConditions() &&
