@@ -174,7 +174,6 @@ func NewController(
 	server string,
 	defaultTimeout int32,
 	servicePort int32,
-	webhookServerPort int32,
 	autoUpdateWebhooks bool,
 	autoDeleteWebhooks bool,
 	admissionReports bool,
