@@ -146,6 +146,16 @@ func EvaluateConditions(
 	s map[string]interface{},
 	log logr.Logger,
 ) (bool, string, error) {
+	return EvaluateConditionsWithContext(conditions, ctx, s, log, "")
+}
+
+func EvaluateConditionsWithContext(
+	conditions []kyvernov1.AnyAllConditions,
+	ctx enginecontext.Interface,
+	s map[string]interface{},
+	log logr.Logger,
+	contextType string,
+) (bool, string, error) {
 	predicate, ok := s["predicate"].(map[string]interface{})
 	if !ok {
 		return false, "", fmt.Errorf("failed to extract predicate from statement: %v", s)
@@ -157,7 +167,7 @@ func EvaluateConditions(
 	if err != nil {
 		return false, "", fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
 	}
-	return variables.EvaluateAnyAllConditions(log, ctx, c)
+	return variables.EvaluateAnyAllConditionsWithContext(log, ctx, c, contextType)
 }
 
 func getRawResp(statements []map[string]interface{}) ([]byte, error) {
@@ -695,7 +705,7 @@ func (iv *ImageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string
 	}
 	iv.policyContext.JSONContext().Checkpoint()
 	defer iv.policyContext.JSONContext().Restore()
-	return EvaluateConditions(a.Conditions, iv.policyContext.JSONContext(), s, iv.logger)
+	return EvaluateConditionsWithContext(a.Conditions, iv.policyContext.JSONContext(), s, iv.logger, "attestation condition")
 }
 
 func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, imageInfo apiutils.ImageInfo) (*jsonpatch.JsonPatchOperation, string, error) {
