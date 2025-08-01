@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: check-deployments-replicas
@@ -17,7 +17,7 @@ spec:
     - expression: "object.spec.replicas <= int(params.data.maxReplicas)"
       message: "Replicas must be less than or equal 5"
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   name: check-deployments-replicas-binding
