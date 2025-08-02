@@ -57,7 +57,7 @@ func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool,
 	return true, nil
 }
 
-// Collect params collects parameter resoruces from a live cluster
+// Collect params collects parameter resources from a live cluster
 func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
 	var params []runtime.Object
 
