@@ -78,9 +78,13 @@ func processMAPNoBindings(policy *admissionregistrationv1alpha1.MutatingAdmissio
 	matcher := celmatching.NewMatcher()
 	matchResources := ConvertMatchResources(policy.Spec.MatchConstraints)
 	isMatch, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
-	if err != nil || !isMatch {
+	if err != nil {
 		return nil, err
 	}
+	if !isMatch {
+		return []engineapi.EngineResponse{engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)}, nil
+	}
+
 	mapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
 	er, err := mutateResource(policy, nil, resource, nil, gvr, namespace, a, backgroundScan)
 	if err != nil {
@@ -93,9 +97,15 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
+	var ers []engineapi.EngineResponse
+
 	isMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(policy))
-	if err != nil || !isMatch {
+	if err != nil {
 		return nil, err
+	}
+	if !isMatch {
+		ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil))
+		return ers, nil
 	}
 
 	if namespaceName != "" {
@@ -105,10 +115,13 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 		}
 	}
 
-	var ers []engineapi.EngineResponse
 	for i, binding := range bindings {
 		isMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
-		if err != nil || !isMatch {
+		if err != nil {
+			continue
+		}
+		if !isMatch {
+			ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil))
 			continue
 		}
 
@@ -142,7 +155,11 @@ func processMAPWithoutClient(policy *admissionregistrationv1alpha1.MutatingAdmis
 		if binding.Spec.MatchResources != nil {
 			matchResources := ConvertMatchResources(binding.Spec.MatchResources)
 			bindingMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
-			if err != nil || !bindingMatches {
+			if err != nil {
+				continue
+			}
+			if !bindingMatches {
+				ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil))
 				continue
 			}
 		}

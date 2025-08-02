@@ -151,9 +151,13 @@ func Validate(
 func processVAPNoBindings(policy *admissionregistrationv1.ValidatingAdmissionPolicy, resource unstructured.Unstructured, namespace *corev1.Namespace, a admission.Attributes, resPath string) ([]engineapi.EngineResponse, error) {
 	matcher := celmatching.NewMatcher()
 	isMatch, err := matcher.Match(&celmatching.MatchCriteria{Constraints: policy.Spec.MatchConstraints}, a, namespace)
-	if err != nil || !isMatch {
+	if err != nil {
 		return nil, err
 	}
+	if !isMatch {
+		return []engineapi.EngineResponse{engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)}, nil
+	}
+
 	mapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
 	er, err := validateResource(policy, nil, resource, nil, namespace, a)
 	if err != nil {
@@ -166,9 +170,15 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
+	var ers []engineapi.EngineResponse
+
 	isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
-	if err != nil || !isMatch {
+	if err != nil {
 		return nil, err
+	}
+	if !isMatch {
+		ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil))
+		return ers, nil
 	}
 
 	if namespaceName != "" {
@@ -178,10 +188,13 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 		}
 	}
 
-	var ers []engineapi.EngineResponse
 	for i, binding := range bindings {
 		isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&binding))
-		if err != nil || !isMatch {
+		if err != nil {
+			continue
+		}
+		if !isMatch {
+			ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil))
 			continue
 		}
 
@@ -214,7 +227,11 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
 			bindingMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: binding.Spec.MatchResources}, a, namespace)
-			if err != nil || !bindingMatches {
+			if err != nil {
+				continue
+			}
+			if !bindingMatches {
+				ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil))
 				continue
 			}
 		}
