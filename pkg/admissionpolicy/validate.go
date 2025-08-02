@@ -204,7 +204,7 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 		}
 
 		if binding.Spec.ParamRef != nil {
-			params, err := CollectParams(context.TODO(), adapters.Client(client), &admissionregistrationv1.ParamKind{APIVersion: policy.Spec.ParamKind.APIVersion, Kind: policy.Spec.ParamKind.APIVersion}, &admissionregistrationv1.ParamRef{Name: binding.Spec.ParamRef.Name, Namespace: binding.Spec.ParamRef.Namespace, Selector: binding.Spec.ParamRef.Selector, ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction)}, resource.GetNamespace())
+			params, err := CollectParams(context.TODO(), adapters.Client(client), &admissionregistrationv1.ParamKind{APIVersion: policy.Spec.ParamKind.APIVersion, Kind: policy.Spec.ParamKind.APIVersion}, binding.Spec.ParamRef, resource.GetNamespace())
 			if err != nil {
 				vapLogger.Error(err, "failed to collect params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				return nil, err
