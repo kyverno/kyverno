@@ -124,11 +124,11 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 				}
 			}
 			continue
-		}
-
-		engineResponse, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
-		if err == nil {
-			ers = append(ers, engineResponse)
+		} else {
+			engineResponse, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
+			if err == nil {
+				ers = append(ers, engineResponse)
+			}
 		}
 	}
 	return ers, nil
@@ -165,6 +165,11 @@ func processMAPWithoutClient(policy *admissionregistrationv1alpha1.MutatingAdmis
 						ers = append(ers, er)
 					}
 				}
+			}
+		} else {
+			er, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
+			if err == nil {
+				ers = append(ers, er)
 			}
 		}
 	}

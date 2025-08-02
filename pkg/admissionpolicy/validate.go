@@ -197,11 +197,11 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 				}
 			}
 			continue
-		}
-
-		engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
-		if err == nil {
-			ers = append(ers, engineResponse)
+		} else {
+			engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
+			if err == nil {
+				ers = append(ers, engineResponse)
+			}
 		}
 	}
 	return ers, nil
@@ -237,6 +237,11 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 						ers = append(ers, er)
 					}
 				}
+			}
+		} else {
+			er, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
+			if err == nil {
+				ers = append(ers, er)
 			}
 		}
 	}
