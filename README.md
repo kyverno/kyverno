@@ -18,6 +18,8 @@ limitations under the License.
 
 **Cloud Native Policy Management 🎉**
 
+> **New in v1alpha1:** Kyverno now supports CEL-based policy types, enabling advanced policy logic and flexibility. See the documentation for details and migration guides.
+
 [![Build Status](https://github.com/kyverno/kyverno/actions/workflows/test.yml/badge.svg)](https://github.com/kyverno/kyverno/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno)
 ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
