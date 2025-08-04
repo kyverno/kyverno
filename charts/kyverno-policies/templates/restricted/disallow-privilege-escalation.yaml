@@ -15,6 +15,9 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    {{- if .Values.celEnabled }}
+    policies.kyverno.io/minversion: 1.12.0
+    {{- end }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
     policies.kyverno.io/description: >-
       Privilege escalation, such as via set-user-ID or set-group-ID file mode, should not be allowed.
@@ -22,6 +25,7 @@ metadata:
     {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -43,21 +47,40 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
-        {{- with index .Values "validationFailureActionByPolicy" $name }}
-        failureAction: {{ toYaml . }}
-        {{- else }}
-        failureAction: {{ .Values.validationFailureAction }}
-        {{- end }}
-        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-        failureActionOverrides: {{ toYaml . | nindent 8 }}
-        {{- end }}
-        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Privilege escalation is disallowed. The fields
           spec.containers[*].securityContext.allowPrivilegeEscalation,
           spec.initContainers[*].securityContext.allowPrivilegeEscalation,
           and spec.ephemeralContainers[*].securityContext.allowPrivilegeEscalation
           must be set to `false`.
+        {{- if .Values.celEnabled }}
+        # Using CEL for validation
+        cel:
+          expressions:
+            - expression: |
+                object.spec.containers.all(container,
+                  has(container.securityContext) &&
+                  has(container.securityContext.allowPrivilegeEscalation) &&
+                  container.securityContext.allowPrivilegeEscalation == false
+                )
+              message: "Containers must not allow privilege escalation (set allowPrivilegeEscalation=false)."
+            - expression: |
+                !has(object.spec.initContainers) ||
+                object.spec.initContainers.all(container,
+                  has(container.securityContext) &&
+                  has(container.securityContext.allowPrivilegeEscalation) &&
+                  container.securityContext.allowPrivilegeEscalation == false
+                )
+              message: "InitContainers must not allow privilege escalation (set allowPrivilegeEscalation=false)."
+            - expression: |
+                !has(object.spec.ephemeralContainers) ||
+                object.spec.ephemeralContainers.all(container,
+                  has(container.securityContext) &&
+                  has(container.securityContext.allowPrivilegeEscalation) &&
+                  container.securityContext.allowPrivilegeEscalation == false
+                )
+              message: "EphemeralContainers must not allow privilege escalation (set allowPrivilegeEscalation=false)."
+        {{- else }}
         pattern:
           spec:
             =(ephemeralContainers):
@@ -69,4 +92,5 @@ spec:
             containers:
             - securityContext:
                 allowPrivilegeEscalation: "false"
+        {{- end }}
 {{- end }}

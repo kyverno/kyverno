@@ -14,7 +14,11 @@ metadata:
     {{- if .Values.podSecuritySeverity }}
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
     {{- end }}
+    {{- if .Values.celEnabled }}
+    policies.kyverno.io/minversion: 1.12.0
+    {{- else }}
     policies.kyverno.io/minversion: 1.6.0
+    {{- end }}
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
     policies.kyverno.io/subject: Pod
@@ -24,6 +28,7 @@ metadata:
     {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -62,17 +67,39 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
-        {{- with index .Values "validationFailureActionByPolicy" $name }}
-        failureAction: {{ toYaml . }}
-        {{- else }}
-        failureAction: {{ .Values.validationFailureAction }}
-        {{- end }}
-        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-        failureActionOverrides: {{ toYaml . | nindent 8 }}
-        {{- end }}
-        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Containers must drop `ALL` capabilities.
+        {{- if .Values.celEnabled }}
+        # Using CEL for validation
+        cel:
+          expressions:
+            - expression: |
+                object.spec.containers.all(container,
+                  has(container.securityContext) &&
+                  has(container.securityContext.capabilities) &&
+                  has(container.securityContext.capabilities.drop) &&
+                  container.securityContext.capabilities.drop.exists(cap, cap == "ALL")
+                )
+              message: "All containers must drop ALL capabilities."
+            - expression: |
+                !has(object.spec.initContainers) ||
+                object.spec.initContainers.all(container,
+                  has(container.securityContext) &&
+                  has(container.securityContext.capabilities) &&
+                  has(container.securityContext.capabilities.drop) &&
+                  container.securityContext.capabilities.drop.exists(cap, cap == "ALL")
+                )
+              message: "All initContainers must drop ALL capabilities."
+            - expression: |
+                !has(object.spec.ephemeralContainers) ||
+                object.spec.ephemeralContainers.all(container,
+                  has(container.securityContext) &&
+                  has(container.securityContext.capabilities) &&
+                  has(container.securityContext.capabilities.drop) &&
+                  container.securityContext.capabilities.drop.exists(cap, cap == "ALL")
+                )
+              message: "All ephemeralContainers must drop ALL capabilities."
+        {{- else }}
         foreach:
           - list: request.object.spec.[ephemeralContainers, initContainers, containers][]
             deny:
@@ -81,6 +108,7 @@ spec:
                 - key: ALL
                   operator: AnyNotIn
                   value: "{{`{{`}} element.securityContext.capabilities.drop[] || `[]` {{`}}`}}"
+        {{- end }}
     - name: adding-capabilities-strict
       match:
         any:
@@ -115,18 +143,54 @@ spec:
       {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
+      {{- with index .Values "validationFailureActionByPolicy" $name }}
+      validationFailureAction: {{ toYaml . }}
+      {{- else }}
+      validationFailureAction: {{ .Values.validationFailureAction }}
+      {{- end }}
+      {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+      validationFailureActionOverrides: {{ toYaml . | nindent 8 }}
+      {{- end }}
       validate:
-        {{- with index .Values "validationFailureActionByPolicy" $name }}
-        failureAction: {{ toYaml . }}
-        {{- else }}
-        failureAction: {{ .Values.validationFailureAction }}
-        {{- end }}
-        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-        failureActionOverrides: {{ toYaml . | nindent 8 }}
-        {{- end }}
-        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Any capabilities added other than NET_BIND_SERVICE are disallowed.
+        {{- if .Values.celEnabled }}
+        # Using CEL for validation
+        cel:
+          expressions:
+            - expression: |
+                object.spec.containers.all(container,
+                  !has(container.securityContext) ||
+                  !has(container.securityContext.capabilities) ||
+                  !has(container.securityContext.capabilities.add) ||
+                  container.securityContext.capabilities.add.size() == 0 ||
+                  (container.securityContext.capabilities.add.size() == 1 &&
+                   container.securityContext.capabilities.add[0] == "NET_BIND_SERVICE")
+                )
+              message: "Only the capability NET_BIND_SERVICE may be added to containers."
+            - expression: |
+                !has(object.spec.initContainers) ||
+                object.spec.initContainers.all(container,
+                  !has(container.securityContext) ||
+                  !has(container.securityContext.capabilities) ||
+                  !has(container.securityContext.capabilities.add) ||
+                  container.securityContext.capabilities.add.size() == 0 ||
+                  (container.securityContext.capabilities.add.size() == 1 &&
+                   container.securityContext.capabilities.add[0] == "NET_BIND_SERVICE")
+                )
+              message: "Only the capability NET_BIND_SERVICE may be added to initContainers."
+            - expression: |
+                !has(object.spec.ephemeralContainers) ||
+                object.spec.ephemeralContainers.all(container,
+                  !has(container.securityContext) ||
+                  !has(container.securityContext.capabilities) ||
+                  !has(container.securityContext.capabilities.add) ||
+                  container.securityContext.capabilities.add.size() == 0 ||
+                  (container.securityContext.capabilities.add.size() == 1 &&
+                   container.securityContext.capabilities.add[0] == "NET_BIND_SERVICE")
+                )
+              message: "Only the capability NET_BIND_SERVICE may be added to ephemeralContainers."
+        {{- else }}
         foreach:
           - list: request.object.spec.[ephemeralContainers, initContainers, containers][]
             deny:
@@ -137,4 +201,5 @@ spec:
                   value:
                   - NET_BIND_SERVICE
                   - ''
+        {{- end }}
 {{- end }}

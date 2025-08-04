@@ -15,6 +15,9 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    {{- if .Values.celEnabled }}
+    policies.kyverno.io/minversion: 1.12.0
+    {{- end }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
     policies.kyverno.io/description: >-
       The seccomp profile must not be explicitly set to Unconfined. This policy,
@@ -23,6 +26,7 @@ metadata:
     {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -44,15 +48,6 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
-        {{- with index .Values "validationFailureActionByPolicy" $name }}
-        failureAction: {{ toYaml . }}
-        {{- else }}
-        failureAction: {{ .Values.validationFailureAction }}
-        {{- end }}
-        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-        failureActionOverrides: {{ toYaml . | nindent 8 }}
-        {{- end }}
-        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Use of custom Seccomp profiles is disallowed. The fields
           spec.securityContext.seccompProfile.type,
@@ -60,6 +55,36 @@ spec:
           spec.initContainers[*].securityContext.seccompProfile.type, and
           spec.ephemeralContainers[*].securityContext.seccompProfile.type
           must be unset or set to `RuntimeDefault` or `Localhost`.
+        {{- if .Values.celEnabled }}
+        # Using CEL for validation
+        cel:
+          expressions:
+            - expression: |
+                (!has(object.spec.securityContext) ||
+                 !has(object.spec.securityContext.seccompProfile) ||
+                 object.spec.securityContext.seccompProfile.type in ["RuntimeDefault", "Localhost"]) &&
+                object.spec.containers.all(container,
+                  !has(container.securityContext) ||
+                  !has(container.securityContext.seccompProfile) ||
+                  container.securityContext.seccompProfile.type in ["RuntimeDefault", "Localhost"]
+                ) &&
+                (!has(object.spec.initContainers) ||
+                 object.spec.initContainers.all(container,
+                   !has(container.securityContext) ||
+                   !has(container.securityContext.seccompProfile) ||
+                   container.securityContext.seccompProfile.type in ["RuntimeDefault", "Localhost"]
+                 )) &&
+                (!has(object.spec.ephemeralContainers) ||
+                 object.spec.ephemeralContainers.all(container,
+                   !has(container.securityContext) ||
+                   !has(container.securityContext.seccompProfile) ||
+                   container.securityContext.seccompProfile.type in ["RuntimeDefault", "Localhost"]
+                 ))
+              message: >-
+                Use of custom Seccomp profiles is disallowed. All
+                spec.*.seccompProfile.type fields must be unset or set
+                to `RuntimeDefault` or `Localhost`.
+        {{- else }}
         pattern:
           spec:
             =(securityContext):
@@ -77,4 +102,5 @@ spec:
             - =(securityContext):
                 =(seccompProfile):
                   =(type): "RuntimeDefault | Localhost"
+        {{- end }}
 {{- end }}

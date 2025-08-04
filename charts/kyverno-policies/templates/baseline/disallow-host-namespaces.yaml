@@ -14,6 +14,9 @@ metadata:
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
     {{- end }}
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    {{- if .Values.celEnabled }}
+    policies.kyverno.io/minversion: 1.12.0
+    {{- end }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
     policies.kyverno.io/subject: Pod
     policies.kyverno.io/description: >-
@@ -24,6 +27,7 @@ metadata:
     {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -45,21 +49,24 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
-        {{- with index .Values "validationFailureActionByPolicy" $name }}
-        failureAction: {{ toYaml . }}
-        {{- else }}
-        failureAction: {{ .Values.validationFailureAction }}
-        {{- end }}
-        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-        failureActionOverrides: {{ toYaml . | nindent 8 }}
-        {{- end }}
-        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Sharing the host namespaces is disallowed. The fields spec.hostNetwork,
           spec.hostIPC, and spec.hostPID must be unset or set to `false`.
+        {{- if .Values.celEnabled }}
+        # Using CEL for validation
+        cel:
+          expressions:
+            - expression: "!has(object.spec.hostNetwork) || object.spec.hostNetwork == false"
+              message: "Sharing the host network is disallowed (spec.hostNetwork=false)."
+            - expression: "!has(object.spec.hostPID) || object.spec.hostPID == false"
+              message: "Sharing the host PID is disallowed (spec.hostPID=false)."
+            - expression: "!has(object.spec.hostIPC) || object.spec.hostIPC == false"
+              message: "Sharing the host IPC is disallowed (spec.hostIPC=false)."
+        {{- else }}
         pattern:
           spec:
             =(hostPID): "false"
             =(hostIPC): "false"
             =(hostNetwork): "false"
+        {{- end }}
 {{- end }}
