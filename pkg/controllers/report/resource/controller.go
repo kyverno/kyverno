@@ -320,7 +320,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		for _, policy := range vapPolicies {
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				return err
+				logger.Error(err, "failed to resolve kinds for ValidatingAdmissionPolicy", policy.Name)
+				continue
 			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
@@ -337,7 +338,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
 			kinds, err := admissionpolicy.GetKinds(converted, restMapper)
 			if err != nil {
-				return err
+				logger.Error(err, "failed to resolve kinds for MutatingAdmissionPolicy", policy.Name)
+				continue
 			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
@@ -354,7 +356,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		for _, policy := range vpols {
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				return err
+				logger.Error(err, "failed to resolve kinds for ValidatingPolicy", policy.Name)
+				continue
 			}
 
 			for _, autogen := range policy.Status.Autogen.Configs {
@@ -381,7 +384,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			matchConstraints := policy.Spec.GetMatchConstraints()
 			kinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 			if err != nil {
-				return err
+				logger.Error(err, "failed to resolve kinds for MutatingPolicy", policy.Name)
+				continue
 			}
 
 			for _, policy := range policy.Status.Autogen.Configs {
@@ -409,7 +413,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		for _, policy := range ivpols {
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				return err
+				logger.Error(err, "failed to resolve kinds for ImageValidatingPolicy", policy.Name)
+				continue
 			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
