@@ -190,7 +190,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
-	cmd.Flags().StringSliceVarP(&applyCommandConfig.ParamResources, "parameter-resource", "", []string{}, "Path to resource files that act as validating admission policy parameters")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.ParamResources, "parameter-resource", "", []string{}, "Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
@@ -330,6 +330,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		maps,
 		mapBindings,
 		resources,
+		parameterResources,
 		jsonPayloads,
 		exceptions,
 		celexceptions,
@@ -385,6 +386,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
+	parameterResources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
 	exceptions []*kyvernov2.PolicyException,
 	celExceptions []*policiesv1alpha1.PolicyException,
@@ -417,6 +419,11 @@ func (c *ApplyCommandConfig) applyPolicies(
 	}
 	var responses []engineapi.EngineResponse
 	namespaceCache := make(map[string]*unstructured.Unstructured)
+
+	var params []runtime.Object
+	for _, p := range parameterResources {
+		params = append(params, p)
+	}
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
@@ -433,6 +440,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,
 			MutateLogPathIsDir:                mutateLogPathIsDir,
+			ParameterResources:                params,
 			Variables:                         vars,
 			ContextPath:                       c.ContextPath,
 			UserInfo:                          userInfo,

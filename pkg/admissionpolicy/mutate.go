@@ -131,7 +131,7 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 		}
 
 		if binding.Spec.ParamRef != nil {
-			params, err := CollectParams(context.TODO(), adapters.Client(client), &admissionregistrationv1.ParamKind{APIVersion: policy.Spec.ParamKind.APIVersion, Kind: policy.Spec.ParamKind.APIVersion}, &admissionregistrationv1.ParamRef{Name: binding.Spec.ParamRef.Name, Namespace: binding.Spec.ParamRef.Namespace, Selector: binding.Spec.ParamRef.Selector, ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction)}, resource.GetNamespace())
+			params, err := CollectParams(context.TODO(), adapters.Client(client), &admissionregistrationv1.ParamKind{APIVersion: policy.Spec.ParamKind.APIVersion, Kind: policy.Spec.ParamKind.APIVersion}, &admissionregistrationv1.ParamRef{Name: binding.Spec.ParamRef.Name, Namespace: binding.Spec.ParamRef.Namespace, Selector: binding.Spec.ParamRef.Selector, ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction)}, namespace.Name)
 			if err != nil {
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				return nil, err
@@ -144,7 +144,6 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 				}
 				ers = append(ers, engineResponse)
 			}
-			continue
 		} else {
 			engineResponse, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
@@ -238,7 +237,7 @@ func mutateResource(
 		return engineResponse, err
 	}
 	optionalVars := cel.OptionalVariableDeclarations{
-		HasParams:     false,
+		HasParams:     param == nil,
 		HasAuthorizer: false,
 		HasPatchTypes: true,
 		StrictCost:    true,
