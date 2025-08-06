@@ -318,11 +318,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vapPolicies {
-			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			if err != nil {
-				logger.Error(err, "failed to resolve kinds for ValidatingAdmissionPolicy", policy.Name)
-				continue
-			}
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -336,11 +332,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		for _, policy := range mapPolicies {
 			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
-			kinds, err := admissionpolicy.GetKinds(converted, restMapper)
-			if err != nil {
-				logger.Error(err, "failed to resolve kinds for MutatingAdmissionPolicy", policy.Name)
-				continue
-			}
+			kinds := admissionpolicy.GetKinds(converted, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -354,18 +346,14 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
-			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
 				logger.Error(err, "failed to resolve kinds for ValidatingPolicy", policy.Name)
 				continue
 			}
 
 			for _, autogen := range policy.Status.Autogen.Configs {
-				genKinds, err := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
-				if err != nil {
-					return err
-				}
-
+				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
 				kinds = append(kinds, genKinds...)
 			}
 
@@ -382,18 +370,11 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		for _, policy := range mpols {
 			matchConstraints := policy.Spec.GetMatchConstraints()
-			kinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
-			if err != nil {
-				logger.Error(err, "failed to resolve kinds for MutatingPolicy", policy.Name)
-				continue
-			}
+			kinds := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 
 			for _, policy := range policy.Status.Autogen.Configs {
 				matchConstraints := policy.Spec.GetMatchConstraints()
-				genKinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
-				if err != nil {
-					return err
-				}
+				genKinds := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 
 				kinds = append(kinds, genKinds...)
 			}
@@ -411,11 +392,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from image verification admission policies
 		for _, policy := range ivpols {
-			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			if err != nil {
-				logger.Error(err, "failed to resolve kinds for ImageValidatingPolicy", policy.Name)
-				continue
-			}
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
