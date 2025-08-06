@@ -127,6 +127,12 @@ func shouldAllowBaseline(pod *corev1.Pod) (bool, error) {
 			return false, nil
 		}
 
+		if sc.SELinuxOptions != nil {
+			if sc.SELinuxOptions.User != "" || sc.SELinuxOptions.Role != "" || sc.SELinuxOptions.Type != "" {
+				return false, nil
+			}
+		}
+
 		if sc.SeccompProfile != nil {
 			seccompType := sc.SeccompProfile.Type
 			defaultSeccomp := corev1.SeccompProfileTypeRuntimeDefault
@@ -156,6 +162,12 @@ func shouldAllowBaseline(pod *corev1.Pod) (bool, error) {
 
 			if container.SecurityContext != nil {
 				if shouldBlockContainerSecurityContext(container.SecurityContext) {
+					return false, nil
+				}
+				if container.SecurityContext.RunAsUser != nil && *container.SecurityContext.RunAsUser == 0 {
+					return false, nil
+				}
+				if container.SecurityContext.RunAsGroup != nil && *container.SecurityContext.RunAsGroup == 0 {
 					return false, nil
 				}
 			}
