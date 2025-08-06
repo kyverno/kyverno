@@ -347,11 +347,6 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
 			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			if err != nil {
-				logger.Error(err, "failed to resolve kinds for ValidatingPolicy", policy.Name)
-				continue
-			}
-
 			for _, autogen := range policy.Status.Autogen.Configs {
 				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
 				kinds = append(kinds, genKinds...)
@@ -371,7 +366,6 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		for _, policy := range mpols {
 			matchConstraints := policy.Spec.GetMatchConstraints()
 			kinds := admissionpolicy.GetKinds(&matchConstraints, restMapper)
-
 			for _, policy := range policy.Status.Autogen.Configs {
 				matchConstraints := policy.Spec.GetMatchConstraints()
 				genKinds := admissionpolicy.GetKinds(&matchConstraints, restMapper)
