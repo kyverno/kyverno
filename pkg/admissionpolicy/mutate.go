@@ -237,7 +237,7 @@ func mutateResource(
 		return engineResponse, err
 	}
 	optionalVars := cel.OptionalVariableDeclarations{
-		HasParams:     param == nil,
+		HasParams:     param != nil,
 		HasAuthorizer: false,
 		HasPatchTypes: true,
 		StrictCost:    true,
