@@ -2,7 +2,9 @@ package policy
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -39,13 +41,15 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-func castPolicy(p interface{}) kyvernov1.PolicyInterface {
-	var policy kyvernov1.PolicyInterface
+func castPolicy(p interface{}) engineapi.GenericPolicy {
+	var policy engineapi.GenericPolicy
 	switch obj := p.(type) {
 	case *kyvernov1.ClusterPolicy:
-		policy = obj
+		policy = engineapi.NewKyvernoPolicy(obj)
 	case *kyvernov1.Policy:
-		policy = obj
+		policy = engineapi.NewKyvernoPolicy(obj)
+	case *policiesv1alpha1.GeneratingPolicy:
+		policy = engineapi.NewGeneratingPolicy(obj)
 	}
 	return policy
 }

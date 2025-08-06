@@ -1,0 +1,43 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: test-deployment-vpol-background
+results:
+- message: success
+  policy: report-background-sample
+  result: pass
+  properties: 
+    process: background scan
+  scored: true
+  source: KyvernoValidatingPolicy
+- message: failed to verify image with notary cert
+  policy: report-background-sample
+  result: fail
+  properties:
+    process: background scan
+  rule: report-background-sample
+  scored: true
+  source: KyvernoImageValidatingPolicy
+- policy: report-background-sample
+  properties:
+    process: background scan
+    binding: report-background-sample-binding
+  result: pass
+  rule: report-background-sample
+  scored: true
+  source: ValidatingAdmissionPolicy
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: test-deployment-vpol-background
+summary:
+  error: 0
+  fail: 1
+  pass: 2
+  skip: 0
+  warn: 0

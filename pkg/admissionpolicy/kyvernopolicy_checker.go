@@ -7,9 +7,9 @@ import (
 )
 
 // CanGenerateVAP check if Kyverno policy and a PolicyException can be translated to a Kubernetes ValidatingAdmissionPolicy
-func CanGenerateVAP(spec *kyvernov1.Spec, exceptions []kyvernov2.PolicyException) (bool, string) {
+func CanGenerateVAP(spec *kyvernov1.Spec, exceptions []kyvernov2.PolicyException, validate bool) (bool, string) {
 	var msg string
-	if ok, msg := checkPolicy(spec); !ok {
+	if ok, msg := checkPolicy(spec, validate); !ok {
 		return false, msg
 	}
 
@@ -52,14 +52,14 @@ func checkExceptions(exceptions []kyvernov2.PolicyException) (bool, string) {
 	return true, msg
 }
 
-func checkPolicy(spec *kyvernov1.Spec) (bool, string) {
+func checkPolicy(spec *kyvernov1.Spec, validate bool) (bool, string) {
 	var msg string
 	if ok, msg := checkRuleCount(spec); !ok {
 		return false, msg
 	}
 
 	rule := spec.Rules[0]
-	if ok, msg := checkRuleType(rule); !ok {
+	if ok, msg := checkRuleType(rule, validate); !ok {
 		return false, msg
 	}
 
@@ -125,11 +125,16 @@ func checkRuleCount(spec *kyvernov1.Spec) (bool, string) {
 	return true, msg
 }
 
-func checkRuleType(rule kyvernov1.Rule) (bool, string) {
+func checkRuleType(rule kyvernov1.Rule, validate bool) (bool, string) {
 	var msg string
 	if !rule.HasValidateCEL() {
 		msg = "skip generating ValidatingAdmissionPolicy for non CEL rules."
 		return false, msg
+	} else if !validate {
+		if !rule.Validation.CEL.GenerateVAP() {
+			msg = "skip generating ValidatingAdmissionPolicy: validate.cel.generate is not set to true."
+			return false, msg
+		}
 	}
 	return true, msg
 }

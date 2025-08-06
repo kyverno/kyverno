@@ -1,0 +1,38 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-validating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /gpol/zk-kafka-address
+      port: 443
+  failurePolicy: Ignore
+  matchConditions:
+  - expression: object.metadata.labels['color'] == 'red'
+    name: check-red-label
+  matchPolicy: Equivalent
+  name:  gpol.validate.kyverno.svc-ignore-finegrained-zk-kafka-address
+  namespaceSelector: {}
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    - CONNECT
+    resources:
+    - namespaces
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10

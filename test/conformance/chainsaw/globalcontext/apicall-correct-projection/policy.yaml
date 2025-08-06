@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: cpol-projections
+  name: cpol-apicall-projections
 spec:
   failurePolicy: Fail
   rules:
@@ -9,12 +9,14 @@ spec:
     context:
     - name: deploymentCount
       globalReference:
-        name: gctxentry-projections.count
+        name: gctxentry-apicall-projections.test-globalcontext-apicall-correct-projections_deployment_count
     match:
       all:
       - resources:
           kinds:
           - Pod
+          namespaces:
+          - test-globalcontext-apicall-correct-projections
     preconditions:
       all:
       - key: '{{ request.operation }}'
@@ -28,5 +30,5 @@ spec:
         conditions:
           any:
           - key: "{{ deploymentCount }}"
-            operator: Equal
+            operator: GreaterThan
             value: 0

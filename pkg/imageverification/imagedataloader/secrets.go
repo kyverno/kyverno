@@ -8,11 +8,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+type SecretInterface interface {
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Secret, error)
+}
+
 // generateKeychainForPullSecrets generates keychain by fetching secrets data from imagePullSecrets.
-func generateKeychainForPullSecrets(ctx context.Context, lister k8scorev1.SecretInterface, imagePullSecrets ...string) (authn.Keychain, error) {
+func generateKeychainForPullSecrets(ctx context.Context, lister SecretInterface, imagePullSecrets ...string) (authn.Keychain, error) {
 	var secrets []corev1.Secret
 	for _, imagePullSecret := range imagePullSecrets {
 		secret, err := lister.Get(ctx, imagePullSecret, metav1.GetOptions{})

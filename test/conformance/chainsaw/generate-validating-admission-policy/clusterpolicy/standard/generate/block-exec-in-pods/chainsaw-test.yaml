@@ -44,4 +44,4 @@ spec:
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
           (trim_space($stderr)): |-
-            The pods "my-pod" is invalid: : ValidatingAdmissionPolicy 'deny-exec-by-namespace-name' with binding 'deny-exec-by-namespace-name-binding' denied request: Pods in this namespace may not be exec'd into.
+            The pods "my-pod" is invalid: : ValidatingAdmissionPolicy 'cpol-deny-exec-by-namespace-name' with binding 'cpol-deny-exec-by-namespace-name-binding' denied request: Pods in this namespace may not be exec'd into.

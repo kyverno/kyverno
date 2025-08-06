@@ -54,6 +54,14 @@ const (
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// ValidatingPolicyWebhookName defines default webhook name for validatingpolicies
 	ValidatingPolicyWebhookName = "vpol.validate.kyverno.svc"
+	// GeneratingPolicyWebhookName defines default webhook name for generatingpolicies
+	GeneratingPolicyWebhookName = "gpol.validate.kyverno.svc"
+	// MutatingPolicyWebhookName defines default webhook name for mutatingpolicies
+	MutatingPolicyWebhookName = "mpol.validate.kyverno.svc"
+	// ImageValidatingPolicyWebhookName defines default validating webhook name for imagevalidatingpolicies
+	ImageValidatingPolicyValidateWebhookName = "ivpol.validate.kyverno.svc"
+	// ImageValidatingPolicyWebhookName defines default mutating webhook name for imagevalidatingpolicies
+	ImageValidatingPolicyMutateWebhookName = "ivpol.mutate.kyverno.svc"
 )
 
 // paths
@@ -62,11 +70,15 @@ const (
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	// ValidatingWebhookServicePath is the path for validation webhook
 	ValidatingWebhookServicePath = "/validate"
-	// ValidatingPolicyServicePath is the path for validating policies execution
+	// PolicyServicePath is the prefix path for policies execution
+	PolicyServicePath = "/policies"
+	// ValidatingPolicyServicePath is the sub path for validatingpolicies execution
 	ValidatingPolicyServicePath = "/vpol"
+	// ImageValidatingPolicyServicePath is the sub path for imageverificationpolicies execution
+	ImageValidatingPolicyServicePath = "/ivpol"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
-	// CELExceptionValidatingWebhookServicePath is the path for CELPolicyException validation webhook(used to validate CELPolicyException resource)
+	// CELExceptionValidatingWebhookServicePath is the path for CEL PolicyException validation webhook(used to validate CEL PolicyException resource)
 	CELExceptionValidatingWebhookServicePath = "/celexception/validate"
 	// GlobalContextValidatingWebhookServicePath is the path for global context validation webhook(used to validate global context entries)
 	GlobalContextValidatingWebhookServicePath = "/globalcontextvalidate"

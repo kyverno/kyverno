@@ -654,6 +654,11 @@ spec:
                           type: string
                         nullable: true
                         type: array
+                      synchronize:
+                        description: |-
+                          DryRun indicates that modifications will definitely not be persisted for this request.
+                          Defaults to false.
+                        type: boolean
                       userInfo:
                         description: UserInfo is the userInfo carried in the admission
                           request.
@@ -700,6 +705,8 @@ spec:
                 enum:
                 - mutate
                 - generate
+                - cel-generate
+                - cel-mutate
                 type: string
               resource:
                 description: ResourceSpec is the information to identify the trigger
@@ -730,6 +737,10 @@ spec:
                   optional
                 items:
                   properties:
+                    cacheRestore:
+                      description: CacheRestore indicates whether the cache should
+                        be restored.
+                      type: boolean
                     deleteDownstream:
                       description: DeleteDownstream represents whether the downstream
                         needs to be deleted.

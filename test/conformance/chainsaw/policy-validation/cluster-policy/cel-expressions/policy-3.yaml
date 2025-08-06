@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deployment-replicas
+spec:
+  background: true
+  rules:
+    - name: check-deployment-replicas
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+      context:
+        - name: objName
+          variable:
+            jmesPath: request.object.metadata.name
+      validate:
+        failureAction: Enforce
+        cel:
+          expressions:
+            - expression: "object.spec.replicas > 1"
+              message: "{{ objName }} must be replicated"

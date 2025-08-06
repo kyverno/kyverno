@@ -26,11 +26,19 @@ spec:
       with:
         bindings:
         - name: name
-          value: cpol-projections
-  - try:
-    - sleep:
-        duration: 3s
-    - apply:
-        file: new-deployment.yaml
-    - assert:
-        file: new-deployment-exists.yaml
+          value: cpol-apicall-projections
+  - name: create new deployment
+    try:
+      - script:
+          content: kubectl apply -f new-deployment.yaml
+          check:
+            ($error != null): true
+            # This check ensures the contents of stderr are exactly as shown.
+            (trim_space($stderr)): |-
+              Error from server: error when creating "new-deployment.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+              
+              resource Deployment/test-globalcontext-apicall-correct-projections/new-deployment was blocked due to the following policies 
+              
+              cpol-apicall-projections:
+                autogen-main-deployment-exists: 'validation error: rule autogen-main-deployment-exists
+                  failed'

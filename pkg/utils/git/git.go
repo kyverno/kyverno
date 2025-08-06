@@ -9,17 +9,22 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
-func Clone(path string, fs billy.Filesystem, branch string) (*git.Repository, error) {
-	return git.Clone(memory.NewStorage(), fs, &git.CloneOptions{
+func Clone(path string, fs billy.Filesystem, branch string, auth http.BasicAuth) (*git.Repository, error) {
+	co := &git.CloneOptions{
 		URL:           path,
 		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
 		Progress:      os.Stdout,
 		SingleBranch:  true,
 		Depth:         1,
-	})
+	}
+	if auth.Username != "" && auth.Password != "" {
+		co.Auth = &auth
+	}
+	return git.Clone(memory.NewStorage(), fs, co)
 }
 
 func ListFiles(fs billy.Filesystem, path string, predicate func(fs.FileInfo) bool) ([]string, error) {

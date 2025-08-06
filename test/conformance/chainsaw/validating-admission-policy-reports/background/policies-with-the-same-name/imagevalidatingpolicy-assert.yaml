@@ -1,0 +1,13 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ImageValidatingPolicy
+metadata:
+  name: report-background-sample
+status:
+  conditionStatus:
+    conditions:
+      - message: Policy is ready for reporting.
+        reason: Succeeded
+        status: "True"
+        type: RBACPermissionsGranted
+    message: ""
+    ready: true

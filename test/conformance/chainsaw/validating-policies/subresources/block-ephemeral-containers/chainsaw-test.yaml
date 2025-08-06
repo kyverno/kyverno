@@ -1,0 +1,25 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: block-ephemeral-containers
+spec:
+  steps:
+  - name: create policy
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create pod
+    try:
+    - apply:
+        file: pod.yaml
+    - assert:
+        file: pod.yaml
+  - name: create ephemeral container
+    try:
+    - script:
+        content: if kubectl -n test-vpol-subresource-namespace debug -it test-pod --image=busybox:1.35 --target=busybox; then exit 1; else exit 0; fi;
+        # check:
+        #   ($error): >-
+        #     admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy block-ephemeral-containers failed: Ephemeral (debug) containers are not permitted.

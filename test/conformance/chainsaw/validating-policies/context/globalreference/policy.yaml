@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-apicall-correct
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: environment
+      expression: >-
+        has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'
+    - name: dcount
+      expression: >-
+        globalContext.Get("gctxentry-apicall-correct", "test-globalcontext-apicall-correct-projections_deployment_count")
+  validations:
+    - expression: >-
+        variables.environment == true
+      messageExpression: "'env=prod label must be set, got: ' + string(variables.environment)"
+    - expression: >-
+        variables.dcount == 0
+      messageExpression: "'cannot create new deployment as there is already one, variables.dcount: ' + string(variables.dcount)"

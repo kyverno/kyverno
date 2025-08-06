@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: good-deployment-1
+  labels:
+    prod: "true"
+    app: good-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: good-nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: good-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-verify-image:signed
+        securityContext:
+          allowPrivilegeEscalation: false
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: good-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    metadata:
+      labels:
+        prod: "true" 
+    spec:
+      template:
+        metadata:
+          labels:
+            prod: "true"
+        spec:
+          containers:
+          - name: secure-container
+            image: ghcr.io/kyverno/test-verify-image:signed
+            command: ["echo", "Hello, world"]
+            securityContext:
+              allowPrivilegeEscalation: false 
+          restartPolicy: OnFailure

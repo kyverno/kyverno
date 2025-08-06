@@ -1,0 +1,113 @@
+{{- if .Values.groups.policies.policyexceptions }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: policyexceptions.policies.kyverno.io
+spec:
+  group: policies.kyverno.io
+  names:
+    kind: PolicyException
+    listKind: PolicyExceptionList
+    plural: policyexceptions
+    singular: policyexception
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PolicyException declares resources to be excluded from specified
+          policies.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec declares policy exception behaviors.
+            properties:
+              matchConditions:
+                description: MatchConditions is a list of CEL expressions that must
+                  be met for a resource to be excluded.
+                items:
+                  description: MatchCondition represents a condition which must by
+                    fulfilled for a request to be sent to a webhook.
+                  properties:
+                    expression:
+                      description: |-
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                        'object' - The object from the incoming request. The value is null for DELETE requests.
+                        'oldObject' - The existing object. The value is null for CREATE requests.
+                        'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                        'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                          See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                        'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                          request resource.
+                        Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                        Required.
+                      type: string
+                    name:
+                      description: |-
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        as well as providing an identifier for logging purposes. A good name should be descriptive of
+                        the associated expression.
+                        Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
+                        must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
+                        '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
+                        optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                        Required.
+                      type: string
+                  required:
+                  - expression
+                  - name
+                  type: object
+                type: array
+              policyRefs:
+                description: PolicyRefs identifies the policies to which the exception
+                  is applied.
+                items:
+                  properties:
+                    kind:
+                      description: Kind is the kind of the policy
+                      type: string
+                    name:
+                      description: Name is the name of the policy
+                      type: string
+                  required:
+                  - kind
+                  - name
+                  type: object
+                type: array
+            required:
+            - policyRefs
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+{{- end }}

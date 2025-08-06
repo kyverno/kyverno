@@ -1,0 +1,26 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: StepTemplate
+metadata:
+  name: validating-policy-ready
+spec:
+  try:
+  - assert:
+      template: true
+      resource:
+        apiVersion: policies.kyverno.io/v1alpha1
+        kind: ValidatingPolicy
+        metadata:
+          name: ($name)
+        status:
+          conditionStatus:
+            (conditions[?type == 'WebhookConfigured']):
+            - message: Webhook configured.
+              reason: Succeeded
+              status: "True"
+              type: WebhookConfigured
+            (conditions[?type == 'RBACPermissionsGranted']):
+            - message: Policy is ready for reporting.
+              reason: Succeeded
+              status: "True"
+              type: RBACPermissionsGranted
+            ready: true

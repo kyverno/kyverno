@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: block-ephemeral-containers
+  name: cpol-block-ephemeral-containers
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy

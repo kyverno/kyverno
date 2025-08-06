@@ -4,6 +4,7 @@ updates:
     directories:
       - /
       - /hack/controller-gen/
+      - /hack/api-group-resources/
     schedule:
       interval: daily
     rebase-strategy: disabled
@@ -11,6 +12,9 @@ updates:
       kubernetes:
         patterns:
           - k8s.io/*
+      sigstore:
+        patterns:
+          - github.com/sigstore/sigstore/*
       otel:
         patterns:
           - go.opentelemetry.io/*

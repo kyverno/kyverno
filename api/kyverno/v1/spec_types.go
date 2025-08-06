@@ -311,6 +311,10 @@ func (s *Spec) GetApplyRules() ApplyRulesType {
 	return *s.ApplyRules
 }
 
+func (s *Spec) GetRules() []Rule {
+	return s.Rules
+}
+
 // ValidateRuleNames checks if the rule names are unique across a policy
 func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 	names := sets.New[string]()
@@ -325,13 +329,15 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 
 	for i, rule := range s.Rules {
-		errs = append(errs, rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)...)
+		warning, errors := rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)
+		warnings = append(warnings, warning...)
+		errs = append(errs, errors...)
 	}
-	return errs
+	return warnings, errs
 }
 
 func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
@@ -365,7 +371,7 @@ func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if err := s.validateDeprecatedFields(path); err != nil {
 		errs = append(errs, err...)
 	}
@@ -378,9 +384,11 @@ func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	if s.WebhookConfiguration != nil && s.WebhookConfiguration.TimeoutSeconds != nil && (*s.WebhookConfiguration.TimeoutSeconds < 1 || *s.WebhookConfiguration.TimeoutSeconds > 30) {
 		errs = append(errs, field.Invalid(path.Child("webhookConfiguration.timeoutSeconds"), s.WebhookConfiguration.TimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
-	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)...)
+	warning, errors := s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)
+	warnings = append(warnings, warning...)
+	errs = append(errs, errors...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))
 	}
-	return errs
+	return warnings, errs
 }

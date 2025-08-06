@@ -1,0 +1,36 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: GeneratingPolicy
+metadata:
+  name: data-generate-nps
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  matchConditions:
+    - name: "check-np-labels"
+      expression: >-
+        object.metadata.?labels[?'networkpolicies'].orValue('') != ""
+  variables:
+    - name: npList
+      expression: "object.metadata.labels['networkpolicies'].split('-')"
+  generate:
+    - expression: >
+        variables.npList.all(np, generator.Apply(object.metadata.name, [
+          {
+            "kind": dyn("NetworkPolicy"),
+            "apiVersion": dyn("networking.k8s.io/v1"),
+            "metadata": dyn({
+              "name": np,
+            }),
+            "spec": dyn({
+              "podSelector": dyn({}),
+              "policyTypes": dyn(["Ingress", "Egress"])
+            })
+          }]
+        ))

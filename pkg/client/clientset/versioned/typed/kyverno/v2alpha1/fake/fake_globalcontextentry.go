@@ -19,114 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeGlobalContextEntries implements GlobalContextEntryInterface
-type FakeGlobalContextEntries struct {
+// fakeGlobalContextEntries implements GlobalContextEntryInterface
+type fakeGlobalContextEntries struct {
+	*gentype.FakeClientWithList[*v2alpha1.GlobalContextEntry, *v2alpha1.GlobalContextEntryList]
 	Fake *FakeKyvernoV2alpha1
 }
 
-var globalcontextentriesResource = v2alpha1.SchemeGroupVersion.WithResource("globalcontextentries")
-
-var globalcontextentriesKind = v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry")
-
-// Get takes name of the globalContextEntry, and returns the corresponding globalContextEntry object, and an error if there is any.
-func (c *FakeGlobalContextEntries) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.GlobalContextEntry, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(globalcontextentriesResource, name), &v2alpha1.GlobalContextEntry{})
-	if obj == nil {
-		return nil, err
+func newFakeGlobalContextEntries(fake *FakeKyvernoV2alpha1) kyvernov2alpha1.GlobalContextEntryInterface {
+	return &fakeGlobalContextEntries{
+		gentype.NewFakeClientWithList[*v2alpha1.GlobalContextEntry, *v2alpha1.GlobalContextEntryList](
+			fake.Fake,
+			"",
+			v2alpha1.SchemeGroupVersion.WithResource("globalcontextentries"),
+			v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry"),
+			func() *v2alpha1.GlobalContextEntry { return &v2alpha1.GlobalContextEntry{} },
+			func() *v2alpha1.GlobalContextEntryList { return &v2alpha1.GlobalContextEntryList{} },
+			func(dst, src *v2alpha1.GlobalContextEntryList) { dst.ListMeta = src.ListMeta },
+			func(list *v2alpha1.GlobalContextEntryList) []*v2alpha1.GlobalContextEntry {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v2alpha1.GlobalContextEntryList, items []*v2alpha1.GlobalContextEntry) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v2alpha1.GlobalContextEntry), err
-}
-
-// List takes label and field selectors, and returns the list of GlobalContextEntries that match those selectors.
-func (c *FakeGlobalContextEntries) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.GlobalContextEntryList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(globalcontextentriesResource, globalcontextentriesKind, opts), &v2alpha1.GlobalContextEntryList{})
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v2alpha1.GlobalContextEntryList{ListMeta: obj.(*v2alpha1.GlobalContextEntryList).ListMeta}
-	for _, item := range obj.(*v2alpha1.GlobalContextEntryList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested globalContextEntries.
-func (c *FakeGlobalContextEntries) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(globalcontextentriesResource, opts))
-}
-
-// Create takes the representation of a globalContextEntry and creates it.  Returns the server's representation of the globalContextEntry, and an error, if there is any.
-func (c *FakeGlobalContextEntries) Create(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.CreateOptions) (result *v2alpha1.GlobalContextEntry, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(globalcontextentriesResource, globalContextEntry), &v2alpha1.GlobalContextEntry{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2alpha1.GlobalContextEntry), err
-}
-
-// Update takes the representation of a globalContextEntry and updates it. Returns the server's representation of the globalContextEntry, and an error, if there is any.
-func (c *FakeGlobalContextEntries) Update(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (result *v2alpha1.GlobalContextEntry, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(globalcontextentriesResource, globalContextEntry), &v2alpha1.GlobalContextEntry{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2alpha1.GlobalContextEntry), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeGlobalContextEntries) UpdateStatus(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (*v2alpha1.GlobalContextEntry, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(globalcontextentriesResource, "status", globalContextEntry), &v2alpha1.GlobalContextEntry{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2alpha1.GlobalContextEntry), err
-}
-
-// Delete takes name of the globalContextEntry and deletes it. Returns an error if one occurs.
-func (c *FakeGlobalContextEntries) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(globalcontextentriesResource, name, opts), &v2alpha1.GlobalContextEntry{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeGlobalContextEntries) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(globalcontextentriesResource, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v2alpha1.GlobalContextEntryList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched globalContextEntry.
-func (c *FakeGlobalContextEntries) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.GlobalContextEntry, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(globalcontextentriesResource, name, pt, data, subresources...), &v2alpha1.GlobalContextEntry{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2alpha1.GlobalContextEntry), err
 }

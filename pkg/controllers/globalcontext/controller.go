@@ -21,6 +21,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -40,6 +41,7 @@ type controller struct {
 	queue workqueue.TypedRateLimitingInterface[any]
 
 	// state
+	kubeClient         kubernetes.Interface
 	dclient            dclient.Interface
 	kyvernoClient      versioned.Interface
 	store              store.Store
@@ -51,6 +53,7 @@ type controller struct {
 
 func NewController(
 	gceInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
+	kubeClient kubernetes.Interface,
 	dclient dclient.Interface,
 	kyvernoClient versioned.Interface,
 	storage store.Store,
@@ -66,6 +69,7 @@ func NewController(
 	c := &controller{
 		gceLister:          gceInformer.Lister(),
 		queue:              queue,
+		kubeClient:         kubeClient,
 		dclient:            dclient,
 		kyvernoClient:      kyvernoClient,
 		store:              storage,
@@ -148,6 +152,7 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			ctx,
 			gce,
 			c.eventGen,
+			c.kubeClient,
 			c.dclient.GetDynamicInterface(),
 			logger,
 			gvr,

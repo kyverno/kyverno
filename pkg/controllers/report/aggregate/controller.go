@@ -2,6 +2,8 @@ package aggregate
 
 import (
 	"context"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,6 +19,7 @@ import (
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
@@ -28,11 +31,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
+	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 )
 
 const (
@@ -46,16 +54,26 @@ const (
 
 type controller struct {
 	// clients
-	client  versioned.Interface
-	dclient dclient.Interface
+	client   versioned.Interface
+	orClient openreportsclient.OpenreportsV1alpha1Interface
+	dclient  dclient.Interface
 
 	// listers
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
 	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
+	gpolLister  policiesv1alpha1listers.GeneratingPolicyLister
+	mpolLister  policiesv1alpha1listers.MutatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapLister   admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
+
+	// reportUUIDToPolicyCache maps report UUIDs to policies that affect them for targeted reconciliation.
+	// This avoids processing all reports when a single policy changes.
+	cacheMu                 *sync.Mutex
+	reportUUIDToPolicyCache map[string]sets.Set[string]
 
 	// queues
 	frontQueue workqueue.TypedRateLimitingInterface[any]
@@ -69,24 +87,87 @@ type policyMapEntry struct {
 
 func NewController(
 	client versioned.Interface,
+	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	dclient dclient.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
-	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
-	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
+
+	var (
+		polrInformer  informers.GenericInformer
+		cpolrInformer informers.GenericInformer
+	)
+
+	if orClient != nil {
+		polrInformer = metadataFactory.ForResource(openreportsv1alpha1.SchemeGroupVersion.WithResource("reports"))
+		cpolrInformer = metadataFactory.ForResource(openreportsv1alpha1.SchemeGroupVersion.WithResource("clusterreports"))
+	} else {
+		polrInformer = metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
+		cpolrInformer = metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
+	}
+
+	cacheMu := &sync.Mutex{}
+	// Initialize cache for mapping report UUIDs to their affecting policies.
+	reportUUIDToPolicyCache := make(map[string]sets.Set[string])
+	selector := labels.SelectorFromSet(labels.Set{
+		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+	})
+
+	// Background cleanup goroutine removes cache entries for deleted reports every 10 seconds.
+	go func() {
+		for {
+			time.Sleep(time.Second * 10)
+			// List all existing reports to identify which ones still exist
+			reports, err := polrInformer.Lister().List(selector)
+			if err != nil {
+				logger.Error(err, "failed to list reports to clear the policy cache")
+				continue
+			}
+			clusterReports, err := cpolrInformer.Lister().List(selector)
+			if err != nil {
+				logger.Error(err, "failed to list cluster reports to clear the policy cache")
+				continue
+			}
+			// Build set of existing report UUIDs
+			reportsMap := make(map[string]struct{})
+			for _, r := range reports {
+				reportMeta := r.(*metav1.PartialObjectMetadata)
+				reportsMap[string(reportMeta.GetUID())] = struct{}{}
+			}
+			for _, cr := range clusterReports {
+				reportMeta := cr.(*metav1.PartialObjectMetadata)
+				reportsMap[string(reportMeta.GetUID())] = struct{}{}
+			}
+			// Remove cache entries for deleted reports
+			cacheMu.Lock()
+			for reportUID := range reportUUIDToPolicyCache {
+				if _, ok := reportsMap[reportUID]; !ok {
+					delete(reportUUIDToPolicyCache, reportUID)
+				}
+			}
+			cacheMu.Unlock()
+		}
+	}()
+
 	c := controller{
-		client:      client,
-		dclient:     dclient,
-		polLister:   polInformer.Lister(),
-		cpolLister:  cpolInformer.Lister(),
-		ephrLister:  ephrInformer.Lister(),
-		cephrLister: cephrInformer.Lister(),
+		client:                  client,
+		dclient:                 dclient,
+		orClient:                orClient,
+		polLister:               polInformer.Lister(),
+		cpolLister:              cpolInformer.Lister(),
+		ephrLister:              ephrInformer.Lister(),
+		cephrLister:             cephrInformer.Lister(),
+		cacheMu:                 cacheMu,
+		reportUUIDToPolicyCache: reportUUIDToPolicyCache,
 		frontQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
@@ -102,34 +183,71 @@ func NewController(
 	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, cephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	enqueueAll := func() {
-		selector := labels.SelectorFromSet(labels.Set{
-			kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
-		})
+	// enqueueReportsForPolicy queues only reports affected by a specific policy change using the cache.
+	enqueueReportsForPolicy := func(o metav1.Object) {
 		if list, err := polrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
-				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
+				itemMeta := item.(*metav1.PartialObjectMetadata)
+				cacheMu.Lock()
+				policiesForReport, ok := reportUUIDToPolicyCache[string(itemMeta.GetUID())]
+				cacheMu.Unlock()
+				// the report doesn't exist in the cache, queue it for processing to eventually build the cache
+				if !ok {
+					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+					continue
+				}
+				for _, polNsName := range sets.List(policiesForReport) {
+					policyNameParts := strings.Split(polNsName, "/")
+					if o.GetNamespace() == "" { // if its a cluster policy the cache will contain the policy name only
+						if o.GetName() != policyNameParts[0] {
+							continue
+						}
+					} else {
+						if o.GetNamespace() != policyNameParts[0] {
+							continue
+						}
+						if o.GetName() != policyNameParts[1] {
+							continue
+						}
+					}
+					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+				}
 			}
 		}
 		if list, err := cpolrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
-				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
+				itemMeta := item.(*metav1.PartialObjectMetadata)
+				cacheMu.Lock()
+				policiesForReport, ok := reportUUIDToPolicyCache[string(itemMeta.GetUID())]
+				cacheMu.Unlock()
+				// the report doesn't exist in the cache, queue it for processing to eventually build the cache
+				if !ok {
+					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+					continue
+				}
+				for _, polNsName := range sets.List(policiesForReport) {
+					policyNameParts := strings.Split(polNsName, "/")
+					if o.GetName() != policyNameParts[1] {
+						continue
+					}
+					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+				}
 			}
 		}
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
-		func(_ metav1.Object) { enqueueAll() },
-		func(_, _ metav1.Object) { enqueueAll() },
-		func(_ metav1.Object) { enqueueAll() },
+		func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+		func(o metav1.Object) { enqueueReportsForPolicy(o) },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		cpolInformer.Informer(),
-		func(_ metav1.Object) { enqueueAll() },
-		func(_, _ metav1.Object) { enqueueAll() },
-		func(_ metav1.Object) { enqueueAll() },
+		func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+		func(o metav1.Object) { enqueueReportsForPolicy(o) },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -137,9 +255,42 @@ func NewController(
 		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
 			vpolInformer.Informer(),
-			func(_ metav1.Object) { enqueueAll() },
-			func(_, _ metav1.Object) { enqueueAll() },
-			func(_ metav1.Object) { enqueueAll() },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			ivpolInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mpolInformer != nil {
+		c.mpolLister = mpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			mpolInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if gpolInformer != nil {
+		c.gpolLister = gpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			gpolInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
 		); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
@@ -148,9 +299,20 @@ func NewController(
 		c.vapLister = vapInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
 			vapInformer.Informer(),
-			func(_ metav1.Object) { enqueueAll() },
-			func(_, _ metav1.Object) { enqueueAll() },
-			func(_ metav1.Object) { enqueueAll() },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mapInformer != nil {
+		c.mapLister = mapInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			mapInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
 		); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
@@ -216,6 +378,20 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 	return results, nil
 }
 
+func (c *controller) createMappolMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.mapLister != nil {
+		maps, err := c.mapLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, pol := range maps {
+			results.Insert(cache.MetaObjectToName(pol).String())
+		}
+	}
+	return results, nil
+}
+
 func (c *controller) createVPolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.vpolLister != nil {
@@ -225,6 +401,48 @@ func (c *controller) createVPolMap() (sets.Set[string], error) {
 		}
 		for _, vpol := range vpols {
 			results.Insert(cache.MetaObjectToName(vpol).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createIVPolMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.ivpolLister != nil {
+		ivpols, err := c.ivpolLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, ivpol := range ivpols {
+			results.Insert(cache.MetaObjectToName(ivpol).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createGPOLMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.gpolLister != nil {
+		gpols, err := c.gpolLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, gpol := range gpols {
+			results.Insert(cache.MetaObjectToName(gpol).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createMPOLMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.mpolLister != nil {
+		mpols, err := c.mpolLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, mpol := range mpols {
+			results.Insert(cache.MetaObjectToName(mpol).String())
 		}
 	}
 	return results, nil
@@ -273,24 +491,46 @@ func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, n
 }
 
 func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
+	if c.orClient == nil {
+		if namespace == "" {
+			report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					return nil, nil
+				}
+				return nil, err
+			}
+			return openreports.NewWGCpolAdapter(report), nil
+		} else {
+			report, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					return nil, nil
+				}
+				return nil, err
+			}
+			return openreports.NewWGPolAdapter(report), nil
+		}
+	}
+	// openreports client wasn't nil, fetch an openreports report
 	if namespace == "" {
-		report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
+		report, err := c.orClient.ClusterReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
 			}
 			return nil, err
 		}
-		return report, nil
+		return &openreports.ClusterReportAdapter{ClusterReport: report}, nil
 	} else {
-		report, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		report, err := c.orClient.Reports(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
 			}
 			return nil, err
 		}
-		return report, nil
+		return &openreports.ReportAdapter{Report: report}, nil
 	}
 }
 
@@ -374,7 +614,7 @@ func (c *controller) adopt(ctx context.Context, reportMeta *metav1.PartialObject
 	}
 	controllerutils.SetOwner(report, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
 	reportutils.SetResourceUid(report, resource.GetUID())
-	if _, err := updateReport(ctx, report, c.client); err != nil {
+	if _, err := updateReport(ctx, report, c.client, c.orClient); err != nil {
 		return false, false
 	}
 	return true, false
@@ -435,7 +675,7 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	defer func() {
 		if err == nil {
 			for _, ephemeralReport := range ephemeralReports {
-				if err := deleteReport(ctx, ephemeralReport, c.client); err != nil {
+				if err := deleteReport(ctx, ephemeralReport, c.client, c.orClient); err != nil {
 					logger.Error(err, "failed to delete ephemeral report")
 				}
 			}
@@ -450,25 +690,50 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
+	mappolMap, err := c.createMappolMap()
+	if err != nil {
+		return err
+	}
 	vpolMap, err := c.createVPolMap()
 	if err != nil {
 		return err
 	}
+	ivpolMap, err := c.createIVPolMap()
+	if err != nil {
+		return err
+	}
+	gpolMap, err := c.createGPOLMap()
+	if err != nil {
+		return err
+	}
+	mpolMap, err := c.createMPOLMap()
+	if err != nil {
+		return err
+	}
 	maps := maps{
-		pol:  policyMap,
-		vap:  vapMap,
-		vpol: vpolMap,
+		pol:    policyMap,
+		vap:    vapMap,
+		mappol: mappolMap,
+		vpol:   vpolMap,
+		ivpol:  ivpolMap,
+		gpol:   gpolMap,
+		mpol:   mpolMap,
 	}
 	reports = append(reports, ephemeralReports...)
-	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+	merged := map[string]openreportsv1alpha1.ReportResult{}
 	mergeReports(maps, merged, types.UID(name), reports...)
-	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(merged))
+	policySet := sets.New[string]() // collect policies for cache population
+	results := make([]openreportsv1alpha1.ReportResult, 0, len(merged))
 	for _, result := range merged {
 		results = append(results, result)
+		if result.Policy != "" {
+			policySet.Insert(result.Policy)
+		}
 	}
+
 	if len(results) == 0 {
 		if report != nil {
-			return deleteReport(ctx, report, c.client)
+			return deleteReport(ctx, report, c.client, c.orClient)
 		}
 	} else {
 		if report == nil {
@@ -480,18 +745,29 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 				UID:        owner.UID,
 				APIVersion: owner.APIVersion,
 			}
-			report = reportutils.NewPolicyReport(namespace, name, scope)
+			report = reportutils.NewPolicyReport(namespace, name, scope, c.orClient != nil)
 			controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
 		}
 		reportutils.SetResults(report, results...)
 		if report.GetResourceVersion() == "" {
-			if _, err := reportutils.CreateReport(ctx, report, c.client); err != nil {
+			r, err := reportutils.CreatePermanentReport(ctx, report, c.client, c.orClient)
+			if err != nil {
 				return err
 			}
+
+			uuid := r.GetUID()
+			c.cacheMu.Lock()
+			c.reportUUIDToPolicyCache[string(uuid)] = policySet
+			c.cacheMu.Unlock()
 		} else {
-			if _, err := updateReport(ctx, report, c.client); err != nil {
+			r, err := updateReport(ctx, report, c.client, c.orClient)
+			if err != nil {
 				return err
 			}
+			uuid := r.GetUID()
+			c.cacheMu.Lock()
+			c.reportUUIDToPolicyCache[string(uuid)] = policySet
+			c.cacheMu.Unlock()
 		}
 	}
 	return nil

@@ -3,13 +3,13 @@ kind: ValidatingAdmissionPolicyBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-t16-binding
+  name: cpol-disallow-host-path-t16-binding
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
     name: disallow-host-path-t16
 spec:
-  policyName: disallow-host-path-t16
+  policyName: cpol-disallow-host-path-t16
   validationActions:
   - Audit
   - Warn

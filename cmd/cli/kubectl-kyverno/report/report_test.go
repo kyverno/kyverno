@@ -4,16 +4,17 @@ import (
 	"reflect"
 	"testing"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
-func TestComputeClusterPolicyReports(t *testing.T) {
+func TestComputeClusterReports(t *testing.T) {
 	results, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.Policies), 1)
@@ -41,9 +42,9 @@ func TestComputeClusterPolicyReports(t *testing.T) {
 	{
 		report := clustered[0]
 		assert.Equal(t, report.GetName(), policy.GetName())
-		assert.Equal(t, report.Kind, "ClusterPolicyReport")
+		assert.Equal(t, report.Kind, "ClusterReport")
 		assert.Equal(t, len(report.Results), 2)
-		assert.Equal(t, report.Results[0].Severity, policyreportv1alpha2.SeverityMedium)
+		assert.Equal(t, report.Results[0].Severity, openreportsv1alpha1.ResultSeverity(openreports.SeverityMedium))
 		assert.Equal(t, report.Results[0].Category, "Pod Security Standards (Restricted)")
 		assert.Equal(t, report.Summary.Pass, 1)
 	}
@@ -80,13 +81,13 @@ func TestComputePolicyReports(t *testing.T) {
 		assert.Equal(t, report.GetNamespace(), policy.GetNamespace())
 		assert.Equal(t, report.Kind, "PolicyReport")
 		assert.Equal(t, len(report.Results), 2)
-		assert.Equal(t, report.Results[0].Severity, policyreportv1alpha2.SeverityMedium)
+		assert.Equal(t, report.Results[0].Severity, openreportsv1alpha1.ResultSeverity(openreports.SeverityMedium))
 		assert.Equal(t, report.Results[0].Category, "Pod Security Standards (Restricted)")
 		assert.Equal(t, report.Summary.Pass, 1)
 	}
 }
 
-func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
+func TestComputeReportResultsPerPolicyOld(t *testing.T) {
 	loaderResults, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(loaderResults.Policies), 1)
@@ -113,60 +114,60 @@ func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
 		for _, r := range result {
 			switch r.Rule {
 			case "pods-require-limits":
-				assert.Equal(t, r.Result, policyreportv1alpha2.StatusPass)
+				assert.Equal(t, r.Result, openreportsv1alpha1.Result(openreports.StatusPass))
 			case "pods-require-account":
-				assert.Equal(t, r.Result, policyreportv1alpha2.StatusFail)
+				assert.Equal(t, r.Result, openreportsv1alpha1.Result(openreports.StatusFail))
 			}
 		}
 	}
 }
 
 func TestMergeClusterReport(t *testing.T) {
-	clustered := []policyreportv1alpha2.ClusterPolicyReport{{
+	clustered := []openreportsv1alpha1.ClusterReport{{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "ClusterPolicyReport",
-			APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
+			Kind:       "ClusterReport",
+			APIVersion: openreportsv1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cpolr-4",
 		},
-		Results: []policyreportv1alpha2.PolicyReportResult{
+		Results: []openreportsv1alpha1.ReportResult{
 			{
 				Policy: "cpolr-4",
-				Result: policyreportv1alpha2.StatusFail,
+				Result: openreports.StatusFail,
 			},
 		},
 	}, {
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "ClusterPolicyReport",
-			APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
+			Kind:       "ClusterReport",
+			APIVersion: openreportsv1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cpolr-5",
 		},
-		Results: []policyreportv1alpha2.PolicyReportResult{
+		Results: []openreportsv1alpha1.ReportResult{
 			{
 				Policy: "cpolr-5",
-				Result: policyreportv1alpha2.StatusFail,
+				Result: openreports.StatusFail,
 			},
 		},
 	}}
-	expectedResults := []policyreportv1alpha2.PolicyReportResult{{
+	expectedResults := []openreportsv1alpha1.ReportResult{{
 		Policy: "cpolr-4",
-		Result: policyreportv1alpha2.StatusFail,
+		Result: openreports.StatusFail,
 	}, {
 		Policy: "cpolr-5",
-		Result: policyreportv1alpha2.StatusFail,
+		Result: openreports.StatusFail,
 	}}
 	cpolr := MergeClusterReports(clustered)
-	assert.Equal(t, cpolr.APIVersion, policyreportv1alpha2.SchemeGroupVersion.String())
-	assert.Equal(t, cpolr.Kind, "ClusterPolicyReport")
+	assert.Equal(t, cpolr.APIVersion, openreportsv1alpha1.SchemeGroupVersion.String())
+	assert.Equal(t, cpolr.Kind, "ClusterReport")
 	assert.DeepEqual(t, cpolr.Results, expectedResults)
 	assert.Equal(t, cpolr.Summary.Pass, 0)
 	assert.Equal(t, cpolr.Summary.Fail, 2)
 }
 
-func TestComputePolicyReportResult(t *testing.T) {
+func TestComputeReportResult(t *testing.T) {
 	results, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.Policies), 1)
@@ -176,102 +177,108 @@ func TestComputePolicyReportResult(t *testing.T) {
 		auditWarn      bool
 		engineResponse engineapi.EngineResponse
 		ruleResponse   engineapi.RuleResponse
-		want           policyreportv1alpha2.PolicyReportResult
+		want           openreportsv1alpha1.ReportResult
 	}{{
 		name:           "skip",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleSkip("xxx", engineapi.Mutation, "test", nil),
-		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusSkip,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+		want: openreportsv1alpha1.ReportResult{
+			Source:      "kyverno",
+			Policy:      "pod-requirements",
+			Rule:        "xxx",
+			Result:      openreports.StatusSkip,
+			Subjects:    []corev1.ObjectReference{{}},
+			Description: "test",
+			Scored:      true,
+			Category:    "Pod Security Standards (Restricted)",
+			Properties:  map[string]string{"process": "admission review"},
+			Severity:    openreports.SeverityMedium,
 		},
 	}, {
 		name:           "pass",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
 		ruleResponse:   *engineapi.RulePass("xxx", engineapi.Mutation, "test", nil),
-		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusPass,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+		want: openreportsv1alpha1.ReportResult{
+			Source:      "kyverno",
+			Policy:      "pod-requirements",
+			Rule:        "xxx",
+			Result:      openreports.StatusPass,
+			Subjects:    []corev1.ObjectReference{{}},
+			Description: "test",
+			Scored:      true,
+			Category:    "Pod Security Standards (Restricted)",
+			Properties:  map[string]string{"process": "admission review"},
+			Severity:    openreports.SeverityMedium,
 		},
 	}, {
 		name:           "fail",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
-		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusFail,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+		want: openreportsv1alpha1.ReportResult{
+			Source:      "kyverno",
+			Policy:      "pod-requirements",
+			Rule:        "xxx",
+			Result:      openreports.StatusFail,
+			Subjects:    []corev1.ObjectReference{{}},
+			Description: "test",
+			Scored:      true,
+			Category:    "Pod Security Standards (Restricted)",
+			Properties:  map[string]string{"process": "admission review"},
+			Severity:    openreports.SeverityMedium,
 		},
 	}, {
 		name:           "fail - audit warn",
 		auditWarn:      true,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
-		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusWarn,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+		want: openreportsv1alpha1.ReportResult{
+			Source:      "kyverno",
+			Policy:      "pod-requirements",
+			Rule:        "xxx",
+			Result:      openreports.StatusWarn,
+			Subjects:    []corev1.ObjectReference{{}},
+			Description: "test",
+			Scored:      true,
+			Category:    "Pod Security Standards (Restricted)",
+			Properties:  map[string]string{"process": "admission review"},
+			Severity:    openreports.SeverityMedium,
 		},
 	}, {
 		name:           "error",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleError("xxx", engineapi.Mutation, "test", nil, nil),
-		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusError,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+		want: openreportsv1alpha1.ReportResult{
+			Source:      "kyverno",
+			Policy:      "pod-requirements",
+			Rule:        "xxx",
+			Result:      openreports.StatusError,
+			Subjects:    []corev1.ObjectReference{{}},
+			Description: "test",
+			Scored:      true,
+			Category:    "Pod Security Standards (Restricted)",
+			Properties:  map[string]string{"process": "admission review"},
+			Severity:    openreports.SeverityMedium,
 		},
 	}, {
 		name:           "warn",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleWarn("xxx", engineapi.Mutation, "test", nil),
-		want: policyreportv1alpha2.PolicyReportResult{
-			Source:    "kyverno",
-			Policy:    "pod-requirements",
-			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusWarn,
-			Resources: []corev1.ObjectReference{{}},
-			Message:   "test",
-			Scored:    true,
-			Category:  "Pod Security Standards (Restricted)",
-			Severity:  policyreportv1alpha2.SeverityMedium,
+		want: openreportsv1alpha1.ReportResult{
+			Source:      "kyverno",
+			Policy:      "pod-requirements",
+			Rule:        "xxx",
+			Result:      openreports.StatusWarn,
+			Subjects:    []corev1.ObjectReference{{}},
+			Description: "test",
+			Scored:      true,
+			Category:    "Pod Security Standards (Restricted)",
+			Properties:  map[string]string{"process": "admission review"},
+			Severity:    openreports.SeverityMedium,
 		},
 	}}
 	for _, tt := range tests {
@@ -279,13 +286,13 @@ func TestComputePolicyReportResult(t *testing.T) {
 			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
 			got.Timestamp = metav1.Timestamp{}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ComputePolicyReportResult() = %v, want %v", got, tt.want)
+				t.Errorf("ComputeReportResult() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestPSSComputePolicyReportResult(t *testing.T) {
+func TestPSSComputeReportResult(t *testing.T) {
 	results, err := policy.Load(nil, "", "../_testdata/policies/restricted.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.Policies), 1)
@@ -295,23 +302,23 @@ func TestPSSComputePolicyReportResult(t *testing.T) {
 		auditWarn      bool
 		engineResponse engineapi.EngineResponse
 		ruleResponse   engineapi.RuleResponse
-		want           policyreportv1alpha2.PolicyReportResult
+		want           openreportsv1alpha1.ReportResult
 	}{{
 		name:           "fail",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
-		want: policyreportv1alpha2.PolicyReportResult{
-			Source:     "kyverno",
-			Policy:     "psa",
-			Rule:       "xxx",
-			Result:     policyreportv1alpha2.StatusFail,
-			Resources:  []corev1.ObjectReference{{}},
-			Message:    "test",
-			Scored:     true,
-			Category:   "Pod Security Standards (Restricted)",
-			Severity:   policyreportv1alpha2.SeverityMedium,
-			Properties: nil,
+		want: openreportsv1alpha1.ReportResult{
+			Source:      "kyverno",
+			Policy:      "psa",
+			Rule:        "xxx",
+			Result:      openreports.StatusFail,
+			Subjects:    []corev1.ObjectReference{{}},
+			Description: "test",
+			Scored:      true,
+			Category:    "Pod Security Standards (Restricted)",
+			Severity:    openreports.SeverityMedium,
+			Properties:  map[string]string{"process": "background scan"},
 		},
 	}}
 	for _, tt := range tests {
@@ -319,18 +326,18 @@ func TestPSSComputePolicyReportResult(t *testing.T) {
 			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
 			got.Timestamp = metav1.Timestamp{}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ComputePolicyReportResult() = %v, want %v", got, tt.want)
+				t.Errorf("ComputeReportResult() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestComputePolicyReportResultsPerPolicy(t *testing.T) {
+func TestComputeReportResultsPerPolicy(t *testing.T) {
 	tests := []struct {
 		name            string
 		auditWarn       bool
 		engineResponses []engineapi.EngineResponse
-		want            map[engineapi.GenericPolicy][]policyreportv1alpha2.PolicyReportResult
+		want            map[engineapi.GenericPolicy][]openreportsv1alpha1.ReportResult
 	}{{
 		name:      "empty",
 		auditWarn: false,
@@ -343,7 +350,7 @@ func TestComputePolicyReportResultsPerPolicy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ComputePolicyReportResultsPerPolicy(tt.auditWarn, tt.engineResponses...)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ComputePolicyReportResultsPerPolicy() = %v, want %v", got, tt.want)
+				t.Errorf("ComputeReportResultsPerPolicy() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -1,0 +1,9068 @@
+
+  <html lang="en">
+    <head>
+      <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<style>
+    .bg-blue {
+        color: #ffffff;
+        background-color: #1589dd;
+    }
+</style>
+    </head>
+    <body>
+      <div class="container">
+        
+          
+          
+            <h2 id="policies-kyverno-io-v1alpha1">Package: <span style="font-family: monospace">policies.kyverno.io/v1alpha1</span></h2>
+            <p></p>
+          
+        
+        
+          
+            
+            <h3>Resource Types:</h3>
+            <ul><li>
+                    <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>
+                  </li><li>
+                    <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>
+                  </li><li>
+                    <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy</a>
+                  </li><li>
+                    <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>
+                  </li><li>
+                    <a href="#policies-kyverno-io-v1alpha1-PolicyException">PolicyException</a>
+                  </li><li>
+                    <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy</a>
+                  </li></ul>
+
+            
+            
+  <H3 id="policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>DeletingPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicySpec">
+                <span style="font-family: monospace">DeletingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions is a list of conditions that must be met for a resource to be deleted.
+Conditions filter resources that have already been matched by the match constraints,
+namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
+There are a maximum of 64 conditions allowed.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY condition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL conditions evaluate to TRUE, the policy is executed.</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schedule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>The schedule in Cron format
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>deletionPropagationPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicyStatus">
+                <span style="font-family: monospace">DeletingPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>GeneratingPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">
+                <span style="font-family: monospace">GeneratingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources will trigger this policy.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">
+                <span style="font-family: monospace">GeneratingPolicyEvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generate</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Generation">
+                <span style="font-family: monospace">[]Generation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyStatus">
+                <span style="font-family: monospace">GeneratingPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>ImageValidatingPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">
+                <span style="font-family: monospace">ImageValidatingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to validate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FailurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationActions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.ValidationAction</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationConfigurations</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidationConfiguration">
+                <span style="font-family: monospace">ValidationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchImageReferences</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MatchImageReference">
+                <span style="font-family: monospace">[]MatchImageReference</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchImageReferences is a list of Glob and CELExpressions to match images.
+Any image that matches one of the rules is considered for validation
+Any image that does not match a rule is skipped, even when they are passed as arguments to
+image verification functions</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>credentials</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Credentials">
+                <span style="font-family: monospace">Credentials</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Credentials provides credentials that will be used for authentication with registry.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>images</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageExtractor">
+                <span style="font-family: monospace">[]ImageExtractor</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ImageExtractors is a list of CEL expression to extract images from the resource</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>attestors</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Attestor">
+                <span style="font-family: monospace">[]Attestor</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestors provides a list of trusted authorities.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>attestations</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Attestation">
+                <span style="font-family: monospace">[]Attestation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestations provides a list of image metadata to verify</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validations</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations contain CEL expressions which is used to apply the image validation checks.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
+                <span style="font-family: monospace">EvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">ImageValidatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyStatus">
+                <span style="font-family: monospace">ImageValidatingPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>MutatingPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">
+                <span style="font-family: monospace">MutatingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to evaluate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.FailurePolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">MutatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>targetMatchConstraints</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Mutation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>mutations contain operations to perform on matching objects.
+mutations may not be empty; a minimum of one mutation is required.
+mutations are evaluated in order, and are reinvoked according to
+the reinvocationPolicy.
+The mutations of a policy are invoked for each binding of this policy
+and reinvocation of mutations occurs on a per binding basis.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">
+                <span style="font-family: monospace">MutatingPolicyEvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for mutating policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>reinvocationPolicy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
+as part of a single admission evaluation.
+Allowed values are &quot;Never&quot; and &quot;IfNeeded&quot;.</p>
+<p>Never: These mutations will not be called more than once per binding in a single admission evaluation.</p>
+<p>IfNeeded: These mutations may be invoked more than once per binding for a single admission request and there is no guarantee of
+order with respect to other admission plugins, admission webhooks, bindings of this policy and admission policies.  Mutations are only
+reinvoked when mutations change the object after this mutation is invoked.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">
+                <span style="font-family: monospace">MutatingPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-PolicyException">PolicyException
+    </H3>
+
+  
+
+  <p><p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>PolicyException</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-PolicyExceptionSpec">
+                <span style="font-family: monospace">PolicyExceptionSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Spec declares policy exception behaviors.</p>
+
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>policyRefs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-PolicyRef">
+                <span style="font-family: monospace">[]PolicyRef</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyRefs identifies the policies to which the exception is applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>ValidatingPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">
+                <span style="font-family: monospace">ValidatingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations contain CEL expressions which is used to apply the validation.
+Validations and AuditAnnotations may not both be empty; a minimum of one Validations or AuditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">ValidatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationActions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.ValidationAction</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
+                <span style="font-family: monospace">EvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyStatus">
+                <span style="font-family: monospace">ValidatingPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AdmissionConfiguration">AdmissionConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled controls if rules are applied during admission.
+Optional. Default value is &quot;true&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Attestation">Attestation
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p><p>Attestation defines the identification details of the  metadata that has to be verified</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name for this attestation. It is used to refer to the attestation in verification</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>intoto</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-InToto">
+                <span style="font-family: monospace">InToto</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>InToto defines the details of attestation attached using intoto format</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>referrer</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Referrer">
+                <span style="font-family: monospace">Referrer</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Referrer defines the details of attestation attached using OCI 1.1 format</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Attestor">Attestor
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p><p>Attestor is an identity that confirms or verifies the authenticity of an image or an attestation</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name for this attestor. It is used to refer to the attestor in verification</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>cosign</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Cosign">
+                <span style="font-family: monospace">Cosign</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Cosign defines attestor configuration for Cosign based signatures</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>notary</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Notary">
+                <span style="font-family: monospace">Notary</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Notary defines attestor configuration for Notary based signatures</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-BackgroundConfiguration">BackgroundConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled controls if rules are applied to existing resources during a background scan.
+Optional. Default value is &quot;true&quot;. The value must be set to &quot;false&quot; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-CTLog">CTLog
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>CTLog sets the configuration to verify the authority against a Rekor instance.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>url</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>URL sets the url to the rekor instance (by default the public rekor.sigstore.dev)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rekorPubKey</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>RekorPubKey is an optional PEM-encoded public key to use for a custom Rekor.
+If set, this will be used to validate transparency log signatures from a custom Rekor.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>ctLogPubKey</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CTLogPubKey, if set, is used to validate SCTs against a custom source.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>tsaCertChain</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+may contain the leaf TSA certificate if not present in the timestamurce.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>insecureIgnoreTlog</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>InsecureIgnoreTlog skips transparency log verification.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>insecureIgnoreSCT</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IgnoreSCT defines whether to use the Signed Certificate Timestamp (SCT) log to check for a certificate
+timestamp. Default is false. Set to true if this was opted out during signing.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Certificate">Certificate
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>Certificate defines the configuration for local signature verification</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>cert</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Certificate is the to the public certificate for local signature verification.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>certChain</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CertificateChain is the list of CA certificates in PEM format which will be needed
+when building the certificate chain for the signing certificate. Must start with the
+parent intermediate CA certificate of the signing certificate and end with the root certificate</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ConditionStatus">ConditionStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicyStatus">DeletingPolicyStatus</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyStatus">GeneratingPolicyStatus</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyStatus">ImageValidatingPolicyStatus</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">MutatingPolicyStatus</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyStatus">ValidatingPolicyStatus</a>)
+    </p>
+  
+
+  <p><p>ConditionStatus is the shared status across all policy types</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>ready</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+The conditions array, the reason and message fields contain more detail about the policy's status.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]meta/v1.Condition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>message</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Cosign">Cosign
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Attestor">Attestor</a>)
+    </p>
+  
+
+  <p><p>Cosign defines attestor configuration for Cosign based signatures</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>key</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Key">
+                <span style="font-family: monospace">Key</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Key defines the type of key to validate the image.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>keyless</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Keyless">
+                <span style="font-family: monospace">Keyless</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Keyless sets the configuration to verify the authority against a Fulcio instance.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>certificate</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Certificate">
+                <span style="font-family: monospace">Certificate</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Certificate defines the configuration for local signature verification</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>source</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Source">
+                <span style="font-family: monospace">Source</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Sources sets the configuration to specify the sources from where to consume the signature and attestations.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>ctlog</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-CTLog">
+                <span style="font-family: monospace">CTLog</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CTLog sets the configuration to verify the authority against a Rekor instance.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>tuf</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-TUF">
+                <span style="font-family: monospace">TUF</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TUF defines the configuration to fetch sigstore root</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>annotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Annotations are used for image verification.
+Every specified key-value pair must exist and match in the verified payload.
+The payload may contain other key-value pairs.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Credentials">Credentials
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>allowInsecureRegistry</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AllowInsecureRegistry allows insecure access to a registry.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>providers</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-CredentialsProvidersType">
+                <span style="font-family: monospace">[]CredentialsProvidersType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Providers specifies a list of OCI Registry names, whose authentication providers are provided.
+It can be of one of these values: default,google,azure,amazon,github.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>secrets</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Secrets specifies a list of secrets that are provided for credentials.
+Secrets must live in the Kyverno namespace.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-CredentialsProvidersType">CredentialsProvidersType
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Credentials">Credentials</a>)
+    </p>
+  
+
+  <p><p>CredentialsProvidersType provides the list of credential providers required.</p>
+</p>
+
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-DeletingPolicySpec">DeletingPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
+    </p>
+  
+
+  <p><p>DeletingPolicySpec is the specification of the desired behavior of the DeletingPolicy.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions is a list of conditions that must be met for a resource to be deleted.
+Conditions filter resources that have already been matched by the match constraints,
+namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
+There are a maximum of 64 conditions allowed.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY condition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL conditions evaluate to TRUE, the policy is executed.</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schedule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>The schedule in Cron format
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>deletionPropagationPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-DeletingPolicyStatus">DeletingPolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditionStatus</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ConditionStatus">
+                <span style="font-family: monospace">ConditionStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>lastExecutionTime</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Time</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>mode</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationMode">
+                <span style="font-family: monospace">EvaluationMode</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Mode is the mode of policy evaluation.
+Allowed values are &quot;Kubernetes&quot; or &quot;JSON&quot;.
+Optional. Default value is &quot;Kubernetes&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>admission</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AdmissionConfiguration">
+                <span style="font-family: monospace">AdmissionConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Admission controls policy evaluation during admission.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-BackgroundConfiguration">
+                <span style="font-family: monospace">BackgroundConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background  controls policy evaluation during background scan.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-EvaluationMode">EvaluationMode
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GenerateExistingConfiguration">GenerateExistingConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+    </p>
+  
+
+  <p><p>GenerateExistingConfiguration defines the configuration for generating resources for existing triggers.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled controls whether to trigger the policy for existing resources
+If is set to &quot;true&quot; the policy will be triggered and applied to existing matched resources.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">GeneratingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>admission</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AdmissionConfiguration">
+                <span style="font-family: monospace">AdmissionConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Admission controls policy evaluation during admission.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GenerateExistingConfiguration">
+                <span style="font-family: monospace">GenerateExistingConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateExisting defines the configuration for generating resources for existing triggeres.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>synchronize</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-SynchronizationConfiguration">
+                <span style="font-family: monospace">SynchronizationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Synchronization defines the configuration for the synchronization of generated resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>orphanDownstreamOnPolicyDelete</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-OrphanDownstreamOnPolicyDeleteConfiguration">
+                <span style="font-family: monospace">OrphanDownstreamOnPolicyDeleteConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>OrphanDownstreamOnPolicyDelete defines the configuration for orphaning downstream resources on policy delete.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GeneratingPolicySpec">GeneratingPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>)
+    </p>
+  
+
+  <p><p>GeneratingPolicySpec is the specification of the desired behavior of the GeneratingPolicy.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources will trigger this policy.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">
+                <span style="font-family: monospace">GeneratingPolicyEvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generate</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Generation">
+                <span style="font-family: monospace">[]Generation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GeneratingPolicyStatus">GeneratingPolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditionStatus</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ConditionStatus">
+                <span style="font-family: monospace">ConditionStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Generation">Generation
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">GeneratingPolicySpec</a>)
+    </p>
+  
+
+  <p><p>Generation defines the configuration for the generation of resources.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression is a CEL expression that takes a list of resources to be generated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Identity">Identity
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Keyless">Keyless</a>)
+    </p>
+  
+
+  <p><p>Identity may contain the issuer and/or the subject found in the transparency
+log.
+Issuer/Subject uses a strict match, while IssuerRegExp and SubjectRegExp
+apply a regexp for matching.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>issuer</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Issuer defines the issuer for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subject</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Subject defines the subject for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>issuerRegExp</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IssuerRegExp specifies a regular expression to match the issuer for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subjectRegExp</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SubjectRegExp specifies a regular expression to match the subject for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ImageExtractor">ImageExtractor
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name for this imageList. It is used to refer to the images in verification block as images.<!-- raw HTML omitted --></p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression defines CEL expression to extract images from the resource.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenStatus">ImageValidatingPolicyAutogenStatus</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>targets</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Target">
+                <span style="font-family: monospace">[]Target</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">
+                <span style="font-family: monospace">ImageValidatingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenConfiguration">ImageValidatingPolicyAutogenConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>podControllers</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-PodControllersGenerationConfiguration">
+                <span style="font-family: monospace">PodControllersGenerationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodControllers specifies whether to generate a pod controllers rules.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenStatus">ImageValidatingPolicyAutogenStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyStatus">ImageValidatingPolicyStatus</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>configs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogen">
+                <span style="font-family: monospace">map[string]ImageValidatingPolicyAutogen</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>)
+    </p>
+  
+
+  <p><p>ImageValidatingPolicySpec is the specification of the desired behavior of the ImageValidatingPolicy.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to validate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FailurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationActions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.ValidationAction</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationConfigurations</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidationConfiguration">
+                <span style="font-family: monospace">ValidationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchImageReferences</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MatchImageReference">
+                <span style="font-family: monospace">[]MatchImageReference</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchImageReferences is a list of Glob and CELExpressions to match images.
+Any image that matches one of the rules is considered for validation
+Any image that does not match a rule is skipped, even when they are passed as arguments to
+image verification functions</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>credentials</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Credentials">
+                <span style="font-family: monospace">Credentials</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Credentials provides credentials that will be used for authentication with registry.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>images</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageExtractor">
+                <span style="font-family: monospace">[]ImageExtractor</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ImageExtractors is a list of CEL expression to extract images from the resource</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>attestors</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Attestor">
+                <span style="font-family: monospace">[]Attestor</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestors provides a list of trusted authorities.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>attestations</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Attestation">
+                <span style="font-family: monospace">[]Attestation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestations provides a list of image metadata to verify</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validations</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations contain CEL expressions which is used to apply the image validation checks.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
+                <span style="font-family: monospace">EvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">ImageValidatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ImageValidatingPolicyStatus">ImageValidatingPolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditionStatus</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ConditionStatus">
+                <span style="font-family: monospace">ConditionStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenStatus">
+                <span style="font-family: monospace">ImageValidatingPolicyAutogenStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-InToto">InToto
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Attestation">Attestation</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>type</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Type defines the type of attestation contained within the statement.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Key">Key
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>A Key must specify only one of CEL, Data or KMS</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>data</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Data contains the inline public key</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kms</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>KMS contains the KMS url of the public key
+Supported formats differ based on the KMS system used.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>hashAlgorithm</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>HashAlgorithm specifues signature algorithm for public keys. Supported values are
+sha224, sha256, sha384 and sha512. Defaults to sha256.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression is a Expression expression that returns the public key.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Keyless">Keyless
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>Keyless contains location of the validating certificate and the identities
+against which to verify.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>identities</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Identity">
+                <span style="font-family: monospace">[]Identity</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Identities sets a list of identities.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>roots</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MAPGenerationConfiguration">MAPGenerationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MatchImageReference">MatchImageReference
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p><p>MatchImageReference defines a Glob or a CEL expression for matching images</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>glob</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Glob defines a globbing pattern for matching images</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression defines CEL Expressions for matching images</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutateExistingConfiguration">MutateExistingConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled enables mutation of existing resources. Default is false.
+When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyAutogen">MutatingPolicyAutogen
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenStatus">MutatingPolicyAutogenStatus</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>targets</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Target">
+                <span style="font-family: monospace">[]Target</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">
+                <span style="font-family: monospace">MutatingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>podControllers</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-PodControllersGenerationConfiguration">
+                <span style="font-family: monospace">PodControllersGenerationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodControllers specifies whether to generate a pod controllers rules.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutatingAdmissionPolicy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MAPGenerationConfiguration">
+                <span style="font-family: monospace">MAPGenerationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutatingAdmissionPolicy specifies whether to generate a Kubernetes MutatingAdmissionPolicy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyAutogenStatus">MutatingPolicyAutogenStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">MutatingPolicyStatus</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>configs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogen">
+                <span style="font-family: monospace">map[string]MutatingPolicyAutogen</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>admission</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AdmissionConfiguration">
+                <span style="font-family: monospace">AdmissionConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Admission controls policy evaluation during admission.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutateExistingConfiguration">
+                <span style="font-family: monospace">MutateExistingConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutateExisting controls whether existing resources are mutated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogen">MutatingPolicyAutogen</a>)
+    </p>
+  
+
+  <p><p>MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to evaluate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.FailurePolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">MutatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>targetMatchConstraints</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Mutation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>mutations contain operations to perform on matching objects.
+mutations may not be empty; a minimum of one mutation is required.
+mutations are evaluated in order, and are reinvoked according to
+the reinvocationPolicy.
+The mutations of a policy are invoked for each binding of this policy
+and reinvocation of mutations occurs on a per binding basis.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">
+                <span style="font-family: monospace">MutatingPolicyEvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for mutating policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>reinvocationPolicy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>reinvocationPolicy indicates whether mutations may be called multiple times per MutatingAdmissionPolicyBinding
+as part of a single admission evaluation.
+Allowed values are &quot;Never&quot; and &quot;IfNeeded&quot;.</p>
+<p>Never: These mutations will not be called more than once per binding in a single admission evaluation.</p>
+<p>IfNeeded: These mutations may be invoked more than once per binding for a single admission request and there is no guarantee of
+order with respect to other admission plugins, admission webhooks, bindings of this policy and admission policies.  Mutations are only
+reinvoked when mutations change the object after this mutation is invoked.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-MutatingPolicyStatus">MutatingPolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditionStatus</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ConditionStatus">
+                <span style="font-family: monospace">ConditionStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenStatus">
+                <span style="font-family: monospace">MutatingPolicyAutogenStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generated</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generated indicates whether a MutatingAdmissionPolicy is generated from the policy or not</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Notary">Notary
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Attestor">Attestor</a>)
+    </p>
+  
+
+  <p><p>Notary defines attestor configuration for Notary based signatures</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>certs</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Certs define the cert chain for Notary signature verification</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>tsaCerts</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TSACerts define the cert chain for verifying timestamps of notary signature</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-OrphanDownstreamOnPolicyDeleteConfiguration">OrphanDownstreamOnPolicyDeleteConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+    </p>
+  
+
+  <p><p>OrphanDownstreamOnPolicyDeleteConfiguration defines the configuration for orphaning downstream resources on policy delete.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled controls whether generated resources should be deleted when the policy that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-PodControllersGenerationConfiguration">PodControllersGenerationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenConfiguration">ImageValidatingPolicyAutogenConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogenConfiguration">MutatingPolicyAutogenConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>controllers</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-PolicyExceptionSpec">PolicyExceptionSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-PolicyException">PolicyException</a>)
+    </p>
+  
+
+  <p><p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>policyRefs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-PolicyRef">
+                <span style="font-family: monospace">[]PolicyRef</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyRefs identifies the policies to which the exception is applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-PolicyRef">PolicyRef
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-PolicyExceptionSpec">PolicyExceptionSpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name of the policy</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kind</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Kind is the kind of the policy</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Referrer">Referrer
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Attestation">Attestation</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>type</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Type defines the type of attestation attached to the image.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Source">Source
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>Source specifies the location of the signature / attestations.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>repository</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Repository defines the location from where to pull the signature / attestations.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>PullSecrets</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]core/v1.LocalObjectReference</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SignaturePullSecrets is an optional list of references to secrets in the
+same namespace as the deploying resource for pulling any of the signatures
+used by this Source.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>tagPrefix</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TagPrefix is an optional prefix that signature and attestations have.
+This is the 'tag based discovery' and in the future once references are
+fully supported that should likely be the preferred way to handle these.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-StringOrExpression">StringOrExpression
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Certificate">Certificate</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-Notary">Notary</a>)
+    </p>
+  
+
+  <p><p>StringOrExpression contains either a raw string input or a CEL expression</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>value</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Value defines the raw string input.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression defines the a CEL expression input.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-SynchronizationConfiguration">SynchronizationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">GeneratingPolicyEvaluationConfiguration</a>)
+    </p>
+  
+
+  <p><p>SynchronizationConfiguration defines the configuration for the synchronization of generated resources.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled controls if generated resources should be kept in-sync with their source resource.
+If Synchronize is set to &quot;true&quot; changes to generated resources will be overwritten with resource
+data from Data or the resource specified in the Clone declaration.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-TUF">TUF
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>TUF defines the configuration to fetch sigstore root</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>root</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-TUFRoot">
+                <span style="font-family: monospace">TUFRoot</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Root defines the path or data of the trusted root</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mirror</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Mirror is the base URL of Sigstore TUF repository</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-TUFRoot">TUFRoot
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-TUF">TUF</a>)
+    </p>
+  
+
+  <p><p>TUFRoot defines the path or data of the trusted root</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>path</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Path is the URL or File location of the TUF root</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>data</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Data is the base64 encoded TUF root</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-Target">Target
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyAutogen">MutatingPolicyAutogen</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>group</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>version</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kind</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">ValidatingPolicyAutogen
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenStatus">ValidatingPolicyAutogenStatus</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>targets</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Target">
+                <span style="font-family: monospace">[]Target</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">
+                <span style="font-family: monospace">ValidatingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>podControllers</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-PodControllersGenerationConfiguration">
+                <span style="font-family: monospace">PodControllersGenerationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodControllers specifies whether to generate a pod controllers rules.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validatingAdmissionPolicy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-VapGenerationConfiguration">
+                <span style="font-family: monospace">VapGenerationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidatingAdmissionPolicy specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenStatus">ValidatingPolicyAutogenStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyStatus">ValidatingPolicyStatus</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>configs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">
+                <span style="font-family: monospace">map[string]ValidatingPolicyAutogen</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
+    </p>
+  
+
+  <p><p>ValidatingPolicySpec is the specification of the desired behavior of the ValidatingPolicy.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations contain CEL expressions which is used to apply the validation.
+Validations and AuditAnnotations may not both be empty; a minimum of one Validations or AuditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">ValidatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationActions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.ValidationAction</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
+                <span style="font-family: monospace">EvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ValidatingPolicyStatus">ValidatingPolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditionStatus</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ConditionStatus">
+                <span style="font-family: monospace">ConditionStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenStatus">
+                <span style="font-family: monospace">ValidatingPolicyAutogenStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generated</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-ValidationConfiguration">ValidationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>mutateDigest</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutateDigest enables replacement of image tags with digests.
+Defaults to true.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>verifyDigest</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>VerifyDigest validates that images have a digest.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>required</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Required validates that images are verified, i.e., have passed a signature or attestation check.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-VapGenerationConfiguration">VapGenerationConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">ValidatingPolicyAutogenConfiguration</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>enabled</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled specifies whether to generate a Kubernetes ValidatingAdmissionPolicy.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-WebhookConfiguration">WebhookConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">GeneratingPolicySpec</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">ImageValidatingPolicySpec</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>timeoutSeconds</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int32</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+          
+          <hr />
+        
+      </div>
+    </body>
+  </html>

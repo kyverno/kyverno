@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: missing-action
+status:
+  conditionStatus:
+    (conditions[?type == 'WebhookConfigured']):
+    - message: Webhook configured.
+      reason: Succeeded
+      status: "True"
+    (conditions[?type == 'RBACPermissionsGranted']):
+    - message: Policy is ready for reporting.
+      reason: Succeeded
+      status: "True"
+    ready: true
+  generated: true

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: fetch-pod-resource
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-image-validating-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-resource-lookup-sample
+  - name: create pod
+    try:
+    - create:
+        file: pod.yaml
+    - assert:
+        file: pod.yaml
+  - name: create positive deployment
+    try:
+    - create:
+        file: positive.yaml
+    - assert:
+        file: positive.yaml
+  - name: create negative deployment
+    try:
+    - create:
+        file: negative.yaml
+        expect:
+          - check:
+              ($error): >-
+                admission webhook "ivpol.validate.kyverno.svc-fail-finegrained-ivpol-resource-lookup-sample" denied the request: Policy ivpol-resource-lookup-sample failed: Deployment labels must be env=prod

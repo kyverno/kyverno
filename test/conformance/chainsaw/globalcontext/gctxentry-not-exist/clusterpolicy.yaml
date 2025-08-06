@@ -16,6 +16,8 @@ spec:
       - resources:
           kinds:
           - Pod
+          namespaces:
+          - test-globalcontext-gctxentry-not-exist
     preconditions:
       all:
       - key: '{{ request.operation }}'

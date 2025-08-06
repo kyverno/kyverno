@@ -7,6 +7,5 @@ func Filter[T any](list []T, filter func(T) bool) []T {
 			filtered = append(filtered, item)
 		}
 	}
-
 	return filtered
 }

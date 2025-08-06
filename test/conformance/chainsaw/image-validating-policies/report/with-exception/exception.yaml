@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: exclude-skipped-deployment
+spec:
+  policyRefs:
+  - name: "ivpol-report-background-sample"
+    kind: ImageValidatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'skipped-deployment'"
+  

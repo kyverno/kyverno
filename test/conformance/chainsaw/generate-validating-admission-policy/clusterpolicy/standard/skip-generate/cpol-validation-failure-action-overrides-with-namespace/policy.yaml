@@ -16,8 +16,7 @@ spec:
           - action: Enforce
             namespaces: 
               - default
-        message: "The label `app` is required."
-        pattern:
-          metadata:
-            labels:
-              app: "?*"
+        cel:
+          generate: true
+          expressions:
+            - expression: "'app' in object.metadata.labels"

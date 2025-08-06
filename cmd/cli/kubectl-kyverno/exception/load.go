@@ -20,12 +20,12 @@ import (
 var (
 	exceptionV2beta1     = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
 	exceptionV2          = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
-	celExceptionV1alpha1 = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("CELPolicyException")
+	celExceptionV1alpha1 = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("PolicyException")
 )
 
 type LoaderResults struct {
 	Exceptions    []*kyvernov2.PolicyException
-	CELExceptions []*policiesv1alpha1.CELPolicyException
+	CELExceptions []*policiesv1alpha1.PolicyException
 }
 
 func Load(paths ...string) (*LoaderResults, error) {
@@ -74,7 +74,7 @@ func load(content []byte) (*LoaderResults, error) {
 			}
 			results.Exceptions = append(results.Exceptions, exception)
 		case celExceptionV1alpha1:
-			exception, err := convert.To[policiesv1alpha1.CELPolicyException](untyped)
+			exception, err := convert.To[policiesv1alpha1.PolicyException](untyped)
 			if err != nil {
 				return nil, err
 			}

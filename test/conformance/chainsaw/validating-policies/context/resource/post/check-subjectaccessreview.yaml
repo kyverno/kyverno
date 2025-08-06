@@ -1,0 +1,37 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-subjectaccessreview
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ['']
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [configmaps]
+  variables:
+    - name: res
+      expression: >-
+        {
+          "kind": dyn("SubjectAccessReview"),
+          "apiVersion": dyn("authorization.k8s.io/v1"),
+          "spec": dyn({
+            "resourceAttributes": dyn({
+              "resource": "namespaces",
+              "namespace": string(object.metadata.namespace),
+              "verb": "delete",
+              "group": ""
+            }),
+            "user": dyn(request.userInfo.username)
+          })
+        }
+    - name: subjectaccessreview
+      expression: >-
+        resource.Post("authorization.k8s.io/v1", "subjectaccessreviews", variables.res)
+  validations:
+    - expression: >-
+        has(variables.subjectaccessreview.status) && variables.subjectaccessreview.status.allowed == true
+      message: >-
+        User is not authorized.

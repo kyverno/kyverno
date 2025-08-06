@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: sync-modify-policy-with-two-triggers
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-modify-policy-with-two-triggers
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: create two namespaces
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that configmap is generated in both namespaces
+    try:
+    - assert:
+        file: downstream-assert.yaml
+  - name: modify the policy
+    try:
+    - apply:
+        file: policy-modified.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the downstream is modified in both namespaces
+    try:
+    - assert:
+        file: downstream-modified.yaml

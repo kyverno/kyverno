@@ -35,7 +35,7 @@ func Test_ImageSignatureVerificationKeyless(t *testing.T) {
 		},
 	}
 
-	v := cosignVerifier{log: logr.Discard()}
+	v := Verifier{log: logr.Discard()}
 	err = v.VerifyImageSignature(context.TODO(), img, attestor)
 	assert.NoError(t, err)
 }
@@ -65,7 +65,7 @@ func Test_ImageSignatureVerificationFail(t *testing.T) {
 		},
 	}
 
-	v := cosignVerifier{log: logr.Discard()}
+	v := Verifier{log: logr.Discard()}
 	err = v.VerifyImageSignature(context.TODO(), img, attestor)
 	assert.ErrorContains(t, err, "no matching signatures: none of the expected identities matched what was in the certificate")
 }
@@ -93,7 +93,7 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
 		},
 	}
 
-	v := cosignVerifier{log: logr.Discard()}
+	v := Verifier{log: logr.Discard()}
 	err = v.VerifyImageSignature(context.TODO(), img, attestor)
 	assert.NoError(t, err)
 }
@@ -121,7 +121,7 @@ IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 		},
 	}
 
-	v := cosignVerifier{log: logr.Discard()}
+	v := Verifier{log: logr.Discard()}
 	err = v.VerifyImageSignature(context.TODO(), img, attestor)
 	assert.ErrorContains(t, err, "failed to verify cosign signatures")
 }

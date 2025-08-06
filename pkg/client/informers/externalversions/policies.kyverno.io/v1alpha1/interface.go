@@ -24,12 +24,16 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// CELPolicyExceptions returns a CELPolicyExceptionInformer.
-	CELPolicyExceptions() CELPolicyExceptionInformer
-	// ImageVerificationPolicies returns a ImageVerificationPolicyInformer.
-	ImageVerificationPolicies() ImageVerificationPolicyInformer
+	// DeletingPolicies returns a DeletingPolicyInformer.
+	DeletingPolicies() DeletingPolicyInformer
+	// GeneratingPolicies returns a GeneratingPolicyInformer.
+	GeneratingPolicies() GeneratingPolicyInformer
+	// ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
+	ImageValidatingPolicies() ImageValidatingPolicyInformer
 	// MutatingPolicies returns a MutatingPolicyInformer.
 	MutatingPolicies() MutatingPolicyInformer
+	// PolicyExceptions returns a PolicyExceptionInformer.
+	PolicyExceptions() PolicyExceptionInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
 	ValidatingPolicies() ValidatingPolicyInformer
 }
@@ -45,19 +49,29 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// CELPolicyExceptions returns a CELPolicyExceptionInformer.
-func (v *version) CELPolicyExceptions() CELPolicyExceptionInformer {
-	return &cELPolicyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// DeletingPolicies returns a DeletingPolicyInformer.
+func (v *version) DeletingPolicies() DeletingPolicyInformer {
+	return &deletingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// ImageVerificationPolicies returns a ImageVerificationPolicyInformer.
-func (v *version) ImageVerificationPolicies() ImageVerificationPolicyInformer {
-	return &imageVerificationPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// GeneratingPolicies returns a GeneratingPolicyInformer.
+func (v *version) GeneratingPolicies() GeneratingPolicyInformer {
+	return &generatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
+func (v *version) ImageValidatingPolicies() ImageValidatingPolicyInformer {
+	return &imageValidatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // MutatingPolicies returns a MutatingPolicyInformer.
 func (v *version) MutatingPolicies() MutatingPolicyInformer {
 	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// PolicyExceptions returns a PolicyExceptionInformer.
+func (v *version) PolicyExceptions() PolicyExceptionInformer {
+	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ValidatingPolicies returns a ValidatingPolicyInformer.

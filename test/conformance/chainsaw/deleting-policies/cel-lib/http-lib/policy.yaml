@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: DeletingPolicy
+metadata:
+  name: http-delete-check
+spec:
+  conditions:
+  - name: http-200-check
+    expression: >
+      http.Get("http://test-api-service.default.svc.cluster.local:80").metadata.labels.app == "test"
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]
+  schedule: "*/1 * * * *"

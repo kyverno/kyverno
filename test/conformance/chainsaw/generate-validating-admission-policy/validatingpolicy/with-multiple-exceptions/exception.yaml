@@ -1,0 +1,23 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-deployment-name
+spec:
+  policyRefs:
+  - name: "check-deployment-labels"
+    kind: ValidatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'skipped-deployment'"
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-deployment-namespace
+spec:
+  policyRefs:
+  - name: "check-deployment-labels"
+    kind: ValidatingPolicy
+  matchConditions:
+    - name: "check-namespace"
+      expression: "namespaceObject.metadata.name == 'testing-ns'"

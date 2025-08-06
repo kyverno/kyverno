@@ -14,11 +14,13 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,7 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
 	"k8s.io/client-go/util/workqueue"
@@ -59,6 +63,7 @@ type EventHandler func(EventType, types.UID, schema.GroupVersionKind, Resource)
 type MetadataCache interface {
 	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, schema.GroupVersionResource, bool)
 	GetAllResourceKeys() []string
+	UpdateResourceHash(schema.GroupVersionResource, types.UID, Resource)
 	AddEventHandler(EventHandler)
 	Warmup(ctx context.Context) error
 }
@@ -79,10 +84,14 @@ type controller struct {
 	client dclient.Interface
 
 	// listers
-	polLister  kyvernov1listers.PolicyLister
-	cpolLister kyvernov1listers.ClusterPolicyLister
-	vpolLister policiesv1alpha1listers.ValidatingPolicyLister
-	vapLister  admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	polLister   kyvernov1listers.PolicyLister
+	cpolLister  kyvernov1listers.ClusterPolicyLister
+	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	mpolLister  policiesv1alpha1listers.MutatingPolicyLister
+	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
+	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapLister   admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
+	metaClient  metaclient.UpstreamInterface
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -97,7 +106,11 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
+	metaClient metaclient.UpstreamInterface,
 ) Controller {
 	c := controller{
 		client:     client,
@@ -108,6 +121,7 @@ func NewController(
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 		),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		metaClient:      metaClient,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -115,9 +129,27 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if mpolInformer != nil {
+		c.mpolLister = mpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ivpolInformer != nil {
+		c.ivpolLister = ivpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, ivpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mapInformer != nil {
+		c.mapLister = mapInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mapInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -166,6 +198,13 @@ func (c *controller) GetAllResourceKeys() []string {
 	return keys
 }
 
+func (c *controller) UpdateResourceHash(gvr schema.GroupVersionResource, uid types.UID, hash Resource) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	w := c.dynamicWatchers[gvr] // we must have a dynamic watcher for the resource, otherwise wouldn't end up here from the beginning
+	w.hashes[uid] = hash
+}
+
 func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -179,12 +218,17 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 
 func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) (*watcher, error) {
 	hashes := map[types.UID]Resource{}
-	objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		logger.Error(err, "failed to list resources")
-		return nil, err
-	} else {
-		resourceVersion := objs.GetResourceVersion()
+	var resourceVersion string
+
+	w, ok := c.dynamicWatchers[gvr]
+	// if we never started a watcher for this resource before, list the resources initially
+	if !ok {
+		objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			logger.Error(err, "failed to list resources")
+			return nil, err
+		}
+		resourceVersion = objs.GetResourceVersion()
 		for _, obj := range objs.Items {
 			uid := obj.GetUID()
 			hash := reportutils.CalculateResourceHash(obj)
@@ -193,46 +237,57 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 				Namespace: obj.GetNamespace(),
 				Name:      obj.GetName(),
 			}
-			c.notify(Added, uid, gvk, hashes[uid])
 		}
-		logger := logger.WithValues("resourceVersion", resourceVersion)
-		logger.V(2).Info("start watcher ...")
-		watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-			logger.V(3).Info("creating watcher...")
-			watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
-			if err != nil {
-				logger.Error(err, "failed to watch")
-			}
-			return watch, err
-		}
-		watchInterface, err := watchTools.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+		// we started watcher for this resource before, use the previously existing hashes
+	} else {
+		// fetch the metadata to get the resource version
+		metadata, err := c.metaClient.Resource(gvr).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			logger.Error(err, "failed to create watcher")
 			return nil, err
-		} else {
-			w := &watcher{
-				watcher: watchInterface,
-				gvk:     gvk,
-				hashes:  hashes,
-			}
-			go func(gvr schema.GroupVersionResource) {
-				defer logger.V(2).Info("watcher stopped")
-				for event := range watchInterface.ResultChan() {
-					switch event.Type {
-					case watch.Added:
-						c.updateHash(Added, event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Modified:
-						c.updateHash(Modified, event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Deleted:
-						c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Error:
-						logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
-					}
-				}
-			}(gvr)
-			return w, nil
 		}
+		resourceVersion = metadata.GetResourceVersion()
+		hashes = w.hashes
 	}
+	for uid := range hashes {
+		c.notify(Added, uid, gvk, hashes[uid])
+	}
+
+	logger = logger.WithValues("resourceVersion", resourceVersion)
+	logger.V(2).Info("start watcher ...")
+	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
+		logger.V(3).Info("creating watcher...")
+		watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
+		if err != nil {
+			logger.Error(err, "failed to watch")
+		}
+		return watch, err
+	}
+	watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+	if err != nil {
+		logger.Error(err, "failed to create watcher")
+		return nil, err
+	}
+	w = &watcher{
+		watcher: watchInterface,
+		gvk:     gvk,
+		hashes:  hashes,
+	}
+	go func(gvr schema.GroupVersionResource) {
+		defer logger.V(2).Info("watcher stopped")
+		for event := range watchInterface.ResultChan() {
+			switch event.Type {
+			case watch.Added:
+				c.updateHash(Added, event.Object.(*unstructured.Unstructured), gvr)
+			case watch.Modified:
+				c.updateHash(Modified, event.Object.(*unstructured.Unstructured), gvr)
+			case watch.Deleted:
+				c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
+			case watch.Error:
+				logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
+			}
+		}
+	}(gvr)
+	return w, nil
 }
 
 func (c *controller) updateDynamicWatchers(ctx context.Context) error {
@@ -252,6 +307,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
 		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
 	}
+	restMapper, err := restmapper.GetRESTMapper(c.client, false)
+	if err != nil {
+		return err
+	}
 	if c.vapLister != nil {
 		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
 		if err != nil {
@@ -259,7 +318,27 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vapPolicies {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.mapLister != nil {
+		mapPolicies, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
+		if err != nil {
+			return err
+		}
+		for _, policy := range mapPolicies {
+			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(converted, restMapper)
+			if err != nil {
+				return err
+			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -273,7 +352,65 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
+
+			for _, autogen := range policy.Status.Autogen.Configs {
+				genKinds, err := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
+				if err != nil {
+					return err
+				}
+
+				kinds = append(kinds, genKinds...)
+			}
+
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.mpolLister != nil {
+		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
+		if err != nil {
+			return err
+		}
+		for _, policy := range mpols {
+			matchConstraints := policy.Spec.GetMatchConstraints()
+			kinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
+
+			for _, policy := range policy.Status.Autogen.Configs {
+				matchConstraints := policy.Spec.GetMatchConstraints()
+				genKinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
+				if err != nil {
+					return err
+				}
+
+				kinds = append(kinds, genKinds...)
+			}
+
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.ivpolLister != nil {
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return err
+		}
+		// fetch kinds from image verification admission policies
+		for _, policy := range ivpols {
+			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			if err != nil {
+				return err
+			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)

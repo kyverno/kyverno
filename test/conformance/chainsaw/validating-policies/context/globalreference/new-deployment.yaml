@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: new-deployment
+  namespace: test-globalcontext-apicall-correct
+  labels:
+    app: new-deployment
+    env: prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: new-deployment
+      env: prod
+  template:
+    metadata:
+      labels:
+        app: new-deployment
+        env: prod
+    spec:
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:latest
+          resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
+            limits:
+              cpu: 10m
+              memory: 10Mi
+      terminationGracePeriodSeconds: 0

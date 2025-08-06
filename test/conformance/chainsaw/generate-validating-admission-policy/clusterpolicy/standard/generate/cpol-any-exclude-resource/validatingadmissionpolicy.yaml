@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-t13
+  name: cpol-disallow-host-path-t13
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
