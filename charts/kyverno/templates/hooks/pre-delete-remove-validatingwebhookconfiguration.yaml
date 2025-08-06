@@ -1,71 +1,17 @@
-{{- if .Values.config.preserve -}}
+{{- if .Values.webhooksCleanup.enabled -}}
 {{- if not .Values.templating.enabled -}}
-{{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ template "kyverno.fullname" . }}:remove-configmap
-  namespace: {{ template "kyverno.namespace" . }}
-  labels:
-    {{- include "kyverno.hooks.labels" . | nindent 4 }}
-  annotations:
-    helm.sh/hook: post-delete
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
-    helm.sh/hook-weight: "0"
-rules:
-  - apiGroups:
-    - ""
-    resources:
-    - configmaps
-    verbs:
-    - list
-    - get
-    - delete
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: {{ template "kyverno.fullname" . }}:remove-configmap
-  namespace: {{ template "kyverno.namespace" . }}
-  labels:
-    {{- include "kyverno.hooks.labels" . | nindent 4 }}
-  annotations:
-    helm.sh/hook: post-delete
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
-    helm.sh/hook-weight: "0"
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: {{ template "kyverno.fullname" . }}:remove-configmap
-subjects:
-  - kind: ServiceAccount
-    name: {{ template "kyverno.fullname" . }}-remove-configmap
-    namespace: {{ template "kyverno.namespace" . }}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ template "kyverno.fullname" . }}-remove-configmap
-  namespace: {{ template "kyverno.namespace" . }}
-  labels:
-    {{- include "kyverno.hooks.labels" . | nindent 4 }}
-  annotations:
-    helm.sh/hook: post-delete
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
-    helm.sh/hook-weight: "0"
-automountServiceAccountToken: false
----
+{{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "kyverno.fullname" . }}-remove-configmap
+  name: {{ template "kyverno.fullname" . }}-remove-validatingwebhookconfiguration
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
-    helm.sh/hook: post-delete
+    helm.sh/hook: pre-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
-    helm.sh/hook-weight: "10"
+    helm.sh/hook-weight: "100"
 spec:
   backoffLimit: 2
   template:
@@ -81,7 +27,7 @@ spec:
       {{- end }}
     {{- end }}
     spec:
-      serviceAccountName: {{ template "kyverno.fullname" . }}-remove-configmap
+      serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
       automountServiceAccountToken: {{ $automountSAToken }}
       {{- with .Values.webhooksCleanup.podSecurityContext }}
       securityContext:
@@ -97,26 +43,26 @@ spec:
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
           command:
-            - /bin/bash
-            - '-c'
-            - |-
-              set -euo pipefail
-              kubectl delete cm --ignore-not-found -n {{ template "kyverno.namespace" . }} {{ template "kyverno.config.configMapName" . }}
+            - kubectl
+            - delete
+            - validatingwebhookconfiguration
+            - -l
+            - webhook.kyverno.io/managed-by=kyverno
+          {{- with .Values.webhooksCleanup.resources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           {{- with .Values.webhooksCleanup.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.webhooksCleanup.resources }}
-          resources:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}      
           {{- if not $automountSAToken }}
           volumeMounts:
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
           {{- end }}
-      {{- with .Values.webhooksCleanup.tolerations | default .Values.global.tolerations }}
+      {{- with .Values.webhooksCleanup.tolerations | default .Values.global.tolerations}}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
