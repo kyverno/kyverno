@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	v1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -309,7 +308,7 @@ func TestMutatingPolicy_Getters(t *testing.T) {
 		result := policy.GetSpec()
 
 		assert.NotEqual(t, result, nil, "expected non-nil spec")
-		assert.Equal(t, v1.ReinvocationPolicyType("IfNeeded"), result.ReinvocationPolicy, "expected ReinvocationPolicy 'IfNeeded', got %s", result.ReinvocationPolicy)
+		assert.Equal(t, admissionregistrationv1.ReinvocationPolicyType("IfNeeded"), result.ReinvocationPolicy, "expected ReinvocationPolicy 'IfNeeded', got %s", result.ReinvocationPolicy)
 	})
 
 	t.Run("GetConditionStatus returns pointer to embedded ConditionStatus", func(t *testing.T) {
