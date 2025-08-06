@@ -34,7 +34,19 @@ func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
-		return api.NewImageVerificationPolicy(policy), nil
+		return api.NewImageValidatingPolicy(policy), nil
+	} else if kind == "GeneratingPolicy" {
+		var policy *v1alpha1.GeneratingPolicy
+		if err := json.Unmarshal(raw, &policy); err != nil {
+			return nil, err
+		}
+		return api.NewGeneratingPolicy(policy), nil
+	} else if kind == "DeletingPolicy" {
+		var policy *v1alpha1.DeletingPolicy
+		if err := json.Unmarshal(raw, &policy); err != nil {
+			return nil, err
+		}
+		return api.NewDeletingPolicy(policy), nil
 	}
 	return nil, fmt.Errorf("admission request does not contain a policy")
 }

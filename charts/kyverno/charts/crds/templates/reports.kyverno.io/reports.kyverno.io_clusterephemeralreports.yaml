@@ -1,4 +1,4 @@
-{{- if .Values.groups.reports.clusterephemeralreports }}
+{{- if and .Values.groups.reports.clusterephemeralreports (not .Values.reportsServer.enabled) }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: clusterephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
@@ -133,7 +133,7 @@ spec:
               results:
                 description: PolicyReportResult provides result details
                 items:
-                  description: PolicyReportResult provides the result for an individual
+                  description: ReportResult provides the result for an individual
                     policy
                   properties:
                     category:
@@ -154,10 +154,10 @@ spec:
                       type: object
                     resourceSelector:
                       description: |-
-                        SubjectSelector is an optional label selector for checked Kubernetes resources.
+                        ResourceSelector is an optional label selector for checked Kubernetes resources.
                         For example, a policy result may apply to all pods that match a label.
-                        Either a Subject or a SubjectSelector can be specified.
-                        If neither are provided, the result is assumed to be for the policy report scope.
+                        Either a Subject or a ResourceSelector can be specified. If neither are provided, the
+                        result is assumed to be for the policy report scope.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
@@ -277,8 +277,10 @@ spec:
                       - info
                       type: string
                     source:
-                      description: Source is an identifier for the policy engine that
-                        manages this report
+                      description: |-
+                        Source is an identifier for the policy engine that manages this report
+                        If the Source is specified at this level, it will override the Source
+                        field set at the Report level
                       type: string
                     timestamp:
                       description: Timestamp indicates the time the result was found

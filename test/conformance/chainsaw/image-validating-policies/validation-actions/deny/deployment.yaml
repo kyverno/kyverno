@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unsigned-deployment
+  labels:
+    prod: "true"
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-verify-image:unsigned
+        securityContext:
+          allowPrivilegeEscalation: false
+        imagePullPolicy: IfNotPresent

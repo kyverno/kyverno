@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: data-sync-modify-downstream
+spec:
+  steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: zk-kafka-address
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: create namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: check that configmap is generated
+    try:
+    - assert:
+        file: downstream-assert.yaml
+  - name: modify the downstream
+    try:
+    - apply:
+        file: downstream-modified.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the modified downstream is reverted
+    try:
+    - assert:
+        file: downstream-assert.yaml

@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sync-delete-trigger
+  namespace: sync-delete-trigger
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

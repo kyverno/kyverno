@@ -1,8 +1,6 @@
 package imageverify
 
 import (
-	"context"
-
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -57,19 +55,36 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"verifyImageSignatures": {
-			cel.Overload("verify_image_signature_string_stringarray", []*cel.Type{types.StringType, types.NewListType(types.StringType)}, types.IntType, cel.BinaryBinding(impl.verify_image_signature_string_stringarray(context.TODO()))),
+			cel.Overload(
+				"verify_image_signature_string_stringarray",
+				[]*cel.Type{types.StringType, types.NewListType(types.DynType)},
+				types.IntType,
+				cel.BinaryBinding(impl.verify_image_signature_string_stringarray),
+			),
 		},
 		"verifyAttestationSignatures": {
-			// TODO: should not use DynType in return
-			cel.Overload("verify_image_attestations_string_string_stringarray", []*cel.Type{types.StringType, types.StringType, types.NewListType(types.StringType)}, types.IntType, cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray(context.TODO()))),
+			cel.Overload(
+				"verify_image_attestations_string_string_stringarray",
+				[]*cel.Type{types.StringType, types.StringType, types.NewListType(types.DynType)},
+				types.IntType,
+				cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray),
+			),
 		},
 		"getImageData": {
-			// TODO: should not use DynType in return
-			cel.Overload("get_image_data_string", []*cel.Type{types.StringType}, types.DynType, cel.UnaryBinding(impl.get_image_data_string(context.TODO()))),
+			cel.Overload(
+				"get_image_data_string",
+				[]*cel.Type{types.StringType},
+				types.DynType,
+				cel.UnaryBinding(impl.get_image_data_string),
+			),
 		},
-		"payload": {
-			// TODO: should not use DynType in return
-			cel.Overload("payload_string_string", []*cel.Type{types.StringType, types.StringType}, types.DynType, cel.BinaryBinding(impl.payload_string_string(context.TODO()))),
+		"extractPayload": {
+			cel.Overload(
+				"payload_string_string",
+				[]*cel.Type{types.StringType, types.StringType},
+				types.DynType,
+				cel.BinaryBinding(impl.payload_string_string),
+			),
 		},
 	}
 	// create env options corresponding to our function overloads

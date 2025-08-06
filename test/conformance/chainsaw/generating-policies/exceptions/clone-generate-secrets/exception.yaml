@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: clone-generate-secrets-with-exceptions
+spec:
+  policyRefs:
+  - name: clone-generate-secrets-with-exceptions
+    kind: GeneratingPolicy
+  matchConditions:
+    - name: "check-namespace-name"
+      expression: "object.metadata.name == 'testing'"
+  

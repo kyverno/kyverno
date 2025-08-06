@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: single
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: zk-kafka-address
+  - name: check webhooks
+    try:
+    - assert:
+        file: webhooks.yaml

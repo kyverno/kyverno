@@ -14,18 +14,18 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-var (
+const (
 	maxReferrersCount = 50
 	maxPayloadSize    = int64(10 * 1000 * 1000) // 10 MB
 )
 
+type Fetcher interface {
+	FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error)
+}
+
 type imagedatafetcher struct {
 	lister         k8scorev1.SecretInterface
 	defaultOptions []remote.Option
-}
-
-type Fetcher interface {
-	FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error)
 }
 
 func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, error) {
@@ -33,33 +33,10 @@ func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, e
 	if err != nil {
 		return nil, err
 	}
-
 	return &imagedatafetcher{
 		lister:         lister,
 		defaultOptions: remoteOpts,
 	}, nil
-}
-
-func ParseImageReference(image string, options ...Option) (ImageReference, error) {
-	var img ImageReference
-	nameOpts := nameOptions(options...)
-	ref, err := name.ParseReference(image, nameOpts...)
-	if err != nil {
-		return ImageReference{}, err
-	}
-
-	img.Image = image
-	img.Registry = ref.Context().RegistryStr()
-	img.Repository = ref.Context().RepositoryStr()
-	img.Identifier = ref.Identifier()
-
-	if _, ok := ref.(name.Tag); ok {
-		img.Tag = ref.Identifier()
-	} else {
-		img.Digest = ref.Identifier()
-	}
-
-	return img, nil
 }
 
 func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error) {
@@ -68,7 +45,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 	}
 
 	var err error
-	img.RemoteOpts, err = i.remoteOptions(ctx, i.lister, options...)
+	img.remoteOpts, err = i.remoteOptions(ctx, i.lister, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -78,14 +55,14 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		return nil, err
 	}
 
-	img.NameOpts = nameOptions(options...)
-	ref, err := name.ParseReference(image, img.NameOpts...)
+	img.nameOpts = nameOptions(options...)
+	ref, err := name.ParseReference(image, img.nameOpts...)
 	if err != nil {
 		return nil, err
 	}
-	img.NameRef = ref
+	img.nameRef = ref
 
-	remoteImg, err := remote.Image(ref, img.RemoteOpts...)
+	remoteImg, err := remote.Image(ref, img.remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +77,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		return nil, err
 	}
 
-	desc, err := remote.Get(ref, img.RemoteOpts...)
+	desc, err := remote.Get(ref, img.remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -146,33 +123,9 @@ func (i *imagedatafetcher) remoteOptions(ctx context.Context, lister k8scorev1.S
 	return opts, nil
 }
 
-type ImageReference struct {
-	Image         string `json:"image,omitempty"`
-	ResolvedImage string `json:"resolvedImage,omitempty"`
-	Registry      string `json:"registry,omitempty"`
-	Repository    string `json:"repository,omitempty"`
-	Identifier    string `json:"identifier,omitempty"`
-	Tag           string `json:"tag,omitempty"`
-	Digest        string `json:"digest,omitempty"`
-}
-
-type ImageData struct {
-	RemoteOpts []remote.Option
-	NameOpts   []name.Option
-
-	ImageDescriptor `json:",inline"`
-
-	NameRef                name.Reference
-	desc                   *remote.Descriptor
-	referrersManifest      *gcrv1.IndexManifest
-	referrersData          map[string]referrerData
-	verifiedReferrers      map[string]gcrv1.Descriptor
-	verifiedIntotoPayloads map[string][]byte
-}
-
 type ImageDescriptor struct {
 	ImageReference `json:",inline"`
-	ImageIndex     interface{}       `json:"imageIndex,omitempty"`
+	ImageIndex     any               `json:"imageIndex,omitempty"`
 	Manifest       *gcrv1.Manifest   `json:"manifest,omitempty"`
 	ConfigData     *gcrv1.ConfigFile `json:"config,omitempty"`
 }
@@ -180,6 +133,18 @@ type ImageDescriptor struct {
 type referrerData struct {
 	layerDescriptor *gcrv1.Descriptor
 	data            []byte
+}
+
+type ImageData struct {
+	ImageDescriptor        `json:",inline"`
+	remoteOpts             []remote.Option
+	nameOpts               []name.Option
+	nameRef                name.Reference
+	desc                   *remote.Descriptor
+	referrersManifest      *gcrv1.IndexManifest
+	referrersData          map[string]referrerData
+	verifiedReferrers      map[string]gcrv1.Descriptor
+	verifiedIntotoPayloads map[string][]byte
 }
 
 func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error) {
@@ -192,60 +157,37 @@ func (i *ImageData) FetchReference(identifier string) (ocispec.Descriptor, error
 			}
 		}
 	}
-
-	d, err := remote.Head(i.NameRef.Context().Digest(identifier), i.RemoteOpts...)
+	d, err := remote.Head(i.nameRef.Context().Digest(identifier), i.remoteOpts...)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-
 	return GCRtoOCISpecDesc(*d), nil
 }
 
 func (i *ImageData) WithDigest(digest string) string {
-	return i.NameRef.Context().Digest(digest).String()
+	return i.nameRef.Context().Digest(digest).String()
 }
 
 func (i *ImageData) Data() ImageDescriptor {
 	return i.ImageDescriptor
 }
 
-func (i *ImageData) loadReferrers() error {
-	if i.referrersManifest != nil {
-		return nil
-	}
-
-	referrersDescs, err := i.fetchReferrersFromRemote(i.Digest)
-	if err != nil {
-		return err
-	}
-
-	i.referrersManifest = referrersDescs
-	return nil
+func (i *ImageData) RemoteOpts() []remote.Option {
+	return i.remoteOpts
 }
 
-func (i *ImageData) fetchReferrersFromRemote(digest string) (*gcrv1.IndexManifest, error) {
-	referrers, err := remote.Referrers(i.NameRef.Context().Digest(digest), i.RemoteOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	referrersDescs, err := referrers.IndexManifest()
-	if err != nil {
-		return nil, err
-	}
-
-	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
-	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
-	}
-
-	return referrersDescs, nil
+func (i *ImageData) NameOpts() []name.Option {
+	return i.nameOpts
 }
 
-func (i *ImageData) FetchRefererrsForDigest(digest string, artifactType string) ([]gcrv1.Descriptor, error) {
+func (i *ImageData) NameRef() name.Reference {
+	return i.nameRef
+}
+
+func (i *ImageData) FetchReferrersForDigest(digest string, artifactType string) ([]gcrv1.Descriptor, error) {
 	// If the call is for image referrers, return prefetched referrers
 	if digest == i.Digest {
-		return i.FetchRefererrs(artifactType)
+		return i.FetchReferrers(artifactType)
 	}
 
 	// this is most likely a call to fetch notary signatures for an attesatation
@@ -264,7 +206,7 @@ func (i *ImageData) FetchRefererrsForDigest(digest string, artifactType string) 
 	return refList, nil
 }
 
-func (i *ImageData) FetchRefererrs(artifactType string) ([]gcrv1.Descriptor, error) {
+func (i *ImageData) FetchReferrers(artifactType string) ([]gcrv1.Descriptor, error) {
 	if err := i.loadReferrers(); err != nil {
 		return nil, err
 	}
@@ -284,7 +226,7 @@ func (i *ImageData) FetchReferrerData(desc gcrv1.Descriptor) ([]byte, *gcrv1.Des
 		return v.data, v.layerDescriptor, nil
 	}
 
-	img, err := remote.Image(i.NameRef.Context().Digest(desc.Digest.String()), i.RemoteOpts...)
+	img, err := remote.Image(i.nameRef.Context().Digest(desc.Digest.String()), i.remoteOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -348,7 +290,7 @@ func (i *ImageData) AddVerifiedIntotoPayloads(predicateType string, data []byte)
 	i.verifiedIntotoPayloads[predicateType] = data
 }
 
-func (i *ImageData) GetPayload(a v1alpha1.Attestation) (interface{}, error) {
+func (i *ImageData) GetPayload(a v1alpha1.Attestation) (any, error) {
 	var b []byte
 	if a.IsInToto() {
 		var ok bool
@@ -370,7 +312,7 @@ func (i *ImageData) GetPayload(a v1alpha1.Attestation) (interface{}, error) {
 		}
 
 		if len(b) == 0 {
-			descs, err := i.FetchRefererrs(a.Referrer.Type)
+			descs, err := i.FetchReferrers(a.Referrer.Type)
 			if err != nil {
 				return nil, err
 			}
@@ -389,11 +331,44 @@ func (i *ImageData) GetPayload(a v1alpha1.Attestation) (interface{}, error) {
 		return nil, fmt.Errorf("could not find attestation %s", a.GetKey())
 	}
 
-	var payload interface{}
+	var payload any
 
 	if err := json.Unmarshal(b, &payload); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json for attestation %s", a.GetKey())
 	}
 
 	return payload, nil
+}
+
+func (i *ImageData) loadReferrers() error {
+	if i.referrersManifest != nil {
+		return nil
+	}
+
+	referrersDescs, err := i.fetchReferrersFromRemote(i.Digest)
+	if err != nil {
+		return err
+	}
+
+	i.referrersManifest = referrersDescs
+	return nil
+}
+
+func (i *ImageData) fetchReferrersFromRemote(digest string) (*gcrv1.IndexManifest, error) {
+	referrers, err := remote.Referrers(i.nameRef.Context().Digest(digest), i.remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	referrersDescs, err := referrers.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+	}
+
+	return referrersDescs, nil
 }

@@ -5,14 +5,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 )
 
-func attestorMap(ivpol *v1alpha1.ImageValidatingPolicy) map[string]v1alpha1.Attestor {
-	if ivpol == nil {
-		return nil
-	}
-
-	return arrToMap(ivpol.Spec.Attestors)
-}
-
 func attestationMap(ivpol *v1alpha1.ImageValidatingPolicy) map[string]v1alpha1.Attestation {
 	if ivpol == nil {
 		return nil

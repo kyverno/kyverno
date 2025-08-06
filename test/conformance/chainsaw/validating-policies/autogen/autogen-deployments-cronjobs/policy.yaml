@@ -3,9 +3,8 @@ kind: ValidatingPolicy
 metadata:
   name: disallow-privilege-escalation
 spec:
-  generation:
+  autogen:
     podControllers:
-      enabled: true
       controllers:
       - deployments
       - cronjobs
@@ -16,7 +15,7 @@ spec:
       operations:  [CREATE, UPDATE]
       resources:   ["pods"]
   matchConditions:
-    - name: "check-prod-label"  
+    - name: check-prod-label
       expression: >- 
         has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   validations:

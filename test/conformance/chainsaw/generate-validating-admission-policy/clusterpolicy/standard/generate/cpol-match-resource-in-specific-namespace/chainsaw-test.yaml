@@ -24,3 +24,7 @@ spec:
         file: validatingadmissionpolicy.yaml
     - assert:
         file: validatingadmissionpolicybinding.yaml
+  - name: step-03
+    try:
+    - assert:
+        file: validatingwebhookconfiguration.yaml

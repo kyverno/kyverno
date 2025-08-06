@@ -1,0 +1,15 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: missing-generate
+spec:
+  steps:
+  - name: Apply the policy
+    try:
+    - script:
+        content: kubectl apply -f policy.yaml
+        check:
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          (trim_space($stderr)): |-
+            The GeneratingPolicy "zk-kafka-address" is invalid: spec.generate: Required value

@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: data-sync-delete-one-trigger
+spec:
+  steps:
+  - name: create the namespaces
+    try:
+    - apply:
+        file: namespaces.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: data-sync-delete-one-trigger
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: create the first trigger
+    try:
+    - apply:
+        file: first-trigger.yaml
+  - name: check that the downstream is generated
+    try:
+    - assert:
+        file: first-downstream-assert.yaml
+  - name: create the second trigger
+    try:
+    - apply:
+        file: second-trigger.yaml
+  - name: check that the downstream is generated
+    try:
+    - assert:
+        file: second-downstream-assert.yaml
+  - name: delete one of the triggers
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ConfigMap
+          name: data-sync-delete-one-trigger-1
+          namespace: data-sync-delete-one-trigger-1
+  - name: sleep
+    try:
+    - sleep:
+        duration: 3s
+  - name: check that the corresponding downstream is deleted
+    try:
+    - error:
+        file: first-downstream-assert.yaml
+  - name: check that the other downstream is still present
+    try:
+    - assert:
+        file: second-downstream-assert.yaml

@@ -47,7 +47,6 @@ func NewValidationHandler(
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
 	reportConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -61,7 +60,6 @@ func NewValidationHandler(
 		cfg:              cfg,
 		nsLister:         nsLister,
 		reportConfig:     reportConfig,
-		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -77,7 +75,6 @@ type validationHandler struct {
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
 	reportConfig     reportutils.ReportingConfiguration
-	reportsBreaker   breaker.Breaker
 }
 
 func (v *validationHandler) HandleValidationEnforce(
@@ -94,7 +91,7 @@ func (v *validationHandler) HandleValidationEnforce(
 		return true, "", nil, nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request, policies)
 	if err != nil {
 		msg := fmt.Sprintf("failed to create policy context: %v", err)
 		return false, msg, nil, nil
@@ -162,7 +159,7 @@ func (v *validationHandler) HandleValidationEnforce(
 	}
 
 	go func() {
-		if needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
+		if NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
@@ -184,14 +181,14 @@ func (v *validationHandler) HandleValidationAudit(
 		return nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request, policies)
 	if err != nil {
 		v.log.Error(err, "failed to build policy context")
 		return nil
 	}
 
 	var responses []engineapi.EngineResponse
-	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig)
+	needsReport := NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig)
 	tracing.Span(
 		context.Background(),
 		"",
@@ -233,14 +230,17 @@ func (v *validationHandler) buildAuditResponses(
 	return responses, nil
 }
 
-func (v *validationHandler) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {
+func (v *validationHandler) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface) (*policycontext.PolicyContext, error) {
 	policyContext, err := v.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 	if err != nil {
 		return nil, err
 	}
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, v.nsLister, logger)
+		namespaceLabels, err = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, v.nsLister, policies, logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	return policyContext, nil
@@ -254,8 +254,9 @@ func (v *validationHandler) createReports(
 ) error {
 	report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, v.kyvernoClient)
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			// no need to set up open reports enabled here. create report is for an admission report (ephemeral)
+			_, err := reportutils.CreateEphemeralReport(ctx, report, v.kyvernoClient)
 			return err
 		})
 		if err != nil {

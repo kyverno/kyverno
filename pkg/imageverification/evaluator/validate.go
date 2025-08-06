@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -88,7 +87,7 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]Image
 	return patches, nil
 }
 
-func Validate(ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) ([]string, error) {
+func Validate(ivpol *policiesv1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) ([]string, error) {
 	ictx, er := imagedataloader.NewImageContext(lister)
 	if er != nil {
 		return nil, nil

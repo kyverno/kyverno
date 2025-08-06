@@ -1,0 +1,25 @@
+{{/* vim: set filetype=mustache: */}}
+{{- /* Test file for the sortedImagePullSecrets helper function */ -}}
+
+{{- if .Values.unittest -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kyverno.fullname" . }}-helper-functions-test
+  labels:
+    {{- include "kyverno.labels.common" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+data:
+  empty: {{ include "kyverno.sortedImagePullSecrets" (list) }}
+  single: |
+{{ include "kyverno.sortedImagePullSecrets" (list (dict "name" "registry-secret-a")) | indent 4 }}
+  sorted: |
+{{ include "kyverno.sortedImagePullSecrets" (list (dict "name" "registry-secret-a") (dict "name" "registry-secret-b") (dict "name" "registry-secret-c")) | indent 4 }}
+  reversed: |
+{{ include "kyverno.sortedImagePullSecrets" (list (dict "name" "registry-secret-c") (dict "name" "registry-secret-b") (dict "name" "registry-secret-a")) | indent 4 }}
+  random: |
+{{ include "kyverno.sortedImagePullSecrets" (list (dict "name" "registry-secret-c") (dict "name" "registry-secret-a") (dict "name" "registry-secret-d") (dict "name" "registry-secret-b")) | indent 4 }}
+{{- end -}} 

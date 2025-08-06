@@ -6,7 +6,7 @@ Provides function informations.
 
 Provides function informations.
 
-  For more information visit https://kyverno.io/docs/kyverno-cli/#jp
+  For more information visit https://kyverno.io/docs/kyverno-cli/usage/jp/
 
 ```
 kyverno jp function [function_name]... [flags]

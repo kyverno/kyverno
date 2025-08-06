@@ -20,6 +20,7 @@ metadata:
     policies.kyverno.io/subject: Pod
     policies.kyverno.io/description: >-
       Adding capabilities beyond those listed in the policy must be disallowed.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}

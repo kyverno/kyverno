@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: sync-delete-one-source
+spec:
+  steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-delete-one-source
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: create the source
+    try:
+    - apply:
+        file: source.yaml
+  - name: create the trigger
+    try:
+    - apply:
+        file: trigger.yaml
+  - name: check that the downstreams are generated
+    try:
+    - assert:
+        file: downstream1-assert.yaml
+    - assert:
+        file: downstream2-assert.yaml
+    - assert:
+        file: downstream3-assert.yaml
+  - name: delete one of the source
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Secret
+          name: sync-delete-one-source-1
+          namespace: default
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the corresponding downstream is deleted
+    try:
+    - error:
+        file: downstream1-assert.yaml
+  - name: check that the other downstreams are still present
+    try:
+    - assert:
+        file: downstream2-assert.yaml
+    - assert:
+        file: downstream3-assert.yaml

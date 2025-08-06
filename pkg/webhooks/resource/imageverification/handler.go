@@ -41,7 +41,7 @@ type imageVerificationHandler struct {
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
 	reportConfig     reportutils.ReportingConfiguration
-	reportsBreaker   breaker.Breaker
+	breaker.Breaker
 }
 
 func NewImageVerificationHandler(
@@ -53,7 +53,6 @@ func NewImageVerificationHandler(
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
 	reportConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -64,7 +63,6 @@ func NewImageVerificationHandler(
 		cfg:              cfg,
 		nsLister:         nsLister,
 		reportConfig:     reportConfig,
-		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -110,7 +108,12 @@ func (h *imageVerificationHandler) handleVerifyImages(
 
 				policyContext := policyContext.WithPolicy(policy)
 				if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-					policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
+					namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, []kyvernov1.PolicyInterface{policy}, h.log)
+					if err != nil {
+						h.log.Error(err, "failed to get namespace labels for policy", "policy", policy.GetName())
+						return
+					}
+					policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 				}
 
 				resp, ivm := h.engine.VerifyAndPatchImages(ctx, policyContext)
@@ -186,8 +189,8 @@ func (v *imageVerificationHandler) handleAudit(
 			if createReport {
 				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
 				if len(report.GetResults()) > 0 {
-					err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-						_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+					err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+						_, err := reportutils.CreateEphemeralReport(context.Background(), report, v.kyvernoClient)
 						return err
 					})
 					if err != nil {
