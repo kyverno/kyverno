@@ -408,31 +408,31 @@ func (c *controller) needsReconcile(
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
-) (bool, bool, error) {
+) (string, bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
 	reportMetadata, err := c.getMeta(namespace, name)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return true, true, nil
+		if apierrors.IsNotFound(err) { // return the resource hash as it is
+			return hash, true, true, nil
 		}
-		return false, false, err
+		return "", false, false, err
 	}
 	// if the resource changed, we need a full reconcile
 	if !reportutils.CompareHash(reportMetadata, hash) {
-		return true, true, nil
+		return reportutils.GetResourceHash(reportMetadata), true, true, nil
 	}
 	// if the last scan time is older than recomputation interval, we need a full reconcile
 	reportAnnotations := reportMetadata.GetAnnotations()
 	if reportAnnotations == nil || reportAnnotations[annotationLastScanTime] == "" {
-		return true, true, nil
+		return reportutils.GetResourceHash(reportMetadata), true, true, nil
 	} else {
 		annTime, err := time.Parse(time.RFC3339, reportAnnotations[annotationLastScanTime])
 		if err != nil {
 			logger.Error(err, "failed to parse last scan time annotation", "namespace", namespace, "name", name, "hash", hash)
-			return true, true, nil
+			return reportutils.GetResourceHash(reportMetadata), true, true, nil
 		}
 		if time.Now().After(annTime.Add(c.forceDelay)) {
-			return true, true, nil
+			return reportutils.GetResourceHash(reportMetadata), true, true, nil
 		}
 	}
 	// if a policy or an exception changed, we need a partial reconcile
@@ -456,10 +456,10 @@ func (c *controller) needsReconcile(
 		}
 	}
 	if !datautils.DeepEqual(expected, actual) {
-		return true, false, nil
+		return reportutils.GetResourceHash(reportMetadata), true, false, nil
 	}
 	// no need to reconcile
-	return false, false, nil
+	return "", false, false, nil
 }
 
 func (c *controller) reconcileReport(
@@ -681,7 +681,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
-	resource, gvk, gvr, exists := c.metadataCache.GetResourceHash(uid)
+	r, gvk, gvr, exists := c.metadataCache.GetResourceHash(uid)
 	// if the resource is not present it means we shouldn't have a report for it
 	// we can delete the report, we will recreate one if the resource comes back
 	if !exists {
@@ -790,14 +790,18 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		return err
 	}
 	// we have the resource, check if we need to reconcile
-	if needsReconcile, full, err := c.needsReconcile(namespace, name, resource.Hash, exceptions, vapBindings, mapBindings, policies...); err != nil {
+	if observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, exceptions, vapBindings, mapBindings, policies...); err != nil {
 		return err
 	} else {
 		defer func() {
 			c.queue.AddAfter(key, c.forceDelay)
 		}()
 		if needsReconcile {
-			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, resource, exceptions, celexceptions, vapBindings, mapBindings, policies...)
+			// update the hash if we got a new one
+			if observedHash != r.Hash {
+				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: name, Namespace: namespace, Hash: observedHash})
+			}
+			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, exceptions, celexceptions, vapBindings, mapBindings, policies...)
 		}
 	}
 	return nil
