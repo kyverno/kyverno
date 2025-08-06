@@ -759,8 +759,8 @@ The chart values are organised per component.
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.image.registry | string | `nil` | Image registry |
-| webhooksCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| webhooksCleanup.image.tag | string | `"1.32.3"` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.repository | string | `"registry.k8s.io/kubectl"` | Image repository |
+| webhooksCleanup.image.tag | string | `"v1.32.7"` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | webhooksCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
@@ -818,23 +818,6 @@ The chart values are organised per component.
 | nameOverride | string | `nil` | Override the name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | openreports.enabled | bool | `false` |  |
-| policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
-| policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| policyReportsCleanup.image.registry | string | `nil` | Image registry |
-| policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| policyReportsCleanup.image.tag | string | `"1.32.3"` | Image tag Defaults to `latest` if omitted |
-| policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
-| policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
-| policyReportsCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
-| policyReportsCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
-| policyReportsCleanup.podAnnotations | object | `{}` | Pod annotations. |
-| policyReportsCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| policyReportsCleanup.podLabels | object | `{}` | Pod labels. |
-| policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
-| policyReportsCleanup.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
-| policyReportsCleanup.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
-| policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
-| policyReportsCleanup.tolerations | list | `[]` | List of node taints to tolerate |
 | rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
 
