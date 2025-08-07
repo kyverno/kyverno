@@ -158,23 +158,6 @@ func NewServer(
 	)
 	registerWebhookHandlersWithAll(
 		mux,
-		"IVPOL-MUTATE",
-		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.MutatingWebhookServicePath,
-		resourceHandlers.ImageVerificationPoliciesMutation,
-		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
-			return handler.
-				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithTopLevelGVK(discovery).
-				WithRoles(rbLister, crbLister).
-				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
-				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
-				WithAdmission(resourceLogger.WithName("mutate"))
-		},
-	)
-	registerWebhookHandlersWithAll(
-		mux,
 		"VALIDATE",
 		config.ValidatingWebhookServicePath,
 		resourceHandlers.Validation,
@@ -187,38 +170,6 @@ func NewServer(
 				WithRoles(rbLister, crbLister).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(resourceLogger.WithName("validate"))
-		},
-	)
-	registerWebhookHandlers(
-		mux,
-		"VPOL",
-		config.PolicyServicePath+config.ValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
-		resourceHandlers.ValidatingPolicies,
-		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
-			return handler.
-				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithTopLevelGVK(discovery).
-				WithRoles(rbLister, crbLister).
-				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
-				WithAdmission(vpolLogger.WithName("validate"))
-		},
-	)
-	registerWebhookHandlers(
-		mux,
-		"IVPOL-VALIDATE",
-		config.PolicyServicePath+config.ImageValidatingPolicyServicePath+config.ValidatingWebhookServicePath,
-		resourceHandlers.ImageVerificationPolicies,
-		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
-			return handler.
-				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithTopLevelGVK(discovery).
-				WithRoles(rbLister, crbLister).
-				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
-				WithAdmission(ivpolLogger.WithName("validate"))
 		},
 	)
 	mux.HandlerFunc(
