@@ -116,9 +116,6 @@ spec:
             {{- if not .Values.reportsController.metering.disabled }}
             - --otelConfig={{ .Values.reportsController.metering.config }}
             - --metricsPort={{ .Values.reportsController.metering.port }}
-            {{- if and (eq .Values.reportsController.metering.otelProvider "prometheus") .Values.reportsController.hostNetwork }}
-            - --metricsHost=$(KUBERNETES_HOST_IP)
-            {{- end }}
             {{- with .Values.reportsController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -169,12 +166,6 @@ spec:
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
-          {{- if .Values.reportsController.hostNetwork }}
-          - name: KUBERNETES_HOST_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.hostIP
-          {{- end }}
           - name: KYVERNO_POD_NAME
             valueFrom:
               fieldRef:

@@ -167,9 +167,6 @@ spec:
             {{- end }}
             - --servicePort={{ .Values.admissionController.service.port }}
             - --webhookServerPort={{ .Values.admissionController.webhookServer.port }}
-            {{- if .Values.admissionController.hostNetwork }}
-            - --webhookServerHost=$(KUBERNETES_HOST_IP)
-            {{- end }}
             - --resyncPeriod={{ .Values.admissionController.resyncPeriod | default .Values.global.resyncPeriod }}
             - --crdWatcher={{ .Values.admissionController.crdWatcher | default .Values.global.crdWatcher }}
             {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
@@ -187,9 +184,6 @@ spec:
             {{- if not .Values.admissionController.metering.disabled }}
             - --otelConfig={{ .Values.admissionController.metering.config }}
             - --metricsPort={{ .Values.admissionController.metering.port }}
-            {{- if and (eq .Values.admissionController.metering.otelProvider "prometheus") .Values.admissionController.hostNetwork }}
-            - --metricsHost=$(KUBERNETES_HOST_IP)
-            {{- end }}
             {{- with .Values.admissionController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -255,12 +249,6 @@ spec:
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
-          {{- if .Values.admissionController.hostNetwork }}
-          - name: KUBERNETES_HOST_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.hostIP
-          {{- end }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
