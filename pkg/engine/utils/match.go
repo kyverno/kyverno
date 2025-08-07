@@ -232,9 +232,7 @@ func MatchesResourceDescription(
 	operation kyvernov1.AdmissionOperation,
 ) error {
 	if resource.Object == nil {
-		// Allow namespace selector evaluation even for empty resources during background processing
 		if hasNamespaceSelector(rule) && len(namespaceLabels) > 0 {
-			// Continue with namespace selector evaluation
 		} else {
 			return fmt.Errorf("resource is empty")
 		}
