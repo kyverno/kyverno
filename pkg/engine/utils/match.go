@@ -126,7 +126,7 @@ func doesResourceMatchConditionBlock(
 	if conditionBlock.NamespaceSelector != nil {
 		if resource.GetKind() == "Namespace" {
 			errs = append(errs, fmt.Errorf("namespace selector is not applicable for namespace resource"))
-		} else if resource.GetKind() != "" || slices.Contains(conditionBlock.Kinds, "*") && wildcard.Match("*", resource.GetKind()) {
+		} else if resource.GetKind() != "" || slices.Contains(conditionBlock.Kinds, "*") && wildcard.Match("*", resource.GetKind()) || resource.Object == nil {
 			hasPassed, err := matchutils.CheckSelector(conditionBlock.NamespaceSelector, namespaceLabels)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
@@ -157,12 +157,67 @@ func doesResourceMatchConditionBlock(
 		}
 	}
 
+	if resource.Object == nil && conditionBlock.NamespaceSelector != nil && len(errs) > 0 {
+		namespaceSelectorsMatched := true
+		for _, err := range errs {
+			if err.Error() == "namespace selector does not match labels" {
+				namespaceSelectorsMatched = false
+				break
+			}
+		}
+		if namespaceSelectorsMatched {
+			return userInfoErrors
+		}
+	}
+
 	return append(errs, userInfoErrors...)
 }
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
 func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	return matchutils.CheckSubjects(ruleSubjects, userInfo)
+}
+
+func hasNamespaceSelector(rule kyvernov1.Rule) bool {
+	if len(rule.MatchResources.Any) > 0 {
+		for _, rmr := range rule.MatchResources.Any {
+			if rmr.ResourceDescription.NamespaceSelector != nil {
+				return true
+			}
+		}
+	}
+	if len(rule.MatchResources.All) > 0 {
+		for _, rmr := range rule.MatchResources.All {
+			if rmr.ResourceDescription.NamespaceSelector != nil {
+				return true
+			}
+		}
+	}
+	if rule.MatchResources.ResourceDescription.NamespaceSelector != nil {
+		return true
+	}
+
+	if rule.ExcludeResources != nil {
+		if len(rule.ExcludeResources.Any) > 0 {
+			for _, rer := range rule.ExcludeResources.Any {
+				if rer.ResourceDescription.NamespaceSelector != nil {
+					return true
+				}
+			}
+		}
+		if len(rule.ExcludeResources.All) > 0 {
+			for _, rer := range rule.ExcludeResources.All {
+				if rer.ResourceDescription.NamespaceSelector != nil {
+					return true
+				}
+			}
+		}
+		if rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 // matchesResourceDescription checks if the resource matches resource description of the rule or not
@@ -177,7 +232,12 @@ func MatchesResourceDescription(
 	operation kyvernov1.AdmissionOperation,
 ) error {
 	if resource.Object == nil {
-		return fmt.Errorf("resource is empty")
+		// Allow namespace selector evaluation even for empty resources during background processing
+		if hasNamespaceSelector(rule) && len(namespaceLabels) > 0 {
+			// Continue with namespace selector evaluation
+		} else {
+			return fmt.Errorf("resource is empty")
+		}
 	}
 
 	var reasonsForFailure []error
