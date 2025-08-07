@@ -522,6 +522,9 @@ test:
   # -- Node labels for pod assignment
   nodeSelector: {}
 
+   # -- Additional Pod annotations
+  podAnnotations: {}
+
   # -- List of node taints to tolerate
   tolerations: []
 
