@@ -131,7 +131,7 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 		}
 
 		if binding.Spec.ParamRef != nil {
-			params, err := CollectParams(context.TODO(), adapters.Client(client), &admissionregistrationv1.ParamKind{APIVersion: policy.Spec.ParamKind.APIVersion, Kind: policy.Spec.ParamKind.APIVersion}, &admissionregistrationv1.ParamRef{Name: binding.Spec.ParamRef.Name, Namespace: binding.Spec.ParamRef.Namespace, Selector: binding.Spec.ParamRef.Selector, ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction)}, namespace.Name)
+			params, err := CollectParams(context.TODO(), adapters.Client(client), toAdmissionV1ParamKind(policy.Spec.ParamKind), toAdmissionV1ParamRef(binding.Spec.ParamRef), namespace.Name)
 			if err != nil {
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				return nil, err
@@ -178,12 +178,8 @@ func processMAPWithoutClient(policy *admissionregistrationv1alpha1.MutatingAdmis
 				var matchedParams []runtime.Object
 				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 				obj := &unstructured.Unstructured{Object: unstructuredMap}
-				if matchesSelector(obj, &admissionregistrationv1.ParamRef{
-					Name:                    binding.Spec.ParamRef.Name,
-					Namespace:               binding.Spec.ParamRef.Namespace,
-					Selector:                binding.Spec.ParamRef.Selector,
-					ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction),
-				}) {
+
+				if matchesSelector(obj, toAdmissionV1ParamRef(binding.Spec.ParamRef)) {
 					matchedParams = append(matchedParams, param)
 				}
 				for _, p := range matchedParams {
@@ -316,4 +312,17 @@ func mutateResource(
 		engineResponse = engineResponse.WithPolicyResponse(policyResp)
 	}
 	return engineResponse, nil
+}
+
+func toAdmissionV1ParamRef(ref *admissionregistrationv1alpha1.ParamRef) *admissionregistrationv1.ParamRef {
+	return &admissionregistrationv1.ParamRef{
+		Name:                    ref.Name,
+		Namespace:               ref.Namespace,
+		Selector:                ref.Selector,
+		ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(ref.ParameterNotFoundAction),
+	}
+}
+
+func toAdmissionV1ParamKind(kind *admissionregistrationv1alpha1.ParamKind) *admissionregistrationv1.ParamKind {
+	return &admissionregistrationv1.ParamKind{APIVersion: kind.APIVersion, Kind: kind.Kind}
 }
