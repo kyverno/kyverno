@@ -22,6 +22,9 @@ spec:
   selector:
     {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.admissionController.service.type }}
+  {{- if .Values.admissionController.service.trafficDistribution }}
+  trafficDistribution: {{ .Values.admissionController.service.trafficDistribution }}
+  {{- end }}
 {{- if .Values.admissionController.metricsService.create }}
 ---
 apiVersion: v1
@@ -46,6 +49,9 @@ spec:
   selector:
     {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.admissionController.metricsService.type }}
+  {{- if .Values.admissionController.metricsService.trafficDistribution }}
+  trafficDistribution: {{ .Values.admissionController.metricsService.trafficDistribution }}
+  {{- end }}
 {{- end -}}
 {{- if .Values.admissionController.profiling.enabled }}
 ---

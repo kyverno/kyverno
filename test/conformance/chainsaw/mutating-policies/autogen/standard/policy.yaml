@@ -1,0 +1,38 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-applyconfiguration-autogen
+spec:
+  failurePolicy: Fail
+  autogen:
+    podControllers:
+      controllers:
+      - deployments
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE" ]
+      resources: [ "pods" ]
+  matchConditions:
+  - name: is-applyconfiguration-namespace
+    expression: object.metadata.namespace == 'autogen-applyconfiguration'
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          spec: Object.spec{
+            containers: object.spec.containers.map(container, Object.spec.containers{
+              name: container.name,
+              securityContext: Object.spec.containers.securityContext{
+                allowPrivilegeEscalation: false
+              }
+            })
+          } 
+        } 
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: autogen-applyconfiguration 

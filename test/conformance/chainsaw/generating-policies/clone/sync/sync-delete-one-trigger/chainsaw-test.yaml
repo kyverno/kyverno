@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: clone-sync-delete-one-trigger
+spec:
+  steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: clone-sync-delete-one-trigger
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: create the source
+    try:
+    - apply:
+        file: source.yaml
+  - name: create two namespaces
+    try:
+    - apply:
+        file: namespaces.yaml
+  - name: create triggers
+    try:
+    - apply:
+        file: triggers.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 3s
+  - name: check that the downstreams are generated
+    try:
+    - assert:
+        file: first-downstream-assert.yaml
+    - assert:
+        file: second-downstream-assert.yaml
+  - name: delete one of the trigger
+    try:
+    - delete:
+        ref:
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
+          name: clone-sync-delete-one-trigger-1
+          namespace: clone-sync-delete-one-trigger-1
+  - name: sleep
+    try:
+    - sleep:
+        duration: 3s
+  - name: check that the corresponding downstream is deleted 
+    try:
+    - error:
+        file: first-downstream-assert.yaml
+  - name: check that the other downstream is still present
+    try:
+    - assert:
+        file: second-downstream-assert.yaml

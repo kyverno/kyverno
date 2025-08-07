@@ -13,10 +13,12 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 )
 
 func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
@@ -127,6 +129,30 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 	return exceptions, nil
 }
 
+func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
+	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	if pols, err := mapLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, *pol)
+		}
+	}
+	return policies, nil
+}
+
+func FetchMutatingAdmissionPolicyBindings(mapBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
+	var bindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	if pols, err := mapBindingLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			bindings = append(bindings, *pol)
+		}
+	}
+	return bindings, nil
+}
+
 func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1listers.ValidatingAdmissionPolicyLister) ([]admissionregistrationv1.ValidatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1.ValidatingAdmissionPolicy
 	if pols, err := vapLister.List(labels.Everything()); err != nil {
@@ -154,6 +180,18 @@ func FetchValidatingAdmissionPolicyBindings(vapBindingLister admissionregistrati
 func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicyLister) ([]policiesv1alpha1.ValidatingPolicy, error) {
 	var policies []policiesv1alpha1.ValidatingPolicy
 	if pols, err := vpolLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, *pol)
+		}
+	}
+	return policies, nil
+}
+
+func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyLister) ([]policiesv1alpha1.MutatingPolicy, error) {
+	var policies []policiesv1alpha1.MutatingPolicy
+	if pols, err := mpolLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {

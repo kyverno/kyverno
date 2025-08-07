@@ -106,7 +106,10 @@ func Test_JSONPayload(t *testing.T) {
 	}
 
 	testFile := filepath.Join(testDir, "kyverno-test.yaml")
-	testCase := test.LoadTest(nil, testFile)
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
 
 	out := &bytes.Buffer{}
 	t.Logf("Running test with files from %s", testCase.Dir())

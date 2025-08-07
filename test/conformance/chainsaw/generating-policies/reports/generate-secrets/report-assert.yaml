@@ -1,0 +1,31 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: v1
+    kind: Namespace
+    name: ns-1
+results:
+- message: policy evaluated successfully
+  policy: generate-secrets
+  properties:
+    generated-resources: /v1, Kind=Secret Name=test-secret-1 Namespace=ns-1; /v1,
+      Kind=Secret Name=test-secret-2 Namespace=ns-1; /v1, Kind=Secret Name=test-secret-3
+      Namespace=ns-1
+    process: admission review
+  result: pass
+  rule: generate-secrets
+  scored: true
+  source: KyvernoGeneratingPolicy
+scope:
+  apiVersion: v1
+  kind: Namespace
+  name: ns-1
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

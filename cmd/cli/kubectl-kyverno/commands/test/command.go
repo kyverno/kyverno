@@ -113,6 +113,7 @@ func testCommandExecute(
 			fmt.Fprintln(out, "  Path:", e.Path)
 			fmt.Fprintln(out, "    Error:", e.Err)
 		}
+		return fmt.Errorf("found %d errors after loading tests", len(errs))
 	}
 	if len(tests) == 0 {
 		if requireTests {
@@ -130,7 +131,10 @@ func testCommandExecute(
 	var fullTable table.Table
 	for _, test := range tests {
 		if test.Err == nil {
-			deprecations.CheckTest(out, test.Path, test.Test)
+			if deprecations.CheckTest(out, test.Path, test.Test) {
+				return fmt.Errorf("test file %s uses a deprecated schema — please migrate to the latest format", test.Path)
+			}
+
 			// filter results
 			var filteredResults []v1alpha1.TestResult
 			for _, res := range test.Test.Results {
@@ -191,13 +195,9 @@ func testCommandExecute(
 
 func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured) (bool, string, string) {
 	expected := test.Result
-	// fallback to the deprecated field
-	if expected == "" {
-		expected = test.Status
-	}
-	// fallback on deprecated field
-	if test.PatchedResource != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.PatchedResource))
+	expectedPatchResources := test.PatchedResources
+	if expectedPatchResources != "" {
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, expectedPatchResources))
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -220,15 +220,15 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
-		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
+		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
-	return true, result.Message, "Ok"
+	return true, result.Description, "Ok"
 }
 
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
-	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy {
+	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy || test.IsGeneratingPolicy || test.IsMutatingPolicy {
 		matches = responses
 	} else {
 		for _, response := range responses {

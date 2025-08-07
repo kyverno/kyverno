@@ -1,6 +1,9 @@
 package v1alpha1
 
 import (
+	"context"
+
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,9 +32,9 @@ type MutatingPolicyStatus struct {
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
-	Autogen ValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
+	Autogen MutatingPolicyAutogenStatus `json:"autogen,omitempty"`
 
-	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
+	// Generated indicates whether a MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
 }
@@ -92,6 +95,10 @@ type MutatingPolicySpec struct {
 	// +optional
 	Variables []admissionregistrationv1alpha1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 
+	// AutogenConfiguration defines the configuration for the generation controller.
+	// +optional
+	AutogenConfiguration *MutatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
+
 	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
 	// +optional
 	TargetMatchConstraints *admissionregistrationv1alpha1.MatchResources `json:"targetMatchConstraints,omitempty"`
@@ -133,7 +140,27 @@ func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchReso
 		return admissionregistrationv1.MatchResources{}
 	}
 
-	in := s.Spec.MatchConstraints
+	return s.Spec.GetMatchConstraints()
+}
+
+func (s *MutatingPolicy) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.TargetMatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	return s.Spec.GetTargetMatchConstraints()
+}
+
+func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.Spec.GetMatchConditions()
+}
+
+func (s *MutatingPolicySpec) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	in := s.MatchConstraints
 	var out admissionregistrationv1.MatchResources
 	out.NamespaceSelector = in.NamespaceSelector
 	out.ObjectSelector = in.ObjectSelector
@@ -156,8 +183,62 @@ func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchReso
 	return out
 }
 
-func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	in := s.Spec.MatchConditions
+func (s *MutatingPolicySpec) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.TargetMatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	in := s.TargetMatchConstraints
+	var out admissionregistrationv1.MatchResources
+	out.NamespaceSelector = in.NamespaceSelector
+	out.ObjectSelector = in.ObjectSelector
+	for _, ex := range in.ExcludeResourceRules {
+		out.ExcludeResourceRules = append(out.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	for _, ex := range in.ResourceRules {
+		out.ResourceRules = append(out.ResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	if in.MatchPolicy != nil {
+		mp := admissionregistrationv1.MatchPolicyType(*in.MatchPolicy)
+		out.MatchPolicy = &mp
+	}
+	return out
+}
+
+func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.MatchResources) {
+	out := &admissionregistrationv1alpha1.MatchResources{}
+	out.NamespaceSelector = in.NamespaceSelector
+	out.ObjectSelector = in.ObjectSelector
+	for _, ex := range in.ExcludeResourceRules {
+		out.ExcludeResourceRules = append(out.ExcludeResourceRules, admissionregistrationv1alpha1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	for _, ex := range in.ResourceRules {
+		out.ResourceRules = append(out.ResourceRules, admissionregistrationv1alpha1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	if in.MatchPolicy != nil {
+		mp := admissionregistrationv1alpha1.MatchPolicyType(*in.MatchPolicy)
+		out.MatchPolicy = &mp
+	}
+	s.MatchConstraints = out
+}
+
+func (s *MutatingPolicySpec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	if s.MatchConditions == nil {
+		return nil
+	}
+	in := s.MatchConditions
 	out := make([]admissionregistrationv1.MatchCondition, len(in))
 	for i := range in {
 		out[i] = (admissionregistrationv1.MatchCondition)(in[i])
@@ -165,7 +246,34 @@ func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCon
 	return out
 }
 
+// GenerateMutatingAdmissionPolicyEnabled checks if mutating admission policy generation is enabled
+func (s MutatingPolicySpec) GenerateMutatingAdmissionPolicyEnabled() bool {
+	const defaultValue = false
+	if s.AutogenConfiguration == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.MutatingAdmissionPolicy == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.MutatingAdmissionPolicy.Enabled == nil {
+		return defaultValue
+	}
+	return *s.AutogenConfiguration.MutatingAdmissionPolicy.Enabled
+}
+
+// GetReinvocationPolicy returns the reinvocation policy of the MutatingPolicy
+func (s *MutatingPolicySpec) GetReinvocationPolicy() admissionregistrationv1alpha1.ReinvocationPolicyType {
+	const defaultValue = admissionregistrationv1alpha1.NeverReinvocationPolicy
+	if s.ReinvocationPolicy == "" {
+		return defaultValue
+	}
+	return s.ReinvocationPolicy
+}
+
 func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
+		return admissionregistrationv1.Ignore
+	}
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail
 	}
@@ -185,6 +293,10 @@ func (s *MutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return out
 }
 
+func (s MutatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
 func (s MutatingPolicySpec) AdmissionEnabled() bool {
 	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
 		return true
@@ -192,22 +304,64 @@ func (s MutatingPolicySpec) AdmissionEnabled() bool {
 	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
-// BackgroundEnabled checks if background is set to true
 func (s MutatingPolicySpec) BackgroundEnabled() bool {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return true
+	return true
+}
+
+func (s MutatingPolicySpec) MutateExistingEnabled() bool {
+	if s.EvaluationConfiguration == nil ||
+		s.EvaluationConfiguration.MutateExistingConfiguration == nil ||
+		s.EvaluationConfiguration.MutateExistingConfiguration.Enabled == nil {
+		return false
 	}
-	return *s.EvaluationConfiguration.Background.Enabled
+	return *s.EvaluationConfiguration.MutateExistingConfiguration.Enabled
+}
+
+func (s *MutatingPolicy) GetStatus() *MutatingPolicyStatus {
+	return &s.Status
+}
+
+func (s *MutatingPolicy) GetKind() string {
+	return "MutatingPolicy"
+}
+
+func (s *MutatingPolicy) GetSpec() *MutatingPolicySpec {
+	return &s.Spec
+}
+
+func (status *MutatingPolicyStatus) GetConditionStatus() *ConditionStatus {
+	return &status.ConditionStatus
 }
 
 type MutatingPolicyEvaluationConfiguration struct {
-	EvaluationConfiguration `json:",inline"`
+	// Admission controls policy evaluation during admission.
+	// +optional
+	Admission *AdmissionConfiguration `json:"admission,omitempty"`
 
-	// MutateExisting enables mutation of existing resources. Default is `false`.
-	// When `spec.targetMatchConstraints` is not defined, Kyverno mutates existing resources matched in `spec.matchConstraints`.
+	// MutateExisting controls whether existing resources are mutated.
+	// +optional
+	MutateExistingConfiguration *MutateExistingConfiguration `json:"mutateExisting,omitempty"`
+}
+
+type MutatingPolicyAutogenConfiguration struct {
+	// PodControllers specifies whether to generate a pod controllers rules.
+	PodControllers *PodControllersGenerationConfiguration `json:"podControllers,omitempty"`
+	// MutatingAdmissionPolicy specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+	MutatingAdmissionPolicy *MAPGenerationConfiguration `json:"mutatingAdmissionPolicy,omitempty"`
+}
+
+type MAPGenerationConfiguration struct {
+	// Enabled specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
+	// Optional. Defaults to "false" if not specified.
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type MutateExistingConfiguration struct {
+	// Enabled enables mutation of existing resources. Default is false.
+	// When spec.targetMatchConstraints is not defined, Kyverno mutates existing resources matched in spec.matchConstraints.
 	// +optional
 	// +kubebuilder:default=false
-	MutateExisting bool `json:"mutateExisting,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // +kubebuilder:object:root=true

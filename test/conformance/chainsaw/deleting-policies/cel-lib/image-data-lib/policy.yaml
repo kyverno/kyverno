@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: DeletingPolicy
+metadata:
+  name: image-date-delete
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  schedule: "*/1 * * * *"
+  conditions:
+    - name: arch-check
+      expression: >
+        object.spec.containers.all(c, image.GetMetadata(c.image).config.architecture == "amd64")

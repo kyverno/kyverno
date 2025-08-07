@@ -129,7 +129,7 @@ func NewKubeProvider(
 		builder = builder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
 	}
 	if err := builder.Complete(reconciler); err != nil {
-		return nil, fmt.Errorf("failed to construct manager: %w", err)
+		return nil, fmt.Errorf("failed to construct validatingpolicies manager: %w", err)
 	}
 	return reconciler, nil
 }

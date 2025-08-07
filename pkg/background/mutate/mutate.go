@@ -47,8 +47,7 @@ type mutateExistingController struct {
 	log logr.Logger
 	jp  jmespath.Interface
 
-	reportsConfig  reportutils.ReportingConfiguration
-	reportsBreaker breaker.Breaker
+	reportsConfig reportutils.ReportingConfiguration
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -65,22 +64,20 @@ func NewMutateExistingController(
 	log logr.Logger,
 	jp jmespath.Interface,
 	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) *mutateExistingController {
 	c := mutateExistingController{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		statusControl:  statusControl,
-		engine:         engine,
-		policyLister:   policyLister,
-		npolicyLister:  npolicyLister,
-		nsLister:       nsLister,
-		configuration:  dynamicConfig,
-		eventGen:       eventGen,
-		log:            log,
-		jp:             jp,
-		reportsConfig:  reportsConfig,
-		reportsBreaker: reportsBreaker,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
+		jp:            jp,
+		reportsConfig: reportsConfig,
 	}
 	return &c
 }
@@ -165,7 +162,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 			var gvk schema.GroupVersionKind
 			gvk, err = c.client.Discovery().GetGVKFromGVR(schema.GroupVersionResource(admissionRequest.Resource))
 			if err != nil {
-				logger.WithName(rule.Name).Error(err, "failed to get GVK from GVR", "GVR", admissionRequest.Resource)
+				logger.WithName(rule.Name).Error(err, "failed to get GVK from GVR", "GVR", admissionRequest.Resource.String())
 				errs = append(errs, err)
 				continue
 			}
@@ -208,7 +205,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 					parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
 					parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
 					if err != nil {
-						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
+						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR.String())
 						errs = append(errs, err)
 						continue
 					}
@@ -283,8 +280,8 @@ func (c *mutateExistingController) createReports(
 ) error {
 	report := reportutils.BuildMutateExistingReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, c.kyvernoClient)
 			return err
 		})
 		if err != nil {

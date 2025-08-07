@@ -5,13 +5,15 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
 type Compiler interface {
-	Compile(policy *policiesv1alpha1.GeneratingPolicy) (*Policy, field.ErrorList)
+	Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -20,7 +22,7 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -61,9 +63,13 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy) (*Poli
 	env, err = env.Extend(
 		cel.Variable(compiler.GeneratorKey, generator.ContextType),
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 		generator.Lib(),
 		resource.Lib(),
+		globalcontext.Lib(),
+		http.Lib(),
 	)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -81,9 +87,22 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy) (*Poli
 		}
 		generations = append(generations, programs...)
 	}
+	// exceptions' match conditions
+	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		compiledExceptions = append(compiledExceptions, compiler.Exception{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
+		})
+	}
 	return &Policy{
 		matchConditions: matchConditions,
 		variables:       variables,
 		generations:     generations,
+		exceptions:      compiledExceptions,
 	}, nil
 }

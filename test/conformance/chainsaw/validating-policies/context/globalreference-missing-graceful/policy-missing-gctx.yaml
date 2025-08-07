@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-missing-gctx-graceful
+spec:
+  validationActions:
+    - Audit
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: deploymentCount
+      expression: >-
+        globalContext.Get("non-existent-gctx", "count")
+    - name: hasDeployments
+      expression: >-
+        globalContext.Get("missing-entry", "") != null
+  validations:
+    - expression: >-
+        variables.deploymentCount == null || variables.deploymentCount >= 0
+      messageExpression: "'Deployment count validation passed, got: ' + string(variables.deploymentCount)"
+    - expression: >-
+        !variables.hasDeployments
+      messageExpression: "'Missing global context entry handled gracefully: ' + string(variables.hasDeployments)" 
