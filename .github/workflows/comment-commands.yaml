@@ -77,7 +77,7 @@ jobs:
         id: extract-branch
         run: echo "branch=$(echo '${{ github.event.comment.body }}' | awk '{print $2}')" >> $GITHUB_OUTPUT
 
-      - name: comment pr unmerged
+      - name: Comment PR Unmerged
         if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
@@ -103,7 +103,7 @@ jobs:
           target-branches: ${{ steps.extract-branch.outputs.branch }}
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 
-      - name: comment cherry-pick fail
+      - name: Comment Cherry-pick Fail
         if: ${{ steps.cherry-pick.outputs.success == false && fromJSON(steps.check-merged.outputs.result).merged == true }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
