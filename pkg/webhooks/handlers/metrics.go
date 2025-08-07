@@ -86,8 +86,8 @@ func (inner HttpHandler) withMetrics(logger logr.Logger, attrs ...attribute.KeyV
 		startTime := time.Now()
 		attributes := []attribute.KeyValue{
 			// semconv.HTTPHostKey.String(request.Host),
-			semconv.HTTPMethodKey.String(request.Method),
-			semconv.HTTPURLKey.String(request.RequestURI),
+			attribute.String("method", request.Method),
+    		attribute.String("url", request.RequestURI),
 		}
 		attributes = append(attributes, attrs...)
 		if requestsMetric != nil {
