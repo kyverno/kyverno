@@ -3400,7 +3400,7 @@ func TestValidate_DenyOverridesValidate(t *testing.T) {
 
 	var policy kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err) 
+	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
