@@ -32,6 +32,9 @@ func NewFetchProvider(
 
 func (r *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	policy, err := r.dpolLister.Get(name)
+	if err != nil {
+		return Policy{}, err
+	}
 	// get exceptions that match the policy
 	var exceptions []*policiesv1alpha1.PolicyException
 	if r.polexEnabled {

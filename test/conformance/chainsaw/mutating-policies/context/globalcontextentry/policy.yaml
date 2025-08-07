@@ -1,0 +1,41 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-globalcontextentry
+spec:
+  failurePolicy: Fail
+  # evaluation:
+  #   mutateExisting:
+  #     enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE", "UPDATE"]
+      resources: [ "pods" ]
+  # targetMatchConstraints:
+  #   namespaceSelector:
+  #     matchLabels:
+  #       test: "enabled"
+  #   resourceRules:
+  #   - apiGroups: [ "" ]
+  #     apiVersions: [ "v1" ]
+  #     operations: [ "CREATE", "UPDATE"]
+  #     resources: [ "configmaps" ]
+  variables:
+    - name: app
+      expression: >-
+        globalContext.Get("gctxentry-apicall-mpol", "app_label")
+    - name: value
+      expression: variables.app[0]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              app: variables.app
+            }
+          }
+        }

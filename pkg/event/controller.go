@@ -33,6 +33,12 @@ const (
 	workQueueRetryLimit = 3
 )
 
+var (
+	invalidChars           = regexp.MustCompile(`[^a-z0-9\.\-]`)
+	startsWithAlphaNumeric = regexp.MustCompile(`^[a-z0-9]`)
+	endsWithAlphaNumeric   = regexp.MustCompile(`[a-z0-9]$`)
+)
+
 // Interface to generate event
 type Interface interface {
 	Add(infoList ...Info)
@@ -148,16 +154,15 @@ func (gen *controller) processNextWorkItem(ctx context.Context) bool {
 // RFC 1123 requires lowercase alphanumeric characters, '-' or '.', starting and ending with alphanumeric
 func sanitizeEventName(name string) string {
 	// Replace colons, slashes, and other non-compliant characters with hyphens
-	invalidChars := regexp.MustCompile(`[^a-z0-9\.\-]`)
 	sanitized := invalidChars.ReplaceAllString(strings.ToLower(name), "-")
 
 	// Ensure name starts with an alphanumeric character
-	if len(sanitized) > 0 && !regexp.MustCompile(`^[a-z0-9]`).MatchString(sanitized) {
+	if len(sanitized) > 0 && !startsWithAlphaNumeric.MatchString(sanitized) {
 		sanitized = "a" + sanitized
 	}
 
 	// Ensure name ends with an alphanumeric character
-	if len(sanitized) > 0 && !regexp.MustCompile(`[a-z0-9]$`).MatchString(sanitized) {
+	if len(sanitized) > 0 && !endsWithAlphaNumeric.MatchString(sanitized) {
 		sanitized = sanitized + "z"
 	}
 

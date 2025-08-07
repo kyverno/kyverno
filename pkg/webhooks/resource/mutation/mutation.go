@@ -46,7 +46,6 @@ func NewMutationHandler(
 	metrics metrics.MetricsConfigManager,
 	admissionReports bool,
 	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) MutationHandler {
 	return &mutationHandler{
 		log:              log,
@@ -57,7 +56,6 @@ func NewMutationHandler(
 		metrics:          metrics,
 		admissionReports: admissionReports,
 		reportsConfig:    reportsConfig,
-		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -70,7 +68,6 @@ type mutationHandler struct {
 	metrics          metrics.MetricsConfigManager
 	admissionReports bool
 	reportsConfig    reportutils.ReportingConfiguration
-	reportsBreaker   breaker.Breaker
 }
 
 func (h *mutationHandler) HandleMutation(
@@ -207,7 +204,7 @@ func (h *mutationHandler) createReports(
 ) error {
 	report := reportutils.BuildMutationReport(resource, request.AdmissionRequest, engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
 			return err
 		})
