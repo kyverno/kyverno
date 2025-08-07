@@ -5,17 +5,27 @@ on:
     types: [created]
 
 jobs:
-  add-label:
+  add-cherry-pick-label:
     if: |
       github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/cherry-pick ')
+      startsWith(github.event.comment.body, '/cherry-pick')
     runs-on: ubuntu-latest
     permissions:
       issues: write
 
     steps:
-      - name: Add label to PR
-        uses: peter-evans/add-labels@v4
+      - name: Extract Command
+        id: command
+        uses: xt0rted/slash-command-action@v2
         with:
-          issue-number: ${{ github.event.issue.number }}
-          labels: chery-pick-required
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          command: "cherry-pick"
+          reaction: "true"
+          reaction-type: "eyes"
+          allow-edits: "false"
+          permission-level: write
+      - name: Add label to PR
+        uses: christianvuerings/add-labels@v1
+        with:
+          labels: |
+            require-cherry-pick
