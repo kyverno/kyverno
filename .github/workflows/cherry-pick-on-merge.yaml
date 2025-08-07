@@ -5,71 +5,49 @@ on:
     types: [closed]
 
 jobs:
+  # In case we use the /cherry-pick in unmerged PR, wait for user to merge it
+  # look for comments wit cherry-picking slash command
+  # and cherry-pick as we would do normally
   cherry-pick:
-    if: >
-      github.event.pull_request.merged == true &&
-      contains(join(github.event.pull_request.labels.*.name, ','), 'cherry-pick-required')
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
       issues: read
-
     steps:
-      - name: Checkout code
+      - name: Fetch cherry-pick targets from comments
+        id: cherry
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+            
+            const branches = new Set();
+            for (const comment of comments.data) {
+              const match = comment.body.match(/^\/cherry-pick\s+(\S+)/);
+              if (match) {
+                branches.add(match[1]);
+              }
+            }
+            return Array.from(branches);
+
+      - name: Checkout repository
+        if: steps.cherry.outputs.result != '[]'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Install GitHub CLI
-        run: |
-          sudo apt update
-          sudo apt install gh -y
-
-      - name: Authenticate gh
-        run: gh auth setup-git
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Fetch cherry-pick targets from comments
-        id: cherry
-        run: |
-          gh pr view ${{ github.event.pull_request.number }} --json comments \
-            --jq '.comments[].body' | \
-            grep -Eo '/cherry-pick\s+\S+' | \
-            awk '{print $2}' | sort -u > branches.txt
-          
-          echo "branches=$(paste -sd ',' branches.txt)" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cherry-pick to branches
-        if: steps.cherry.outputs.branches != ''
-        run: |
-          while read branch; do
-            echo "🔄 Cherry-picking to $branch..."
-          
-            git fetch origin $branch
-            git checkout -b cherry-pick-${{ github.event.pull_request.number }}-$branch origin/$branch
-          
-            git cherry-pick -m 1 ${{ github.event.pull_request.merge_commit_sha }} || {
-              echo "❌ Conflict while cherry-picking to $branch"
-              continue
-            }
-          
-            git push origin cherry-pick-${{ github.event.pull_request.number }}-$branch
-          
-            gh pr create \
-              --title "Cherry-pick #${{ github.event.pull_request.number }} to $branch" \
-              --body "Cherry-pick of #${{ github.event.pull_request.number }} to \`$branch\`." \
-              --base $branch \
-              --head cherry-pick-${{ github.event.pull_request.number }}-$branch
-          
-          done < branches.txt
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cherry-pick to each branch
+        if: steps.cherry.outputs.result != '[]'
+        uses: ./.github/actions/cherry-pick
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          source-pr: ${{ github.event.pull_request.number }}
+          source-pr-title: ${{ github.event.pull_request.title }}
+          target-branches: ${{ fromJSON(steps.cherry.outputs.result)[0] }}
+          merge-commit: ${{ github.event.pull_request.merge_commit_sha }}
