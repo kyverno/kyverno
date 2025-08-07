@@ -79,6 +79,17 @@ rbac:
 openreports:
   enabled: false
 
+# Reports Server configuration  
+reportsServer:
+  # -- Enable reports-server deployment alongside Kyverno
+  enabled: false
+  
+  # -- Wait for reports-server to be ready before starting Kyverno components
+  waitForReady: true
+  
+  # -- Timeout for waiting for reports-server readiness (in seconds)
+  readinessTimeout: 300
+
 # CRDs configuration
 crds:
 
@@ -88,6 +99,9 @@ crds:
   reportsServer:
       # -- Kyverno reports-server is used in your cluster
     enabled: false
+    
+    # -- Install CRDs required by reports-server
+    installCRDs: true
 
   groups:
 
