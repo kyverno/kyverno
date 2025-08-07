@@ -24,3 +24,22 @@ jobs:
             /lgtm 
             /milestone'
           github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+  add-cherry-pick-label:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/cherry-pick')
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add label to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['cherry-pick-required']
+            });
