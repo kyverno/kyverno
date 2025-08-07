@@ -1,0 +1,21 @@
+name: Flag PR for cherry-pick
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  add-label:
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/cherry-pick ')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Add label to PR
+        uses: peter-evans/add-labels@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          labels: chery-pick-required

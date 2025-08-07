@@ -1,0 +1,70 @@
+name: Cherry-pick on PR merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cherry-pick:
+    if: >
+      github.event.pull_request.merged == true &&
+      contains(join(github.event.pull_request.labels.*.name, ','), 'cherry-pick-required')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install gh -y
+
+      - name: Authenticate gh
+        run: gh auth setup-git
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch cherry-pick targets from comments
+        id: cherry
+        run: |
+          gh pr view ${{ github.event.pull_request.number }} --json comments \
+            --jq '.comments[].body' | \
+            grep -Eo '/cherry-pick\s+\S+' | \
+            awk '{print $2}' | sort -u > branches.txt
+          
+          echo "branches=$(paste -sd ',' branches.txt)" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cherry-pick to branches
+        if: steps.cherry.outputs.branches != ''
+        run: |
+          while read branch; do
+            echo "🔄 Cherry-picking to $branch..."
+          
+            git fetch origin $branch
+            git checkout -b cherry-pick-${{ github.event.pull_request.number }}-$branch origin/$branch
+          
+            git cherry-pick -m 1 ${{ github.event.pull_request.merge_commit_sha }} || {
+              echo "❌ Conflict while cherry-picking to $branch"
+              continue
+            }
+          
+            git push origin cherry-pick-${{ github.event.pull_request.number }}-$branch
+          
+            gh pr create \
+              --title "Cherry-pick #${{ github.event.pull_request.number }} to $branch" \
+              --body "Cherry-pick of #${{ github.event.pull_request.number }} to \`$branch\`." \
+              --base $branch \
+              --head cherry-pick-${{ github.event.pull_request.number }}-$branch
+          
+          done < branches.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
