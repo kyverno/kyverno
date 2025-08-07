@@ -195,17 +195,23 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		if err != nil {
 			return warnings, err
 		}
-		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+		warning, errs := policy.Validate(clusterResources)
+		warnings = append(warnings, warning...)
+		if len(errs) != 0 {
 			clusterResources, err = getClusteredResources(true)
 			if err != nil {
 				return warnings, err
 			}
-			if errs := policy.Validate(clusterResources); len(errs) != 0 {
+			warning, errs := policy.Validate(clusterResources)
+			warnings = append(warnings, warning...)
+			if len(errs) != 0 {
 				return warnings, errs.ToAggregate()
 			}
 		}
 	} else {
-		if errs := policy.Validate(clusterResources); len(errs) != 0 {
+		warning, errs := policy.Validate(clusterResources)
+		warnings = append(warnings, warning...)
+		if len(errs) != 0 {
 			return warnings, errs.ToAggregate()
 		}
 	}
@@ -1288,6 +1294,10 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 func validateRuleContext(rule kyvernov1.Rule) error {
 	if len(rule.Context) == 0 {
 		return nil
+	}
+
+	if rule.HasValidateCEL() {
+		return fmt.Errorf("context variables are not supported for CEL expressions in validate rules")
 	}
 
 	for _, entry := range rule.Context {

@@ -29,7 +29,7 @@ func Test_ImageDataLoader(t *testing.T) {
 
 	img, err = idf.FetchImageData(context.TODO(), "ghcr.io/kyverno/kyverno:latest")
 	assert.NoError(t, err)
-	indexMediaType := img.ImageIndex.(map[string]interface{})["mediaType"].(string)
+	indexMediaType := img.ImageIndex.(map[string]any)["mediaType"].(string)
 	assert.Equal(t, indexMediaType, string(types.OCIImageIndex))
 
 	arch := img.ConfigData.Architecture
@@ -46,7 +46,7 @@ func Test_Referrers(t *testing.T) {
 	img, err := idf.FetchImageData(context.TODO(), image)
 	assert.NoError(t, err)
 
-	refList, err := img.FetchRefererrs("application/vnd.cncf.notary.signature")
+	refList, err := img.FetchReferrers("application/vnd.cncf.notary.signature")
 	assert.NoError(t, err)
 	assert.Equal(t, len(refList), 2)
 	assert.Equal(t, refList[0].ArtifactType, "application/vnd.cncf.notary.signature")

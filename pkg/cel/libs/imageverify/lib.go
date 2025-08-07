@@ -1,8 +1,6 @@
 package imageverify
 
 import (
-	"context"
-
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -59,17 +57,17 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 		"verifyImageSignatures": {
 			cel.Overload(
 				"verify_image_signature_string_stringarray",
-				[]*cel.Type{types.StringType, types.NewListType(types.StringType)},
+				[]*cel.Type{types.StringType, types.NewListType(types.DynType)},
 				types.IntType,
-				cel.BinaryBinding(impl.verify_image_signature_string_stringarray(context.TODO())),
+				cel.BinaryBinding(impl.verify_image_signature_string_stringarray),
 			),
 		},
 		"verifyAttestationSignatures": {
 			cel.Overload(
 				"verify_image_attestations_string_string_stringarray",
-				[]*cel.Type{types.StringType, types.StringType, types.NewListType(types.StringType)},
+				[]*cel.Type{types.StringType, types.StringType, types.NewListType(types.DynType)},
 				types.IntType,
-				cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray(context.TODO())),
+				cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray),
 			),
 		},
 		"getImageData": {
@@ -77,15 +75,15 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				"get_image_data_string",
 				[]*cel.Type{types.StringType},
 				types.DynType,
-				cel.UnaryBinding(impl.get_image_data_string(context.TODO())),
+				cel.UnaryBinding(impl.get_image_data_string),
 			),
 		},
-		"payload": {
+		"extractPayload": {
 			cel.Overload(
 				"payload_string_string",
 				[]*cel.Type{types.StringType, types.StringType},
 				types.DynType,
-				cel.BinaryBinding(impl.payload_string_string(context.TODO())),
+				cel.BinaryBinding(impl.payload_string_string),
 			),
 		},
 	}

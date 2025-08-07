@@ -7,20 +7,27 @@ import (
 	"slices"
 	"strings"
 
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func createMatchConstraints(targets []target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
+func CreateMatchConstraints(targets []policiesv1alpha1.Target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
+	if len(targets) == 0 {
+		return nil
+	}
+	if len(operations) == 0 {
+		return nil
+	}
 	rulesMap := map[schema.GroupVersion]sets.Set[string]{}
 	for _, target := range targets {
-		gv := schema.GroupVersion{Group: target.group, Version: target.version}
+		gv := schema.GroupVersion{Group: target.Group, Version: target.Version}
 		resources := rulesMap[gv]
 		if resources == nil {
 			resources = sets.New[string]()
 		}
-		resources.Insert(target.resource)
+		resources.Insert(target.Resource)
 		rulesMap[gv] = resources
 	}
 	rules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(rulesMap))
@@ -51,21 +58,27 @@ func createMatchConstraints(targets []target, operations []admissionregistration
 	}
 }
 
-func createMatchConditions(replacements string, targets []target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+func CreateMatchConditions(config string, targets []policiesv1alpha1.Target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	if len(targets) == 0 {
+		return nil
+	}
+	if len(conditions) == 0 {
+		return conditions
+	}
 	preconditions := sets.New[string]()
 	for _, target := range targets {
-		apiVersion := target.group
+		apiVersion := target.Group
 		if apiVersion != "" {
 			apiVersion += "/"
 		}
-		apiVersion += target.version
-		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.kind))
+		apiVersion += target.Version
+		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.Kind))
 	}
 	precondition := strings.Join(sets.List(preconditions), " || ")
 	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
 	prefix := "autogen"
-	if replacements != "" {
-		prefix = "autogen-" + replacements
+	if config != "" {
+		prefix = "autogen-" + config
 	}
 	for _, m := range conditions {
 		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{

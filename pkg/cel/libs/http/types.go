@@ -1,27 +1,17 @@
 package http
 
 import (
-	"net/http"
-
 	"github.com/google/cel-go/common/types"
 )
 
-var HTTPType = types.NewOpaqueType("http.HTTP")
+var ContextType = types.NewOpaqueType("http.Context")
 
-type HttpInterface interface {
-	Get(url string, headers map[string]string) (map[string]any, error)
-	Post(url string, data map[string]any, headers map[string]string) (map[string]any, error)
-	Client(caBundle string) (HttpInterface, error)
+type ContextInterface interface {
+	Get(url string, headers map[string]string) (any, error)
+	Post(url string, data any, headers map[string]string) (any, error)
+	Client(caBundle string) (ContextInterface, error)
 }
 
-type HTTP struct {
-	HttpInterface
-}
-
-func NewHTTP() HTTP {
-	return HTTP{
-		HttpInterface: &httpProvider{
-			client: http.DefaultClient,
-		},
-	}
+type Context struct {
+	ContextInterface
 }

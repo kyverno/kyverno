@@ -10,6 +10,10 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/metric"
 )
 
+var ReportsBreaker Breaker
+
+func GetReportsBreaker() Breaker { return ReportsBreaker }
+
 type Breaker interface {
 	Do(context.Context, func(context.Context) error) error
 }

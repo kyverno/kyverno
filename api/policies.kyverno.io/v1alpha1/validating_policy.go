@@ -1,15 +1,11 @@
 package v1alpha1
 
 import (
+	"context"
+
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-type EvaluationMode string
-
-const (
-	EvaluationModeKubernetes EvaluationMode = "Kubernetes"
-	EvaluationModeJSON       EvaluationMode = "JSON"
 )
 
 // +genclient
@@ -30,30 +26,21 @@ type ValidatingPolicy struct {
 	Status ValidatingPolicyStatus `json:"status,omitempty"`
 }
 
+// BackgroundEnabled checks if background is set to true
+func (s ValidatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
 type ValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
-	Autogen AutogenStatus `json:"autogen"`
+	Autogen ValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
 
 	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
-}
-
-// AutogenStatus contains autogen status information.
-type AutogenStatus struct {
-	// Rules is a list of Rule instances. It contains auto generated rules added for pod controllers
-	Rules []AutogenRule `json:"rules,omitempty"`
-}
-
-type AutogenRule struct {
-	MatchConstraints *admissionregistrationv1.MatchResources   `json:"matchConstraints,omitempty"`
-	MatchConditions  []admissionregistrationv1.MatchCondition  `json:"matchConditions,omitempty"`
-	Validations      []admissionregistrationv1.Validation      `json:"validations,omitempty"`
-	AuditAnnotation  []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
-	Variables        []admissionregistrationv1.Variable        `json:"variables,omitempty"`
 }
 
 func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
@@ -68,6 +55,9 @@ func (s *ValidatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchC
 }
 
 func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
+		return admissionregistrationv1.Ignore
+	}
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail
 	}
@@ -267,37 +257,4 @@ type WebhookConfiguration struct {
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
-}
-
-type EvaluationConfiguration struct {
-	// Mode is the mode of policy evaluation.
-	// Allowed values are "Kubernetes" or "JSON".
-	// Optional. Default value is "Kubernetes".
-	// +optional
-	Mode EvaluationMode `json:"mode,omitempty"`
-
-	// Admission controls policy evaluation during admission.
-	// +optional
-	Admission *AdmissionConfiguration `json:"admission,omitempty"`
-
-	// Background  controls policy evaluation during background scan.
-	// +optional
-	Background *BackgroundConfiguration `json:"background,omitempty"`
-}
-
-type AdmissionConfiguration struct {
-	// Enabled controls if rules are applied during admission.
-	// Optional. Default value is "true".
-	// +optional
-	// +kubebuilder:default=true
-	Enabled *bool `json:"enabled,omitempty"`
-}
-
-type BackgroundConfiguration struct {
-	// Enabled controls if rules are applied to existing resources during a background scan.
-	// Optional. Default value is "true". The value must be set to "false" if the policy rule
-	// uses variables that are only available in the admission review request (e.g. user name).
-	// +optional
-	// +kubebuilder:default=true
-	Enabled *bool `json:"enabled,omitempty"`
 }

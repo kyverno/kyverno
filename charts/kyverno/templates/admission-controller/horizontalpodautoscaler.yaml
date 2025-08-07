@@ -14,15 +14,14 @@ spec:
   minReplicas: {{ .Values.admissionController.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.admissionController.autoscaling.maxReplicas }}
   metrics:
-  - resource:
-    name: cpu
-    target:
-      averageUtilization: {{ .Values.admissionController.autoscaling.targetCPUUtilizationPercentage }}
-      type: Utilization
-    type: Resource
+    - resource:
+        name: cpu
+        target:
+          averageUtilization: {{ .Values.admissionController.autoscaling.targetCPUUtilizationPercentage }}
+          type: Utilization
+      type: Resource
   {{- with .Values.admissionController.autoscaling.behavior }}
   behavior:
     {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
-  targetCPUUtilizationPercentage: {{ .Values.admissionController.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}

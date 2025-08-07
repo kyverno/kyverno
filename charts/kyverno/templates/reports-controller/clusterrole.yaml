@@ -59,6 +59,8 @@ rules:
       - validatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
+      - generatingpolicies
+      - mutatingpolicies
     verbs:
       - create
       - delete
@@ -77,6 +79,28 @@ rules:
       - get
       - list
       - watch
+{{- if .Values.features.validatingAdmissionPolicyReports.enabled }}
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
+{{- if .Values.features.mutatingAdmissionPolicyReports.enabled }}
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - mutatingadmissionpolicies
+      - mutatingadmissionpolicybindings
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
   - apiGroups:
       - reports.kyverno.io
     resources:
@@ -98,6 +122,22 @@ rules:
       - policyreports/status
       - clusterpolicyreports
       - clusterpolicyreports/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - openreports.io
+    resources:
+      - reports
+      - reports/status
+      - clusterreports
+      - clusterreports/status
     verbs:
       - create
       - delete

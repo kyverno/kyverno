@@ -19,111 +19,32 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	kyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakePolicyExceptions implements PolicyExceptionInterface
-type FakePolicyExceptions struct {
+// fakePolicyExceptions implements PolicyExceptionInterface
+type fakePolicyExceptions struct {
+	*gentype.FakeClientWithList[*v2.PolicyException, *v2.PolicyExceptionList]
 	Fake *FakeKyvernoV2
-	ns   string
 }
 
-var policyexceptionsResource = v2.SchemeGroupVersion.WithResource("policyexceptions")
-
-var policyexceptionsKind = v2.SchemeGroupVersion.WithKind("PolicyException")
-
-// Get takes name of the policyException, and returns the corresponding policyException object, and an error if there is any.
-func (c *FakePolicyExceptions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.PolicyException, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(policyexceptionsResource, c.ns, name), &v2.PolicyException{})
-
-	if obj == nil {
-		return nil, err
+func newFakePolicyExceptions(fake *FakeKyvernoV2, namespace string) kyvernov2.PolicyExceptionInterface {
+	return &fakePolicyExceptions{
+		gentype.NewFakeClientWithList[*v2.PolicyException, *v2.PolicyExceptionList](
+			fake.Fake,
+			namespace,
+			v2.SchemeGroupVersion.WithResource("policyexceptions"),
+			v2.SchemeGroupVersion.WithKind("PolicyException"),
+			func() *v2.PolicyException { return &v2.PolicyException{} },
+			func() *v2.PolicyExceptionList { return &v2.PolicyExceptionList{} },
+			func(dst, src *v2.PolicyExceptionList) { dst.ListMeta = src.ListMeta },
+			func(list *v2.PolicyExceptionList) []*v2.PolicyException { return gentype.ToPointerSlice(list.Items) },
+			func(list *v2.PolicyExceptionList, items []*v2.PolicyException) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v2.PolicyException), err
-}
-
-// List takes label and field selectors, and returns the list of PolicyExceptions that match those selectors.
-func (c *FakePolicyExceptions) List(ctx context.Context, opts v1.ListOptions) (result *v2.PolicyExceptionList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(policyexceptionsResource, policyexceptionsKind, c.ns, opts), &v2.PolicyExceptionList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v2.PolicyExceptionList{ListMeta: obj.(*v2.PolicyExceptionList).ListMeta}
-	for _, item := range obj.(*v2.PolicyExceptionList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested policyExceptions.
-func (c *FakePolicyExceptions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(policyexceptionsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a policyException and creates it.  Returns the server's representation of the policyException, and an error, if there is any.
-func (c *FakePolicyExceptions) Create(ctx context.Context, policyException *v2.PolicyException, opts v1.CreateOptions) (result *v2.PolicyException, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(policyexceptionsResource, c.ns, policyException), &v2.PolicyException{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.PolicyException), err
-}
-
-// Update takes the representation of a policyException and updates it. Returns the server's representation of the policyException, and an error, if there is any.
-func (c *FakePolicyExceptions) Update(ctx context.Context, policyException *v2.PolicyException, opts v1.UpdateOptions) (result *v2.PolicyException, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(policyexceptionsResource, c.ns, policyException), &v2.PolicyException{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.PolicyException), err
-}
-
-// Delete takes name of the policyException and deletes it. Returns an error if one occurs.
-func (c *FakePolicyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(policyexceptionsResource, c.ns, name, opts), &v2.PolicyException{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakePolicyExceptions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(policyexceptionsResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v2.PolicyExceptionList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched policyException.
-func (c *FakePolicyExceptions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.PolicyException, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(policyexceptionsResource, c.ns, name, pt, data, subresources...), &v2.PolicyException{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.PolicyException), err
 }

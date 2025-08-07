@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: sync-modify-one-source-1
+  namespace: sync-modify-one-source
+type: Opaque

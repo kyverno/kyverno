@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: testcase-3
+spec:
+  rules:
+  - name: test-rule
+    match:
+      all:
+      - resources:
+          kinds:
+          - Deployment
+    validate:
+      message: |-
+        {{ request.object.spec.integerField1 }} is not 123
+      deny:
+        conditions:
+          all:
+          - key: "{{ request.object.spec.replicas == `2` }}"
+            operator: NotEquals
+            value: true

@@ -382,10 +382,10 @@ func TestImageValidatingPolicy_GetStatus(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
-		want   *IvpolStatus
+		want   *ImageValidatingPolicyStatus
 	}{{
 		policy: &ImageValidatingPolicy{},
-		want:   &IvpolStatus{},
+		want:   &ImageValidatingPolicyStatus{},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -416,6 +416,125 @@ func TestImageValidatingPolicy_GetKind(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.policy.GetKind()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestImageValidatingPolicy_BackgroundEnabled(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *ImageValidatingPolicy
+		want   bool
+	}{{
+		name:   "nil",
+		policy: &ImageValidatingPolicy{},
+		want:   true,
+	}, {
+		name: "true",
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Background: &BackgroundConfiguration{
+						Enabled: ptr.To(true),
+					},
+				},
+			},
+		},
+		want: true,
+	}, {
+		name: "false",
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Background: &BackgroundConfiguration{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.BackgroundEnabled()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestImageValidatingPolicySpec_AdmissionEnabled(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *ImageValidatingPolicy
+		want   bool
+	}{{
+		name:   "nil",
+		policy: &ImageValidatingPolicy{},
+		want:   true,
+	}, {
+		name: "true",
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Admission: &AdmissionConfiguration{
+						Enabled: ptr.To(true),
+					},
+				},
+			},
+		},
+		want: true,
+	}, {
+		name: "false",
+		policy: &ImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Admission: &AdmissionConfiguration{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.Spec.AdmissionEnabled()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestImageValidatingPolicySpec_ValidationActions(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *ImageValidatingPolicy
+		want   []admissionregistrationv1.ValidationAction
+	}{{
+		name:   "nil",
+		policy: &ImageValidatingPolicy{},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+	}, {
+		name:   "deny",
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+	}, {
+		name:   "warn",
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
+	}, {
+		name:   "audit",
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
+	}, {
+		name:   "multiple",
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
+		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn},
+	},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.Spec.ValidationActions()
 			assert.Equal(t, tt.want, got)
 		})
 	}

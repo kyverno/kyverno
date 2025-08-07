@@ -15,7 +15,7 @@ spec:
       operations:  [CREATE, UPDATE]
       resources:   ["pods"]
   matchConditions:
-    - name: "check-prod-label"  
+    - name: check-prod-label
       expression: >- 
         has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   validations:

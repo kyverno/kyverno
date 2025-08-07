@@ -13,7 +13,7 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 		Name: "validate-user-privilege",
 	}
 	path := field.NewPath("dummy")
-	errs := subject.Validate(path, false, "", nil)
+	_, errs := subject.Validate(path, false, "", nil)
 	assert.Equal(t, len(errs), 1)
 	assert.Equal(t, errs[0].Field, "dummy")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)
@@ -94,7 +94,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 	assert.NilError(t, err)
 	for _, rule := range policy.Spec.Rules {
 		path := field.NewPath("dummy")
-		errs := rule.Validate(path, false, "", nil)
+		_, errs := rule.Validate(path, false, "", nil)
 		assert.Assert(t, len(errs) != 0)
 	}
 }
@@ -153,7 +153,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	assert.NilError(t, err)
 	for _, rule := range policy.Spec.Rules {
 		path := field.NewPath("dummy")
-		errs := rule.Validate(path, false, "", nil)
+		_, errs := rule.Validate(path, false, "", nil)
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -242,6 +242,7 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 		name       string
 		rule       []byte
 		shouldFail bool
+		warning    bool
 	}{
 		{
 			name: "clone-name",
@@ -271,7 +272,8 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 					}
 				}
 			}`),
-			shouldFail: true,
+			shouldFail: false,
+			warning:    true,
 		},
 		{
 			name: "clone-namespace",
@@ -301,7 +303,8 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 					}
 				}
 			}`),
-			shouldFail: true,
+			shouldFail: false,
+			warning:    true,
 		},
 		{
 			name: "cloneList-namespace",
@@ -336,7 +339,8 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 					}
 				}
 			}`),
-			shouldFail: true,
+			shouldFail: false,
+			warning:    true,
 		},
 		{
 			name: "cloneList-kinds",
@@ -371,7 +375,8 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 					}
 				}
 			}`),
-			shouldFail: true,
+			shouldFail: false,
+			warning:    true,
 		},
 		{
 			name: "cloneList-selector",
@@ -406,7 +411,8 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 					}
 				}
 			}`),
-			shouldFail: true,
+			shouldFail: false,
+			warning:    true,
 		},
 		{
 			name: "generate-downstream-namespace",
@@ -437,6 +443,7 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 				}
 			}`),
 			shouldFail: false,
+			warning:    false,
 		},
 		{
 			name: "generate-downstream-kind",
@@ -466,7 +473,8 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 					}
 				}
 			}`),
-			shouldFail: true,
+			shouldFail: false,
+			warning:    true,
 		},
 		{
 			name: "generate-downstream-apiversion",
@@ -496,7 +504,8 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 					}
 				}
 			}`),
-			shouldFail: true,
+			shouldFail: false,
+			warning:    true,
 		},
 		{
 			name: "generate-downstream-name",
@@ -527,6 +536,7 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 				}
 			}`),
 			shouldFail: false,
+			warning:    false,
 		},
 	}
 
@@ -534,7 +544,8 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 		var rule *Rule
 		err := json.Unmarshal(testcase.rule, &rule)
 		assert.NilError(t, err, testcase.name)
-		errs := rule.ValidateGenerate(path, false, "", nil)
+		warnings, errs := rule.ValidateGenerate(path, false, "", nil)
 		assert.Equal(t, len(errs) != 0, testcase.shouldFail, testcase.name)
+		assert.Equal(t, len(warnings) != 0, testcase.warning, testcase.name)
 	}
 }

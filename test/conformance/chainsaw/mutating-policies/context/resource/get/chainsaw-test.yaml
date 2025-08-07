@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: fetch-pod-resource-mutating
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-mutating-policy-ready
+    use:
+      template: ../../../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: add-env-label
+  - name: create test namespace
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: test-context-get
+  - name: create pod with env label
+    try:
+    - create:
+        file: pod-namespaced.yaml
+  - name: wait for pod to be available
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: policy-pod
+            namespace: test-context-get
+          status:
+            phase: Running
+  - name: create deployment without env label
+    try:
+    - create:
+        file: deployment-namespaced.yaml
+  - name: check deployment was mutated
+    try:
+    - assert:
+        file: deployment-mutated-namespaced.yaml

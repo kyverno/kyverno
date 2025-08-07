@@ -19,10 +19,10 @@ limitations under the License.
 package v2
 
 import (
-	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // UpdateRequestLister helps list UpdateRequests.
@@ -30,7 +30,7 @@ import (
 type UpdateRequestLister interface {
 	// List lists all UpdateRequests in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.UpdateRequest, err error)
+	List(selector labels.Selector) (ret []*kyvernov2.UpdateRequest, err error)
 	// UpdateRequests returns an object that can list and get UpdateRequests.
 	UpdateRequests(namespace string) UpdateRequestNamespaceLister
 	UpdateRequestListerExpansion
@@ -38,25 +38,17 @@ type UpdateRequestLister interface {
 
 // updateRequestLister implements the UpdateRequestLister interface.
 type updateRequestLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*kyvernov2.UpdateRequest]
 }
 
 // NewUpdateRequestLister returns a new UpdateRequestLister.
 func NewUpdateRequestLister(indexer cache.Indexer) UpdateRequestLister {
-	return &updateRequestLister{indexer: indexer}
-}
-
-// List lists all UpdateRequests in the indexer.
-func (s *updateRequestLister) List(selector labels.Selector) (ret []*v2.UpdateRequest, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.UpdateRequest))
-	})
-	return ret, err
+	return &updateRequestLister{listers.New[*kyvernov2.UpdateRequest](indexer, kyvernov2.Resource("updaterequest"))}
 }
 
 // UpdateRequests returns an object that can list and get UpdateRequests.
 func (s *updateRequestLister) UpdateRequests(namespace string) UpdateRequestNamespaceLister {
-	return updateRequestNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return updateRequestNamespaceLister{listers.NewNamespaced[*kyvernov2.UpdateRequest](s.ResourceIndexer, namespace)}
 }
 
 // UpdateRequestNamespaceLister helps list and get UpdateRequests.
@@ -64,36 +56,15 @@ func (s *updateRequestLister) UpdateRequests(namespace string) UpdateRequestName
 type UpdateRequestNamespaceLister interface {
 	// List lists all UpdateRequests in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.UpdateRequest, err error)
+	List(selector labels.Selector) (ret []*kyvernov2.UpdateRequest, err error)
 	// Get retrieves the UpdateRequest from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.UpdateRequest, error)
+	Get(name string) (*kyvernov2.UpdateRequest, error)
 	UpdateRequestNamespaceListerExpansion
 }
 
 // updateRequestNamespaceLister implements the UpdateRequestNamespaceLister
 // interface.
 type updateRequestNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all UpdateRequests in the indexer for a given namespace.
-func (s updateRequestNamespaceLister) List(selector labels.Selector) (ret []*v2.UpdateRequest, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.UpdateRequest))
-	})
-	return ret, err
-}
-
-// Get retrieves the UpdateRequest from the indexer for a given namespace and name.
-func (s updateRequestNamespaceLister) Get(name string) (*v2.UpdateRequest, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2.Resource("updaterequest"), name)
-	}
-	return obj.(*v2.UpdateRequest), nil
+	listers.ResourceIndexer[*kyvernov2.UpdateRequest]
 }

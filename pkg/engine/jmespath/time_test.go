@@ -79,8 +79,8 @@ func Test_TimeAdd(t *testing.T) {
 			expectedResult: "2021-01-02T18:04:05-07:00",
 		},
 		{
-			test:           "time_add(time_parse('Mon Jan 02 15:04:05 MST 2006', 'Sat Jan 02 15:04:05 MST 2021'), '5h30m40s')",
-			expectedResult: "2021-01-02T20:34:45Z",
+			test:           "time_add(time_parse('Mon Jan 02 15:04:05 -0700 2006', 'Sat Jan 02 15:04:05 -0700 2021'), '5h30m40s')",
+			expectedResult: "2021-01-02T20:34:45-07:00",
 		},
 	}
 	for i, tc := range testCases {
@@ -109,8 +109,8 @@ func Test_TimeParse(t *testing.T) {
 			expectedResult: "2021-01-02T15:04:05-07:00",
 		},
 		{
-			test:           "time_parse('Mon Jan 02 15:04:05 MST 2006', 'Sat Jan 02 15:04:05 MST 2021')",
-			expectedResult: "2021-01-02T15:04:05Z",
+			test:           "time_parse('Mon Jan 02 15:04:05 -0700 2006', 'Sat Jan 02 15:04:05 -0700 2021')",
+			expectedResult: "2021-01-02T15:04:05-07:00",
 		},
 		{
 			test:           "time_parse('1702691171', '1702691171')",

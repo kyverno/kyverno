@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: error-generating-resource-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: error-generating-resource-2
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: error-generating-resource-3

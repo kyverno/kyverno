@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: nosync-modify-downstream
+spec:
+  steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: generate-networkpolicy
+  - name: create the source
+    try:
+    - apply:
+        file: source.yaml
+  - name: create the namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: create the trigger
+    try:
+    - apply:
+        file: trigger.yaml
+  - name: check that the downstream is generated
+    try:
+    - assert:
+        file: downstream-assert.yaml
+  - name: modify the downstream
+    try:
+    - apply:
+        file: downstream-modified.yaml
+  - name: check that the modified downstream isn't reverted
+    try:
+    - assert:
+        file: downstream-untouched.yaml

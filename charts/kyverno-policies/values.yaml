@@ -56,7 +56,7 @@ validationFailureActionOverrides:
   #       - fluent
 
 # -- Validate already existing resources.
-# For more info https://kyverno.io/docs/writing-policies/validate.
+# For more info https://kyverno.io/docs/policy-types/.
 validationAllowExistingViolations: true
 
 # -- Exclude resources from individual policies.
@@ -105,6 +105,9 @@ autogenControllers: ""
 
 # -- Name override.
 nameOverride:
+
+# -- Additional Annotations.
+customAnnotations: {}
 
 # -- Additional labels.
 customLabels: {}

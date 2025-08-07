@@ -13,6 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,13 +37,17 @@ const (
 	LabelDomainPolicy                           = "pol.kyverno.io"
 	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
 	LabelDomainImageValidatingPolicy            = "ivpol.kyverno.io"
+	LabelDomainGeneratingPolicy                 = "gpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
 	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
 	LabelPrefixImageValidatingPolicy            = LabelDomainImageValidatingPolicy + "/"
+	LabelPrefixGeneratingPolicy                 = LabelDomainGeneratingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
+	LabelPrefixMutatingAdmissionPolicy          = "mutatingadmissionpolicy.apiserver.io/"
+	LabelPrefixMutatingAdmissionPolicyBinding   = "mutatingadmissionpolicybinding.apiserver.io/"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
@@ -52,9 +57,12 @@ func IsPolicyLabel(label string) bool {
 		strings.HasPrefix(label, LabelPrefixClusterPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixImageValidatingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixGeneratingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
-		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
+		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding) ||
+		strings.HasPrefix(label, LabelPrefixMutatingAdmissionPolicy) ||
+		strings.HasPrefix(label, LabelPrefixMutatingAdmissionPolicyBinding)
 }
 
 func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
@@ -69,6 +77,12 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	}
 	if policy.AsImageValidatingPolicy() != nil {
 		return LabelPrefixImageValidatingPolicy
+	}
+	if policy.AsGeneratingPolicy() != nil {
+		return LabelPrefixGeneratingPolicy
+	}
+	if policy.AsMutatingAdmissionPolicy() != nil {
+		return LabelPrefixMutatingAdmissionPolicy
 	}
 	// TODO: detect potential type not detected
 	return LabelPrefixValidatingAdmissionPolicy
@@ -91,6 +105,10 @@ func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
 
 func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) string {
 	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
+}
+
+func MutatingAdmissionPolicyBindingLabel(binding admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) string {
+	return LabelPrefixMutatingAdmissionPolicyBinding + binding.GetName()
 }
 
 func CleanupKyvernoLabels(obj metav1.Object) {
@@ -176,6 +194,10 @@ func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyverno
 
 func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
+}
+
+func SetMutatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+	controllerutils.SetLabel(report, MutatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
 }
 
 func GetSource(report metav1.Object) string {

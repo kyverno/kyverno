@@ -24,6 +24,9 @@ spec:
   selector:
     {{- include "kyverno.cleanup-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.cleanupController.service.type }}
+  {{- if .Values.cleanupController.service.trafficDistribution }}
+  trafficDistribution: {{ .Values.cleanupController.service.trafficDistribution }}
+  {{- end }}
 {{- if .Values.cleanupController.metricsService.create }}
 ---
 apiVersion: v1
@@ -49,6 +52,9 @@ spec:
   selector:
     {{- include "kyverno.cleanup-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.cleanupController.metricsService.type }}
+  {{- if .Values.cleanupController.metricsService.trafficDistribution }}
+  trafficDistribution: {{ .Values.cleanupController.metricsService.trafficDistribution }}
+  {{- end }}
 {{- end -}}
 {{- if .Values.cleanupController.profiling.enabled }}
 ---

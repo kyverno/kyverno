@@ -1,6 +1,6 @@
 package apply
 
-var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#apply`
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/usage/apply/`
 
 var description = []string{
 	`Applies policies on resources.`,
