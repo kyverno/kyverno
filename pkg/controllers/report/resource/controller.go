@@ -452,7 +452,7 @@ func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string
 	} else {
 		for gvrs, api := range gvrss {
 			if gvrs.SubResource == "" {
-				gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: kind}
+				gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: gvrs.Kind}
 				if !reportutils.IsGvkSupported(gvk) {
 					logger.V(2).Info("kind is not supported", "gvk", gvk)
 				} else {
