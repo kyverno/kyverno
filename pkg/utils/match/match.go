@@ -148,16 +148,20 @@ func checkResourceDescription(
 			errs = append(errs, fmt.Errorf("name does not match"))
 		}
 	}
-	if len(conditionBlock.Names) > 0 {
-		noneMatch := true
-		for i := range conditionBlock.Names {
-			if CheckName(conditionBlock.Names[i], resourceName) {
-				noneMatch = false
-				break
+	if conditionBlock.Names != nil {
+		if len(conditionBlock.Names) == 0 {
+			errs = append(errs, fmt.Errorf("empty names list matches no resources"))
+		} else {
+			noneMatch := true
+			for i := range conditionBlock.Names {
+				if CheckName(conditionBlock.Names[i], resourceName) {
+					noneMatch = false
+					break
+				}
 			}
-		}
-		if noneMatch {
-			errs = append(errs, fmt.Errorf("none of the names match"))
+			if noneMatch {
+				errs = append(errs, fmt.Errorf("none of the names match"))
+			}
 		}
 	}
 	if len(conditionBlock.Namespaces) > 0 {
