@@ -81,7 +81,7 @@ jobs:
         if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
           message: |
             Commits from this PR will automatically be cherry-picked once this PR gets merged.
 
@@ -97,7 +97,7 @@ jobs:
         continue-on-error: true # Send failure comment to PR
         id: cherry-pick
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PR_UPDATE_TOKEN }}
           source-pr: ${{ github.event.issue.number }}
           source-pr-title: ${{ github.event.issue.title }}
           target-branches: ${{ steps.extract-branch.outputs.branch }}
@@ -107,7 +107,7 @@ jobs:
         if: ${{ steps.cherry-pick.outputs.success == false && fromJSON(steps.check-merged.outputs.result).merged == true }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
           message: |            
             :no_entry_sign: Cherry picking merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` failed. 
             

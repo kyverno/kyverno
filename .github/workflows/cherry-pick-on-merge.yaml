@@ -48,7 +48,7 @@ jobs:
         if: steps.cherry.outputs.result != '[]'
         uses: ./.github/actions/cherry-pick
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PR_UPDATE_TOKEN }}
           source-pr: ${{ github.event.pull_request.number }}
           source-pr-title: ${{ github.event.pull_request.title }}
           target-branches: ${{ fromJSON(steps.cherry.outputs.result)[0] }}
