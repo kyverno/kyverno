@@ -225,6 +225,10 @@ func (fid FuzzIDiscovery) CachedDiscoveryInterface() discovery.CachedDiscoveryIn
 	return nil
 }
 
+func (fid FuzzIDiscovery) OnChanged(callback func()) {
+	// No-op for fuzzing
+}
+
 type DynamicFuzz struct {
 	ff *fuzz.ConsumeFuzzer
 }
