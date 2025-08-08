@@ -52,8 +52,9 @@ import (
 )
 
 type TestResponse struct {
-	Trigger map[string][]engineapi.EngineResponse
-	Target  map[string][]engineapi.EngineResponse
+	Trigger         map[string][]engineapi.EngineResponse
+	Target          map[string][]engineapi.EngineResponse
+	SkippedPolicies map[string]string
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
@@ -227,12 +228,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 	// validate policies
 	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
+	skippedPolicyNames := make(map[string]string)
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
 		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
+			skippedPolicyNames[pol.GetName()] = err.Error()
 			continue
 		}
 		validPolicies = append(validPolicies, pol)
@@ -241,8 +244,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
 	testResponse := TestResponse{
-		Trigger: map[string][]engineapi.EngineResponse{},
-		Target:  map[string][]engineapi.EngineResponse{},
+		Trigger:         map[string][]engineapi.EngineResponse{},
+		Target:          map[string][]engineapi.EngineResponse{},
+		SkippedPolicies: skippedPolicyNames,
 	}
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
