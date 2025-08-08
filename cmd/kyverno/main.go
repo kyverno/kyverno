@@ -62,7 +62,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -652,11 +651,15 @@ func main() {
 			nil,
 			gcstore,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			false,
 		)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
 		}
+
+		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+
 		var vpolEngine vpolengine.Engine
 		var ivpolEngine ivpolengine.Engine
 		var mpolEngine mpolengine.Engine
@@ -715,7 +718,7 @@ func main() {
 			vpolEngine = vpolengine.NewEngine(
 				vpolProvider,
 				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -726,7 +729,7 @@ func main() {
 			ivpolEngine = ivpolengine.NewEngine(
 				ivpolProvider,
 				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -739,7 +742,7 @@ func main() {
 			mpolEngine = mpolengine.NewEngine(
 				mpolProvider,
 				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -750,22 +753,42 @@ func main() {
 				contextProvider,
 			)
 		}
-		var reportsBreaker breaker.Breaker
 		if admissionReports {
+			ephrCounterFunc := func(c breaker.Counter) func(context.Context) bool {
+				return func(context.Context) bool {
+					count, isRunning := c.Count()
+					if !isRunning {
+						return true
+					}
+					return count > maxAdmissionReports
+				}
+			}
+
 			ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 			if err != nil {
-				setup.Logger.Error(err, "failed to start admission reports watcher")
-				os.Exit(1)
-			}
-			reportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
-				count, isRunning := ephrs.Count()
-				if !isRunning {
+				go func() {
+					for {
+						ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+						if err != nil {
+							setup.Logger.Error(err, "failed to start admission reports watcher, retrying...")
+							time.Sleep(2 * time.Second)
+							continue
+						}
+						breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+						return
+					}
+				}()
+				// create a temporary fake breaker until the retrying goroutine succeeds
+				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
 					return true
-				}
-				return count > maxAdmissionReports
-			})
+				})
+				// no error has occurred, create a normal breaker
+			} else {
+				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+			}
+			// admission reports are disabled, create a fake breaker by default
 		} else {
-			reportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+			breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
 				return true
 			})
 		}
@@ -777,7 +800,7 @@ func main() {
 			setup.Configuration,
 			setup.MetricsManager,
 			policyCache,
-			kubeInformer.Core().V1().Namespaces().Lister(),
+			nsLister,
 			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
@@ -790,14 +813,13 @@ func main() {
 			maxAuditWorkers,
 			maxAuditCapacity,
 			setup.ReportingConfiguration,
-			reportsBreaker,
 		)
 		voplHandlers := vpol.New(
 			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
 			admissionReports,
-			reportsBreaker,
+			setup.ReportingConfiguration,
 		)
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
@@ -808,7 +830,7 @@ func main() {
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
-		mpolHandlers := mpol.New(contextProvider, mpolEngine, reportsBreaker, setup.KyvernoClient, setup.ReportingConfiguration, urgen, backgroundServiceAccountName)
+		mpolHandlers := mpol.New(contextProvider, mpolEngine, setup.KyvernoClient, setup.ReportingConfiguration, urgen, backgroundServiceAccountName)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
 			Enabled: internal.PolicyExceptionEnabled(),
 		})

@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func needsReports(request handlers.AdmissionRequest, resource unstructured.Unstructured, admissionReport bool, reportConfig reportutils.ReportingConfiguration) bool {
+func NeedsReports(request handlers.AdmissionRequest, resource unstructured.Unstructured, admissionReport bool, reportConfig reportutils.ReportingConfiguration) bool {
 	createReport := admissionReport
 	if admissionutils.IsDryRun(request.AdmissionRequest) {
 		createReport = false

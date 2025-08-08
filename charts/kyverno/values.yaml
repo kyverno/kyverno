@@ -75,6 +75,10 @@ rbac:
       admin: true
       view: true
 
+# Use openreports.io as the API group for reporting
+openreports:
+  enabled: false
+
 # CRDs configuration
 crds:
 

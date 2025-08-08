@@ -132,6 +132,22 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - openreports.io
+    resources:
+      - reports
+      - reports/status
+      - clusterreports
+      - clusterreports/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
       - ''
       - events.k8s.io
     resources:

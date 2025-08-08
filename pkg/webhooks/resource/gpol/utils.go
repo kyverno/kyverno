@@ -20,6 +20,7 @@ func buildRuleContext(policyName string, trigger kyvernov1.ResourceSpec, deleteD
 		Rule:             policyName,
 		Trigger:          trigger,
 		DeleteDownstream: deleteDownstream,
+		CacheRestore:     false,
 	}
 }
 

@@ -201,7 +201,21 @@ func BuildValidatingAdmissionPolicyBinding(
 func BuildMutatingAdmissionPolicy(
 	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mp *policiesv1alpha1.MutatingPolicy,
+	exceptions []policiesv1alpha1.PolicyException,
 ) {
+	var matchConditions []admissionregistrationv1alpha1.MatchCondition
+	// convert celexceptions if exist
+	for _, exception := range exceptions {
+		for _, matchCondition := range exception.Spec.MatchConditions {
+			// negate the match condition
+			expression := "!(" + matchCondition.Expression + ")"
+			matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition{
+				Name:       matchCondition.Name,
+				Expression: expression,
+			})
+		}
+	}
+	matchConditions = append(matchConditions, mp.Spec.MatchConditions...)
 	// set owner reference
 	mapol.OwnerReferences = []metav1.OwnerReference{
 		{
@@ -214,7 +228,7 @@ func BuildMutatingAdmissionPolicy(
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
 		MatchConstraints:   mp.Spec.MatchConstraints,
-		MatchConditions:    mp.Spec.MatchConditions,
+		MatchConditions:    matchConditions,
 		Mutations:          mp.Spec.Mutations,
 		Variables:          mp.Spec.Variables,
 		FailurePolicy:      mp.Spec.FailurePolicy,

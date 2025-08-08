@@ -256,16 +256,16 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.GetRequestType() {
 	case kyvernov2.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp, c.reportsConfig, c.reportsBreaker)
+		ctrl := mutate.NewMutateExistingController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp, c.reportsConfig)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp, c.reportsConfig, c.reportsBreaker)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp, c.reportsConfig)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.CELGenerate:
-		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.reportsConfig, c.reportsBreaker, logger)
+		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.reportsConfig, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.CELMutate:
-		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl)
+		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, c.reportsConfig, c.reportsBreaker, statusControl)
 		return processor.Process(ur)
 	}
 	return nil

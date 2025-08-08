@@ -105,6 +105,7 @@ spec:
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride)
               "logging"
             ) | nindent 12 }}
+            - --openreportsEnabled={{ .Values.openreports.enabled }}
             {{- range $key, $value := .Values.admissionController.initContainer.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}

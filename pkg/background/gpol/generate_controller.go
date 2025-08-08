@@ -40,8 +40,8 @@ type CELGenerateController struct {
 
 	statusControl common.StatusControlInterface
 
-	reportsConfig  reportutils.ReportingConfiguration
-	reportsBreaker breaker.Breaker
+	reportsConfig reportutils.ReportingConfiguration
+	breaker.Breaker
 
 	log logr.Logger
 }
@@ -56,23 +56,21 @@ func NewCELGenerateController(
 	watchManager *WatchManager,
 	statusControl common.StatusControlInterface,
 	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 	log logr.Logger,
 ) *CELGenerateController {
 	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
 	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	return &CELGenerateController{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		restMapper:     restMapper,
-		context:        context,
-		engine:         engine,
-		provider:       provider,
-		watchManager:   watchManager,
-		statusControl:  statusControl,
-		reportsConfig:  reportsConfig,
-		reportsBreaker: reportsBreaker,
-		log:            log,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		restMapper:    restMapper,
+		context:       context,
+		engine:        engine,
+		provider:      provider,
+		watchManager:  watchManager,
+		statusControl: statusControl,
+		reportsConfig: reportsConfig,
+		log:           log,
 	}
 }
 
@@ -127,7 +125,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		isSync := policy.Policy.Spec.SynchronizationEnabled()
-		gpolResponse, err := c.engine.Handle(request, policy)
+		gpolResponse, err := c.engine.Handle(request, policy, ur.Spec.RuleContext[i].CacheRestore)
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
@@ -181,7 +179,7 @@ func (c *CELGenerateController) createReports(
 ) error {
 	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, report, c.kyvernoClient)
 			return err
 		})

@@ -1,0 +1,14 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: test-globalcontext-apicall-gpol-ns
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: test-cm
+  namespace: test-globalcontext-apicall-gpol-ns
+  labels:
+    app: test-gce-gpol
+data:
+  key1: value1
