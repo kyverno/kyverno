@@ -66,7 +66,7 @@
 {{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}
-  {{- $flags = append $flags (print "--v=" (join "," .verbosity)) -}}
+  {{- $flags = append $flags (print "--v=" .verbosity) -}}
 {{- end -}}
 {{- with .omitEvents -}}
   {{- with .eventTypes -}}
