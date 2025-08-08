@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	libs "github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -16,13 +18,14 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apiserver/pkg/admission"
 )
 
 type processor struct {
@@ -35,6 +38,8 @@ type processor struct {
 	statusControl common.StatusControlInterface
 
 	reportsConfig reportutils.ReportingConfiguration
+
+	log logr.Logger
 }
 
 func NewProcessor(client dclient.Interface,
@@ -44,6 +49,7 @@ func NewProcessor(client dclient.Interface,
 	context libs.Context,
 	reportsConfig reportutils.ReportingConfiguration,
 	statusControl common.StatusControlInterface,
+	log logr.Logger,
 ) *processor {
 	return &processor{
 		client:        client,
@@ -53,6 +59,7 @@ func NewProcessor(client dclient.Interface,
 		context:       context,
 		statusControl: statusControl,
 		reportsConfig: reportsConfig,
+		log:           log,
 	}
 }
 
@@ -87,31 +94,42 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 	}
 
-	ar := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	var request celengine.EngineRequest
+	admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	if admissionRequest == nil {
+		trigger, _ := common.GetTrigger(p.client, ur.Spec, 0, p.log)
+		gvk := trigger.GroupVersionKind()
+		mapping, err := p.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			return fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
+		}
+
+		gvr := mapping.Resource
+		request = celengine.Request(
+			p.context,
+			trigger.GroupVersionKind(),
+			gvr,
+			trigger.GetName(),
+			trigger.GetNamespace(),
+			"",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			targets,
+			nil,
+			false,
+			nil,
+		)
+	} else {
+		request = celengine.RequestFromAdmission(p.context, *admissionRequest)
+	}
 	for _, target := range targets.Items {
 		object := &target
-		mapping, err := p.mapper.RESTMapping(target.GroupVersionKind().GroupKind(), target.GroupVersionKind().Version)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to get resource version for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
 
-		attr := admission.NewAttributesRecord(
-			object,
-			nil,
-			object.GroupVersionKind(),
-			object.GetNamespace(),
-			object.GetName(),
-			mapping.Resource,
-			"",
-			admission.Operation(""),
-			nil,
-			false,
-			// TODO
-			nil,
-		)
-
-		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.MatchNames(ur.Spec.Policy))
+		response, err := p.engine.Handle(context.TODO(), request, mpolengine.MatchNames(ur.Spec.Policy))
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue

@@ -46,6 +46,24 @@ func newGenerateUR(policy engineapi.GenericPolicy) *kyvernov2.UpdateRequest {
 	return ur
 }
 
+func newCELMutateUR(policy engineapi.GenericPolicy) *kyvernov2.UpdateRequest {
+	ur := newUrMeta()
+	if kpol := policy.AsKyvernoPolicy(); kpol != nil {
+		ur.Labels = common.GenerateLabelsSet(policyKey(kpol))
+		ur.Spec = kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.Mutate,
+			Policy: policyKey(kpol),
+		}
+	} else if mpol := policy.AsGeneratingPolicy(); mpol != nil {
+		ur.Labels = common.MutateLabelsSet(mpol.GetName(), nil)
+		ur.Spec = kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELGenerate,
+			Policy: mpol.GetName(),
+		}
+	}
+	return ur
+}
+
 func newUrMeta() *kyvernov2.UpdateRequest {
 	return &kyvernov2.UpdateRequest{
 		TypeMeta: metav1.TypeMeta{

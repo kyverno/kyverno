@@ -66,6 +66,7 @@ type policyController struct {
 	pInformer    kyvernov1informers.ClusterPolicyInformer
 	npInformer   kyvernov1informers.PolicyInformer
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder events.EventRecorder
@@ -81,6 +82,8 @@ type policyController struct {
 
 	// gpolLister can list/get generating policy from the shared informer's store
 	gpolLister policiesv1alpha1listers.GeneratingPolicyLister
+
+	mpolLister policiesv1alpha1listers.MutatingPolicyLister
 
 	// urLister can list/get update request from the shared informer's store
 	urLister kyvernov2listers.UpdateRequestLister
@@ -117,6 +120,7 @@ func NewPolicyController(
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	urInformer kyvernov2informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
@@ -146,6 +150,7 @@ func NewPolicyController(
 		pInformer:     pInformer,
 		npInformer:    npInformer,
 		gpolInformer:  gpolInformer,
+		mpolInformer:  mpolInformer,
 		eventGen:      eventGen,
 		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -168,8 +173,9 @@ func NewPolicyController(
 	pc.nsLister = namespaces.Lister()
 	pc.urLister = urInformer.Lister()
 	pc.gpolLister = gpolInformer.Lister()
+	pc.mpolLister = mpolInformer.Lister()
 
-	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, gpolInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
+	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, gpolInformer.Informer().HasSynced, mpolInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
 
 	return &pc, nil
 }
@@ -255,6 +261,16 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		}
 	}
 
+	// mpol policy update
+	oldmpol := oldPolicy.AsMutatingPolicy()
+	newmpol := newPolicy.AsMutatingPolicy()
+	if oldmpol != nil && newmpol != nil {
+		if datautils.DeepEqual(oldmpol.Spec, newmpol.Spec) {
+			return
+		}
+		// Take a look If we can do something here.
+	}
+
 	logger.V(2).Info("updating policy", "name", oldPolicy.GetName())
 	pc.enqueuePolicy(newPolicy)
 }
@@ -286,6 +302,14 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
 		}
 		p = engineapi.NewGeneratingPolicy(gpol)
+	case *policiesv1alpha1.MutatingPolicy:
+		mpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.MutatingPolicy)
+		//err := pc.createURForDownstreamDeletion(mpol)
+		// if err != nil {
+		// 	utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
+		// }
+		p = engineapi.NewMutatingPolicy(mpol)
+
 	default:
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
@@ -305,6 +329,8 @@ func (pc *policyController) enqueuePolicy(policy engineapi.GenericPolicy) {
 		pc.queue.Add("kpol/" + key)
 	} else if policy.AsGeneratingPolicy() != nil {
 		pc.queue.Add("gpol/" + key)
+	} else if policy.AsMutatingPolicy() != nil {
+		pc.queue.Add("mpol/" + key)
 	}
 }
 
@@ -335,6 +361,12 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 	})
 
 	_, _ = pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
+		DeleteFunc: pc.deletePolicy,
+	})
+
+	_, _ = pc.mpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
@@ -438,6 +470,12 @@ func (pc *policyController) syncPolicy(key string) error {
 			if err != nil {
 				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", gpol.GetName(), err))
 			}
+		}
+	} else if polType == "mpol" {
+		mpol, _ := pc.mpolLister.Get(polName)
+		err := pc.handleMutateForExisting(mpol)
+		if err != nil {
+			logger.Error(err, "failed to updateUR on mutate policy update")
 		}
 	}
 	return nil
