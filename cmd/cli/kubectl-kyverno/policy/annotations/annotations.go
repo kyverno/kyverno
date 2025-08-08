@@ -3,7 +3,7 @@ package annotations
 import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 )
 
 func Scored(annotations map[string]string) bool {
