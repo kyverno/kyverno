@@ -13,11 +13,11 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 func SortReportResults(results []openreportsv1alpha1.ReportResult) {
