@@ -165,10 +165,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return err
 	}
 
-	kinds, err := admissionpolicy.GetKinds(spec.MatchConstraints, restMapper)
-	if err != nil {
-		return err
-	}
+	kinds := admissionpolicy.GetKinds(spec.MatchConstraints, restMapper)
 
 	for _, kind := range kinds {
 		commonLabels := []attribute.KeyValue{
