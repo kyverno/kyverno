@@ -77,9 +77,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/policies"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/resource"},
-				PolicyReport:  true,
+				PolicyPaths:      []string{"../../../../../test/cli/apply/policies"},
+				ResourcePaths:    []string{"../../../../../test/cli/apply/resource"},
+				PolicyReport:     true,
+				policyExceptions: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{

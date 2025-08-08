@@ -89,6 +89,7 @@ type ApplyCommandConfig struct {
 	Exception             []string
 	ContinueOnFail        bool
 	inlineExceptions      bool
+	policyExceptions      bool
 	GenerateExceptions    bool
 	GeneratedExceptionTTL time.Duration
 	JSONPaths             []string
@@ -193,6 +194,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
 	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
+	cmd.Flags().BoolVarP(&applyCommandConfig.policyExceptions, "exceptions-with-policies", "", false, "Evaluate policy exceptions from the policies path")
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
@@ -227,7 +229,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, err := c.loadPolicies()
+	kpols, polexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -276,6 +278,8 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	var celexceptions []*policiesv1alpha1.PolicyException
 	if c.inlineExceptions {
 		exceptions = exception.SelectFrom(resources)
+	} else if c.policyExceptions {
+		exceptions = polexs
 	} else {
 		results, err := exception.Load(c.Exception...)
 		if err != nil {
@@ -722,6 +726,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 
 func (c *ApplyCommandConfig) loadPolicies() (
 	[]kyvernov1.PolicyInterface,
+	[]*kyvernov2.PolicyException,
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	[]admissionregistrationv1alpha1.MutatingAdmissionPolicy,
@@ -736,6 +741,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	// load policies
 	var policies []kyvernov1.PolicyInterface
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
+	var exceptions []*kyvernov2.PolicyException
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	var vps []policiesv1alpha1.ValidatingPolicy
 	var maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy
@@ -749,12 +755,12 @@ func (c *ApplyCommandConfig) loadPolicies() (
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -767,11 +773,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -813,6 +819,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
+				exceptions = append(exceptions, loaderResults.PolicyExceptions...)
 			}
 		}
 		for _, policy := range policies {
@@ -821,7 +828,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		}
 	}
-	return policies, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, nil
+	return policies, exceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
