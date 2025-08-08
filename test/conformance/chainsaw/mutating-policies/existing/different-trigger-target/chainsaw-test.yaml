@@ -15,10 +15,6 @@ spec:
         file: configmaps.yaml
     - assert:
         file: configmaps.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 10s
   - name: create policy
     use:
       template: ..//../../_step-templates/create-policy.yaml
@@ -36,19 +32,11 @@ spec:
   - name: sleep
     try:
     - sleep:
-        duration: 10s
-  - name: sleep
-    try:
-    - sleep:
-        duration: 1s
+        duration: 5s
   - name: trigger mutation by updating namespace
     try:
     - apply:
         file: test-namespace-update.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 10s
   - name: verify configmaps are mutated
     try:
     - assert:
