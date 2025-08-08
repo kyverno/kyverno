@@ -58,7 +58,7 @@ runs:
           git fetch origin $target_branch
           git checkout -b cherry-pick-${{ inputs.source-pr }}-${target_branch} origin/$target_branch
         
-          if git cherry-pick -m 1 ${{ inputs.merge-commit }}; then
+          if git cherry-pick -s -m 1 ${{ inputs.merge-commit }}; then
             git push origin cherry-pick-${{ inputs.source-pr }}-${target_branch}
         
             gh pr create \
@@ -68,7 +68,7 @@ runs:
               --head cherry-pick-${{ inputs.source-pr }}-${target_branch}
           else
             echo "❌ Error while cherry picking into ${target_branch}"
-            git_logs+=$(git cherry-pick -m 1 ${{ inputs.merge-commit }} 2>&1)
+            git_logs+=$(git cherry-pick -s -m 1 ${{ inputs.merge-commit }} 2>&1)
             git cherry-pick --abort
             success=false
             continue
