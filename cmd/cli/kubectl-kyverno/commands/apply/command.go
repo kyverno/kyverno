@@ -420,7 +420,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	var responses []engineapi.EngineResponse
 	namespaceCache := make(map[string]*unstructured.Unstructured)
 
-	var params []runtime.Object
+	params := make([]runtime.Object, len(parameterResources))
 	for _, p := range parameterResources {
 		params = append(params, p)
 	}
