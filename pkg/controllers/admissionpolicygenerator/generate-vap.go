@@ -133,6 +133,13 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		}
 	}
 
+	var (
+		vapCreated        bool
+		vapUpdated        bool
+		vapBindingCreated bool
+		vapBindingUpdated bool
+	)
+
 	if observedVAP.ResourceVersion == "" {
 		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, genericExceptions)
 		if err != nil {
@@ -142,6 +149,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		if err != nil {
 			return fmt.Errorf("failed to create validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
+		vapCreated = true
 	} else {
 		_, err := controllerutils.Update(
 			ctx,
@@ -153,6 +161,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		if err != nil {
 			return fmt.Errorf("failed to update validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
+		vapUpdated = true
 	}
 
 	if observedVAPbinding.ResourceVersion == "" {
@@ -164,6 +173,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		if err != nil {
 			return fmt.Errorf("failed to create validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
+		vapBindingCreated = true
 	} else {
 		_, err := controllerutils.Update(
 			ctx,
@@ -175,10 +185,14 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		if err != nil {
 			return fmt.Errorf("failed to update validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
+		vapBindingUpdated = true
 	}
+
 	c.updatePolicyStatus(ctx, policy, true, "")
-	// generate events
-	e := event.NewValidatingAdmissionPolicyEvent(policy, observedVAP.Name, observedVAPbinding.Name)
-	c.eventGen.Add(e...)
+	if vapCreated || vapUpdated || vapBindingCreated || vapBindingUpdated {
+		e := event.NewValidatingAdmissionPolicyEvent(policy, observedVAP.Name, observedVAPbinding.Name)
+		c.eventGen.Add(e...)
+	}
+
 	return nil
 }
