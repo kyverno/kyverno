@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"reflect"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -29,6 +31,22 @@ type MatchResources struct {
 	// Please specify under "any" or "all" instead.
 	// +optional
 	ResourceDescription `json:"resources,omitempty"`
+}
+
+func (m *MatchResources) IsEmpty() bool {
+	if m == nil {
+		return true
+	}
+	if len(m.Any) > 0 || len(m.All) > 0 {
+		return false
+	}
+	if !reflect.DeepEqual(m.UserInfo, UserInfo{}) {
+		return false
+	}
+	if !reflect.DeepEqual(m.ResourceDescription, ResourceDescription{}) {
+		return false
+	}
+	return true
 }
 
 // GetKinds returns all kinds
