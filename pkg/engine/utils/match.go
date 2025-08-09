@@ -87,20 +87,16 @@ func doesResourceMatchConditionBlock(
 		}
 	}
 
-	if conditionBlock.Names != nil {
-		if len(conditionBlock.Names) == 0 {
-			errs = append(errs, fmt.Errorf("empty names list matches no resources"))
-		} else {
-			noneMatch := true
-			for i := range conditionBlock.Names {
-				if matchutils.CheckName(conditionBlock.Names[i], resourceName) {
-					noneMatch = false
-					break
-				}
+	if len(conditionBlock.Names) > 0 {
+		noneMatch := true
+		for i := range conditionBlock.Names {
+			if matchutils.CheckName(conditionBlock.Names[i], resourceName) {
+				noneMatch = false
+				break
 			}
-			if noneMatch {
-				errs = append(errs, fmt.Errorf("none of the names match"))
-			}
+		}
+		if noneMatch {
+			errs = append(errs, fmt.Errorf("none of the names match"))
 		}
 	}
 
@@ -214,7 +210,7 @@ func MatchesResourceDescription(
 	}
 
 	// check exlude conditions only if match succeeds
-	if len(reasonsForFailure) == 0 && rule.ExcludeResources != nil {
+	if len(reasonsForFailure) == 0 && rule.ExcludeResources != nil && !(*rule.ExcludeResources).IsEmpty() {
 		if len(rule.ExcludeResources.Any) > 0 {
 			// exclude the object if ANY of the criteria match
 			for _, rer := range rule.ExcludeResources.Any {
@@ -270,7 +266,7 @@ func matchesResourceDescriptionMatchHelper(
 	}
 
 	// checking if resource matches the rule
-	if !datautils.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
+	if !rmr.ResourceDescription.IsEmpty() ||
 		!datautils.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
 		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)
 		errs = append(errs, matchErrs...)
@@ -291,7 +287,7 @@ func matchesResourceDescriptionExcludeHelper(
 ) []error {
 	var errs []error
 	// checking if resource matches the rule
-	if !datautils.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
+	if !rer.ResourceDescription.IsEmpty() ||
 		!datautils.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
 		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)
 		// it was a match so we want to exclude it
