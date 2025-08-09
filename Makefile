@@ -652,6 +652,7 @@ endef
 .PHONY: helm-setup-openreports
 helm-setup-openreports: $(HELM) ## Add openreports helm repo and build dependencies
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
+	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) dependency build ./charts/kyverno
 
 .PHONY: codegen-helm-crds

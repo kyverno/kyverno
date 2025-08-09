@@ -33,7 +33,7 @@ Reports Server readiness init container
       if ! command -v kubectl >/dev/null 2>&1; then
         echo "kubectl not available in this image, using basic readiness check"
         while [ $elapsed -lt $timeout ]; do
-          if nc -z reports-server.{{ include "kyverno.namespace" . }}.svc.cluster.local 443 2>/dev/null; then
+          if nc -z {{ .Release.Name }}-reports-server.{{ include "kyverno.namespace" . }}.svc.cluster.local 443 2>/dev/null; then
             echo "Reports-server is responding on port 443!"
             exit 0
           fi
@@ -44,8 +44,8 @@ Reports Server readiness init container
       else
         # Use kubectl for more sophisticated checks
         while [ $elapsed -lt $timeout ]; do
-          if kubectl get endpoints reports-server -n {{ include "kyverno.namespace" . }} > /dev/null 2>&1; then
-            if kubectl get endpoints reports-server -n {{ include "kyverno.namespace" . }} -o jsonpath='{.subsets[*].addresses[*].ip}' | grep -q .; then
+          if kubectl get endpoints {{ .Release.Name }}-reports-server -n {{ include "kyverno.namespace" . }} > /dev/null 2>&1; then
+            if kubectl get endpoints {{ .Release.Name }}-reports-server -n {{ include "kyverno.namespace" . }} -o jsonpath='{.subsets[*].addresses[*].ip}' | grep -q .; then
               echo "Reports-server is ready!"
               exit 0
             fi

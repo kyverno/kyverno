@@ -40,10 +40,7 @@ This ensures proper initialization sequence.
 To access reports-server, use:
   kubectl port-forward -n {{ include "kyverno.namespace" . }} svc/reports-server 8080:443
 
-Then visit https://localhost:8080
 
-For more information about reports-server, visit:
-https://github.com/kyverno/reports-server
 
 {{- end }}
 
