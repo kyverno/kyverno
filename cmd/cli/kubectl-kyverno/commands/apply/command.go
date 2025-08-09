@@ -421,8 +421,8 @@ func (c *ApplyCommandConfig) applyPolicies(
 	namespaceCache := make(map[string]*unstructured.Unstructured)
 
 	params := make([]runtime.Object, len(parameterResources))
-	for _, p := range parameterResources {
-		params = append(params, p)
+	for i, p := range parameterResources {
+		params[i] = p
 	}
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
