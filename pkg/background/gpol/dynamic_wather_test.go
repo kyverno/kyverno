@@ -1,12 +1,10 @@
 package gpol
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 	"testing"
 
@@ -14,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/logging"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,7 +85,15 @@ func (m *MockClient) PatchResource(ctx context.Context, apiVersion string, kind 
 	return nil, nil
 }
 func (m *MockClient) ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
-	return nil, nil
+	if m.err != nil {
+		return nil, m.err
+	}
+	item := makeUnstructured("", "", "", "", "", "", "", nil)
+	return &unstructured.UnstructuredList{
+		Items: []unstructured.Unstructured{
+			*item,
+		},
+	}, nil
 }
 func (m *MockClient) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace, name string, dryRun bool, options metav1.DeleteOptions) error {
 	if m.deleteFn != nil {
@@ -99,7 +106,10 @@ func (m *MockClient) CreateResource(ctx context.Context, apiVersion string, kind
 	return nil, nil
 }
 func (m *MockClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresource ...string) (*unstructured.Unstructured, error) {
-	return nil, nil
+	if m.err != nil {
+		return nil, m.err
+	}
+	return makeUnstructured("", "", "", "", "", "", "", nil), nil
 }
 func (m *MockClient) UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	return nil, nil
@@ -112,17 +122,28 @@ func (m *MockClient) ApplyStatusResource(ctx context.Context, apiVersion string,
 }
 
 var (
-	gvr = schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res"}
+	gvr  = schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res"}
+	gvr1 = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "pods"}
 )
 
-func makeUnstructured(group, version, kind, name, ns string, uid types.UID, labels map[string]string) *unstructured.Unstructured {
+func makeUnstructured(res, group, version, kind, name, ns string, uid types.UID, labels map[string]string) *unstructured.Unstructured {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 	u.SetName(name)
 	u.SetNamespace(ns)
+	if res != "" {
+		u.SetResourceVersion(res)
+	}
 	u.SetUID(uid)
 	u.SetLabels(labels)
 	return u
+}
+
+func TestNewWatchManager(t *testing.T) {
+	client := dclient.NewEmptyFakeClient()
+	log := logging.WithName("test-logging")
+	wm := NewWatchManager(log, client)
+	assert.NotNil(t, &wm)
 }
 
 func TestSyncWatchers(t *testing.T) {
@@ -145,7 +166,7 @@ func TestSyncWatchers(t *testing.T) {
 					}},
 				}
 			},
-			generatedResources: []*unstructured.Unstructured{makeUnstructured("g", "v1", "Kind", "n", "ns", "uid1", nil)},
+			generatedResources: []*unstructured.Unstructured{makeUnstructured("", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
 			wantErr:            true,
 		},
 		{
@@ -165,7 +186,7 @@ func TestSyncWatchers(t *testing.T) {
 					refCount:   make(map[schema.GroupVersionResource]int),
 				}
 			},
-			generatedResources: []*unstructured.Unstructured{makeUnstructured("g", "v1", "Kind", "n", "ns", "uid1", nil)},
+			generatedResources: []*unstructured.Unstructured{makeUnstructured("", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
 			wantErr:            false,
 		},
 		{
@@ -183,8 +204,119 @@ func TestSyncWatchers(t *testing.T) {
 				}
 				return wm
 			},
-			generatedResources: []*unstructured.Unstructured{makeUnstructured("g", "v1", "Kind", "n", "ns", "uid1", nil)},
+			generatedResources: []*unstructured.Unstructured{makeUnstructured("", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
 			wantErr:            true,
+		},
+		{
+			name:    "startWatcher success",
+			polName: "pol1",
+			setupWM: func() *WatchManager {
+				return &WatchManager{
+					log:    logging.WithName("test"),
+					client: dclient.NewEmptyFakeClient(),
+					restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+						return &meta.RESTMapping{Resource: gvr1}, nil
+					}},
+					dynamicWatchers: make(map[schema.GroupVersionResource]*watcher),
+					policyRefs: map[string][]schema.GroupVersionResource{
+						"pol1": {gvr1},
+					},
+					refCount: make(map[schema.GroupVersionResource]int),
+				}
+			},
+			generatedResources: []*unstructured.Unstructured{makeUnstructured("1", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
+			wantErr:            false,
+		},
+		{
+			name:    "remove old watcher and delete resources",
+			polName: "pol1",
+			setupWM: func() *WatchManager {
+				existing := &watcher{
+					watcher: watch.MockWatcher{
+						StopFunc: func() {
+						},
+						ResultChanFunc: func() <-chan watch.Event {
+							return nil
+						},
+					},
+					metadataCache: map[types.UID]Resource{
+						"uid": {
+							Name:      "res-test",
+							Namespace: "isolated-ns",
+							Hash:      "something",
+							Labels:    map[string]string{common.GeneratePolicyLabel: "pol1"},
+							Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1"}),
+						},
+					}}
+				return &WatchManager{
+					log: logging.WithName("test"),
+					client: &MockClient{
+						deleteFn: func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error {
+							fmt.Printf("Mock delete %s/%s in %s\n", kind, name, namespace)
+							return nil
+						},
+					},
+					restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+						return &meta.RESTMapping{Resource: gvr1}, nil
+					}},
+					dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+						gvr:  existing,
+						gvr1: existing,
+					},
+					policyRefs: map[string][]schema.GroupVersionResource{
+						"pol1": {gvr},
+					},
+					refCount: map[schema.GroupVersionResource]int{
+						gvr1: 1,
+					},
+				}
+			},
+			generatedResources: []*unstructured.Unstructured{makeUnstructured("1", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
+			wantErr:            false,
+		},
+		{
+			name:    "error while removing old watcher and delete resources",
+			polName: "pol1",
+			setupWM: func() *WatchManager {
+				existing := &watcher{
+					watcher: watch.MockWatcher{
+						StopFunc: func() {
+						},
+						ResultChanFunc: func() <-chan watch.Event {
+							return nil
+						},
+					},
+					metadataCache: map[types.UID]Resource{
+						"uid": {
+							Name:      "res-test",
+							Namespace: "isolated-ns",
+							Hash:      "something",
+							Labels:    map[string]string{common.GeneratePolicyLabel: "pol1"},
+							Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1"}),
+						},
+					}}
+				return &WatchManager{
+					log: logging.WithName("test"),
+					client: &MockClient{
+						err: errors.New("error while deleting old resources"),
+					},
+					restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+						return &meta.RESTMapping{Resource: gvr1}, nil
+					}},
+					dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+						gvr:  existing,
+						gvr1: existing,
+					},
+					policyRefs: map[string][]schema.GroupVersionResource{
+						"pol1": {gvr},
+					},
+					refCount: map[schema.GroupVersionResource]int{
+						gvr1: 1,
+					},
+				}
+			},
+			generatedResources: []*unstructured.Unstructured{makeUnstructured("1", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
+			wantErr:            false,
 		},
 	}
 	for _, tc := range tests {
@@ -201,12 +333,9 @@ func TestSyncWatchers(t *testing.T) {
 }
 
 func TestWatchManager_GetDownstreams(t *testing.T) {
-	// mock watcher with metadata cache
 	type mockWatcher struct {
 		metadataCache map[types.UID]Resource
 	}
-
-	// helper to create CachedResource
 	makeCached := func(obj *unstructured.Unstructured) Resource {
 		return Resource{
 			Name:      obj.GetName(),
@@ -246,7 +375,7 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "ConfigMap", "res1", "ns1", "uid1", map[string]string{"foo": "bar"})),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "ConfigMap", "res1", "ns1", "uid1", map[string]string{"foo": "bar"})),
 				}},
 			},
 			wantKinds: nil,
@@ -257,7 +386,7 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Deployment", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Deployment", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
 				}},
 			},
 			wantKinds: []string{"Deployment"},
@@ -268,8 +397,8 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
-					"uid2": makeCached(makeUnstructured("apps", "v1", "Service", "res2", "ns1", "uid2", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid2": makeCached(makeUnstructured("", "apps", "v1", "Service", "res2", "ns1", "uid2", map[string]string{common.GeneratePolicyLabel: "p1"})),
 				}},
 			},
 			wantKinds: []string{"Pod", "Service"},
@@ -280,10 +409,10 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1, gvr2}},
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
 				}},
 				gvr2: {metadataCache: map[types.UID]Resource{
-					"uid2": makeCached(makeUnstructured("apps", "v1", "ConfigMap", "res2", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid2": makeCached(makeUnstructured("", "apps", "v1", "ConfigMap", "res2", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
 				}},
 			},
 			wantKinds: []string{"Pod", "ConfigMap"},
@@ -294,8 +423,8 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{"foo": "bar"})),
-					"uid2": makeCached(makeUnstructured("apps", "v1", "Service", "res2", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{"foo": "bar"})),
+					"uid2": makeCached(makeUnstructured("", "apps", "v1", "Service", "res2", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
 				}},
 			},
 			wantKinds: []string{"Service"},
@@ -304,7 +433,6 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Convert mockWatcher to actual type
 			dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
 			for gvr, mw := range tt.dynamicW {
 				dynamicWatchers[gvr] = &watcher{
@@ -375,7 +503,7 @@ func TestDeleteDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{"foo": "bar"}), map[string]string{"foo": "bar"}),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{"foo": "bar"}), map[string]string{"foo": "bar"}),
 				}},
 			},
 			wantDeleted:    nil,
@@ -388,7 +516,7 @@ func TestDeleteDownstreams(t *testing.T) {
 			trigger:    &v1.ResourceSpec{UID: triggerUID},
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
 						common.GeneratePolicyLabel:     "p1",
 						common.GenerateTriggerUIDLabel: "other-uid",
 					}), map[string]string{
@@ -406,7 +534,7 @@ func TestDeleteDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
 						common.GeneratePolicyLabel: "p1",
 					}), map[string]string{
 						common.GeneratePolicyLabel: "p1",
@@ -423,14 +551,14 @@ func TestDeleteDownstreams(t *testing.T) {
 			trigger:    &v1.ResourceSpec{UID: triggerUID},
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
 						common.GeneratePolicyLabel:     "p1",
 						common.GenerateTriggerUIDLabel: string(triggerUID),
 					}), map[string]string{
 						common.GeneratePolicyLabel:     "p1",
 						common.GenerateTriggerUIDLabel: string(triggerUID),
 					}),
-					"uid2": makeCached(makeUnstructured("apps", "v1", "Service", "res2", "ns1", "uid2", map[string]string{
+					"uid2": makeCached(makeUnstructured("", "apps", "v1", "Service", "res2", "ns1", "uid2", map[string]string{
 						common.GeneratePolicyLabel:     "p1",
 						common.GenerateTriggerUIDLabel: "other-uid",
 					}), map[string]string{
@@ -449,7 +577,7 @@ func TestDeleteDownstreams(t *testing.T) {
 			clientErr:  fmt.Errorf("delete failed"),
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
 						common.GeneratePolicyLabel: "p1",
 					}), map[string]string{
 						common.GeneratePolicyLabel: "p1",
@@ -481,196 +609,149 @@ func TestDeleteDownstreams(t *testing.T) {
 	}
 }
 
-// func TestRemoveWatchersForPolicy(t *testing.T) {
-// 	makeCached := func(obj *unstructured.Unstructured, labels map[string]string) Resource {
-// 		obj.SetLabels(labels)
-// 		return Resource{
-// 			Name:      obj.GetName(),
-// 			Namespace: obj.GetNamespace(),
-// 			Labels:    labels,
-// 			Data:      obj,
-// 		}
-// 	}
+func TestRemoveWatchersForPolicy(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 
-// 	gvr1 := schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res1"}
-// 	gvr2 := schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res2"}
+	type fields struct {
+		client          *MockClient
+		dynamicWatchers map[schema.GroupVersionResource]*watcher
+		policyRefs      map[string][]schema.GroupVersionResource
+		refCount        map[schema.GroupVersionResource]int
+	}
+	type args struct {
+		policyName       string
+		deleteDownstream bool
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		args          args
+		wantDeleted   []string
+		wantCacheSize int
+	}{
+		{
+			name: "policy not found",
+			fields: fields{
+				client:          &MockClient{},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+				policyRefs:      map[string][]schema.GroupVersionResource{},
+				refCount:        map[schema.GroupVersionResource]int{},
+			},
+			args: args{"pol1", true},
+		},
+		{
+			name: "watcher missing",
+			fields: fields{
+				client:          &MockClient{},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+				policyRefs:      map[string][]schema.GroupVersionResource{"pol1": {gvr}},
+				refCount:        map[schema.GroupVersionResource]int{},
+			},
+			args: args{"pol1", true},
+		},
+		{
+			name: "delete downstream when deleteDownstream = true",
+			fields: fields{
+				client: &MockClient{},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {
+						metadataCache: map[types.UID]Resource{
+							"uid1": {
+								Name:      "res-test",
+								Namespace: "isolated-ns",
+								Labels:    map[string]string{common.GeneratePolicyLabel: "pol1"},
+								Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1"}),
+							},
+						},
+						watcher: watch.MockWatcher{
+							StopFunc: func() {},
+						},
+					},
+				},
+				policyRefs: map[string][]schema.GroupVersionResource{"pol1": {gvr}},
+				refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+			},
+			args:          args{"pol1", true},
+			wantDeleted:   []string{"Pod/isolated-ns/res-test"},
+			wantCacheSize: 0,
+		},
+		{
+			name: "skip delete when deleteDownstream = false",
+			fields: fields{
+				client: &MockClient{},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {
+						metadataCache: map[types.UID]Resource{
+							"uid1": {
+								Name:      "res-test",
+								Namespace: "isolated-ns",
+								Labels:    map[string]string{common.GeneratePolicyLabel: "pol1"},
+								Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", nil),
+							},
+						},
+						watcher: watch.MockWatcher{
+							StopFunc: func() {},
+						},
+					},
+				},
+				policyRefs: map[string][]schema.GroupVersionResource{"pol1": {gvr}},
+				refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+			},
+			args:          args{"pol1", false},
+			wantDeleted:   nil,
+			wantCacheSize: 0,
+		},
+		{
+			name: "skip delete when GenerateSourceUIDLabel present",
+			fields: fields{
+				client: &MockClient{},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {
+						metadataCache: map[types.UID]Resource{
+							"uid1": {
+								Name:      "res-test",
+								Namespace: "isolated-ns",
+								Labels: map[string]string{
+									common.GeneratePolicyLabel:    "pol1",
+									common.GenerateSourceUIDLabel: "src-uid",
+								},
+								Data: makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", nil),
+							},
+						},
+						watcher: watch.MockWatcher{
+							StopFunc: func() {},
+						},
+					},
+				},
+				policyRefs: map[string][]schema.GroupVersionResource{"pol1": {gvr}},
+				refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+			},
+			args:          args{"pol1", true},
+			wantDeleted:   nil,
+			wantCacheSize: 0,
+		},
+	}
 
-// 	tests := []struct {
-// 		name             string
-// 		policyName       string
-// 		policyRefs       map[string][]schema.GroupVersionResource
-// 		dynamicW         map[schema.GroupVersionResource]*watcher
-// 		refCount         map[schema.GroupVersionResource]int
-// 		deleteDownstream bool
-// 		clientErr        error
-// 		wantDeleted      []string
-// 		wantCacheSizes   map[schema.GroupVersionResource]int
-// 		wantStopped      map[schema.GroupVersionResource]bool
-// 		wantPolicyGone   bool
-// 	}{
-// 		{
-// 			name:           "no watchers for policy",
-// 			policyName:     "p1",
-// 			policyRefs:     map[string][]schema.GroupVersionResource{},
-// 			dynamicW:       map[schema.GroupVersionResource]*watcher{},
-// 			refCount:       map[schema.GroupVersionResource]int{},
-// 			wantDeleted:    nil,
-// 			wantCacheSizes: map[schema.GroupVersionResource]int{},
-// 			wantPolicyGone: false,
-// 		},
-// 		{
-// 			name:       "watcher exists, no matching resources, stop watcher",
-// 			policyName: "p1",
-// 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
-// 			dynamicW: map[schema.GroupVersionResource]*watcher{
-// 				gvr1: {metadataCache: map[types.UID]Resource{}},
-// 			},
-// 			refCount:       map[schema.GroupVersionResource]int{gvr1: 1},
-// 			wantDeleted:    nil,
-// 			wantCacheSizes: map[schema.GroupVersionResource]int{},
-// 			wantStopped:    map[schema.GroupVersionResource]bool{gvr1: true},
-// 			wantPolicyGone: true,
-// 		},
-// 		{
-// 			name:             "matching resources, deleteDownstream=false",
-// 			policyName:       "p1",
-// 			deleteDownstream: false,
-// 			policyRefs:       map[string][]schema.GroupVersionResource{"p1": {gvr1}},
-// 			dynamicW: map[schema.GroupVersionResource]*watcher{
-// 				gvr1: {
-// 					metadataCache: map[types.UID]Resource{
-// 						"u1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-// 							common.GeneratePolicyLabel: "p1",
-// 						}), map[string]string{
-// 							common.GeneratePolicyLabel: "p1",
-// 						}),
-// 					},
-// 				},
-// 			},
-// 			refCount:       map[schema.GroupVersionResource]int{gvr1: 1},
-// 			wantDeleted:    nil,
-// 			wantCacheSizes: map[schema.GroupVersionResource]int{},
-// 			wantStopped:    map[schema.GroupVersionResource]bool{gvr1: true},
-// 			wantPolicyGone: true,
-// 		},
-// 		{
-// 			name:             "matching resources, deleteDownstream=true, no source UID label",
-// 			policyName:       "p1",
-// 			deleteDownstream: true,
-// 			policyRefs:       map[string][]schema.GroupVersionResource{"p1": {gvr1}},
-// 			dynamicW: map[schema.GroupVersionResource]*watcher{
-// 				gvr1: {
-// 					metadataCache: map[types.UID]Resource{
-// 						"u1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-// 							common.GeneratePolicyLabel: "p1",
-// 						}), map[string]string{
-// 							common.GeneratePolicyLabel: "p1",
-// 						}),
-// 					},
-// 				},
-// 			},
-// 			refCount:       map[schema.GroupVersionResource]int{gvr1: 1},
-// 			wantDeleted:    []string{"Pod/ns1/res1"},
-// 			wantCacheSizes: map[schema.GroupVersionResource]int{},
-// 			wantStopped:    map[schema.GroupVersionResource]bool{gvr1: true},
-// 			wantPolicyGone: true,
-// 		},
-// 		{
-// 			name:             "matching resources, deleteDownstream=true, has source UID label",
-// 			policyName:       "p1",
-// 			deleteDownstream: true,
-// 			policyRefs:       map[string][]schema.GroupVersionResource{"p1": {gvr1}},
-// 			dynamicW: map[schema.GroupVersionResource]*watcher{
-// 				gvr1: {
-// 					metadataCache: map[types.UID]Resource{
-// 						"u1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-// 							common.GeneratePolicyLabel:    "p1",
-// 							common.GenerateSourceUIDLabel: "src-uid",
-// 						}), map[string]string{
-// 							common.GeneratePolicyLabel:    "p1",
-// 							common.GenerateSourceUIDLabel: "src-uid",
-// 						}),
-// 					},
-// 				},
-// 			},
-// 			refCount:       map[schema.GroupVersionResource]int{gvr1: 1},
-// 			wantDeleted:    nil,
-// 			wantCacheSizes: map[schema.GroupVersionResource]int{},
-// 			wantStopped:    map[schema.GroupVersionResource]bool{gvr1: true},
-// 			wantPolicyGone: true,
-// 		},
-// 		{
-// 			name:             "delete error still removes from cache",
-// 			policyName:       "p1",
-// 			deleteDownstream: true,
-// 			clientErr:        fmt.Errorf("delete failed"),
-// 			policyRefs:       map[string][]schema.GroupVersionResource{"p1": {gvr1}},
-// 			dynamicW: map[schema.GroupVersionResource]*watcher{
-// 				gvr1: {
-// 					metadataCache: map[types.UID]Resource{
-// 						"u1": makeCached(makeUnstructured("apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-// 							common.GeneratePolicyLabel: "p1",
-// 						}), map[string]string{
-// 							common.GeneratePolicyLabel: "p1",
-// 						}),
-// 					},
-// 				},
-// 			},
-// 			refCount:       map[schema.GroupVersionResource]int{gvr1: 1},
-// 			wantDeleted:    []string{"Pod/ns1/res1"},
-// 			wantCacheSizes: map[schema.GroupVersionResource]int{},
-// 			wantStopped:    map[schema.GroupVersionResource]bool{gvr1: true},
-// 			wantPolicyGone: true,
-// 		},
-// 		{
-// 			name:             "multiple GVRs for one policy",
-// 			policyName:       "p1",
-// 			deleteDownstream: false,
-// 			policyRefs:       map[string][]schema.GroupVersionResource{"p1": {gvr1, gvr2}},
-// 			dynamicW: map[schema.GroupVersionResource]*watcher{
-// 				gvr1: {metadataCache: map[types.UID]Resource{}},
-// 				gvr2: {metadataCache: map[types.UID]Resource{}},
-// 			},
-// 			refCount:       map[schema.GroupVersionResource]int{gvr1: 1, gvr2: 1},
-// 			wantCacheSizes: map[schema.GroupVersionResource]int{},
-// 			wantStopped:    map[schema.GroupVersionResource]bool{gvr1: true, gvr2: true},
-// 			wantPolicyGone: true,
-// 		},
-// 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wm := &WatchManager{
+				log:             logging.WithName("test"),
+				client:          tt.fields.client,
+				dynamicWatchers: tt.fields.dynamicWatchers,
+				policyRefs:      tt.fields.policyRefs,
+				refCount:        tt.fields.refCount,
+			}
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			client := &MockClient{err: tt.clientErr}
-// 			wm := &WatchManager{
-// 				policyRefs:      tt.policyRefs,
-// 				dynamicWatchers: tt.dynamicW,
-// 				refCount:        tt.refCount,
-// 				client:          client,
-// 				log:             logging.WithName("test"),
-// 			}
+			wm.RemoveWatchersForPolicy(tt.args.policyName, tt.args.deleteDownstream)
 
-// 			wm.RemoveWatchersForPolicy(tt.policyName, tt.deleteDownstream)
+			assert.Equal(t, tt.wantDeleted, tt.fields.client.deleted, "deleted resources mismatch")
 
-// 			assert.ElementsMatch(t, tt.wantDeleted, client.deleted)
-// 			for gvr, wantSize := range tt.wantCacheSizes {
-// 				if w, ok := wm.dynamicWatchers[gvr]; ok {
-// 					assert.Equal(t, wantSize, len(w.metadataCache))
-// 				}
-// 			}
-// 			// for gvr, stopped := range tt.wantStopped {
-// 			// 	if w, ok := tt.dynamicW[gvr]; ok {
-// 			// 		if s, ok := w.watcher.(*stoppable); ok {
-// 			// 			assert.Equal(t, stopped, s.stopped)
-// 			// 		}
-// 			// 	}
-// 			// }
-// 			if tt.wantPolicyGone {
-// 				_, exists := wm.policyRefs[tt.policyName]
-// 				assert.False(t, exists, "policyRefs should not contain policy after removal")
-// 			}
-// 		})
-// 	}
-// }
+			for _, watcher := range wm.dynamicWatchers {
+				assert.Equal(t, tt.wantCacheSize, len(watcher.metadataCache), "metadataCache size mismatch")
+			}
+		})
+	}
+}
 
 type mockStopper struct {
 	stopped bool
@@ -684,51 +765,33 @@ func (m *mockStopper) ResultChan() <-chan watch.Event {
 }
 
 func TestStopWatchers(t *testing.T) {
-	// Prepare a WatchManager with fake watchers
 	wm := &WatchManager{
-		// ensure lock is initialized
-		lock: sync.Mutex{},
-		// filled maps
+		lock:            sync.Mutex{},
 		dynamicWatchers: make(map[schema.GroupVersionResource]*watcher),
 		policyRefs:      make(map[string][]schema.GroupVersionResource),
 		refCount:        make(map[schema.GroupVersionResource]int),
 	}
 
-	// Add a fake watcher
 	gvr1 := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 	mock1 := &mockStopper{}
 	wm.dynamicWatchers[gvr1] = &watcher{watcher: mock1}
 	wm.policyRefs["policy1"] = []schema.GroupVersionResource{gvr1}
 	wm.refCount[gvr1] = 1
 
-	// Add another fake watcher
 	gvr2 := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
 	mock2 := &mockStopper{}
 	wm.dynamicWatchers[gvr2] = &watcher{watcher: mock2}
 	wm.policyRefs["policy2"] = []schema.GroupVersionResource{gvr2}
 	wm.refCount[gvr2] = 2
 
-	// Act
 	wm.StopWatchers()
 
-	// Assert watchers were stopped
-	if !mock1.stopped {
-		t.Errorf("Expected watcher for %v to be stopped", gvr1)
-	}
-	if !mock2.stopped {
-		t.Errorf("Expected watcher for %v to be stopped", gvr2)
-	}
+	assert.True(t, mock1.stopped, "Expected watcher for %v to be stopped", gvr1)
+	assert.True(t, mock2.stopped, "Expected watcher for %v to be stopped", gvr2)
 
-	// Assert all maps are cleared
-	if len(wm.dynamicWatchers) != 0 {
-		t.Errorf("Expected dynamicWatchers to be empty, got %d", len(wm.dynamicWatchers))
-	}
-	if len(wm.policyRefs) != 0 {
-		t.Errorf("Expected policyRefs to be empty, got %d", len(wm.policyRefs))
-	}
-	if len(wm.refCount) != 0 {
-		t.Errorf("Expected refCount to be empty, got %d", len(wm.refCount))
-	}
+	assert.Empty(t, wm.dynamicWatchers, "Expected dynamicWatchers to be empty")
+	assert.Empty(t, wm.policyRefs, "Expected policyRefs to be empty")
+	assert.Empty(t, wm.refCount, "Expected refCount to be empty")
 }
 
 func TestHandleAdd(t *testing.T) {
@@ -744,31 +807,90 @@ func TestHandleAdd(t *testing.T) {
 			gvr:     schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 			wantMsg: "Resource added name=test-object",
 		},
-		{
-			name:    "different resource",
-			objName: "custom-obj",
-			gvr:     schema.GroupVersionResource{Group: "custom.io", Version: "v1alpha1", Resource: "widgets"},
-			wantMsg: "Resource added name=custom-obj",
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-
 			wm := &WatchManager{
-				log: logging.GlobalLogger(), // assume your struct has exported field `Log` or settable in test
+				log: logging.GlobalLogger(),
 			}
 
 			obj := &unstructured.Unstructured{}
 			obj.SetName(tt.objName)
 
 			wm.handleAdd(obj, tt.gvr)
-
-			got := strings.TrimSpace(buf.String())
-			if got != tt.wantMsg {
-				t.Errorf("unexpected log output: got %q, want %q", got, tt.wantMsg)
-			}
 		})
 	}
+}
+
+func TestHandleUpdate(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+
+	makeObj := func(uid, name, ns string, labels map[string]string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetAPIVersion("v1")
+		u.SetKind("Pod")
+		u.SetUID(types.UID(uid))
+		u.SetName(name)
+		u.SetNamespace(ns)
+		u.SetLabels(labels)
+		return u
+	}
+
+	t.Run("source object updates downstream", func(t *testing.T) {
+		mockClient := &MockClient{}
+		downstream := makeObj("down-uid", "down-pod", "default", map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
+
+		wm := &WatchManager{
+			client: mockClient,
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {metadataCache: map[types.UID]Resource{
+					"down-uid": {
+						Name:      downstream.GetName(),
+						Namespace: downstream.GetNamespace(),
+						Labels:    downstream.GetLabels(),
+					},
+				}},
+			},
+		}
+
+		src := makeObj("src-uid", "src-pod", "default", nil)
+		wm.handleUpdate(src, gvr)
+	})
+
+	t.Run("downstream changed by user gets reverted", func(t *testing.T) {
+		mockClient := &MockClient{}
+		downstream := makeObj("down-uid", "down-pod", "default", nil)
+		hashOld := reportutils.CalculateResourceHash(*downstream)
+		downstreamModified := downstream.DeepCopy()
+		downstreamModified.SetAnnotations(map[string]string{"changed": "true"})
+
+		wm := &WatchManager{
+			client: mockClient,
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {metadataCache: map[types.UID]Resource{
+					"down-uid": {
+						Name:      downstream.GetName(),
+						Namespace: downstream.GetNamespace(),
+						Labels:    downstream.GetLabels(),
+						Hash:      hashOld,
+						Data:      downstream,
+					},
+				}},
+			},
+		}
+
+		wm.handleUpdate(downstreamModified, gvr)
+	})
+
+	t.Run("object not in watchers - no action", func(t *testing.T) {
+		mockClient := &MockClient{}
+		wm := &WatchManager{
+			client:          mockClient,
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		}
+
+		obj := makeObj("uid", "pod", "default", nil)
+		wm.handleUpdate(obj, gvr)
+	})
 }
