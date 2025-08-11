@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: generate-secrets
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the source
     try:
     - apply:
@@ -35,11 +31,8 @@ spec:
     try:
     - apply:
         file: namespace.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 10s
   - name: check that the report is generated
     try:
     - assert:
-        file: report-assert.yaml  
+        file: report-assert.yaml
+        timeout: 30s  

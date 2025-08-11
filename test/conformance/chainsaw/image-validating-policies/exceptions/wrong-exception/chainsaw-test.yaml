@@ -9,8 +9,8 @@ spec:
     try:
     - create:
         file: exception.yaml
-    - sleep:
-        duration: 10s
+    - assert:
+        file: exception.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -25,15 +25,17 @@ spec:
         bindings:
         - name: name
           value: ivpol-sample
-  - name: create good deployment
+  - name: create good pod
     try:
     - create:
-        file: good-deployment.yaml
-  - name: create skipped deployment
+        file: good-pod.yaml
+    - assert:
+        file: good-pod.yaml
+  - name: create skipped pod
     try:
     - create:
-        file: skipped-deployment.yaml
+        file: skipped-pod.yaml
         expect:
           - check:
               ($error): >-
-                 admission webhook "ivpol.validate.kyverno.svc-ignore-finegrained-ivpol-sample" denied the request: Policy ivpol-sample failed: failed to verify image with notary cert
+                admission webhook "ivpol.validate.kyverno.svc-ignore-finegrained-ivpol-sample" denied the request: Policy ivpol-sample failed: failed to verify image with notary cert

@@ -2,13 +2,13 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: basic-generate-data
+  name: cpol-generate-data
 spec:
   steps:
-  - name: create namespace
+  - name: create permissions
     try:
     - apply:
-        file: namespace.yaml
+        file: permissions.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -22,12 +22,13 @@ spec:
       with:
         bindings:
         - name: name
-          value: basic-generate-data
-  - name: sleep
+          value: cpol-generate-data
+  - name: create the trigger
     try:
-    - sleep:
-        duration: 5s
+    - apply:
+        file: namespace.yaml
   - name: check that the configmap is generated
     try:
     - assert:
-        file: configmap-assert.yaml
+        file: downstream-assert.yaml
+        timeout: 30s
