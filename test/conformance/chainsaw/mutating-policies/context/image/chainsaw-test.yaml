@@ -22,10 +22,6 @@ spec:
           bindings:
           - name: name
             value: mpol-lib-image
-    - name: sleep
-      try:
-        - sleep:
-            duration: 10s
     - name: create pods 
       try:
         - apply:

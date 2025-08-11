@@ -19,19 +19,17 @@ spec:
     try:
     - create:
         file: exception.yaml
-    - sleep:
-        duration: 10s
   - name: check report for the skipped deployment
     try:
     - assert:
         file: skipped-report-assert.yaml
+        timeout: 15s
   - name: create bad deployment
     try:
     - create:
         file: bad-deployment.yaml
-    - sleep:
-        duration: 10s
   - name: check report for the bad deployment
     try:
     - assert:
         file: fail-report-assert.yaml
+        timeout: 15s

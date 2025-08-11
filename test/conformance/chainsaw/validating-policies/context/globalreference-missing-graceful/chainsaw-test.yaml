@@ -40,10 +40,6 @@ spec:
         file: gctxentry.yaml
     - assert:
         file: gctxentry.yaml
-  - name: wait for globalcontextentry to be ready
-    try:
-    - sleep:
-        duration: 5s
   - name: create policy that should work with existing gctx
     try:
     - apply:

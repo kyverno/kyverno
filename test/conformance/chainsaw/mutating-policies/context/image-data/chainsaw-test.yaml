@@ -18,20 +18,12 @@ spec:
           bindings:
           - name: name
             value: mpol-image-data
-    - name: sleep
-      try:
-        - sleep:
-            duration: 5s
     - name: create pods 
       try:
         - apply:
             file: pod.yaml
         - assert:
             file: pod.yaml
-    - name: sleep
-      try:
-        - sleep:
-            duration: 5s
     - name: verify mutated pods
       try:
         - assert:

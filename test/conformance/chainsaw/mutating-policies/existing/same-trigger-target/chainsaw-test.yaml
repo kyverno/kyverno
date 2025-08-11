@@ -25,10 +25,6 @@ spec:
         bindings:
         - name: name
           value: test-mpol-same-trigger-target
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: update resources
     try:
     - script:

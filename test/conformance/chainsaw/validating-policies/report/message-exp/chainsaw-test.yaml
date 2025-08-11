@@ -24,9 +24,8 @@ spec:
     try:
     - create:
         file: deployment.yaml
-    - sleep:
-        duration: 10s
   - name: check report
     try:
     - assert:
         file: report.yaml
+        timeout: 15s

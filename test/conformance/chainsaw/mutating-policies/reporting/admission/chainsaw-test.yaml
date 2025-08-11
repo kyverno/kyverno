@@ -22,10 +22,6 @@ spec:
         bindings:
         - name: name
           value: test-admission-reporting-mpol
-  - name: sleep
-    try:
-    - sleep:
-        duration: 10s
   - name: create ConfigMap
     try:
     - apply:
@@ -36,10 +32,6 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: verify-policy-report
     try:
     - assert:

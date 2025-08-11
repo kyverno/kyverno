@@ -19,10 +19,6 @@ spec:
         bindings:
         - name: name
           value: test-mpol-applyconfiguration
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: create deployments
     try:
     - create:
