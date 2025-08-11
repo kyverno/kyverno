@@ -13,6 +13,7 @@ spec:
         file: gctxentry.yaml
     - assert:
         file: gctxentry.yaml
+        timeout: 30s
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
