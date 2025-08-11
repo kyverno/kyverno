@@ -4,7 +4,7 @@ metadata:
   name: deleting-policy-http-lib
 spec:
   steps:
-    - name: step-01
+    - name: setup-http-service
       try: 
         - apply:
             file: rbac.yaml
@@ -12,22 +12,51 @@ spec:
             file: http-pod.yaml
         - apply:
             file: service.yaml
-    - name: step-02
+        - script:
+            content: |
+              #!/bin/sh
+              set -eu
+              kubectl wait --for=condition=Ready pod/test-api -n default --timeout=60s
+              # basic readiness probe
+              for i in 1 2 3 4 5 6 7 8 9 10; do
+                if kubectl run --rm -i --restart=Never --image=curlimages/curl:8.0.1 -n default curl -- -sSf http://test-api-service.default.svc.cluster.local/ >/dev/null 2>&1; then
+                  exit 0
+                fi
+                sleep 1
+              done
+              echo "service not ready" >&2
+              exit 1
+
+    - name: create-test-resources
       try:
         - apply:
             file: pod.yaml
 
-    - name: step-03
+    - name: create-policy
       try:
         - apply:
             file: policy.yaml
 
-    - name: step-04
+    - name: wait-for-deletion
       try:
-        - sleep:
-            duration: 65s
+        - script:
+            content: |
+              #!/bin/sh
+              set -eu
+              # Wait for the deleting policy to process the pod deletion
+              # Check every 5s for up to 60s
+              for i in $(seq 1 12); do
+                if ! kubectl get pod test-pod -n default >/dev/null 2>&1; then
+                  echo "Pod deletion completed"
+                  exit 0
+                fi
+                echo "Waiting for pod deletion... attempt $i/12"
+                sleep 5
+              done
+              echo "Pod deletion timed out"
+              exit 1
             
-    - name: step-05
+    - name: verify-deletion
       try:
         - error:
             file: pod-assert.yaml
