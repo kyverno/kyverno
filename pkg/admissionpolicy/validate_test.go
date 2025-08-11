@@ -195,8 +195,7 @@ spec:
 			assert.NilError(t, err)
 			restMapper, err := utils.GetRESTMapper(nil, false)
 			assert.NilError(t, err)
-			kinds, err := GetKinds(policy[0].Spec.MatchConstraints, restMapper)
-			assert.NilError(t, err)
+			kinds := GetKinds(policy[0].Spec.MatchConstraints, restMapper)
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
 				t.Errorf("Expected %v, got %v", tt.wantKinds, kinds)
 			}
