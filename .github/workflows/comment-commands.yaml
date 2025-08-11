@@ -75,7 +75,28 @@ jobs:
       - name: Extract target branch
         if: fromJSON(steps.check-merged.outputs.result).merged == true
         id: extract-branch
-        run: echo "branch=$(echo '${{ github.event.comment.body }}' | awk '{print $2}')" >> $GITHUB_OUTPUT
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          
+          # Keep only the first line
+          first_line="$(printf '%s' "$COMMENT_BODY" | tr -d '\r' | head -n1)"
+          candidate="$(printf '%s' "$first_line" | awk '{print $2}')"
+          
+          if [ -z "${candidate:-}" ]; then
+            echo "No branch in comment (expected: /cherry-pick <branch>)" >&2
+            exit 1
+          fi
+          
+          # Validate branch format using git
+          if ! git check-ref-format --branch "$candidate"; then
+            echo "Invalid branch name: $candidate" >&2
+            exit 1
+          fi
+          
+          echo "branch=$candidate" >> "$GITHUB_OUTPUT"
+
 
       - name: Comment PR Unmerged
         if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
