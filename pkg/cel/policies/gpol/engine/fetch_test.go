@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -38,35 +39,65 @@ func (f *fakePolexLister) PolicyExceptions(namespace string) v1alpha1.PolicyExce
 }
 
 func TestGet(t *testing.T) {
-	comp := compiler.NewCompiler()
-	gpol := &policiesv1alpha1.GeneratingPolicy{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "test-policy",
-		},
-	}
-	gpol.TypeMeta.Kind = "GeneratingPolicy"
+	t.Run("", func(t *testing.T) {
+		comp := compiler.NewCompiler()
+		gpol := &policiesv1alpha1.GeneratingPolicy{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "test-policy",
+			},
+		}
+		gpol.TypeMeta.Kind = "GeneratingPolicy"
 
-	exception := &policiesv1alpha1.PolicyException{
-		Spec: policiesv1alpha1.PolicyExceptionSpec{
-			PolicyRefs: []policiesv1alpha1.PolicyRef{
-				{
-					Name: "test-policy",
-					Kind: "GeneratingPolicy",
+		exception := &policiesv1alpha1.PolicyException{
+			Spec: policiesv1alpha1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1alpha1.PolicyRef{
+					{
+						Name: "test-policy",
+						Kind: "GeneratingPolicy",
+					},
 				},
 			},
-		},
-	}
+		}
 
-	fp := NewFetchProvider(
-		comp,
-		&fakeGpolLister{policy: gpol},
-		&fakePolexLister{exceptions: []*policiesv1alpha1.PolicyException{exception}},
-		true,
-	)
+		fp := NewFetchProvider(
+			comp,
+			&fakeGpolLister{policy: gpol},
+			&fakePolexLister{exceptions: []*policiesv1alpha1.PolicyException{exception}},
+			true,
+		)
 
-	policy, err := fp.Get(context.Background(), "test-policy")
-	assert.NoError(t, err)
-	assert.Equal(t, "test-policy", policy.Policy.GetName())
-	assert.Len(t, policy.Exceptions, 1)
-	assert.NotNil(t, policy.CompiledPolicy)
+		policy, err := fp.Get(context.Background(), "test-policy")
+		assert.NoError(t, err)
+		assert.Equal(t, "test-policy", policy.Policy.GetName())
+		assert.Len(t, policy.Exceptions, 1)
+		assert.NotNil(t, policy.CompiledPolicy)
+	})
+
+	t.Run("", func(t *testing.T) {
+		comp := compiler.NewCompiler()
+
+		fp := NewFetchProvider(
+			comp,
+			&fakeGpolLister{err: errors.New("forced error")},
+			&fakePolexLister{exceptions: []*policiesv1alpha1.PolicyException{nil}},
+			true,
+		)
+
+		_, err := fp.Get(context.Background(), "test-policy")
+		assert.Error(t, err)
+	})
+
+	t.Run("", func(t *testing.T) {
+		comp := compiler.NewCompiler()
+
+		fp := NewFetchProvider(
+			comp,
+			&fakeGpolLister{policy: nil},
+			&fakePolexLister{err: errors.New("error while test")},
+			true,
+		)
+
+		_, err := fp.Get(context.Background(), "test-policy")
+		assert.Error(t, err)
+	})
 }
