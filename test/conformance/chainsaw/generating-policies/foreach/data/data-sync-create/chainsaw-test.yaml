@@ -23,19 +23,12 @@ spec:
         bindings:
         - name: name
           value: foreach-data-sync-create
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create trigger
     try:
     - apply:
         file: trigger.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the networkpolicy is generated in each namespace
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

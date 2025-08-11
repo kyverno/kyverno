@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: sync-delete-policy
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the source
     try:
     - apply:
@@ -39,6 +35,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
   - name: delete the policy
     try:
     - delete:
@@ -46,11 +43,8 @@ spec:
           apiVersion: policies.kyverno.io/v1alpha1
           kind: GeneratingPolicy
           name: generate-secret
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstream still exists
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

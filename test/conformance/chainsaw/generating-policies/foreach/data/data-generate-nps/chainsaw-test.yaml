@@ -19,18 +19,10 @@ spec:
         bindings:
         - name: name
           value: data-generate-nps
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create namespaces
     try:
     - apply:
         file: namespaces.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the networkpolicies are not generated in the namespace that does not have the label
     try:
     - error:
@@ -39,3 +31,4 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

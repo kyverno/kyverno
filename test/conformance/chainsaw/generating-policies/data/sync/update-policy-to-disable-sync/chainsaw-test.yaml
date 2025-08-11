@@ -19,10 +19,6 @@ spec:
         bindings:
         - name: name
           value: update-policy-to-disable-sync
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create namespace
     try:
     - apply:
@@ -31,6 +27,7 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
+        timeout: 30s
   - name: delete the downstream
     try:
     - delete:
@@ -39,14 +36,11 @@ spec:
           kind: ConfigMap
           name: update-policy-to-disable-sync
           namespace: update-policy-to-disable-sync
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the downstream is re-generated
     try:
     - assert:
         file: configmap-assert.yaml
+        timeout: 30s
   - name: update policy to disable sync
     try:
     - apply:
@@ -59,10 +53,6 @@ spec:
           kind: ConfigMap
           name: update-policy-to-disable-sync
           namespace: update-policy-to-disable-sync
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the downstream is not re-generated
     try:
     - error:

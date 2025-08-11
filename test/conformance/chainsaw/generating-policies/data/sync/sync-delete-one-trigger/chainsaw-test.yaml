@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: data-sync-delete-one-trigger
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the first trigger
     try:
     - apply:
@@ -35,6 +31,7 @@ spec:
     try:
     - assert:
         file: first-downstream-assert.yaml
+        timeout: 30s
   - name: create the second trigger
     try:
     - apply:
@@ -43,6 +40,7 @@ spec:
     try:
     - assert:
         file: second-downstream-assert.yaml
+        timeout: 30s
   - name: delete one of the triggers
     try:
     - delete:
@@ -51,10 +49,6 @@ spec:
           kind: ConfigMap
           name: data-sync-delete-one-trigger-1
           namespace: data-sync-delete-one-trigger-1
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the corresponding downstream is deleted
     try:
     - error:
@@ -63,3 +57,4 @@ spec:
     try:
     - assert:
         file: second-downstream-assert.yaml
+        timeout: 30s

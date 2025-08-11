@@ -19,10 +19,6 @@ spec:
         bindings:
         - name: name
           value: generate-networkpolicy
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the trigger
     try:
     - apply:
@@ -31,6 +27,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
   - name: delete the trigger
     try:
     - delete:
@@ -38,10 +35,6 @@ spec:
           apiVersion: v1
           kind: ConfigMap
           name: data-sync-delete-trigger
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstream is deleted
     try:
     - error:

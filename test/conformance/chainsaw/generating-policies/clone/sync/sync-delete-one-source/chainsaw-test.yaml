@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: sync-delete-one-source
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the source
     try:
     - apply:
@@ -39,10 +35,13 @@ spec:
     try:
     - assert:
         file: downstream1-assert.yaml
+        timeout: 30s
     - assert:
         file: downstream2-assert.yaml
+        timeout: 30s
     - assert:
         file: downstream3-assert.yaml
+        timeout: 30s
   - name: delete one of the source
     try:
     - delete:
@@ -51,10 +50,6 @@ spec:
           kind: Secret
           name: sync-delete-one-source-1
           namespace: default
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the corresponding downstream is deleted
     try:
     - error:
@@ -63,5 +58,7 @@ spec:
     try:
     - assert:
         file: downstream2-assert.yaml
+        timeout: 30s
     - assert:
         file: downstream3-assert.yaml
+        timeout: 30s

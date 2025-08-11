@@ -31,23 +31,18 @@ spec:
         bindings:
         - name: name
           value: foreach-clone-list-sync-create
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create trigger
     try:
     - apply:
         file: trigger.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that three secrets are generated in each namespace
     try:
     - assert:
         file: downstream-assert1.yaml
+        timeout: 30s
     - assert:
         file: downstream-assert2.yaml
+        timeout: 30s
     - assert:
         file: downstream-assert3.yaml
+        timeout: 30s

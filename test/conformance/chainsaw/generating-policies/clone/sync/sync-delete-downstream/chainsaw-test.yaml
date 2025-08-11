@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: generate-secret
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the source
     try:
     - apply:
@@ -39,6 +35,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
   - name: delete the downstream
     try:
     - delete:
@@ -47,11 +44,8 @@ spec:
           kind: Secret
           name: sync-delete-downstream
           namespace: sync-delete-downstream
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the downstream is re-generated
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

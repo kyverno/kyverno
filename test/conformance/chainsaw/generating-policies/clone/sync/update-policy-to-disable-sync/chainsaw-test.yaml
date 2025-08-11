@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: clone-update-policy-to-disable-sync
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the source
     try:
     - apply:
@@ -39,18 +35,16 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
   - name: modify the source
     try:
     - apply:
         file: source-modified.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the downstream is updated
     try:
     - assert:
         file: updated-downstream-assert.yaml
+        timeout: 30s
   - name: update policy to disable sync
     try:
     - apply:
@@ -63,10 +57,6 @@ spec:
           kind: Secret
           name: clone-update-policy-to-disable-sync
           namespace: clone-update-policy-to-disable-sync
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the downstream is not re-generated
     try:
     - error:

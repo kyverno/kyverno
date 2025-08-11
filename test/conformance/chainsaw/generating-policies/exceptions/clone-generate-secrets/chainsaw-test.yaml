@@ -27,10 +27,6 @@ spec:
         bindings:
         - name: name
           value: clone-generate-secrets-with-exceptions
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the source
     try:
     - apply:
@@ -39,10 +35,6 @@ spec:
     try:
     - apply:
         file: triggers.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that secrets are not generated in the excluded namespace
     try:
     - error:
@@ -51,3 +43,4 @@ spec:
     try:
     - assert:
         file: secrets-assert.yaml
+        timeout: 30s

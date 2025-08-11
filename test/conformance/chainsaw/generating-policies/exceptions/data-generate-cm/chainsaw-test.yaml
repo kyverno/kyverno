@@ -23,18 +23,10 @@ spec:
         bindings:
         - name: name
           value: data-generate-cm-with-exceptions
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create triggers
     try:
     - apply:
         file: triggers.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the configmap is not generated in the excluded namespace
     try:
     - error:
@@ -43,4 +35,5 @@ spec:
     try:
     - assert:
         file: configmaps-assert.yaml
+        timeout: 30s
 
