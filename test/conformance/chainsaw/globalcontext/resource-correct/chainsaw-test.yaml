@@ -1,19 +1,19 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: cpol-resource-correct
+  name: resource-correct
 spec:
   steps:
-  - name: scenario
+  - name: setup resources and globalcontextentry
     try:
     - apply:
         file: namespace.yaml
     - apply:
-        file: main-deployment.yaml
+        file: main-configmap.yaml
     - apply:
         file: gctxentry.yaml
-    - sleep:
-        duration: 3s
+    - assert:
+        file: gctxentry.yaml
   - name: create policy
     use:
       template: ../../_step-templates/create-policy.yaml
@@ -28,8 +28,9 @@ spec:
         bindings:
         - name: name
           value: cpol-resource-correct
-  - try:
+  - name: test policy validation
+    try:
     - apply:
-        file: new-deployment.yaml
+        file: new-configmap.yaml
     - assert:
-        file: new-deployment-exists.yaml
+        file: new-configmap-exists.yaml

@@ -11,8 +11,8 @@ spec:
         file: configmap.yaml
     - apply:
         file: gctxentry.yaml
-    - sleep:
-        duration: 3s
+    - assert:
+        file: gctxentry.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -35,3 +35,4 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
