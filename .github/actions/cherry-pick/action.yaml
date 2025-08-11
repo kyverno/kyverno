@@ -55,17 +55,23 @@ runs:
         for target_branch in "${BRANCHES[@]}"; do
           echo "🔄 Cherry-picking to $target_branch..."
         
-          git fetch origin $target_branch
-          git checkout -b cherry-pick-${{ inputs.source-pr }}-${target_branch} origin/$target_branch
+          pr_branch_name=cherry-pick-${{ inputs.source-pr }}-${target_branch}
+        
+          git fetch --prune origin $target_branch
+          git checkout -B ${pr_branch_name} origin/$target_branch
         
           if git cherry-pick -m 1 ${{ inputs.merge-commit }}; then
-            git push origin cherry-pick-${{ inputs.source-pr }}-${target_branch}
+            git push --force-with-lease origin ${pr_branch_name}
         
-            gh pr create \
-              --title "${{ inputs.source-pr-title }} (Cherry-pick #${{ inputs.source-pr }})" \
-              --body "Cherry-pick #${{ inputs.source-pr }}" \
-              --base ${target_branch} \
-              --head cherry-pick-${{ inputs.source-pr }}-${target_branch}
+            if gh pr list --base "$target_branch" --head "$pr_branch_name" --state open --json number --jq '.[0].number' | grep -q .; then
+              echo "PR from '$pr_branch_name' to '$target_branch' already exists. Skipping creation"
+            else
+              gh pr create \
+                --title "${{ inputs.source-pr-title }} (Cherry-pick #${{ inputs.source-pr }})" \
+                --body "Cherry-pick #${{ inputs.source-pr }}" \
+                --base ${target_branch} \
+                --head cherry-pick-${{ inputs.source-pr }}-${target_branch}
+            fi
           else
             echo "❌ Error while cherry picking into ${target_branch}"
             git_logs+=$(git cherry-pick -m 1 ${{ inputs.merge-commit }} 2>&1)
