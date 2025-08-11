@@ -20,21 +20,29 @@ spec:
     try:
     - script:
         content: |
+          #!/bin/sh
+          set -eu
           kubectl wait --for=condition=available deployment/test-server -n http-cel-test --timeout=120s
-          echo "Test server is available"
-          kubectl get pods -l app=test-server -n http-cel-test -o wide
-          echo "Test server pod details"
-          kubectl describe pods -l app=test-server -n http-cel-test
-          echo "Test server logs"
-          kubectl logs -l app=test-server -n http-cel-test
-          echo "Test server service"
-          kubectl get svc test-server -n http-cel-test -o wide
-          echo "Testing server endpoint"
-          kubectl run curl --image=curlimages/curl -n http-cel-test -- curl -s http://test-server:8080/health
-          sleep 30
+          echo "Test server deployment is available"
+          
+          # Wait for pods to be ready
+          kubectl wait --for=condition=Ready pod -l app=test-server -n http-cel-test --timeout=60s
+          echo "Test server pods are ready"
+          
+          # Basic health check with retries
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if kubectl run --rm -i --restart=Never --image=curlimages/curl:8.0.1 -n http-cel-test curl-test -- -sSf http://test-server:8080/health >/dev/null 2>&1; then
+              echo "Test server health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying..."
+            sleep 2
+          done
+          echo "Test server health check failed after 10 attempts"
+          exit 1
   - name: create policy
     use:
-      template: ../../../../../_step-templates/validating-policy-ready.yaml
+      template: ../../../../../_step-templates/create-policy.yaml
       with:
         bindings:
         - name: file
