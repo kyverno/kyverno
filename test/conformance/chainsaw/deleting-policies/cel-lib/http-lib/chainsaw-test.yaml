@@ -46,7 +46,7 @@ spec:
               # Wait for the deleting policy to process the pod deletion
               # Check every 5s for up to 60s
               for i in $(seq 1 12); do
-                if ! kubectl get pod test-pod -n default >/dev/null 2>&1; then
+                if ! kubectl get pod example -n default >/dev/null 2>&1; then
                   echo "Pod deletion completed"
                   exit 0
                 fi

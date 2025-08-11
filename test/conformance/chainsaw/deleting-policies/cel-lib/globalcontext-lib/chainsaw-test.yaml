@@ -39,7 +39,7 @@ spec:
               
               # Wait up to 65 seconds for pod deletion
               for i in $(seq 1 65); do
-                if ! kubectl get pod test-pod -n default >/dev/null 2>&1; then
+                if ! kubectl get pod example -n default >/dev/null 2>&1; then
                   echo "Pod successfully deleted after ${i} seconds"
                   exit 0
                 fi
