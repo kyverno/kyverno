@@ -41,7 +41,7 @@ kyverno apply [flags]
       --batch-size int                     Number of resources to fetch per API call (default 100)
   -c, --cluster                            Checks if policies should be applied to cluster in the current context
       --cluster-wide-resources             If set to true, will apply policies to cluster-wide resources
-      --concurrent int                     Number of concurrent workers for resource loading
+      --concurrent int                     Number of concurrent workers for resource loading (default 1)
       --context string                     The name of the kubeconfig context to use
       --context-file string                File containing context data for CEL policies
       --continue-on-error                  Continue processing despite resource loading errors (default true)
