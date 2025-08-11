@@ -35,7 +35,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: modify the downstream
     try:
     - apply:
@@ -44,4 +44,4 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s

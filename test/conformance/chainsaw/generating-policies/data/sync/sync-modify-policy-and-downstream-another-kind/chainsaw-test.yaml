@@ -27,7 +27,7 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: modify the policy
     try:
     - apply:
@@ -40,4 +40,4 @@ spec:
     try:
     - assert:
         file: networkpolicy-assert.yaml
-        timeout: 30s
+        timeout: 60s

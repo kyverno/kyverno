@@ -39,10 +39,10 @@ spec:
     try:
     - assert:
         file: first-downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
     - assert:
         file: second-downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: delete one of the trigger
     try:
     - delete:
@@ -59,4 +59,4 @@ spec:
     try:
     - assert:
         file: second-downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s

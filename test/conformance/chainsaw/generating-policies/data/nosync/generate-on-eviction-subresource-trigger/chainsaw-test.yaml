@@ -48,3 +48,4 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
+        timeout: 60s

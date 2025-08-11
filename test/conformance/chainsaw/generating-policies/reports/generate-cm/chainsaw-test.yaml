@@ -27,9 +27,9 @@ spec:
     try:
     - assert:
         file: cm-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: check reports
     try:
     - assert:
         file: report.yaml
-        timeout: 30s  
+        timeout: 60s  

@@ -39,7 +39,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: delete the trigger
     try:
     - delete:

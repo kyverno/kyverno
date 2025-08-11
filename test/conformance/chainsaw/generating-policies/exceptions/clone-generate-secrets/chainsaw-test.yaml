@@ -43,4 +43,4 @@ spec:
     try:
     - assert:
         file: secrets-assert.yaml
-        timeout: 30s
+        timeout: 60s

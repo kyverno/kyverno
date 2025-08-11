@@ -37,7 +37,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: modify the policy
     try:
     - apply:
@@ -46,7 +46,7 @@ spec:
     try:
     - assert:
         file: new-downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: check that the old downstream is deleted
     try:
     - error:

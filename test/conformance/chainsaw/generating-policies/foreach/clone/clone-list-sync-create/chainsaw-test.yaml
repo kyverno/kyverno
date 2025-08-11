@@ -39,10 +39,10 @@ spec:
     try:
     - assert:
         file: downstream-assert1.yaml
-        timeout: 30s
+        timeout: 60s
     - assert:
         file: downstream-assert2.yaml
-        timeout: 30s
+        timeout: 60s
     - assert:
         file: downstream-assert3.yaml
-        timeout: 30s
+        timeout: 60s

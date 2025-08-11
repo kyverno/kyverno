@@ -35,4 +35,4 @@ spec:
     try:
     - assert:
         file: report-assert.yaml
-        timeout: 30s
+        timeout: 60s

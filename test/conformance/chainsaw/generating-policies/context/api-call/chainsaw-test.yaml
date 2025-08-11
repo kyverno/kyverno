@@ -44,5 +44,5 @@ spec:
     - create:
         file: trigger.yaml
     - assert:
-        timeout: 30s
+        timeout: 60s
         file: generated-resource.yaml

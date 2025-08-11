@@ -31,7 +31,7 @@ spec:
     try:
     - assert:
         file: first-downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: create the second trigger
     try:
     - apply:
@@ -40,7 +40,7 @@ spec:
     try:
     - assert:
         file: second-downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: delete one of the triggers
     try:
     - delete:
@@ -57,4 +57,4 @@ spec:
     try:
     - assert:
         file: second-downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s

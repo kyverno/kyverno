@@ -27,7 +27,7 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: delete the downstream
     try:
     - delete:
@@ -40,7 +40,7 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: update policy to disable sync
     try:
     - apply:

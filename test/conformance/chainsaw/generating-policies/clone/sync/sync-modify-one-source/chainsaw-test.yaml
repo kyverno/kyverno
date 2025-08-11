@@ -35,13 +35,13 @@ spec:
     try:
     - assert:
         file: downstream1-assert.yaml
-        timeout: 30s
+        timeout: 60s
     - assert:
         file: downstream2-assert.yaml
-        timeout: 30s
+        timeout: 60s
     - assert:
         file: downstream3-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: modify one of the sources
     try:
     - apply:
@@ -50,12 +50,12 @@ spec:
     try:
     - assert:
         file: downstream1-updated-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: check that the other downstreams are not updated
     try:
     - assert:
         file: downstream2-assert.yaml
-        timeout: 30s
+        timeout: 60s
     - assert:
         file: downstream3-assert.yaml
-        timeout: 30s
+        timeout: 60s

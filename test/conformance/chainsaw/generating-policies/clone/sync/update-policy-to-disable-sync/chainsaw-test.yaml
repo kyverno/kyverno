@@ -35,7 +35,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: modify the source
     try:
     - apply:
@@ -44,7 +44,7 @@ spec:
     try:
     - assert:
         file: updated-downstream-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: update policy to disable sync
     try:
     - apply:

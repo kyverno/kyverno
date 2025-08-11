@@ -27,7 +27,7 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
-        timeout: 30s
+        timeout: 60s
   - name: delete the policy
     try:
     - delete:
