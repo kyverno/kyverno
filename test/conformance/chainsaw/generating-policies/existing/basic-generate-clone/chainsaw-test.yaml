@@ -31,11 +31,8 @@ spec:
         bindings:
         - name: name
           value: basic-generate-clone
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that secrets are generated in the existing namespace
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

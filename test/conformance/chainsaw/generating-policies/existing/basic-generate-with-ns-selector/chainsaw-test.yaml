@@ -35,13 +35,10 @@ spec:
         bindings:
         - name: name
           value: basic-generate-with-ns-selector
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstream is generated
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
     - error:
         file: downstream-error.yaml

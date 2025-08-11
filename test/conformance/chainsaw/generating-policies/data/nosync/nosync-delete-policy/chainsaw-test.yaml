@@ -27,6 +27,7 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
+        timeout: 30s
   - name: delete the policy
     try:
     - delete:
@@ -34,11 +35,8 @@ spec:
           apiVersion: policies.kyverno.io/v1alpha1
           kind: GeneratingPolicy
           name: zk-kafka-address
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstream still exists
     try:
     - assert:
         file: configmap-assert.yaml
+        timeout: 30s

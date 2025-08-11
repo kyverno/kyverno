@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: sync-modify-policy-to-change-source
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the source
     try:
     - apply:
@@ -41,18 +37,16 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
   - name: modify the policy
     try:
     - apply:
         file: policy-modified.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that a new downstream is generated
     try:
     - assert:
         file: new-downstream-assert.yaml
+        timeout: 30s
   - name: check that the old downstream is deleted
     try:
     - error:

@@ -30,11 +30,8 @@ spec:
           apiVersion: v1
           kind: ConfigMap
           name: generate-on-trigger-deletion
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstream is generated on trigger deletion
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

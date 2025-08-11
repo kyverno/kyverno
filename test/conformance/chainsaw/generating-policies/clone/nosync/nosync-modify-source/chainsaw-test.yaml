@@ -39,15 +39,13 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
   - name: modify the source
     try:
     - apply:
         file: source-modified.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstream is not updated
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: clone-sync-delete-one-trigger
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create the source
     try:
     - apply:
@@ -39,16 +35,14 @@ spec:
     try:
     - apply:
         file: triggers.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstreams are generated
     try:
     - assert:
         file: first-downstream-assert.yaml
+        timeout: 30s
     - assert:
         file: second-downstream-assert.yaml
+        timeout: 30s
   - name: delete one of the trigger
     try:
     - delete:
@@ -57,10 +51,6 @@ spec:
           kind: NetworkPolicy
           name: clone-sync-delete-one-trigger-1
           namespace: clone-sync-delete-one-trigger-1
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the corresponding downstream is deleted 
     try:
     - error:
@@ -69,3 +59,4 @@ spec:
     try:
     - assert:
         file: second-downstream-assert.yaml
+        timeout: 30s

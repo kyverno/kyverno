@@ -27,8 +27,6 @@ spec:
         file: chainsaw-step-01-apply-1-3.yaml
   - name: step-02
     try:
-    - sleep:
-        duration: 5s
     - script:
         content: ./api-initiated-eviction.sh
         timeout: 30s

@@ -27,6 +27,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
   - name: delete the trigger
     try:
     - delete:
@@ -34,11 +35,8 @@ spec:
           apiVersion: v1
           kind: ConfigMap
           name: test-org
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstream still exists
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

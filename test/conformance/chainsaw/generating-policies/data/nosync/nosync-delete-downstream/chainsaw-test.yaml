@@ -27,10 +27,7 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
+        timeout: 30s
   - name: delete the downstream
     try:
     - delete:

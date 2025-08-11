@@ -19,10 +19,6 @@ spec:
         bindings:
         - name: name
           value: sync-modify-policy-and-downstream-kind
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: create namespace
     try:
     - apply:
@@ -31,14 +27,11 @@ spec:
     try:
     - assert:
         file: configmap-assert.yaml
+        timeout: 30s
   - name: modify the policy
     try:
     - apply:
         file: policy-modified.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the old downstream type is deleted
     try:
     - error:
@@ -47,3 +40,4 @@ spec:
     try:
     - assert:
         file: networkpolicy-assert.yaml
+        timeout: 30s

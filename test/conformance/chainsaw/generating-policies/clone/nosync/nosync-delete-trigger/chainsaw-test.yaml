@@ -39,6 +39,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s
   - name: delete the trigger
     try:
     - delete:
@@ -47,11 +48,8 @@ spec:
           kind: ConfigMap
           name: test-org
           namespace: test-ns
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check that the downstream still exists
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 30s

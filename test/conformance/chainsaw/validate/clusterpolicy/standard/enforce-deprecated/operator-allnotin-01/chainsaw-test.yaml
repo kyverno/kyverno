@@ -31,8 +31,6 @@ spec:
         file: chainsaw-step-03-apply-1-1.yaml
   - name: step-04
     try:
-    - sleep:
-        duration: 5s
     - delete:
         ref:
           apiVersion: apps/v1
