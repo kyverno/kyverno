@@ -18,7 +18,11 @@
 {{- end -}}
 
 {{- define "kyverno.chart" -}}
+{{- if .Values.global.chartfullname }}
+{{- .Values.global.chartfullname | trunc 63 | trimSuffix "-" }}
+{{- else }}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "kyverno.namespace" -}}
