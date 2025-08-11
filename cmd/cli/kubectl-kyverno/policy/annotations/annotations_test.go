@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/openreports"
