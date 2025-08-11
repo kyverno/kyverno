@@ -12,17 +12,31 @@ spec:
     command: ["sh", "-c"]
     args:
     - |
-      pip install flask &&
-      echo 'from flask import Flask, request, jsonify
-      app = Flask(__name__)
-      @app.route("/", methods=["POST"])
-      def json_api():
-          data = request.get_json()
-          key = data.get("labels")
-          return jsonify({"received": key})
-      if __name__ == "__main__":
-          app.run(host="0.0.0.0", port=5000)' > app.py &&
-            python app.py
+      cat > app.py <<'PY'
+      from http.server import BaseHTTPRequestHandler, HTTPServer
+      import json
+
+      class Handler(BaseHTTPRequestHandler):
+          def do_POST(self):
+              content_length = int(self.headers.get('Content-Length', 0))
+              body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+              try:
+                  data = json.loads(body.decode('utf-8'))
+              except Exception:
+                  data = {}
+              key = data.get('labels')
+              self.send_response(200)
+              self.send_header('Content-Type', 'application/json')
+              self.end_headers()
+              self.wfile.write(json.dumps({"received": key}).encode())
+
+          def log_message(self, format, *args):
+              return
+
+      if __name__ == '__main__':
+          HTTPServer(('', 5000), Handler).serve_forever()
+      PY
+      python app.py
     ports:
     - containerPort: 5000
 
