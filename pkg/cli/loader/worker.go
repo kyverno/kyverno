@@ -16,8 +16,6 @@ type WorkerPool struct {
 	workers    int
 	taskQueue  chan LoadTask
 	resultChan chan LoadTaskResult
-	ctx        context.Context
-	cancel     context.CancelFunc
 	wg         sync.WaitGroup
 	logger     *logrus.Logger
 }
@@ -46,33 +44,28 @@ type LoadTaskResult struct {
 }
 
 func NewWorkerPool(config WorkerPoolConfig) *WorkerPool {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	wp := &WorkerPool{
 		workers:    config.Workers,
 		taskQueue:  make(chan LoadTask, config.QueueSize),
 		resultChan: make(chan LoadTaskResult, config.QueueSize),
-		ctx:        ctx,
-		cancel:     cancel,
 		logger:     config.Logger,
 	}
 
 	for i := 0; i < config.Workers; i++ {
 		wp.wg.Add(1)
-		go wp.worker(i)
+		go wp.worker(context.Background(), i)
 	}
 
 	return wp
 }
 
-func (wp *WorkerPool) worker(id int) {
+func (wp *WorkerPool) worker(ctx context.Context, id int) {
 	defer wp.wg.Done()
-
 	wp.logger.WithField("worker_id", id).Debug("Worker started")
 
 	for {
 		select {
-		case <-wp.ctx.Done():
+		case <-ctx.Done():
 			wp.logger.WithField("worker_id", id).Debug("Worker stopping")
 			return
 		case task, ok := <-wp.taskQueue:
@@ -80,18 +73,18 @@ func (wp *WorkerPool) worker(id int) {
 				return
 			}
 
-			result := wp.processTask(task)
+			result := wp.processTask(ctx, task)
 
 			select {
 			case wp.resultChan <- result:
-			case <-wp.ctx.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
 	}
 }
 
-func (wp *WorkerPool) processTask(task LoadTask) LoadTaskResult {
+func (wp *WorkerPool) processTask(ctx context.Context, task LoadTask) LoadTaskResult {
 	start := time.Now()
 	result := LoadTaskResult{TaskID: task.ID}
 
@@ -108,7 +101,7 @@ func (wp *WorkerPool) processTask(task LoadTask) LoadTaskResult {
 	for {
 		opts.Continue = continueToken
 
-		list, err := task.Client.List(wp.ctx, *opts)
+		list, err := task.Client.List(ctx, *opts)
 		if err != nil {
 			result.Error = err
 			break
@@ -129,9 +122,9 @@ func (wp *WorkerPool) processTask(task LoadTask) LoadTaskResult {
 	return result
 }
 
-func (wp *WorkerPool) SubmitTask(task LoadTask) {
+func (wp *WorkerPool) SubmitTask(ctx context.Context, task LoadTask) {
 	select {
-	case <-wp.ctx.Done():
+	case <-ctx.Done():
 		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
 		return
 	default:
@@ -148,8 +141,8 @@ func (wp *WorkerPool) GetResults() <-chan LoadTaskResult {
 	return wp.resultChan
 }
 
-func (wp *WorkerPool) Close() {
-	wp.cancel()
+func (wp *WorkerPool) Close(cancel context.CancelFunc) {
+	cancel()
 	close(wp.taskQueue)
 	wp.wg.Wait()
 	close(wp.resultChan)

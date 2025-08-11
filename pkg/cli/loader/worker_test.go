@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"context"
 	"errors"
 	"sync/atomic"
 	"testing"
@@ -54,7 +55,7 @@ func TestWorkerPool_SubmitAndReceiveResults(t *testing.T) {
 		Client: resourceClient,
 	}
 
-	wp.SubmitTask(task)
+	wp.SubmitTask(context.Background(), task)
 
 	select {
 	case result := <-wp.GetResults():
@@ -65,8 +66,8 @@ func TestWorkerPool_SubmitAndReceiveResults(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for task result")
 	}
-
-	wp.Close()
+	_, cancel := context.WithCancel(context.Background())
+	wp.Close(cancel)
 }
 
 func TestWorkerPool_Pagination(t *testing.T) {
@@ -104,8 +105,8 @@ func TestWorkerPool_Pagination(t *testing.T) {
 		},
 		Client: resourceClient,
 	}
-
-	wp.SubmitTask(task)
+	ctx, cancel := context.WithCancel(context.Background())
+	wp.SubmitTask(ctx, task)
 
 	select {
 	case result := <-wp.GetResults():
@@ -116,7 +117,7 @@ func TestWorkerPool_Pagination(t *testing.T) {
 		t.Fatal("timed out waiting for paginated result")
 	}
 
-	wp.Close()
+	wp.Close(cancel)
 }
 
 func TestWorkerPool_ErrorHandling(t *testing.T) {
@@ -152,8 +153,8 @@ func TestWorkerPool_ErrorHandling(t *testing.T) {
 		},
 		Client: resourceClient,
 	}
-
-	wp.SubmitTask(task)
+	ctx, cancel := context.WithCancel(context.Background())
+	wp.SubmitTask(ctx, task)
 
 	select {
 	case result := <-wp.GetResults():
@@ -164,7 +165,7 @@ func TestWorkerPool_ErrorHandling(t *testing.T) {
 	}
 
 	assert.Equal(t, int32(1), atomic.LoadInt32(&callCount))
-	wp.Close()
+	wp.Close(cancel)
 }
 
 func TestWorkerPool_GracefulShutdown(t *testing.T) {
@@ -174,14 +175,14 @@ func TestWorkerPool_GracefulShutdown(t *testing.T) {
 		QueueSize: 1,
 		Logger:    logger,
 	})
-
-	wp.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	wp.Close(cancel)
 
 	// Submitting after close should not panic or deadlock
 	task := LoadTask{
 		ID: "noop-task",
 	}
-	wp.SubmitTask(task)
+	wp.SubmitTask(ctx, task)
 
 	select {
 	case <-time.After(500 * time.Millisecond):
@@ -195,7 +196,8 @@ func TestNewWorkerPool_Initialization(t *testing.T) {
 		QueueSize: 10,
 		Logger:    logger,
 	})
-	defer wp.Close()
+	_, cancel := context.WithCancel(context.Background())
+	defer wp.Close(cancel)
 
 	assert.NotNil(t, wp.taskQueue)
 	assert.NotNil(t, wp.resultChan)
@@ -210,7 +212,8 @@ func TestWorkerPool_QueueFull(t *testing.T) {
 		QueueSize: 1,
 		Logger:    logger,
 	})
-	defer wp.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer wp.Close(cancel)
 
 	obj := &unstructured.Unstructured{}
 	obj.SetName("test-object")
@@ -255,11 +258,11 @@ func TestWorkerPool_QueueFull(t *testing.T) {
 		Client: resourceClient,
 	}
 
-	wp.SubmitTask(task1)
-	wp.SubmitTask(task2)
+	wp.SubmitTask(ctx, task1)
+	wp.SubmitTask(ctx, task2)
 
 	// This should be silently dropped
-	wp.SubmitTask(task3)
+	wp.SubmitTask(ctx, task3)
 
 	// Collect only 2 results
 	var ids []string
@@ -284,8 +287,8 @@ func TestWorkerPool_ResultChannelClosing(t *testing.T) {
 		QueueSize: 1,
 		Logger:    logger,
 	})
-
-	wp.Close()
+	_, cancel := context.WithCancel(context.Background())
+	wp.Close(cancel)
 
 	// Verify result channel is closed after processing
 	_, ok := <-wp.GetResults()

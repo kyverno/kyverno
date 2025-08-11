@@ -8,7 +8,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,6 +16,7 @@ import (
 func TestNewClusterLoader(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
+		_, cancel := context.WithCancel(context.Background())
 		loader, err := NewClusterLoader(client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
 			Concurrency:   2,
@@ -24,7 +24,7 @@ func TestNewClusterLoader(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.NotNil(t, loader)
-		loader.Close()
+		loader.Close(cancel)
 	})
 
 	t.Run("nil client", func(t *testing.T) {
@@ -60,9 +60,10 @@ func TestClusterLoader_LoadResources(t *testing.T) {
 			Namespace:   "default",
 			Timeout:     5 * time.Minute,
 		})
-		defer loader.Close()
 
-		result, err := loader.LoadResources(context.Background())
+		ctx, cancel := context.WithCancel(context.Background())
+		defer loader.Close(cancel)
+		result, err := loader.LoadResources(ctx)
 		assert.NoError(t, err)
 		if assert.Len(t, result.Resources, 1) {
 			assert.Equal(t, "test-pod", result.Resources[0].GetName())
@@ -83,9 +84,9 @@ func TestClusterLoader_LoadResources(t *testing.T) {
 			BatchSize:   100,
 			Timeout:     5 * time.Minute,
 		})
-		loader.Close()
-
-		_, err := loader.LoadResources(context.Background())
+		ctx, cancel := context.WithCancel(context.Background())
+		loader.Close(cancel)
+		_, err := loader.LoadResources(ctx)
 		assert.Error(t, err)
 	})
 }
@@ -131,8 +132,8 @@ func TestClusterLoader_Close(t *testing.T) {
 		loader, _ := NewClusterLoader(client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
 		})
-
-		assert.NoError(t, loader.Close())
-		assert.NoError(t, loader.Close())
+		_, cancel := context.WithCancel(context.Background())
+		assert.NoError(t, loader.Close(cancel))
+		assert.NoError(t, loader.Close(cancel))
 	})
 }

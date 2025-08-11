@@ -9,8 +9,7 @@ import (
 )
 
 type ResourceLoader interface {
-	LoadResources(ctx context.Context, options ResourceOptions) (*ResourceResult, error)
-	Close() error
+	LoadResources(ctx context.Context) (*ResourceResult, error)
 }
 
 type ResourceOptions struct {

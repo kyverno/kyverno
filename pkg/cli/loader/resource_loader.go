@@ -3,15 +3,15 @@ package loader
 import (
 	"context"
 	"fmt"
-	"time"
 	"sync"
+	"time"
 
-	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const avgSequentialCallTime = 300 * time.Millisecond
@@ -30,8 +30,9 @@ func LoadResourcesConcurrent(policies []engineapi.GenericPolicy, dClient dclient
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource loader: %w", err)
 	}
-	defer resourceLoader.Close()
-	result, err := resourceLoader.LoadResources(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer resourceLoader.Close(cancel)
+	result, err := resourceLoader.LoadResources(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load resources: %w", err)
 	}
@@ -42,7 +43,6 @@ func LoadResourcesConcurrent(policies []engineapi.GenericPolicy, dClient dclient
 
 	return result.Resources, nil
 }
-
 
 func NewClusterLoader(client dclient.Interface, resourceOptions ResourceOptions) (*ClusterLoader, error) {
 	if client == nil {
@@ -165,7 +165,7 @@ func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask) ([]
 	}
 
 	for _, task := range tasks {
-		cl.workerPool.SubmitTask(task)
+		cl.workerPool.SubmitTask(ctx, task)
 	}
 
 	var results []LoadTaskResult
@@ -225,7 +225,7 @@ func (cl *ClusterLoader) aggregateResults(results []LoadTaskResult, startTime ti
 	}
 }
 
-func (cl *ClusterLoader) Close() error {
+func (cl *ClusterLoader) Close(cancel context.CancelFunc) error {
 	cl.mutex.Lock()
 	defer cl.mutex.Unlock()
 
@@ -236,12 +236,11 @@ func (cl *ClusterLoader) Close() error {
 	cl.closed = true
 
 	if cl.workerPool != nil {
-		cl.workerPool.Close()
+		cl.workerPool.Close(cancel)
 	}
 
 	return nil
 }
-
 
 func printLoadingSummary(report LoadReport) {
 	fmt.Printf("\nResource Loading Performance:\n")
