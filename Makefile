@@ -693,6 +693,7 @@ codegen-helm-docs: ## Generate helm docs
 .PHONY: codegen-helm-all
 codegen-helm-all: ## Generate helm docs and CRDs
 codegen-helm-all: helm-setup-openreports
+codegen-helm-all: helm-dependency-update
 codegen-helm-all: codegen-helm-crds
 codegen-helm-all: codegen-helm-docs
 
