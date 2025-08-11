@@ -152,3 +152,76 @@ func TestHandleWithPolex(t *testing.T) {
 	assert.Error(t, err)
 	assert.False(t, resp.Match)
 }
+
+func TestHandleConstraintsNil(t *testing.T) {
+	pol := Policy{
+		policiesv1alpha1.DeletingPolicy{
+			Spec: policiesv1alpha1.DeletingPolicySpec{
+				MatchConstraints: nil,
+			},
+		},
+		nil,
+	}
+
+	compiled, _ := comp.Compile(&pol.Policy, nil)
+	pol.CompiledPolicy = compiled
+
+	resource := unstructured.Unstructured{}
+	resource.SetAPIVersion("apps/v1")
+	resource.SetKind("Deployment")
+	resource.SetName("test")
+	resource.SetNamespace("default")
+
+	mapper.Add(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "Deployment",
+	}, meta.RESTScopeNamespace)
+
+	engine := NewEngine(nsResolver, mapper, &fakeContext{}, matcher)
+	resp, err := engine.Handle(ctx, pol, resource)
+
+	assert.NoError(t, err)
+	assert.False(t, resp.Match)
+}
+
+func TestHandleError(t *testing.T) {
+	pol := Policy{
+		policiesv1alpha1.DeletingPolicy{
+			Spec: policiesv1alpha1.DeletingPolicySpec{
+				MatchConstraints: &v1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "key ", Operator: "In", Values: []string{"bad value"}}}},
+					ObjectSelector:    &metav1.LabelSelector{},
+					ResourceRules: []v1.NamedRuleWithOperations{{
+						RuleWithOperations: v1.RuleWithOperations{
+							Rule:       v1.Rule{APIGroups: []string{"*"}, APIVersions: []string{"*"}, Resources: []string{"deployments"}},
+							Operations: []v1.OperationType{"*"},
+						},
+					}},
+				},
+			},
+		},
+		nil,
+	}
+
+	compiled, _ := comp.Compile(&pol.Policy, nil)
+	pol.CompiledPolicy = compiled
+
+	resource := unstructured.Unstructured{}
+	resource.SetAPIVersion("apps/v1")
+	resource.SetKind("Deployment")
+	resource.SetName("test")
+	resource.SetNamespace("default")
+
+	mapper.Add(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "Deployment",
+	}, meta.RESTScopeNamespace)
+
+	engine := NewEngine(nsResolver, mapper, &fakeContext{}, matcher)
+	resp, err := engine.Handle(ctx, pol, resource)
+
+	assert.Error(t, err)
+	assert.False(t, resp.Match)
+}
