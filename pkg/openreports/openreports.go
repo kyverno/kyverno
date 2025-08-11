@@ -1,7 +1,7 @@
 package openreports
 
 import (
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 )
 
 type ReportAdapter struct {

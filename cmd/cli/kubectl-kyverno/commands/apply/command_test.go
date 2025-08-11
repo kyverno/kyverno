@@ -12,8 +12,8 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 func Test_Apply(t *testing.T) {
@@ -1111,7 +1111,7 @@ func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
 
 	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
 	assert.NoError(t, err)
-	
+
 	// Check the responses for the correct message
 	found := false
 	var actualMessage string
@@ -1138,7 +1138,7 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 
 	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
 	assert.NoError(t, err)
-	
+
 	// Check the responses for the correct message
 	found := false
 	var actualMessage string

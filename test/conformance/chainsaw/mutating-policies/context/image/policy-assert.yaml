@@ -1,7 +1,8 @@
+
 apiVersion: policies.kyverno.io/v1alpha1
 kind: MutatingPolicy
 metadata:
-  name: test-mpol-reporting-different-trigger-target
+  name: mpol-lib-image
 status:
   conditionStatus:
     conditions:
