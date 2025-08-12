@@ -12,6 +12,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []string {
@@ -113,6 +115,7 @@ func Validate(
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
 	isFake bool,
+	userInfo *authenticationv1.UserInfo,
 ) (engineapi.EngineResponse, error) {
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	policy := policyData.GetDefinition()
@@ -136,7 +139,13 @@ func Validate(
 		}
 	}
 
-	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	// create instance of UserInfo which implements user.Info interface
+	var userInfoInstance user.Info
+	if userInfo != nil {
+		userInfoInstance = &UserInfo{userInfo: *userInfo}
+	}
+
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, userInfoInstance)
 
 	if len(bindings) == 0 {
 		matcher := celmatching.NewMatcher()
