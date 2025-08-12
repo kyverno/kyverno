@@ -23,7 +23,7 @@ jobs:
       tests: ${{ steps.set-tests.outputs.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set Tests
         id: set-tests
         run: echo "tests=$(jq -c . < ./test/load/k6/${{ github.event_name }}-matrix.json)" >> $GITHUB_OUTPUT
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
@@ -66,9 +66,9 @@ jobs:
         k8s-version: [v1.31.0]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -148,9 +148,9 @@ jobs:
         k8s-version: [v1.31.0]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -238,9 +238,9 @@ jobs:
         test: ${{ fromJson(needs.define-matrix.outputs.tests) }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: kyverno/load-testing
           path: load-testing
