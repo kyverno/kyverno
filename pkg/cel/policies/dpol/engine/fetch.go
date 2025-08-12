@@ -44,7 +44,7 @@ func (r *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 		}
 	}
 	compiled, errList := r.compiler.Compile(policy, exceptions)
-	if err != nil {
+	if errList != nil {
 		return Policy{}, errList.ToAggregate()
 	}
 
