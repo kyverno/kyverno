@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.24.4
+go 1.24.6
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -90,7 +90,7 @@ require (
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5
 	sigs.k8s.io/kustomize/api v0.20.1
 	sigs.k8s.io/kustomize/kyaml v0.20.1
-	sigs.k8s.io/release-utils v0.12.0
+	sigs.k8s.io/release-utils v0.12.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -379,7 +379,7 @@ require (
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.7
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
