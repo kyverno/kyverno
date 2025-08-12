@@ -649,11 +649,15 @@ define generate_crd
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 endef
 
-.PHONY: helm-setup-openreports
-helm-setup-openreports: $(HELM) ## Add openreports helm repo and build dependencies
+.PHONY: helm-setup-dependency-charts
+helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) dependency build ./charts/kyverno
+
+# Legacy alias for backward compatibility
+.PHONY: helm-setup-openreports  
+helm-setup-openreports: helm-setup-dependency-charts ## (Deprecated) Use helm-setup-dependency-charts instead
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
@@ -693,7 +697,7 @@ codegen-helm-all: codegen-helm-docs
 
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: ## Create install_latest manifest
-codegen-manifest-install-latest: helm-setup-openreports
+codegen-manifest-install-latest: helm-setup-dependency-charts
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -709,7 +713,7 @@ codegen-manifest-install-latest: helm-setup-openreports
 
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: ## Create debug manifest
-codegen-manifest-debug: helm-setup-openreports
+codegen-manifest-debug: helm-setup-dependency-charts
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -725,7 +729,7 @@ codegen-manifest-debug: helm-setup-openreports
 
 .PHONY: codegen-manifest-release
 codegen-manifest-release: ## Create release manifest
-codegen-manifest-release: helm-setup-openreports
+codegen-manifest-release: helm-setup-dependency-charts
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -1011,7 +1015,7 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
 .PHONY: kind-install-kyverno
-kind-install-kyverno: helm-setup-openreports ## Install kyverno helm chart
+kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \

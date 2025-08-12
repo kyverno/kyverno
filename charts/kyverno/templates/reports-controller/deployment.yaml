@@ -85,7 +85,7 @@ spec:
       {{- end }}
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
       automountServiceAccountToken: {{ $automountSAToken }}
-      {{- if .Values.reportsServer.enabled }}
+      {{- if and .Values.reportsServer.enabled .Values.reportsServer.waitForReady }}
       initContainers:
         {{- include "kyverno.reportsServer.initContainer" . | nindent 8 }}
       {{- end }}

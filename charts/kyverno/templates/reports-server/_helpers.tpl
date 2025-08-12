@@ -17,7 +17,7 @@ false
 Reports Server readiness init container
 */}}
 {{- define "kyverno.reportsServer.initContainer" -}}
-{{- if and .Values.reportsServer.enabled .Values.reportsServer.waitForReady -}}
+{{- if and .Values.reportsServer.enabled .Values.reportsServer.waitForReady }}
 - name: wait-for-reports-server
   image: {{ include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.test.image "defaultTag" .Values.test.image.tag) | quote }}
   imagePullPolicy: {{ .Values.test.image.pullPolicy | default "IfNotPresent" }}
@@ -77,8 +77,8 @@ Reports Server readiness init container
     requests:
       cpu: 10m
       memory: 32Mi
-{{- end -}}
-{{- end -}}
+{{- end }}
+{{- end }}
 
 {{/*
 Reports Server service dependency annotation
