@@ -17,6 +17,65 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.15.1-rc.1
+    created: "2025-08-12T13:08:38.505779716Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.5.1-rc.1
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.5.1-rc.1
+    - condition: openreports.enabled
+      name: openreports
+      repository: https://openreports.github.io/reports-api
+      version: 0.1.0
+    description: Kubernetes Native Policy Management
+    digest: 85a355d90e7bc93190dc9bd016e32ac06ab9c37bbe58b162bcaa1330b1bcca55
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.5.1-rc.1.tgz
+    version: 3.5.1-rc.1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: fixed
+          description: Ensure spec.template.metadata isn't null
+        - kind: removed
+          description: Remove the `delete` permission for policyexceptions in the admission controller
+        - kind: changed
+          description: Enable the flag `--generateValidatingAdmissionPolicy` by default in the admission controller.
+        - kind: changed
+          description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.15.0
     created: "2025-07-31T19:42:44.544651665Z"
     dependencies:
@@ -14307,4 +14366,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2025-07-31T19:43:08.506359692Z"
+generated: "2025-08-12T13:08:38.487426155Z"
