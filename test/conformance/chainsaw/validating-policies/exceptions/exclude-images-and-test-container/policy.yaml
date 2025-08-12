@@ -1,0 +1,62 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: "disallow-privilege-escalation"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  validations:
+    - message: "Containers must not allow privilege escalation unless they are in the allowed images list."
+      expression: >
+        object.spec.containers.all(container,
+          !has(container.securityContext) ||
+          (has(container.securityContext.allowPrivilegeEscalation) &&
+            container.securityContext.allowPrivilegeEscalation == false) &&
+          (has(container.securityContext.runAsNonRoot) && 
+            container.securityContext.runAsNonRoot == true)
+        )
+      
+      # exclude images for the allowPrivilegeEscalation check
+      # expression: >
+      #   object.spec.containers.all(container,
+      #     !has(container.securityContext) ||
+      #     ( 
+      #       string(container.image) in exceptions.AllowedImages || 
+      #       has(container.securityContext.allowPrivilegeEscalation) &&
+      #       container.securityContext.allowPrivilegeEscalation == false
+      #     ) &&
+      #     (has(container.securityContext.runAsNonRoot) && 
+      #       container.securityContext.runAsNonRoot == true)
+      #   )
+
+      # exclude images for the runAsNonRoot check
+      # expression: >
+      #   object.spec.containers.all(container,
+      #     !has(container.securityContext) ||
+      #     (  
+      #       has(container.securityContext.allowPrivilegeEscalation) &&
+      #       container.securityContext.allowPrivilegeEscalation == false
+      #     ) &&
+      #     ( string(container.image) in exceptions.AllowedImages || 
+      #       has(container.securityContext.runAsNonRoot) && 
+      #       container.securityContext.runAsNonRoot == true)
+      #   )
+
+      # exclude images for both allowPrivilegeEscalation and runAsNonRoot checks
+      # expression: >
+      #   object.spec.containers.all(container,
+      #     string(container.image) in exceptions.AllowedImages ||
+      #     !has(container.securityContext) ||
+      #     (  
+      #       has(container.securityContext.allowPrivilegeEscalation) &&
+      #       container.securityContext.allowPrivilegeEscalation == false
+      #     ) &&
+      #     ( 
+      #       has(container.securityContext.runAsNonRoot) && 
+      #       container.securityContext.runAsNonRoot == true
+      #     )
+      #   )

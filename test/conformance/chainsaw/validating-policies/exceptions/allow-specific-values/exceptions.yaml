@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: image-based-exceptions
+spec:
+  policyRefs:
+    - name: disallow-capabilities
+      kind: ValidatingPolicy
+  # list of image names to exclude
+  images:
+  - busybox:latest
+  - nginx:latest
+  allowedValues:
+    capabilities:
+      - FOO
+      - BAR
