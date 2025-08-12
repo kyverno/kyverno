@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno/hack/controller-gen
 
-go 1.24.4
+go 1.24.6
 
 require (
 	github.com/spf13/cobra v1.9.1
