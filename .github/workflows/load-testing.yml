@@ -109,7 +109,7 @@ jobs:
         run: |
           set -e
           go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
+          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@v0.7.5
           mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Run load tests using K6
@@ -188,7 +188,7 @@ jobs:
         run: |
           set -e
           go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
+          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@v0.7.5
           mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Run load tests using K6
@@ -319,7 +319,7 @@ jobs:
         run: |
           set -e
           go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
+          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@v0.7.5
           mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Run load tests using K6

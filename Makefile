@@ -1131,13 +1131,24 @@ dev-lab-ingress-ngingx: ## Deploy ingress-ngingx
 
 .PHONY: dev-lab-prometheus
 dev-lab-prometheus: ## Deploy kube-prometheus-stack helm chart
-	@echo Install kube-prometheus-stack chart... >&2
+	@echo "Installing kube-prometheus-stack chart..." >&2
+	@echo "Checking kubectl connectivity..." >&2 && kubectl cluster-info --request-timeout=10s || (echo "Kubectl not available" >&2 && exit 1)
+	@echo "Adding prometheus-community helm repo..." >&2
 	@helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
 	@helm repo update
-	@helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-		--namespace monitoring --create-namespace --wait \
-		--timeout 20m \
-		--values ./scripts/config/dev/kube-prometheus-stack.yaml
+	@if [ -f ./scripts/config/dev/kube-prometheus-stack.yaml ]; then \
+		echo "Using values file: ./scripts/config/dev/kube-prometheus-stack.yaml" >&2; \
+		helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+			--namespace monitoring --create-namespace --wait \
+			--timeout 20m \
+			--values ./scripts/config/dev/kube-prometheus-stack.yaml; \
+	else \
+		echo "Values file not found, using defaults..." >&2; \
+		helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+			--namespace monitoring --create-namespace --wait \
+			--timeout 20m; \
+	fi
+	@echo "✅ kube-prometheus-stack installation completed" >&2
 
 .PHONY: dev-lab-loki
 dev-lab-loki: $(HELM) ## Deploy loki-stack helm chart
@@ -1166,11 +1177,21 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: ## Deploy metrics-server helm chart
-	@echo Install metrics-server chart... >&2
-	@helm upgrade --install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
-		--namespace kube-system --wait \
-		--timeout 5m \
-		--values ./scripts/config/dev/metrics-server.yaml
+	@echo "Installing metrics-server chart..." >&2
+	@echo "Checking kubectl connectivity..." >&2 && kubectl cluster-info --request-timeout=10s || (echo "Kubectl not available" >&2 && exit 1)
+	@if [ -f ./scripts/config/dev/metrics-server.yaml ]; then \
+		echo "Using values file: ./scripts/config/dev/metrics-server.yaml" >&2; \
+		helm upgrade --install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+			--namespace kube-system --create-namespace --wait \
+			--timeout 5m \
+			--values ./scripts/config/dev/metrics-server.yaml; \
+	else \
+		echo "Values file not found, using defaults..." >&2; \
+		helm upgrade --install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+			--namespace kube-system --create-namespace --wait \
+			--timeout 5m; \
+	fi
+	@echo "✅ metrics-server installation completed" >&2
 
 .PHONY: dev-lab-all
 dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-otel-collector ## Deploy all dev lab components
