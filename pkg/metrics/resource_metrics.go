@@ -12,43 +12,110 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-// ResourceMetrics provides advanced resource monitoring capabilities
-type ResourceMetrics struct {
+// PolicyMetrics provides policy processing performance metrics
+type PolicyMetrics struct {
 	logger logr.Logger
 	meter  metric.Meter
 
-	// Memory and runtime metrics
-	memoryUsageGauge    metric.Int64ObservableGauge
-	goroutineCountGauge metric.Int64ObservableGauge
-	gcCountCounter      metric.Int64Counter
+	// Policy processing metrics
+	policyProcessingDuration metric.Float64Histogram
+	ruleEvaluationDuration   metric.Float64Histogram
+	policyEvaluationCounter  metric.Int64Counter
 
 	// Cache metrics
-	cacheHitCounter  metric.Int64Counter
-	cacheMissCounter metric.Int64Counter
-	cacheSizeGauge   metric.Int64ObservableGauge
+	policyCacheHitCounter  metric.Int64Counter
+	policyCacheMissCounter metric.Int64Counter
+	policyCacheSizeGauge   metric.Int64ObservableGauge
 
-	// Admission queue metrics
-	queueDepthGauge       metric.Int64ObservableGauge
-	processingTimeHisto   metric.Float64Histogram
-	admissionLatencyHisto metric.Float64Histogram
+	// Admission webhook metrics
+	admissionRequestDuration metric.Float64Histogram
+	admissionRequestCounter  metric.Int64Counter
 
-	// System health indicators
-	healthStatusGauge metric.Int64ObservableGauge
+	// Runtime metrics for system health
+	memoryUsageGauge    metric.Int64ObservableGauge
+	goroutineCountGauge metric.Int64ObservableGauge
 }
 
-// NewResourceMetrics creates a new ResourceMetrics instance
-func NewResourceMetrics(logger logr.Logger) (*ResourceMetrics, error) {
+// NewPolicyMetrics creates a new PolicyMetrics instance
+func NewPolicyMetrics(logger logr.Logger) (*PolicyMetrics, error) {
 	meter := otel.GetMeterProvider().Meter(MeterName)
 
-	rm := &ResourceMetrics{
+	pm := &PolicyMetrics{
 		logger: logger,
 		meter:  meter,
 	}
 
 	var err error
 
-	// Initialize memory and runtime metrics
-	rm.memoryUsageGauge, err = meter.Int64ObservableGauge(
+	// Policy processing duration metrics
+	pm.policyProcessingDuration, err = meter.Float64Histogram(
+		"kyverno_policy_processing_duration_seconds",
+		metric.WithDescription("Time spent processing policies by type and result"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pm.ruleEvaluationDuration, err = meter.Float64Histogram(
+		"kyverno_rule_evaluation_duration_seconds",
+		metric.WithDescription("Time spent evaluating individual rules"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pm.policyEvaluationCounter, err = meter.Int64Counter(
+		"kyverno_policy_evaluations_total",
+		metric.WithDescription("Total number of policy evaluations by type and result"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache performance metrics
+	pm.policyCacheHitCounter, err = meter.Int64Counter(
+		"kyverno_policy_cache_hits_total",
+		metric.WithDescription("Total number of policy cache hits"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pm.policyCacheMissCounter, err = meter.Int64Counter(
+		"kyverno_policy_cache_misses_total",
+		metric.WithDescription("Total number of policy cache misses"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pm.policyCacheSizeGauge, err = meter.Int64ObservableGauge(
+		"kyverno_policy_cache_size",
+		metric.WithDescription("Current number of policies in cache"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Admission request metrics
+	pm.admissionRequestDuration, err = meter.Float64Histogram(
+		"kyverno_admission_request_duration_seconds",
+		metric.WithDescription("Duration of admission request processing"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pm.admissionRequestCounter, err = meter.Int64Counter(
+		"kyverno_admission_requests_total",
+		metric.WithDescription("Total number of admission requests processed"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Runtime metrics for system health monitoring
+	pm.memoryUsageGauge, err = meter.Int64ObservableGauge(
 		"kyverno_memory_usage_bytes",
 		metric.WithDescription("Current memory usage in bytes"),
 	)
@@ -56,7 +123,7 @@ func NewResourceMetrics(logger logr.Logger) (*ResourceMetrics, error) {
 		return nil, err
 	}
 
-	rm.goroutineCountGauge, err = meter.Int64ObservableGauge(
+	pm.goroutineCountGauge, err = meter.Int64ObservableGauge(
 		"kyverno_goroutine_count",
 		metric.WithDescription("Current number of goroutines"),
 	)
@@ -64,87 +131,18 @@ func NewResourceMetrics(logger logr.Logger) (*ResourceMetrics, error) {
 		return nil, err
 	}
 
-	rm.gcCountCounter, err = meter.Int64Counter(
-		"kyverno_gc_count_total",
-		metric.WithDescription("Total number of garbage collection cycles"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize cache metrics
-	rm.cacheHitCounter, err = meter.Int64Counter(
-		"kyverno_cache_hits_total",
-		metric.WithDescription("Total number of cache hits"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	rm.cacheMissCounter, err = meter.Int64Counter(
-		"kyverno_cache_misses_total",
-		metric.WithDescription("Total number of cache misses"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	rm.cacheSizeGauge, err = meter.Int64ObservableGauge(
-		"kyverno_cache_size",
-		metric.WithDescription("Current cache size"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize admission queue metrics
-	rm.queueDepthGauge, err = meter.Int64ObservableGauge(
-		"kyverno_admission_queue_depth",
-		metric.WithDescription("Current admission request queue depth"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	rm.processingTimeHisto, err = meter.Float64Histogram(
-		"kyverno_processing_time_seconds",
-		metric.WithDescription("Time spent processing requests"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	rm.admissionLatencyHisto, err = meter.Float64Histogram(
-		"kyverno_admission_latency_seconds",
-		metric.WithDescription("Admission request latency"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize system health metrics
-	rm.healthStatusGauge, err = meter.Int64ObservableGauge(
-		"kyverno_health_status",
-		metric.WithDescription("System health status (1=healthy, 0=unhealthy)"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	// Register observable gauge callbacks
 	_, err = meter.RegisterCallback(
-		rm.collectRuntimeMetrics,
-		rm.memoryUsageGauge,
-		rm.goroutineCountGauge,
-		rm.cacheSizeGauge,
-		rm.queueDepthGauge,
-		rm.healthStatusGauge,
+		pm.collectRuntimeMetrics,
+		pm.memoryUsageGauge,
+		pm.goroutineCountGauge,
+		pm.policyCacheSizeGauge,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	return rm, nil
+	return pm, nil
 }
 
 // safeUint64ToInt64 safely converts uint64 to int64, capping at MaxInt64 to prevent overflow
@@ -156,57 +154,86 @@ func safeUint64ToInt64(val uint64) int64 {
 }
 
 // collectRuntimeMetrics collects runtime and system metrics
-func (rm *ResourceMetrics) collectRuntimeMetrics(ctx context.Context, observer metric.Observer) error {
+func (pm *PolicyMetrics) collectRuntimeMetrics(ctx context.Context, observer metric.Observer) error {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
 	// Memory metrics - use safe conversion to prevent integer overflow
-	observer.ObserveInt64(rm.memoryUsageGauge, safeUint64ToInt64(m.Alloc))
+	observer.ObserveInt64(pm.memoryUsageGauge, safeUint64ToInt64(m.Alloc))
 
 	// Goroutine count
-	observer.ObserveInt64(rm.goroutineCountGauge, int64(runtime.NumGoroutine()))
+	observer.ObserveInt64(pm.goroutineCountGauge, int64(runtime.NumGoroutine()))
 
-	// Cache size (placeholder - would be actual cache size in real implementation)
-	observer.ObserveInt64(rm.cacheSizeGauge, 100)
-
-	// Queue depth (placeholder)
-	observer.ObserveInt64(rm.queueDepthGauge, 0)
-
-	// Health status (placeholder)
-	observer.ObserveInt64(rm.healthStatusGauge, 1)
+	// Policy cache size - This would be populated by actual cache implementation
+	// For now, placeholder value of 0 indicates no cache size tracking implemented yet
+	observer.ObserveInt64(pm.policyCacheSizeGauge, 0)
 
 	return nil
 }
 
-// RecordCacheHit records a cache hit
-func (rm *ResourceMetrics) RecordCacheHit(ctx context.Context, cacheType string) {
-	rm.cacheHitCounter.Add(ctx, 1, metric.WithAttributes(
+// RecordPolicyProcessingDuration records the time spent processing a policy
+func (pm *PolicyMetrics) RecordPolicyProcessingDuration(ctx context.Context, duration time.Duration, policyType string, ruleType RuleType, result RuleResult) {
+	pm.policyProcessingDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(
+		attribute.String("policy_type", policyType),
+		attribute.String("rule_type", string(ruleType)),
+		attribute.String("result", string(result)),
+	))
+}
+
+// RecordRuleEvaluationDuration records the time spent evaluating a specific rule
+func (pm *PolicyMetrics) RecordRuleEvaluationDuration(ctx context.Context, duration time.Duration, policyName, ruleName string, ruleType RuleType) {
+	pm.ruleEvaluationDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(
+		attribute.String("policy_name", policyName),
+		attribute.String("rule_name", ruleName),
+		attribute.String("rule_type", string(ruleType)),
+	))
+}
+
+// RecordPolicyEvaluation records a policy evaluation event
+func (pm *PolicyMetrics) RecordPolicyEvaluation(ctx context.Context, policyType string, ruleType RuleType, result RuleResult, cause RuleExecutionCause) {
+	pm.policyEvaluationCounter.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("policy_type", policyType),
+		attribute.String("rule_type", string(ruleType)),
+		attribute.String("result", string(result)),
+		attribute.String("execution_cause", string(cause)),
+	))
+}
+
+// RecordPolicyCacheHit records a policy cache hit
+func (pm *PolicyMetrics) RecordPolicyCacheHit(ctx context.Context, cacheType string) {
+	pm.policyCacheHitCounter.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("cache_type", cacheType),
 	))
 }
 
-// RecordCacheMiss records a cache miss
-func (rm *ResourceMetrics) RecordCacheMiss(ctx context.Context, cacheType string) {
-	rm.cacheMissCounter.Add(ctx, 1, metric.WithAttributes(
+// RecordPolicyCacheMiss records a policy cache miss
+func (pm *PolicyMetrics) RecordPolicyCacheMiss(ctx context.Context, cacheType string) {
+	pm.policyCacheMissCounter.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("cache_type", cacheType),
 	))
 }
 
-// RecordProcessingTime records processing time for a specific operation
-func (rm *ResourceMetrics) RecordProcessingTime(ctx context.Context, operation string, duration time.Duration) {
-	rm.processingTimeHisto.Record(ctx, duration.Seconds(), metric.WithAttributes(
-		attribute.String("operation", operation),
+// RecordAdmissionRequestDuration records the duration of an admission request
+func (pm *PolicyMetrics) RecordAdmissionRequestDuration(ctx context.Context, duration time.Duration, operation ResourceRequestOperation, resourceKind string, allowed bool) {
+	pm.admissionRequestDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(
+		attribute.String("operation", string(operation)),
+		attribute.String("resource_kind", resourceKind),
+		attribute.Bool("allowed", allowed),
 	))
 }
 
-// RecordAdmissionLatency records admission request latency
-func (rm *ResourceMetrics) RecordAdmissionLatency(ctx context.Context, latency time.Duration, resource string) {
-	rm.admissionLatencyHisto.Record(ctx, latency.Seconds(), metric.WithAttributes(
-		attribute.String("resource", resource),
+// RecordAdmissionRequest records an admission request event
+func (pm *PolicyMetrics) RecordAdmissionRequest(ctx context.Context, operation ResourceRequestOperation, resourceKind string, allowed bool) {
+	pm.admissionRequestCounter.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("operation", string(operation)),
+		attribute.String("resource_kind", resourceKind),
+		attribute.Bool("allowed", allowed),
 	))
 }
 
-// RecordGCCycle records a garbage collection cycle
-func (rm *ResourceMetrics) RecordGCCycle(ctx context.Context) {
-	rm.gcCountCounter.Add(ctx, 1)
+// SetPolicyCacheSize sets the current policy cache size (to be called by cache implementation)
+func (pm *PolicyMetrics) SetPolicyCacheSize(size int64) {
+	// This would be implemented by the actual cache to update the gauge
+	// The gauge value is observed in the collectRuntimeMetrics callback
+	pm.logger.V(6).Info("policy cache size updated", "size", size)
 }

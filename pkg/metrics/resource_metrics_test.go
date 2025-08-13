@@ -10,163 +10,227 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewResourceMetrics(t *testing.T) {
+func TestNewPolicyMetrics(t *testing.T) {
 	logger := logr.Discard()
-
-	rm, err := NewResourceMetrics(logger)
+	pm, err := NewPolicyMetrics(logger)
 	require.NoError(t, err)
-	require.NotNil(t, rm)
-
-	assert.Equal(t, logger, rm.logger)
-	assert.NotNil(t, rm.meter)
-	assert.NotNil(t, rm.memoryUsageGauge)
-	assert.NotNil(t, rm.goroutineCountGauge)
-	assert.NotNil(t, rm.gcCountCounter)
+	assert.NotNil(t, pm)
+	assert.NotNil(t, pm.logger)
+	assert.NotNil(t, pm.meter)
+	assert.NotNil(t, pm.policyProcessingDuration)
+	assert.NotNil(t, pm.ruleEvaluationDuration)
+	assert.NotNil(t, pm.policyEvaluationCounter)
+	assert.NotNil(t, pm.policyCacheHitCounter)
+	assert.NotNil(t, pm.policyCacheMissCounter)
+	assert.NotNil(t, pm.admissionRequestDuration)
+	assert.NotNil(t, pm.admissionRequestCounter)
 }
 
-func TestResourceMetrics_RecordCacheHit(t *testing.T) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func TestPolicyMetrics_RecordPolicyCacheHit(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(t, err)
 
 	ctx := context.Background()
 
-	// Should not panic and should record metric
-	rm.RecordCacheHit(ctx, "policy")
-	rm.RecordCacheHit(ctx, "resource")
+	// Should not panic
+	pm.RecordPolicyCacheHit(ctx, "policy")
+	pm.RecordPolicyCacheHit(ctx, "resource")
 }
 
-func TestResourceMetrics_RecordCacheMiss(t *testing.T) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func TestPolicyMetrics_RecordPolicyCacheMiss(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(t, err)
 
 	ctx := context.Background()
 
-	// Should not panic and should record metric
-	rm.RecordCacheMiss(ctx, "policy")
-	rm.RecordCacheMiss(ctx, "resource")
+	// Should not panic
+	pm.RecordPolicyCacheMiss(ctx, "policy")
+	pm.RecordPolicyCacheMiss(ctx, "resource")
 }
 
-func TestResourceMetrics_RecordProcessingTime(t *testing.T) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func TestPolicyMetrics_RecordPolicyProcessingDuration(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(t, err)
 
 	ctx := context.Background()
+	duration := 100 * time.Millisecond
 
-	// Test different operations and durations
 	testCases := []struct {
-		operation string
-		duration  time.Duration
+		policyType string
+		ruleType   RuleType
+		result     RuleResult
 	}{
-		{"validation", 100 * time.Millisecond},
-		{"mutation", 50 * time.Millisecond},
-		{"generation", 200 * time.Millisecond},
-		{"policy_processing", 500 * time.Millisecond},
+		{"ClusterPolicy", Validate, Pass},
+		{"Policy", Mutate, Fail},
+		{"ClusterPolicy", Generate, Pass},
+		{"Policy", ImageVerify, Error},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.operation, func(t *testing.T) {
-			// Should not panic and should record metric
-			rm.RecordProcessingTime(ctx, tc.operation, tc.duration)
+		t.Run(string(tc.ruleType)+"_"+string(tc.result), func(t *testing.T) {
+			// Should not panic
+			pm.RecordPolicyProcessingDuration(ctx, duration, tc.policyType, tc.ruleType, tc.result)
 		})
 	}
 }
 
-func TestResourceMetrics_RecordAdmissionLatency(t *testing.T) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func TestPolicyMetrics_RecordRuleEvaluationDuration(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	duration := 50 * time.Millisecond
+
+	// Should not panic
+	pm.RecordRuleEvaluationDuration(ctx, duration, "test-policy", "test-rule", Validate)
+	pm.RecordRuleEvaluationDuration(ctx, duration, "test-policy-2", "test-rule-2", Mutate)
+}
+
+func TestPolicyMetrics_RecordPolicyEvaluation(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(t, err)
 
 	ctx := context.Background()
 
-	// Test different resources and latencies
 	testCases := []struct {
-		resource string
-		latency  time.Duration
+		policyType string
+		ruleType   RuleType
+		result     RuleResult
+		cause      RuleExecutionCause
 	}{
-		{"Pod", 10 * time.Millisecond},
-		{"Deployment", 25 * time.Millisecond},
-		{"Service", 5 * time.Millisecond},
-		{"ConfigMap", 15 * time.Millisecond},
+		{"ClusterPolicy", Validate, Pass, AdmissionRequest},
+		{"Policy", Mutate, Fail, BackgroundScan},
+		{"ClusterPolicy", Generate, Pass, AdmissionRequest},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.resource, func(t *testing.T) {
-			// Should not panic and should record metric
-			rm.RecordAdmissionLatency(ctx, tc.latency, tc.resource)
+		t.Run(string(tc.ruleType)+"_"+string(tc.result)+"_"+string(tc.cause), func(t *testing.T) {
+			// Should not panic
+			pm.RecordPolicyEvaluation(ctx, tc.policyType, tc.ruleType, tc.result, tc.cause)
 		})
 	}
 }
 
-func TestResourceMetrics_RecordGCCycle(t *testing.T) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func TestPolicyMetrics_RecordAdmissionRequestDuration(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(t, err)
 
 	ctx := context.Background()
+	duration := 200 * time.Millisecond
 
-	// Should not panic and should record metric
-	rm.RecordGCCycle(ctx)
-	rm.RecordGCCycle(ctx)
-	rm.RecordGCCycle(ctx)
-}
+	testCases := []struct {
+		operation    ResourceRequestOperation
+		resourceKind string
+		allowed      bool
+	}{
+		{ResourceCreated, "Pod", true},
+		{ResourceUpdated, "Service", false},
+		{ResourceDeleted, "ConfigMap", true},
+	}
 
-func TestResourceMetrics_CacheOperations(t *testing.T) {
-	rm, err := NewResourceMetrics(logr.Discard())
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	// Test cache hit/miss patterns
-	cacheTypes := []string{"policy", "resource", "binding"}
-
-	for _, cacheType := range cacheTypes {
-		// Record some cache hits
-		for i := 0; i < 5; i++ {
-			rm.RecordCacheHit(ctx, cacheType)
-		}
-
-		// Record some cache misses
-		for i := 0; i < 2; i++ {
-			rm.RecordCacheMiss(ctx, cacheType)
-		}
+	for _, tc := range testCases {
+		t.Run(string(tc.operation)+"_"+tc.resourceKind, func(t *testing.T) {
+			// Should not panic
+			pm.RecordAdmissionRequestDuration(ctx, duration, tc.operation, tc.resourceKind, tc.allowed)
+		})
 	}
 }
 
-func TestResourceMetrics_ProcessingTimePatterns(t *testing.T) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func TestPolicyMetrics_RecordAdmissionRequest(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(t, err)
 
 	ctx := context.Background()
 
-	// Simulate various processing time patterns
-	operations := []string{"validation", "mutation", "generation"}
+	testCases := []struct {
+		operation    ResourceRequestOperation
+		resourceKind string
+		allowed      bool
+	}{
+		{ResourceCreated, "Pod", true},
+		{ResourceUpdated, "Service", false},
+		{ResourceDeleted, "ConfigMap", true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(string(tc.operation)+"_"+tc.resourceKind, func(t *testing.T) {
+			// Should not panic
+			pm.RecordAdmissionRequest(ctx, tc.operation, tc.resourceKind, tc.allowed)
+		})
+	}
+}
+
+func TestPolicyMetrics_SetPolicyCacheSize(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
+	require.NoError(t, err)
+
+	// Should not panic
+	pm.SetPolicyCacheSize(42)
+	pm.SetPolicyCacheSize(0)
+	pm.SetPolicyCacheSize(1000)
+}
+
+func TestPolicyMetrics_CacheOperations(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test recording multiple cache operations
+	for i := 0; i < 10; i++ {
+		pm.RecordPolicyCacheHit(ctx, "policy")
+	}
+
+	for i := 0; i < 3; i++ {
+		pm.RecordPolicyCacheMiss(ctx, "policy")
+	}
+
+	// Should not panic
+	assert.NotPanics(t, func() {
+		pm.SetPolicyCacheSize(100)
+	})
+}
+
+func TestPolicyMetrics_PolicyProcessingPatterns(t *testing.T) {
+	pm, err := NewPolicyMetrics(logr.Discard())
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test different processing patterns
 	durations := []time.Duration{
 		10 * time.Millisecond,
-		50 * time.Millisecond,
 		100 * time.Millisecond,
-		250 * time.Millisecond,
 		500 * time.Millisecond,
+		1 * time.Second,
 	}
 
-	for _, op := range operations {
-		for _, duration := range durations {
-			rm.RecordProcessingTime(ctx, op, duration)
-		}
+	for _, duration := range durations {
+		pm.RecordPolicyProcessingDuration(ctx, duration, "ClusterPolicy", Validate, Pass)
+		pm.RecordRuleEvaluationDuration(ctx, duration/2, "test-policy", "test-rule", Validate)
+	}
+
+	// Test admission request patterns
+	for _, duration := range durations {
+		pm.RecordAdmissionRequestDuration(ctx, duration, ResourceCreated, "Pod", true)
+		pm.RecordAdmissionRequest(ctx, ResourceCreated, "Pod", true)
 	}
 }
 
-func BenchmarkResourceMetrics_RecordCacheHit(b *testing.B) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func BenchmarkPolicyMetrics_RecordPolicyCacheHit(b *testing.B) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(b, err)
 
 	ctx := context.Background()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		rm.RecordCacheHit(ctx, "policy")
+		pm.RecordPolicyCacheHit(ctx, "policy")
 	}
 }
 
-func BenchmarkResourceMetrics_RecordProcessingTime(b *testing.B) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func BenchmarkPolicyMetrics_RecordPolicyProcessingDuration(b *testing.B) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(b, err)
 
 	ctx := context.Background()
@@ -174,19 +238,19 @@ func BenchmarkResourceMetrics_RecordProcessingTime(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		rm.RecordProcessingTime(ctx, "validation", duration)
+		pm.RecordPolicyProcessingDuration(ctx, duration, "ClusterPolicy", Validate, Pass)
 	}
 }
 
-func BenchmarkResourceMetrics_RecordAdmissionLatency(b *testing.B) {
-	rm, err := NewResourceMetrics(logr.Discard())
+func BenchmarkPolicyMetrics_RecordAdmissionRequestDuration(b *testing.B) {
+	pm, err := NewPolicyMetrics(logr.Discard())
 	require.NoError(b, err)
 
 	ctx := context.Background()
-	latency := 25 * time.Millisecond
+	duration := 200 * time.Millisecond
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		rm.RecordAdmissionLatency(ctx, latency, "Pod")
+		pm.RecordAdmissionRequestDuration(ctx, duration, ResourceCreated, "Pod", true)
 	}
 }

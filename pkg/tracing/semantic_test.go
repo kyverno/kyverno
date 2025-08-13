@@ -2,7 +2,6 @@ package tracing
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -145,112 +144,67 @@ func TestSemanticTracer_TraceAdmissionRequest(t *testing.T) {
 	assert.True(t, spanCalled)
 }
 
-func TestSemanticTracer_TraceValidation(t *testing.T) {
+func TestEnhanceValidationTracing(t *testing.T) {
 	cleanup := setupTestTracer(t)
 	defer cleanup()
 
-	st := NewSemanticTracer()
-	ctx := context.Background()
+	tracer := otel.GetTracerProvider().Tracer("test")
 
 	t.Run("successful validation", func(t *testing.T) {
-		var spanCalled bool
-		err := st.TraceValidation(ctx, "admission", func(ctx context.Context, span trace.Span) error {
-			spanCalled = true
-			assert.NotNil(t, span)
-			assert.True(t, span.IsRecording())
-			return nil
-		})
+		ctx, span := tracer.Start(context.Background(), "test-span")
+		defer span.End()
 
-		assert.True(t, spanCalled)
-		assert.NoError(t, err)
+		// Should not panic
+		EnhanceValidationTracing(ctx, "admission", "test-rule", true)
 	})
 
 	t.Run("failed validation", func(t *testing.T) {
-		var spanCalled bool
-		testErr := errors.New("validation failed")
+		ctx, span := tracer.Start(context.Background(), "test-span")
+		defer span.End()
 
-		err := st.TraceValidation(ctx, "admission", func(ctx context.Context, span trace.Span) error {
-			spanCalled = true
-			assert.NotNil(t, span)
-			assert.True(t, span.IsRecording())
-			return testErr
-		})
-
-		assert.True(t, spanCalled)
-		assert.Equal(t, testErr, err)
+		// Should not panic
+		EnhanceValidationTracing(ctx, "admission", "test-rule", false)
 	})
 }
 
-func TestSemanticTracer_TraceMutation(t *testing.T) {
+func TestEnhanceMutationTracing(t *testing.T) {
 	cleanup := setupTestTracer(t)
 	defer cleanup()
 
-	st := NewSemanticTracer()
-	ctx := context.Background()
+	tracer := otel.GetTracerProvider().Tracer("test")
+	ctx, span := tracer.Start(context.Background(), "test-span")
+	defer span.End()
 
-	t.Run("successful mutation", func(t *testing.T) {
-		var spanCalled bool
-		err := st.TraceMutation(ctx, "admission", func(ctx context.Context, span trace.Span) error {
-			spanCalled = true
-			assert.NotNil(t, span)
-			assert.True(t, span.IsRecording())
-			return nil
-		})
-
-		assert.True(t, spanCalled)
-		assert.NoError(t, err)
-	})
-
-	t.Run("failed mutation", func(t *testing.T) {
-		var spanCalled bool
-		testErr := errors.New("mutation failed")
-
-		err := st.TraceMutation(ctx, "admission", func(ctx context.Context, span trace.Span) error {
-			spanCalled = true
-			assert.NotNil(t, span)
-			assert.True(t, span.IsRecording())
-			return testErr
-		})
-
-		assert.True(t, spanCalled)
-		assert.Equal(t, testErr, err)
-	})
+	// Should not panic
+	EnhanceMutationTracing(ctx, "admission", "test-rule", true, 3)
 }
 
-func TestSemanticTracer_TraceGeneration(t *testing.T) {
+func TestEnhanceGenerationTracing(t *testing.T) {
 	cleanup := setupTestTracer(t)
 	defer cleanup()
 
-	st := NewSemanticTracer()
-	ctx := context.Background()
+	tracer := otel.GetTracerProvider().Tracer("test")
+	ctx, span := tracer.Start(context.Background(), "test-span")
+	defer span.End()
 
-	t.Run("successful generation", func(t *testing.T) {
-		var spanCalled bool
-		err := st.TraceGeneration(ctx, "NetworkPolicy", "default-deny", func(ctx context.Context, span trace.Span) error {
-			spanCalled = true
-			assert.NotNil(t, span)
-			assert.True(t, span.IsRecording())
-			return nil
-		})
+	// Should not panic
+	EnhanceGenerationTracing(ctx, "NetworkPolicy", "default-deny", "generate-netpol", true)
+}
 
-		assert.True(t, spanCalled)
-		assert.NoError(t, err)
+func TestTraceRuleProcessing(t *testing.T) {
+	cleanup := setupTestTracer(t)
+	defer cleanup()
+
+	var functionCalled bool
+	TraceRuleProcessing(context.Background(), "test-policy", "test-rule", "validation", func(ctx context.Context) {
+		functionCalled = true
+		// Verify the span context is available
+		span := trace.SpanFromContext(ctx)
+		assert.NotNil(t, span)
+		assert.True(t, span.IsRecording())
 	})
 
-	t.Run("failed generation", func(t *testing.T) {
-		var spanCalled bool
-		testErr := errors.New("generation failed")
-
-		err := st.TraceGeneration(ctx, "ConfigMap", "test-config", func(ctx context.Context, span trace.Span) error {
-			spanCalled = true
-			assert.NotNil(t, span)
-			assert.True(t, span.IsRecording())
-			return testErr
-		})
-
-		assert.True(t, spanCalled)
-		assert.Equal(t, testErr, err)
-	})
+	assert.True(t, functionCalled)
 }
 
 func TestSemanticTracer_AddEventToSpan(t *testing.T) {
@@ -338,9 +292,6 @@ func TestSemanticSpanConstants(t *testing.T) {
 	assert.Equal(t, "resource.processing", ResourceProcessingSpan)
 	assert.Equal(t, "cache.operation", CacheOperationSpan)
 	assert.Equal(t, "admission.request", AdmissionRequestSpan)
-	assert.Equal(t, "validation.check", ValidationSpan)
-	assert.Equal(t, "mutation.apply", MutationSpan)
-	assert.Equal(t, "generation.create", GenerationSpan)
 }
 
 func BenchmarkSemanticTracer_TracePolicy(b *testing.B) {
@@ -363,14 +314,13 @@ func BenchmarkSemanticTracer_TracePolicy(b *testing.B) {
 	}
 }
 
-func BenchmarkSemanticTracer_TraceValidation(b *testing.B) {
-	st := NewSemanticTracer()
+func BenchmarkTraceRuleProcessing(b *testing.B) {
 	ctx := context.Background()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = st.TraceValidation(ctx, "admission", func(ctx context.Context, span trace.Span) error {
-			return nil
+		TraceRuleProcessing(ctx, "test-policy", "test-rule", "validation", func(ctx context.Context) {
+			// Minimal work in the span
 		})
 	}
 }
@@ -385,5 +335,16 @@ func BenchmarkSemanticTracer_SetSpanAttribute(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		st.SetSpanAttribute(ctx, "test_attr", "test_value")
+	}
+}
+
+func BenchmarkEnhanceValidationTracing(b *testing.B) {
+	tracer := otel.GetTracerProvider().Tracer("test")
+	ctx, span := tracer.Start(context.Background(), "test-span")
+	defer span.End()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		EnhanceValidationTracing(ctx, "admission", "test-rule", true)
 	}
 }

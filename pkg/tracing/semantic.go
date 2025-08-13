@@ -11,15 +11,12 @@ import (
 )
 
 const (
-	// Semantic span names
+	// Semantic span names for policy types
 	PolicyProcessingSpan   = "policy.processing"
 	RuleEvaluationSpan     = "rule.evaluation"
 	ResourceProcessingSpan = "resource.processing"
 	CacheOperationSpan     = "cache.operation"
 	AdmissionRequestSpan   = "admission.request"
-	ValidationSpan         = "validation.check"
-	MutationSpan           = "mutation.apply"
-	GenerationSpan         = "generation.create"
 )
 
 // SemanticTracer provides enhanced tracing capabilities with semantic conventions
@@ -123,71 +120,6 @@ func (st *SemanticTracer) TraceAdmissionRequest(ctx context.Context, requestUID,
 	fn(ctx, span)
 }
 
-// TraceValidation creates a span for validation operations
-func (st *SemanticTracer) TraceValidation(ctx context.Context, validationType string, fn func(context.Context, trace.Span) error) error {
-	spanName := fmt.Sprintf("%s.%s", ValidationSpan, validationType)
-
-	attributes := []attribute.KeyValue{
-		attribute.String("validation.type", validationType),
-	}
-
-	ctx, span := st.tracer.Start(ctx, spanName, trace.WithAttributes(attributes...))
-	defer span.End()
-
-	err := fn(ctx, span)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-	} else {
-		span.SetStatus(codes.Ok, "validation successful")
-	}
-
-	return err
-}
-
-// TraceMutation creates a span for mutation operations
-func (st *SemanticTracer) TraceMutation(ctx context.Context, mutationType string, fn func(context.Context, trace.Span) error) error {
-	spanName := fmt.Sprintf("%s.%s", MutationSpan, mutationType)
-
-	attributes := []attribute.KeyValue{
-		attribute.String("mutation.type", mutationType),
-	}
-
-	ctx, span := st.tracer.Start(ctx, spanName, trace.WithAttributes(attributes...))
-	defer span.End()
-
-	err := fn(ctx, span)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-	} else {
-		span.SetStatus(codes.Ok, "mutation successful")
-	}
-
-	return err
-}
-
-// TraceGeneration creates a span for resource generation operations
-func (st *SemanticTracer) TraceGeneration(ctx context.Context, targetKind, targetName string, fn func(context.Context, trace.Span) error) error {
-	attributes := []attribute.KeyValue{
-		attribute.String("generation.target.kind", targetKind),
-		attribute.String("generation.target.name", targetName),
-	}
-
-	ctx, span := st.tracer.Start(ctx, GenerationSpan, trace.WithAttributes(attributes...))
-	defer span.End()
-
-	err := fn(ctx, span)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-	} else {
-		span.SetStatus(codes.Ok, "generation successful")
-	}
-
-	return err
-}
-
 // AddEventToSpan adds a structured event to the current span
 func (st *SemanticTracer) AddEventToSpan(ctx context.Context, eventName string, attributes ...attribute.KeyValue) {
 	span := trace.SpanFromContext(ctx)
@@ -246,4 +178,61 @@ func (st *SemanticTracer) RecordEvent(ctx context.Context, eventType, message st
 
 		span.AddEvent("kyverno.event", trace.WithAttributes(attrs...))
 	}
+}
+
+// EnhanceValidationTracing adds validation-specific semantic attributes to existing span
+func EnhanceValidationTracing(ctx context.Context, validationType, ruleName string, passed bool) {
+	span := trace.SpanFromContext(ctx)
+	if span.IsRecording() {
+		span.SetAttributes(
+			attribute.String("validation.type", validationType),
+			attribute.String("validation.rule", ruleName),
+			attribute.Bool("validation.passed", passed),
+		)
+		if !passed {
+			span.SetStatus(codes.Error, "validation failed")
+		}
+	}
+}
+
+// EnhanceMutationTracing adds mutation-specific semantic attributes to existing span
+func EnhanceMutationTracing(ctx context.Context, mutationType, ruleName string, applied bool, patchCount int) {
+	span := trace.SpanFromContext(ctx)
+	if span.IsRecording() {
+		span.SetAttributes(
+			attribute.String("mutation.type", mutationType),
+			attribute.String("mutation.rule", ruleName),
+			attribute.Bool("mutation.applied", applied),
+			attribute.Int("mutation.patches", patchCount),
+		)
+	}
+}
+
+// EnhanceGenerationTracing adds generation-specific semantic attributes to existing span
+func EnhanceGenerationTracing(ctx context.Context, targetKind, targetName, ruleName string, created bool) {
+	span := trace.SpanFromContext(ctx)
+	if span.IsRecording() {
+		span.SetAttributes(
+			attribute.String("generation.target.kind", targetKind),
+			attribute.String("generation.target.name", targetName),
+			attribute.String("generation.rule", ruleName),
+			attribute.Bool("generation.created", created),
+		)
+	}
+}
+
+// TraceRuleProcessing traces rule processing with policy type context
+func TraceRuleProcessing(ctx context.Context, policyName, ruleName, ruleType string, fn func(context.Context)) {
+	spanName := fmt.Sprintf("rule.%s.%s", ruleType, ruleName)
+
+	attributes := []attribute.KeyValue{
+		PolicyNameKey.String(policyName),
+		RuleNameKey.String(ruleName),
+		attribute.String("rule.type", ruleType),
+	}
+
+	ctx, span := otel.Tracer("kyverno-semantic").Start(ctx, spanName, trace.WithAttributes(attributes...))
+	defer span.End()
+
+	fn(ctx)
 }
