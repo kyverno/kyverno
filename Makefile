@@ -59,9 +59,9 @@ KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 COSIGN                             ?= $(TOOLS_DIR)/cosign
-COSIGN_VERSION                     ?= v2.4.1
+COSIGN_VERSION                     ?= v2.5.3
 CHAINSAW                           ?= $(TOOLS_DIR)/chainsaw
-CHAINSAW_VERSION                   ?= v0.2.17
+CHAINSAW_VERSION                   ?= v0.2.12
 KUBECTL                            ?= $(TOOLS_DIR)/kubectl
 KUBECTL_VERSION                    ?= v1.33.1
 KUBE_VERSION                       ?= v1.25.0
@@ -1066,8 +1066,10 @@ kind-install-kyverno-from-repo: $(HELM) ## Install Kyverno Helm Chart from the K
 kind-install-goldilocks: $(HELM) ## Install goldilocks helm chart
 	@echo Install goldilocks chart... >&2
 	@$(HELM) upgrade --install vpa --namespace vpa --create-namespace --wait \
+		--timeout 5m \
 		--repo https://charts.fairwinds.com/stable vpa
 	@$(HELM) upgrade --install goldilocks --namespace goldilocks --create-namespace --wait \
+		--timeout 5m \
 		--repo https://charts.fairwinds.com/stable goldilocks
 	kubectl label ns kyverno goldilocks.fairwinds.com/enabled=true
 
@@ -1088,6 +1090,7 @@ kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build ima
 kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
 	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
+		--timeout 5m \
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/standard/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
@@ -1130,6 +1133,7 @@ dev-lab-ingress-ngingx: ## Deploy ingress-ngingx
 dev-lab-prometheus: $(HELM) ## Deploy kube-prometheus-stack helm chart
 	@echo Install kube-prometheus-stack chart... >&2
 	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
+		--timeout 15m \
 		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
 		--values ./scripts/config/dev/kube-prometheus-stack.yaml
 
@@ -1137,6 +1141,7 @@ dev-lab-prometheus: $(HELM) ## Deploy kube-prometheus-stack helm chart
 dev-lab-loki: $(HELM) ## Deploy loki-stack helm chart
 	@echo Install loki-stack chart... >&2
 	@$(HELM) upgrade --install loki-stack --namespace monitoring --create-namespace --wait \
+		--timeout 10m \
 		--repo https://grafana.github.io/helm-charts loki-stack \
 		--values ./scripts/config/dev/loki-stack.yaml
 
@@ -1144,6 +1149,7 @@ dev-lab-loki: $(HELM) ## Deploy loki-stack helm chart
 dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
 	@echo Install tempo chart... >&2
 	@$(HELM) upgrade --install tempo --namespace monitoring --create-namespace --wait \
+		--timeout 10m \
 		--repo https://grafana.github.io/helm-charts tempo \
 		--values ./scripts/config/dev/tempo.yaml
 	@kubectl apply -f ./scripts/config/dev/tempo-datasource.yaml
@@ -1152,6 +1158,7 @@ dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
 dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 	@echo Install otel-collector chart... >&2
 	@$(HELM) upgrade --install opentelemetry-collector --namespace monitoring --create-namespace --wait \
+		--timeout 10m \
 		--repo https://open-telemetry.github.io/opentelemetry-helm-charts opentelemetry-collector \
 		--values ./scripts/config/dev/otel-collector.yaml
 
@@ -1160,6 +1167,7 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
 	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
 		--namespace kube-system --wait \
+		--timeout 5m \
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
@@ -1169,6 +1177,7 @@ dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus de
 dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
 	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
+		--timeout 5m \
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/dev/policy-reporter.yaml
 

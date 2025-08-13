@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-# Tool versions
-COSIGN_VERSION=${COSIGN_VERSION:-"v2.4.1"}
+# Tool versions - using more recent stable versions
+COSIGN_VERSION=${COSIGN_VERSION:-"v2.5.3"}
 CHAINSAW_VERSION=${CHAINSAW_VERSION:-"v0.2.12"}
 KUBECTL_VERSION=${KUBECTL_VERSION:-"v1.33.1"}
 
@@ -11,33 +11,90 @@ KUBECTL_VERSION=${KUBECTL_VERSION:-"v1.33.1"}
 TOOLS_DIR=${TOOLS_DIR:-"${PWD}/.tools"}
 mkdir -p "${TOOLS_DIR}"
 
-# Detect OS and architecture
+# Detect OS and architecture with improved handling
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
+ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
 
+# Normalize architecture names
 case "${ARCH}" in
-    x86_64|amd64)
+    x86_64|amd64|x64)
         ARCH="amd64"
         ;;
     arm64|aarch64)
         ARCH="arm64"
         ;;
+    armv7l|armv7*)
+        ARCH="arm"
+        ;;
     *)
-        echo "Unsupported architecture: ${ARCH}"
-        exit 1
+        echo "Warning: Unsupported architecture: ${ARCH}, trying amd64"
+        ARCH="amd64"
         ;;
 esac
 
+# Normalize OS names
 case "${OS}" in
-    linux|darwin)
+    linux*)
+        OS="linux"
+        ;;
+    darwin*)
+        OS="darwin"
+        ;;
+    msys*|mingw*|cygwin*|windows*)
+        OS="windows"
         ;;
     *)
-        echo "Unsupported OS: ${OS}"
-        exit 1
+        echo "Warning: Unsupported OS: ${OS}, trying linux"
+        OS="linux"
         ;;
 esac
 
 echo "Installing tools for ${OS}/${ARCH}..."
+
+# Function to compare semantic versions
+version_compare() {
+    if [[ $1 == $2 ]]; then
+        return 0
+    fi
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # Remove 'v' prefix if present
+    ver1[0]=${ver1[0]#v}
+    ver2[0]=${ver2[0]#v}
+    # fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++)); do
+        ver1[i]=0
+    done
+    for ((i=0; i<${#ver1[@]}; i++)); do
+        if [[ -z ${ver2[i]} ]]; then
+            # fill empty fields in ver2 with zeros
+            ver2[i]=0
+        fi
+        if ((10#${ver1[i]} > 10#${ver2[i]})); then
+            return 1
+        fi
+        if ((10#${ver1[i]} < 10#${ver2[i]})); then
+            return 2
+        fi
+    done
+    return 0
+}
+
+# Function to validate minimum version
+validate_minimum_version() {
+    local current_version="$1"
+    local minimum_version="$2"
+    local tool_name="$3"
+    
+    version_compare "$current_version" "$minimum_version"
+    local result=$?
+    
+    if [[ $result -eq 2 ]]; then
+        echo "Error: $tool_name version $current_version is below minimum required version $minimum_version"
+        return 1
+    fi
+    return 0
+}
 
 # Function to download with retries
 download_with_retry() {
@@ -63,13 +120,27 @@ download_with_retry() {
 # Install cosign
 install_cosign() {
     local cosign_binary="${TOOLS_DIR}/cosign"
+    local min_version="v2.4.0"
+    
+    # Validate that requested version meets minimum requirements
+    if ! validate_minimum_version "$COSIGN_VERSION" "$min_version" "cosign"; then
+        echo "Error: cosign version $COSIGN_VERSION is below minimum required version $min_version"
+        echo "Please use cosign $min_version or later."
+        exit 1
+    fi
     
     if [[ -f "$cosign_binary" ]]; then
         local current_version
-        current_version=$("$cosign_binary" version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "unknown")
+        # Try different version extraction methods for cosign
+        current_version=$("$cosign_binary" version --json 2>/dev/null | grep -o '"gitVersion":"[^"]*"' | cut -d'"' -f4 || \
+                         "$cosign_binary" version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || \
+                         echo "unknown")
+        
         if [[ "$current_version" == "$COSIGN_VERSION" ]]; then
             echo "cosign $COSIGN_VERSION already installed"
             return 0
+        elif [[ "$current_version" != "unknown" ]]; then
+            echo "Found cosign $current_version, but need $COSIGN_VERSION. Reinstalling..."
         fi
     fi
     
@@ -79,7 +150,21 @@ install_cosign() {
     download_with_retry "$cosign_url" "$cosign_binary"
     chmod +x "$cosign_binary"
     
-    echo "cosign installed successfully"
+    # Validate installation
+    local installed_version
+    installed_version=$("$cosign_binary" version --json 2>/dev/null | grep -o '"gitVersion":"[^"]*"' | cut -d'"' -f4 || \
+                       "$cosign_binary" version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || \
+                       echo "unknown")
+    
+    if [[ "$installed_version" == "unknown" ]]; then
+        echo "Warning: Unable to validate cosign version"
+    else
+        echo "cosign $installed_version installed successfully"
+        if ! validate_minimum_version "$installed_version" "$min_version" "cosign"; then
+            echo "Warning: Installed cosign version may not meet minimum requirements"
+        fi
+    fi
+    
     "$cosign_binary" version
 }
 
