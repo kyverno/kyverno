@@ -1,6 +1,6 @@
 package parse
 
-var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#jp`
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/usage/jp/`
 
 var description = []string{
 	`Parses jmespath expression and shows corresponding AST.`,

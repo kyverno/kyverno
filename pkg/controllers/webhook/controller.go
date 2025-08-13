@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -225,6 +226,8 @@ func NewController(
 		},
 		stateRecorder: stateRecorder,
 	}
+	// Set up the CRD change callback
+	c.discoveryClient.OnChanged(c.OnCRDChange)
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -406,6 +409,12 @@ func (c *controller) watchdogCheck() bool {
 		return false
 	}
 	return time.Now().Before(annTime.Add(IdleDeadline))
+}
+
+func (c *controller) OnCRDChange() {
+	logger := logger.WithName("crd-change-handler")
+	logger.Info("CRD change detected, re-evaluating all policies")
+	c.enqueueAll()
 }
 
 func (c *controller) enqueueAll() {
@@ -1450,8 +1459,12 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		} else {
 			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 			if err != nil {
-				ready = ready && false
-				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				if errors.Is(err, dclient.ErrResourceNotFound) {
+					logger.Info("resource not found", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				} else {
+					ready = false
+					logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				}
 				continue
 			}
 			for gvrs, resource := range gvrss {

@@ -8,14 +8,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
-func ParsePolicyValidationMode(validationFailureAction kyvernov1.ValidationFailureAction) (PolicyValidationMode, error) {
-	if validationFailureAction.Enforce() {
-		return Enforce, nil
-	}
-	return Audit, nil
-}
-
-func ParsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
+func parsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
 	if policy.BackgroundProcessingEnabled() {
 		return BackgroundTrue
 	}
@@ -76,7 +69,7 @@ func GetPolicyInfos(policy kyvernov1.PolicyInterface) (string, string, PolicyTyp
 		namespace = policy.GetNamespace()
 		policyType = Namespaced
 	}
-	backgroundMode := ParsePolicyBackgroundMode(policy)
+	backgroundMode := parsePolicyBackgroundMode(policy)
 	isEnforce := policy.GetSpec().HasValidateEnforce()
 	var validationMode PolicyValidationMode
 	if isEnforce {

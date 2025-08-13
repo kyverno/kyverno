@@ -318,10 +318,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vapPolicies {
-			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			if err != nil {
-				return err
-			}
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -335,10 +332,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		for _, policy := range mapPolicies {
 			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
-			kinds, err := admissionpolicy.GetKinds(converted, restMapper)
-			if err != nil {
-				return err
-			}
+			kinds := admissionpolicy.GetKinds(converted, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -352,17 +346,9 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
-			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			if err != nil {
-				return err
-			}
-
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, autogen := range policy.Status.Autogen.Configs {
-				genKinds, err := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
-				if err != nil {
-					return err
-				}
-
+				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
 				kinds = append(kinds, genKinds...)
 			}
 
@@ -379,17 +365,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		for _, policy := range mpols {
 			matchConstraints := policy.Spec.GetMatchConstraints()
-			kinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
-			if err != nil {
-				return err
-			}
-
+			kinds := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 			for _, policy := range policy.Status.Autogen.Configs {
 				matchConstraints := policy.Spec.GetMatchConstraints()
-				genKinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
-				if err != nil {
-					return err
-				}
+				genKinds := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 
 				kinds = append(kinds, genKinds...)
 			}
@@ -407,10 +386,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from image verification admission policies
 		for _, policy := range ivpols {
-			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			if err != nil {
-				return err
-			}
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -452,7 +428,7 @@ func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string
 	} else {
 		for gvrs, api := range gvrss {
 			if gvrs.SubResource == "" {
-				gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: kind}
+				gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: gvrs.Kind}
 				if !reportutils.IsGvkSupported(gvk) {
 					logger.V(2).Info("kind is not supported", "gvk", gvk)
 				} else {

@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 func Test_Apply(t *testing.T) {

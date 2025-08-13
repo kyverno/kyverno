@@ -129,6 +129,10 @@ func (c *fakeDiscoveryClient) CachedDiscoveryInterface() discovery.CachedDiscove
 	return nil
 }
 
+func (c *fakeDiscoveryClient) OnChanged(callback func()) {
+	// No-op for fake client
+}
+
 func convertObjectsToUnstructured(objs []runtime.Object) ([]runtime.Object, error) {
 	ul := make([]runtime.Object, 0, len(objs))
 	for _, obj := range objs {
