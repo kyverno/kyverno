@@ -269,6 +269,12 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           
+          # Verify cluster access
+          echo "Verifying cluster access..."
+          kubectl cluster-info --context kind-kind
+          kubectl config current-context
+          kubectl get nodes
+          
           # Wait for cluster to be fully ready
           echo "Waiting for cluster nodes to be ready..."
           kubectl wait --for=condition=Ready nodes --all --timeout=300s
@@ -291,6 +297,7 @@ jobs:
           echo "Installing metrics server and prometheus..."
           make dev-lab-metrics-server dev-lab-prometheus || {
             echo "Installation failed, checking cluster state..."
+            kubectl config current-context
             kubectl get nodes -o wide
             kubectl get pods --all-namespaces
             kubectl describe pods -n monitoring || true

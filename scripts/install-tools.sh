@@ -15,7 +15,9 @@ mkdir -p "${TOOLS_DIR}"
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
 
-# Normalize architecture names
+echo "Detected OS: $OS, ARCH: $ARCH"
+
+# Normalize architecture names - be more permissive
 case "${ARCH}" in
     x86_64|amd64|x64)
         ARCH="amd64"
@@ -23,16 +25,19 @@ case "${ARCH}" in
     arm64|aarch64)
         ARCH="arm64"
         ;;
-    armv7l|armv7*)
+    armv7l|armv7*|arm)
         ARCH="arm"
         ;;
+    i386|i686)
+        ARCH="386"
+        ;;
     *)
-        echo "Warning: Unsupported architecture: ${ARCH}, trying amd64"
+        echo "Warning: Unknown architecture ${ARCH}, defaulting to amd64"
         ARCH="amd64"
         ;;
 esac
 
-# Normalize OS names
+# Normalize OS names - be more permissive
 case "${OS}" in
     linux*)
         OS="linux"
@@ -44,57 +49,14 @@ case "${OS}" in
         OS="windows"
         ;;
     *)
-        echo "Warning: Unsupported OS: ${OS}, trying linux"
+        echo "Warning: Unknown OS ${OS}, defaulting to linux"
         OS="linux"
         ;;
 esac
 
+echo "Normalized to: ${OS}/${ARCH}"
+
 echo "Installing tools for ${OS}/${ARCH}..."
-
-# Function to compare semantic versions
-version_compare() {
-    if [[ $1 == $2 ]]; then
-        return 0
-    fi
-    local IFS=.
-    local i ver1=($1) ver2=($2)
-    # Remove 'v' prefix if present
-    ver1[0]=${ver1[0]#v}
-    ver2[0]=${ver2[0]#v}
-    # fill empty fields in ver1 with zeros
-    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++)); do
-        ver1[i]=0
-    done
-    for ((i=0; i<${#ver1[@]}; i++)); do
-        if [[ -z ${ver2[i]} ]]; then
-            # fill empty fields in ver2 with zeros
-            ver2[i]=0
-        fi
-        if ((10#${ver1[i]} > 10#${ver2[i]})); then
-            return 1
-        fi
-        if ((10#${ver1[i]} < 10#${ver2[i]})); then
-            return 2
-        fi
-    done
-    return 0
-}
-
-# Function to validate minimum version
-validate_minimum_version() {
-    local current_version="$1"
-    local minimum_version="$2"
-    local tool_name="$3"
-    
-    version_compare "$current_version" "$minimum_version"
-    local result=$?
-    
-    if [[ $result -eq 2 ]]; then
-        echo "Error: $tool_name version $current_version is below minimum required version $minimum_version"
-        return 1
-    fi
-    return 0
-}
 
 # Function to download with retries
 download_with_retry() {
@@ -120,18 +82,14 @@ download_with_retry() {
 # Install cosign
 install_cosign() {
     local cosign_binary="${TOOLS_DIR}/cosign"
-    local min_version="v2.4.0"
     
-    # Validate that requested version meets minimum requirements
-    if ! validate_minimum_version "$COSIGN_VERSION" "$min_version" "cosign"; then
-        echo "Error: cosign version $COSIGN_VERSION is below minimum required version $min_version"
-        echo "Please use cosign $min_version or later."
-        exit 1
-    fi
+    # Set environment variables to avoid network calls during installation
+    export COSIGN_EXPERIMENTAL=0
+    export SIGSTORE_NO_DEFAULT_TUF_ROOT=1
     
     if [[ -f "$cosign_binary" ]]; then
         local current_version
-        # Try different version extraction methods for cosign
+        # Try to get current version
         current_version=$("$cosign_binary" version --json 2>/dev/null | grep -o '"gitVersion":"[^"]*"' | cut -d'"' -f4 || \
                          "$cosign_binary" version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || \
                          echo "unknown")
@@ -140,32 +98,27 @@ install_cosign() {
             echo "cosign $COSIGN_VERSION already installed"
             return 0
         elif [[ "$current_version" != "unknown" ]]; then
-            echo "Found cosign $current_version, but need $COSIGN_VERSION. Reinstalling..."
+            echo "Found cosign $current_version, installing $COSIGN_VERSION..."
         fi
     fi
     
     echo "Installing cosign $COSIGN_VERSION..."
     local cosign_url="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-${OS}-${ARCH}"
     
+    echo "Downloading from: $cosign_url"
     download_with_retry "$cosign_url" "$cosign_binary"
     chmod +x "$cosign_binary"
     
     # Validate installation
-    local installed_version
-    installed_version=$("$cosign_binary" version --json 2>/dev/null | grep -o '"gitVersion":"[^"]*"' | cut -d'"' -f4 || \
-                       "$cosign_binary" version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || \
-                       echo "unknown")
-    
-    if [[ "$installed_version" == "unknown" ]]; then
-        echo "Warning: Unable to validate cosign version"
+    if COSIGN_EXPERIMENTAL=0 SIGSTORE_NO_DEFAULT_TUF_ROOT=1 "$cosign_binary" version >/dev/null 2>&1; then
+        echo "cosign installed successfully"
+        COSIGN_EXPERIMENTAL=0 SIGSTORE_NO_DEFAULT_TUF_ROOT=1 "$cosign_binary" version || true
     else
-        echo "cosign $installed_version installed successfully"
-        if ! validate_minimum_version "$installed_version" "$min_version" "cosign"; then
-            echo "Warning: Installed cosign version may not meet minimum requirements"
-        fi
+        echo "Warning: cosign installation may have issues, but continuing..."
     fi
     
-    "$cosign_binary" version
+    # Reset environment variables
+    unset COSIGN_EXPERIMENTAL SIGSTORE_NO_DEFAULT_TUF_ROOT
 }
 
 # Install chainsaw

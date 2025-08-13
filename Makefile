@@ -1130,11 +1130,13 @@ dev-lab-ingress-ngingx: ## Deploy ingress-ngingx
 	@kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
 .PHONY: dev-lab-prometheus
-dev-lab-prometheus: $(HELM) ## Deploy kube-prometheus-stack helm chart
+dev-lab-prometheus: ## Deploy kube-prometheus-stack helm chart
 	@echo Install kube-prometheus-stack chart... >&2
-	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
+	@helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+	@helm repo update
+	@helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+		--namespace monitoring --create-namespace --wait \
 		--timeout 20m \
-		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
 		--values ./scripts/config/dev/kube-prometheus-stack.yaml
 
 .PHONY: dev-lab-loki
@@ -1165,7 +1167,7 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+	@helm upgrade --install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
 		--namespace kube-system --wait \
 		--timeout 5m \
 		--values ./scripts/config/dev/metrics-server.yaml
