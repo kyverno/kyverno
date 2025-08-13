@@ -104,6 +104,26 @@ jobs:
           make kind-install-kyverno-from-repo
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
+      - name: Verify TLS secrets exist
+        shell: bash
+        run: |
+          set -e
+          echo "Checking for required TLS secrets..."
+          
+          # Wait for admission controller TLS secrets
+          timeout 60s bash -c 'until kubectl get secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n kyverno &>/dev/null; do 
+            echo "Waiting for admission controller TLS secret..."; 
+            sleep 2; 
+          done'
+          
+          # Wait for cleanup controller TLS secrets  
+          timeout 60s bash -c 'until kubectl get secret kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair -n kyverno &>/dev/null; do 
+            echo "Waiting for cleanup controller TLS secret..."; 
+            sleep 2; 
+          done'
+          
+          echo "✅ All required TLS secrets are present"
+          kubectl get secrets -n kyverno | grep tls
       - name: Install K6
         shell: bash
         run: |
@@ -183,6 +203,26 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
+      - name: Verify TLS secrets exist
+        shell: bash
+        run: |
+          set -e
+          echo "Checking for required TLS secrets..."
+          
+          # Wait for admission controller TLS secrets
+          timeout 60s bash -c 'until kubectl get secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n kyverno &>/dev/null; do 
+            echo "Waiting for admission controller TLS secret..."; 
+            sleep 2; 
+          done'
+          
+          # Wait for cleanup controller TLS secrets  
+          timeout 60s bash -c 'until kubectl get secret kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair -n kyverno &>/dev/null; do 
+            echo "Waiting for cleanup controller TLS secret..."; 
+            sleep 2; 
+          done'
+          
+          echo "✅ All required TLS secrets are present"
+          kubectl get secrets -n kyverno | grep tls
       - name: Install K6
         shell: bash
         run: |
@@ -314,6 +354,26 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
+      - name: Verify TLS secrets exist
+        shell: bash
+        run: |
+          set -e
+          echo "Checking for required TLS secrets..."
+          
+          # Wait for admission controller TLS secrets
+          timeout 60s bash -c 'until kubectl get secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n kyverno &>/dev/null; do 
+            echo "Waiting for admission controller TLS secret..."; 
+            sleep 2; 
+          done'
+          
+          # Wait for cleanup controller TLS secrets  
+          timeout 60s bash -c 'until kubectl get secret kyverno-cleanup-controller.kyverno.svc.kyverno-tls-pair -n kyverno &>/dev/null; do 
+            echo "Waiting for cleanup controller TLS secret..."; 
+            sleep 2; 
+          done'
+          
+          echo "✅ All required TLS secrets are present"
+          kubectl get secrets -n kyverno | grep tls
       - name: Install K6
         shell: bash
         run: |
