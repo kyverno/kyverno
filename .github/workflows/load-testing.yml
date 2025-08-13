@@ -67,6 +67,11 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          install-tools: true
       - name: Checkout kyverno/load-testing
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -169,6 +174,11 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          install-tools: true
       - name: Checkout kyverno/load-testing
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -279,6 +289,11 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          install-tools: true
       - name: Checkout kyverno/load-testing
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
