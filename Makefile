@@ -1133,7 +1133,7 @@ dev-lab-ingress-ngingx: ## Deploy ingress-ngingx
 dev-lab-prometheus: $(HELM) ## Deploy kube-prometheus-stack helm chart
 	@echo Install kube-prometheus-stack chart... >&2
 	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
-		--timeout 15m \
+		--timeout 20m \
 		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
 		--values ./scripts/config/dev/kube-prometheus-stack.yaml
 

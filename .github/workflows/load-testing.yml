@@ -268,7 +268,35 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          make dev-lab-metrics-server dev-lab-prometheus
+          
+          # Wait for cluster to be fully ready
+          echo "Waiting for cluster nodes to be ready..."
+          kubectl wait --for=condition=Ready nodes --all --timeout=300s
+          
+          # Ensure system pods are ready
+          echo "Waiting for system pods to be ready..."
+          kubectl wait --for=condition=Ready pod --all -n kube-system --timeout=300s
+          
+          # Create monitoring namespace early
+          echo "Creating monitoring namespace..."
+          kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Update Helm repositories to ensure we have latest charts
+          echo "Updating Helm repositories..."
+          $HELM repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+          $HELM repo add bitnami https://charts.bitnami.com/bitnami || true
+          $HELM repo update
+          
+          # Install with explicit timeout and better error handling
+          echo "Installing metrics server and prometheus..."
+          make dev-lab-metrics-server dev-lab-prometheus || {
+            echo "Installation failed, checking cluster state..."
+            kubectl get nodes -o wide
+            kubectl get pods --all-namespaces
+            kubectl describe pods -n monitoring || true
+            kubectl get events -n monitoring --sort-by='.lastTimestamp' || true
+            exit 1
+          }
       - name: Install Kyverno
         shell: bash
         run: |
