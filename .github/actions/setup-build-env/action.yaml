@@ -9,6 +9,9 @@ inputs:
   free-disk-space:
     description: free disk space
     default: 'true'
+  install-tools:
+    description: install additional tools (cosign, chainsaw, kubectl)
+    default: 'false'
 
 runs:
   using: composite
@@ -33,3 +36,9 @@ runs:
     - shell: bash
       run: |
         go mod download
+    - shell: bash
+      if: ${{ inputs.install-tools == 'true' }}
+      run: |
+        chmod +x ./scripts/install-tools.sh
+        ./scripts/install-tools.sh
+        echo "${{ github.workspace }}/.tools" >> $GITHUB_PATH

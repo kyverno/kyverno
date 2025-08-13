@@ -58,8 +58,14 @@ KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
+COSIGN                             ?= $(TOOLS_DIR)/cosign
+COSIGN_VERSION                     ?= v2.4.1
+CHAINSAW                           ?= $(TOOLS_DIR)/chainsaw
+CHAINSAW_VERSION                   ?= v0.2.17
+KUBECTL                            ?= $(TOOLS_DIR)/kubectl
+KUBECTL_VERSION                    ?= v1.33.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER) $(COSIGN) $(CHAINSAW) $(KUBECTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -126,6 +132,18 @@ $(API_GROUP_RESOURCES):
 $(CLIENT_WRAPPER):
 	@echo Install client-wrapper... >&2
 	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
+
+$(COSIGN):
+	@echo Install cosign... >&2
+	@TOOLS_DIR=$(TOOLS_DIR) COSIGN_VERSION=$(COSIGN_VERSION) ./scripts/install-tools.sh cosign
+
+$(CHAINSAW):
+	@echo Install chainsaw... >&2
+	@TOOLS_DIR=$(TOOLS_DIR) CHAINSAW_VERSION=$(CHAINSAW_VERSION) ./scripts/install-tools.sh chainsaw
+
+$(KUBECTL):
+	@echo Install kubectl... >&2
+	@TOOLS_DIR=$(TOOLS_DIR) KUBECTL_VERSION=$(KUBECTL_VERSION) ./scripts/install-tools.sh kubectl
 
 .PHONY: install-tools
 install-tools: ## Install tools

@@ -23,6 +23,8 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
+        with:
+          install-tools: true
       - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
@@ -32,6 +34,16 @@ jobs:
           then
             echo "TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
           fi
+      - name: Create kind cluster
+        run: |
+          kind create cluster --wait=60s
+          kubectl cluster-info --context kind-kind
+      - name: Verify tools installation
+        run: |
+          echo "Checking tool versions..."
+          cosign version || echo "cosign not found"
+          chainsaw version || echo "chainsaw not found"  
+          kubectl version --client || echo "kubectl not found"
       - name: Test CLI
         run: |
           VERSION=${{ github.ref_name }} make test-cli
