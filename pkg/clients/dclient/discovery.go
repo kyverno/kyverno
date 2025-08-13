@@ -2,8 +2,10 @@ package dclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
@@ -16,6 +18,8 @@ import (
 	metadatainformer "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 )
+
+var ErrResourceNotFound = errors.New("resource not found")
 
 // TopLevelApiDescription contains a group/version/resource/subresource reference
 type TopLevelApiDescription struct {
@@ -53,6 +57,7 @@ type IDiscovery interface {
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	CachedDiscoveryInterface() discovery.CachedDiscoveryInterface
+	OnChanged(callback func())
 }
 
 // apiResourceWithListGV is a wrapper for metav1.APIResource with the group-version of its metav1.APIResourceList
@@ -64,15 +69,29 @@ type apiResourceWithListGV struct {
 // serverResources stores the cachedClient instance for discovery client
 type serverResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
+	mux          sync.RWMutex
+	callbacks    []func()
+}
+
+func (c *serverResources) OnChanged(callback func()) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	c.callbacks = append(c.callbacks, callback)
+}
+
+func (c *serverResources) notify() {
+	for _, callback := range c.callbacks {
+		callback()
+	}
 }
 
 // CachedDiscoveryInterface gets the discovery client cache
-func (c serverResources) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
+func (c *serverResources) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
 	return c.cachedClient
 }
 
 // Poll will keep invalidate the local cache
-func (c serverResources) Poll(ctx context.Context, resync time.Duration) {
+func (c *serverResources) Poll(ctx context.Context, resync time.Duration) {
 	logger := logger.WithName("Poll")
 	// start a ticker
 	ticker := time.NewTicker(resync)
@@ -93,7 +112,7 @@ func (c serverResources) Poll(ctx context.Context, resync time.Duration) {
 
 // CreateCRDWatcher creates a watcher for CRD changes
 // It will invalidate the local cache when a CRD is added, updated or deleted
-func (c serverResources) CreateCRDWatcher(ctx context.Context, metadataClient metadataclient.UpstreamInterface) error {
+func (c *serverResources) CreateCRDWatcher(ctx context.Context, metadataClient metadataclient.UpstreamInterface) error {
 	logger := logger.WithName("crd-definition-watcher")
 	logger.Info("Starting CRD definition watcher...")
 	crdGVR := schema.GroupVersionResource{
@@ -109,12 +128,14 @@ func (c serverResources) CreateCRDWatcher(ctx context.Context, metadataClient me
 			logger.Info("CRD added", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
 			logger.Info("Discovery cache invalidated after CRD add")
+			c.notify()
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			metaObj := newObj.(*metav1.PartialObjectMetadata)
 			logger.Info("CRD updated", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
 			logger.Info("Discovery cache invalidated after CRD update")
+			c.notify()
 		},
 		DeleteFunc: func(obj interface{}) {
 			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
@@ -124,6 +145,7 @@ func (c serverResources) CreateCRDWatcher(ctx context.Context, metadataClient me
 			logger.Info("CRD deleted", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
 			logger.Info("Discovery cache invalidated after CRD delete")
+			c.notify()
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to add event handlers: %w", err)
@@ -136,12 +158,12 @@ func (c serverResources) CreateCRDWatcher(ctx context.Context, metadataClient me
 }
 
 // OpenAPISchema returns the API server OpenAPI schema document
-func (c serverResources) OpenAPISchema() (*openapiv2.Document, error) {
+func (c *serverResources) OpenAPISchema() (*openapiv2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
 }
 
 // GetGVRFromGVK get the Group Version Resource from APIVersion and kind
-func (c serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+func (c *serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
 	_, _, gvr, err := c.FindResource(gvk.GroupVersion().String(), gvk.Kind)
 	if err != nil {
 		logger.Error(err, "schema not found", "gvk", gvk)
@@ -152,7 +174,7 @@ func (c serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.Grou
 
 // GetGVKFromGVR returns the Group Version Kind from Group Version Resource. The groupVersion has to be specified properly
 // for example, for corev1.Pod, the groupVersion has to be specified as `v1`, specifying empty groupVersion won't work.
-func (c serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+func (c *serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	gvk, err := c.findResourceFromResourceName(gvr)
 	if err == nil {
 		return gvk, nil
@@ -169,7 +191,7 @@ func (c serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.
 }
 
 // findResourceFromResourceName returns the GVK for the a particular resourceName and groupVersion
-func (c serverResources) findResourceFromResourceName(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+func (c *serverResources) findResourceFromResourceName(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
@@ -192,7 +214,7 @@ func (c serverResources) findResourceFromResourceName(gvr schema.GroupVersionRes
 // resource, kind has to be specified as 'ParentKind/SubresourceName'. For matching status subresource of Pod, kind has
 // to be specified as `Pod/status`. If the resource is not found and the Cache is not fresh, the cache is invalidated
 // and a retry is attempted
-func (c serverResources) FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error) {
+func (c *serverResources) FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error) {
 	r, pr, gvr, err := c.findResource(groupVersion, kind)
 	if err == nil {
 		return r, pr, gvr, nil
@@ -208,7 +230,7 @@ func (c serverResources) FindResource(groupVersion string, kind string) (apiReso
 	return nil, nil, schema.GroupVersionResource{}, err
 }
 
-func (c serverResources) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
+func (c *serverResources) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	resources, err := c.findResources(group, version, kind, subresource)
 	// if no resource was found, we have to force cache invalidation
 	if err != nil || len(resources) == 0 {
@@ -218,7 +240,7 @@ func (c serverResources) FindResources(group, version, kind, subresource string)
 			if err != nil {
 				return nil, err
 			} else if len(resources) == 0 {
-				return nil, fmt.Errorf("failed to find resource (%s/%s/%s/%s)", group, version, kind, subresource)
+				return nil, ErrResourceNotFound
 			}
 			return resources, err
 		}
@@ -226,7 +248,7 @@ func (c serverResources) FindResources(group, version, kind, subresource string)
 	return resources, err
 }
 
-func (c serverResources) findResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
+func (c *serverResources) findResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
@@ -299,7 +321,7 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 	return resources, nil
 }
 
-func (c serverResources) findResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource,
+func (c *serverResources) findResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource,
 	gvr schema.GroupVersionResource, err error,
 ) {
 	serverPreferredResources, _ := c.cachedClient.ServerPreferredResources()
