@@ -35,6 +35,7 @@ func GetResourceAccordingToResourcePath(
 	policyReport bool,
 	clusterWideResources bool,
 	policyResourcePath string,
+	dropEmptyFields bool,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
 		resources, err = GetResourcesWithTest(out, fs, resourcePaths, policyResourcePath)
@@ -111,6 +112,12 @@ func GetResourceAccordingToResourcePath(
 				return resources, err
 			}
 			resources = append(resources, namespaceResources...)
+		}
+	}
+	for _, res := range resources {
+		err := resource.NormalizeEmptyFields(res.Object, dropEmptyFields)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return resources, err
