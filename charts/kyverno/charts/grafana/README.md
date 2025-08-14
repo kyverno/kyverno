@@ -1,6 +1,6 @@
 # grafana
 
-![Version: 3.5.1-rc.2](https://img.shields.io/badge/Version-3.5.1--rc.2-informational?style=flat-square)
+![Version: 3.5.1-rc.3](https://img.shields.io/badge/Version-3.5.1--rc.3-informational?style=flat-square)
 
 Grafana dashboards for Kyverno
 

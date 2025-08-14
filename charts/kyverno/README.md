@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: 3.5.1-rc.2](https://img.shields.io/badge/Version-3.5.1--rc.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.15.1-rc.2](https://img.shields.io/badge/AppVersion-v1.15.1--rc.2-informational?style=flat-square)
+![Version: 3.5.1-rc.3](https://img.shields.io/badge/Version-3.5.1--rc.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.15.1-rc.3](https://img.shields.io/badge/AppVersion-v1.15.1--rc.3-informational?style=flat-square)
 
 ## About
 
@@ -880,8 +880,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | 3.5.1-rc.2 |
-|  | grafana | 3.5.1-rc.2 |
+|  | crds | 3.5.1-rc.3 |
+|  | grafana | 3.5.1-rc.3 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
