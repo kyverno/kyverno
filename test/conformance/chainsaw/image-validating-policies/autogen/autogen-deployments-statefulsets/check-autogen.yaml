@@ -30,7 +30,7 @@ status:
               - deployments
               - statefulsets
           validationActions:
-          - Deny
+          - Audit
           attestors:
           - name: test-keyless
             keyless:

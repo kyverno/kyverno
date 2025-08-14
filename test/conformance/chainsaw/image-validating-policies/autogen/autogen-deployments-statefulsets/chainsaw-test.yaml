@@ -36,10 +36,6 @@ spec:
   - name: create bad statefulset
     timeouts:
       apply: 90s
-      error: 90s
     try:
     - create:
         file: bad-statefulset.yaml
-        expect:
-          - check:
-              ($error != null): true

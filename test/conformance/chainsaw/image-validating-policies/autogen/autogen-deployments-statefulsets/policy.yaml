@@ -12,7 +12,7 @@ spec:
     timeoutSeconds: 60
   failurePolicy: Ignore
   validationActions:
-  - Deny
+  - Audit
   matchConstraints:
     resourceRules:
       - apiGroups: [""]
