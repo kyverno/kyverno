@@ -190,11 +190,7 @@ func (rf *ResourceFetcher) getKindsFromPolicy(
 		log.Log.V(3).Info("failed to get rest mapper", "error", err)
 		return
 	}
-	kinds, err := admissionpolicy.GetKinds(matchResources, restMapper)
-	if err != nil {
-		log.Log.V(3).Info("failed to get kinds from validating admission policy", "error", err)
-		return
-	}
+	kinds := admissionpolicy.GetKinds(matchResources, restMapper)
 	for _, kind := range kinds {
 		rf.addToresourceTypeInfo(kind, info)
 	}
