@@ -180,4 +180,3 @@ func TestFetchImageDescriptorPlatformEdgeCases(t *testing.T) {
 		})
 	}
 }
-
