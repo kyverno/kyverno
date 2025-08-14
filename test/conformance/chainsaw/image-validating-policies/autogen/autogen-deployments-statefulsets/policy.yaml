@@ -26,10 +26,10 @@ spec:
   matchImageReferences:
     - glob: ghcr.io/*
   attestors:
-    - entries:
-        - keyless:
-            subject: "test@example.com"
-            issuer: "https://example.com"
+    - name: test-keyless
+      keyless:
+        subject: "test@example.com"
+        issuer: "https://example.com"
   validations:
     - expression: >-
         images.containers.map(image, image.image.endsWith(':signed')).all(e, e)
