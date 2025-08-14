@@ -9319,6 +9319,42 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.15.1-rc.3
+    created: "2025-08-14T09:29:43.177857895Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 11fe9ef09c5f7bb776abc40f63437f9886cb3000b18077345f9679e539a5b758
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - email: cncf-kyverno-maintainers@lists.cncf.io
+      name: kyverno-maintainers
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-3.5.1-rc.3.tgz
+    version: 3.5.1-rc.3
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: removed
+          description: Remove spec.validationFailureAction field from policies as it is deprecated
+        - kind: added
+          description: Add spec.validate[*].failureAction field to policies
+        - kind: fixed
+          description: Fix the merging of policyExclude customizations to avoid wrong overrides
+        - kind: added
+          description: Add spec.validate[*].allowExistingViolations field to policies
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.15.1-rc.1
     created: "2025-08-12T13:09:53.200019092Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -14461,4 +14497,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2025-08-13T08:23:01.625846922Z"
+generated: "2025-08-14T09:29:43.176851984Z"
