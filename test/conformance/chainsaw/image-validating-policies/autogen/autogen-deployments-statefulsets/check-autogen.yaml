@@ -31,6 +31,11 @@ status:
               - statefulsets
           validationActions:
           - Audit
+          attestors:
+          - name: test-notary
+            notary:
+              certs:
+                value: "test-cert-placeholder"
           validations:
           - expression: images.containers.map(image, image.image.endsWith(':signed')).all(e, e)
             message: image must be tagged as signed
