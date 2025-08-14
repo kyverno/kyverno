@@ -143,7 +143,6 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	servicePort int32,
-	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
 	stateRecorder webhookcontroller.StateRecorder,
@@ -178,7 +177,6 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout), //nolint:gosec
 		servicePort,
-		webhookServerPort,
 		autoUpdateWebhooks,
 		autoDeleteWebhooks,
 		admissionReports,
@@ -199,7 +197,6 @@ func createrLeaderControllers(
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
-		webhookServerPort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
@@ -231,7 +228,6 @@ func createrLeaderControllers(
 		config.CELExceptionValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
-		webhookServerPort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
@@ -263,7 +259,6 @@ func createrLeaderControllers(
 		config.GlobalContextValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
-		webhookServerPort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
@@ -356,6 +351,7 @@ func main() {
 		admissionReports                bool
 		dumpPayload                     bool
 		servicePort                     int
+		webhookServerHost               string
 		webhookServerPort               int
 		backgroundServiceAccountName    string
 		reportsServiceAccountName       string
@@ -382,6 +378,7 @@ func main() {
 	flagset.Func(toggle.DumpMutatePatchesFlagName, toggle.DumpMutatePatchesDescription, toggle.DumpMutatePatches.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
+	flagset.StringVar(&webhookServerHost, "webhookServerHost", "", "Host used by the webhook server. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
 	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background controller service account name.")
 	flagset.StringVar(&reportsServiceAccountName, "reportsServiceAccountName", "", "Reports controller service account name.")
@@ -598,8 +595,7 @@ func main() {
 					setup.KyvernoDynamicClient,
 					certRenewer,
 					runtime,
-					int32(servicePort),       //nolint:gosec
-					int32(webhookServerPort), //nolint:gosec
+					int32(servicePort), //nolint:gosec
 					setup.Configuration,
 					eventGenerator,
 					stateRecorder,
@@ -878,6 +874,7 @@ func main() {
 			kubeInformer.Rbac().V1().RoleBindings().Lister(),
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
+			webhookServerHost,
 			int32(webhookServerPort), //nolint:gosec
 		)
 		// start informers and wait for cache sync
