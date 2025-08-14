@@ -817,6 +817,9 @@ The chart values are organised per component.
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
 | rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
 | openreports.enabled | bool | `false` |  |
+| reportsServer.enabled | bool | `false` | Enable reports-server deployment alongside Kyverno |
+| reportsServer.waitForReady | bool | `true` | Wait for reports-server to be ready before starting Kyverno components |
+| reportsServer.readinessTimeout | int | `300` | Timeout for waiting for reports-server readiness (in seconds) |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
@@ -882,6 +885,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
+| https://kyverno.github.io/reports-server/ | reports-server | 0.1.3 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
