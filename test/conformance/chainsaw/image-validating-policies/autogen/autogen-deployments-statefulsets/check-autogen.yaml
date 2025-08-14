@@ -31,11 +31,6 @@ status:
               - statefulsets
           validationActions:
           - Audit
-          attestors:
-          - name: test-keyless
-            keyless:
-              subject: "test@example.com"
-              issuer: "https://example.com"
           validations:
           - expression: images.containers.map(image, image.image.endsWith(':signed')).all(e, e)
             message: image must be tagged as signed

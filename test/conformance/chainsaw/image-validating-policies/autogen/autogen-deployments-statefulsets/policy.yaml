@@ -25,11 +25,6 @@ spec:
         has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   matchImageReferences:
     - glob: ghcr.io/*
-  attestors:
-    - name: test-keyless
-      keyless:
-        subject: "test@example.com"
-        issuer: "https://example.com"
   validations:
     - expression: >-
         images.containers.map(image, image.image.endsWith(':signed')).all(e, e)
