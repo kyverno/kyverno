@@ -1,0 +1,88 @@
+name: 'Cherry Pick Action'
+description: 'Creates cherry-pick PRs from a merge commit'
+inputs:
+  github-token:
+    description: 'GitHub token for authentication'
+    required: true
+  source-pr:
+    description: 'Source PR number'
+    required: true
+  source-pr-title:
+    description: 'Title of the PR to cherry-pick'
+    required: true
+  target-branches:
+    description: 'Target branches for cherry-pick (comma-separated)'
+    required: true
+  merge-commit:
+    description: 'Merge commit SHA'
+    required: true
+outputs:
+  success:
+    description: 'Boolean indicating if all cherry-picks succeeded'
+    value: ${{ steps.cherry-pick.outputs.success }}
+  git-logs:
+    description: 'Git logs in case of failure'
+    value: ${{ steps.cherry-pick.outputs.git-logs}}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config --global user.name "kyverno-bot"
+        git config --global user.email "104836976+kyverno-bot@users.noreply.github.com"
+    - name: Install GitHub CLI
+      shell: bash
+      run: |
+        sudo apt update
+        sudo apt install gh -y
+    - name: Authenticate gh
+      shell: bash
+      run: gh auth setup-git
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Create cherry-pick PRs
+      id: cherry-pick
+      shell: bash
+      continue-on-error: true
+      run: |
+        IFS=',' read -ra BRANCHES <<< "${{ inputs.target-branches }}"
+        success=true
+        git_logs=""
+        
+        for target_branch in "${BRANCHES[@]}"; do
+          echo "🔄 Cherry-picking to $target_branch..."
+        
+          pr_branch_name=cherry-pick-${{ inputs.source-pr }}-${target_branch}
+        
+          git fetch --prune origin $target_branch
+          git checkout -B ${pr_branch_name} origin/$target_branch
+        
+
+          if git cherry-pick -s -m 1 ${{ inputs.merge-commit }}; then
+            git push --force-with-lease origin ${pr_branch_name}
+        
+            if gh pr list --base "$target_branch" --head "$pr_branch_name" --state open --json number --jq '.[0].number' | grep -q .; then
+              echo "PR from '$pr_branch_name' to '$target_branch' already exists. Skipping creation"
+            else
+              gh pr create \
+                --title "${{ inputs.source-pr-title }} (Cherry-pick #${{ inputs.source-pr }})" \
+                --body "Cherry-pick #${{ inputs.source-pr }}" \
+                --base ${target_branch} \
+                --head cherry-pick-${{ inputs.source-pr }}-${target_branch}
+            fi
+          else
+            echo "❌ Error while cherry picking into ${target_branch}"
+            git_logs+=$(git cherry-pick -s -m 1 ${{ inputs.merge-commit }} 2>&1)
+            git cherry-pick --abort
+            success=false
+            continue
+          fi
+        done
+        
+        echo "success=${success}" >> $GITHUB_OUTPUT
+        echo "git-logs=${git_logs}" >> $GITHUB_OUTPUT
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
