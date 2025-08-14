@@ -252,21 +252,20 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				for _, param := range p.ParameterResources {
 					data.AddParam(param)
 				}
-				mutateResponses, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue
 				}
-				for _, r := range mutateResponses {
-					if r.IsEmpty() {
-						continue
-					}
-					if err := p.processMutateEngineResponse(r, resPath); err != nil {
-						log.Log.Error(err, "failed to log MAP mutation")
-					}
-					resource = r.PatchedResource
-					responses = append(responses, r)
+				if mutateResponse.IsEmpty() {
+					continue
 				}
+				// its fine to just error here because this function just logs the error
+				if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
+					log.Log.Error(err, "failed to log MAP mutation")
+				}
+				resource = mutateResponse.PatchedResource
+				responses = append(responses, mutateResponse)
 			}
 		}
 	}

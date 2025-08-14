@@ -351,7 +351,7 @@ func (s *scanner) ScanResource(
 				}
 			}
 			res, err := admissionpolicy.Mutate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, false, true)
-			results[&maps[i]] = ScanResult{&res[0], err}
+			results[&maps[i]] = ScanResult{&res, err}
 		}
 	}
 	return results
