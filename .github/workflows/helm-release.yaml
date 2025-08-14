@@ -100,6 +100,8 @@ jobs:
           helm registry login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
       
       - name: Publish OCI Charts
+        env:
+          COSIGN_REPOSITORY: ghcr.io/${{ github.repository_owner }}/signatures
         run: |
           for dir in `find charts-tmp -maxdepth 1 -mindepth 1 -type d -print`; do
             chart=${dir##*/}
@@ -107,5 +109,10 @@ jobs:
             helm package charts-tmp/${chart} --destination .dist
             helm push .dist/${chart}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts |& tee .digest
             cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
-            cosign sign --yes ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
+            cosign sign --yes \
+              -a "repo=${{ github.repository }}" \
+              -a "workflow=${{ github.workflow }}" \
+              -a "ref=${{ github.sha }}" \
+              -a "kind=helm-chart" \
+              ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
           done

@@ -309,8 +309,15 @@ jobs:
             --source="$(git config --get remote.origin.url)" \
             --revision="${{ github.ref_name }}/$(git rev-parse HEAD)"
       - name: Sign manifests in GHCR with Cosign
+        env:
+          COSIGN_REPOSITORY: ghcr.io/${{ github.repository_owner }}/signatures
         run: |
-          cosign sign --yes ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }}
+          cosign sign --yes \
+            -a "repo=${{ github.repository }}" \
+            -a "workflow=${{ github.workflow }}" \
+            -a "ref=${{ github.sha }}" \
+            -a "kind=manifest" \
+            ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }}
 
   release-cli-via-krew:
     runs-on: ubuntu-latest
