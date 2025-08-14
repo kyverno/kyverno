@@ -28,9 +28,9 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]string, error) {
+func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []string {
 	if matchResources == nil {
-		return nil, nil
+		return nil
 	}
 
 	var kindList []string
@@ -44,14 +44,15 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper met
 				for _, resource := range rule.Resources {
 					kinds, err := resolveKinds(group, version, resource, mapper)
 					if err != nil {
-						return kindList, err
+						vapLogger.Error(err, fmt.Sprintf("failed to resolve kind for group %s, version %s, resource %s", group, version, resource))
+						continue
 					}
 					kindList = append(kindList, kinds...)
 				}
 			}
 		}
 	}
-	return kindList, nil
+	return kindList
 }
 
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
