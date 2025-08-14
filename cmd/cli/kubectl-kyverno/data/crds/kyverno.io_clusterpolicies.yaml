@@ -283,7 +283,7 @@ spec:
                                   URLPath is the URL path to be used in the HTTP GET or POST request to the
                                   Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                   The format required is the same format used by the `kubectl get --raw` command.
-                                  See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                  See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                   for details.
                                   It's mutually exclusive with the Service field.
                                 type: string
@@ -1320,7 +1320,7 @@ spec:
                                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                             The format required is the same format used by the `kubectl get --raw` command.
-                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                             for details.
                                             It's mutually exclusive with the Service field.
                                           type: string
@@ -1459,7 +1459,7 @@ spec:
                                 description: |-
                                   AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                   set of conditions. The declaration can contain nested `any` or `all` statements.
-                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                  See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                 properties:
                                   all:
                                     description: |-
@@ -1584,7 +1584,7 @@ spec:
                           description: |-
                             OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
                             them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                            See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            See https://kyverno.io/docs/policy-types/cluster-policy/generate/#data-examples.
                             Defaults to "false" if not specified.
                           type: boolean
                         synchronize:
@@ -2405,7 +2405,7 @@ spec:
                                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                             The format required is the same format used by the `kubectl get --raw` command.
-                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                             for details.
                                             It's mutually exclusive with the Service field.
                                           type: string
@@ -2551,7 +2551,7 @@ spec:
                                 description: |-
                                   AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                   set of conditions. The declaration can contain nested `any` or `all` statements.
-                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                  See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                 properties:
                                   all:
                                     description: |-
@@ -2788,7 +2788,7 @@ spec:
                                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                             The format required is the same format used by the `kubectl get --raw` command.
-                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                             for details.
                                             It's mutually exclusive with the Service field.
                                           type: string
@@ -2918,7 +2918,7 @@ spec:
                                   set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
                                   of conditions (without `any` or `all` statements is supported for backwards compatibility but
                                   will be deprecated in the next major release.
-                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                  See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
                               selector:
                                 description: Selector allows you to select target
@@ -2985,7 +2985,7 @@ spec:
                         set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
                         of conditions (without `any` or `all` statements is supported for backwards compatibility but
                         will be deprecated in the next major release.
-                        See: https://kyverno.io/docs/writing-policies/preconditions/
+                        See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                       x-kubernetes-preserve-unknown-fields: true
                     reportProperties:
                       additionalProperties:
@@ -3338,7 +3338,7 @@ spec:
                                 Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                 of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                 but will be deprecated in the next major release.
-                                See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         failureAction:
@@ -3545,7 +3545,7 @@ spec:
                                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                             The format required is the same format used by the `kubectl get --raw` command.
-                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                             for details.
                                             It's mutually exclusive with the Service field.
                                           type: string
@@ -3669,7 +3669,7 @@ spec:
                                       Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                       of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                       but will be deprecated in the next major release.
-                                      See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               elementScope:
@@ -3694,7 +3694,7 @@ spec:
                                 description: |-
                                   AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                   set of conditions. The declaration can contain nested `any` or `all` statements.
-                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                  See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                 properties:
                                   all:
                                     description: |-
@@ -3897,7 +3897,7 @@ spec:
                                         keyless:
                                           description: |-
                                             Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                            See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                            See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                           properties:
                                             additionalExtensions:
                                               additionalProperties:
@@ -4004,16 +4004,16 @@ spec:
                                             kms:
                                               description: |-
                                                 KMS provides the URI to the public key stored in a Key Management System. See:
-                                                https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                https://docs.sigstore.dev/cosign/key_management/overview/
                                               type: string
                                             publicKeys:
                                               description: |-
                                                 Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                 specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                 elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                 The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                 When multiple keys are specified each key is processed as a separate staticKey entry
                                                 (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                               type: string
@@ -4332,7 +4332,7 @@ spec:
                                             keyless:
                                               description: |-
                                                 Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                                See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                               properties:
                                                 additionalExtensions:
                                                   additionalProperties:
@@ -4439,16 +4439,16 @@ spec:
                                                 kms:
                                                   description: |-
                                                     KMS provides the URI to the public key stored in a Key Management System. See:
-                                                    https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                    https://docs.sigstore.dev/cosign/key_management/overview/
                                                   type: string
                                                 publicKeys:
                                                   description: |-
                                                     Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                     specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                    https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                    https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                     elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                     The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                    verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                    verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                     When multiple keys are specified each key is processed as a separate staticKey entry
                                                     (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                                   type: string
@@ -4727,7 +4727,7 @@ spec:
                                       keyless:
                                         description: |-
                                           Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                          See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                         properties:
                                           additionalExtensions:
                                             additionalProperties:
@@ -4833,16 +4833,16 @@ spec:
                                           kms:
                                             description: |-
                                               KMS provides the URI to the public key stored in a Key Management System. See:
-                                              https://github.com/sigstore/cosign/blob/main/KMS.md
+                                              https://docs.sigstore.dev/cosign/key_management/overview/
                                             type: string
                                           publicKeys:
                                             description: |-
                                               Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                               specified or can be a variable reference to a key specified in a ConfigMap (see
-                                              https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                              https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                               elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                               The named Secret must specify a key `cosign.pub` containing the public key used for
-                                              verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                              verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                               When multiple keys are specified each key is processed as a separate staticKey entry
                                               (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                             type: string
@@ -5025,7 +5025,7 @@ spec:
                                       Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                       of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                       but will be deprecated in the next major release.
-                                      See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               message:
@@ -5363,7 +5363,7 @@ spec:
                                       URLPath is the URL path to be used in the HTTP GET or POST request to the
                                       Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                       The format required is the same format used by the `kubectl get --raw` command.
-                                      See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                      See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                       for details.
                                       It's mutually exclusive with the Service field.
                                     type: string
@@ -6410,7 +6410,7 @@ spec:
                                                 URLPath is the URL path to be used in the HTTP GET or POST request to the
                                                 Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format used by the `kubectl get --raw` command.
-                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                                 for details.
                                                 It's mutually exclusive with the Service field.
                                               type: string
@@ -6553,7 +6553,7 @@ spec:
                                     description: |-
                                       AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                       set of conditions. The declaration can contain nested `any` or `all` statements.
-                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                     properties:
                                       all:
                                         description: |-
@@ -6680,7 +6680,7 @@ spec:
                               description: |-
                                 OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
                                 them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                                See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                See https://kyverno.io/docs/policy-types/cluster-policy/generate/#data-examples.
                                 Defaults to "false" if not specified.
                               type: boolean
                             synchronize:
@@ -7507,7 +7507,7 @@ spec:
                                                 URLPath is the URL path to be used in the HTTP GET or POST request to the
                                                 Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format used by the `kubectl get --raw` command.
-                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                                 for details.
                                                 It's mutually exclusive with the Service field.
                                               type: string
@@ -7658,7 +7658,7 @@ spec:
                                     description: |-
                                       AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                       set of conditions. The declaration can contain nested `any` or `all` statements.
-                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                     properties:
                                       all:
                                         description: |-
@@ -7899,7 +7899,7 @@ spec:
                                                 URLPath is the URL path to be used in the HTTP GET or POST request to the
                                                 Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format used by the `kubectl get --raw` command.
-                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                                 for details.
                                                 It's mutually exclusive with the Service field.
                                               type: string
@@ -8033,7 +8033,7 @@ spec:
                                       set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
                                       of conditions (without `any` or `all` statements is supported for backwards compatibility but
                                       will be deprecated in the next major release.
-                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
                                   selector:
                                     description: Selector allows you to select target
@@ -8100,7 +8100,7 @@ spec:
                             set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
                             of conditions (without `any` or `all` statements is supported for backwards compatibility but
                             will be deprecated in the next major release.
-                            See: https://kyverno.io/docs/writing-policies/preconditions/
+                            See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                           x-kubernetes-preserve-unknown-fields: true
                         reportProperties:
                           additionalProperties:
@@ -8460,7 +8460,7 @@ spec:
                                     Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                     of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                     but will be deprecated in the next major release.
-                                    See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                    See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                   x-kubernetes-preserve-unknown-fields: true
                               type: object
                             failureAction:
@@ -8669,7 +8669,7 @@ spec:
                                                 URLPath is the URL path to be used in the HTTP GET or POST request to the
                                                 Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format used by the `kubectl get --raw` command.
-                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                                 for details.
                                                 It's mutually exclusive with the Service field.
                                               type: string
@@ -8797,7 +8797,7 @@ spec:
                                           Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                           of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                           but will be deprecated in the next major release.
-                                          See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                          See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                         x-kubernetes-preserve-unknown-fields: true
                                     type: object
                                   elementScope:
@@ -8823,7 +8823,7 @@ spec:
                                     description: |-
                                       AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                       set of conditions. The declaration can contain nested `any` or `all` statements.
-                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                     properties:
                                       all:
                                         description: |-
@@ -9029,7 +9029,7 @@ spec:
                                             keyless:
                                               description: |-
                                                 Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                                See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                               properties:
                                                 additionalExtensions:
                                                   additionalProperties:
@@ -9136,16 +9136,16 @@ spec:
                                                 kms:
                                                   description: |-
                                                     KMS provides the URI to the public key stored in a Key Management System. See:
-                                                    https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                    https://docs.sigstore.dev/cosign/key_management/overview/
                                                   type: string
                                                 publicKeys:
                                                   description: |-
                                                     Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                     specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                    https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                    https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                     elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                     The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                    verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                    verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                     When multiple keys are specified each key is processed as a separate staticKey entry
                                                     (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                                   type: string
@@ -9467,7 +9467,7 @@ spec:
                                                 keyless:
                                                   description: |-
                                                     Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                                    See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                    See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                                   properties:
                                                     additionalExtensions:
                                                       additionalProperties:
@@ -9580,16 +9580,16 @@ spec:
                                                     kms:
                                                       description: |-
                                                         KMS provides the URI to the public key stored in a Key Management System. See:
-                                                        https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                        https://docs.sigstore.dev/cosign/key_management/overview/
                                                       type: string
                                                     publicKeys:
                                                       description: |-
                                                         Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                         specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                        https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                        https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                         elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                         The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                        verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                        verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                         When multiple keys are specified each key is processed as a separate staticKey entry
                                                         (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                                       type: string
@@ -9873,7 +9873,7 @@ spec:
                                           keyless:
                                             description: |-
                                               Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                              See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                              See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                             properties:
                                               additionalExtensions:
                                                 additionalProperties:
@@ -9980,16 +9980,16 @@ spec:
                                               kms:
                                                 description: |-
                                                   KMS provides the URI to the public key stored in a Key Management System. See:
-                                                  https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                  https://docs.sigstore.dev/cosign/key_management/overview/
                                                 type: string
                                               publicKeys:
                                                 description: |-
                                                   Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                   specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                  https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                  https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                   elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                   The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                  verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                  verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                   When multiple keys are specified each key is processed as a separate staticKey entry
                                                   (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                                 type: string
@@ -10175,7 +10175,7 @@ spec:
                                           Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                           of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                           but will be deprecated in the next major release.
-                                          See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                          See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                         x-kubernetes-preserve-unknown-fields: true
                                     type: object
                                   message:
@@ -10567,7 +10567,7 @@ spec:
                                   URLPath is the URL path to be used in the HTTP GET or POST request to the
                                   Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                   The format required is the same format used by the `kubectl get --raw` command.
-                                  See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                  See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                   for details.
                                   It's mutually exclusive with the Service field.
                                 type: string
@@ -11398,7 +11398,7 @@ spec:
                                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                             The format required is the same format used by the `kubectl get --raw` command.
-                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                             for details.
                                             It's mutually exclusive with the Service field.
                                           type: string
@@ -11537,7 +11537,7 @@ spec:
                                 description: |-
                                   AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                   set of conditions. The declaration can contain nested `any` or `all` statements.
-                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                  See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                 properties:
                                   all:
                                     description: |-
@@ -11662,7 +11662,7 @@ spec:
                           description: |-
                             OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
                             them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                            See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            See https://kyverno.io/docs/policy-types/cluster-policy/generate/#data-examples.
                             Defaults to "false" if not specified.
                           type: boolean
                         synchronize:
@@ -12277,7 +12277,7 @@ spec:
                                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                             The format required is the same format used by the `kubectl get --raw` command.
-                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                             for details.
                                             It's mutually exclusive with the Service field.
                                           type: string
@@ -12423,7 +12423,7 @@ spec:
                                 description: |-
                                   AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                   set of conditions. The declaration can contain nested `any` or `all` statements.
-                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                  See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                 properties:
                                   all:
                                     description: |-
@@ -12660,7 +12660,7 @@ spec:
                                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                             The format required is the same format used by the `kubectl get --raw` command.
-                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                             for details.
                                             It's mutually exclusive with the Service field.
                                           type: string
@@ -12790,7 +12790,7 @@ spec:
                                   set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
                                   of conditions (without `any` or `all` statements is supported for backwards compatibility but
                                   will be deprecated in the next major release.
-                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                  See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
                               selector:
                                 description: Selector allows you to select target
@@ -12855,7 +12855,7 @@ spec:
                       description: |-
                         Preconditions are used to determine if a policy rule should be applied by evaluating a
                         set of conditions. The declaration can contain nested `any` or `all` statements.
-                        See: https://kyverno.io/docs/writing-policies/preconditions/
+                        See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                       properties:
                         all:
                           description: |-
@@ -13284,7 +13284,7 @@ spec:
                             conditions:
                               description: |-
                                 Multiple conditions can be declared under an `any` or `all` statement.
-                                See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                               properties:
                                 all:
                                   description: |-
@@ -13582,7 +13582,7 @@ spec:
                                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                             The format required is the same format used by the `kubectl get --raw` command.
-                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                             for details.
                                             It's mutually exclusive with the Service field.
                                           type: string
@@ -13706,7 +13706,7 @@ spec:
                                       Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                       of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                       but will be deprecated in the next major release.
-                                      See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               elementScope:
@@ -13731,7 +13731,7 @@ spec:
                                 description: |-
                                   AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                   set of conditions. The declaration can contain nested `any` or `all` statements.
-                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                  See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                 properties:
                                   all:
                                     description: |-
@@ -13934,7 +13934,7 @@ spec:
                                         keyless:
                                           description: |-
                                             Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                            See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                            See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                           properties:
                                             additionalExtensions:
                                               additionalProperties:
@@ -14041,16 +14041,16 @@ spec:
                                             kms:
                                               description: |-
                                                 KMS provides the URI to the public key stored in a Key Management System. See:
-                                                https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                https://docs.sigstore.dev/cosign/key_management/overview/
                                               type: string
                                             publicKeys:
                                               description: |-
                                                 Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                 specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                 elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                 The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                 When multiple keys are specified each key is processed as a separate staticKey entry
                                                 (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                               type: string
@@ -14358,7 +14358,7 @@ spec:
                                             keyless:
                                               description: |-
                                                 Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                                See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                               properties:
                                                 additionalExtensions:
                                                   additionalProperties:
@@ -14465,16 +14465,16 @@ spec:
                                                 kms:
                                                   description: |-
                                                     KMS provides the URI to the public key stored in a Key Management System. See:
-                                                    https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                    https://docs.sigstore.dev/cosign/key_management/overview/
                                                   type: string
                                                 publicKeys:
                                                   description: |-
                                                     Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                     specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                    https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                    https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                     elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                     The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                    verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                    verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                     When multiple keys are specified each key is processed as a separate staticKey entry
                                                     (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                                   type: string
@@ -14753,7 +14753,7 @@ spec:
                                       keyless:
                                         description: |-
                                           Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                          See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                         properties:
                                           additionalExtensions:
                                             additionalProperties:
@@ -14859,16 +14859,16 @@ spec:
                                           kms:
                                             description: |-
                                               KMS provides the URI to the public key stored in a Key Management System. See:
-                                              https://github.com/sigstore/cosign/blob/main/KMS.md
+                                              https://docs.sigstore.dev/cosign/key_management/overview/
                                             type: string
                                           publicKeys:
                                             description: |-
                                               Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                               specified or can be a variable reference to a key specified in a ConfigMap (see
-                                              https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                              https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                               elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                               The named Secret must specify a key `cosign.pub` containing the public key used for
-                                              verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                              verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                               When multiple keys are specified each key is processed as a separate staticKey entry
                                               (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                             type: string
@@ -15031,7 +15031,7 @@ spec:
                                       Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                       of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                       but will be deprecated in the next major release.
-                                      See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               message:
@@ -15369,7 +15369,7 @@ spec:
                                       URLPath is the URL path to be used in the HTTP GET or POST request to the
                                       Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                       The format required is the same format used by the `kubectl get --raw` command.
-                                      See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                      See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                       for details.
                                       It's mutually exclusive with the Service field.
                                     type: string
@@ -16416,7 +16416,7 @@ spec:
                                                 URLPath is the URL path to be used in the HTTP GET or POST request to the
                                                 Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format used by the `kubectl get --raw` command.
-                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                                 for details.
                                                 It's mutually exclusive with the Service field.
                                               type: string
@@ -16559,7 +16559,7 @@ spec:
                                     description: |-
                                       AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                       set of conditions. The declaration can contain nested `any` or `all` statements.
-                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                     properties:
                                       all:
                                         description: |-
@@ -16686,7 +16686,7 @@ spec:
                               description: |-
                                 OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
                                 them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                                See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                See https://kyverno.io/docs/policy-types/cluster-policy/generate/#data-examples.
                                 Defaults to "false" if not specified.
                               type: boolean
                             synchronize:
@@ -17513,7 +17513,7 @@ spec:
                                                 URLPath is the URL path to be used in the HTTP GET or POST request to the
                                                 Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format used by the `kubectl get --raw` command.
-                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                                 for details.
                                                 It's mutually exclusive with the Service field.
                                               type: string
@@ -17664,7 +17664,7 @@ spec:
                                     description: |-
                                       AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                       set of conditions. The declaration can contain nested `any` or `all` statements.
-                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                     properties:
                                       all:
                                         description: |-
@@ -17905,7 +17905,7 @@ spec:
                                                 URLPath is the URL path to be used in the HTTP GET or POST request to the
                                                 Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format used by the `kubectl get --raw` command.
-                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                                 for details.
                                                 It's mutually exclusive with the Service field.
                                               type: string
@@ -18039,7 +18039,7 @@ spec:
                                       set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
                                       of conditions (without `any` or `all` statements is supported for backwards compatibility but
                                       will be deprecated in the next major release.
-                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
                                   selector:
                                     description: Selector allows you to select target
@@ -18106,7 +18106,7 @@ spec:
                             set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
                             of conditions (without `any` or `all` statements is supported for backwards compatibility but
                             will be deprecated in the next major release.
-                            See: https://kyverno.io/docs/writing-policies/preconditions/
+                            See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                           x-kubernetes-preserve-unknown-fields: true
                         reportProperties:
                           additionalProperties:
@@ -18466,7 +18466,7 @@ spec:
                                     Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                     of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                     but will be deprecated in the next major release.
-                                    See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                    See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                   x-kubernetes-preserve-unknown-fields: true
                               type: object
                             failureAction:
@@ -18675,7 +18675,7 @@ spec:
                                                 URLPath is the URL path to be used in the HTTP GET or POST request to the
                                                 Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                                                 The format required is the same format used by the `kubectl get --raw` command.
-                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
                                                 for details.
                                                 It's mutually exclusive with the Service field.
                                               type: string
@@ -18803,7 +18803,7 @@ spec:
                                           Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                           of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                           but will be deprecated in the next major release.
-                                          See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                          See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                         x-kubernetes-preserve-unknown-fields: true
                                     type: object
                                   elementScope:
@@ -18829,7 +18829,7 @@ spec:
                                     description: |-
                                       AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
                                       set of conditions. The declaration can contain nested `any` or `all` statements.
-                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                      See: https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
                                     properties:
                                       all:
                                         description: |-
@@ -19035,7 +19035,7 @@ spec:
                                             keyless:
                                               description: |-
                                                 Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                                See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                               properties:
                                                 additionalExtensions:
                                                   additionalProperties:
@@ -19142,16 +19142,16 @@ spec:
                                                 kms:
                                                   description: |-
                                                     KMS provides the URI to the public key stored in a Key Management System. See:
-                                                    https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                    https://docs.sigstore.dev/cosign/key_management/overview/
                                                   type: string
                                                 publicKeys:
                                                   description: |-
                                                     Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                     specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                    https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                    https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                     elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                     The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                    verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                    verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                     When multiple keys are specified each key is processed as a separate staticKey entry
                                                     (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                                   type: string
@@ -19473,7 +19473,7 @@ spec:
                                                 keyless:
                                                   description: |-
                                                     Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                                    See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                    See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                                   properties:
                                                     additionalExtensions:
                                                       additionalProperties:
@@ -19586,16 +19586,16 @@ spec:
                                                     kms:
                                                       description: |-
                                                         KMS provides the URI to the public key stored in a Key Management System. See:
-                                                        https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                        https://docs.sigstore.dev/cosign/key_management/overview/
                                                       type: string
                                                     publicKeys:
                                                       description: |-
                                                         Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                         specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                        https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                        https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                         elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                         The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                        verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                        verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                         When multiple keys are specified each key is processed as a separate staticKey entry
                                                         (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                                       type: string
@@ -19879,7 +19879,7 @@ spec:
                                           keyless:
                                             description: |-
                                               Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-                                              See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                              See https://docs.sigstore.dev/cosign/signing/signing_with_containers/.
                                             properties:
                                               additionalExtensions:
                                                 additionalProperties:
@@ -19986,16 +19986,16 @@ spec:
                                               kms:
                                                 description: |-
                                                   KMS provides the URI to the public key stored in a Key Management System. See:
-                                                  https://github.com/sigstore/cosign/blob/main/KMS.md
+                                                  https://docs.sigstore.dev/cosign/key_management/overview/
                                                 type: string
                                               publicKeys:
                                                 description: |-
                                                   Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
                                                   specified or can be a variable reference to a key specified in a ConfigMap (see
-                                                  https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+                                                  https://kyverno.io/docs/policy-types/cluster-policy/variables/), or reference a standard Kubernetes Secret
                                                   elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
                                                   The named Secret must specify a key `cosign.pub` containing the public key used for
-                                                  verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                  verification, (see https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret).
                                                   When multiple keys are specified each key is processed as a separate staticKey entry
                                                   (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                                 type: string
@@ -20181,7 +20181,7 @@ spec:
                                           Multiple conditions can be declared under an `any` or `all` statement. A direct list
                                           of conditions (without `any` or `all` statements) is also supported for backwards compatibility
                                           but will be deprecated in the next major release.
-                                          See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                          See: https://kyverno.io/docs/policy-types/cluster-policy/validate/#deny-rules
                                         x-kubernetes-preserve-unknown-fields: true
                                     type: object
                                   message:

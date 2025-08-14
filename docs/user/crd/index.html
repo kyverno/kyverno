@@ -329,7 +329,7 @@ PolicyStatus
 </h3>
 <p>
 <p>Policy declares validation, mutation, and generation behaviors for matching resources.
-See: <a href="https://kyverno.io/docs/writing-policies/">https://kyverno.io/docs/writing-policies/</a> for more information.</p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/">https://kyverno.io/docs/policy-types/cluster-policy/</a> for more information.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -628,7 +628,7 @@ string
 <p>URLPath is the URL path to be used in the HTTP GET or POST request to the
 Kubernetes API server (e.g. &ldquo;/api/v1/namespaces&rdquo; or  &ldquo;/apis/apps/v1/deployments&rdquo;).
 The format required is the same format used by the <code>kubectl get --raw</code> command.
-See <a href="https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls">https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls</a>
+See <a href="https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/">https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/</a>
 for details.
 It&rsquo;s mutually exclusive with the Service field.</p>
 </td>
@@ -893,7 +893,7 @@ KeylessAttestor
 </td>
 <td>
 <p>Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-See <a href="https://github.com/sigstore/cosign/blob/main/KEYLESS.md">https://github.com/sigstore/cosign/blob/main/KEYLESS.md</a>.</p>
+See <a href="https://docs.sigstore.dev/cosign/signing/signing_with_containers/">https://docs.sigstore.dev/cosign/signing/signing_with_containers/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -1667,7 +1667,7 @@ ConditionsWrapper
 <p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements) is also supported for backwards compatibility
 but will be deprecated in the next major release.
-See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">https://kyverno.io/docs/writing-policies/validate/#deny-rules</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/validate/">https://kyverno.io/docs/policy-types/cluster-policy/validate/</a></p>
 </td>
 </tr>
 </tbody>
@@ -1782,7 +1782,7 @@ AnyAllConditions
 <em>(Optional)</em>
 <p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 <tr>
@@ -1872,7 +1872,7 @@ AnyAllConditions
 <em>(Optional)</em>
 <p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 <tr>
@@ -2025,7 +2025,7 @@ AnyAllConditions
 <em>(Optional)</em>
 <p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 <tr>
@@ -2271,7 +2271,7 @@ bool
 <em>(Optional)</em>
 <p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
 them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-See <a href="https://kyverno.io/docs/writing-policies/generate/#data-examples">https://kyverno.io/docs/writing-policies/generate/#data-examples</a>.
+See <a href="https://kyverno.io/docs/policy-types/cluster-policy/generate/">https://kyverno.io/docs/policy-types/cluster-policy/generate/</a>.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
@@ -3465,7 +3465,7 @@ When not set, all restricted fields for the control are selected.</p>
 </p>
 <p>
 <p>Deprecated. Policy metrics are now available via the &ldquo;/metrics&rdquo; endpoint.
-See: <a href="https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/">https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/</a></p>
+See: <a href="https://kyverno.io/docs/monitoring/">https://kyverno.io/docs/monitoring/</a></p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -4035,7 +4035,7 @@ ConditionsWrapper
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 <tr>
@@ -4530,10 +4530,10 @@ string
 <td>
 <p>Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
-<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>, or reference a standard Kubernetes Secret
+<a href="https://kyverno.io/docs/policy-types/cluster-policy/variables/">https://kyverno.io/docs/policy-types/cluster-policy/variables/</a>, or reference a standard Kubernetes Secret
 elsewhere in the cluster by specifying it in the format &ldquo;k8s://<namespace>/<secret_name>&rdquo;.
 The named Secret must specify a key <code>cosign.pub</code> containing the public key used for
-verification, (see <a href="https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret">https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret</a>).
+verification, (see <a href="https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret">https://docs.sigstore.dev/cosign/key_management/overview/#kubernetes-secret</a>).
 When multiple keys are specified each key is processed as a separate staticKey entry
 (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.</p>
 </td>
@@ -4558,7 +4558,7 @@ string
 </td>
 <td>
 <p>KMS provides the URI to the public key stored in a Key Management System. See:
-<a href="https://github.com/sigstore/cosign/blob/main/KMS.md">https://github.com/sigstore/cosign/blob/main/KMS.md</a></p>
+<a href="https://docs.sigstore.dev/cosign/key_management/overview/">https://docs.sigstore.dev/cosign/key_management/overview/</a></p>
 </td>
 </tr>
 <tr>
@@ -4664,7 +4664,7 @@ ConditionsWrapper
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 </tbody>
@@ -8331,7 +8331,7 @@ PolicyStatus
 </h3>
 <p>
 <p>Policy declares validation, mutation, and generation behaviors for matching resources.
-See: <a href="https://kyverno.io/docs/writing-policies/">https://kyverno.io/docs/writing-policies/</a> for more information.</p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/">https://kyverno.io/docs/policy-types/cluster-policy/</a> for more information.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -9048,7 +9048,7 @@ AnyAllConditions
 </td>
 <td>
 <p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement.
-See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">https://kyverno.io/docs/writing-policies/validate/#deny-rules</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/validate/">https://kyverno.io/docs/policy-types/cluster-policy/validate/</a></p>
 </td>
 </tr>
 </tbody>
@@ -9704,7 +9704,7 @@ AnyAllConditions
 <em>(Optional)</em>
 <p>Preconditions are used to determine if a policy rule should be applied by evaluating a
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 <tr>
