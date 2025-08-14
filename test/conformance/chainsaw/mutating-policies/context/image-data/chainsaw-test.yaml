@@ -1,0 +1,38 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-image-data-lib
+spec:
+  steps:
+    - name: create policy
+      use:
+        template: ../../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+          - name: file
+            value: policy.yaml
+    - name: verify-policy
+      use:
+        template: ../../../_step-templates/mutating-policy-ready.yaml
+        with:
+          bindings:
+          - name: name
+            value: mpol-image-data
+    - name: sleep
+      try:
+        - sleep:
+            duration: 5s
+    - name: create pods 
+      try:
+        - apply:
+            file: pod.yaml
+        - assert:
+            file: pod.yaml
+    - name: sleep
+      try:
+        - sleep:
+            duration: 5s
+    - name: verify mutated pods
+      try:
+        - assert:
+            file: pod-assert.yaml
