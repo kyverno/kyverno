@@ -247,7 +247,7 @@ spec:
                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                             The format required is the same format used by the `kubectl get --raw` command.
-                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
+                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
                             for details.
                             It's mutually exclusive with the Service field.
                           type: string
@@ -1540,7 +1540,7 @@ spec:
                             URLPath is the URL path to be used in the HTTP GET or POST request to the
                             Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                             The format required is the same format used by the `kubectl get --raw` command.
-                            See https://kyverno.io/docs/policy-types/cluster-policy/external-data-sources/#variables-from-kubernetes-api-server-calls
+                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
                             for details.
                             It's mutually exclusive with the Service field.
                           type: string
