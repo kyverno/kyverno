@@ -1,8 +1,13 @@
 package matching
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/pkg/cel/matching/predicates/namespace"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
@@ -86,9 +91,18 @@ func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOper
 		if len(namedRule.ResourceNames) == 0 {
 			return true, nil
 		}
-		// TODO: GetName() can return an empty string if the user is relying on
-		// the API server to generate the name... figure out what to do for this edge case
+
 		name := attr.GetName()
+
+		if name == "" {
+			if matchesGeneratedName(namedRule, attr) {
+				return true, nil
+			}
+
+			log.Log.V(2).Info(fmt.Sprintf("Skipping name match due to empty name and no matching generateName for resource: %+v", attr))
+			continue
+		}
+
 		for _, matchedName := range namedRule.ResourceNames {
 			if name == matchedName {
 				return true, nil
@@ -96,4 +110,25 @@ func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOper
 		}
 	}
 	return false, nil
+}
+
+func matchesGeneratedName(rule admissionregistrationv1.NamedRuleWithOperations, attr admission.Attributes) bool {
+	obj := attr.GetObject()
+	if obj == nil {
+		return false
+	}
+
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return false
+	}
+
+	genName := accessor.GetGenerateName()
+	for _, matchedName := range rule.ResourceNames {
+		if strings.HasPrefix(genName, matchedName) {
+			return true
+		}
+	}
+
+	return false
 }
