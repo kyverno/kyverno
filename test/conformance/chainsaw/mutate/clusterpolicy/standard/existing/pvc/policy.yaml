@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-existing
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  mutateExistingOnPolicyUpdate: true
+  rules:
+  - name: mutate-pvc
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      targets: # <-- mutate existing 
+      - apiVersion: v1
+        kind: PersistentVolumeClaim # <-- not in the list in fake.go
+        name: pvc
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar

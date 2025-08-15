@@ -68,15 +68,32 @@ func NewEmptyFakeClient() Interface {
 func NewFakeDiscoveryClient(registeredResources []schema.GroupVersionResource) *fakeDiscoveryClient {
 	// Load some-preregistered resources
 	res := []schema.GroupVersionResource{
+		{Version: "v1", Resource: "pods"},
 		{Version: "v1", Resource: "configmaps"},
-		{Version: "v1", Resource: "endpoints"},
-		{Version: "v1", Resource: "namespaces"},
-		{Version: "v1", Resource: "resourcequotas"},
 		{Version: "v1", Resource: "secrets"},
 		{Version: "v1", Resource: "serviceaccounts"},
-		{Group: "apps", Version: "v1", Resource: "daemonsets"},
+		{Version: "v1", Resource: "resourcequotas"},
+		{Version: "v1", Resource: "persistentvolumes"},
+		{Version: "v1", Resource: "services"},
+		{Version: "v1", Resource: "namespaces"},
+		{Version: "v1", Resource: "nodes"},
+		{Version: "v1", Resource: "replicationcontrollers"},
 		{Group: "apps", Version: "v1", Resource: "deployments"},
 		{Group: "apps", Version: "v1", Resource: "statefulsets"},
+		{Group: "apps", Version: "v1", Resource: "daemonsets"},
+		{Group: "apps", Version: "v1", Resource: "replicasets"},
+		{Group: "autoscaling", Version: "v1", Resource: "horizontalpodautoscalers"},
+		{Group: "autoscaling", Version: "v2", Resource: "horizontalpodautoscalers"},
+		{Group: "batch", Version: "v1", Resource: "jobs"},
+		{Group: "batch", Version: "v1", Resource: "cronjobs"},
+		{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"},
+		{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "rolebindings"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"},
+		{Group: "policy", Version: "v1", Resource: "poddisruptionbudgets"},
+		{Group: "policy", Version: "v1", Resource: "podsecuritypolicies"},
 	}
 	registeredResources = append(registeredResources, res...)
 	return &fakeDiscoveryClient{registeredResources: registeredResources}

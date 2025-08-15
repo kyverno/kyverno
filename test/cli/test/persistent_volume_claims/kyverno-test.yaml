@@ -1,0 +1,18 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-mutate-existing
+policies:
+- policy.yaml
+resources:
+- pvc.yaml
+targetResources:
+- pvc.yaml
+results:
+- policy: mutate-existing
+  rule: mutate-pvc
+  kind: PersistentVolumeClaim
+  resources:
+  - pvc
+  patchedResources: pvc-patched.yaml
+  result: pass
