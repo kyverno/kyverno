@@ -23,6 +23,8 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
+        with:
+          install-tools: true
       - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
@@ -32,8 +34,35 @@ jobs:
           then
             echo "TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
           fi
+      - name: Create kind cluster
+        run: |
+          kind create cluster --wait=60s
+          kubectl cluster-info --context kind-kind
+          
+          # Wait for cluster to be fully ready
+          kubectl wait --for=condition=Ready nodes --all --timeout=300s
+          
+          # Create kyverno namespace if needed for TLS secrets
+          kubectl create namespace kyverno --dry-run=client -o yaml | kubectl apply -f -
+          
+      - name: Install and verify tools
+        run: |
+          echo "Installing tools..."
+          make install-tools
+          
+          # Add tools to PATH for this step and subsequent steps
+          echo "${PWD}/.tools" >> $GITHUB_PATH
+          
+          # Verify tools are working
+          echo "Checking tool versions..."
+          ./.tools/cosign version || echo "cosign not found"
+          ./.tools/chainsaw version || echo "chainsaw not found"  
+          ./.tools/kubectl version --client || echo "kubectl not found"
+          
       - name: Test CLI
         run: |
+          # Ensure tools are in PATH
+          export PATH="${PWD}/.tools:$PATH"
           VERSION=${{ github.ref_name }} make test-cli
       - name: Test CLI (failures)
         run: |

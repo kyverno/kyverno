@@ -58,8 +58,14 @@ KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.17.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
+COSIGN                             ?= $(TOOLS_DIR)/cosign
+COSIGN_VERSION                     ?= v2.5.3
+CHAINSAW                           ?= $(TOOLS_DIR)/chainsaw
+CHAINSAW_VERSION                   ?= v0.2.12
+KUBECTL                            ?= $(TOOLS_DIR)/kubectl
+KUBECTL_VERSION                    ?= v1.33.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER) $(COSIGN) $(CHAINSAW) $(KUBECTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -126,6 +132,18 @@ $(API_GROUP_RESOURCES):
 $(CLIENT_WRAPPER):
 	@echo Install client-wrapper... >&2
 	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
+
+$(COSIGN):
+	@echo Install cosign... >&2
+	@TOOLS_DIR=$(TOOLS_DIR) COSIGN_VERSION=$(COSIGN_VERSION) ./scripts/install-tools.sh cosign
+
+$(CHAINSAW):
+	@echo Install chainsaw... >&2
+	@TOOLS_DIR=$(TOOLS_DIR) CHAINSAW_VERSION=$(CHAINSAW_VERSION) ./scripts/install-tools.sh chainsaw
+
+$(KUBECTL):
+	@echo Install kubectl... >&2
+	@TOOLS_DIR=$(TOOLS_DIR) KUBECTL_VERSION=$(KUBECTL_VERSION) ./scripts/install-tools.sh kubectl
 
 .PHONY: install-tools
 install-tools: ## Install tools
@@ -1048,8 +1066,10 @@ kind-install-kyverno-from-repo: $(HELM) ## Install Kyverno Helm Chart from the K
 kind-install-goldilocks: $(HELM) ## Install goldilocks helm chart
 	@echo Install goldilocks chart... >&2
 	@$(HELM) upgrade --install vpa --namespace vpa --create-namespace --wait \
+		--timeout 5m \
 		--repo https://charts.fairwinds.com/stable vpa
 	@$(HELM) upgrade --install goldilocks --namespace goldilocks --create-namespace --wait \
+		--timeout 5m \
 		--repo https://charts.fairwinds.com/stable goldilocks
 	kubectl label ns kyverno goldilocks.fairwinds.com/enabled=true
 
@@ -1070,6 +1090,7 @@ kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build ima
 kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
 	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
+		--timeout 5m \
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/standard/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
@@ -1109,16 +1130,31 @@ dev-lab-ingress-ngingx: ## Deploy ingress-ngingx
 	@kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
 .PHONY: dev-lab-prometheus
-dev-lab-prometheus: $(HELM) ## Deploy kube-prometheus-stack helm chart
-	@echo Install kube-prometheus-stack chart... >&2
-	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
-		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
-		--values ./scripts/config/dev/kube-prometheus-stack.yaml
+dev-lab-prometheus: ## Deploy kube-prometheus-stack helm chart
+	@echo "Installing kube-prometheus-stack chart..." >&2
+	@echo "Checking kubectl connectivity..." >&2 && kubectl cluster-info --request-timeout=10s || (echo "Kubectl not available" >&2 && exit 1)
+	@echo "Adding prometheus-community helm repo..." >&2
+	@helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+	@helm repo update
+	@if [ -f ./scripts/config/dev/kube-prometheus-stack.yaml ]; then \
+		echo "Using values file: ./scripts/config/dev/kube-prometheus-stack.yaml" >&2; \
+		helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+			--namespace monitoring --create-namespace --wait \
+			--timeout 20m \
+			--values ./scripts/config/dev/kube-prometheus-stack.yaml; \
+	else \
+		echo "Values file not found, using defaults..." >&2; \
+		helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+			--namespace monitoring --create-namespace --wait \
+			--timeout 20m; \
+	fi
+	@echo "✅ kube-prometheus-stack installation completed" >&2
 
 .PHONY: dev-lab-loki
 dev-lab-loki: $(HELM) ## Deploy loki-stack helm chart
 	@echo Install loki-stack chart... >&2
 	@$(HELM) upgrade --install loki-stack --namespace monitoring --create-namespace --wait \
+		--timeout 10m \
 		--repo https://grafana.github.io/helm-charts loki-stack \
 		--values ./scripts/config/dev/loki-stack.yaml
 
@@ -1126,6 +1162,7 @@ dev-lab-loki: $(HELM) ## Deploy loki-stack helm chart
 dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
 	@echo Install tempo chart... >&2
 	@$(HELM) upgrade --install tempo --namespace monitoring --create-namespace --wait \
+		--timeout 10m \
 		--repo https://grafana.github.io/helm-charts tempo \
 		--values ./scripts/config/dev/tempo.yaml
 	@kubectl apply -f ./scripts/config/dev/tempo-datasource.yaml
@@ -1134,15 +1171,27 @@ dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
 dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 	@echo Install otel-collector chart... >&2
 	@$(HELM) upgrade --install opentelemetry-collector --namespace monitoring --create-namespace --wait \
+		--timeout 10m \
 		--repo https://open-telemetry.github.io/opentelemetry-helm-charts opentelemetry-collector \
 		--values ./scripts/config/dev/otel-collector.yaml
 
 .PHONY: dev-lab-metrics-server
-dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
-	@echo Install metrics-server chart... >&2
-	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
-		--namespace kube-system --wait \
-		--values ./scripts/config/dev/metrics-server.yaml
+dev-lab-metrics-server: ## Deploy metrics-server helm chart
+	@echo "Installing metrics-server chart..." >&2
+	@echo "Checking kubectl connectivity..." >&2 && kubectl cluster-info --request-timeout=10s || (echo "Kubectl not available" >&2 && exit 1)
+	@if [ -f ./scripts/config/dev/metrics-server.yaml ]; then \
+		echo "Using values file: ./scripts/config/dev/metrics-server.yaml" >&2; \
+		helm upgrade --install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+			--namespace kube-system --create-namespace --wait \
+			--timeout 5m \
+			--values ./scripts/config/dev/metrics-server.yaml; \
+	else \
+		echo "Values file not found, using defaults..." >&2; \
+		helm upgrade --install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+			--namespace kube-system --create-namespace --wait \
+			--timeout 5m; \
+	fi
+	@echo "✅ metrics-server installation completed" >&2
 
 .PHONY: dev-lab-all
 dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-otel-collector ## Deploy all dev lab components
@@ -1151,6 +1200,7 @@ dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus de
 dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
 	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
+		--timeout 5m \
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/dev/policy-reporter.yaml
 
