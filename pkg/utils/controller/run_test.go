@@ -16,7 +16,7 @@ import (
 // mock workqueue
 type mockWorkqueue[T comparable] struct {
 	workqueue.TypedRateLimitingInterface[T]
-	forgotten  []T
+	forgotten   []T
 	rateLimited []T
 	numRequeues int
 }
