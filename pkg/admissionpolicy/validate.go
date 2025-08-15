@@ -175,6 +175,15 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	var ers []engineapi.EngineResponse
 
+	// the two nil checks and the addition of an empty selector are needed for policies that specify no namespaceSelector or objectSelector.
+	// during parsing those selectors in the DefinitionMatches function, if they are nil, they skip all resources
+	if policy.Spec.MatchConstraints.NamespaceSelector == nil {
+		policy.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{}
+	}
+	if policy.Spec.MatchConstraints.ObjectSelector == nil {
+		policy.Spec.MatchConstraints.ObjectSelector = &metav1.LabelSelector{}
+	}
+
 	isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
 	if err != nil {
 		vapLogger.Error(err, "failed to match policy definition for validatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
@@ -194,6 +203,13 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 	}
 
 	for i, binding := range bindings {
+		if binding.Spec.MatchResources.NamespaceSelector == nil {
+			binding.Spec.MatchResources.NamespaceSelector = &metav1.LabelSelector{}
+		}
+		if binding.Spec.MatchResources.ObjectSelector == nil {
+			binding.Spec.MatchResources.ObjectSelector = &metav1.LabelSelector{}
+		}
+
 		isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&binding))
 		if err != nil {
 			vapLogger.Error(err, "failed to match policy binding for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)

@@ -103,6 +103,15 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	er := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)
 
+	// the two nil checks and the addition of an empty selector are needed for policies that specify no namespaceSelector or objectSelector.
+	// during parsing those selectors in the DefinitionMatches function, if they are nil, they skip all resources
+	if policy.Spec.MatchConstraints.NamespaceSelector == nil {
+		policy.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{}
+	}
+	if policy.Spec.MatchConstraints.ObjectSelector == nil {
+		policy.Spec.MatchConstraints.ObjectSelector = &metav1.LabelSelector{}
+	}
+
 	isMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(policy))
 	if err != nil {
 		mapLogger.Error(err, "failed to match policy definition for mutatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
@@ -121,6 +130,13 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 	}
 
 	for i, binding := range bindings {
+		if binding.Spec.MatchResources.NamespaceSelector == nil {
+			binding.Spec.MatchResources.NamespaceSelector = &metav1.LabelSelector{}
+		}
+		if binding.Spec.MatchResources.ObjectSelector == nil {
+			binding.Spec.MatchResources.ObjectSelector = &metav1.LabelSelector{}
+		}
+
 		isMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
 		if err != nil {
 			mapLogger.Error(err, "failed to match policy binding for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
@@ -138,20 +154,24 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 			}
 			for _, p := range params {
 				// serially apply mutations to produce a single end mutated resource
-				newEr, err := mutateResource(policy, &bindings[i], er.Resource, p, gvr, namespace, a, backgroundScan)
+				newEr, err := mutateResource(policy, &bindings[i], resource, p, gvr, namespace, a, backgroundScan)
 				if err != nil {
 					mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 					continue
 				}
-				er.Resource = newEr.PatchedResource
+				// replace the resource with the new patched resource to apply it to the next binding and replace the engine response with the latest engine response
+				resource = newEr.PatchedResource
+				er = newEr
 			}
 		} else {
-			newEr, err := mutateResource(policy, &bindings[i], er.Resource, nil, gvr, namespace, a, backgroundScan)
+			newEr, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
 			}
-			er.Resource = newEr.PatchedResource
+			// replace the resource with the new patched resource to apply it to the next binding and replace the engine response with the latest engine response
+			resource = newEr.PatchedResource
+			er = newEr
 		}
 	}
 	return er, nil
