@@ -153,7 +153,6 @@ func testCommandExecute(
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
-			fmt.Println("line 156.")
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
 			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
@@ -163,14 +162,10 @@ func testCommandExecute(
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
-			fmt.Print("line165")
 			if !failOnly {
-				fmt.Println("line 167")
 				if len(outputFormat) > 0 {
-					fmt.Println("line 169")
 					printOutputFormats(out, outputFormat, resultsTable, detailedResults)
 				} else {
-					fmt.Println("line 172")
 					printer := table.NewTablePrinter(out)
 					fmt.Fprintln(out)
 					printer.Print(resultsTable.Rows(detailedResults))
