@@ -40,13 +40,7 @@ func (m *MatchResources) IsEmpty() bool {
 	if len(m.Any) > 0 || len(m.All) > 0 {
 		return false
 	}
-	if !reflect.DeepEqual(m.UserInfo, UserInfo{}) {
-		return false
-	}
-	if !reflect.DeepEqual(m.ResourceDescription, ResourceDescription{}) {
-		return false
-	}
-	return true
+	return m.ResourceDescription.IsEmpty() && reflect.DeepEqual(m.UserInfo, UserInfo{})
 }
 
 // GetKinds returns all kinds

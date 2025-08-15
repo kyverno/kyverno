@@ -210,7 +210,7 @@ func MatchesResourceDescription(
 	}
 
 	// check exlude conditions only if match succeeds
-	if len(reasonsForFailure) == 0 && rule.ExcludeResources != nil && !(*rule.ExcludeResources).IsEmpty() {
+	if len(reasonsForFailure) == 0 && rule.ExcludeResources != nil && !rule.ExcludeResources.IsEmpty() {
 		if len(rule.ExcludeResources.Any) > 0 {
 			// exclude the object if ANY of the criteria match
 			for _, rer := range rule.ExcludeResources.Any {
