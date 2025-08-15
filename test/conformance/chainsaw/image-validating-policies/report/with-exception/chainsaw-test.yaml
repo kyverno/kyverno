@@ -19,17 +19,18 @@ spec:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
+        timeout: 30s
   - name: create exception
     try:
     - create:
         file: exception.yaml
-    - sleep:
-        duration: 10s
   - name: check report for the bad deployment
     try:
     - assert:
         file: fail-report-assert.yaml
+        timeout: 30s
   - name: check report for the skipped deployment
     try:
     - assert:
         file: skipped-report-assert.yaml
+        timeout: 30s

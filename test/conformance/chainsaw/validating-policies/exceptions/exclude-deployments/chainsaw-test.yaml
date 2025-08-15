@@ -8,8 +8,6 @@ spec:
     try:
     - create:
         file: exception.yaml
-    - sleep:
-        duration: 10s
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml

@@ -29,10 +29,6 @@ spec:
         bindings:
         - name: name
           value: test-mpol-different-trigger-target
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: trigger mutation by updating namespace
     try:
     - apply:

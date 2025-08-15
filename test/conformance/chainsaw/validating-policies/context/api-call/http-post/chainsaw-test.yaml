@@ -10,8 +10,20 @@ spec:
         file: http-pod.yaml
     - apply:
         file: service.yaml
-    - sleep:
-        duration: 8s
+    - script:
+        content: |
+          #!/bin/sh
+          set -eu
+          kubectl wait --for=condition=Ready pod/test-api -n default --timeout=60s
+          # basic readiness probe
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if kubectl run --rm -i --restart=Never --image=curlimages/curl:8.0.1 -n default curl -- -sSf -X POST -H 'Content-Type: application/json' -d '{"labels":"test"}' http://test-api-service.default.svc.cluster.local/ >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "service not ready" >&2
+          exit 1
   - name: create policy
     use:
       template: ../../../../_step-templates/create-policy.yaml

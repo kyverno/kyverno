@@ -9,10 +9,9 @@ spec:
     try:
     - create:
         file: exception.yaml
-    - sleep:
-        duration: 10s
     - assert:
         file: exception.yaml
+        timeout: 30s
   - name: create policy
     use:
       template: /../../_step-templates/create-policy.yaml
@@ -41,3 +40,4 @@ spec:
         file: good-pod.yaml
     - assert:
         file: good-pod.yaml
+        timeout: 30s

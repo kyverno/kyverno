@@ -4,15 +4,16 @@ metadata:
   name: apicall-correct
 spec:
   steps:
-  - try:
+  - name: setup resources and globalcontextentry
+    try:
     - apply:
         file: namespace.yaml
     - apply:
         file: main-deployment.yaml
     - apply:
         file: gctxentry.yaml
-    - sleep:
-        duration: 3s
+    - assert:
+        file: gctxentry.yaml
   - name: create policy
     use:
       template: ../../_step-templates/create-policy.yaml
@@ -27,9 +28,8 @@ spec:
         bindings:
         - name: name
           value: cpol-apicall-correct
-  - try:
-    - sleep:
-        duration: 3s
+  - name: test policy with new deployment
+    try:
     - apply:
         file: new-deployment.yaml
     - assert:
