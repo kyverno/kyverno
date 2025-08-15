@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-demo
+  labels:
+    app: game
+    lfx-mentorship: kyverno
+data:
+  player_initial_lives: "3"

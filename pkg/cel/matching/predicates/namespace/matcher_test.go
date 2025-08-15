@@ -120,3 +120,174 @@ func TestNotExemptClusterScopedResource(t *testing.T) {
 		t.Errorf("cluster scoped resources (but not a namespace) should not be exempted from webhooks")
 	}
 }
+func TestGetNamespaceWithNilNamespace(t *testing.T) {
+	// Test CLI mode where namespace object is nil
+	matcher := namespace.Matcher{
+		Namespace: nil,
+	}
+
+	// Test getting namespace when matcher has nil namespace (CLI mode)
+	ns, err := matcher.GetNamespace("default")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if ns == nil {
+		t.Fatal("expected namespace object, got nil")
+	}
+	if ns.GetName() != "default" {
+		t.Errorf("expected namespace name 'default', got %s", ns.GetName())
+	}
+	labels := ns.GetLabels()
+	if labels == nil {
+		t.Fatal("expected labels, got nil")
+	}
+	if labels["kubernetes.io/metadata.name"] != "default" {
+		t.Errorf("expected label kubernetes.io/metadata.name='default', got %s", labels["kubernetes.io/metadata.name"])
+	}
+}
+
+func TestGetNamespaceLabelsWithNilNamespace(t *testing.T) {
+	// Test getting labels in CLI mode
+	matcher := namespace.Matcher{
+		Namespace: nil,
+	}
+
+	// Test for a pod in default namespace
+	attr := admission.NewAttributesRecord(
+		nil,
+		nil,
+		schema.GroupVersionKind{},
+		"default",
+		"test-pod",
+		schema.GroupVersionResource{Resource: "pods"},
+		"",
+		admission.Create,
+		&metav1.CreateOptions{},
+		false,
+		nil,
+	)
+
+	labels, err := matcher.GetNamespaceLabels(attr)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if labels == nil {
+		t.Fatal("expected labels, got nil")
+	}
+	if labels["kubernetes.io/metadata.name"] != "default" {
+		t.Errorf("expected label kubernetes.io/metadata.name='default', got %s", labels["kubernetes.io/metadata.name"])
+	}
+}
+
+func TestMatchNamespaceSelectorWithNilNamespace(t *testing.T) {
+	// Test namespace selector matching in CLI mode
+	matcher := namespace.Matcher{
+		Namespace: nil,
+	}
+
+	// Create a webhook that selects namespaces with kubernetes.io/metadata.name=default
+	hook := &registrationv1.ValidatingWebhook{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"kubernetes.io/metadata.name": "default",
+			},
+		},
+	}
+
+	// Test with a pod in default namespace - should match
+	attr := admission.NewAttributesRecord(
+		nil,
+		nil,
+		schema.GroupVersionKind{},
+		"default",
+		"test-pod",
+		schema.GroupVersionResource{Resource: "pods"},
+		"",
+		admission.Create,
+		&metav1.CreateOptions{},
+		false,
+		nil,
+	)
+
+	matches, err := matcher.MatchNamespaceSelector(
+		webhook.NewValidatingWebhookAccessor("test-hook", "test-cfg", hook),
+		attr,
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !matches {
+		t.Error("expected namespace selector to match for default namespace, but it didn't")
+	}
+
+	// Test with a pod in kube-system namespace - should NOT match
+	attr2 := admission.NewAttributesRecord(
+		nil,
+		nil,
+		schema.GroupVersionKind{},
+		"kube-system",
+		"test-pod",
+		schema.GroupVersionResource{Resource: "pods"},
+		"",
+		admission.Create,
+		&metav1.CreateOptions{},
+		false,
+		nil,
+	)
+
+	matches2, err2 := matcher.MatchNamespaceSelector(
+		webhook.NewValidatingWebhookAccessor("test-hook", "test-cfg", hook),
+		attr2,
+	)
+	if err2 != nil {
+		t.Fatalf("expected no error, got %v", err2)
+	}
+	if matches2 {
+		t.Error("expected namespace selector to NOT match for kube-system, but it did")
+	}
+
+	// Test with empty namespace selector - should match everything
+	hookEmpty := &registrationv1.ValidatingWebhook{
+		NamespaceSelector: &metav1.LabelSelector{},
+	}
+
+	matches3, err3 := matcher.MatchNamespaceSelector(
+		webhook.NewValidatingWebhookAccessor("test-hook-empty", "test-cfg", hookEmpty),
+		attr,
+	)
+	if err3 != nil {
+		t.Fatalf("expected no error with empty selector, got %v", err3)
+	}
+	if !matches3 {
+		t.Error("expected empty namespace selector to match, but it didn't")
+	}
+}
+
+func TestGetNamespaceDifferentNames(t *testing.T) {
+	// Test getting different namespace names in CLI mode
+	matcher := namespace.Matcher{
+		Namespace: nil,
+	}
+
+	testCases := []string{
+		"default",
+		"kube-system",
+		"kube-public",
+		"my-custom-namespace",
+	}
+
+	for _, nsName := range testCases {
+		ns, err := matcher.GetNamespace(nsName)
+		if err != nil {
+			t.Errorf("unexpected error for namespace %s: %v", nsName, err)
+			continue
+		}
+		if ns.GetName() != nsName {
+			t.Errorf("expected namespace name %s, got %s", nsName, ns.GetName())
+		}
+		if ns.GetLabels()["kubernetes.io/metadata.name"] != nsName {
+			t.Errorf("expected label kubernetes.io/metadata.name=%s, got %s",
+				nsName, ns.GetLabels()["kubernetes.io/metadata.name"])
+		}
+	}
+}

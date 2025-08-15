@@ -19,6 +19,7 @@ type FakeContextProvider struct {
 	triggerGroup       string
 	triggerKind        string
 	triggerUID         string
+	restoreCache       bool
 }
 
 func NewFakeContextProvider() *FakeContextProvider {
@@ -126,15 +127,13 @@ func (cp *FakeContextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
 }
 
-func (cp *FakeContextProvider) SetPolicyName(name string) {
-	cp.policyName = name
-}
-
-func (cp *FakeContextProvider) SetTriggerMetadata(name, namespace, uid, apiVersion, group, kind string) {
-	cp.triggerName = name
-	cp.triggerNamespace = namespace
-	cp.triggerUID = uid
-	cp.triggerAPIVersion = apiVersion
-	cp.triggerGroup = group
-	cp.triggerKind = kind
+func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+	cp.policyName = polName
+	cp.triggerName = triggerName
+	cp.triggerNamespace = triggerNamespace
+	cp.triggerAPIVersion = triggerAPIVersion
+	cp.triggerGroup = triggerGroup
+	cp.triggerKind = triggerKind
+	cp.triggerUID = triggerUID
+	cp.restoreCache = restoreCache
 }

@@ -2,23 +2,19 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: with-cel-exceptions
+  name: with-multiple-exceptions
 spec:
   steps:
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
   - name: create policy
     try:
     - create:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
-  - name: create exception
-    try:
-    - create:
-        file: exception.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: check mutatingadmissionpolicy
     try:
     - assert:

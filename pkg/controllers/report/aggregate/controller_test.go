@@ -13,8 +13,8 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/openreports"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
-	orfake "openreports.io/pkg/client/clientset/versioned/fake"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
+	orfake "github.com/openreports/reports-api/pkg/client/clientset/versioned/fake"
 
 	"github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	"github.com/stretchr/testify/assert"

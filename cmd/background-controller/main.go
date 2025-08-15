@@ -73,7 +73,6 @@ func createrLeaderControllers(
 	mpolEngine mpolengine.Engine,
 	mapper meta.RESTMapper,
 	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, error) {
 	watchManager := gpol.NewWatchManager(logging.WithName("WatchManager"), dynamicClient)
 	policyCtrl, err := policy.NewPolicyController(
@@ -115,7 +114,6 @@ func createrLeaderControllers(
 		configuration,
 		jp,
 		reportsConfig,
-		reportsBreaker,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -238,18 +236,37 @@ func main() {
 			polexCache,
 			gcstore,
 		)
-		ephrs, err := breaker.StartBackgroundReportsCounter(signalCtx, setup.MetadataClient)
-		if err != nil {
-			setup.Logger.Error(err, "failed to start background-scan reports watcher")
-			os.Exit(1)
-		}
-		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
-			count, isRunning := ephrs.Count()
-			if !isRunning {
-				return true
+		ephrCounterFunc := func(c breaker.Counter) func(context.Context) bool {
+			return func(context.Context) bool {
+				count, isRunning := c.Count()
+				if !isRunning {
+					return true
+				}
+				return count > maxBackgroundReports
 			}
-			return count > maxBackgroundReports
-		})
+		}
+		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		if err != nil {
+			go func() {
+				for {
+					ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+					if err != nil {
+						setup.Logger.Error(err, "failed to start background scan reports watcher, retrying...")
+						time.Sleep(2 * time.Second)
+						continue
+					}
+					breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs))
+					return
+				}
+			}()
+			// temporarily create a fake breaker until the retrying goroutine succeeds
+			breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", func(context.Context) bool {
+				return true
+			})
+			// no error occurred, create a normal breaker
+		} else {
+			breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs))
+		}
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
@@ -272,6 +289,7 @@ func main() {
 					setup.KyvernoDynamicClient,
 					nil,
 					gcstore,
+					false,
 				)
 				if err != nil {
 					setup.Logger.Error(err, "failed to create cel context provider")
@@ -377,7 +395,6 @@ func main() {
 					mpolEngine,
 					restMapper,
 					setup.ReportingConfiguration,
-					reportsBreaker,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")

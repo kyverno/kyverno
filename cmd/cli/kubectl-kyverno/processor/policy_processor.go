@@ -242,15 +242,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			gvr := mapping.Resource
 
 			for _, mapPolicy := range p.MutatingAdmissionPolicies {
-				// build the policy+binding data
 				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
 				for _, b := range p.MutatingAdmissionPolicyBindings {
 					if b.Spec.PolicyName == mapPolicy.Name {
 						data.AddBinding(b)
 					}
 				}
-				// apply the MAP
-				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue
@@ -447,7 +445,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				CompiledPolicy: compiled,
 			})
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, true)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -479,7 +477,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				nil,
 			)
 			for _, policy := range compiledPolicies {
-				engineResponse, err := engine.Handle(request, policy)
+				engineResponse, err := engine.Handle(request, policy, false)
 				if err != nil {
 					return nil, err
 				}
