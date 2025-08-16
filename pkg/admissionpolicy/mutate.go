@@ -226,7 +226,7 @@ func processMAPWithoutClient(policy *admissionregistrationv1alpha1.MutatingAdmis
 				matchedParams = paramList
 			}
 
-			newEr, err := mutateResource(policy, &bindings[i], er.Resource, matchedParams, gvr, namespace, a, backgroundScan)
+			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
@@ -234,7 +234,7 @@ func processMAPWithoutClient(policy *admissionregistrationv1alpha1.MutatingAdmis
 			resource = newEr.PatchedResource
 			er = newEr
 		} else {
-			newEr, err := mutateResource(policy, &bindings[i], er.Resource, nil, gvr, namespace, a, backgroundScan)
+			newEr, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
