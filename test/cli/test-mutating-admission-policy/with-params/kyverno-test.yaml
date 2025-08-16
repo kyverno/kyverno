@@ -13,6 +13,4 @@ results:
   kind: Deployment
   patchedResources: patched-resource.yaml
   policy: change-deployment-replicas
-  resources:
-  - cm
   result: pass
