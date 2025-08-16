@@ -238,6 +238,8 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 					paramList.Items = append(paramList.Items, *obj)
 				}
 				matchedParams = paramList
+			} else {
+				matchedParams = params[0]
 			}
 			engineResponse, err := validateResource(policy, &bindings[i], resource, matchedParams, namespace, a)
 			if err != nil {
