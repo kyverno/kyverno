@@ -1,7 +1,6 @@
 package create
 
-// TODO
-var websiteUrl = ``
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#create`
 
 var description = []string{
 	`Helps with the creation of various Kyverno resources.`,

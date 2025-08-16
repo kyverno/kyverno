@@ -1,7 +1,6 @@
 package migrate
 
-// TODO
-var websiteUrl = ``
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#migrate`
 
 var description = []string{
 	`Migrate one or more resources to the stored version.`,

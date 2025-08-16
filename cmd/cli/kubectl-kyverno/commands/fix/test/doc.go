@@ -1,7 +1,6 @@
 package test
 
-// TODO
-var websiteUrl = ``
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#fix`
 
 var description = []string{
 	`Fix inconsistencies and deprecated usage in Kyverno test files.`,
