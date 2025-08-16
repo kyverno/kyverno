@@ -103,7 +103,7 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	var err error
 	// fetch the resources from the cluster.
 	if rf.ResourceOptions.Concurrency > 1 {
-		log.Log.V(3).Info(fmt.Sprintf("Loading resources concurrently... %d", len(info.gvkMap)))
+		log.Log.V(3).Info("Loading resources concurrently", "count", len(info.gvkMap))
 		// Convert gvkMaps to slice
 		var gvks []schema.GroupVersionKind
 		for gvk := range info.gvkMap {
@@ -126,7 +126,7 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 			}
 			rf.ResourceOptions.ResourceTypes = subResourceGvks
 			subResourceList, err := loader.LoadResourcesConcurrent(rf.Policies, rf.Client, rf.ResourceOptions, rf.ShowPerformance)
-			log.Log.V(3).Info(fmt.Sprintf("Loading sublist concurrently... %d", len(subResourceList)))
+			log.Log.V(3).Info("Loading sublist concurrently", "count", len(subResourceList))
 			if err != nil {
 				return nil, err
 			}
@@ -137,12 +137,12 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 		}
 	} else {
 		start := time.Now()
-		log.Log.V(3).Info(fmt.Sprintf("Loading resources sequentially..."))
+		log.Log.V(3).Info("Loading resources sequentially...")
 		resourceMap, err = rf.listResources(info)
 		if err != nil {
 			return nil, err
 		}
-		log.Log.V(3).Info(fmt.Sprintf("Loaded resources in %s", time.Since(start)))
+		log.Log.V(3).Info("Loaded resources in", "duration", time.Since(start))
 	}
 	if len(rf.ResourcePaths) == 0 {
 		for _, rr := range resourceMap {
