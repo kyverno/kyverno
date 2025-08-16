@@ -339,7 +339,7 @@ func (s *scanner) ScanResource(
 				}
 			}
 			res, err := admissionpolicy.Validate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, false)
-			results[&vaps[i]] = ScanResult{&res[0], err}
+			results[&vaps[i]] = ScanResult{&res, err}
 		}
 	}
 

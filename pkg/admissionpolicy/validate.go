@@ -114,7 +114,7 @@ func Validate(
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
 	isFake bool,
-) ([]engineapi.EngineResponse, error) {
+) (engineapi.EngineResponse, error) {
 	var (
 		resPath       = fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 		policy        = policyData.GetDefinition()
@@ -149,34 +149,37 @@ func Validate(
 	return processVAPWithoutClient(policy, bindings, resource, namespace, policyData.GetParams(), a, resPath)
 }
 
-func processVAPNoBindings(policy *admissionregistrationv1.ValidatingAdmissionPolicy, resource unstructured.Unstructured, namespace *corev1.Namespace, a admission.Attributes, resPath string) ([]engineapi.EngineResponse, error) {
+func processVAPNoBindings(policy *admissionregistrationv1.ValidatingAdmissionPolicy, resource unstructured.Unstructured, namespace *corev1.Namespace, a admission.Attributes, resPath string) (engineapi.EngineResponse, error) {
 	matcher := celmatching.NewMatcher()
 	isMatch, err := matcher.Match(&celmatching.MatchCriteria{Constraints: policy.Spec.MatchConstraints}, a, namespace)
+	er := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+
 	if err != nil {
 		vapLogger.Error(err, "failed to match resource against validatingadmissionpolicy constraints", "policy", policy.GetName(), "resource", resPath)
-		return nil, err
+		return er, err
 	}
 	if !isMatch {
-		return []engineapi.EngineResponse{engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)}, nil
+		return er, nil
 	}
 
 	vapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
-	er, err := validateResource(policy, nil, resource, nil, namespace, a)
+	er, err = validateResource(policy, nil, resource, nil, namespace, a)
 	if err != nil {
 		vapLogger.Error(err, "failed to validate resource with validatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
-		return nil, nil
+		return er, err
 	}
-	return []engineapi.EngineResponse{er}, nil
+	return er, nil
 }
 
-func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, a admission.Attributes, resPath string) ([]engineapi.EngineResponse, error) {
+func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, a admission.Attributes, resPath string) (engineapi.EngineResponse, error) {
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-	var ers []engineapi.EngineResponse
+	er := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 
 	// the two nil checks and the addition of an empty selector are needed for policies that specify no namespaceSelector or objectSelector.
-	// during parsing those selectors in the DefinitionMatches function, if they are nil, they skip all resources
+	// during parsing those selectors in the DefinitionMatches function, if they are nil, they skip all resources.
+	// this should be moved to upstream k8s. see: https://github.com/kubernetes/kubernetes/pull/133575
 	if policy.Spec.MatchConstraints.NamespaceSelector == nil {
 		policy.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{}
 	}
@@ -187,18 +190,17 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 	isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
 	if err != nil {
 		vapLogger.Error(err, "failed to match policy definition for validatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
-		return nil, err
+		return er, err
 	}
 	if !isMatch {
-		ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil))
-		return ers, nil
+		return er, nil
 	}
 
 	if namespaceName != "" {
 		namespace, err = client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
 		if err != nil {
 			vapLogger.Error(err, "failed to get namespace for validatingadmissionpolicy", "policy", policy.GetName(), "namespace", namespaceName, "resource", resPath)
-			return nil, err
+			return er, err
 		}
 	}
 
@@ -216,7 +218,6 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 			continue
 		}
 		if !isMatch {
-			ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil))
 			continue
 		}
 
@@ -224,31 +225,41 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 			params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, namespace.Name)
 			if err != nil {
 				vapLogger.Error(err, "failed to collect params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-				return nil, err
+				return er, err
 			}
-			for _, p := range params {
-				engineResponse, err := validateResource(policy, &bindings[i], resource, p, namespace, a)
-				if err != nil {
-					vapLogger.Error(err, "failed to validate resource with params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-					continue
+
+			// a selector being present in the binding is the only case in which params will contain more than 1 entry
+			var matchedParams runtime.Object
+			if len(params) > 1 {
+				paramList := &unstructured.UnstructuredList{}
+				for _, p := range params {
+					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(p)
+					obj := &unstructured.Unstructured{Object: unstructuredMap}
+					paramList.Items = append(paramList.Items, *obj)
 				}
-				ers = append(ers, engineResponse)
+				matchedParams = paramList
 			}
+			engineResponse, err := validateResource(policy, &bindings[i], resource, matchedParams, namespace, a)
+			if err != nil {
+				vapLogger.Error(err, "failed to validate resource with params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				continue
+			}
+			er = engineResponse
 		} else {
 			engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
 			if err != nil {
 				vapLogger.Error(err, "failed to validate resource for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
 			}
-			ers = append(ers, engineResponse)
+			er = engineResponse
 		}
 	}
-	return ers, nil
+	return er, nil
 }
 
-func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespace *corev1.Namespace, params []runtime.Object, a admission.Attributes, resPath string) ([]engineapi.EngineResponse, error) {
+func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespace *corev1.Namespace, params []runtime.Object, a admission.Attributes, resPath string) (engineapi.EngineResponse, error) {
 	matcher := celmatching.NewMatcher()
-	var ers []engineapi.EngineResponse
+	er := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
@@ -258,37 +269,45 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 				continue
 			}
 			if !bindingMatches {
-				ers = append(ers, engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil))
 				continue
 			}
 		}
 		if binding.Spec.ParamRef != nil {
+			var matchedParams runtime.Object
+			paramList := &unstructured.UnstructuredList{}
 			for _, param := range params {
-				var matchedParams []runtime.Object
 				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 				obj := &unstructured.Unstructured{Object: unstructuredMap}
 				if matchesSelector(obj, binding.Spec.ParamRef) {
-					matchedParams = append(matchedParams, param)
-				}
-				for _, p := range matchedParams {
-					er, err := validateResource(policy, &bindings[i], resource, p, namespace, a)
-					if err != nil {
-						vapLogger.Error(err, "failed to validate resource with params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-						continue
+					// if there is no selector, the binding will match the first resource only. match the first resource and exit
+					if binding.Spec.ParamRef.Selector == nil {
+						matchedParams = obj
+						break
 					}
-					ers = append(ers, er)
+					paramList.Items = append(paramList.Items, *obj)
 				}
 			}
+			// if there were resources in the parameter list, use it as the matched params
+			if len(paramList.Items) != 0 {
+				matchedParams = paramList
+			}
+
+			engineResponse, err := validateResource(policy, &bindings[i], resource, matchedParams, namespace, a)
+			if err != nil {
+				vapLogger.Error(err, "failed to validate resource with params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				continue
+			}
+			er = engineResponse
 		} else {
-			er, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
+			engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
 			if err != nil {
 				vapLogger.Error(err, "failed to validate resource for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
 			}
-			ers = append(ers, er)
+			er = engineResponse
 		}
 	}
-	return ers, nil
+	return er, nil
 }
 
 func validateResource(

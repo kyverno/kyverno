@@ -358,10 +358,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				policyData.AddParam(param)
 			}
 			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster)
-			vapResponses = append(vapResponses, validateResponse...)
-			for _, r := range vapResponses {
-				p.Rc.addValidatingAdmissionResponse(r)
-			}
+			vapResponses = append(vapResponses, validateResponse)
+			p.Rc.addValidatingAdmissionResponse(validateResponse)
 		}
 	}
 	// validating policies

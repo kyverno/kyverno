@@ -92,7 +92,7 @@ func processMAPNoBindings(policy *admissionregistrationv1alpha1.MutatingAdmissio
 	er, err = mutateResource(policy, nil, resource, nil, gvr, namespace, a, backgroundScan)
 	if err != nil {
 		mapLogger.Error(err, "failed to mutate resource with mutatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
-		return er, nil
+		return er, err
 	}
 	return er, nil
 }
@@ -105,6 +105,7 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 
 	// the two nil checks and the addition of an empty selector are needed for policies that specify no namespaceSelector or objectSelector.
 	// during parsing those selectors in the DefinitionMatches function, if they are nil, they skip all resources
+	// this should be moved to upstream k8s. see: https://github.com/kubernetes/kubernetes/pull/133575
 	if policy.Spec.MatchConstraints.NamespaceSelector == nil {
 		policy.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{}
 	}
@@ -152,17 +153,27 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				return er, err
 			}
-			for _, p := range params {
-				// serially apply mutations to produce a single end mutated resource
-				newEr, err := mutateResource(policy, &bindings[i], resource, p, gvr, namespace, a, backgroundScan)
-				if err != nil {
-					mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-					continue
+
+			// a selector being present in the binding is the only case in which params will contain more than 1 entry
+			var matchedParams runtime.Object
+			if len(params) > 1 {
+				paramList := &unstructured.UnstructuredList{}
+				for _, p := range params {
+					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(p)
+					obj := &unstructured.Unstructured{Object: unstructuredMap}
+					paramList.Items = append(paramList.Items, *obj)
 				}
-				// replace the resource with the new patched resource to apply it to the next binding and replace the engine response with the latest engine response
-				resource = newEr.PatchedResource
-				er = newEr
+				matchedParams = paramList
 			}
+
+			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
+			if err != nil {
+				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				continue
+			}
+			// replace the resource with the new patched resource to apply it to the next binding and replace the engine response with the latest engine response
+			resource = newEr.PatchedResource
+			er = newEr
 		} else {
 			newEr, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
@@ -194,31 +205,40 @@ func processMAPWithoutClient(policy *admissionregistrationv1alpha1.MutatingAdmis
 			}
 		}
 		if binding.Spec.ParamRef != nil {
+			var matchedParams runtime.Object
+			paramList := &unstructured.UnstructuredList{}
 			for _, param := range params {
-				var matchedParams []runtime.Object
 				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 				obj := &unstructured.Unstructured{Object: unstructuredMap}
-
 				if matchesSelector(obj, convertParamRef(binding.Spec.ParamRef)) {
-					matchedParams = append(matchedParams, param)
-				}
-				for _, p := range matchedParams {
-					// serially apply mutations to produce a single end mutated resource
-					newEr, err := mutateResource(policy, &bindings[i], er.Resource, p, gvr, namespace, a, backgroundScan)
-					if err != nil {
-						mapLogger.Error(err, "failed to mutate resource for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-						continue
+					// if there is no selector, the binding will match the first resource only. match the first resource and exit
+					if binding.Spec.ParamRef.Selector == nil {
+						matchedParams = obj
+						break
 					}
-					er.PatchedResource = newEr.PatchedResource
+					paramList.Items = append(paramList.Items, *obj)
 				}
 			}
+			// if there were resources in the parameter list, use it as the matched params
+			if len(paramList.Items) != 0 {
+				matchedParams = paramList
+			}
+
+			newEr, err := mutateResource(policy, &bindings[i], er.Resource, matchedParams, gvr, namespace, a, backgroundScan)
+			if err != nil {
+				mapLogger.Error(err, "failed to mutate resource for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				continue
+			}
+			resource = newEr.PatchedResource
+			er = newEr
 		} else {
 			newEr, err := mutateResource(policy, &bindings[i], er.Resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
 			}
-			er.Resource = newEr.PatchedResource
+			resource = newEr.PatchedResource
+			er = newEr
 		}
 	}
 	return er, nil
@@ -229,7 +249,14 @@ func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv
 		selector, _ := metav1.LabelSelectorAsSelector(ref.Selector)
 		return selector.Matches(labels.Set(obj.GetLabels()))
 	}
-	return obj.GetName() == ref.Name
+	matches := false
+	if ref.Namespace != "" {
+		matches = obj.GetNamespace() == ref.Namespace
+	}
+	if ref.Name != "" {
+		matches = obj.GetName() == ref.Name
+	}
+	return matches
 }
 
 func mutateResource(
