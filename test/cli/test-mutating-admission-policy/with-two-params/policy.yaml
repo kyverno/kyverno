@@ -1,0 +1,46 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: "change-deployment-replicas-labels"
+spec:
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["deployments"]
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  mutations:
+  - patchType: "ApplyConfiguration"
+    applyConfiguration:
+      expression: >
+        Object{
+          spec: Object.spec{
+            replicas: int(params.items[0].data.replicas)
+          },
+          metadata: Object.metadata{
+            labels: {"lfx-mentorship": params.items[1].data.mentorship}
+          }
+        }
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: "binding"
+spec:
+  policyName: "change-deployment-replicas-labels"
+  paramRef:
+    namespace: default
+    selector: 
+      matchLabels:
+        type: param
+  matchResources:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["deployments"]
