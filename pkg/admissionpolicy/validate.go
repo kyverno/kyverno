@@ -180,11 +180,13 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 	// the two nil checks and the addition of an empty selector are needed for policies that specify no namespaceSelector or objectSelector.
 	// during parsing those selectors in the DefinitionMatches function, if they are nil, they skip all resources.
 	// this should be moved to upstream k8s. see: https://github.com/kubernetes/kubernetes/pull/133575
-	if policy.Spec.MatchConstraints.NamespaceSelector == nil {
-		policy.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{}
-	}
-	if policy.Spec.MatchConstraints.ObjectSelector == nil {
-		policy.Spec.MatchConstraints.ObjectSelector = &metav1.LabelSelector{}
+	if policy.Spec.MatchConstraints != nil {
+		if policy.Spec.MatchConstraints.NamespaceSelector == nil {
+			policy.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{}
+		}
+		if policy.Spec.MatchConstraints.ObjectSelector == nil {
+			policy.Spec.MatchConstraints.ObjectSelector = &metav1.LabelSelector{}
+		}
 	}
 
 	isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(policy))
@@ -205,11 +207,13 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 	}
 
 	for i, binding := range bindings {
-		if binding.Spec.MatchResources.NamespaceSelector == nil {
-			binding.Spec.MatchResources.NamespaceSelector = &metav1.LabelSelector{}
-		}
-		if binding.Spec.MatchResources.ObjectSelector == nil {
-			binding.Spec.MatchResources.ObjectSelector = &metav1.LabelSelector{}
+		if binding.Spec.MatchResources != nil {
+			if binding.Spec.MatchResources.NamespaceSelector == nil {
+				binding.Spec.MatchResources.NamespaceSelector = &metav1.LabelSelector{}
+			}
+			if binding.Spec.MatchResources.ObjectSelector == nil {
+				binding.Spec.MatchResources.ObjectSelector = &metav1.LabelSelector{}
+			}
 		}
 
 		isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&binding))
