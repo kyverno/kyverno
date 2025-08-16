@@ -120,7 +120,7 @@ func (e *engine) filterRule(
 	}
 
 	// evaluate pre-conditions
-	pass, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions)
+	pass, msg, err := variables.EvaluateConditionsWithContext(logger, policyContext.JSONContext(), copyConditions, "background condition")
 	if err != nil {
 		return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions", err, rule.ReportProperties)
 	}
@@ -133,7 +133,7 @@ func (e *engine) filterRule(
 		if err = policyContext.JSONContext().AddResource(policyContext.OldResource().Object); err != nil {
 			return engineapi.RuleError(rule.Name, ruleType, "failed to update JSON context for old resource", err, rule.ReportProperties)
 		}
-		if val, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions); err != nil {
+		if val, msg, err := variables.EvaluateConditionsWithContext(logger, policyContext.JSONContext(), copyConditions, "background condition (old resource)"); err != nil {
 			return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions for old resource", err, rule.ReportProperties)
 		} else {
 			if val {
