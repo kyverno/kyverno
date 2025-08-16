@@ -164,6 +164,8 @@ func processMAPWithClient(policy *admissionregistrationv1alpha1.MutatingAdmissio
 					paramList.Items = append(paramList.Items, *obj)
 				}
 				matchedParams = paramList
+			} else {
+				matchedParams = params[0]
 			}
 
 			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
