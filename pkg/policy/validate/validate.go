@@ -220,7 +220,7 @@ func validationElemCount(v *kyvernov1.Validation) int {
 		count++
 	}
 
-	if v.Assert.Value != nil {
+	if v.Assert != nil && v.Assert.Value != nil {
 		count++
 	}
 
