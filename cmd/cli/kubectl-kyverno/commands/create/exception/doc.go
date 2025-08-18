@@ -1,7 +1,6 @@
 package exception
 
-// TODO
-var websiteUrl = ``
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#create`
 
 var description = []string{
 	`Create a Kyverno policy exception file.`,
