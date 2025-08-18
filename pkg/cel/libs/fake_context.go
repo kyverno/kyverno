@@ -12,6 +12,14 @@ import (
 type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
 	generatedResources []*unstructured.Unstructured
+	policyName         string
+	triggerName        string
+	triggerNamespace   string
+	triggerAPIVersion  string
+	triggerGroup       string
+	triggerKind        string
+	triggerUID         string
+	restoreCache       bool
 }
 
 func NewFakeContextProvider() *FakeContextProvider {
@@ -117,4 +125,15 @@ func (cp *FakeContextProvider) GetGeneratedResources() []*unstructured.Unstructu
 
 func (cp *FakeContextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
+}
+
+func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+	cp.policyName = polName
+	cp.triggerName = triggerName
+	cp.triggerNamespace = triggerNamespace
+	cp.triggerAPIVersion = triggerAPIVersion
+	cp.triggerGroup = triggerGroup
+	cp.triggerKind = triggerKind
+	cp.triggerUID = triggerUID
+	cp.restoreCache = restoreCache
 }

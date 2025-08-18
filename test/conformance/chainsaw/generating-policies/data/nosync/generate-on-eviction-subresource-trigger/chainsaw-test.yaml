@@ -5,6 +5,10 @@ metadata:
   name: generate-on-eviction-subresource-trigger
 spec:
   steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
   - name: create policy
     use:
       template: ../../../../_step-templates/create-policy.yaml
@@ -12,6 +16,13 @@ spec:
         bindings:
         - name: file
           value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: zk-kafka-address
   - name: create namespace
     try:
     - apply:
@@ -23,14 +34,6 @@ spec:
         - run
         - nginx
         - --image=nginx
-        - -n
-        - test-generate-eviction
-        entrypoint: kubectl
-    - command:
-        args:
-        - wait
-        - --for=condition=Ready
-        - pod/nginx
         - -n
         - test-generate-eviction
         entrypoint: kubectl

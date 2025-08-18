@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -225,6 +226,8 @@ func NewController(
 		},
 		stateRecorder: stateRecorder,
 	}
+	// Set up the CRD change callback
+	c.discoveryClient.OnChanged(c.OnCRDChange)
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -406,6 +409,12 @@ func (c *controller) watchdogCheck() bool {
 		return false
 	}
 	return time.Now().Before(annTime.Add(IdleDeadline))
+}
+
+func (c *controller) OnCRDChange() {
+	logger := logger.WithName("crd-change-handler")
+	logger.Info("CRD change detected, re-evaluating all policies")
+	c.enqueueAll()
 }
 
 func (c *controller) enqueueAll() {
@@ -721,6 +730,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
 			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
+				c.stateRecorder.Reset()
 				return err
 			}
 			if err := c.updatePolicyStatuses(ctx, config.MutatingWebhookConfigurationName); err != nil {
@@ -966,6 +976,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
+	c.recordPolicyState(mpols...)
 	return nil
 }
 
@@ -1170,7 +1181,9 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		ivpols)...)
 
-	c.recordPolicyState(append(pols, ivpols...)...)
+	policies := append(pols, gpols...)
+	policies = append(policies, ivpols...)
+	c.recordPolicyState(policies...)
 	return nil
 }
 
@@ -1308,7 +1321,9 @@ func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) 
 	}
 	gpols := make([]engineapi.GenericPolicy, 0)
 	for _, gpol := range generatingpolicies {
-		gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+		if gpol.Spec.AdmissionEnabled() {
+			gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+		}
 	}
 	return gpols, nil
 }
@@ -1334,7 +1349,7 @@ func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
 	}
 	mpols := make([]engineapi.GenericPolicy, 0)
 	for _, mpol := range policies {
-		if mpol.Spec.AdmissionEnabled() {
+		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated {
 			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
 		}
 	}
@@ -1444,8 +1459,12 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		} else {
 			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 			if err != nil {
-				ready = ready && false
-				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				if errors.Is(err, dclient.ErrResourceNotFound) {
+					logger.Info("resource not found", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				} else {
+					ready = false
+					logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				}
 				continue
 			}
 			for gvrs, resource := range gvrss {

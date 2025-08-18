@@ -50,6 +50,7 @@ import (
 	rbacv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/rbacv1beta1"
 	resourcev1alpha3 "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3"
 	resourcev1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1beta1"
+	resourcev1beta2 "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1beta2"
 	schedulingv1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1"
 	schedulingv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1alpha1"
 	schedulingv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1beta1"
@@ -107,6 +108,7 @@ import (
 	k8s_io_client_go_kubernetes_typed_rbac_v1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
 	k8s_io_client_go_kubernetes_typed_resource_v1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
 	k8s_io_client_go_kubernetes_typed_resource_v1beta1 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
+	k8s_io_client_go_kubernetes_typed_resource_v1beta2 "k8s.io/client-go/kubernetes/typed/resource/v1beta2"
 	k8s_io_client_go_kubernetes_typed_scheduling_v1 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
 	k8s_io_client_go_kubernetes_typed_scheduling_v1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_scheduling_v1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
@@ -165,6 +167,7 @@ type clientset struct {
 	rbacv1beta1                   k8s_io_client_go_kubernetes_typed_rbac_v1beta1.RbacV1beta1Interface
 	resourcev1alpha3              k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceV1alpha3Interface
 	resourcev1beta1               k8s_io_client_go_kubernetes_typed_resource_v1beta1.ResourceV1beta1Interface
+	resourcev1beta2               k8s_io_client_go_kubernetes_typed_resource_v1beta2.ResourceV1beta2Interface
 	schedulingv1                  k8s_io_client_go_kubernetes_typed_scheduling_v1.SchedulingV1Interface
 	schedulingv1alpha1            k8s_io_client_go_kubernetes_typed_scheduling_v1alpha1.SchedulingV1alpha1Interface
 	schedulingv1beta1             k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.SchedulingV1beta1Interface
@@ -318,6 +321,9 @@ func (c *clientset) ResourceV1alpha3() k8s_io_client_go_kubernetes_typed_resourc
 func (c *clientset) ResourceV1beta1() k8s_io_client_go_kubernetes_typed_resource_v1beta1.ResourceV1beta1Interface {
 	return c.resourcev1beta1
 }
+func (c *clientset) ResourceV1beta2() k8s_io_client_go_kubernetes_typed_resource_v1beta2.ResourceV1beta2Interface {
+	return c.resourcev1beta2
+}
 func (c *clientset) SchedulingV1() k8s_io_client_go_kubernetes_typed_scheduling_v1.SchedulingV1Interface {
 	return c.schedulingv1
 }
@@ -390,6 +396,7 @@ func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.Metr
 		rbacv1beta1:                   rbacv1beta1.WithMetrics(inner.RbacV1beta1(), m, clientType),
 		resourcev1alpha3:              resourcev1alpha3.WithMetrics(inner.ResourceV1alpha3(), m, clientType),
 		resourcev1beta1:               resourcev1beta1.WithMetrics(inner.ResourceV1beta1(), m, clientType),
+		resourcev1beta2:               resourcev1beta2.WithMetrics(inner.ResourceV1beta2(), m, clientType),
 		schedulingv1:                  schedulingv1.WithMetrics(inner.SchedulingV1(), m, clientType),
 		schedulingv1alpha1:            schedulingv1alpha1.WithMetrics(inner.SchedulingV1alpha1(), m, clientType),
 		schedulingv1beta1:             schedulingv1beta1.WithMetrics(inner.SchedulingV1beta1(), m, clientType),
@@ -450,6 +457,7 @@ func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_
 		rbacv1beta1:                   rbacv1beta1.WithTracing(inner.RbacV1beta1(), "RbacV1beta1"),
 		resourcev1alpha3:              resourcev1alpha3.WithTracing(inner.ResourceV1alpha3(), "ResourceV1alpha3"),
 		resourcev1beta1:               resourcev1beta1.WithTracing(inner.ResourceV1beta1(), "ResourceV1beta1"),
+		resourcev1beta2:               resourcev1beta2.WithTracing(inner.ResourceV1beta2(), "ResourceV1beta2"),
 		schedulingv1:                  schedulingv1.WithTracing(inner.SchedulingV1(), "SchedulingV1"),
 		schedulingv1alpha1:            schedulingv1alpha1.WithTracing(inner.SchedulingV1alpha1(), "SchedulingV1alpha1"),
 		schedulingv1beta1:             schedulingv1beta1.WithTracing(inner.SchedulingV1beta1(), "SchedulingV1beta1"),
@@ -510,6 +518,7 @@ func WrapWithLogging(inner k8s_io_client_go_kubernetes.Interface, logger logr.Lo
 		rbacv1beta1:                   rbacv1beta1.WithLogging(inner.RbacV1beta1(), logger.WithValues("group", "RbacV1beta1")),
 		resourcev1alpha3:              resourcev1alpha3.WithLogging(inner.ResourceV1alpha3(), logger.WithValues("group", "ResourceV1alpha3")),
 		resourcev1beta1:               resourcev1beta1.WithLogging(inner.ResourceV1beta1(), logger.WithValues("group", "ResourceV1beta1")),
+		resourcev1beta2:               resourcev1beta2.WithLogging(inner.ResourceV1beta2(), logger.WithValues("group", "ResourceV1beta2")),
 		schedulingv1:                  schedulingv1.WithLogging(inner.SchedulingV1(), logger.WithValues("group", "SchedulingV1")),
 		schedulingv1alpha1:            schedulingv1alpha1.WithLogging(inner.SchedulingV1alpha1(), logger.WithValues("group", "SchedulingV1alpha1")),
 		schedulingv1beta1:             schedulingv1beta1.WithLogging(inner.SchedulingV1beta1(), logger.WithValues("group", "SchedulingV1beta1")),

@@ -1296,13 +1296,17 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		return nil
 	}
 
+	if rule.HasValidateCEL() {
+		return fmt.Errorf("context variables are not supported for CEL expressions in validate rules")
+	}
+
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
 		}
 		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
 		// sure we can create the corresponding bindings
-		if rule.Validation != nil && rule.Validation.Assert.Value != nil {
+		if rule.Validation != nil && rule.Validation.Assert != nil && rule.Validation.Assert.Value != nil {
 			if !bindingIdentifier.MatchString(entry.Name) {
 				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
 			}

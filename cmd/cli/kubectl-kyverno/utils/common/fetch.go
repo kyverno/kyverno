@@ -142,6 +142,11 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = ivp.Spec.MatchConstraints
 			} else if dp := policy.AsDeletingPolicy(); dp != nil {
 				matchResources = dp.Spec.MatchConstraints
+			} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
+				converted := admissionpolicy.ConvertMatchResources(mapPolicy.GetDefinition().Spec.MatchConstraints)
+				matchResources = converted
+			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+				matchResources = gpol.Spec.MatchConstraints
 			}
 			rf.getKindsFromPolicy(matchResources, info)
 		}
@@ -174,7 +179,8 @@ func (rf *ResourceFetcher) getKindsFromRule(
 
 // getKindsFromPolicy will return the kinds from the following policies match block:
 // 1. K8s ValidatingAdmissionPolicy
-// 2. ValidatingPolicy
+// 2. K8s MutatingAdmissionPolicy
+// 3. ValidatingPolicy
 func (rf *ResourceFetcher) getKindsFromPolicy(
 	matchResources *admissionregistrationv1.MatchResources,
 	info *resourceTypeInfo,
@@ -184,11 +190,7 @@ func (rf *ResourceFetcher) getKindsFromPolicy(
 		log.Log.V(3).Info("failed to get rest mapper", "error", err)
 		return
 	}
-	kinds, err := admissionpolicy.GetKinds(matchResources, restMapper)
-	if err != nil {
-		log.Log.V(3).Info("failed to get kinds from validating admission policy", "error", err)
-		return
-	}
+	kinds := admissionpolicy.GetKinds(matchResources, restMapper)
 	for _, kind := range kinds {
 		rf.addToresourceTypeInfo(kind, info)
 	}

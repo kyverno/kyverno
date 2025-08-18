@@ -16,6 +16,13 @@ spec:
         bindings:
         - name: file
           value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: generate-secret
   - name: create the source
     try:
     - apply:

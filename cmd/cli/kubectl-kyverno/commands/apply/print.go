@@ -10,11 +10,11 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kyvernoreports "github.com/kyverno/kyverno/pkg/utils/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,8 +79,8 @@ func printExceptions(out io.Writer, engineResponses []engineapi.EngineResponse, 
 	}
 }
 
-func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.Duration, outputFormat string) error {
-	for _, r := range result.Resources {
+func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl time.Duration, outputFormat string) error {
+	for _, r := range result.Subjects {
 		name := strings.Join([]string{result.Policy, result.Rule, r.Namespace, r.Name}, "-")
 
 		kinds := []string{r.Kind}

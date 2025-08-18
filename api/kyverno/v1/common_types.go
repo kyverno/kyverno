@@ -523,7 +523,7 @@ type Validation struct {
 
 	// Assert defines a kyverno-json assertion tree.
 	// +optional
-	Assert AssertionTree `json:"assert"`
+	Assert *AssertionTree `json:"assert,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -797,7 +797,7 @@ type Generation struct {
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty"`
 
 	// +optional
-	GeneratePattern `json:",omitempty"`
+	GeneratePattern `json:",inline,omitempty"`
 
 	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
@@ -807,7 +807,7 @@ type Generation struct {
 type GeneratePattern struct {
 	// ResourceSpec contains information to select the resource.
 	// +kubebuilder:validation:Optional
-	ResourceSpec `json:",omitempty"`
+	ResourceSpec `json:",inline,omitempty"`
 
 	// Data provides the resource declaration used to populate each generated resource.
 	// At most one of Data or Clone must be specified. If neither are provided, the generated

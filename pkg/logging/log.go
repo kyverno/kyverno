@@ -89,6 +89,8 @@ func resolveTimestampFormat(format string) string {
 		return time.UnixDate
 	case RFC3339NANO:
 		return time.RFC3339Nano
+	case DefaultTime:
+		return time.RFC3339
 	default:
 		return time.RFC3339
 	}

@@ -27,9 +27,9 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]string, error) {
+func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []string {
 	if matchResources == nil {
-		return nil, nil
+		return nil
 	}
 
 	var kindList []string
@@ -43,14 +43,15 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper met
 				for _, resource := range rule.Resources {
 					kinds, err := resolveKinds(group, version, resource, mapper)
 					if err != nil {
-						return kindList, err
+						vapLogger.Error(err, fmt.Sprintf("failed to resolve kind for group %s, version %s, resource %s", group, version, resource))
+						continue
 					}
 					kindList = append(kindList, kinds...)
 				}
 			}
 		}
 	}
-	return kindList, nil
+	return kindList
 }
 
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
@@ -152,7 +153,7 @@ func Validate(
 		if !isMatch {
 			return engineResponse, nil
 		}
-		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
+		vapLogger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
 		return validateResource(policy, nil, resource, namespace, a)
 	}
 
@@ -186,7 +187,7 @@ func Validate(
 				continue
 			}
 
-			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+			vapLogger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	} else {
@@ -208,7 +209,7 @@ func Validate(
 					continue
 				}
 			}
-			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+			vapLogger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	}
@@ -282,7 +283,7 @@ func validateResource(
 	}
 
 	if binding != nil {
-		ruleResp = ruleResp.WithBinding(binding)
+		ruleResp = ruleResp.WithVAPBinding(binding)
 	}
 	policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
 	engineResponse = engineResponse.WithPolicyResponse(policyResp)

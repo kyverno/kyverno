@@ -72,12 +72,13 @@ const (
 	Mutate      RequestType = "mutate"
 	Generate    RequestType = "generate"
 	CELGenerate RequestType = "cel-generate"
+	CELMutate   RequestType = "cel-mutate"
 )
 
 // UpdateRequestSpec stores the request specification.
 type UpdateRequestSpec struct {
 	// Type represents request type for background processing
-	// +kubebuilder:validation:Enum=mutate;generate;cel-generate
+	// +kubebuilder:validation:Enum=mutate;generate;cel-generate;cel-mutate
 	Type RequestType `json:"requestType,omitempty"`
 
 	// Specifies the name of the policy.
@@ -120,6 +121,9 @@ type RuleContext struct {
 
 	// ResourceSpec is the information to identify the trigger resource.
 	Trigger kyvernov1.ResourceSpec `json:"trigger"`
+
+	// CacheRestore indicates whether the cache should be restored.
+	CacheRestore bool `json:"cacheRestore,omitempty"`
 }
 
 // UpdateRequestSpecContext stores the context to be shared.

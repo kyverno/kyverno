@@ -13,14 +13,14 @@ spec:
           name: ($name)
         status:
           conditionStatus:
-            conditions:
+            (conditions[?type == 'WebhookConfigured']):
             - message: Webhook configured.
               reason: Succeeded
               status: "True"
               type: WebhookConfigured
+            (conditions[?type == 'RBACPermissionsGranted']):
             - message: Policy is ready for reporting.
               reason: Succeeded
               status: "True"
               type: RBACPermissionsGranted
-            message: ""
             ready: true
