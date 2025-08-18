@@ -258,7 +258,7 @@ PolicyStatus
 </h3>
 <p>
 <p>Policy declares validation, mutation, and generation behaviors for matching resources.
-See: <a href="https://kyverno.io/docs/writing-policies/">https://kyverno.io/docs/writing-policies/</a> for more information.</p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/">https://kyverno.io/docs/policy-types/cluster-policy/</a> for more information.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -744,7 +744,7 @@ KeylessAttestor
 </td>
 <td>
 <p>Keyless is a set of attribute used to verify a Sigstore keyless attestor.
-See <a href="https://github.com/sigstore/cosign/blob/main/KEYLESS.md">https://github.com/sigstore/cosign/blob/main/KEYLESS.md</a>.</p>
+See <a href="https://docs.sigstore.dev/cosign/signing/signing_with_containers/">https://docs.sigstore.dev/cosign/signing/signing_with_containers/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -1234,7 +1234,7 @@ Kubernetes apiextensions/v1.JSON
 <p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements) is also supported for backwards compatibility
 but will be deprecated in the next major release.
-See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">https://kyverno.io/docs/writing-policies/validate/#deny-rules</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/validate/">https://kyverno.io/docs/policy-types/cluster-policy/validate/</a></p>
 </td>
 </tr>
 </tbody>
@@ -1348,7 +1348,7 @@ AnyAllConditions
 <em>(Optional)</em>
 <p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 <tr>
@@ -1453,7 +1453,7 @@ AnyAllConditions
 <em>(Optional)</em>
 <p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 <tr>
@@ -2672,7 +2672,7 @@ When not set, all restricted fields for the control are selected.</p>
 <p>
 <p>PolicyStatus mostly contains runtime information related to policy execution.
 Deprecated. Policy metrics are now available via the &ldquo;/metrics&rdquo; endpoint.
-See: <a href="https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/">https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/</a></p>
+See: <a href="https://kyverno.io/docs/monitoring/">https://kyverno.io/docs/monitoring/</a></p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -3133,7 +3133,7 @@ Kubernetes apiextensions/v1.JSON
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/">https://kyverno.io/docs/policy-types/cluster-policy/preconditions/</a></p>
 </td>
 </tr>
 <tr>
@@ -3388,7 +3388,7 @@ string
 <td>
 <p>Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
-<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
+<a href="https://kyverno.io/docs/policy-types/cluster-policy/variables/">https://kyverno.io/docs/policy-types/cluster-policy/variables/</a>. When multiple keys are specified each
 key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
 attestors and the count is applied across the keys.</p>
 </td>
