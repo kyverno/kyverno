@@ -256,7 +256,11 @@ func copyMap(m map[string]any) map[string]any {
 	return newMap
 }
 
-func createAutogenAssertion(tree kyvernov1.AssertionTree, tplKey string) kyvernov1.AssertionTree {
+func createAutogenAssertion(tree *kyvernov1.AssertionTree, tplKey string) *kyvernov1.AssertionTree {
+	if tree == nil {
+		return tree
+	}
+
 	v, ok := tree.Value.(map[string]any)
 	if !ok {
 		return tree
@@ -277,7 +281,7 @@ func createAutogenAssertion(tree kyvernov1.AssertionTree, tplKey string) kyverno
 		}
 	}
 
-	return kyvernov1.AssertionTree{
+	return &kyvernov1.AssertionTree{
 		Value: value,
 	}
 }
