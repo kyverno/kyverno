@@ -47,7 +47,6 @@ func NewValidationHandler(
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
 	reportConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -61,7 +60,6 @@ func NewValidationHandler(
 		cfg:              cfg,
 		nsLister:         nsLister,
 		reportConfig:     reportConfig,
-		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -77,7 +75,6 @@ type validationHandler struct {
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
 	reportConfig     reportutils.ReportingConfiguration
-	reportsBreaker   breaker.Breaker
 }
 
 func (v *validationHandler) HandleValidationEnforce(
@@ -162,7 +159,7 @@ func (v *validationHandler) HandleValidationEnforce(
 	}
 
 	go func() {
-		if needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
+		if NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
@@ -191,7 +188,7 @@ func (v *validationHandler) HandleValidationAudit(
 	}
 
 	var responses []engineapi.EngineResponse
-	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig)
+	needsReport := NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig)
 	tracing.Span(
 		context.Background(),
 		"",
@@ -257,7 +254,7 @@ func (v *validationHandler) createReports(
 ) error {
 	report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			// no need to set up open reports enabled here. create report is for an admission report (ephemeral)
 			_, err := reportutils.CreateEphemeralReport(ctx, report, v.kyvernoClient)
 			return err
