@@ -211,7 +211,7 @@ func TestCanIOptions_RunAccessCheck(t *testing.T) {
 			verb:      "test",
 		},
 		want:    false,
-		wantErr: true,
+		wantErr: false,
 	}, {
 		name: "secrets",
 		fields: fields{

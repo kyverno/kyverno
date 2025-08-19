@@ -76,6 +76,7 @@ func NewFakeDiscoveryClient(registeredResources []schema.GroupVersionResource) *
 		{Version: "v1", Resource: "persistentvolumes"},
 		{Version: "v1", Resource: "services"},
 		{Version: "v1", Resource: "namespaces"},
+		{Version: "v1", Resource: "endpoints"},
 		{Version: "v1", Resource: "nodes"},
 		{Version: "v1", Resource: "replicationcontrollers"},
 		{Group: "apps", Version: "v1", Resource: "deployments"},

@@ -14,9 +14,9 @@ spec:
           kinds:
           - Pod
     mutate:
-      targets: # <-- mutate existing 
+      targets: 
       - apiVersion: v1
-        kind: PersistentVolumeClaim # <-- not in the list in fake.go
+        kind: PersistentVolumeClaim 
         name: pvc
       patchStrategicMerge:
         metadata:
