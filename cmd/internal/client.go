@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	agg "github.com/kyverno/kyverno/pkg/clients/aggregator"
 	apisrv "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dyn "github.com/kyverno/kyverno/pkg/clients/dynamic"
@@ -25,7 +24,6 @@ import (
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
-	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
 
 func createClientConfig(logger logr.Logger, rateLimitQPS float64, rateLimitBurst int) *rest.Config {
@@ -103,10 +101,3 @@ func createEventsClient(logger logr.Logger, metricsManager metrics.MetricsConfig
 	return client.EventsV1()
 }
 
-func CreateAggregatorClient(logger logr.Logger, opts ...agg.NewOption) aggregator.Interface {
-	logger = logger.WithName("aggregator-client")
-	logger.V(2).Info("create aggregator client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	client, err := agg.NewForConfig(createClientConfig(logger, clientRateLimitQPS, clientRateLimitBurst), opts...)
-	checkError(logger, err, "failed to create aggregator client")
-	return client
-}
