@@ -37,8 +37,6 @@ spec:
   - name: create-bare-pod
     description: Create a bare pod to trigger policy evaluation
     try:
-    - sleep:
-        duration: 3s
     - apply:
         resource:
           apiVersion: v1

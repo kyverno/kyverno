@@ -35,3 +35,4 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 60s

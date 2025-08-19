@@ -2,15 +2,15 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: autogen-deployments-cronjobs-statefulsets
+  name: autogen-pods-deployments
 spec:
   steps:
   - name: create exception
     try:
     - create:
         file: exception.yaml
-    - sleep:
-        duration: 10s
+    - assert:
+        file: exception.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -24,7 +24,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: ivpol-autogen-sample
+          value: ivpol-sample
   - name: check autogen policy
     try:
     - assert:

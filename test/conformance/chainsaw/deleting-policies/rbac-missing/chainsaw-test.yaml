@@ -24,8 +24,24 @@ spec:
         
     - name: step-04
       try:    
-        - sleep:
-            duration: 1m5s
+        - script:
+            content: |
+              #!/bin/sh
+              set -eu
+              echo "Waiting to verify configmap is NOT deleted due to missing RBAC..."
+              
+              # Wait 65 seconds and verify configmap still exists (should NOT be deleted)
+              for i in $(seq 1 65); do
+                if kubectl get configmap example-config -n default >/dev/null 2>&1; then
+                  echo "Configmap still exists (expected, ${i}/65s)"
+                else
+                  echo "ERROR: Configmap was deleted unexpectedly at ${i} seconds"
+                  exit 1
+                fi
+                sleep 1
+              done
+              
+              echo "SUCCESS: Configmap was not deleted after 65 seconds (as expected due to missing RBAC)"
 
     - name: step-05
       try:

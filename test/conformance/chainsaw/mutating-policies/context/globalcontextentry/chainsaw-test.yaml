@@ -4,13 +4,14 @@ metadata:
   name: mpol-globalcontextentry
 spec:
   steps:
-  - try:
+  - name: create configmap and globalcontextentry
+    try:
     - apply:
         file: configmap.yaml
     - apply:
         file: gctxentry.yaml
-    - sleep:
-        duration: 3s
+    - assert:
+        file: gctxentry.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -25,9 +26,8 @@ spec:
         bindings:
         - name: name
           value: test-mpol-globalcontextentry
-  - try:
-    - sleep:
-        duration: 3s
+  - name: test pod mutation
+    try:
     - create:
         file: pod.yaml
     - assert:

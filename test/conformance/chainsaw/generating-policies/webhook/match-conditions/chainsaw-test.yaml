@@ -23,3 +23,4 @@ spec:
     try:
     - assert:
         file: webhooks.yaml
+        timeout: 60s

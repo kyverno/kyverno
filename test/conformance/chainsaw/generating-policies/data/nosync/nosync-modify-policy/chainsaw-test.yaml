@@ -27,6 +27,7 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+        timeout: 60s
   - name: modify the policy
     try:
     - apply:
@@ -35,3 +36,4 @@ spec:
     try:
     - assert:
         file: downstream-untouched.yaml
+        timeout: 60s

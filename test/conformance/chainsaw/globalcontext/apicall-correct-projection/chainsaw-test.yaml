@@ -11,8 +11,8 @@ spec:
         file: main-deployment.yaml
     - apply:
         file: gctxentry.yaml
-    - sleep:
-        duration: 3s
+    - assert:
+        file: gctxentry.yaml
   - name: create policy
     use:
       template: ../../_step-templates/create-policy.yaml

@@ -23,10 +23,6 @@ spec:
         bindings:
         - name: name
           value: test-mpol-autogen-polex
-  - name: sleep
-    try:
-    - sleep:
-        duration: 3s
   - name: create-resources
     try:
     - create:
