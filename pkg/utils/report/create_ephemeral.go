@@ -22,8 +22,8 @@ func IsNamespaceTerminationError(err error) bool {
 		return false
 	}
 
-	// Check if the error message indicates namespace termination
-	errMsg := err.Error()
+	// Check if the error message indicates namespace termination (case-insensitive)
+	errMsg := strings.ToLower(err.Error())
 	return strings.Contains(errMsg, "unable to create new content in namespace") &&
 		strings.Contains(errMsg, "because it is being terminated")
 }
