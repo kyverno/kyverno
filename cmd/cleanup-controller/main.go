@@ -82,6 +82,7 @@ func main() {
 		dumpPayload              bool
 		serverIP                 string
 		servicePort              int
+		webhookServerPort        int
 		maxQueuedEvents          int
 		interval                 time.Duration
 		renewBefore              time.Duration
@@ -92,6 +93,8 @@ func main() {
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
+	// Deprecated: orphaned flag, use --cleanupServerPort from cmd/internal/flags.go instead
+	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server. (deprecated: replaced by --cleanupServerPort)")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.DurationVar(&interval, "ttlReconciliationInterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
@@ -124,6 +127,9 @@ func main() {
 		// setup
 		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 		defer sdown()
+		if webhookServerPort != 9443 {
+			setup.Logger.Info("--webhookServerPort is deprecated, use '--cleanupServerPort' instead")
+		}
 		if caSecretName == "" {
 			setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
 			os.Exit(1)
