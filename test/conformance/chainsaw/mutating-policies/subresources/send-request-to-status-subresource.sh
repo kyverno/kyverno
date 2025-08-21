@@ -26,7 +26,7 @@ done
 if curl --header "Content-Type: application/json-patch+json" \
    --request PATCH \
    --output /dev/null \
-   --data '[{"op": "add", "path": "/status/capacity/example.com~1dongle", "value": "1"}]' \
+   --data '[{"op": "add", "path": "/status/capacity/example.com~1dongle", "value": "4"}]' \
    http://localhost:8001/api/v1/nodes/kind-control-plane/status; then
   echo "Successfully sent request to status subresource."
   trap cleanup EXIT
