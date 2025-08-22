@@ -48,6 +48,7 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
@@ -70,6 +71,7 @@ type PolicyProcessor struct {
 	MutateLogPath                     string
 	MutateLogPathIsDir                bool
 	Variables                         *variables.Variables
+	ParameterResources                []runtime.Object
 	// TODO
 	ContextPath               string
 	Cluster                   bool
@@ -240,13 +242,15 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		} else {
 			gvr := mapping.Resource
-
 			for _, mapPolicy := range p.MutatingAdmissionPolicies {
 				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
 				for _, b := range p.MutatingAdmissionPolicyBindings {
 					if b.Spec.PolicyName == mapPolicy.Name {
 						data.AddBinding(b)
 					}
+				}
+				for _, param := range p.ParameterResources {
+					data.AddParam(param)
 				}
 				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
 				if err != nil {
@@ -256,6 +260,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if mutateResponse.IsEmpty() {
 					continue
 				}
+				// its fine to just error here because this function just logs the error
 				if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
 					log.Log.Error(err, "failed to log MAP mutation")
 				}
@@ -348,6 +353,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if binding.Spec.PolicyName == policy.Name {
 					policyData.AddBinding(binding)
 				}
+			}
+			for _, param := range p.ParameterResources {
+				policyData.AddParam(param)
 			}
 			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster)
 			vapResponses = append(vapResponses, validateResponse)

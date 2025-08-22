@@ -6,6 +6,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // Everything someone might need to validate a single ValidatingAdmissionPolicy
@@ -13,10 +14,15 @@ import (
 type ValidatingAdmissionPolicyData struct {
 	definition *admissionregistrationv1.ValidatingAdmissionPolicy
 	bindings   []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	params     []runtime.Object
 }
 
 func (p *ValidatingAdmissionPolicyData) AddBinding(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	p.bindings = append(p.bindings, binding)
+}
+
+func (p *ValidatingAdmissionPolicyData) AddParam(param runtime.Object) {
+	p.params = append(p.params, param)
 }
 
 func (p *ValidatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1.ValidatingAdmissionPolicy {
@@ -25,6 +31,10 @@ func (p *ValidatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1
 
 func (p *ValidatingAdmissionPolicyData) GetBindings() []admissionregistrationv1.ValidatingAdmissionPolicyBinding {
 	return p.bindings
+}
+
+func (p *ValidatingAdmissionPolicyData) GetParams() []runtime.Object {
+	return p.params
 }
 
 func NewValidatingAdmissionPolicyData(
@@ -41,11 +51,16 @@ func NewValidatingAdmissionPolicyData(
 type MutatingAdmissionPolicyData struct {
 	definition *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	params     []runtime.Object
 }
 
 // AddBinding appends a MAPB to the policy data
 func (m *MutatingAdmissionPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
 	m.bindings = append(m.bindings, b)
+}
+
+func (m *MutatingAdmissionPolicyData) AddParam(p runtime.Object) {
+	m.params = append(m.params, p)
 }
 
 func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
@@ -54,6 +69,10 @@ func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1al
 
 func (p *MutatingAdmissionPolicyData) GetBindings() []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
 	return p.bindings
+}
+
+func (p *MutatingAdmissionPolicyData) GetParams() []runtime.Object {
+	return p.params
 }
 
 // NewMutatingPolicyData initializes a MAP wrapper with no bindings
