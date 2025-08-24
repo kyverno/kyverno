@@ -262,8 +262,9 @@ func TestSubstituteAllInForEach_InvalidTypeConversion(t *testing.T) {
 	foreach := v1.ForEachMutation{
 		PatchesJSON6902: "string",
 	}
-
-	fe, err := substituteAllInForEach(foreach, ctx, logr.Discard())
+	patchesMap := make(map[string]interface{})
+	patchesMap["patchesJson6902"] = foreach.PatchesJSON6902
+	fe, err := substituteAllInPatches(patchesMap, ctx, logr.Discard())
 
 	assert.NoError(t, err)
 	assert.IsType(t, "string", fe["patchesJson6902"])

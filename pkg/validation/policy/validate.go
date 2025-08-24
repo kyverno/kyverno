@@ -321,9 +321,11 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
 		}
 
-		err := validateElementInForEach(rule)
-		if err != nil {
-			return warnings, err
+		if rule.Mutation.ForEachMutation != nil {
+			err := validateElementInForEach(rule)
+			if err != nil {
+				return warnings, err
+			}
 		}
 
 		if err := validateRuleContext(rule); err != nil {
@@ -616,12 +618,6 @@ func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) er
 // for now forbidden sections are match, exclude and
 func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 	var err error
-	if rule.Mutation != nil {
-		err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
-		if err != nil && errors.Is(errOperationForbidden, err) {
-			return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
-		}
-	}
 
 	err = objectHasVariables(rule.ExcludeResources)
 	if err != nil {
@@ -675,32 +671,6 @@ func cleanup(policy kyvernov1.PolicyInterface) kyvernov1.PolicyInterface {
 		pol.Status.Autogen.Rules = nil
 		return pol
 	}
-}
-
-func jsonPatchPathHasVariables(patch string) error {
-	jsonPatch, err := yaml.ToJSON([]byte(patch))
-	if err != nil {
-		return err
-	}
-
-	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
-	if err != nil {
-		return err
-	}
-
-	for _, operation := range decodedPatch {
-		path, err := operation.Path()
-		if err != nil {
-			return err
-		}
-
-		vars := regex.RegexVariables.FindAllString(path, -1)
-		if len(vars) > 0 {
-			return errOperationForbidden
-		}
-	}
-
-	return nil
 }
 
 func objectHasVariables(object any) error {
