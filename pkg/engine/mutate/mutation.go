@@ -44,7 +44,16 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	if mutation == nil {
 		return NewErrorResponse("empty mutate rule", nil)
 	}
-	patcher := NewPatcher(mutation.GetPatchStrategicMerge(), mutation.PatchesJSON6902)
+	patchesMap := make(map[string]interface{})
+	patchesMap["patchStrategicMerge"] = mutation.GetPatchStrategicMerge()
+	patchesMap["patchesJson6902"] = mutation.PatchesJSON6902
+
+	m, err := substituteAllInPatches(patchesMap, ctx, logger)
+	if err != nil {
+		return NewErrorResponse("variable substitution failed", err)
+	}
+
+	patcher := NewPatcher(m["patchStrategicMerge"], m["patchesJson6902"].(string))
 	if patcher == nil {
 		return NewErrorResponse("empty mutate rule", nil)
 	}
@@ -74,7 +83,11 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 
 func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engineapi.PolicyContext, resource unstructured.Unstructured, element interface{}, logger logr.Logger) *Response {
 	ctx := policyContext.JSONContext()
-	fe, err := substituteAllInForEach(foreach, ctx, logger)
+	patchesMap := make(map[string]interface{})
+	patchesMap["patchStrategicMerge"] = foreach.GetPatchStrategicMerge()
+	patchesMap["patchesJson6902"] = foreach.PatchesJSON6902
+
+	fe, err := substituteAllInPatches(patchesMap, ctx, logger)
 	if err != nil {
 		return NewErrorResponse("variable substitution failed", err)
 	}
@@ -102,11 +115,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	return NewResponse(engineapi.RuleStatusPass, *patchedResource, "resource patched")
 }
 
-func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (map[string]interface{}, error) {
-	patchesMap := make(map[string]interface{})
-	patchesMap["patchStrategicMerge"] = fe.GetPatchStrategicMerge()
-	patchesMap["patchesJson6902"] = fe.PatchesJSON6902
-
+func substituteAllInPatches(patchesMap map[string]interface{}, ctx context.Interface, logger logr.Logger) (map[string]interface{}, error) {
 	subedPatchesMap, err := variables.SubstituteAll(logger, ctx, patchesMap)
 	if err != nil {
 		return nil, err
