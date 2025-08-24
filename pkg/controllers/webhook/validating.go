@@ -191,16 +191,26 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
-		if cfg.GetWebhook().NamespaceSelector != nil {
-			webhookIgnore.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-			webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-		}
-		if cfg.GetWebhook().ObjectSelector != nil {
-			webhookIgnore.ObjectSelector = cfg.GetWebhook().ObjectSelector
-			webhookFail.ObjectSelector = cfg.GetWebhook().ObjectSelector
-		}
+		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
+
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
+			webhookIgnore.NamespaceSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().NamespaceSelector,
+				cfg.GetWebhook().NamespaceSelector,
+			)
+			webhookIgnore.ObjectSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().ObjectSelector,
+				cfg.GetWebhook().ObjectSelector,
+			)
+			webhookFail.NamespaceSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().NamespaceSelector,
+				cfg.GetWebhook().NamespaceSelector,
+			)
+			webhookFail.ObjectSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().ObjectSelector,
+				cfg.GetWebhook().ObjectSelector,
+			)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
 				rules, err := vpolautogen.Autogen(vpol)

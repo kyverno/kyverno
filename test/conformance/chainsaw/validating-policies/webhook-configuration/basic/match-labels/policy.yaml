@@ -4,15 +4,17 @@ metadata:
   name: disallow-privilege-escalation
 spec:
   matchConstraints:
+    namespaceSelector:
+     matchLabels:
+       environment: staging
+    objectSelector:
+      matchLabels:
+        app: test
     resourceRules:
     - apiGroups:   [""]
       apiVersions: [v1]
       operations:  [CREATE, UPDATE]
       resources:   ["pods"]
-  matchConditions:
-    - name: check-prod-label
-      expression: >- 
-        has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   validations:
     - expression: >- 
         object.spec.containers.all(container, has(container.securityContext) &&
