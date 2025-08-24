@@ -3,7 +3,43 @@ kind: ValidatingPolicy
 metadata:
   name: disallow-privilege-escalation
 spec:
+  validationActions: ["Deny"]
   matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: environment
+          operator: In
+          values: ["prod", "staging"]
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   ["pods"]
+  # matchConditions:
+  #   - name: check-prod-label
+  #     expression: >- 
+  #       has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
+  validations:
+    - expression: >- 
+        object.spec.containers.all(container, has(container.securityContext) &&
+        has(container.securityContext.allowPrivilegeEscalation) &&
+        container.securityContext.allowPrivilegeEscalation == false)
+      message: >-
+        Privilege escalation is disallowed. The field
+        spec.containers[*].securityContext.allowPrivilegeEscalation must be set to `false`.
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-privilege-escalation-b
+spec:
+  validationActions: ["Deny"]
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+          key: environment
+          operator: In
+          values:  "staging"
     resourceRules:
     - apiGroups:   [""]
       apiVersions: [v1]

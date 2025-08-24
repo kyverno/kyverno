@@ -1,0 +1,93 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    admissions.enforcer/disabled: "true"
+  creationTimestamp: "2025-08-24T17:47:43Z"
+  generation: 4
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-validating-webhook-cfg
+  resourceVersion: "2194"
+  uid: 6bc261a7-ce27-4075-9eaf-cefba4b14e36
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM3VENDQWRXZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFZTVJZd0ZBWURWUVFEREEwcUxtdDUKZG1WeWJtOHVjM1pqTUI0WERUSTFNRGd5TkRFMk5EYzBNMW9YRFRJMk1EZ3lOREUzTkRjME0xb3dHREVXTUJRRwpBMVVFQXd3TktpNXJlWFpsY201dkxuTjJZekNDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DCmdnRUJBTWltVnd5VkFOOXozNTcxM1VUY0p0NkNKU2lqWWFDZDdmWW1waHV3dlRNcURWeWxlRDRwNWlrb1llWlkKMEJTWjZHRitweDA3VjV2RUVkWkZsMERNRHJ4S0MrQ3FuTUFpR3JXY3FkaGVKQVhxNXdjRHV6RkpxcmR1ZE11YwpuKzNnWmd2YlQxd0dRelNtU3pFUXRPZk92eTRMSEpxanNBZmRQS24zaFVzVWxmZkRRWldrdVd3bGxkUHJUNU0vCjY4dVozYU8vcnNUTHlwbmgxOGtueURLWGV1Z1VycXF4OXQxWHVOT3VaUGxzWE5LU09kRkkrL0ptTVYxZ24xUjEKS3BhOGJrTGFZYXlnRU1Vc2hXOFlFaWJJYnh5NkwrWk5NbDlOcGFIZUkyeVdXUTcrbm41T1hyU09mUjdWcnJwTApVVytZNWVMN3FtMUtqemFBVnRtUm5XQ0dmTmNDQXdFQUFhTkNNRUF3RGdZRFZSMFBBUUgvQkFRREFnS2tNQThHCkExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRkpBcURaZ0djTE1kakU0RXJzbVVWdjEzZXFmT01BMEcKQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUJEeFpqeHMzZkxkR2pMSVVxcis5Q3JabTZLVExaUkhzOU9QaThtWU1VSgp0YkZtTEZiWExCaWFaTDVZbStzTnVhZjBBV1dqd0VoNXhpVnFSNWs4RG9xYXFKMjhCRW1nbnArQVNEVGhyNFZuCnVNUnVuQ2o3WFFOQ2RMTGU4U3l2bEhyaXF1dzZFMDVxZmNITE9iM3o1bCsyR1ZqS0U2R2t3T21hOFN2NlV4cysKSzhEdzRqd0xwWnBlSlArTVlpM0RORklOdmF2UWsrU2JacU5vSTJ3Qi83RkxKcVk3UzhSY0JwSXlXUkFZQnd5ZApUUzQ2K3FPVnlMYVRsMmZvczUvU0crc0JEd1lvUDcrQWMyLzVUWDAzVE15YWV0RUFGWXQ1QXdhWU10SEErTzhxClpXcU9BdjZlajBWVkQxYWJyV2NrbFdxaW1Ham5PcW9uNVNoL1JtazBDejV1Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /vpol/disallow-privilege-escalation-b
+      port: 443
+  failurePolicy: Fail
+  matchConditions:
+  - expression: has(object.metadata.labels) && has(object.metadata.labels.prod) &&
+      object.metadata.labels.prod == 'true'
+    name: check-prod-label
+  matchPolicy: Equivalent
+  name: vpol.validate.kyverno.svc-fail-finegrained-disallow-privilege-escalation-b
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
+    matchLabels:
+      key: environment
+      operator: In
+      values: staging
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - pods
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM3VENDQWRXZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFZTVJZd0ZBWURWUVFEREEwcUxtdDUKZG1WeWJtOHVjM1pqTUI0WERUSTFNRGd5TkRFMk5EYzBNMW9YRFRJMk1EZ3lOREUzTkRjME0xb3dHREVXTUJRRwpBMVVFQXd3TktpNXJlWFpsY201dkxuTjJZekNDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DCmdnRUJBTWltVnd5VkFOOXozNTcxM1VUY0p0NkNKU2lqWWFDZDdmWW1waHV3dlRNcURWeWxlRDRwNWlrb1llWlkKMEJTWjZHRitweDA3VjV2RUVkWkZsMERNRHJ4S0MrQ3FuTUFpR3JXY3FkaGVKQVhxNXdjRHV6RkpxcmR1ZE11YwpuKzNnWmd2YlQxd0dRelNtU3pFUXRPZk92eTRMSEpxanNBZmRQS24zaFVzVWxmZkRRWldrdVd3bGxkUHJUNU0vCjY4dVozYU8vcnNUTHlwbmgxOGtueURLWGV1Z1VycXF4OXQxWHVOT3VaUGxzWE5LU09kRkkrL0ptTVYxZ24xUjEKS3BhOGJrTGFZYXlnRU1Vc2hXOFlFaWJJYnh5NkwrWk5NbDlOcGFIZUkyeVdXUTcrbm41T1hyU09mUjdWcnJwTApVVytZNWVMN3FtMUtqemFBVnRtUm5XQ0dmTmNDQXdFQUFhTkNNRUF3RGdZRFZSMFBBUUgvQkFRREFnS2tNQThHCkExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRkpBcURaZ0djTE1kakU0RXJzbVVWdjEzZXFmT01BMEcKQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUJEeFpqeHMzZkxkR2pMSVVxcis5Q3JabTZLVExaUkhzOU9QaThtWU1VSgp0YkZtTEZiWExCaWFaTDVZbStzTnVhZjBBV1dqd0VoNXhpVnFSNWs4RG9xYXFKMjhCRW1nbnArQVNEVGhyNFZuCnVNUnVuQ2o3WFFOQ2RMTGU4U3l2bEhyaXF1dzZFMDVxZmNITE9iM3o1bCsyR1ZqS0U2R2t3T21hOFN2NlV4cysKSzhEdzRqd0xwWnBlSlArTVlpM0RORklOdmF2UWsrU2JacU5vSTJ3Qi83RkxKcVk3UzhSY0JwSXlXUkFZQnd5ZApUUzQ2K3FPVnlMYVRsMmZvczUvU0crc0JEd1lvUDcrQWMyLzVUWDAzVE15YWV0RUFGWXQ1QXdhWU10SEErTzhxClpXcU9BdjZlajBWVkQxYWJyV2NrbFdxaW1Ham5PcW9uNVNoL1JtazBDejV1Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /vpol/disallow-privilege-escalation
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: vpol.validate.kyverno.svc-fail
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - pods
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10
