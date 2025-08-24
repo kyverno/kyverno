@@ -117,6 +117,16 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 						},
 						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"environment": "staging",
+								},
+							},
+							ObjectSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "test",
+								},
+							},
 							MatchPolicy: ptr.To(admissionregistrationv1.Exact),
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -150,6 +160,16 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 							},
 						},
 					},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"environment": "staging",
+						},
+					},
+					ObjectSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "test",
+						},
+					},
 					FailurePolicy:  ptr.To(admissionregistrationv1.Ignore),
 					TimeoutSeconds: ptr.To(int32(30)),
 					MatchPolicy:    ptr.To(admissionregistrationv1.Exact),
@@ -169,6 +189,16 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 						},
 						FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"environment": "staging",
+								},
+							},
+							ObjectSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "test",
+								},
+							},
 							MatchPolicy: ptr.To(admissionregistrationv1.Exact),
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -206,6 +236,16 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 								Resources:   []string{"*"},
 								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
 							},
+						},
+					},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"environment": "staging",
+						},
+					},
+					ObjectSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "test",
 						},
 					},
 					FailurePolicy:  ptr.To(admissionregistrationv1.Fail),
@@ -254,6 +294,12 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				}
 				if expect.ClientConfig.Service != nil {
 					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
+				}
+				if expect.NamespaceSelector != nil {
+					assert.Equal(t, expect.NamespaceSelector, webhooks[i].NamespaceSelector)
+				}
+				if expect.ObjectSelector != nil {
+					assert.Equal(t, expect.ObjectSelector, webhooks[i].ObjectSelector)
 				}
 			}
 		})
@@ -348,6 +394,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 					Spec: policiesv1alpha1.ImageValidatingPolicySpec{
 						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
+
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
 									RuleWithOperations: admissionregistrationv1.RuleWithOperations{

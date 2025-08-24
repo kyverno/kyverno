@@ -137,7 +137,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
-				fineGrainedIgnoreList = append(fineGrainedIgnoreList, webhook)
 				webhook.NamespaceSelector = mergeLabelSelectors(
 					p.GetMatchConstraints().NamespaceSelector,
 					cfg.GetWebhook().NamespaceSelector,
@@ -146,6 +145,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					p.GetMatchConstraints().ObjectSelector,
 					cfg.GetWebhook().ObjectSelector,
 				)
+				fineGrainedIgnoreList = append(fineGrainedIgnoreList, webhook)
+
 			} else {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 				webhook.Name = name + "-fail-finegrained-" + p.GetName()
