@@ -146,7 +146,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					cfg.GetWebhook().ObjectSelector,
 				)
 				fineGrainedIgnoreList = append(fineGrainedIgnoreList, webhook)
-
 			} else {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 				webhook.Name = name + "-fail-finegrained-" + p.GetName()
@@ -277,6 +276,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	}
 	return webhooks
 }
+
 func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {
 	if a == nil {
 		return b

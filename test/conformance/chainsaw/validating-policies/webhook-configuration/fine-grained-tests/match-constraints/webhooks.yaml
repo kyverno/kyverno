@@ -32,9 +32,7 @@ webhooks:
        environment: staging
   objectSelector: 
      matchLabels:
-        app: test 
-    
-  objectSelector: {}
+        app: test     
   rules:
   - apiGroups:
     - apps
