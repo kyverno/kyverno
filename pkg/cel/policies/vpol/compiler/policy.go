@@ -78,6 +78,8 @@ func (p *Policy) evaluateWithData(
 	ctx context.Context,
 	data evaluationData,
 ) (*EvaluationResult, error) {
+	allowedImages := make([]string, 0)
+	allowedValues := make([]string, 0)
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
@@ -88,9 +90,13 @@ func (p *Policy) evaluateWithData(
 			}
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.Exception)
+				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
+				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
 			}
 		}
-		if len(matchedExceptions) > 0 {
+		// if there are matched exceptions and no allowed images, no need to evaluate the policy
+		// as the resource is excluded from policy evaluation
+		if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
@@ -112,6 +118,10 @@ func (p *Policy) evaluateWithData(
 		compiler.RequestKey:         data.Request,
 		compiler.ResourceKey:        resource.Context{ContextInterface: data.Context},
 		compiler.VariablesKey:       vars,
+		compiler.ExceptionsKey: Exception{
+			AllowedImages: allowedImages,
+			AllowedValues: allowedValues,
+		},
 	}
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
