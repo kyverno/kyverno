@@ -37,6 +37,16 @@ type PolicyExceptionSpec struct {
 	// MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.
 	// +optional
 	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty"`
+
+	// Images specifies container images to be excluded from policy evaluation.
+	// These excluded images can be referenced in CEL expressions via `exceptions.allowedImages`.
+	// +optional
+	Images []string `json:"images,omitempty"`
+
+	// AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
+	// These values can be referenced in CEL expressions via `exceptions.allowedValues`.
+	// +optional
+	AllowedValues []string `json:"allowedValues,omitempty"`
 }
 
 // Validate implements programmatic validation

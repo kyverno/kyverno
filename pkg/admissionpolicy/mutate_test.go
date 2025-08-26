@@ -580,7 +580,7 @@ func Test_MutateResource(t *testing.T) {
 
 			gvr := mapping.Resource
 			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-			response, err := mutateResource(&policy, nil, *resource, gvr, nil, a, false)
+			response, err := mutateResource(&policy, nil, *resource, nil, gvr, nil, a, false)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)
@@ -743,7 +743,7 @@ func Test_MutateResourceWithBackgroundScanEnabled(t *testing.T) {
 
 			gvr := mapping.Resource
 			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-			response, err := mutateResource(&policy, nil, *resource, gvr, nil, a, true)
+			response, err := mutateResource(&policy, nil, *resource, nil, gvr, nil, a, true)
 			assert.NilError(t, err)
 
 			assert.Equal(t, len(response.PolicyResponse.Rules), 1)

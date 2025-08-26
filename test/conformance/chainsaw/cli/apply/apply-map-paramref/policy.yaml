@@ -1,0 +1,37 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: "change-deployment-replicas"
+spec:
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["deployments"]
+      resourceNames: ["test-deployment"]
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  mutations:
+    - patchType: "ApplyConfiguration"
+      applyConfiguration:
+        expression: 'Object{spec: Object.spec{replicas: int(params.data.replicas)}}'
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: "change-deployment-replicas-binding"
+spec:
+  policyName: "change-deployment-replicas"
+  paramRef:
+    name: label-params
+    namespace: default
+  matchResources:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["deployments"]
