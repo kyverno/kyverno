@@ -12,6 +12,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -28,10 +29,11 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []string {
+func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]string, error) {
 	if matchResources == nil {
-		return nil
+		return nil, nil
 	}
+	errs := []error{}
 
 	var kindList []string
 	for _, rule := range matchResources.ResourceRules {
@@ -45,14 +47,14 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper met
 					kinds, err := resolveKinds(group, version, resource, mapper)
 					if err != nil {
 						vapLogger.Error(err, fmt.Sprintf("failed to resolve kind for group %s, version %s, resource %s", group, version, resource))
-						continue
+						errs = append(errs, err)
 					}
 					kindList = append(kindList, kinds...)
 				}
 			}
 		}
 	}
-	return kindList
+	return kindList, multierr.Combine(errs...)
 }
 
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
