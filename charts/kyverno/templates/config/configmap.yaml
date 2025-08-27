@@ -38,6 +38,10 @@ data:
   {{- with .Values.config.updateRequestThreshold }}
   updateRequestThreshold: {{ . | quote }}
   {{- end -}}
+  enableUpdateRequestCleanup: {{ .Values.config.enableUpdateRequestCleanup | quote }}
+  {{- with .Values.config.updateRequestCleanupTTL }}
+  updateRequestCleanupTTL: {{ . | quote }}
+  {{- end -}}
   {{- if and .Values.config.webhooks .Values.config.excludeKyvernoNamespace }}
   webhooks: {{ include "kyverno.config.webhooks" . | quote }}
   {{- else if .Values.config.webhooks }}
