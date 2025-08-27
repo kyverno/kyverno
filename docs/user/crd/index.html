@@ -2158,6 +2158,9 @@ ResourceSpec
 </em>
 </td>
 <td>
+<p>
+(Members of <code>ResourceSpec</code> are embedded into this type.)
+</p>
 <p>ResourceSpec contains information to select the resource.</p>
 </td>
 </tr>
@@ -2285,6 +2288,9 @@ GeneratePattern
 </em>
 </td>
 <td>
+<p>
+(Members of <code>GeneratePattern</code> are embedded into this type.)
+</p>
 <em>(Optional)</em>
 </td>
 </tr>
@@ -11174,6 +11180,32 @@ PolicyExceptionSpec
 <p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images specifies container images to be excluded from policy evaluation.
+These excluded images can be referenced in CEL expressions via <code>exceptions.allowedImages</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowedValues</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
+These values can be referenced in CEL expressions via <code>exceptions.allowedValues</code>.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -13871,6 +13903,32 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 <p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images specifies container images to be excluded from policy evaluation.
+These excluded images can be referenced in CEL expressions via <code>exceptions.allowedImages</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowedValues</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
+These values can be referenced in CEL expressions via <code>exceptions.allowedValues</code>.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -14812,7 +14870,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-openreports.io/apis/openreports.io/v1alpha1.ReportSummary
+github.com/openreports/reports-api/apis/openreports.io/v1alpha1.ReportSummary
 </em>
 </td>
 <td>
@@ -14824,7 +14882,7 @@ openreports.io/apis/openreports.io/v1alpha1.ReportSummary
 <td>
 <code>results</code><br/>
 <em>
-[]openreports.io/apis/openreports.io/v1alpha1.ReportResult
+[]github.com/openreports/reports-api/apis/openreports.io/v1alpha1.ReportResult
 </em>
 </td>
 <td>
@@ -14912,7 +14970,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-openreports.io/apis/openreports.io/v1alpha1.ReportSummary
+github.com/openreports/reports-api/apis/openreports.io/v1alpha1.ReportSummary
 </em>
 </td>
 <td>
@@ -14924,7 +14982,7 @@ openreports.io/apis/openreports.io/v1alpha1.ReportSummary
 <td>
 <code>results</code><br/>
 <em>
-[]openreports.io/apis/openreports.io/v1alpha1.ReportResult
+[]github.com/openreports/reports-api/apis/openreports.io/v1alpha1.ReportResult
 </em>
 </td>
 <td>
@@ -14972,7 +15030,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-openreports.io/apis/openreports.io/v1alpha1.ReportSummary
+github.com/openreports/reports-api/apis/openreports.io/v1alpha1.ReportSummary
 </em>
 </td>
 <td>
@@ -14984,7 +15042,7 @@ openreports.io/apis/openreports.io/v1alpha1.ReportSummary
 <td>
 <code>results</code><br/>
 <em>
-[]openreports.io/apis/openreports.io/v1alpha1.ReportResult
+[]github.com/openreports/reports-api/apis/openreports.io/v1alpha1.ReportResult
 </em>
 </td>
 <td>
