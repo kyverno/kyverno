@@ -378,6 +378,21 @@ config:
     #   - key: webhooks.kyverno.io/exclude
     #     operator: DoesNotExist
 
+  # Override values for validating webhook
+  webhookValidating:
+    namespaceSelector:
+    objectSelector:
+
+  # Override values for mutating webhook
+  webhookMutating:
+    namespaceSelector:
+    # objectSelector:
+    #   matchConditions:
+    #   - key: app.kubernetes.io/managed-by
+    #     operator: NotIn
+    #     values:
+    #     - Terraform
+
   # -- Defines annotations to set on webhook configurations.
   webhookAnnotations:
     # Example to disable admission enforcer on AKS:
