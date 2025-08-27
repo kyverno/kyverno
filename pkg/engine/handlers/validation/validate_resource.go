@@ -38,26 +38,95 @@ func (h validateResourceHandler) Process(
 	contextLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	// check if there are policy exceptions that match the incoming resource
+	policyName := policyContext.Policy().GetName()
+	if policyContext.Policy().GetNamespace() != "" {
+		policyName = policyContext.Policy().GetNamespace() + "/" + policyName
+	}
+
+	// check if there are general policy exceptions that match the incoming resource
 	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
 	if len(matchedExceptions) > 0 {
-		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
-		var keys []string
-		for i, exception := range matchedExceptions {
-			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
-			if err != nil {
-				logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+		// Check if any of the matched exceptions have fine-grained criteria
+		hasFinegrainedExceptions := false
+		for _, exception := range matchedExceptions {
+			for _, exc := range exception.Spec.Exceptions {
+				if exc.Contains(policyName, rule.Name) && exc.IsFinegrained() {
+					hasFinegrainedExceptions = true
+					break
+				}
 			}
-			keys = append(keys, key)
-			exceptions = append(exceptions, engineapi.NewPolicyException(&matchedExceptions[i]))
+			if hasFinegrainedExceptions {
+				break
+			}
 		}
 
-		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
-		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions),
-		)
+		// If no fine-grained exceptions, use the old behavior (skip entire rule)
+		if !hasFinegrainedExceptions {
+			exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
+			var keys []string
+			for i, exception := range matchedExceptions {
+				key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
+				if err != nil {
+					logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+					return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+				}
+				keys = append(keys, key)
+				exceptions = append(exceptions, engineapi.NewPolicyException(&matchedExceptions[i]))
+			}
+
+			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions),
+			)
+		}
 	}
+
+	// Check for fine-grained value-based exceptions
+	finegrainedExceptions, reportMode := engineutils.MatchesFinegrainedException(
+		exceptions, policyContext, policyName, rule.Name, logger,
+	)
+
+	if len(finegrainedExceptions) > 0 {
+		// Check if we have value-based exceptions that apply to this resource
+		hasValueExceptions := false
+		for _, exception := range finegrainedExceptions {
+			for _, exc := range exception.Spec.Exceptions {
+				if exc.Contains(policyName, rule.Name) && exc.HasValueExceptions() {
+					hasValueExceptions = true
+					break
+				}
+			}
+			if hasValueExceptions {
+				break
+			}
+		}
+
+		if hasValueExceptions {
+			var exemptedExceptions []engineapi.GenericException
+			for _, exception := range finegrainedExceptions {
+				exemptedExceptions = append(exemptedExceptions, engineapi.NewPolicyException(&exception))
+			}
+
+			switch reportMode {
+			case kyvernov2.ExceptionReportWarn:
+				msg := "resource exempted from validation with warning due to value-based exception"
+				return resource, handlers.WithResponses(
+					engineapi.RuleWarn(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithExceptions(exemptedExceptions),
+				)
+			case kyvernov2.ExceptionReportPass:
+				msg := "resource exempted from validation and reported as pass due to value-based exception"
+				return resource, handlers.WithResponses(
+					engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithExceptions(exemptedExceptions),
+				)
+			default: // kyvernov2.ExceptionReportSkip
+				msg := "resource exempted from validation due to value-based exception"
+				return resource, handlers.WithResponses(
+					engineapi.RuleSkip(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithExceptions(exemptedExceptions),
+				)
+			}
+		}
+	}
+
 	v := newValidator(logger, contextLoader, policyContext, rule)
 	return resource, handlers.WithResponses(v.validate(ctx))
 }
