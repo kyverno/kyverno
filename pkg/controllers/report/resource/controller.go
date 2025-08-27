@@ -327,7 +327,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			// non fatal error, emit an event
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr == nil {
 					c.eventGen.Add(e)
 				}
 			}
@@ -346,7 +346,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
 			kinds, err := admissionpolicy.GetKinds(converted, restMapper)
 			if err != nil {
-				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr == nil {
 					c.eventGen.Add(e)
 				}
 			}
@@ -365,14 +365,14 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		for _, policy := range vpols {
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr == nil {
 					c.eventGen.Add(e)
 				}
 			}
 			for _, autogen := range policy.Status.Autogen.Configs {
 				genKinds, err := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
 				if err != nil {
-					if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+					if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr == nil {
 						c.eventGen.Add(e)
 					}
 				}
@@ -394,7 +394,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			matchConstraints := policy.Spec.GetMatchConstraints()
 			kinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 			if err != nil {
-				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr == nil {
 					c.eventGen.Add(e)
 				}
 			}
@@ -402,7 +402,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 				matchConstraints := autogenConf.Spec.GetMatchConstraints()
 				genKinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 				if err != nil {
-					if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+					if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr == nil {
 						c.eventGen.Add(e)
 					}
 				}
@@ -424,7 +424,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		for _, policy := range ivpols {
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr == nil {
 					c.eventGen.Add(e)
 				}
 			}
