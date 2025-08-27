@@ -321,7 +321,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
 		}
 
-		if rule.Mutation.ForEachMutation != nil {
+		if rule.Mutation != nil && rule.Mutation.ForEachMutation != nil {
 			err := validateElementInForEach(rule)
 			if err != nil {
 				return warnings, err
