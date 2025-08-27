@@ -33,6 +33,9 @@ type Test struct {
 	// Variables is the values to be used in the test
 	Variables string `json:"variables,omitempty"`
 
+	// Resources that act as parameters for validating/mutating admission policies
+	ParamResources []string `json:"paramResources,omitempty"`
+
 	// UserInfo is the user info to be used in the test
 	UserInfo string `json:"userinfo,omitempty"`
 

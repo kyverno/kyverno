@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: "exclude-images-multiple-cel"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  validations:
+    - message: "Containers must not allow privilege escalation unless they are in the allowed images list."
+      expression: >
+        object.spec.containers.all(container,
+          !has(container.securityContext) ||
+          string(container.image) in exceptions.allowedImages ||
+          (has(container.securityContext.allowPrivilegeEscalation) &&
+          container.securityContext.allowPrivilegeEscalation == false)
+        )
+    - message: "Containers must not run as root"
+      expression: >
+        object.spec.containers.all(container,
+          !has(container.securityContext) ||
+          (has(container.securityContext.runAsNonRoot) &&
+          container.securityContext.runAsNonRoot == true)
+        )

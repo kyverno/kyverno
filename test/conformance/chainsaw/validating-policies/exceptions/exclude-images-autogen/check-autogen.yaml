@@ -1,0 +1,99 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: exclude-images-autogen
+status:
+  autogen:
+    configs:
+      cronjobs:
+        spec:
+          matchConstraints:
+            resourceRules:
+            - apiGroups:
+              - batch
+              apiVersions:
+              - v1
+              operations:
+              - CREATE
+              - UPDATE
+              resources:
+              - cronjobs
+          validations:
+          - expression: |
+              object.spec.jobTemplate.spec.template.spec.containers.all(container,
+                string(container.image) in exceptions.allowedImages ||
+                (
+                  has(container.securityContext) &&
+                  has(container.securityContext.seccompProfile) &&
+                  has(container.securityContext.seccompProfile.type) &&
+                  (container.securityContext.seccompProfile.type == 'RuntimeDefault' ||
+                  container.securityContext.seccompProfile.type == 'Localhost')
+                )
+              )
+            message: Use of custom Seccomp profiles is disallowed. The field seccompProfile.type
+              must be set to `RuntimeDefault` or `Localhost`.
+        targets:
+        - group: batch
+          kind: CronJob
+          resource: cronjobs
+          version: v1
+      defaults:
+        spec:
+          matchConstraints:
+            resourceRules:
+            - apiGroups:
+              - apps
+              apiVersions:
+              - v1
+              operations:
+              - CREATE
+              - UPDATE
+              resources:
+              - daemonsets
+              - deployments
+              - replicasets
+              - statefulsets
+            - apiGroups:
+              - batch
+              apiVersions:
+              - v1
+              operations:
+              - CREATE
+              - UPDATE
+              resources:
+              - jobs
+          validations:
+          - expression: |
+              object.spec.template.spec.containers.all(container,
+                string(container.image) in exceptions.allowedImages ||
+                (
+                  has(container.securityContext) &&
+                  has(container.securityContext.seccompProfile) &&
+                  has(container.securityContext.seccompProfile.type) &&
+                  (container.securityContext.seccompProfile.type == 'RuntimeDefault' ||
+                  container.securityContext.seccompProfile.type == 'Localhost')
+                )
+              )
+            message: Use of custom Seccomp profiles is disallowed. The field seccompProfile.type
+              must be set to `RuntimeDefault` or `Localhost`.
+        targets:
+        - group: apps
+          kind: DaemonSet
+          resource: daemonsets
+          version: v1
+        - group: apps
+          kind: Deployment
+          resource: deployments
+          version: v1
+        - group: apps
+          kind: ReplicaSet
+          resource: replicasets
+          version: v1
+        - group: apps
+          kind: StatefulSet
+          resource: statefulsets
+          version: v1
+        - group: batch
+          kind: Job
+          resource: jobs
+          version: v1
