@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: "exclude-images"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  validations:
+    - message: "Containers must not allow privilege escalation unless they are in the allowed images list."
+      expression: >
+        object.spec.containers.all(container,
+          string(container.image) in exceptions.allowedImages ||
+          (
+            has(container.securityContext) &&
+            has(container.securityContext.allowPrivilegeEscalation) &&
+            container.securityContext.allowPrivilegeEscalation == false
+          )
+        )
