@@ -1,0 +1,25 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: "exclude-images-autogen"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  validations:
+    - expression: >
+        object.spec.containers.all(container,
+          string(container.image) in exceptions.allowedImages ||
+          (
+            has(container.securityContext) &&
+            has(container.securityContext.seccompProfile) &&
+            has(container.securityContext.seccompProfile.type) &&
+            (container.securityContext.seccompProfile.type == 'RuntimeDefault' ||
+            container.securityContext.seccompProfile.type == 'Localhost')
+          )
+        )
+      message: >-
+        Use of custom Seccomp profiles is disallowed. The field seccompProfile.type must be set to `RuntimeDefault` or `Localhost`.
