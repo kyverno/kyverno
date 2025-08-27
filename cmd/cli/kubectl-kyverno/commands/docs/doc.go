@@ -1,7 +1,6 @@
 package docs
 
-// TODO
-var websiteUrl = ``
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#docs`
 
 var description = []string{
 	`Generates reference documentation.`,
