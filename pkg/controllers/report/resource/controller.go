@@ -3,7 +3,6 @@ package resource
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"sync"
 	"time"
@@ -23,7 +22,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -105,21 +103,6 @@ type controller struct {
 
 	// event generator
 	eventGen event.Interface
-}
-
-func getResolveKindErrorEvent(policyTypeMeta metav1.TypeMeta, policyObjectMeta metav1.ObjectMeta, err error) event.Info {
-	return event.Info{
-		Regarding: corev1.ObjectReference{
-			APIVersion: policyTypeMeta.APIVersion,
-			Kind:       policyTypeMeta.Kind,
-			Name:       policyObjectMeta.Name,
-			Namespace:  policyObjectMeta.Namespace,
-		},
-		Message: fmt.Sprintf("Failed to resolve kinds %+v\n", err.Error()),
-		Reason:  event.PolicyError,
-		Source:  event.PolicyController,
-		Action:  event.ResourceBlocked,
-	}
 }
 
 func NewController(
@@ -344,8 +327,9 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			// non fatal error, emit an event
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				e := getResolveKindErrorEvent(policy.TypeMeta, policy.ObjectMeta, err)
-				c.eventGen.Add(e)
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+					c.eventGen.Add(e)
+				}
 			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
@@ -362,8 +346,9 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
 			kinds, err := admissionpolicy.GetKinds(converted, restMapper)
 			if err != nil {
-				e := getResolveKindErrorEvent(policy.TypeMeta, policy.ObjectMeta, err)
-				c.eventGen.Add(e)
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+					c.eventGen.Add(e)
+				}
 			}
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
@@ -380,14 +365,16 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		for _, policy := range vpols {
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				e := getResolveKindErrorEvent(policy.TypeMeta, policy.ObjectMeta, err)
-				c.eventGen.Add(e)
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+					c.eventGen.Add(e)
+				}
 			}
 			for _, autogen := range policy.Status.Autogen.Configs {
 				genKinds, err := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
 				if err != nil {
-					e := getResolveKindErrorEvent(policy.TypeMeta, policy.ObjectMeta, err)
-					c.eventGen.Add(e)
+					if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+						c.eventGen.Add(e)
+					}
 				}
 				kinds = append(kinds, genKinds...)
 			}
@@ -407,17 +394,18 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			matchConstraints := policy.Spec.GetMatchConstraints()
 			kinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 			if err != nil {
-				e := getResolveKindErrorEvent(policy.TypeMeta, policy.ObjectMeta, err)
-				c.eventGen.Add(e)
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+					c.eventGen.Add(e)
+				}
 			}
 			for _, autogenConf := range policy.Status.Autogen.Configs {
 				matchConstraints := autogenConf.Spec.GetMatchConstraints()
 				genKinds, err := admissionpolicy.GetKinds(&matchConstraints, restMapper)
 				if err != nil {
-					e := getResolveKindErrorEvent(policy.TypeMeta, policy.ObjectMeta, err)
-					c.eventGen.Add(e)
+					if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+						c.eventGen.Add(e)
+					}
 				}
-
 				kinds = append(kinds, genKinds...)
 			}
 
@@ -436,10 +424,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		for _, policy := range ivpols {
 			kinds, err := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if err != nil {
-				e := getResolveKindErrorEvent(policy.TypeMeta, policy.ObjectMeta, err)
-				c.eventGen.Add(e)
+				if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+					c.eventGen.Add(e)
+				}
 			}
-
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
