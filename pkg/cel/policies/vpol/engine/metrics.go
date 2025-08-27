@@ -60,7 +60,6 @@ func NewMetricWrapper(inner Engine, ruleExecutionCause metrics.RuleExecutionCaus
 			"kyverno_validating_policy_execution_duration_seconds",
 			metric.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of individual validation policies when they evaluate incoming resource requests."),
 		)
-
 		if err != nil {
 			logging.Error(err, "failed to register metric kyverno_validating_policy_execution_duration_seconds")
 			return nil, err
