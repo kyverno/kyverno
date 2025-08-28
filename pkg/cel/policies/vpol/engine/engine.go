@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"strings"
+	"time"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
@@ -95,7 +96,14 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		if predicate != nil && !predicate(policy.Policy) {
 			continue
 		}
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context))
+
+		startTime := time.Now()
+		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
+		for i, rule := range pol.Rules {
+			pol.Rules[i] = rule.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
+		}
+
+		response.Policies = append(response.Policies, pol)
 	}
 	return response, nil
 }
