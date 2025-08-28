@@ -37,7 +37,7 @@ runs:
     # install tools
     - name: Install helm
       id: helm
-      uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+      uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
     - name: Install Cosign
       uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
     - name: Install chainsaw

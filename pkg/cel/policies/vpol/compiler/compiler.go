@@ -1,7 +1,11 @@
 package compiler
 
 import (
+	"reflect"
+
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/ext"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -13,6 +17,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
+
+type Exception struct {
+	AllowedImages []string `cel:"allowedImages"`
+	AllowedValues []string `cel:"allowedValues"`
+}
 
 type Compiler interface {
 	Compile(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
@@ -143,11 +152,13 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		matchConditions = append(matchConditions, programs...)
 	}
 	env, err = env.Extend(
+		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
 		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
 		globalcontext.Lib(),
 		http.Lib(),
 		image.Lib(),

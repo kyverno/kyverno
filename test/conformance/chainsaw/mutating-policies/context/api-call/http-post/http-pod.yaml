@@ -19,7 +19,7 @@ spec:
       def post_data():
         json_data = request.get_json()
         data = json_data.get("labels")
-        return jsonify({"recieved": data})
+        return jsonify({"received": data})
       if __name__ == "__main__":
           app.run(host="0.0.0.0", port=5000)' > app.py &&
             python app.py
