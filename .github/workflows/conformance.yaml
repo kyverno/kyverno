@@ -840,7 +840,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
+        uses: kyverno/action-install-chainsaw@6354895e0f99ab23d3e38d85cf5c71b5dc21d727 # v0.2.13
         with:
           verify: true
       # create cluster
@@ -925,7 +925,7 @@ jobs:
       - name: Install ORAS
         uses: oras-project/setup-oras@8d34698a59f5ffe24821f0b48ab62a3de8b64b20 # v1.2.3
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
+        uses: kyverno/action-install-chainsaw@6354895e0f99ab23d3e38d85cf5c71b5dc21d727 # v0.2.13
         with:
           verify: true
       - name: Download kyverno CLI archive
@@ -1052,7 +1052,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
+        uses: kyverno/action-install-chainsaw@6354895e0f99ab23d3e38d85cf5c71b5dc21d727 # v0.2.13
         with:
           verify: true
       # create cluster
