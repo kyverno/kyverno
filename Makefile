@@ -461,6 +461,7 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--input ./api/kyverno/v1 \
 		--input ./api/kyverno/v2 \
 		--input ./api/kyverno/v2alpha1 \
+		--input ./api/kyverno/v2beta1 \
 		--input ./api/reports/v1 \
 		--input ./api/policyreport/v1alpha2 \
 		--input ./api/policies.kyverno.io/v1alpha1
@@ -477,6 +478,7 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
+		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
 		./api/policies.kyverno.io/v1alpha1
@@ -495,6 +497,7 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
+		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
 		./api/policies.kyverno.io/v1alpha1
