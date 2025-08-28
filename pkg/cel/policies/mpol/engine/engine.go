@@ -110,7 +110,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		// Handle non-K8s JSON payload
 		object = *request.JsonPayload
 		oldObject = unstructured.Unstructured{} // Empty for JSON payloads
-		
+
 		// Create minimal admission request for JSON payload
 		admissionRequest = admissionv1.AdmissionRequest{
 			Kind:      metav1.GroupVersionKind{Kind: "JSONPayload"},
@@ -208,7 +208,7 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		// Handle non-K8s JSON payload
 		object = *request.JsonPayload
 		oldObject = unstructured.Unstructured{} // Empty for JSON payloads
-		
+
 		// Create minimal admission request for JSON payload
 		admissionRequest = admissionv1.AdmissionRequest{
 			Kind:      metav1.GroupVersionKind{Kind: "JSONPayload"},
