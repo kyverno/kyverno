@@ -6,11 +6,11 @@ policies:
 - policy.yaml
 resources:
 - deployment.yaml
-userinfo: userinfo.yaml
 results:
-  - policy: check-user-info
-    resources: 
-    - nginx-deployment
-    isValidatingAdmissionPolicy: true
-    kind: Deployment
-    result: pass
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: check-user-info
+  resources:
+  - nginx-deployment
+  result: pass
+userinfo: userinfo.yaml

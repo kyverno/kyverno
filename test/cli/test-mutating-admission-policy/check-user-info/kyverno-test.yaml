@@ -6,7 +6,6 @@ policies:
 - policy.yaml
 resources:
 - resource.yaml
-userInfo: userinfo.yaml
 results:
 - isMutatingAdmissionPolicy: true
   kind: ConfigMap
@@ -15,3 +14,4 @@ results:
   resources:
   - matched-cm-1
   result: pass
+userinfo: userinfo.yaml
