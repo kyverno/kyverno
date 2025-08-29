@@ -107,10 +107,6 @@ func (s *scanner) ScanResource(
 
 	if !s.checkResourceFilters(resource, subResource) {
 		logger.V(4).Info("resource is filtered out by the configured resourceFilter, skipping scan")
-		for i, policy := range policies {
-			response := engineapi.NewEngineResponse(resource, policy, nsLabels)
-			results[&policies[i]] = ScanResult{&response, nil}
-		}
 
 		return results
 	}
