@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 )
@@ -14,8 +15,10 @@ func ValidatePattern(patternElement interface{}, path string, isSupported func(a
 		return validateMap(typedPatternElement, path, isSupported)
 	case []interface{}:
 		return validateArray(typedPatternElement, path, isSupported)
-	case string, float64, int, int64, bool, nil:
-		// TODO: check operator
+	case string:
+		// Validate operator syntax for string patterns
+		return validateStringPattern(typedPatternElement, path)
+	case float64, int, int64, bool, nil:
 		return "", nil
 	default:
 		return path, fmt.Errorf("error at '%s', pattern contains unknown type", path)
@@ -71,4 +74,26 @@ func checkAnchors(a anchor.Anchor, isSupported func(anchor.Anchor) bool) bool {
 		return false
 	}
 	return isSupported(a)
+}
+
+// validateStringPattern validates operator syntax in string patterns
+func validateStringPattern(pattern string, path string) (string, error) {
+	// Check if the pattern contains operator-like syntax that might be invalid
+	if strings.HasPrefix(pattern, ">=") || strings.HasPrefix(pattern, "<=") ||
+		strings.HasPrefix(pattern, ">") || strings.HasPrefix(pattern, "<") ||
+		strings.HasPrefix(pattern, "!") || strings.Contains(pattern, "-") {
+		// For patterns that look like they contain operators, validate them
+		// Check for invalid !- syntax (should have format like "1!-10", not just "1!-")
+		if strings.HasPrefix(pattern, "!-") {
+			return path, fmt.Errorf("invalid operator syntax in pattern '%s': !- requires range format", pattern)
+		}
+		if strings.Contains(pattern, "!-") && strings.HasSuffix(pattern, "!-") {
+			return path, fmt.Errorf("invalid operator syntax in pattern '%s': !- requires range format", pattern)
+		}
+		// Check for range operators that end with dash (invalid)
+		if strings.HasSuffix(pattern, "-") && !strings.HasPrefix(pattern, "-") {
+			return path, fmt.Errorf("invalid range operator syntax in pattern '%s'", pattern)
+		}
+	}
+	return "", nil
 }
