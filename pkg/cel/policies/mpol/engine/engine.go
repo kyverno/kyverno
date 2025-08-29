@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type Engine interface {
@@ -109,6 +110,16 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		dryRun = *request.Request.DryRun
 	}
 
+	// Create user info from admission request
+	var userInfo user.Info
+	if request.Request.UserInfo.Username != "" {
+		userInfo = &user.DefaultInfo{
+			Name:   request.Request.UserInfo.Username,
+			UID:    request.Request.UserInfo.UID,
+			Groups: request.Request.UserInfo.Groups,
+		}
+	}
+
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
@@ -120,8 +131,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		userInfo,
 	)
 
 	var namespace *corev1.Namespace
@@ -180,6 +190,16 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		dryRun = *request.Request.DryRun
 	}
 
+	// Create user info from admission request
+	var userInfo user.Info
+	if request.Request.UserInfo.Username != "" {
+		userInfo = &user.DefaultInfo{
+			Name:   request.Request.UserInfo.Username,
+			UID:    request.Request.UserInfo.UID,
+			Groups: request.Request.UserInfo.Groups,
+		}
+	}
+
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
@@ -191,8 +211,7 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		userInfo,
 	)
 
 	var namespace *corev1.Namespace
