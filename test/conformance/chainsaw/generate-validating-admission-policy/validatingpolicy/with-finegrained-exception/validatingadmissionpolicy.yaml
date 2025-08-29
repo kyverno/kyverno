@@ -1,0 +1,37 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: vpol-allow-specific-values
+  ownerReferences:
+  - apiVersion: policies.kyverno.io/v1alpha1
+    kind: ValidatingPolicy
+    name: allow-specific-values
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    matchPolicy: Equivalent
+    namespaceSelector: {}
+    objectSelector: {}
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+  variables:
+  - expression: '[''AUDIT_WRITE'',''CHOWN'',''DAC_OVERRIDE'',''FOWNER'',''FSETID'',''KILL'',''MKNOD'',''NET_BIND_SERVICE'',''SETFCAP'',''SETGID'',''SETPCAP'',''SETUID'',''SYS_CHROOT'']'
+    name: allowedCapabilities
+  - expression: '[''busybox:latest'', ''nginx:latest'']'
+    name: allowedImages
+  - expression: '[''FOO'', ''BAR'']'
+    name: allowedValues
+  validations:
+  - expression: object.spec.containers.all(container,  container.?securityContext.?capabilities.?add.orValue([]).all(capability,
+      (string(container.image) in variables.allowedImages && capability in variables.allowedValues) || capability in variables.allowedCapabilities))
+    message: Any capabilities added beyond the allowed list (AUDIT_WRITE, CHOWN, DAC_OVERRIDE,
+      FOWNER, FSETID, KILL, MKNOD, NET_BIND_SERVICE, SETFCAP, SETGID, SETPCAP, SETUID,
+      SYS_CHROOT) are disallowed.
