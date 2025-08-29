@@ -3,6 +3,7 @@ package mutate
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -170,10 +171,9 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 		}
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
-		if c.needsReports(trigger) {
-			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
-				c.log.Error(err, "failed to create report")
-			}
+		// Create reports for target resources instead of trigger resource
+		if c.reportsConfig.MutateExistingReportsEnabled() {
+			c.createReportsForTargets(context.TODO(), er)
 		}
 		for _, r := range er.PolicyResponse.Rules {
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
@@ -289,6 +289,48 @@ func (c *mutateExistingController) createReports(
 		}
 	}
 	return nil
+}
+
+func (c *mutateExistingController) createReportsForTargets(
+	ctx context.Context,
+	engineResponses ...engineapi.EngineResponse,
+) {
+	for _, er := range engineResponses {
+		// Create reports for each successfully patched target resource
+		for _, ruleResp := range er.PolicyResponse.Rules {
+			if ruleResp.Status() == engineapi.RuleStatusPass {
+				patchedTarget, _, _ := ruleResp.PatchedTarget()
+				if patchedTarget != nil {
+					// Check if reports are supported for this target resource type
+					if !reportutils.IsGvkSupported(patchedTarget.GroupVersionKind()) {
+						c.log.V(4).Info("skipping report creation for unsupported target resource type",
+							"target", patchedTarget.GetName(),
+							"namespace", patchedTarget.GetNamespace(),
+							"kind", patchedTarget.GetKind())
+						continue
+					}
+
+					// Create a new engine response with only this rule for the target resource
+					targetER := engineapi.NewEngineResponse(*patchedTarget, er.Policy(), er.NamespaceLabels())
+					targetPolicyResp := engineapi.NewPolicyResponse()
+					targetPolicyResp.Add(engineapi.NewExecutionStats(time.Now(), time.Now()), ruleResp)
+					targetER = targetER.WithPolicyResponse(targetPolicyResp)
+
+					if err := c.createReports(ctx, *patchedTarget, targetER); err != nil {
+						c.log.Error(err, "failed to create report for target resource",
+							"target", patchedTarget.GetName(),
+							"namespace", patchedTarget.GetNamespace(),
+							"kind", patchedTarget.GetKind())
+					} else {
+						c.log.V(4).Info("successfully created report for target resource",
+							"target", patchedTarget.GetName(),
+							"namespace", patchedTarget.GetNamespace(),
+							"kind", patchedTarget.GetKind())
+					}
+				}
+			}
+		}
+	}
 }
 
 func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error) error {
