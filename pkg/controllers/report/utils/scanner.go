@@ -99,16 +99,17 @@ func (s *scanner) ScanResource(
 ) map[*engineapi.GenericPolicy]ScanResult {
 	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	results := map[*engineapi.GenericPolicy]ScanResult{}
-	// evaluate kyverno policies
-	var nsLabels map[string]string
-	if ns != nil {
-		nsLabels = ns.Labels
-	}
 
 	if !s.checkResourceFilters(resource, subResource) {
 		logger.V(4).Info("resource is filtered out by the configured resourceFilter, skipping scan")
 
 		return results
+	}
+
+	// evaluate kyverno policies
+	var nsLabels map[string]string
+	if ns != nil {
+		nsLabels = ns.Labels
 	}
 
 	var kpols, vpols, mpols, ivpols, vaps, maps []engineapi.GenericPolicy
