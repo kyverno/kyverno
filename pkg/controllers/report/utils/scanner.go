@@ -97,6 +97,21 @@ func (s *scanner) ScanResource(
 	exceptions []*policiesv1alpha1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
+	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+	results := map[*engineapi.GenericPolicy]ScanResult{}
+
+	if !s.checkResourceFilters(resource, subResource) {
+		logger.V(4).Info("resource is filtered out by the configured resourceFilter, skipping scan")
+
+		return results
+	}
+
+	// evaluate kyverno policies
+	var nsLabels map[string]string
+	if ns != nil {
+		nsLabels = ns.Labels
+	}
+
 	var kpols, vpols, mpols, ivpols, vaps, maps []engineapi.GenericPolicy
 	// split policies per nature
 	for _, policy := range policies {
@@ -114,13 +129,7 @@ func (s *scanner) ScanResource(
 			mpols = append(mpols, policy)
 		}
 	}
-	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
-	results := map[*engineapi.GenericPolicy]ScanResult{}
-	// evaluate kyverno policies
-	var nsLabels map[string]string
-	if ns != nil {
-		nsLabels = ns.Labels
-	}
+
 	for i, policy := range kpols {
 		if pol := policy.AsKyvernoPolicy(); pol != nil {
 			var errors []error
@@ -393,4 +402,13 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		s.logger.V(6).Info("validateImages", "policy", policy, "response", response)
 	}
 	return &response, nil
+}
+
+func (s *scanner) checkResourceFilters(resource unstructured.Unstructured, subresource string) bool {
+	if resource.Object != nil {
+		if s.config.ToFilter(resource.GroupVersionKind(), subresource, resource.GetNamespace(), resource.GetName()) {
+			return false
+		}
+	}
+	return true
 }
