@@ -227,7 +227,7 @@ func NewController(
 				}
 				for _, polNsName := range sets.List(policiesForReport) {
 					policyNameParts := strings.Split(polNsName, "/")
-					if o.GetName() != policyNameParts[1] {
+					if o.GetName() != policyNameParts[0] {
 						continue
 					}
 					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
