@@ -10,16 +10,23 @@ import (
 
 func GetRESTMapper(client dclient.Interface, isFake bool) (meta.RESTMapper, error) {
 	var restMapper meta.RESTMapper
+	var apiGroupResources []*restmapper.APIGroupResources
 	// check that it is not a fake client
 	if client != nil && !isFake {
 		dc := client.GetKubeClient().Discovery()
 		cachedDiscovery := memory.NewMemCacheClient(dc)
 		restMapper = restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscovery)
 	} else {
-		apiGroupResources, err := data.APIGroupResources()
+		apiGroupResources1 := data.GetResourceGroup()
+		if apiGroupResources1 != nil {
+			apiGroupResources = append(apiGroupResources, apiGroupResources1)
+		}
+
+		apiGroupResources2, err := data.APIGroupResources()
 		if err != nil {
 			return nil, err
 		}
+		apiGroupResources = append(apiGroupResources, apiGroupResources2...)
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	}
 	return restMapper, nil
