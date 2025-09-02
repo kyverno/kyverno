@@ -2,15 +2,12 @@ package metrics
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
 	tlsutils "github.com/kyverno/kyverno/pkg/utils/tls"
 	"github.com/kyverno/kyverno/pkg/version"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -137,7 +134,7 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 	return provider, nil
 }
 
-func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, *http.ServeMux, error) {
+func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, error) {
 	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewSchemaless(
@@ -148,7 +145,7 @@ func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kco
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
-		return nil, nil, err
+		return nil, err
 	}
 	exporter, err := prometheus.New(
 		prometheus.WithoutUnits(),
@@ -157,16 +154,14 @@ func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kco
 	)
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")
-		return nil, nil, err
+		return nil, err
 	}
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(exporter),
 		sdkmetric.WithResource(res),
 		sdkmetric.WithView(configuration.BuildMeterProviderViews()...),
 	)
-	metricsServerMux := http.NewServeMux()
-	metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())
-	return provider, metricsServerMux, nil
+	return provider, nil
 }
 
 func (m *MetricsConfig) RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string) {
