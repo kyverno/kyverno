@@ -23,12 +23,41 @@ const (
 	MeterName = "kyverno"
 )
 
+var (
+	metricsConfig MetricsConfigManager
+)
+
+func GetManager() MetricsConfigManager {
+	return metricsConfig
+}
+
+func SetManager(manager MetricsConfigManager) {
+	metricsConfig = manager
+}
+
+func GetBreakerMetrics() BreakerMetrics {
+	if metricsConfig == nil {
+		return nil
+	}
+
+	return metricsConfig.BreakerMetrics()
+}
+
+func GetControllerMetrics() ControllerMetrics {
+	if metricsConfig == nil {
+		return nil
+	}
+
+	return metricsConfig.ControllerMetrics()
+}
+
 type MetricsConfig struct {
 	// instruments
 	policyChangesMetric metric.Int64Counter
 	clientQueriesMetric metric.Int64Counter
 	kyvernoInfoMetric   metric.Int64Gauge
 	breakerMetrics      *breakerMetrics
+	controllerMetrics   *controllerMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -40,6 +69,7 @@ type MetricsConfigManager interface {
 	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 	BreakerMetrics() BreakerMetrics
+	ControllerMetrics() ControllerMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -48,6 +78,10 @@ func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
 
 func (m *MetricsConfig) BreakerMetrics() BreakerMetrics {
 	return m.breakerMetrics
+}
+
+func (m *MetricsConfig) ControllerMetrics() ControllerMetrics {
+	return m.controllerMetrics
 }
 
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
@@ -72,6 +106,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	}
 
 	m.breakerMetrics.init(meterProvider)
+	m.controllerMetrics.init(meterProvider)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -201,4 +236,15 @@ func initKyvernoInfoMetric(m *MetricsConfig) {
 		attribute.String("version", info.Version),
 	}
 	m.kyvernoInfoMetric.Record(context.Background(), 1, metric.WithAttributes(commonLabels...))
+}
+
+func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.MetricsConfiguration) *MetricsConfig {
+	config := &MetricsConfig{
+		Log:               logger,
+		config:            metricsConfiguration,
+		breakerMetrics:    &breakerMetrics{logger: logger.WithName("circuit-breaker")},
+		controllerMetrics: &controllerMetrics{logger: logger.WithName("controller")},
+	}
+
+	return config
 }

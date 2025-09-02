@@ -15,26 +15,26 @@ type Breaker interface {
 }
 
 type breaker struct {
-	name    string
-	metrics metrics.BreakerMetrics
-	open    func(context.Context) bool
+	name string
+	open func(context.Context) bool
 }
 
-func NewBreaker(name string, metrics metrics.BreakerMetrics, open func(context.Context) bool) *breaker {
+func NewBreaker(name string, open func(context.Context) bool) *breaker {
 	return &breaker{
-		name:    name,
-		metrics: metrics,
-		open:    open,
+		name: name,
+		open: open,
 	}
 }
 
 func (b *breaker) Do(ctx context.Context, inner func(context.Context) error) error {
-	if b.metrics != nil {
-		b.metrics.RecordTotalIncrease(ctx, b.name)
+	metrics := metrics.GetBreakerMetrics()
+
+	if metrics != nil {
+		metrics.RecordTotalIncrease(ctx, b.name)
 	}
 	if b.open != nil && b.open(ctx) {
-		if b.metrics != nil {
-			b.metrics.RecordDrop(ctx, b.name)
+		if metrics != nil {
+			metrics.RecordDrop(ctx, b.name)
 		}
 		return nil
 	}

@@ -12,7 +12,7 @@ type breakerMetrics struct {
 	drops metric.Int64Counter
 	total metric.Int64Counter
 
-	log logr.Logger
+	logger logr.Logger
 }
 
 type BreakerMetrics interface {
@@ -29,14 +29,14 @@ func (m *breakerMetrics) init(meterProvider metric.MeterProvider) {
 		metric.WithDescription("track the number of times the breaker failed open and dropped"),
 	)
 	if err != nil {
-		m.log.Error(err, "Failed to create instrument, kyverno_breaker_drops")
+		m.logger.Error(err, "Failed to create instrument, kyverno_breaker_drops")
 	}
 	m.total, err = meter.Int64Counter(
 		"kyverno_breaker_total",
 		metric.WithDescription("track number of times the breaker was invoked"),
 	)
 	if err != nil {
-		m.log.Error(err, "Failed to create instrument, kyverno_breaker_total")
+		m.logger.Error(err, "Failed to create instrument, kyverno_breaker_total")
 	}
 }
 

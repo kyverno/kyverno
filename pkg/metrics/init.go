@@ -27,11 +27,9 @@ func InitMetrics(
 ) (MetricsConfigManager, *http.ServeMux, *sdkmetric.MeterProvider, error) {
 	var err error
 
-	metricsConfig := MetricsConfig{
-		Log:            logger,
-		config:         metricsConfiguration,
-		breakerMetrics: &breakerMetrics{log: logger.WithName("circuit-breaker")},
-	}
+	metricsConfig := NewMetricsConfigManager(logger, metricsConfiguration)
+
+	SetManager(metricsConfig)
 
 	if disableMetricsExport {
 		err = metricsConfig.initializeMetrics(otel.GetMeterProvider())
@@ -40,7 +38,7 @@ func InitMetrics(
 			return nil, nil, nil, err
 		}
 
-		return &metricsConfig, nil, nil, nil
+		return metricsConfig, nil, nil, nil
 	}
 
 	var meterProvider metric.MeterProvider
@@ -112,5 +110,5 @@ func InitMetrics(
 		}()
 	}
 
-	return &metricsConfig, metricsServerMux, nil, nil
+	return metricsConfig, metricsServerMux, nil, nil
 }
