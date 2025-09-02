@@ -1,0 +1,9 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: UserInfo
+metadata:
+  name: system-user
+userInfo:
+  groups:
+  - system:masters
+  - system:authenticated
+  username: example-system-masters
