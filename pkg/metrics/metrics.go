@@ -51,6 +51,22 @@ func GetControllerMetrics() ControllerMetrics {
 	return metricsConfig.ControllerMetrics()
 }
 
+func GetCleanupMetrics() CleanupMetrics {
+	if metricsConfig == nil {
+		return nil
+	}
+
+	return metricsConfig.CleanupMetrics()
+}
+
+func GetDeletingMetrics() DeletingMetrics {
+	if metricsConfig == nil {
+		return nil
+	}
+
+	return metricsConfig.DeletingMetrics()
+}
+
 type MetricsConfig struct {
 	// instruments
 	policyChangesMetric metric.Int64Counter
@@ -58,6 +74,8 @@ type MetricsConfig struct {
 	kyvernoInfoMetric   metric.Int64Gauge
 	breakerMetrics      *breakerMetrics
 	controllerMetrics   *controllerMetrics
+	cleanupMetrics      *cleanupMetrics
+	deletingMetrics     *deletingMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -70,6 +88,8 @@ type MetricsConfigManager interface {
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 	BreakerMetrics() BreakerMetrics
 	ControllerMetrics() ControllerMetrics
+	CleanupMetrics() CleanupMetrics
+	DeletingMetrics() DeletingMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -82,6 +102,14 @@ func (m *MetricsConfig) BreakerMetrics() BreakerMetrics {
 
 func (m *MetricsConfig) ControllerMetrics() ControllerMetrics {
 	return m.controllerMetrics
+}
+
+func (m *MetricsConfig) CleanupMetrics() CleanupMetrics {
+	return m.cleanupMetrics
+}
+
+func (m *MetricsConfig) DeletingMetrics() DeletingMetrics {
+	return m.deletingMetrics
 }
 
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
@@ -107,6 +135,8 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 
 	m.breakerMetrics.init(meterProvider)
 	m.controllerMetrics.init(meterProvider)
+	m.cleanupMetrics.init(meterProvider)
+	m.deletingMetrics.init(meterProvider)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -244,6 +274,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		config:            metricsConfiguration,
 		breakerMetrics:    &breakerMetrics{logger: logger.WithName("circuit-breaker")},
 		controllerMetrics: &controllerMetrics{logger: logger.WithName("controller")},
+		deletingMetrics:   &deletingMetrics{logger: logger.WithName("deleting")},
 	}
 
 	return config
