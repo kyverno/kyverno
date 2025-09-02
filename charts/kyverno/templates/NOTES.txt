@@ -17,8 +17,31 @@ The following components have been installed in your cluster:
 {{- if .Values.backgroundController.enabled }}
 - Background controller
 {{- end }}
+{{- if .Values.reportsServer.enabled }}
+- Reports server
+{{- end }}
 {{- if .Values.grafana.enabled }}
 - Grafana dashboard
+{{- end }}
+
+{{- if .Values.reportsServer.enabled }}
+
+## Reports Server Integration
+
+The Kyverno chart has been configured to install reports-server alongside Kyverno components.
+
+Reports-server provides centralized storage for policy reports and enables advanced reporting capabilities.
+
+{{- if .Values.reportsServer.waitForReady }}
+All Kyverno components have been configured to wait for reports-server to be ready before starting.
+This ensures proper initialization sequence.
+{{- end }}
+
+To access reports-server, use:
+  kubectl port-forward -n {{ include "kyverno.namespace" . }} svc/reports-server 8080:443
+
+
+
 {{- end }}
 
 {{ if not .Values.admissionController.replicas }}
