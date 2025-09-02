@@ -77,7 +77,7 @@ func checkMatchConditions(logger logr.Logger, policyContext engineapi.PolicyCont
 	old.SetGroupVersionKind(gvk)
 	gvr := schema.GroupVersionResource(policyContext.RequestResource())
 	requestInfo := policyContext.AdmissionInfo().AdmissionUserInfo
-	userInfo := NewUser(requestInfo.Username, requestInfo.UID, requestInfo.Groups)
+	userInfo := admissionpolicy.NewUser(requestInfo)
 	admissionAttributes := admission.NewAttributesRecord(new.DeepCopyObject(), old.DeepCopyObject(), gvk, new.GetNamespace(), new.GetName(), gvr, subresource, admission.Operation(policyContext.Operation()), nil, false, &userInfo)
 	scheme := runtime.NewScheme()
 	scheme.AddKnownTypes(gvk.GroupVersion())
