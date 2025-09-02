@@ -19,11 +19,11 @@ func Test_breaker_Do(t *testing.T) {
 		wantErr bool
 	}{{
 		name:    "empty",
-		subject: NewBreaker("", nil),
+		subject: NewBreaker("", nil, nil),
 		wantErr: false,
 	}, {
 		name:    "no error",
-		subject: NewBreaker("", nil),
+		subject: NewBreaker("", nil, nil),
 		args: args{
 			inner: func(context.Context) error {
 				return nil
@@ -32,7 +32,7 @@ func Test_breaker_Do(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:    "with error",
-		subject: NewBreaker("", nil),
+		subject: NewBreaker("", nil, nil),
 		args: args{
 			inner: func(context.Context) error {
 				return errors.New("foo")
@@ -41,7 +41,7 @@ func Test_breaker_Do(t *testing.T) {
 		wantErr: true,
 	}, {
 		name: "with break",
-		subject: NewBreaker("", func(context.Context) bool {
+		subject: NewBreaker("", nil, func(context.Context) bool {
 			return true
 		}),
 		args: args{

@@ -28,6 +28,7 @@ type MetricsConfig struct {
 	policyChangesMetric metric.Int64Counter
 	clientQueriesMetric metric.Int64Counter
 	kyvernoInfoMetric   metric.Int64Gauge
+	breakerMetrics      *breakerMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -38,10 +39,15 @@ type MetricsConfigManager interface {
 	Config() kconfig.MetricsConfiguration
 	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
+	BreakerMetrics() BreakerMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
 	return m.config
+}
+
+func (m *MetricsConfig) BreakerMetrics() BreakerMetrics {
+	return m.breakerMetrics
 }
 
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
@@ -64,6 +70,9 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 		m.Log.Error(err, "Failed to create instrument, kyverno_info")
 		return err
 	}
+
+	m.breakerMetrics.init(meterProvider)
+
 	initKyvernoInfoMetric(m)
 	return nil
 }

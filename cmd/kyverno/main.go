@@ -774,21 +774,21 @@ func main() {
 							time.Sleep(2 * time.Second)
 							continue
 						}
-						breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+						breaker.ReportsBreaker = breaker.NewBreaker("admission reports", setup.MetricsManager.BreakerMetrics(), ephrCounterFunc(ephrs))
 						return
 					}
 				}()
 				// create a temporary fake breaker until the retrying goroutine succeeds
-				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", setup.MetricsManager.BreakerMetrics(), func(context.Context) bool {
 					return true
 				})
 				// no error has occurred, create a normal breaker
 			} else {
-				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", setup.MetricsManager.BreakerMetrics(), ephrCounterFunc(ephrs))
 			}
 			// admission reports are disabled, create a fake breaker by default
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+			breaker.ReportsBreaker = breaker.NewBreaker("admission reports", setup.MetricsManager.BreakerMetrics(), func(context.Context) bool {
 				return true
 			})
 		}

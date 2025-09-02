@@ -28,8 +28,9 @@ func InitMetrics(
 	var err error
 
 	metricsConfig := MetricsConfig{
-		Log:    logger,
-		config: metricsConfiguration,
+		Log:            logger,
+		config:         metricsConfiguration,
+		breakerMetrics: &breakerMetrics{log: logger.WithName("circuit-breaker")},
 	}
 
 	if disableMetricsExport {
