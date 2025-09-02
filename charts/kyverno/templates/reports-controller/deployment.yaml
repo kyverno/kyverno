@@ -26,6 +26,7 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.reports-controller.labels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ template "kyverno.reports-controller.name" . }}
         {{- with .Values.reportsController.podLabels }}
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
