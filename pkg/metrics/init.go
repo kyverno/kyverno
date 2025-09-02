@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -16,7 +17,7 @@ func InitMetrics(
 	ctx context.Context,
 	disableMetricsExport bool,
 	otelProvider string,
-	metricsAddr string,
+	metricsPort int,
 	otelCollector string,
 	metricsConfiguration config.MetricsConfiguration,
 	transportCreds string,
@@ -28,7 +29,7 @@ func InitMetrics(
 	if !disableMetricsExport {
 		var meterProvider metric.MeterProvider
 		if otelProvider == "grpc" {
-			endpoint := otelCollector + metricsAddr
+			endpoint := fmt.Sprintf("[%s]:%d", otelCollector, metricsPort)
 			meterProvider, err = NewOTLPGRPCConfig(
 				ctx,
 				endpoint,
