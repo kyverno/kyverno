@@ -8,5 +8,5 @@ dependencies:
 - name: openreports
   repository: https://openreports.github.io/reports-api
   version: 0.1.0
-digest: sha256:eecf40518d51d61fed07b15ac41048751d4901be67eec05b1f25849c1b956c39
-generated: "2025-08-15T11:08:07.060929+08:00"
+digest: sha256:67ca35821e96f24c58ac344228fd3641c727dd71cd09bd7ca24b4fbc3879e095
+generated: "2025-08-31T17:19:05.475432+05:30"
