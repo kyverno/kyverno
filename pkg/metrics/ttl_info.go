@@ -19,10 +19,15 @@ func GetTTLInfoMetrics() TTLInfoMetrics {
 
 type TTLInfoMetrics interface {
 	RecordTTLInfo(ctx context.Context, gvr schema.GroupVersionResource, observer metric.Observer)
+	RecordDeletedObject(ctx context.Context, gvr schema.GroupVersionResource, namespace string)
+	RecordTTLFailure(ctx context.Context, gvr schema.GroupVersionResource, namespace string)
 	RegisterCallback(f metric.Callback) (metric.Registration, error)
 }
 
 type ttlInfoMetrics struct {
+	deletedObjectsTotal metric.Int64Counter
+	ttlFailureTotal     metric.Int64Counter
+
 	infoMetric metric.Int64ObservableGauge
 	meter      metric.Meter
 	callback   metric.Callback
@@ -33,6 +38,21 @@ type ttlInfoMetrics struct {
 func (m *ttlInfoMetrics) init(meterProvider metric.MeterProvider) {
 	var err error
 	meter := meterProvider.Meter(MeterName)
+
+	m.deletedObjectsTotal, err = meter.Int64Counter(
+		"kyverno_ttl_controller_deletedobjects",
+		metric.WithDescription("can be used to track number of deleted objects by the ttl resource controller."),
+	)
+	if err != nil {
+		m.logger.Error(err, "Failed to create instrument, ttl_controller_deletedobjects_total")
+	}
+	m.ttlFailureTotal, err = meter.Int64Counter(
+		"kyverno_ttl_controller_errors",
+		metric.WithDescription("can be used to track number of ttl cleanup failures."),
+	)
+	if err != nil {
+		m.logger.Error(err, "Failed to create instrument, ttl_controller_errors_total")
+	}
 
 	m.infoMetric, err = meter.Int64ObservableGauge(
 		"kyverno_ttl_controller_info",
@@ -60,4 +80,26 @@ func (m *ttlInfoMetrics) RecordTTLInfo(ctx context.Context, gvr schema.GroupVers
 func (m *ttlInfoMetrics) RegisterCallback(f metric.Callback) (metric.Registration, error) {
 	m.callback = f
 	return m.meter.RegisterCallback(f, m.infoMetric)
+}
+
+func (m *ttlInfoMetrics) RecordDeletedObject(ctx context.Context, gvr schema.GroupVersionResource, namespace string) {
+	labels := []attribute.KeyValue{
+		attribute.String("resource_namespace", namespace),
+		attribute.String("resource_group", gvr.Group),
+		attribute.String("resource_version", gvr.Version),
+		attribute.String("resource_resource", gvr.Resource),
+	}
+
+	m.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+}
+
+func (m *ttlInfoMetrics) RecordTTLFailure(ctx context.Context, gvr schema.GroupVersionResource, namespace string) {
+	labels := []attribute.KeyValue{
+		attribute.String("resource_namespace", namespace),
+		attribute.String("resource_group", gvr.Group),
+		attribute.String("resource_version", gvr.Version),
+		attribute.String("resource_resource", gvr.Resource),
+	}
+
+	m.ttlFailureTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 }
