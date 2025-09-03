@@ -12,6 +12,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func GetCleanupMetrics() CleanupMetrics {
+	if metricsConfig == nil {
+		return nil
+	}
+
+	return metricsConfig.CleanupMetrics()
+}
+
 type CleanupMetrics interface {
 	RecordDeletedObject(ctx context.Context, kind, namespace string, policy kyvernov2.CleanupPolicyInterface, deletionPropagation *metav1.DeletionPropagation)
 	RecordCleanupFailure(ctx context.Context, kind, namespace string, policy kyvernov2.CleanupPolicyInterface, deletionPropagation *metav1.DeletionPropagation)

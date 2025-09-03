@@ -12,6 +12,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func GetDeletingMetrics() DeletingMetrics {
+	if metricsConfig == nil {
+		return nil
+	}
+
+	return metricsConfig.DeletingMetrics()
+}
+
 type DeletingMetrics interface {
 	RecordDeletedObject(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation)
 	RecordDeletingFailure(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation)

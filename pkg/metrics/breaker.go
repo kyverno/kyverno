@@ -8,6 +8,14 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
+func GetBreakerMetrics() BreakerMetrics {
+	if metricsConfig == nil {
+		return nil
+	}
+
+	return metricsConfig.BreakerMetrics()
+}
+
 type breakerMetrics struct {
 	drops metric.Int64Counter
 	total metric.Int64Counter

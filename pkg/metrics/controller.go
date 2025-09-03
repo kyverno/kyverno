@@ -8,6 +8,14 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
+func GetControllerMetrics() ControllerMetrics {
+	if metricsConfig == nil {
+		return nil
+	}
+
+	return metricsConfig.ControllerMetrics()
+}
+
 type ControllerMetrics interface {
 	RecordReconcileIncrease(ctx context.Context, controllerName string)
 	RecordRequeueIncrease(ctx context.Context, controllerName string, requeues int)

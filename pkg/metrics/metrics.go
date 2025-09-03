@@ -35,38 +35,6 @@ func SetManager(manager MetricsConfigManager) {
 	metricsConfig = manager
 }
 
-func GetBreakerMetrics() BreakerMetrics {
-	if metricsConfig == nil {
-		return nil
-	}
-
-	return metricsConfig.BreakerMetrics()
-}
-
-func GetControllerMetrics() ControllerMetrics {
-	if metricsConfig == nil {
-		return nil
-	}
-
-	return metricsConfig.ControllerMetrics()
-}
-
-func GetCleanupMetrics() CleanupMetrics {
-	if metricsConfig == nil {
-		return nil
-	}
-
-	return metricsConfig.CleanupMetrics()
-}
-
-func GetDeletingMetrics() DeletingMetrics {
-	if metricsConfig == nil {
-		return nil
-	}
-
-	return metricsConfig.DeletingMetrics()
-}
-
 type MetricsConfig struct {
 	// instruments
 	policyChangesMetric metric.Int64Counter
@@ -76,6 +44,8 @@ type MetricsConfig struct {
 	controllerMetrics   *controllerMetrics
 	cleanupMetrics      *cleanupMetrics
 	deletingMetrics     *deletingMetrics
+	policyRuleMetrics   *policyRuleMetrics
+	ttlInfoMetrics      *ttlInfoMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -90,6 +60,8 @@ type MetricsConfigManager interface {
 	ControllerMetrics() ControllerMetrics
 	CleanupMetrics() CleanupMetrics
 	DeletingMetrics() DeletingMetrics
+	PolicyRuleMetrics() PolicyRuleMetrics
+	TTLInfoMetrics() TTLInfoMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -110,6 +82,14 @@ func (m *MetricsConfig) CleanupMetrics() CleanupMetrics {
 
 func (m *MetricsConfig) DeletingMetrics() DeletingMetrics {
 	return m.deletingMetrics
+}
+
+func (m *MetricsConfig) PolicyRuleMetrics() PolicyRuleMetrics {
+	return m.policyRuleMetrics
+}
+
+func (m *MetricsConfig) TTLInfoMetrics() TTLInfoMetrics {
+	return m.ttlInfoMetrics
 }
 
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
@@ -137,6 +117,8 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.controllerMetrics.init(meterProvider)
 	m.cleanupMetrics.init(meterProvider)
 	m.deletingMetrics.init(meterProvider)
+	m.policyRuleMetrics.init(meterProvider)
+	m.ttlInfoMetrics.init(meterProvider)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -275,6 +257,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		breakerMetrics:    &breakerMetrics{logger: logger.WithName("circuit-breaker")},
 		controllerMetrics: &controllerMetrics{logger: logger.WithName("controller")},
 		deletingMetrics:   &deletingMetrics{logger: logger.WithName("deleting")},
+		policyRuleMetrics: &policyRuleMetrics{logger: logger.WithName("policy-rule")},
 	}
 
 	return config
