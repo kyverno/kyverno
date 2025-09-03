@@ -47,6 +47,9 @@ type MetricsConfig struct {
 	policyRuleMetrics   *policyRuleMetrics
 	ttlInfoMetrics      *ttlInfoMetrics
 	policyEngineMetrics *policyEngineMetrics
+	eventMetrics        *eventMetrics
+	admissionMetrics    *admissionMetrics
+	httpMetrics         *httpMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -64,6 +67,9 @@ type MetricsConfigManager interface {
 	PolicyRuleMetrics() PolicyRuleMetrics
 	TTLInfoMetrics() TTLInfoMetrics
 	PolicyEngineMetrics() PolicyEngineMetrics
+	EventMetrics() EventMetrics
+	AdmissionMetrics() AdmissionMetrics
+	HTTPMetrics() HTTPMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -98,6 +104,18 @@ func (m *MetricsConfig) PolicyEngineMetrics() PolicyEngineMetrics {
 	return m.policyEngineMetrics
 }
 
+func (m *MetricsConfig) EventMetrics() EventMetrics {
+	return m.eventMetrics
+}
+
+func (m *MetricsConfig) AdmissionMetrics() AdmissionMetrics {
+	return m.admissionMetrics
+}
+
+func (m *MetricsConfig) HTTPMetrics() HTTPMetrics {
+	return m.httpMetrics
+}
+
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
@@ -126,6 +144,9 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.policyRuleMetrics.init(meterProvider)
 	m.ttlInfoMetrics.init(meterProvider)
 	m.policyEngineMetrics.init(meterProvider)
+	m.eventMetrics.init(meterProvider)
+	m.admissionMetrics.init(meterProvider)
+	m.httpMetrics.init(meterProvider)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -268,6 +289,9 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		policyRuleMetrics:   &policyRuleMetrics{logger: logger.WithName("policy-rule")},
 		ttlInfoMetrics:      &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
 		policyEngineMetrics: &policyEngineMetrics{logger: logger.WithName("policy-engine")},
+		eventMetrics:        &eventMetrics{logger: logger.WithName("event")},
+		admissionMetrics:    &admissionMetrics{logger: logger.WithName("admission")},
+		httpMetrics:         &httpMetrics{logger: logger.WithName("http")},
 	}
 
 	return config
