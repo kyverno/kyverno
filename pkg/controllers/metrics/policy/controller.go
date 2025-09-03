@@ -16,8 +16,7 @@ import (
 )
 
 type controller struct {
-	metricsConfig metrics.MetricsConfigManager
-	ruleInfo      metrics.PolicyRuleMetrics
+	ruleInfo metrics.PolicyRuleMetrics
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
