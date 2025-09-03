@@ -31,9 +31,8 @@ type AdmissionMetrics interface {
 	RecordRequest(ctx context.Context, allowed bool, namespace string, operation admissionv1.Operation, gvk schema.GroupVersionKind, startTime time.Time, attrs ...attribute.KeyValue)
 }
 
-func (m *admissionMetrics) init(meterProvider metric.MeterProvider) {
+func (m *admissionMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.requestsMetric, err = meter.Int64Counter(
 		"kyverno_admission_requests",
@@ -52,6 +51,10 @@ func (m *admissionMetrics) init(meterProvider metric.MeterProvider) {
 }
 
 func (m *admissionMetrics) RecordRequest(ctx context.Context, allowed bool, namespace string, operation admissionv1.Operation, gvk schema.GroupVersionKind, startTime time.Time, attrs ...attribute.KeyValue) {
+	if m.durationMetric == nil || m.requestsMetric == nil {
+		return
+	}
+
 	if !GetManager().Config().CheckNamespace(namespace) {
 		return
 	}

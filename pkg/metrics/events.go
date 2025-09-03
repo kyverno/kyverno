@@ -25,9 +25,8 @@ type EventMetrics interface {
 	RecordDrop(ctx context.Context)
 }
 
-func (m *eventMetrics) init(meterProvider metric.MeterProvider) {
+func (m *eventMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.dropped, err = meter.Int64Counter(
 		"kyverno_events_dropped",
@@ -39,5 +38,9 @@ func (m *eventMetrics) init(meterProvider metric.MeterProvider) {
 }
 
 func (m *eventMetrics) RecordDrop(ctx context.Context) {
+	if m.dropped == nil {
+		return
+	}
+
 	m.dropped.Add(ctx, 1)
 }

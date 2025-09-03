@@ -32,9 +32,8 @@ type deletingMetrics struct {
 	logger logr.Logger
 }
 
-func (m *deletingMetrics) init(meterProvider metric.MeterProvider) {
+func (m *deletingMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.deletedObjectsTotal, err = meter.Int64Counter(
 		"kyverno_deleting_controller_deletedobjects",
@@ -53,6 +52,10 @@ func (m *deletingMetrics) init(meterProvider metric.MeterProvider) {
 }
 
 func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation) {
+	if m.deletedObjectsTotal == nil {
+		return
+	}
+
 	labels := []attribute.KeyValue{
 		attribute.String("policy_type", policy.GetKind()),
 		attribute.String("policy_namespace", policy.GetNamespace()),
@@ -72,6 +75,10 @@ func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, kind, namespa
 }
 
 func (m *deletingMetrics) RecordDeletingFailure(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation) {
+	if m.deletingFailuresTotal == nil {
+		return
+	}
+
 	labels := []attribute.KeyValue{
 		attribute.String("policy_type", policy.GetKind()),
 		attribute.String("policy_namespace", policy.GetNamespace()),

@@ -29,9 +29,8 @@ type HTTPMetrics interface {
 	RecordRequest(ctx context.Context, method string, uri string, startTime time.Time, attrs ...attribute.KeyValue)
 }
 
-func (m *httpMetrics) init(meterProvider metric.MeterProvider) {
+func (m *httpMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.requestsMetric, err = meter.Int64Counter(
 		"kyverno_http_requests",
@@ -50,6 +49,10 @@ func (m *httpMetrics) init(meterProvider metric.MeterProvider) {
 }
 
 func (m *httpMetrics) RecordRequest(ctx context.Context, method string, uri string, startTime time.Time, attrs ...attribute.KeyValue) {
+	if m.durationMetric == nil || m.requestsMetric == nil {
+		return
+	}
+
 	attributes := append([]attribute.KeyValue{
 		semconv.HTTPMethodKey.String(method),
 		semconv.HTTPURLKey.String(uri),

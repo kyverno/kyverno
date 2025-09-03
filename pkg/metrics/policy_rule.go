@@ -33,9 +33,8 @@ type policyRuleMetrics struct {
 	logger logr.Logger
 }
 
-func (m *policyRuleMetrics) init(meterProvider metric.MeterProvider) {
+func (m *policyRuleMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.infoMetric, err = meter.Float64ObservableGauge(
 		"kyverno_policy_rule_info_total",
@@ -48,11 +47,15 @@ func (m *policyRuleMetrics) init(meterProvider metric.MeterProvider) {
 	m.meter = meter
 
 	if m.callback != nil {
-		meter.RegisterCallback(m.callback, m.infoMetric)
+		m.meter.RegisterCallback(m.callback, m.infoMetric)
 	}
 }
 
 func (m *policyRuleMetrics) RecordPolicyRuleInfo(ctx context.Context, policy kyvernov1.PolicyInterface, observer metric.Observer) error {
+	if m.infoMetric == nil {
+		return nil
+	}
+
 	name, namespace, policyType, backgroundMode, validationMode, err := GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -83,6 +86,10 @@ func (m *policyRuleMetrics) RecordPolicyRuleInfo(ctx context.Context, policy kyv
 }
 
 func (m *policyRuleMetrics) RegisterCallback(f metric.Callback) (metric.Registration, error) {
+	if m.meter == nil {
+		return nil, nil
+	}
+
 	m.callback = f
 	return m.meter.RegisterCallback(f, m.infoMetric)
 }

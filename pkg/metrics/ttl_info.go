@@ -35,9 +35,8 @@ type ttlInfoMetrics struct {
 	logger logr.Logger
 }
 
-func (m *ttlInfoMetrics) init(meterProvider metric.MeterProvider) {
+func (m *ttlInfoMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.deletedObjectsTotal, err = meter.Int64Counter(
 		"kyverno_ttl_controller_deletedobjects",
@@ -78,11 +77,19 @@ func (m *ttlInfoMetrics) RecordTTLInfo(ctx context.Context, gvr schema.GroupVers
 }
 
 func (m *ttlInfoMetrics) RegisterCallback(f metric.Callback) (metric.Registration, error) {
+	if m.meter == nil {
+		return nil, nil
+	}
+
 	m.callback = f
 	return m.meter.RegisterCallback(f, m.infoMetric)
 }
 
 func (m *ttlInfoMetrics) RecordDeletedObject(ctx context.Context, gvr schema.GroupVersionResource, namespace string) {
+	if m.deletedObjectsTotal == nil {
+		return
+	}
+
 	labels := []attribute.KeyValue{
 		attribute.String("resource_namespace", namespace),
 		attribute.String("resource_group", gvr.Group),
@@ -94,6 +101,10 @@ func (m *ttlInfoMetrics) RecordDeletedObject(ctx context.Context, gvr schema.Gro
 }
 
 func (m *ttlInfoMetrics) RecordTTLFailure(ctx context.Context, gvr schema.GroupVersionResource, namespace string) {
+	if m.ttlFailureTotal == nil {
+		return
+	}
+
 	labels := []attribute.KeyValue{
 		attribute.String("resource_namespace", namespace),
 		attribute.String("resource_group", gvr.Group),

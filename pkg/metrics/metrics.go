@@ -119,6 +119,10 @@ func (m *MetricsConfig) HTTPMetrics() HTTPMetrics {
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
+	if meter == nil {
+		return nil
+	}
+
 	m.policyChangesMetric, err = meter.Int64Counter("kyverno_policy_changes", metric.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes")
@@ -137,16 +141,16 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 		return err
 	}
 
-	m.breakerMetrics.init(meterProvider)
-	m.controllerMetrics.init(meterProvider)
-	m.cleanupMetrics.init(meterProvider)
-	m.deletingMetrics.init(meterProvider)
-	m.policyRuleMetrics.init(meterProvider)
-	m.ttlInfoMetrics.init(meterProvider)
-	m.policyEngineMetrics.init(meterProvider)
-	m.eventMetrics.init(meterProvider)
-	m.admissionMetrics.init(meterProvider)
-	m.httpMetrics.init(meterProvider)
+	m.breakerMetrics.init(meter)
+	m.controllerMetrics.init(meter)
+	m.cleanupMetrics.init(meter)
+	m.deletingMetrics.init(meter)
+	m.policyRuleMetrics.init(meter)
+	m.ttlInfoMetrics.init(meter)
+	m.policyEngineMetrics.init(meter)
+	m.eventMetrics.init(meter)
+	m.admissionMetrics.init(meter)
+	m.httpMetrics.init(meter)
 
 	initKyvernoInfoMetric(m)
 	return nil

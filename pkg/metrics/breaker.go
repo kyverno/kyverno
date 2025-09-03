@@ -28,9 +28,8 @@ type BreakerMetrics interface {
 	RecordDrop(ctx context.Context, name string)
 }
 
-func (m *breakerMetrics) init(meterProvider metric.MeterProvider) {
+func (m *breakerMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.drops, err = meter.Int64Counter(
 		"kyverno_breaker_drops",
@@ -49,9 +48,17 @@ func (m *breakerMetrics) init(meterProvider metric.MeterProvider) {
 }
 
 func (m *breakerMetrics) RecordTotalIncrease(ctx context.Context, breakerName string) {
+	if m.total == nil {
+		return
+	}
+
 	m.total.Add(ctx, 1, metric.WithAttributes(attribute.String("circuit_name", breakerName)))
 }
 
 func (m *breakerMetrics) RecordDrop(ctx context.Context, breakerName string) {
+	if m.drops == nil {
+		return
+	}
+
 	m.drops.Add(ctx, 1, metric.WithAttributes(attribute.String("circuit_name", breakerName)))
 }

@@ -30,9 +30,8 @@ type controllerMetrics struct {
 	logger logr.Logger
 }
 
-func (m *controllerMetrics) init(meterProvider metric.MeterProvider) {
+func (m *controllerMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.reconcileTotal, err = meter.Int64Counter(
 		"kyverno_controller_reconcile",
@@ -55,13 +54,25 @@ func (m *controllerMetrics) init(meterProvider metric.MeterProvider) {
 }
 
 func (m *controllerMetrics) RecordReconcileIncrease(ctx context.Context, controllerName string) {
+	if m.reconcileTotal == nil {
+		return
+	}
+
 	m.reconcileTotal.Add(ctx, 1, metric.WithAttributes(attribute.String("controller_name", controllerName)))
 }
 
 func (m *controllerMetrics) RecordRequeueIncrease(ctx context.Context, controllerName string, requeues int) {
+	if m.requeueTotal == nil {
+		return
+	}
+
 	m.requeueTotal.Add(ctx, 1, metric.WithAttributes(attribute.String("controller_name", controllerName), attribute.Int("num_requeues", requeues)))
 }
 
 func (m *controllerMetrics) RecordQueueDrop(ctx context.Context, controllerName string) {
+	if m.queueDropTotal == nil {
+		return
+	}
+
 	m.queueDropTotal.Add(ctx, 1, metric.WithAttributes(attribute.String("controller_name", controllerName)))
 }

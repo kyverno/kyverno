@@ -39,9 +39,8 @@ type PolicyEngineMetrics interface {
 	)
 }
 
-func (m *policyEngineMetrics) init(meterProvider metric.MeterProvider) {
+func (m *policyEngineMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.resultCounter, err = meter.Int64Counter(
 		"kyverno_policy_results",
@@ -70,6 +69,10 @@ func (m *policyEngineMetrics) RecordResponse(
 	admissionInfo kyvernov2.RequestInfo,
 	response engineapi.EngineResponse,
 ) {
+	if m.resultCounter == nil || m.durationHistogram == nil {
+		return
+	}
+
 	policy := response.Policy().AsKyvernoPolicy()
 
 	name, namespace, policyType, backgroundMode, validationMode, err := GetPolicyInfos(policy)

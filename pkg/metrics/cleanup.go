@@ -32,9 +32,8 @@ type cleanupMetrics struct {
 	logger logr.Logger
 }
 
-func (m *cleanupMetrics) init(meterProvider metric.MeterProvider) {
+func (m *cleanupMetrics) init(meter metric.Meter) {
 	var err error
-	meter := meterProvider.Meter(MeterName)
 
 	m.deletedObjectsTotal, err = meter.Int64Counter(
 		"kyverno_cleanup_controller_deletedobjects",
@@ -53,6 +52,10 @@ func (m *cleanupMetrics) init(meterProvider metric.MeterProvider) {
 }
 
 func (m *cleanupMetrics) RecordDeletedObject(ctx context.Context, kind, namespace string, policy kyvernov2.CleanupPolicyInterface, deletionPropagation *metav1.DeletionPropagation) {
+	if m.deletedObjectsTotal == nil {
+		return
+	}
+
 	labels := []attribute.KeyValue{
 		attribute.String("policy_type", policy.GetKind()),
 		attribute.String("policy_namespace", policy.GetNamespace()),
@@ -72,6 +75,10 @@ func (m *cleanupMetrics) RecordDeletedObject(ctx context.Context, kind, namespac
 }
 
 func (m *cleanupMetrics) RecordCleanupFailure(ctx context.Context, kind, namespace string, policy kyvernov2.CleanupPolicyInterface, deletionPropagation *metav1.DeletionPropagation) {
+	if m.cleanupFailuresTotal == nil {
+		return
+	}
+
 	labels := []attribute.KeyValue{
 		attribute.String("policy_type", policy.GetKind()),
 		attribute.String("policy_namespace", policy.GetNamespace()),
