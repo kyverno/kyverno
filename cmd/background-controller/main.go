@@ -223,7 +223,6 @@ func main() {
 			signalCtx,
 			setup.Logger,
 			setup.Configuration,
-			setup.MetricsConfiguration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
 			setup.RegistryClient,

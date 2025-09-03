@@ -46,6 +46,7 @@ type MetricsConfig struct {
 	deletingMetrics     *deletingMetrics
 	policyRuleMetrics   *policyRuleMetrics
 	ttlInfoMetrics      *ttlInfoMetrics
+	policyEngineMetrics *policyEngineMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -62,6 +63,7 @@ type MetricsConfigManager interface {
 	DeletingMetrics() DeletingMetrics
 	PolicyRuleMetrics() PolicyRuleMetrics
 	TTLInfoMetrics() TTLInfoMetrics
+	PolicyEngineMetrics() PolicyEngineMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -92,6 +94,10 @@ func (m *MetricsConfig) TTLInfoMetrics() TTLInfoMetrics {
 	return m.ttlInfoMetrics
 }
 
+func (m *MetricsConfig) PolicyEngineMetrics() PolicyEngineMetrics {
+	return m.policyEngineMetrics
+}
+
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
@@ -119,6 +125,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.deletingMetrics.init(meterProvider)
 	m.policyRuleMetrics.init(meterProvider)
 	m.ttlInfoMetrics.init(meterProvider)
+	m.policyEngineMetrics.init(meterProvider)
 
 	initKyvernoInfoMetric(m)
 	return nil
