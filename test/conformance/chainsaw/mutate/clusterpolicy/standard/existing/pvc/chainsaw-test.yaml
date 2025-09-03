@@ -1,0 +1,34 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pvc-mutation
+spec:
+  steps:
+  - name: create-rbac
+    try:
+    - apply: 
+        file: rbac.yaml
+  - name: create-pvc
+    try: 
+    - apply: 
+        file: pvc.yaml
+
+  - name: create-policy
+    try:
+    - apply:
+        file: policy.yaml
+  
+  - name: assert-policy
+    try:
+    - assert:
+        file: policy.yaml
+
+  - name: create-pod
+    try:
+    - apply:
+        file: pod.yaml
+  
+  - name: assert-pvc
+    try:
+    - assert:
+        file: pvc-patched.yaml
