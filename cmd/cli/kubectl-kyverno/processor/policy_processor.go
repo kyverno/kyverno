@@ -48,6 +48,7 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
@@ -70,6 +71,7 @@ type PolicyProcessor struct {
 	MutateLogPath                     string
 	MutateLogPathIsDir                bool
 	Variables                         *variables.Variables
+	ParameterResources                []runtime.Object
 	// TODO
 	ContextPath               string
 	Cluster                   bool
@@ -239,8 +241,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		} else {
+			var user authenticationv1.UserInfo
+			if p.UserInfo != nil {
+				user = p.UserInfo.AdmissionUserInfo
+			}
 			gvr := mapping.Resource
-
 			for _, mapPolicy := range p.MutatingAdmissionPolicies {
 				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
 				for _, b := range p.MutatingAdmissionPolicyBindings {
@@ -248,7 +253,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						data.AddBinding(b)
 					}
 				}
-				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
+				for _, param := range p.ParameterResources {
+					data.AddParam(param)
+				}
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue
@@ -256,6 +264,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if mutateResponse.IsEmpty() {
 					continue
 				}
+				// its fine to just error here because this function just logs the error
 				if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
 					log.Log.Error(err, "failed to log MAP mutation")
 				}
@@ -342,6 +351,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		}
 		gvr := mapping.Resource
+		var user authenticationv1.UserInfo
+		if p.UserInfo != nil {
+			user = p.UserInfo.AdmissionUserInfo
+		}
 		for _, policy := range p.ValidatingAdmissionPolicies {
 			policyData := engineapi.NewValidatingAdmissionPolicyData(&policy)
 			for _, binding := range p.ValidatingAdmissionPolicyBindings {
@@ -349,7 +362,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					policyData.AddBinding(binding)
 				}
 			}
-			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster)
+			for _, param := range p.ParameterResources {
+				policyData.AddParam(param)
+			}
+			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster)
 			vapResponses = append(vapResponses, validateResponse)
 			p.Rc.addValidatingAdmissionResponse(validateResponse)
 		}
