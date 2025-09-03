@@ -1,0 +1,12 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: vpol-allow-specific-values-binding
+  ownerReferences:
+  - apiVersion: policies.kyverno.io/v1alpha1
+    kind: ValidatingPolicy
+    name: allow-specific-values
+spec:
+  policyName: vpol-allow-specific-values
+  validationActions:
+  - Deny
