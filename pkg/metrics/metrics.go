@@ -23,9 +23,7 @@ const (
 	MeterName = "kyverno"
 )
 
-var (
-	metricsConfig MetricsConfigManager
-)
+var metricsConfig MetricsConfigManager
 
 func GetManager() MetricsConfigManager {
 	return metricsConfig
