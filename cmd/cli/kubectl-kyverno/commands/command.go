@@ -3,7 +3,6 @@ package commands
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/completion"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/docs"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/fix"
@@ -28,7 +27,6 @@ func RootCommand(experimental bool) *cobra.Command {
 	}
 	cmd.AddCommand(
 		apply.Command(),
-		completion.Command(),
 		create.Command(),
 		docs.Command(cmd),
 		jp.Command(),
