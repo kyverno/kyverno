@@ -25,16 +25,15 @@ import (
 )
 
 type engine struct {
-	configuration        config.Configuration
-	metricsConfiguration config.MetricsConfiguration
-	jp                   jmespath.Interface
-	client               engineapi.Client
-	isCluster            bool
-	rclientFactory       engineapi.RegistryClientFactory
-	ivCache              imageverifycache.Client
-	contextLoader        engineapi.ContextLoaderFactory
-	exceptionSelector    engineapi.PolicyExceptionSelector
-	metrics              metrics.PolicyEngineMetrics
+	configuration     config.Configuration
+	jp                jmespath.Interface
+	client            engineapi.Client
+	isCluster         bool
+	rclientFactory    engineapi.RegistryClientFactory
+	ivCache           imageverifycache.Client
+	contextLoader     engineapi.ContextLoaderFactory
+	exceptionSelector engineapi.PolicyExceptionSelector
+	metrics           metrics.PolicyEngineMetrics
 }
 
 type handlerFactory = func() (handlers.Handler, error)

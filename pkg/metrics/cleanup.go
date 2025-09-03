@@ -4,11 +4,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

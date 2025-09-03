@@ -31,7 +31,6 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	waitGroup *wait.Group,
 ) {
-
 	c := controller{
 		ruleInfo:   metrics.GetPolicyInfoMetrics(),
 		cpolLister: cpolInformer.Lister(),

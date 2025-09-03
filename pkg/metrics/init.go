@@ -34,7 +34,7 @@ func InitMetrics(
 	if disableMetricsExport {
 		err = metricsConfig.initializeMetrics(otel.GetMeterProvider())
 		if err != nil {
-			logger.Error(err, "Failed initializing metrics")
+			logger.Error(err, "failed initializing metrics")
 			return nil, nil, nil, err
 		}
 
@@ -74,7 +74,7 @@ func InitMetrics(
 
 	err = metricsConfig.initializeMetrics(otel.GetMeterProvider())
 	if err != nil {
-		logger.Error(err, "Failed initializing metrics")
+		logger.Error(err, "failed initializing metrics")
 		return nil, nil, nil, err
 	}
 
@@ -85,12 +85,14 @@ func InitMetrics(
 				select {
 				case <-ticker.C:
 					if p, ok := otel.GetMeterProvider().(*sdkmetric.MeterProvider); ok {
-						p.Shutdown(ctx)
+						if err := p.Shutdown(ctx); err != nil {
+							logger.Error(err, "failed to shutdown MeterProvider")
+						}
 					}
 
 					meterProvider, err := NewPrometheusConfig(ctx, logger, metricsConfiguration)
 					if err != nil {
-						logger.Error(err, "Failed to re-create Prometheus MeterProvider")
+						logger.Error(err, "failed to re-create MeterProvider")
 						continue
 					}
 
@@ -98,7 +100,7 @@ func InitMetrics(
 
 					err = metricsConfig.initializeMetrics(meterProvider)
 					if err != nil {
-						logger.Error(err, "Failed re-initializing metrics")
+						logger.Error(err, "failed re-initializing metrics")
 						continue
 					}
 

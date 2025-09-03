@@ -26,9 +26,7 @@ type PolicyRuleMetrics interface {
 type policyRuleMetrics struct {
 	infoMetric metric.Float64ObservableGauge
 	meter      metric.Meter
-
-	callback    metric.Callback
-	instruments []metric.Observable
+	callback   metric.Callback
 
 	logger logr.Logger
 }
@@ -47,7 +45,9 @@ func (m *policyRuleMetrics) init(meter metric.Meter) {
 	m.meter = meter
 
 	if m.callback != nil {
-		m.meter.RegisterCallback(m.callback, m.infoMetric)
+		if _, err := m.meter.RegisterCallback(m.callback, m.infoMetric); err != nil {
+			m.logger.Error(err, "failed to register callback for policy rule info metric")
+		}
 	}
 }
 

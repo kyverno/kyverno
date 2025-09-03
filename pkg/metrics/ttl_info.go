@@ -64,7 +64,9 @@ func (m *ttlInfoMetrics) init(meter metric.Meter) {
 	m.meter = meter
 
 	if m.callback != nil {
-		meter.RegisterCallback(m.callback, m.infoMetric)
+		if _, err := m.meter.RegisterCallback(m.callback, m.infoMetric); err != nil {
+			m.logger.Error(err, "failed to register callback for ttl info metric")
+		}
 	}
 }
 
