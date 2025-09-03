@@ -259,12 +259,15 @@ func initKyvernoInfoMetric(m *MetricsConfig) {
 
 func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.MetricsConfiguration) *MetricsConfig {
 	config := &MetricsConfig{
-		Log:               logger,
-		config:            metricsConfiguration,
-		breakerMetrics:    &breakerMetrics{logger: logger.WithName("circuit-breaker")},
-		controllerMetrics: &controllerMetrics{logger: logger.WithName("controller")},
-		deletingMetrics:   &deletingMetrics{logger: logger.WithName("deleting")},
-		policyRuleMetrics: &policyRuleMetrics{logger: logger.WithName("policy-rule")},
+		Log:                 logger,
+		config:              metricsConfiguration,
+		breakerMetrics:      &breakerMetrics{logger: logger.WithName("circuit-breaker")},
+		controllerMetrics:   &controllerMetrics{logger: logger.WithName("controller")},
+		cleanupMetrics:      &cleanupMetrics{logger: logger.WithName("cleanup")},
+		deletingMetrics:     &deletingMetrics{logger: logger.WithName("deleting")},
+		policyRuleMetrics:   &policyRuleMetrics{logger: logger.WithName("policy-rule")},
+		ttlInfoMetrics:      &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
+		policyEngineMetrics: &policyEngineMetrics{logger: logger.WithName("policy-engine")},
 	}
 
 	return config
