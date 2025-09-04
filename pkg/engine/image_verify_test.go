@@ -303,9 +303,8 @@ var signaturePayloads = [][]byte{
 }
 
 var (
-	cfg        = config.NewDefaultConfiguration(false)
-	metricsCfg = config.NewDefaultMetricsConfiguration()
-	jp         = jmespath.New(cfg)
+	cfg = config.NewDefaultConfiguration(false)
+	jp  = jmespath.New(cfg)
 )
 
 func testVerifyAndPatchImages(
@@ -317,7 +316,6 @@ func testVerifyAndPatchImages(
 ) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	e := NewEngine(
 		cfg,
-		metricsCfg,
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
@@ -1053,7 +1051,6 @@ func testImageVerifyCache(
 ) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	e := NewEngine(
 		cfg,
-		metricsCfg,
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
