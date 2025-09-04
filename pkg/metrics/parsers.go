@@ -116,7 +116,6 @@ func GetCELPolicyInfos(policy v1alpha1.GenericPolicy) (string, string, PolicyBac
 		}
 	case *v1alpha1.GeneratingPolicy:
 		policyType = "Generating"
-		backgroundMode = BackgroundTrue
 	}
 
 	return name, policyType, backgroundMode, validationMode
