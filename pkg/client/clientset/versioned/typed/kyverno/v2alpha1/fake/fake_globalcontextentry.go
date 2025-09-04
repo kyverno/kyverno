@@ -19,7 +19,10 @@ limitations under the License.
 package fake
 
 import (
+	"unsafe"
+
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
@@ -40,12 +43,24 @@ func newFakeGlobalContextEntries(fake *FakeKyvernoV2alpha1) kyvernov2alpha1.Glob
 			func() *v2alpha1.GlobalContextEntry { return &v2alpha1.GlobalContextEntry{} },
 			func() *v2alpha1.GlobalContextEntryList { return &v2alpha1.GlobalContextEntryList{} },
 			func(dst, src *v2alpha1.GlobalContextEntryList) { dst.ListMeta = src.ListMeta },
-			func(list *v2alpha1.GlobalContextEntryList) []*v2alpha1.GlobalContextEntry {
-				return gentype.ToPointerSlice(list.Items)
-			},
-			func(list *v2alpha1.GlobalContextEntryList, items []*v2alpha1.GlobalContextEntry) {
-				list.Items = gentype.FromPointerSlice(items)
-			},
+					func(list *v2alpha1.GlobalContextEntryList) []*v2alpha1.GlobalContextEntry {
+			// Since GlobalContextEntryList is an alias to v2beta1.GlobalContextEntryList,
+			// list.Items is []v2beta1.GlobalContextEntry, but we need []*v2alpha1.GlobalContextEntry
+			// The struct layouts are identical, so we can use unsafe pointer conversion
+			items := make([]*v2alpha1.GlobalContextEntry, len(list.Items))
+			for i := range list.Items {
+				items[i] = (*v2alpha1.GlobalContextEntry)(unsafe.Pointer(&list.Items[i]))
+			}
+			return items
+		},
+		func(list *v2alpha1.GlobalContextEntryList, items []*v2alpha1.GlobalContextEntry) {
+			// Convert back: create []v2beta1.GlobalContextEntry from []*v2alpha1.GlobalContextEntry
+			betaItems := make([]v2beta1.GlobalContextEntry, len(items))
+			for i, item := range items {
+				betaItems[i] = *(*v2beta1.GlobalContextEntry)(unsafe.Pointer(item))
+			}
+			list.Items = betaItems
+		},
 		),
 		fake,
 	}
