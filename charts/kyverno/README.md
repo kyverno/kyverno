@@ -293,6 +293,7 @@ The chart values are organised per component.
 | config.preserve | bool | `true` | Preserve the configmap settings during upgrade. |
 | config.name | string | `nil` | The configmap name (required if `create` is `false`). |
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
+| config.defaultAllowExistingViolations | bool | `true` | Default value for allowExistingViolations in validation rules. When not explicitly set in a policy, this value will be used. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
 | config.excludeGroups | list | `["system:nodes"]` | Exclude groups |

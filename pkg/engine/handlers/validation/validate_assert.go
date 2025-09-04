@@ -124,7 +124,7 @@ func (h validateAssertHandler) Process(
 
 		// process the old object for UPDATE admission requests in case of enforce policies
 		if action.Enforce() {
-			allowExisitingViolations := rule.HasValidateAllowExistingViolations()
+			allowExisitingViolations := rule.HasValidateAllowExistingViolations(policyContext.Config())
 			if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
 				errs, err := validateOldObject(ctx, logger, policyContext, rule, payload, bindings)
 				if err != nil {
