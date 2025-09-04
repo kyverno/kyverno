@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
@@ -38,6 +39,8 @@ var (
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
 	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
+	polexv1alpha1      = kyvernov2.SchemeGroupVersion.WithKind("PolicyException")
+	polexcelv1alpha1   = policiesv1alpha1.SchemeGroupVersion.WithKind("PolicyException")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	defaultLoader      = kubectlValidateLoader
@@ -59,6 +62,8 @@ type LoaderResults struct {
 	GeneratingPolicies      []policiesv1alpha1.GeneratingPolicy
 	DeletingPolicies        []policiesv1alpha1.DeletingPolicy
 	MutatingPolicies        []policiesv1alpha1.MutatingPolicy
+	PolicyExceptions        []*kyvernov2.PolicyException
+	PolicyCelExceptions     []*policiesv1alpha1.PolicyException
 	NonFatalErrors          []LoaderError
 }
 
@@ -76,6 +81,8 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
+	l.PolicyExceptions = append(l.PolicyExceptions, results.PolicyExceptions...)
+	l.PolicyCelExceptions = append(l.PolicyCelExceptions, results.PolicyCelExceptions...)
 	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
 }
 
@@ -217,6 +224,18 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.MutatingPolicies = append(results.MutatingPolicies, *typed)
+		case polexv1alpha1:
+			typed, err := convert.To[*kyvernov2.PolicyException](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.PolicyExceptions = append(results.PolicyExceptions, *typed)
+		case polexcelv1alpha1:
+			typed, err := convert.To[*policiesv1alpha1.PolicyException](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.PolicyCelExceptions = append(results.PolicyCelExceptions, *typed)
 		default:
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}
