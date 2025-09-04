@@ -157,19 +157,26 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 
 	// process the old object for UPDATE admission requests in case of enforce policies
 	if action.Enforce() {
-		allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
-		if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
+		allowExisitingViolations := v.rule.HasValidateAllowExistingViolations(v.policyContext.Config())
+		if engineutils.IsUpdateRequest(v.policyContext) && v.nesting == 0 { // is update request and is the root level validate
 			priorResp, err := v.validateOldObject(ctx)
 			if err != nil {
 				v.log.V(4).Info("warning: failed to validate old object", "rule", v.rule.Name, "error", err.Error())
 				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object", ruleResponse.Properties())
 			}
 
-			// when an existing resource violates, and the updated resource also violates, then skip
+			// Check if both old and new resource violate the policy
 			if (priorResp != nil && ruleResponse != nil) &&
 				(ruleResponse.Status() == engineapi.RuleStatusFail && priorResp.Status() == engineapi.RuleStatusFail) {
-				v.log.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "ruleResponse", ruleResponse, "priorResp", priorResp)
-				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", v.rule.ReportProperties)
+				if allowExisitingViolations {
+					// Allow the update if allowExistingViolations is true
+					v.log.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "ruleResponse", ruleResponse, "priorResp", priorResp)
+					return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", v.rule.ReportProperties)
+				} else {
+					// Block the update if allowExistingViolations is false
+					v.log.V(2).Info("blocking update as pre-existing violations are not allowed", "ruleResponse", ruleResponse, "priorResp", priorResp)
+					return ruleResponse
+				}
 			}
 		}
 	}
