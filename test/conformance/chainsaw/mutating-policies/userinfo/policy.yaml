@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: mpol-userinfo-access
+  namespace: test-userinfo
+spec:
+  mutateExisting: false
+  admission: true
+  background: false
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        namespaces:
+        - test-userinfo
+  expression: |
+    // Test that userInfo is accessible in CEL expressions
+    // This mutation should only apply if userInfo.username exists
+    has(request.userInfo.username) && request.userInfo.username != "" ?
+      Object{
+        metadata: Object.metadata{
+          labels: (has(object.metadata.labels) ? object.metadata.labels : {}) + 
+                  {"mutated-by": "kyverno", "user": request.userInfo.username}
+        }
+      } : 
+      Object{}

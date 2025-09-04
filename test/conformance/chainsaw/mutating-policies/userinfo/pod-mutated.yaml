@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: test-userinfo
+  labels:
+    mutated-by: kyverno
+    user: ($assert):
+      # Assert that the user label exists and is not empty
+      # This validates that userInfo.username was accessible during mutation
+      ($assert): (exists($self) && len($self) > 0)
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
