@@ -144,7 +144,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 
 	parameterResourcesPath := path.GetFullPaths(testCase.Test.ParamResources, testDir, isGit)
-	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, parameterResourcesPath, false, genericPolicies, dClient, "", false, false, testDir)
+	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, parameterResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, false)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load parameter resources (%s)", err)
 	}
