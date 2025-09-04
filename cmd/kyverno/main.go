@@ -714,7 +714,7 @@ func main() {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
 			}
-			vpolEngine, err = vpolengine.NewMetricWrapper(vpolengine.NewEngine(
+			vpolEngine = vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				vpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := nsLister.Get(name)
@@ -725,10 +725,6 @@ func main() {
 				},
 				matching.NewMatcher(),
 			), metrics.AdmissionRequest)
-			if err != nil {
-				setup.Logger.Error(err, "failed to create vpol engine with metrics")
-				os.Exit(1)
-			}
 
 			ivpolEngine = ivpolengine.NewEngine(
 				ivpolProvider,

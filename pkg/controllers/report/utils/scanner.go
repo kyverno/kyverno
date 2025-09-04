@@ -179,16 +179,11 @@ func (s *scanner) ScanResource(
 				results[&vpols[i]] = ScanResult{nil, err}
 				continue
 			}
-			engine, err := vpolengine.NewMetricWrapper(vpolengine.NewEngine(
+			engine := vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 			), metrics.BackgroundScan)
-			if err != nil {
-				logger.Error(err, "failed to create vpol engine with metrics")
-				results[&vpols[i]] = ScanResult{nil, err}
-				continue
-			}
 
 			context, err := libs.NewContextProvider(
 				s.client,

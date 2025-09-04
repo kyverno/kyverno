@@ -10,6 +10,7 @@ require (
 	github.com/alitto/pond v1.9.2
 	github.com/aquilax/truncate v1.0.1
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
+	github.com/aws/aws-sdk-go v1.55.7
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.10.1
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -96,6 +97,7 @@ require (
 
 require (
 	github.com/grafana/regexp v0.0.0-20240518133315-a468a5bfb3bc // indirect
+	github.com/jmespath/go-jmespath v0.4.1-0.20220621161143-b0104c826a24 // indirect
 	github.com/prometheus/otlptranslator v0.0.0-20250717125610-8549f4ab4f8f // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
