@@ -15,6 +15,9 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    {{- if .Values.celEnabled }}
+    policies.kyverno.io/minversion: 1.12.0
+    {{- end }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
     policies.kyverno.io/description: >-
       Windows pods offer the ability to run HostProcess containers which enables privileged
@@ -24,6 +27,7 @@ metadata:
     {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -45,20 +49,42 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
-        {{- with index .Values "validationFailureActionByPolicy" $name }}
-        failureAction: {{ toYaml . }}
-        {{- else }}
-        failureAction: {{ .Values.validationFailureAction }}
-        {{- end }}
-        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-        failureActionOverrides: {{ toYaml . | nindent 8 }}
-        {{- end }}
-        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           HostProcess containers are disallowed. The fields spec.securityContext.windowsOptions.hostProcess,
           spec.containers[*].securityContext.windowsOptions.hostProcess, spec.initContainers[*].securityContext.windowsOptions.hostProcess,
           and spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess must either be undefined
           or set to `false`.
+        {{- if .Values.celEnabled }}
+        # Using CEL for validation
+        cel:
+          expressions:
+            - expression: |
+                (!has(object.spec.securityContext) ||
+                 !has(object.spec.securityContext.windowsOptions) ||
+                 !has(object.spec.securityContext.windowsOptions.hostProcess) ||
+                 object.spec.securityContext.windowsOptions.hostProcess == false) &&
+                object.spec.containers.all(container,
+                  !has(container.securityContext) ||
+                  !has(container.securityContext.windowsOptions) ||
+                  !has(container.securityContext.windowsOptions.hostProcess) ||
+                  container.securityContext.windowsOptions.hostProcess == false
+                ) &&
+                (!has(object.spec.initContainers) ||
+                 object.spec.initContainers.all(container,
+                   !has(container.securityContext) ||
+                   !has(container.securityContext.windowsOptions) ||
+                   !has(container.securityContext.windowsOptions.hostProcess) ||
+                   container.securityContext.windowsOptions.hostProcess == false
+                )) &&
+                (!has(object.spec.ephemeralContainers) ||
+                 object.spec.ephemeralContainers.all(container,
+                   !has(container.securityContext) ||
+                   !has(container.securityContext.windowsOptions) ||
+                   !has(container.securityContext.windowsOptions.hostProcess) ||
+                   container.securityContext.windowsOptions.hostProcess == false
+                ))
+              message: "HostProcess containers must set hostProcess=false."
+        {{- else }}
         pattern:
           spec:
             =(ephemeralContainers):
@@ -73,4 +99,5 @@ spec:
               - =(securityContext):
                   =(windowsOptions):
                     =(hostProcess): "false"
+        {{- end }}
 {{- end }}
