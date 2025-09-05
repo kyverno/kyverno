@@ -23,6 +23,7 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	v2 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	v2beta1 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
 )
 
 // Interface provides access to each of this group's versions.
@@ -33,6 +34,8 @@ type Interface interface {
 	V2() v2.Interface
 	// V2alpha1 provides access to shared informers for resources in V2alpha1.
 	V2alpha1() v2alpha1.Interface
+	// V2beta1 provides access to shared informers for resources in V2beta1.
+	V2beta1() v2beta1.Interface
 }
 
 type group struct {
@@ -59,4 +62,9 @@ func (g *group) V2() v2.Interface {
 // V2alpha1 returns a new v2alpha1.Interface.
 func (g *group) V2alpha1() v2alpha1.Interface {
 	return v2alpha1.New(g.factory, g.namespace, g.tweakListOptions)
+}
+
+// V2beta1 returns a new v2beta1.Interface.
+func (g *group) V2beta1() v2beta1.Interface {
+	return v2beta1.New(g.factory, g.namespace, g.tweakListOptions)
 }
