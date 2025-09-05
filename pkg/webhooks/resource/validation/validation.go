@@ -161,7 +161,12 @@ func (v *validationHandler) HandleValidationEnforce(
 	go func() {
 		if NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
-				v.log.Error(err, "failed to create report")
+				if reportutils.IsNamespaceTerminationError(err) {
+					// Log namespace termination errors at debug level as they are expected
+					v.log.V(2).Info("skipping report creation due to namespace termination", "error", err.Error())
+				} else {
+					v.log.Error(err, "failed to create report")
+				}
 			}
 		}
 	}()
@@ -200,7 +205,12 @@ func (v *validationHandler) HandleValidationAudit(
 			}
 			if needsReport {
 				if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
-					v.log.Error(err, "failed to create report")
+					if reportutils.IsNamespaceTerminationError(err) {
+						// Log namespace termination errors at debug level as they are expected
+						v.log.V(2).Info("skipping report creation due to namespace termination", "error", err.Error())
+					} else {
+						v.log.Error(err, "failed to create report")
+					}
 				}
 			}
 		},
