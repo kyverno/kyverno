@@ -69,12 +69,18 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 		for _, policyRule := range autogen.Default.ComputeRules(kyvernoPolicy, "") {
 			for _, ruleResponse := range response.PolicyResponse.Rules {
 				if policyRule.Name == ruleResponse.Name() {
-					if ruleResponse.Status() == engineapi.RuleStatusPass {
+					switch ruleResponse.Status() {
+					case engineapi.RuleStatusPass:
 						rc.Pass++
-					} else {
+					case engineapi.RuleStatusWarn:
+						rc.Warn++
+					case engineapi.RuleStatusSkip:
+						rc.Skip++
+					case engineapi.RuleStatusError:
+						rc.Error++
+					default:
 						rc.Fail++
 					}
-					continue
 				}
 			}
 		}
