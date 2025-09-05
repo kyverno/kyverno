@@ -4,6 +4,7 @@ import (
 	"context"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -109,6 +110,12 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		dryRun = *request.Request.DryRun
 	}
 
+	// Create user info from admission request
+	var user admissionpolicy.UserInfo
+	if request.Request.UserInfo.Username != "" {
+		user = admissionpolicy.NewUser(request.Request.UserInfo)
+	}
+
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
@@ -120,8 +127,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		user,
 	)
 
 	var namespace *corev1.Namespace
@@ -180,6 +186,12 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		dryRun = *request.Request.DryRun
 	}
 
+	// Create user info from admission request
+	var user admissionpolicy.UserInfo
+	if request.Request.UserInfo.Username != "" {
+		user = admissionpolicy.NewUser(request.Request.UserInfo)
+	}
+
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
@@ -191,8 +203,7 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		user,
 	)
 
 	var namespace *corev1.Namespace
