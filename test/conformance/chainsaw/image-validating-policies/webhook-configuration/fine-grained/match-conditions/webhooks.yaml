@@ -33,7 +33,16 @@ webhooks:
     name: autogen-defaults-check-prod-label
   matchPolicy: Equivalent
   name: ivpol.mutate.kyverno.svc-fail-finegrained-check-signed-images
-  namespaceSelector: {}
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
   objectSelector: {}
   reinvocationPolicy: Never
   rules:
@@ -116,7 +125,16 @@ webhooks:
     name: autogen-defaults-check-prod-label
   matchPolicy: Equivalent
   name: ivpol.validate.kyverno.svc-fail-finegrained-check-signed-images
-  namespaceSelector: {}
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
   objectSelector: {}
   rules:
   - apiGroups:

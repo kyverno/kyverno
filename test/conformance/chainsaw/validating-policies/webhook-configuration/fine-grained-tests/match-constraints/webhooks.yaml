@@ -18,8 +18,21 @@ webhooks:
   failurePolicy: Fail
   matchPolicy: Exact
   name: vpol.validate.kyverno.svc-fail-finegrained-check-deployment-labels
-  namespaceSelector: {}
-  objectSelector: {}
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
+    matchLabels:
+       environment: staging
+  objectSelector: 
+     matchLabels:
+        app: test     
   rules:
   - apiGroups:
     - apps

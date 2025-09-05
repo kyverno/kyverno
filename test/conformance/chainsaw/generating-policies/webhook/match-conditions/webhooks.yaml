@@ -19,7 +19,16 @@ webhooks:
     name: check-red-label
   matchPolicy: Equivalent
   name:  gpol.validate.kyverno.svc-ignore-finegrained-zk-kafka-address
-  namespaceSelector: {}
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
   objectSelector: {}
   rules:
   - apiGroups:
