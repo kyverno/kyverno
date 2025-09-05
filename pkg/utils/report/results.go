@@ -13,6 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
+	"github.com/kyverno/kyverno/pkg/utils/annotations"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -304,34 +305,55 @@ func SetResults(report reportsv1.ReportInterface, results ...openreportsv1alpha1
 }
 
 func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
-	for _, result := range engineResponses {
-		pol := result.Policy()
-		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, EngineResponseToReportResults(result)...)
-	}
-	SetResults(report, ruleResults...)
+    var ruleResults []openreportsv1alpha1.ReportResult
+    for _, result := range engineResponses {
+        pol := result.Policy()
+        
+        // Skip reports if annotation is set
+        if annotations.ShouldSkipReport(pol) {
+            continue
+        }
+        
+        SetPolicyLabel(report, pol)
+        ruleResults = append(ruleResults, EngineResponseToReportResults(result)...)
+    }
+    SetResults(report, ruleResults...)
 }
+
 
 func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
-	for _, result := range engineResponses {
-		pol := result.Policy()
-		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, MutationEngineResponseToReportResults(result)...)
-	}
-	SetResults(report, ruleResults...)
+    var ruleResults []openreportsv1alpha1.ReportResult
+    for _, result := range engineResponses {
+        pol := result.Policy()
+        
+        // Skip reports if annotation is set
+        if annotations.ShouldSkipReport(pol) {
+            continue
+        }
+        
+        SetPolicyLabel(report, pol)
+        ruleResults = append(ruleResults, MutationEngineResponseToReportResults(result)...)
+    }
+    SetResults(report, ruleResults...)
 }
 
+
 func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
-	for _, result := range engineResponses {
-		pol := result.Policy()
-		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, GenerationEngineResponseToReportResults(result)...)
-	}
-	SetResults(report, ruleResults...)
+    var ruleResults []openreportsv1alpha1.ReportResult
+    for _, result := range engineResponses {
+        pol := result.Policy()
+        
+        // Skip reports if annotation is set
+        if annotations.ShouldSkipReport(pol) {
+            continue
+        }
+        
+        SetPolicyLabel(report, pol)
+        ruleResults = append(ruleResults, GenerationEngineResponseToReportResults(result)...)
+    }
+    SetResults(report, ruleResults...)
 }
+
 
 func getResourceInfo(gvk schema.GroupVersionKind, name, namespace string) string {
 	info := gvk.String() + " Name=" + name
