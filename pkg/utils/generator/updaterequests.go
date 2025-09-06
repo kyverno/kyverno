@@ -48,6 +48,14 @@ func (g *updaterequestsgenerator) Generate(ctx context.Context, client versioned
 		return nil, nil
 	}
 
+	// Add cleanup label if enabled in configuration
+	if g.config.GetEnableUpdateRequestCleanup() {
+		if resource.Labels == nil {
+			resource.Labels = make(map[string]string)
+		}
+		resource.Labels["cleanup.kyverno.io/ttl"] = g.config.GetUpdateRequestCleanupTTL()
+	}
+
 	created, err := client.KyvernoV2().UpdateRequests(configutils.KyvernoNamespace()).Create(ctx, resource, metav1.CreateOptions{})
 	return created, err
 }
