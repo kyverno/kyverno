@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
@@ -20,7 +19,7 @@ import (
 )
 
 // AssertionTree defines a kyverno-json assertion tree.
-type AssertionTree = kjson.Any
+type AssertionTree = *kyverno.Any
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
 // +kubebuilder:validation:Enum=Ignore;Fail
@@ -483,8 +482,7 @@ type Validation struct {
 	FailureActionOverrides []ValidationFailureActionOverride `json:"failureActionOverrides,omitempty"`
 
 	// AllowExistingViolations allows prexisting violating resources to continue violating a policy.
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=true
+	// +optional
 	AllowExistingViolations *bool `json:"allowExistingViolations,omitempty"`
 
 	// Message specifies a custom message to be displayed on failure.
@@ -523,10 +521,10 @@ type Validation struct {
 
 	// Assert defines a kyverno-json assertion tree.
 	// +optional
-	Assert *AssertionTree `json:"assert,omitempty"`
-}
-
-// PodSecurity applies exemptions for Kubernetes Pod Security admission
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Assert *kyverno.Any `json:"assert,omitempty"`
+}// PodSecurity applies exemptions for Kubernetes Pod Security admission
 // by specifying exclusions for Pod Security Standards controls.
 type PodSecurity struct {
 	// Level defines the Pod Security Standard level to be applied to workloads.

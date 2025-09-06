@@ -3,6 +3,7 @@ package api
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,4 +30,5 @@ type PolicyContext interface {
 
 	JSONContext() enginecontext.Interface
 	Copy() PolicyContext
+	Config() config.Configuration
 }
