@@ -18,7 +18,7 @@ spec:
           - apiVersion: v1
             kind: ConfigMap
             name: server-external
-            namespace: "{{target.metadata.annotations.dns}}"
+            namespace: "{{target.metadata.annotations.dns || 'external-dns'}}"
           - apiVersion: v1
             kind: ConfigMap
             name: server-internal
@@ -26,4 +26,4 @@ spec:
         patchesJson6902: |-
           - op: replace
             path: "/spec/endpoints/1/targets/0"
-            value: "{{ request.object.data.prefix6 }}{{ target.metadata.annotations.dns_suffix }}"
+            value: "{{ request.object.data.prefix6 }}{{ target.metadata.annotations.dns_suffix || '.example.com' }}"

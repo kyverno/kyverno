@@ -27,4 +27,4 @@ spec:
         patchesJson6902: |-
           - op: replace
             path: "/spec/endpoints/1/targets/0"
-            value: "{{ request.object.data.prefix6 }}{{ target.metadata.annotations.dns_suffix }}"
+            value: "{{ request.object.data.prefix6 }}{{ target.metadata.annotations.dns_suffix || '.example.com' }}"
