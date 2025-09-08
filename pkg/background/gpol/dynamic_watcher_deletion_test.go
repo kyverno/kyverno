@@ -46,13 +46,13 @@ func TestHandleDeleteCreatesUpdateRequest(t *testing.T) {
 	resourceQuota.SetName("default")
 	resourceQuota.SetNamespace("test-namespace")
 	resourceQuota.SetUID("test-quota-uid")
-	
+
 	// Set the labels that would be set by Kyverno during generation
 	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:          "test-policy",
-		common.GenerateRuleLabel:            "test-rule",
-		common.GenerateSourceUIDLabel:       "test-namespace-uid",
-		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:    "test-policy",
+		common.GenerateRuleLabel:      "test-rule",
+		common.GenerateSourceUIDLabel: "test-namespace-uid",
+		kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
 	})
 
 	// Set up the watcher's metadata cache to simulate the resource being tracked
@@ -64,10 +64,10 @@ func TestHandleDeleteCreatesUpdateRequest(t *testing.T) {
 					Name:      "default",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						common.GeneratePolicyLabel:      "test-policy",
-						common.GenerateRuleLabel:        "test-rule",
-						common.GenerateSourceUIDLabel:   "test-namespace-uid",
-						kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+						common.GeneratePolicyLabel:    "test-policy",
+						common.GenerateRuleLabel:      "test-rule",
+						common.GenerateSourceUIDLabel: "test-namespace-uid",
+						kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
 					},
 					Data: resourceQuota,
 				},
@@ -87,7 +87,7 @@ func TestHandleDeleteCreatesUpdateRequest(t *testing.T) {
 	assert.Equal(t, kyvernov2.Generate, ur.Spec.Type, "UpdateRequest should be of type Generate")
 	assert.Equal(t, "test-policy", ur.Spec.Policy, "UpdateRequest should reference the correct policy")
 	assert.Equal(t, kyvernov2.Pending, ur.Status.State, "UpdateRequest should be in Pending state")
-	
+
 	// Verify that the rule context is set correctly
 	assert.Len(t, ur.Spec.RuleContext, 1, "UpdateRequest should have one rule context")
 	ruleContext := ur.Spec.RuleContext[0]
@@ -110,7 +110,7 @@ func TestHandleDeleteFallsBackWhenLabelsAreMissing(t *testing.T) {
 	resourceQuota.SetName("default")
 	resourceQuota.SetNamespace("test-namespace")
 	resourceQuota.SetUID("test-quota-uid")
-	
+
 	// Labels are incomplete (missing some required labels)
 	resourceQuota.SetLabels(map[string]string{
 		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
@@ -199,13 +199,13 @@ func TestHandleDeleteErrorGettingSourceResource(t *testing.T) {
 	resourceQuota.SetName("default")
 	resourceQuota.SetNamespace("test-namespace")
 	resourceQuota.SetUID("test-quota-uid")
-	
+
 	// Set complete labels
 	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:      "test-policy",
-		common.GenerateRuleLabel:        "test-rule",
-		common.GenerateSourceUIDLabel:   "test-namespace-uid",
-		"app.kubernetes.io/managed-by":  "kyverno",
+		common.GeneratePolicyLabel:     "test-policy",
+		common.GenerateRuleLabel:       "test-rule",
+		common.GenerateSourceUIDLabel:  "test-namespace-uid",
+		"app.kubernetes.io/managed-by": "kyverno",
 	})
 
 	// DON'T add the namespace to the client to simulate error
@@ -219,10 +219,10 @@ func TestHandleDeleteErrorGettingSourceResource(t *testing.T) {
 					Name:      "default",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						common.GeneratePolicyLabel:      "test-policy",
-						common.GenerateRuleLabel:        "test-rule",
-						common.GenerateSourceUIDLabel:   "test-namespace-uid",
-						kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+						common.GeneratePolicyLabel:    "test-policy",
+						common.GenerateRuleLabel:      "test-rule",
+						common.GenerateSourceUIDLabel: "test-namespace-uid",
+						kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
 					},
 					Data: resourceQuota,
 				},
@@ -310,12 +310,12 @@ func TestHandleDeleteErrorCreatingUpdateRequest(t *testing.T) {
 	// Setup with fake client that will error on UpdateRequest creation
 	client := dclient.NewEmptyFakeClient()
 	kyvernoClient := kyvernoclient.NewSimpleClientset()
-	
+
 	// Add reaction to simulate error on UpdateRequest creation
 	kyvernoClient.Fake.PrependReactor("create", "updaterequests", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, nil, errors.New("simulated create error")
 	})
-	
+
 	log := logging.WithName("test-logging")
 	wm := NewWatchManager(log, client, kyvernoClient)
 
@@ -337,13 +337,13 @@ func TestHandleDeleteErrorCreatingUpdateRequest(t *testing.T) {
 	resourceQuota.SetName("default")
 	resourceQuota.SetNamespace("test-namespace")
 	resourceQuota.SetUID("test-quota-uid")
-	
+
 	// Set the labels that would be set by Kyverno during generation
 	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:          "test-policy",
-		common.GenerateRuleLabel:            "test-rule",
-		common.GenerateSourceUIDLabel:       "test-namespace-uid",
-		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:    "test-policy",
+		common.GenerateRuleLabel:      "test-rule",
+		common.GenerateSourceUIDLabel: "test-namespace-uid",
+		kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
 	})
 
 	// Set up the watcher's metadata cache
@@ -355,10 +355,10 @@ func TestHandleDeleteErrorCreatingUpdateRequest(t *testing.T) {
 					Name:      "default",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						common.GeneratePolicyLabel:      "test-policy",
-						common.GenerateRuleLabel:        "test-rule",
-						common.GenerateSourceUIDLabel:   "test-namespace-uid",
-						kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+						common.GeneratePolicyLabel:    "test-policy",
+						common.GenerateRuleLabel:      "test-rule",
+						common.GenerateSourceUIDLabel: "test-namespace-uid",
+						kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
 					},
 					Data: resourceQuota,
 				},
@@ -379,7 +379,7 @@ func TestHandleDeleteErrorUpdatingStatus(t *testing.T) {
 	// Setup with fake client that will error on UpdateRequest status update
 	client := dclient.NewEmptyFakeClient()
 	kyvernoClient := kyvernoclient.NewSimpleClientset()
-	
+
 	// Add reaction to simulate error on UpdateRequest status update
 	kyvernoClient.Fake.PrependReactor("update", "updaterequests", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 		if action.GetSubresource() == "status" {
@@ -387,7 +387,7 @@ func TestHandleDeleteErrorUpdatingStatus(t *testing.T) {
 		}
 		return false, nil, nil
 	})
-	
+
 	log := logging.WithName("test-logging")
 	wm := NewWatchManager(log, client, kyvernoClient)
 
@@ -409,13 +409,13 @@ func TestHandleDeleteErrorUpdatingStatus(t *testing.T) {
 	resourceQuota.SetName("default")
 	resourceQuota.SetNamespace("test-namespace")
 	resourceQuota.SetUID("test-quota-uid")
-	
+
 	// Set the labels that would be set by Kyverno during generation
 	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:          "test-policy",
-		common.GenerateRuleLabel:            "test-rule",
-		common.GenerateSourceUIDLabel:       "test-namespace-uid",
-		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:    "test-policy",
+		common.GenerateRuleLabel:      "test-rule",
+		common.GenerateSourceUIDLabel: "test-namespace-uid",
+		kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
 	})
 
 	// Set up the watcher's metadata cache
@@ -427,10 +427,10 @@ func TestHandleDeleteErrorUpdatingStatus(t *testing.T) {
 					Name:      "default",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						common.GeneratePolicyLabel:      "test-policy",
-						common.GenerateRuleLabel:        "test-rule",
-						common.GenerateSourceUIDLabel:   "test-namespace-uid",
-						kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+						common.GeneratePolicyLabel:    "test-policy",
+						common.GenerateRuleLabel:      "test-rule",
+						common.GenerateSourceUIDLabel: "test-namespace-uid",
+						kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
 					},
 					Data: resourceQuota,
 				},
@@ -445,7 +445,7 @@ func TestHandleDeleteErrorUpdatingStatus(t *testing.T) {
 	urList, err := kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{})
 	assert.NoError(t, err)
 	assert.Len(t, urList.Items, 1, "UpdateRequest should be created even if status update fails")
-	
+
 	ur := urList.Items[0]
 	assert.Equal(t, kyvernov2.Generate, ur.Spec.Type)
 	assert.Equal(t, "test-policy", ur.Spec.Policy)
@@ -467,12 +467,12 @@ func TestHandleDeleteFallbackWithCreationError(t *testing.T) {
 	resourceQuota.SetName("default")
 	resourceQuota.SetNamespace("test-namespace")
 	resourceQuota.SetUID("test-quota-uid")
-	
+
 	// Missing some required labels to trigger fallback
 	resourceQuota.SetLabels(map[string]string{
 		common.GeneratePolicyLabel: "test-policy",
 		// Missing other required labels
-		kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
+		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
 	})
 
 	// Set up the watcher's metadata cache
@@ -486,7 +486,7 @@ func TestHandleDeleteFallbackWithCreationError(t *testing.T) {
 					Labels: map[string]string{
 						common.GeneratePolicyLabel: "test-policy",
 						// Missing other required labels
-						kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
+						kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
 					},
 					Data: resourceQuota,
 				},
