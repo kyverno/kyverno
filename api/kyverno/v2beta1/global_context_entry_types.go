@@ -166,7 +166,7 @@ type ExternalAPICall struct {
 
 // Validate implements programmatic validation
 func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
-	if e.RefreshInterval.Duration == 0*time.Second {
+	if e.RefreshInterval == nil || e.RefreshInterval.Duration == 0*time.Second {
 		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "A Resource entry requires a refresh interval greater than 0 seconds"))
 	}
 	if (e.Service == nil && e.URLPath == "") || (e.Service != nil && e.URLPath != "") {
