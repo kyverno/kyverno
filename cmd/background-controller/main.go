@@ -74,7 +74,7 @@ func createrLeaderControllers(
 	mapper meta.RESTMapper,
 	reportsConfig reportutils.ReportingConfiguration,
 ) ([]internal.Controller, error) {
-	watchManager := gpol.NewWatchManager(logging.WithName("WatchManager"), dynamicClient)
+	watchManager := gpol.NewWatchManager(logging.WithName("WatchManager"), dynamicClient, kyvernoClient)
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
