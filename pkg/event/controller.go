@@ -11,8 +11,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,28 +44,21 @@ type Interface interface {
 
 // controller generate events
 type controller struct {
-	logger               logr.Logger
-	eventsClient         v1.EventsV1Interface
-	omitEvents           sets.Set[string]
-	queue                workqueue.TypedRateLimitingInterface[any]
-	clock                clock.Clock
-	hostname             string
-	droppedEventsCounter metric.Int64Counter
-	maxQueuedEvents      int
+	logger          logr.Logger
+	eventsClient    v1.EventsV1Interface
+	omitEvents      sets.Set[string]
+	queue           workqueue.TypedRateLimitingInterface[any]
+	clock           clock.Clock
+	hostname        string
+	metrics         metrics.EventMetrics
+	maxQueuedEvents int
 }
 
 // NewEventGenerator to generate a new event controller
 func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, maxQueuedEvents int, omitEvents ...string) *controller {
 	clock := clock.RealClock{}
 	hostname, _ := os.Hostname()
-	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
-	droppedEventsCounter, err := meter.Int64Counter(
-		"kyverno_events_dropped",
-		metric.WithDescription("can be used to track the number of events dropped by the event generator"),
-	)
-	if err != nil {
-		logger.Error(err, "failed to register metric kyverno_events_dropped")
-	}
+
 	return &controller{
 		logger:       logger,
 		eventsClient: eventsClient,
@@ -76,10 +67,10 @@ func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, ma
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 		),
-		clock:                clock,
-		hostname:             hostname,
-		droppedEventsCounter: droppedEventsCounter,
-		maxQueuedEvents:      maxQueuedEvents,
+		clock:           clock,
+		hostname:        hostname,
+		metrics:         metrics.GetEventMetrics(),
+		maxQueuedEvents: maxQueuedEvents,
 	}
 }
 
@@ -143,7 +134,9 @@ func (gen *controller) processNextWorkItem(ctx context.Context) bool {
 			gen.queue.AddRateLimited(key)
 			return true
 		}
-		gen.droppedEventsCounter.Add(ctx, 1)
+		if gen.metrics != nil {
+			gen.metrics.RecordDrop(ctx)
+		}
 		logger.Error(err, "dropping event", "key", key)
 	}
 	gen.queue.Forget(key)
