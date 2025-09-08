@@ -156,6 +156,29 @@ func checkResourceDescription(
 	return true
 }
 
+// MatchesFinegrainedException checks for fine-grained exceptions that match the policy/rule
+// and returns the matched exceptions along with the report mode
+func MatchesFinegrainedException(polexs []*kyvernov2.PolicyException, policyContext engineapi.PolicyContext, policyName, ruleName string, logger logr.Logger) ([]kyvernov2.PolicyException, kyvernov2.ExceptionReportMode) {
+	matchedExceptions := MatchesException(polexs, policyContext, logger)
+	var finegrainedExceptions []kyvernov2.PolicyException
+	reportMode := kyvernov2.ExceptionReportSkip // default report mode
+
+	for _, exception := range matchedExceptions {
+		for _, exc := range exception.Spec.Exceptions {
+			if exc.Contains(policyName, ruleName) && exc.IsFinegrained() {
+				finegrainedExceptions = append(finegrainedExceptions, exception)
+				// Use the report mode from the exception
+				if exc.ReportAs != nil {
+					reportMode = exc.GetReportMode()
+				}
+				break
+			}
+		}
+	}
+
+	return finegrainedExceptions, reportMode
+}
+
 func checkUserInfo(userInfo kyvernov1.UserInfo, admissionInfo kyvernov2.RequestInfo) bool {
 	if len(userInfo.Roles) > 0 {
 		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {

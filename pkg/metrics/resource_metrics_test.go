@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
@@ -331,14 +332,14 @@ func TestResourceMetrics_CollectRuntimeMetrics(t *testing.T) {
 		}
 	}()
 
-	rm, err := NewResourceMetrics(logr.Discard())
+	_, err := NewResourceMetrics(logr.Discard())
 	if err != nil {
 		t.Fatalf("Failed to create ResourceMetrics: %v", err)
 	}
 
 	// Force collection of runtime metrics
-	metrics := &sdkmetric.ResourceMetrics{}
-	err = reader.Collect(context.Background(), metrics)
+	var rm metricdata.ResourceMetrics
+	err = reader.Collect(context.Background(), &rm)
 	if err != nil {
 		t.Errorf("Failed to collect metrics: %v", err)
 	}
