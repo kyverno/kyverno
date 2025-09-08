@@ -1,8 +1,6 @@
 package imagedata
 
 import (
-	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -10,7 +8,6 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,22 +31,14 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	data := map[string]any{
 		"image": Context{&ContextMock{
 			GetImageDataFunc: func(image string) (map[string]any, error) {
-				idl, err := imagedataloader.New(nil)
-				assert.NoError(t, err)
-				data, err := idl.FetchImageData(context.TODO(), image)
-				if err != nil {
-					return nil, err
-				}
-				raw, err := json.Marshal(data.Data())
-				if err != nil {
-					return nil, err
-				}
-				var apiData map[string]any
-				err = json.Unmarshal(raw, &apiData)
-				if err != nil {
-					return nil, err
-				}
-				return apiData, nil
+				// Mock response instead of making real network calls
+				return map[string]any{
+					"resolvedImage": "ghcr.io/kyverno/kyverno:latest@sha256:abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
+					"registry":      "ghcr.io",
+					"repository":    "kyverno/kyverno",
+					"tag":           "latest",
+					"digest":        "sha256:abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
+				}, nil
 			},
 		},
 		}}
