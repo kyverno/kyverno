@@ -108,7 +108,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	isCluster := false
 	eng := engine.NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
