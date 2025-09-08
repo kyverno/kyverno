@@ -529,6 +529,8 @@ codegen-crds-kyverno: $(CONTROLLER_GEN)
 		paths=./api/kyverno/v2beta1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/kyverno
+	@echo Replace controller-gen version in kyverno crds... >&2
+	@find $(CRDS_PATH)/kyverno -name "*.yaml" -exec $(SED) -i -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' {} \;
 
 .PHONY: codegen-crds-policies
 codegen-crds-policies: ## Generate policies CRDs
@@ -539,6 +541,8 @@ codegen-crds-policies: $(CONTROLLER_GEN)
 		paths=./api/policies.kyverno.io/v1alpha1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policies.kyverno.io
+	@echo Replace controller-gen version in policies crds... >&2
+	@find $(CRDS_PATH)/policies.kyverno.io -name "*.yaml" -exec $(SED) -i -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' {} \;
 
 .PHONY: codegen-crds-policyreport
 codegen-crds-policyreport: ## Generate policy reports CRDs
@@ -549,6 +553,8 @@ codegen-crds-policyreport: $(CONTROLLER_GEN)
 		paths=./api/policyreport/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policyreport
+	@echo Replace controller-gen version in policyreport crds... >&2
+	@find $(CRDS_PATH)/policyreport -name "*.yaml" -exec $(SED) -i -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' {} \;
 
 .PHONY: codegen-crds-reports
 codegen-crds-reports: ## Generate reports CRDs
@@ -559,6 +565,8 @@ codegen-crds-reports: $(CONTROLLER_GEN)
 		paths=./api/reports/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/reports
+	@echo Replace controller-gen version in reports crds... >&2
+	@find $(CRDS_PATH)/reports -name "*.yaml" -exec $(SED) -i -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' {} \;
 
 .PHONY: codegen-crds-cli
 codegen-crds-cli: ## Generate CLI CRDs
@@ -569,6 +577,8 @@ codegen-crds-cli: $(CONTROLLER_GEN)
 		paths=./cmd/cli/kubectl-kyverno/apis/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=./cmd/cli/kubectl-kyverno/config/crds
+	@echo Replace controller-gen version in cli crds... >&2
+	@find ./cmd/cli/kubectl-kyverno/config/crds -name "*.yaml" -exec $(SED) -i -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' {} \;
 
 .PHONY: codegen-crds-all
 codegen-crds-all: ## Generate all CRDs
