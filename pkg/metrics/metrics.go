@@ -176,7 +176,7 @@ func aggregationSelector(metricsConfiguration kconfig.MetricsConfiguration) func
 		case sdkmetric.InstrumentKindHistogram:
 			return sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: metricsConfiguration.GetBucketBoundaries(),
-				NoMinMax:   false,
+				NoMinMax:   true,
 			}
 		default:
 			return sdkmetric.DefaultAggregationSelector(ik)
