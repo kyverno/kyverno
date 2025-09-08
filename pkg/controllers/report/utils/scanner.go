@@ -22,6 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -178,11 +179,12 @@ func (s *scanner) ScanResource(
 				results[&vpols[i]] = ScanResult{nil, err}
 				continue
 			}
-			engine := vpolengine.NewEngine(
+			engine := vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
-			)
+			), metrics.BackgroundScan)
+
 			context, err := libs.NewContextProvider(
 				s.client,
 				nil,
