@@ -48,6 +48,8 @@ type MetricsConfig struct {
 	eventMetrics        *eventMetrics
 	admissionMetrics    *admissionMetrics
 	httpMetrics         *httpMetrics
+	vpolMetrics         *validatingMetrics
+	ivpolMetrics        *imageValidatingMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -68,6 +70,8 @@ type MetricsConfigManager interface {
 	EventMetrics() EventMetrics
 	AdmissionMetrics() AdmissionMetrics
 	HTTPMetrics() HTTPMetrics
+	VPOLMetrics() ValidatingMetrics
+	IVPOLMetrics() ImageValidatingMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -114,6 +118,14 @@ func (m *MetricsConfig) HTTPMetrics() HTTPMetrics {
 	return m.httpMetrics
 }
 
+func (m *MetricsConfig) VPOLMetrics() ValidatingMetrics {
+	return m.vpolMetrics
+}
+
+func (m *MetricsConfig) IVPOLMetrics() ImageValidatingMetrics {
+	return m.ivpolMetrics
+}
+
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
@@ -149,6 +161,8 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.eventMetrics.init(meter)
 	m.admissionMetrics.init(meter)
 	m.httpMetrics.init(meter)
+	m.vpolMetrics.init(meter)
+	m.ivpolMetrics.init(meter)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -294,6 +308,8 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		eventMetrics:        &eventMetrics{logger: logger.WithName("event")},
 		admissionMetrics:    &admissionMetrics{logger: logger.WithName("admission")},
 		httpMetrics:         &httpMetrics{logger: logger.WithName("http")},
+		vpolMetrics:         &validatingMetrics{logger: logger.WithName("validating-policy")},
+		ivpolMetrics:        &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
 	}
 
 	return config
