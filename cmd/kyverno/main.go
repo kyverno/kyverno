@@ -726,7 +726,7 @@ func main() {
 				matching.NewMatcher(),
 			), metrics.AdmissionRequest)
 
-			ivpolEngine = ivpolengine.NewEngine(
+			ivpolEngine = ivpolengine.NewMetricWrapper(ivpolengine.NewEngine(
 				ivpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := nsLister.Get(name)
@@ -738,7 +738,7 @@ func main() {
 				matching.NewMatcher(),
 				setup.KubeClient.CoreV1().Secrets(""),
 				nil,
-			)
+			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewEngine(
 				mpolProvider,
 				func(name string) *corev1.Namespace {
