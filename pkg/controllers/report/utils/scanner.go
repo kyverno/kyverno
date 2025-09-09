@@ -301,13 +301,13 @@ func (s *scanner) ScanResource(
 				results[&ivpols[i]] = ScanResult{nil, err}
 				continue
 			}
-			engine := ivpolengine.NewEngine(
+			engine := ivpolengine.NewMetricWrapper(ivpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 				s.client.GetKubeClient().CoreV1().Secrets(""),
 				nil,
-			)
+			), metrics.BackgroundScan)
 			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New(), false)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
