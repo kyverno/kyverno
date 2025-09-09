@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 func Test_Apply(t *testing.T) {
@@ -330,6 +330,25 @@ func Test_Apply(t *testing.T) {
 				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-user-info/policy.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/cli/test-validating-admission-policy/check-user-info/deployment.yaml",
+				},
+				UserInfoPath: "../../../../../test/cli/test-validating-admission-policy/check-user-info/userinfo.yaml",
+				PolicyReport: true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
 					Skip:  0,
 					Error: 0,
 					Warn:  0,

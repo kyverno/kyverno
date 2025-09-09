@@ -34,7 +34,6 @@ func testValidate(
 	}
 	e := NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
@@ -3310,4 +3309,110 @@ func Test_ValidatePattern_anyPattern(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidate_DenyOverridesValidate(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "deny-overrides-validate-policy"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+					"name": "validate-cpu-limit",
+					"match": {
+						"resources": {
+							"kinds": ["Pod"]
+						}
+					},
+					"validate": {
+						"message": "CPU resource limits are required.",
+						"pattern": {
+							"spec": {
+								"containers": [
+									{
+										"resources": {
+											"limits": {
+												"cpu": "?*"
+											}
+										}
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"name": "deny-latest-tag",
+					"match": {
+						"resources": {
+							"kinds": ["Pod"]
+						}
+					},
+					"validate": {
+						"message": "Using the 'latest' tag is not allowed.",
+						"foreach": [
+							{
+								"list": "request.object.spec.containers",
+								"deny": {
+									"conditions": {
+										"any": [
+											{
+												"key": "{{ element.image }}",
+												"operator": "Equals",
+												"value": "*:latest"
+											}
+										]
+									}
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	}`)
+
+	rawResource := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod"
+		},
+		"spec": {
+			"containers": [
+				{
+					"name": "test-container",
+					"image": "nginx:latest",
+					"resources": {
+						"limits": {
+							"cpu": "200m"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var policy kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	policyContext := newPolicyContext(t, *resourceUnstructured, kyvernov1.Create, nil).WithPolicy(&policy)
+
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
+
+	assert.Assert(t, !er.IsSuccessful(), "Expected the request to be denied")
+
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message(), "validation rule 'validate-cpu-limit' passed.")
+
+	assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusFail)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[1].Message(), "Using the 'latest' tag is not allowed."), "The deny message did not match")
 }

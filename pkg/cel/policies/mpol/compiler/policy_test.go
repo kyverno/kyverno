@@ -9,8 +9,11 @@ import (
 
 	cel2 "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -280,7 +283,10 @@ func (f *fakeTCM) GetTypeConverter(_ schema.GroupVersionKind) managedfields.Type
 	return managedfields.NewDeducedTypeConverter()
 }
 
-type mockAttributes struct{}
+type mockAttributes struct {
+	obj    runtime.Object
+	oldObj runtime.Object
+}
 
 func (m *mockAttributes) GetName() string      { return "" }
 func (m *mockAttributes) GetNamespace() string { return "default" }
@@ -432,5 +438,121 @@ func TestMatchesConditions(t *testing.T) {
 		}
 		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
 		assert.True(t, res)
+	})
+}
+
+type fakeProgram struct {
+	refVal ref.Val
+	err    error
+}
+
+func (f *fakeProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel2.EvalDetails, error) {
+	return f.refVal, nil, f.err
+}
+func (f *fakeProgram) Eval(_ any) (ref.Val, *cel2.EvalDetails, error) {
+	return f.refVal, nil, nil
+}
+
+func TestMatchExceptions_FullCoverage(t *testing.T) {
+	ctx := context.TODO()
+	validObj := &corev1.Pod{}
+	validNS := &corev1.Namespace{}
+
+	t.Run("successful match", func(t *testing.T) {
+		attr := &mockAttributes{obj: validObj}
+		req := admissionv1.AdmissionRequest{UID: "non-empty"}
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{
+					// MatchConditions: []cel2.Program{
+					// 	// Add something here
+					// },
+					Exception: &policiesv1alpha1.PolicyException{
+						Spec: policiesv1alpha1.PolicyExceptionSpec{
+							MatchConditions: []admissionregistrationv1.MatchCondition{
+								{
+									Name:       "test-condition",
+									Expression: "object.name == 'nginx'",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+	})
+
+	t.Run("match-conditions errror", func(t *testing.T) {
+		attr := &mockAttributes{obj: validObj}
+		req := admissionv1.AdmissionRequest{UID: "non-empty"}
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{
+					MatchConditions: []cel2.Program{
+						&fakeProgram{refVal: types.String("test-ref")},
+					},
+					Exception: &policiesv1alpha1.PolicyException{
+						Spec: policiesv1alpha1.PolicyExceptionSpec{
+							MatchConditions: []admissionregistrationv1.MatchCondition{
+								{
+									Name:       "test-condition",
+									Expression: "object.name == 'nginx'",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		assert.Error(t, err)
+		assert.NotNil(t, res)
+	})
+	t.Run("context-eval errror", func(t *testing.T) {
+		attr := &mockAttributes{obj: validObj}
+		req := admissionv1.AdmissionRequest{UID: "non-empty"}
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{
+					MatchConditions: []cel2.Program{
+						&fakeProgram{refVal: types.String("test-ref"), err: errors.New("test-error")},
+					},
+					Exception: &policiesv1alpha1.PolicyException{
+						Spec: policiesv1alpha1.PolicyExceptionSpec{
+							MatchConditions: []admissionregistrationv1.MatchCondition{
+								{
+									Name:       "test-condition",
+									Expression: "object.name == 'nginx'",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		assert.Error(t, err)
+		assert.NotNil(t, res)
+	})
+
+	t.Run("false breaks loop", func(t *testing.T) {
+		attr := &mockAttributes{obj: validObj}
+		req := admissionv1.AdmissionRequest{UID: "non-empty"}
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{
+					MatchConditions: []cel2.Program{
+						// Add something
+					},
+					Exception: &policiesv1alpha1.PolicyException{},
+				},
+			},
+		}
+		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		assert.NoError(t, err)
+		assert.Empty(t, res)
 	})
 }

@@ -77,7 +77,10 @@ rbac:
 
 # Use openreports.io as the API group for reporting
 openreports:
+  # -- Enable OpenReports feature in controllers
   enabled: false
+  # -- Whether to install CRDs from the upstream OpenReports chart. Setting this to true requires enabled to also be true.
+  installCrds: false
 
 # CRDs configuration
 crds:
@@ -443,6 +446,12 @@ metricsConfig:
     kyverno_policy_execution_duration_seconds:
       # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
       disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_validating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_image_validating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
     kyverno_admission_review_duration_seconds:
       # enabled: false
       disabledLabelDimensions: ["resource_namespace"]
@@ -528,6 +537,7 @@ test:
 # -- Additional labels
 customLabels: {}
 
+
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: true
@@ -540,10 +550,10 @@ webhooksCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: bitnami/kubectl
+    repository: registry.k8s.io/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.32.3'
+    tag: 'v1.32.7'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -602,74 +612,6 @@ webhooksCleanup:
   serviceAccount:
     # -- Toggle automounting of the ServiceAccount
     automountServiceAccountToken: true
-
-policyReportsCleanup:
-  # -- Create a helm post-upgrade hook to cleanup the old policy reports.
-  enabled: true
-
-  image:
-    # -- (string) Image registry
-    registry: ~
-    # -- Image repository
-    repository: bitnami/kubectl
-    # -- Image tag
-    # Defaults to `latest` if omitted
-    tag: '1.32.3'
-    # -- (string) Image pull policy
-    # Defaults to image.pullPolicy if omitted
-    pullPolicy: ~
-
-  # -- Image pull secrets
-  imagePullSecrets: []
-  # - name: secretName
-
-  # -- Security context for the pod
-  podSecurityContext: {}
-
-  # -- Node labels for pod assignment
-  nodeSelector: {}
-
-  # -- List of node taints to tolerate
-  tolerations: []
-
-  # -- Pod anti affinity constraints.
-  podAntiAffinity: {}
-
-  # -- Pod affinity constraints.
-  podAffinity: {}
-
-  # -- Pod labels.
-  podLabels: {}
-
-  # -- Pod annotations.
-  podAnnotations: {}
-
-  # -- Node affinity constraints.
-  nodeAffinity: {}
-
-  # -- Security context for the hook containers
-  securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
-    runAsNonRoot: true
-    privileged: false
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-
-  resources:
-    # -- Pod resource limits
-    limits:
-      cpu: 100m
-      memory: 256Mi
-    # -- Pod resource requests
-    requests:
-      cpu: 10m
-      memory: 64Mi
 
 grafana:
   # -- Enable grafana dashboard creation.
