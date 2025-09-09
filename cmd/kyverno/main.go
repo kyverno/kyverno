@@ -41,6 +41,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -713,7 +714,7 @@ func main() {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
 			}
-			vpolEngine = vpolengine.NewEngine(
+			vpolEngine = vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				vpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := nsLister.Get(name)
@@ -723,7 +724,8 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-			)
+			), metrics.AdmissionRequest)
+
 			ivpolEngine = ivpolengine.NewEngine(
 				ivpolProvider,
 				func(name string) *corev1.Namespace {
