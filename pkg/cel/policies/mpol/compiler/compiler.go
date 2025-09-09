@@ -119,18 +119,33 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 	var patchers []patch.Patcher
 	patchOptions := optionsVars
 	patchOptions.HasPatchTypes = true
-	for _, m := range policy.Spec.Mutations {
+	for i, m := range policy.Spec.Mutations {
 		switch m.PatchType {
 		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {
 				accessor := &patch.JSONPatchCondition{Expression: m.JSONPatch.Expression}
 				compileResult := compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
+				for _, err := range compileResult.CompilationErrors() {
+					allErrs = append(allErrs, field.Invalid(
+						field.NewPath("spec").Child("mutations").Index(i).Child("jsonPatch"),
+						m.JSONPatch.Expression,
+						err.Error(),
+					))
+				}
+
 				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
 			}
 		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
 				accessor := &patch.ApplyConfigurationCondition{Expression: m.ApplyConfiguration.Expression}
 				compileResult := compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
+				for _, err := range compileResult.CompilationErrors() {
+					allErrs = append(allErrs, field.Invalid(
+						field.NewPath("spec").Child("mutations").Index(i).Child("applyConfiguration"),
+						m.ApplyConfiguration.Expression,
+						err.Error(),
+					))
+				}
 				patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
 			}
 		}

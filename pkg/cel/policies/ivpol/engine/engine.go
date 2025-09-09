@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -244,6 +245,7 @@ func (e *engineImpl) handleMutation(
 			Actions:    ivpol.Actions,
 			Exceptions: ivpol.Exceptions,
 		}
+		startTime := time.Now()
 		if p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions); errList != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 		} else {
@@ -278,6 +280,7 @@ func (e *engineImpl) handleMutation(
 				results[ivpol.Policy.GetName()] = response
 			}
 		}
+		response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	}
 	ann, err := objectAnnotations(attr)
 	if err != nil {
@@ -345,11 +348,13 @@ func (e *engineImpl) handleValidation(
 				Policy:  pol.Policy,
 				Actions: pol.Actions,
 			}
+			startTime := time.Now()
 			if o, found := outcomes[pol.Policy.GetName()]; !found {
 				resp.Result = *engineapi.RuleFail(pol.Policy.GetName(), engineapi.ImageVerify, "policy not evaluated", nil)
 			} else {
 				resp.Result = *engineapi.NewRuleResponse(o.Name, engineapi.ImageVerify, o.Message, o.Status, o.Properties)
 			}
+			resp.Result = resp.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 			responses[pol.Policy.GetName()] = resp
 		}
 	}
