@@ -149,48 +149,16 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			if strings.Contains(msg, "Invalid value: value provided for unknown field") {
 				return nil, err
 			}
-
-			var jsonData []byte
-			var parseErr error
-
-			var directUnstructured unstructured.Unstructured
-			if parseErr = directUnstructured.UnmarshalJSON(document); parseErr != nil {
-				if jsonData, parseErr = yaml.YAMLToJSON(document); parseErr == nil {
-					parseErr = directUnstructured.UnmarshalJSON(jsonData)
-				}
-			}
-
-			if parseErr == nil {
-				directGVK := directUnstructured.GroupVersionKind()
-				if directGVK.Kind == "List" && directGVK.Version == "v1" {
-					listItems, found, listErr := unstructured.NestedSlice(directUnstructured.Object, "items")
-					if listErr != nil {
-						results.addError(path, fmt.Errorf("failed to extract items from List: %w", listErr))
-						continue
-					}
-					if !found || len(listItems) == 0 {
-						continue
-					}
-
-					for i, item := range listItems {
-						itemMap, ok := item.(map[string]interface{})
-						if !ok {
-							results.addError(path, fmt.Errorf("List item %d is not a valid object", i))
-							continue
-						}
-
-						itemUnstructured := &unstructured.Unstructured{Object: itemMap}
-						itemGVK := itemUnstructured.GroupVersionKind()
-
-						if err := processDocumentItem(itemGVK, itemUnstructured, results); err != nil {
-							results.addError(path, fmt.Errorf("failed to process List item %d: %w", i, err))
-						}
-					}
-					continue
-				}
-			}
 			// skip non-Kubernetes YAMLs and invalid types
 			results.addError(path, err)
+			continue
+		}
+
+		// Check if this is a List object and handle it explicitly
+		if gvk.Kind == "List" && gvk.Version == "v1" {
+			if err := handleListItems(document, path, results); err != nil {
+				results.addError(path, fmt.Errorf("failed to process List: %w", err))
+			}
 			continue
 		}
 
@@ -200,6 +168,48 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		}
 	}
 	return results, nil
+}
+
+// handleListItems processes a v1.List object by extracting and processing its items
+func handleListItems(document []byte, path string, results *LoaderResults) error {
+	var jsonData []byte
+	var parseErr error
+
+	var listUnstructured unstructured.Unstructured
+	if parseErr = listUnstructured.UnmarshalJSON(document); parseErr != nil {
+		if jsonData, parseErr = yaml.YAMLToJSON(document); parseErr == nil {
+			parseErr = listUnstructured.UnmarshalJSON(jsonData)
+		}
+	}
+
+	if parseErr != nil {
+		return parseErr
+	}
+
+	listItems, found, listErr := unstructured.NestedSlice(listUnstructured.Object, "items")
+	if listErr != nil {
+		return listErr
+	}
+	if !found || len(listItems) == 0 {
+		return nil
+	}
+
+	for i, item := range listItems {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			results.addError(path, fmt.Errorf("List item %d is not a valid object", i))
+			continue
+		}
+
+		itemUnstructured := &unstructured.Unstructured{Object: itemMap}
+		itemGVK := itemUnstructured.GroupVersionKind()
+
+		if err := processDocumentItem(itemGVK, itemUnstructured, results); err != nil {
+			results.addError(path, fmt.Errorf("failed to process List item %d: %w", i, err))
+		}
+	}
+
+	return nil
 }
 
 // processDocumentItem handles the processing of individual documents based on their GVK
