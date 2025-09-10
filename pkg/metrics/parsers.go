@@ -2,10 +2,13 @@ package metrics
 
 import (
 	"fmt"
+	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 func parsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
@@ -78,4 +81,42 @@ func GetPolicyInfos(policy kyvernov1.PolicyInterface) (string, string, PolicyTyp
 		validationMode = Audit
 	}
 	return name, namespace, policyType, backgroundMode, validationMode, nil
+}
+
+func GetCELPolicyInfos(policy v1alpha1.GenericPolicy) (string, string, PolicyBackgroundMode, admissionregistrationv1.ValidationAction) {
+	name := policy.GetName()
+	validationMode := admissionregistrationv1.Audit
+	backgroundMode := BackgroundFalse
+	policyType := ""
+
+	switch p := policy.(type) {
+	case *v1alpha1.ValidatingPolicy:
+		policyType = "Validating"
+
+		if p.Spec.BackgroundEnabled() {
+			backgroundMode = BackgroundTrue
+		}
+		if slices.Contains(p.Spec.ValidationActions(), admissionregistrationv1.Deny) {
+			validationMode = admissionregistrationv1.Deny
+		}
+	case *v1alpha1.ImageValidatingPolicy:
+		policyType = "ImageValidating"
+
+		if p.Spec.BackgroundEnabled() {
+			backgroundMode = BackgroundTrue
+		}
+		if slices.Contains(p.Spec.ValidationActions(), admissionregistrationv1.Deny) {
+			validationMode = admissionregistrationv1.Deny
+		}
+	case *v1alpha1.MutatingPolicy:
+		policyType = "Mutating"
+
+		if p.Spec.BackgroundEnabled() {
+			backgroundMode = BackgroundTrue
+		}
+	case *v1alpha1.GeneratingPolicy:
+		policyType = "Generating"
+	}
+
+	return name, policyType, backgroundMode, validationMode
 }

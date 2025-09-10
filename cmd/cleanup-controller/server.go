@@ -58,7 +58,7 @@ func NewServer(
 		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(policyLogger, metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)
@@ -68,7 +68,7 @@ func NewServer(
 		handlers.FromAdmissionFunc("VALIDATE", labelValidationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(labelLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(labelLogger, metrics.WebhookValidating).
 			WithAdmission(labelLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)

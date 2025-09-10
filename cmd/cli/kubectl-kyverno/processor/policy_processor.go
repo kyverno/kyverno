@@ -108,7 +108,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	isCluster := false
 	eng := engine.NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
@@ -241,6 +240,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		} else {
+			var user authenticationv1.UserInfo
+			if p.UserInfo != nil {
+				user = p.UserInfo.AdmissionUserInfo
+			}
 			gvr := mapping.Resource
 			for _, mapPolicy := range p.MutatingAdmissionPolicies {
 				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
@@ -252,7 +255,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				for _, param := range p.ParameterResources {
 					data.AddParam(param)
 				}
-				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue
@@ -347,6 +350,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		}
 		gvr := mapping.Resource
+		var user authenticationv1.UserInfo
+		if p.UserInfo != nil {
+			user = p.UserInfo.AdmissionUserInfo
+		}
 		for _, policy := range p.ValidatingAdmissionPolicies {
 			policyData := engineapi.NewValidatingAdmissionPolicyData(&policy)
 			for _, binding := range p.ValidatingAdmissionPolicyBindings {
@@ -357,7 +364,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			for _, param := range p.ParameterResources {
 				policyData.AddParam(param)
 			}
-			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster)
+			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster)
 			vapResponses = append(vapResponses, validateResponse)
 			p.Rc.addValidatingAdmissionResponse(validateResponse)
 		}
