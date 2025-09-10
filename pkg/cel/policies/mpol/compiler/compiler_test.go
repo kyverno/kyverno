@@ -57,7 +57,7 @@ func TestCompile(t *testing.T) {
 						{
 							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
 							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
-								Expression: `[{"op": "add", "path": "/spec/restartPolicy", "value": "Always"}]`,
+								Expression: `[JSONPatch{op: "add", path: "/spec/restartPolicy", value: "Always"}]`,
 							},
 						},
 					},
@@ -112,6 +112,53 @@ func TestCompile(t *testing.T) {
 						{
 							Name:       "ns-is-test",
 							Expression: `this is not a cel`,
+						},
+					},
+				},
+			},
+			polex:   nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid jsonPatch expression",
+			pol: &v1alpha1.MutatingPolicy{
+				Spec: v1alpha1.MutatingPolicySpec{
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+								Expression: `contains(object.metadata.labels) ??
+											[
+												JSONPatch{
+													op: "multiply",
+													path: "/metadata/labels/managed",
+													value: "true"
+												}
+											] : [
+												JSONPatch{
+													op: "add",
+													path: "/metadata/labels",
+													value: {"managed": "true"}
+												}
+											]`,
+							},
+						},
+					},
+				},
+			},
+			polex:   nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid jsonPatch expression",
+			pol: &v1alpha1.MutatingPolicy{
+				Spec: v1alpha1.MutatingPolicySpec{
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+							ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+								Expression: `invalid{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+							},
 						},
 					},
 				},
