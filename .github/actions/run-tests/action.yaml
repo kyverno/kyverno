@@ -44,6 +44,7 @@ runs:
       uses: kyverno/action-install-chainsaw@6354895e0f99ab23d3e38d85cf5c71b5dc21d727 # v0.2.13
       with:
         verify: true
+        release: v0.2.13-beta.2
     # create cluster
     - name: Create kind cluster
       uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
