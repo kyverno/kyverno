@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -171,8 +172,12 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
 		if c.needsReports(trigger) {
-			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
-				c.log.Error(err, "failed to create report")
+			policyLabels := policy.GetLabels()
+			// the value of the label doesn't matter, as long as it exists then the policy is excluded from reporting
+			if _, ok := policyLabels[kyverno.LabelExcludeReporting]; !ok {
+				if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
+					c.log.Error(err, "failed to create report")
+				}
 			}
 		}
 		for _, r := range er.PolicyResponse.Rules {

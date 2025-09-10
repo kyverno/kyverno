@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -158,18 +159,24 @@ func (v *validationHandler) HandleValidationEnforce(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil, engineResponses
 	}
 
-	go func() {
-		if NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
-			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
-				if reportutils.IsNamespaceTerminationError(err) {
-					// Log namespace termination errors at debug level as they are expected
-					v.log.V(2).Info("skipping report creation due to namespace termination", "error", err.Error())
-				} else {
-					v.log.Error(err, "failed to create report")
+	// create the admission report if any of the policies involved doesn't have the report exclusion label
+	for _, pol := range policies {
+		if _, ok := pol.GetLabels()[kyverno.LabelExcludeReporting]; !ok {
+			go func() {
+				if NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
+					if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
+						if reportutils.IsNamespaceTerminationError(err) {
+							// Log namespace termination errors at debug level as they are expected
+							v.log.V(2).Info("skipping report creation due to namespace termination", "error", err.Error())
+						} else {
+							v.log.Error(err, "failed to create report")
+						}
+					}
 				}
-			}
+			}()
+			break
 		}
-	}()
+	}
 
 	engineResponses = append(engineResponses, auditWarnEngineResponses...)
 	warnings := webhookutils.GetWarningMessages(engineResponses)
@@ -203,13 +210,19 @@ func (v *validationHandler) HandleValidationAudit(
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
-			if needsReport {
-				if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
-					if reportutils.IsNamespaceTerminationError(err) {
-						// Log namespace termination errors at debug level as they are expected
-						v.log.V(2).Info("skipping report creation due to namespace termination", "error", err.Error())
-					} else {
-						v.log.Error(err, "failed to create report")
+
+			for _, pol := range policies {
+				if _, ok := pol.GetLabels()[kyverno.LabelExcludeReporting]; !ok {
+					if needsReport {
+						if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
+							if reportutils.IsNamespaceTerminationError(err) {
+								// Log namespace termination errors at debug level as they are expected
+								v.log.V(2).Info("skipping report creation due to namespace termination", "error", err.Error())
+							} else {
+								v.log.Error(err, "failed to create report")
+							}
+						}
+						break
 					}
 				}
 			}
