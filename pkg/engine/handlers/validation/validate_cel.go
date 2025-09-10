@@ -165,7 +165,7 @@ func (h validateCELHandler) Process(
 	}
 
 	requestInfo := policyContext.AdmissionInfo()
-	userInfo := internal.NewUser(requestInfo.AdmissionUserInfo.Username, requestInfo.AdmissionUserInfo.UID, requestInfo.AdmissionUserInfo.Groups)
+	userInfo := admissionpolicy.NewUser(requestInfo.AdmissionUserInfo)
 	attr := admission.NewAttributesRecord(object, oldObject, gvk, ns, name, gvr, "", admission.Operation(policyContext.Operation()), nil, false, &userInfo)
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	versionedAttr, err := admission.NewVersionedAttributes(attr, attr.GetKind(), o)
