@@ -135,7 +135,12 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return err
 	}
 
-	kinds := admissionpolicy.GetKinds(spec.MatchConstraints, restMapper)
+	kinds, err := admissionpolicy.GetKinds(spec.MatchConstraints, restMapper)
+	if err != nil {
+		if e, resolveErr := admissionpolicy.GetResolveKindErrorEvent(&policy, err); resolveErr != nil {
+			c.eventGen.Add(e)
+		}
+	}
 
 	for _, kind := range kinds {
 		debug := debug.WithValues("kind", kind)

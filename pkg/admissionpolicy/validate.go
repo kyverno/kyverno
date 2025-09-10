@@ -7,11 +7,14 @@ import (
 	"time"
 
 	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/event"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,12 +30,14 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
+	"k8s.io/client-go/tools/reference"
 )
 
-func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []string {
+func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]string, error) {
 	if matchResources == nil {
-		return nil
+		return nil, nil
 	}
+	errs := []error{}
 
 	var kindList []string
 	for _, rule := range matchResources.ResourceRules {
@@ -46,14 +51,29 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper met
 					kinds, err := resolveKinds(group, version, resource, mapper)
 					if err != nil {
 						vapLogger.Error(err, fmt.Sprintf("failed to resolve kind for group %s, version %s, resource %s", group, version, resource))
-						continue
+						errs = append(errs, err)
 					}
 					kindList = append(kindList, kinds...)
 				}
 			}
 		}
 	}
-	return kindList
+	return kindList, multierr.Combine(errs...)
+}
+
+func GetResolveKindErrorEvent(policy runtime.Object, kindResolveErr error) (event.Info, error) {
+	policyRef, err := reference.GetReference(scheme.Scheme, policy)
+	if err != nil {
+		return event.Info{}, nil
+	}
+	return event.Info{
+		Regarding: *policyRef,
+		Related:   policyRef,
+		Message:   fmt.Sprintf("Failed to resolve kinds %s\n", kindResolveErr.Error()),
+		Reason:    event.PolicyError,
+		Source:    event.PolicyController,
+		Action:    event.ResourceBlocked,
+	}, nil
 }
 
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
