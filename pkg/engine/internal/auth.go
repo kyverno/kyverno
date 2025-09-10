@@ -39,35 +39,3 @@ func NewAuthorizer(client engineapi.Client, resourceKind schema.GroupVersionKind
 		resourceKind: resourceKind,
 	}
 }
-
-// User implements user.Info interface. It is intended to be used in validate.cel subrules.
-type User struct {
-	name   string
-	uid    string
-	groups []string
-	extra  map[string][]string
-}
-
-func (u *User) GetName() string {
-	return u.name
-}
-
-func (u *User) GetUID() string {
-	return u.uid
-}
-
-func (u *User) GetGroups() []string {
-	return u.groups
-}
-
-func (u *User) GetExtra() map[string][]string {
-	return u.extra
-}
-
-func NewUser(name, uid string, groups []string) User {
-	return User{
-		name:   name,
-		uid:    uid,
-		groups: groups,
-	}
-}
