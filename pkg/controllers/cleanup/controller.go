@@ -25,9 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,13 +52,7 @@ type controller struct {
 	cmResolver    engineapi.ConfigmapResolver
 	eventGen      event.Interface
 	jp            jmespath.Interface
-	metrics       cleanupMetrics
 	gctxStore     loaders.Store
-}
-
-type cleanupMetrics struct {
-	deletedObjectsTotal  metric.Int64Counter
-	cleanupFailuresTotal metric.Int64Counter
 }
 
 const (
@@ -114,7 +105,6 @@ func NewController(
 		configuration: configuration,
 		cmResolver:    cmResolver,
 		eventGen:      eventGen,
-		metrics:       newCleanupMetrics(logger),
 		jp:            jp,
 		gctxStore:     gctxStore,
 	}
@@ -135,28 +125,6 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	return c
-}
-
-func newCleanupMetrics(logger logr.Logger) cleanupMetrics {
-	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
-	deletedObjectsTotal, err := meter.Int64Counter(
-		"kyverno_cleanup_controller_deletedobjects",
-		metric.WithDescription("can be used to track number of deleted objects."),
-	)
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, cleanup_controller_deletedobjects_total")
-	}
-	cleanupFailuresTotal, err := meter.Int64Counter(
-		"kyverno_cleanup_controller_errors",
-		metric.WithDescription("can be used to track number of cleanup failures."),
-	)
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, cleanup_controller_errors_total")
-	}
-	return cleanupMetrics{
-		deletedObjectsTotal:  deletedObjectsTotal,
-		cleanupFailuresTotal: cleanupFailuresTotal,
-	}
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
@@ -180,6 +148,8 @@ func (c *controller) getPolicy(namespace, name string) (kyvernov2.CleanupPolicyI
 }
 
 func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyvernov2.CleanupPolicyInterface) error {
+	metrics := metrics.GetCleanupMetrics()
+
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
@@ -201,19 +171,13 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 		return err
 	}
 	for kind := range kinds {
-		commonLabels := []attribute.KeyValue{
-			attribute.String("policy_type", policy.GetKind()),
-			attribute.String("policy_namespace", policy.GetNamespace()),
-			attribute.String("policy_name", policy.GetName()),
-			attribute.String("resource_kind", kind),
-		}
 		debug := debug.WithValues("kind", kind)
 		debug.Info("processing...")
 		list, err := c.client.ListResource(ctx, "", kind, policy.GetNamespace(), nil)
 		if err != nil {
 			debug.Error(err, "failed to list resources")
-			if c.metrics.cleanupFailuresTotal != nil {
-				c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(commonLabels...))
+			if metrics != nil {
+				metrics.RecordCleanupFailure(ctx, kind, policy.GetNamespace(), policy, deleteOptions.PropagationPolicy)
 			}
 			// Check if this is a recoverable error (permission denied, resource not found, etc.)
 			if dclient.IsRecoverableError(err) {
@@ -317,24 +281,18 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					continue
 				}
 			}
-			var labels []attribute.KeyValue
-			labels = append(labels, commonLabels...)
-			labels = append(labels, attribute.String("resource_namespace", namespace))
-			if deleteOptions.PropagationPolicy != nil {
-				labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
-			}
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
-				if c.metrics.cleanupFailuresTotal != nil {
-					c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+				if metrics != nil {
+					metrics.RecordCleanupFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
 				e := event.NewCleanupPolicyEvent(policy, resource, err)
 				c.eventGen.Add(e)
 			} else {
-				if c.metrics.deletedObjectsTotal != nil {
-					c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+				if metrics != nil {
+					metrics.RecordDeletedObject(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Info("resource deleted")
 				e := event.NewCleanupPolicyEvent(policy, resource, nil)

@@ -2079,7 +2079,6 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
@@ -2182,7 +2181,6 @@ func Test_RuleSelector(t *testing.T) {
 	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),

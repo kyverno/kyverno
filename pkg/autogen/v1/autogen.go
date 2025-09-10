@@ -173,6 +173,13 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		VerifyImages:           rule.VerifyImages,
 		SkipBackgroundRequests: rule.SkipBackgroundRequests,
 	}
+	if rule.ReportProperties != nil {
+		rp := make(map[string]string, len(rule.ReportProperties))
+		for k, v := range rule.ReportProperties {
+			rp[k] = v
+		}
+		out.ReportProperties = rp
+	}
 	if rule.MatchResources != nil {
 		out.MatchResources = *rule.MatchResources
 	}

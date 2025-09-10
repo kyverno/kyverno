@@ -34,7 +34,6 @@ func testValidate(
 	}
 	e := NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),

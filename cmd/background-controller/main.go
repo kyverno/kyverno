@@ -215,7 +215,6 @@ func main() {
 			globalcontextcontroller.Workers,
 		) // this controller only subscribe to events, nothing is returned...
 		policymetricscontroller.NewController(
-			setup.MetricsManager,
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			&wg,
@@ -224,7 +223,6 @@ func main() {
 			signalCtx,
 			setup.Logger,
 			setup.Configuration,
-			setup.MetricsConfiguration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
 			setup.RegistryClient,
