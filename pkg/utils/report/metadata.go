@@ -13,7 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -107,7 +107,7 @@ func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.Valid
 	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
 }
 
-func MutatingAdmissionPolicyBindingLabel(binding admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) string {
+func MutatingAdmissionPolicyBindingLabel(binding admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) string {
 	return LabelPrefixMutatingAdmissionPolicyBinding + binding.GetName()
 }
 
@@ -196,7 +196,7 @@ func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, 
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
 }
 
-func SetMutatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func SetMutatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
 	controllerutils.SetLabel(report, MutatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
 }
 

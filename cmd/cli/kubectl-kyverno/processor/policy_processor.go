@@ -45,7 +45,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,8 +59,8 @@ type PolicyProcessor struct {
 	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	MutatingAdmissionPolicies         []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
