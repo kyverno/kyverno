@@ -56,8 +56,6 @@ func (c *GlobalContextEntry) Validate() (errs field.ErrorList) {
 // +kubebuilder:oneOf:={required:{apiCall}}
 type GlobalContextEntrySpec = kyvernov2beta1.GlobalContextEntrySpec
 
-
-
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -67,12 +65,6 @@ type GlobalContextEntryList = kyvernov2beta1.GlobalContextEntryList
 // KubernetesResource stores infos about kubernetes resource that should be cached
 type KubernetesResource = kyvernov2beta1.KubernetesResource
 
-
-
 type ExternalAPICall = kyvernov2beta1.ExternalAPICall
 
-
-
 type GlobalContextEntryProjection = kyvernov2beta1.GlobalContextEntryProjection
-
-
