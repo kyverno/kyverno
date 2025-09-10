@@ -173,6 +173,13 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		VerifyImages:           rule.VerifyImages,
 		SkipBackgroundRequests: rule.SkipBackgroundRequests,
 	}
+	if rule.ReportProperties != nil {
+		rp := make(map[string]string, len(rule.ReportProperties))
+		for k, v := range rule.ReportProperties {
+			rp[k] = v
+		}
+		out.ReportProperties = rp
+	}
 	if rule.MatchResources != nil {
 		out.MatchResources = *rule.MatchResources
 	}
@@ -256,7 +263,11 @@ func copyMap(m map[string]any) map[string]any {
 	return newMap
 }
 
-func createAutogenAssertion(tree kyvernov1.AssertionTree, tplKey string) kyvernov1.AssertionTree {
+func createAutogenAssertion(tree *kyvernov1.AssertionTree, tplKey string) *kyvernov1.AssertionTree {
+	if tree == nil {
+		return tree
+	}
+
 	v, ok := tree.Value.(map[string]any)
 	if !ok {
 		return tree
@@ -277,7 +288,7 @@ func createAutogenAssertion(tree kyvernov1.AssertionTree, tplKey string) kyverno
 		}
 	}
 
-	return kyvernov1.AssertionTree{
+	return &kyvernov1.AssertionTree{
 		Value: value,
 	}
 }

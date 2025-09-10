@@ -38,3 +38,16 @@ func convertVariables(v1alpha1variables []admissionregistrationv1alpha1.Variable
 	}
 	return v1variables
 }
+
+func convertParamRef(ref *admissionregistrationv1alpha1.ParamRef) *admissionregistrationv1.ParamRef {
+	return &admissionregistrationv1.ParamRef{
+		Name:                    ref.Name,
+		Namespace:               ref.Namespace,
+		Selector:                ref.Selector,
+		ParameterNotFoundAction: (*admissionregistrationv1.ParameterNotFoundActionType)(ref.ParameterNotFoundAction),
+	}
+}
+
+func convertParamKind(kind *admissionregistrationv1alpha1.ParamKind) *admissionregistrationv1.ParamKind {
+	return &admissionregistrationv1.ParamKind{APIVersion: kind.APIVersion, Kind: kind.Kind}
+}
