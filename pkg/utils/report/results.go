@@ -112,6 +112,37 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 	}
 
+	// override message from reportProperties if provided
+	if result.Properties != nil {
+		// status-specific overrides
+		switch result.Result {
+		case openreports.StatusPass:
+			if msg, ok := result.Properties["passMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		case openreports.StatusFail:
+			if msg, ok := result.Properties["failMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		case openreports.StatusWarn:
+			if msg, ok := result.Properties["warnMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		case openreports.StatusError:
+			if msg, ok := result.Properties["errorMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		case openreports.StatusSkip:
+			if msg, ok := result.Properties["skipMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		}
+		// generic override
+		if msg, ok := result.Properties["message"]; ok && msg != "" {
+			result.Description = msg
+		}
+	}
+
 	var process string
 
 	switch {
