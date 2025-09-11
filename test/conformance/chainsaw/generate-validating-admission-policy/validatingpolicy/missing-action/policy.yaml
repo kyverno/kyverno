@@ -4,6 +4,8 @@ metadata:
   name: missing-action
 spec:
   autogen:
+    podControllers:
+      controllers: []
     validatingAdmissionPolicy:
       enabled: true
   matchConstraints:
