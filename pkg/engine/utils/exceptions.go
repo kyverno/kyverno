@@ -26,7 +26,7 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 		resource = policyContext.OldResource()
 	}
 	nsLabels := policyContext.NamespaceLabels()
-	if nsLabels == nil && isCluster {
+	if isCluster {
 		namespace, err := client.GetNamespace(context.TODO(), resource.GetNamespace(), metav1.GetOptions{})
 		if err != nil {
 			logger.Error(err, "failed to get namespace", "name", resource.GetNamespace())
