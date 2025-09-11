@@ -39,6 +39,15 @@ spec:
         entrypoint: kubectl
     - command:
         args:
+        - get
+        - pod/nginx
+        - -n
+        - test-generate-exec
+        - -o
+        - wide
+        entrypoint: kubectl
+    - command:
+        args:
         - wait
         - --for=condition=Ready
         - pod/nginx
@@ -51,7 +60,6 @@ spec:
         - -n
         - test-generate-exec
         - nginx
-        - -it
         - --
         - ls
         entrypoint: kubectl

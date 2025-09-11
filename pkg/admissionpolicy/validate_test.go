@@ -146,6 +146,36 @@ spec:
 			wantKinds: []string{"v1/Pod", "apps/v1/Deployment", "apps/v1/ReplicaSet", "apps/v1/DaemonSet", "apps/v1/StatefulSet", "batch/v1/Job", "batch/v1/CronJob"},
 		},
 		{
+			name: "Match subresource",
+			policy: []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: match-pod-exec
+spec:
+  failurePolicy: Fail
+  matchConditions:
+  - expression: request.operation == 'CONNECT'
+    name: operation-should-be-connect
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      - CONNECT
+      resources:
+      - pods/exec
+  validations:
+  - expression: request.namespace != 'pci'
+    message: Pods in this namespace may not be exec'd into.
+`),
+			wantKinds: []string{"v1/Pod/exec"},
+		},
+		{
 			name: "skip incomplete resource rules",
 			policy: []byte(`
 apiVersion: admissionregistration.k8s.io/v1
