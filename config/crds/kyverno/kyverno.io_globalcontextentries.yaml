@@ -59,18 +59,10 @@ spec:
               - apiCall
             properties:
               apiCall:
-                description: |-
-                  Stores results from an API call which will be cached.
-                  Mutually exclusive with KubernetesResource.
-                  This can be used to make calls to external (non-Kubernetes API server) services.
-                  It can also be used to make calls to the Kubernetes API server in such cases:
-                  1. A POST is needed to create a resource.
-                  2. Finer-grained control is needed. Example: To restrict the number of resources cached.
+                description: APICall stores infos about API call that should be cached
                 properties:
                   data:
-                    description: |-
-                      The data object specifies the POST data sent to the server.
-                      Only applicable when the method field is set to POST.
+                    description: Data specifies the POST data sent to the server.
                     items:
                       description: RequestData contains the HTTP POST data
                       properties:
@@ -87,8 +79,9 @@ spec:
                     type: array
                   method:
                     default: GET
-                    description: Method is the HTTP request type (GET or POST). Defaults
-                      to GET.
+                    description: |-
+                      Method defines the method for the HTTP request. Defaults to GET.
+                      Valid values are GET and POST.
                     enum:
                     - GET
                     - POST
@@ -96,22 +89,18 @@ spec:
                   refreshInterval:
                     default: 10m
                     description: |-
-                      RefreshInterval defines the interval in duration at which to poll the APICall.
-                      The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
-                      such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
-                    format: duration
+                      RefreshInterval defines the interval at which to poll the API endpoint.
+                      The duration format is a number and a unit. Examples: 30s, 1m, 1h30m.
                     type: string
                   retryLimit:
-                    default: 3
-                    description: RetryLimit defines the number of times the APICall
-                      should be retried in case of failure.
-                    minimum: 1
+                    default: 0
+                    description: RetryLimit sets the max number of times to retry
+                      the API request in case of failure. Defaults to 0 (no retries).
+                    maximum: 10
+                    minimum: 0
                     type: integer
                   service:
-                    description: |-
-                      Service is an API call to a JSON web service.
-                      This is used for non-Kubernetes API server calls.
-                      It's mutually exclusive with the URLPath field.
+                    description: Service defines the service data to query.
                     properties:
                       caBundle:
                         description: |-
@@ -143,19 +132,15 @@ spec:
                     - url
                     type: object
                   urlPath:
-                    description: |-
-                      URLPath is the URL path to be used in the HTTP GET or POST request to the
-                      Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
-                      The format required is the same format used by the `kubectl get --raw` command.
-                      See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
-                      for details.
-                      It's mutually exclusive with the Service field.
+                    description: URLPath defines the URL to be used for the HTTP GET
+                      or POST request.
                     type: string
+                required:
+                - urlPath
                 type: object
               kubernetesResource:
-                description: |-
-                  Stores a list of Kubernetes resources which will be cached.
-                  Mutually exclusive with APICall.
+                description: KubernetesResource stores infos about kubernetes resource
+                  that should be cached
                 properties:
                   group:
                     description: Group defines the group of the resource.
@@ -166,29 +151,28 @@ spec:
                       If left empty for namespaced resources, all resources from all namespaces will be cached.
                     type: string
                   resource:
-                    description: |-
-                      Resource defines the type of the resource.
-                      Requires the pluralized form of the resource kind in lowercase. (Ex., "deployments")
+                    description: Resource defines the type of the resource.
                     type: string
                   version:
                     description: Version defines the version of the resource.
                     type: string
                 required:
                 - resource
-                - version
                 type: object
               projections:
-                description: Projections defines the list of JMESPath expressions
-                  to extract values from the cached resource.
+                description: |-
+                  Projections stores the data to be cached.
+                  This determines what data from the source will be cached.
                 items:
+                  description: GlobalContextEntryProjection stores the data to be
+                    cached.
                   properties:
                     jmesPath:
-                      description: JMESPath is the JMESPath expression to extract
-                        the value from the cached resource.
+                      description: JMESPath is a JMES expression that is used to transform
+                        the source JSON data.
                       type: string
                     name:
-                      description: Name is the name to use for the extracted value
-                        in the context.
+                      description: Name is a unique identifier for the projection.
                       type: string
                   required:
                   - jmesPath
@@ -256,19 +240,19 @@ spec:
                   type: object
                 type: array
               lastRefreshTime:
-                description: Indicates the time when the globalcontextentry was last
-                  refreshed successfully for the API Call
                 format: date-time
                 type: string
               ready:
                 description: Deprecated in favor of Conditions
                 type: boolean
+            required:
+            - ready
             type: object
         required:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -521,6 +505,6 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}

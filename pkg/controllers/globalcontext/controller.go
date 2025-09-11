@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
@@ -160,6 +161,23 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			c.jp,
 		)
 	}
+	// Convert v2alpha1 ExternalAPICall to v1 APICall
+	apiCall := kyvernov1.APICall{
+		URLPath: gce.Spec.APICall.URLPath,
+		Method:  kyvernov1.Method(gce.Spec.APICall.Method),
+	}
+
+	// Convert v2alpha1 RequestData to v1 RequestData
+	if len(gce.Spec.APICall.Data) > 0 {
+		apiCall.Data = make([]kyvernov1.RequestData, len(gce.Spec.APICall.Data))
+		for i, data := range gce.Spec.APICall.Data {
+			apiCall.Data[i] = kyvernov1.RequestData{
+				Key:   data.Key,
+				Value: &data.Value,
+			}
+		}
+	}
+
 	return externalapi.New(
 		ctx,
 		gce,
@@ -168,7 +186,7 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 		c.gceLister,
 		logger,
 		adapters.Client(c.dclient),
-		gce.Spec.APICall.APICall,
+		apiCall,
 		gce.Spec.APICall.RefreshInterval.Duration,
 		c.maxResponseLength,
 		c.shouldUpdateStatus,

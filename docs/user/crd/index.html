@@ -4241,7 +4241,8 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.APICall">APICall</a>)
+<a href="#kyverno.io/v1.APICall">APICall</a>, 
+<a href="#kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall</a>)
 </p>
 <p>
 </p>
@@ -7354,7 +7355,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>spec</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.GlobalContextEntrySpec">
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">
 GlobalContextEntrySpec
 </a>
 </em>
@@ -7368,45 +7369,40 @@ GlobalContextEntrySpec
 <td>
 <code>kubernetesResource</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.KubernetesResource">
+<a href="#kyverno.io/v2alpha1.KubernetesResource">
 KubernetesResource
 </a>
 </em>
 </td>
 <td>
-<p>Stores a list of Kubernetes resources which will be cached.
-Mutually exclusive with APICall.</p>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>apiCall</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.ExternalAPICall">
+<a href="#kyverno.io/v2alpha1.ExternalAPICall">
 ExternalAPICall
 </a>
 </em>
 </td>
 <td>
-<p>Stores results from an API call which will be cached.
-Mutually exclusive with KubernetesResource.
-This can be used to make calls to external (non-Kubernetes API server) services.
-It can also be used to make calls to the Kubernetes API server in such cases:
-1. A POST is needed to create a resource.
-2. Finer-grained control is needed. Example: To restrict the number of resources cached.</p>
+<p>APICall stores infos about API call that should be cached</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>projections</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.GlobalContextEntryProjection">
+<a href="#kyverno.io/v2alpha1.GlobalContextEntryProjection">
 []GlobalContextEntryProjection
 </a>
 </em>
 </td>
 <td>
-<p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+<p>Projections stores the data to be cached.
+This determines what data from the source will be cached.</p>
 </td>
 </tr>
 </table>
@@ -7416,7 +7412,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 <td>
 <code>status</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.GlobalContextEntryStatus">
+<a href="#kyverno.io/v2alpha1.GlobalContextEntryStatus">
 GlobalContextEntryStatus
 </a>
 </em>
@@ -7424,6 +7420,367 @@ GlobalContextEntryStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains globalcontextentry runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
+</p>
+<p>
+<p>ExternalAPICall stores infos about API call that should be cached</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>urlPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URLPath defines the URL to be used for the HTTP GET or POST request.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>method</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Method defines the method for the HTTP request. Defaults to GET.
+Valid values are GET and POST.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>refreshInterval</code><br/>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<p>RefreshInterval defines the interval at which to poll the API endpoint.
+The duration format is a number and a unit. Examples: 30s, 1m, 1h30m.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>retryLimit</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>RetryLimit sets the max number of times to retry the API request in case of failure. Defaults to 0 (no retries).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>data</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.RequestData">
+[]RequestData
+</a>
+</em>
+</td>
+<td>
+<p>Data specifies the POST data sent to the server.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>service</code><br/>
+<em>
+<a href="#kyverno.io/v1.ServiceCall">
+ServiceCall
+</a>
+</em>
+</td>
+<td>
+<p>Service defines the service data to query.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.GlobalContextEntryProjection">GlobalContextEntryProjection
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
+</p>
+<p>
+<p>GlobalContextEntryProjection stores the data to be cached.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is a unique identifier for the projection.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>jmesPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>JMESPath is a JMES expression that is used to transform the source JSON data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>)
+</p>
+<p>
+<p>GlobalContextEntrySpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>kubernetesResource</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.KubernetesResource">
+KubernetesResource
+</a>
+</em>
+</td>
+<td>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiCall</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.ExternalAPICall">
+ExternalAPICall
+</a>
+</em>
+</td>
+<td>
+<p>APICall stores infos about API call that should be cached</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>projections</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntryProjection">
+[]GlobalContextEntryProjection
+</a>
+</em>
+</td>
+<td>
+<p>Projections stores the data to be cached.
+This determines what data from the source will be cached.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.GlobalContextEntryStatus">GlobalContextEntryStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ready</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Deprecated in favor of Conditions</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastRefreshTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.KubernetesResource">KubernetesResource
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
+</p>
+<p>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>group</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Group defines the group of the resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Version defines the version of the resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Resource defines the type of the resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
+If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.RequestData">RequestData
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall</a>)
+</p>
+<p>
+<p>RequestData contains the HTTP POST data</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Key is a unique identifier for the data value</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>value</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<p>Value is the data value</p>
 </td>
 </tr>
 </tbody>
@@ -9044,7 +9401,6 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>, 
 <a href="#kyverno.io/v2beta1.GlobalContextEntry">GlobalContextEntry</a>)
 </p>
 <p>
@@ -9110,7 +9466,6 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>, 
 <a href="#kyverno.io/v2beta1.GlobalContextEntry">GlobalContextEntry</a>)
 </p>
 <p>

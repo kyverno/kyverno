@@ -50,10 +50,8 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 			name: "valid APICall",
 			spec: GlobalContextEntrySpec{
 				APICall: &ExternalAPICall{
-					APICall: kyvernov1.APICall{
-						URLPath: "/api/v1/namespaces",
-					},
-					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+					URLPath:         "/api/v1/namespaces",
+					RefreshInterval: metav1.Duration{Duration: 10 * time.Minute},
 				},
 			},
 			wantErr: false,
@@ -67,10 +65,8 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 					Resource: "deployments",
 				},
 				APICall: &ExternalAPICall{
-					APICall: kyvernov1.APICall{
-						URLPath: "/api/v1/namespaces",
-					},
-					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+					URLPath:         "/api/v1/namespaces",
+					RefreshInterval: metav1.Duration{Duration: 10 * time.Minute},
 				},
 			},
 			wantErr: true,
@@ -163,49 +159,40 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "valid ExternalAPICall",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
-					URLPath: "/api/v1/namespaces",
-				},
-				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+				URLPath:         "/api/v1/namespaces",
+				RefreshInterval: metav1.Duration{Duration: 10 * time.Minute},
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing RefreshInterval",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
-					URLPath: "/api/v1/namespaces",
-				},
-				RefreshInterval: &metav1.Duration{Duration: 0 * time.Second},
+				URLPath:         "/api/v1/namespaces",
+				RefreshInterval: metav1.Duration{Duration: 0 * time.Second},
 			},
 			wantErr: true,
 		},
 		{
 			name: "both Service and URLPath",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
-					Service: &kyvernov1.ServiceCall{},
-					URLPath: "/api/v1/namespaces",
-				},
-				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+				Service:         &kyvernov1.ServiceCall{},
+				URLPath:         "/api/v1/namespaces",
+				RefreshInterval: metav1.Duration{Duration: 10 * time.Minute},
 			},
 			wantErr: true,
 		},
 		{
 			name: "missing Service and URLPath",
 			apiCall: ExternalAPICall{
-				APICall:         kyvernov1.APICall{},
-				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+				RefreshInterval: metav1.Duration{Duration: 10 * time.Minute},
 			},
 			wantErr: true,
 		},
 		{
 			name: "POST method without data",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
-					Method: "POST",
-				},
-				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+				Method:          "POST",
+				RefreshInterval: metav1.Duration{Duration: 10 * time.Minute},
 			},
 			wantErr: true,
 		},
@@ -213,13 +200,11 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "non-POST method with data",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
-					Method: "GET",
-					Data: []kyvernov1.RequestData{
-						{Key: "example-key", Value: &apiextv1.JSON{Raw: []byte(`{"field": "value"}`)}},
-					},
+				Method: "GET",
+				Data: []RequestData{
+					{Key: "example-key", Value: apiextv1.JSON{Raw: []byte(`{"field": "value"}`)}},
 				},
-				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+				RefreshInterval: metav1.Duration{Duration: 10 * time.Minute},
 			},
 
 			wantErr: true,
