@@ -19,6 +19,9 @@ import (
 // MatchesException takes a list of exceptions and checks if there is an exception applies to the incoming resource.
 // It returns the matched policy exception.
 func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyException, policyContext engineapi.PolicyContext, isCluster bool, logger logr.Logger) []kyvernov2.PolicyException {
+	if len(polexs) == 0 {
+		return nil
+	}
 	var matchedExceptions []kyvernov2.PolicyException
 	gvk, subresource := policyContext.ResourceKind()
 	resource := policyContext.NewResource()
