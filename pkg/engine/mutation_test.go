@@ -1358,6 +1358,178 @@ func Test_mutate_nested_foreach(t *testing.T) {
 	require.Equal(t, expected, patched)
 }
 
+func Test_patchesJson6902_with_variables_in_path(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "jsonpatch-variables"
+    },
+    "spec": {
+      "background": false,
+      "rules": [
+        {
+          "name": "add-label-using-variable",
+          "match": {
+            "any": [
+              {
+                "resources": {
+                  "kinds": [ "Pod" ],
+                  "operations": [ "CREATE" ]
+                }
+              }
+            ]
+          },
+          "mutate": {
+            "patchesJson6902": "- path: /metadata/labels/{{request.object.metadata.name}}\n  op: add\n  value: test-label"
+          }
+        }
+      ]
+    }
+  }`)
+
+	resourceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "mypod"
+    },
+    "spec": {
+      "containers": [
+        {
+          "name": "nginx",
+          "image": "nginx:latest"
+        }
+      ]
+    }
+  }`)
+
+	expectedRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "mypod",
+      "labels": {
+        "mypod": "test-label"
+      }
+    },
+    "spec": {
+      "containers": [
+        {
+          "name": "nginx",
+          "image": "nginx:latest"
+        }
+      ]
+    }
+  }`)
+
+	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
+	resource := loadUnstructured(t, resourceRaw)
+	expected := loadUnstructured(t, expectedRaw)
+	policyContext := createContext(t, &policy, resource)
+
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
+	require.Equal(t, 1, len(er.PolicyResponse.Rules))
+	require.Equal(t, engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Status())
+
+	patched := er.PatchedResource
+	require.Equal(t, expected, patched)
+}
+
+func Test_foreach_patchesJson6902_with_variables(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "foreach-json-patch"
+    },
+    "spec": {
+      "background": false,
+      "rules": [
+        {
+          "name": "add-security-context",
+          "match": {
+            "any": [
+              {
+                "resources": {
+                  "kinds": [ "Pod" ],
+                  "operations": [ "CREATE" ]
+                }
+              }
+            ]
+          },
+          "mutate": {
+            "foreach": [
+              {
+                "list": "request.object.spec.containers",
+                "patchesJson6902": "- path: /spec/containers/{{elementIndex}}/securityContext\n  op: add\n  value:\n    runAsNonRoot: true"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }`)
+
+	resourceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "test-pod"
+    },
+    "spec": {
+      "containers": [
+        {
+          "name": "nginx",
+          "image": "nginx:latest"
+        },
+        {
+          "name": "busybox",
+          "image": "busybox"
+        }
+      ]
+    }
+  }`)
+
+	expectedRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "test-pod"
+    },
+    "spec": {
+      "containers": [
+        {
+          "name": "nginx",
+          "image": "nginx:latest",
+          "securityContext": {
+            "runAsNonRoot": true
+          }
+        },
+        {
+          "name": "busybox",
+          "image": "busybox",
+          "securityContext": {
+            "runAsNonRoot": true
+          }
+        }
+      ]
+    }
+  }`)
+
+	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
+	resource := loadUnstructured(t, resourceRaw)
+	expected := loadUnstructured(t, expectedRaw)
+	policyContext := createContext(t, &policy, resource)
+
+	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
+	require.Equal(t, 1, len(er.PolicyResponse.Rules))
+	require.Equal(t, engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Status())
+
+	patched := er.PatchedResource
+	require.Equal(t, expected, patched)
+}
+
 func Test_mutate_existing_resources(t *testing.T) {
 	tests := []struct {
 		name           string
