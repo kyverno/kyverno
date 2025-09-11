@@ -43,6 +43,8 @@ func (e *engine) verifyAndPatchImages(
 				e.rclientFactory,
 				e.ivCache,
 				&ivm,
+				e.client,
+				e.isCluster,
 			)
 		}
 		resource, ruleResp := e.invokeRuleHandler(
