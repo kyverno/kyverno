@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -18,7 +19,7 @@ func InitMetrics(
 	ctx context.Context,
 	disableMetricsExport bool,
 	otelProvider string,
-	metricsAddr string,
+	metricsPort int,
 	otelCollector string,
 	metricsConfiguration config.MetricsConfiguration,
 	transportCreds string,
@@ -46,7 +47,7 @@ func InitMetrics(
 
 	switch otelProvider {
 	case "grpc":
-		endpoint := otelCollector + metricsAddr
+		endpoint := fmt.Sprintf("[%s]:%d", otelCollector, metricsPort)
 		meterProvider, err = NewOTLPGRPCConfig(
 			ctx,
 			endpoint,
