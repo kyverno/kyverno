@@ -22,7 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
@@ -38,8 +38,8 @@ var (
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
 	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
-	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
-	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
+	mapV1alpha1        = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapBindingV1alpha1 = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	defaultLoader      = kubectlValidateLoader
 )
 
@@ -52,8 +52,8 @@ type LoaderResults struct {
 	Policies                []kyvernov1.PolicyInterface
 	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
 	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MAPs                    []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	MAPBindings             []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	MAPs                    []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	MAPBindings             []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
 	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
 	GeneratingPolicies      []policiesv1alpha1.GeneratingPolicy
@@ -188,13 +188,13 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
 		case mapV1alpha1:
-			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicy](untyped)
+			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.MAPs = append(results.MAPs, *typed)
 		case mapBindingV1alpha1:
-			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding](untyped)
+			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](untyped)
 			if err != nil {
 				return nil, err
 			}
