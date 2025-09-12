@@ -668,6 +668,10 @@ helm-setup-openreports: $(HELM) ## Add openreports helm repo and build dependenc
 codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
 	@echo Generate helm crds... >&2
+	@rm -rf ./charts/crds/templates/kyverno.io && mkdir -p ./charts/crds/templates/kyverno.io
+	@rm -rf ./charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/crds/templates/reports.kyverno.io
+	@rm -rf ./charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/crds/templates/wgpolicyk8s.io
+	@rm -rf ./charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/crds/templates/policies.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
@@ -689,6 +693,9 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
 	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports,true)
+	@rm -rf ./charts/crds/templates/kyverno.io
+	@rm -rf ./charts/crds/templates/reports.kyverno.io
+	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
