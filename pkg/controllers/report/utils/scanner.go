@@ -245,13 +245,13 @@ func (s *scanner) ScanResource(
 				s.gctxStore,
 				false,
 			)
-			engine := mpolengine.NewEngine(
+			engine := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 				s.typeConverter,
 				context,
-			)
+			), metrics.BackgroundScan)
 
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
