@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -121,6 +122,11 @@ func (h *handler) createReports(ctx context.Context, response mpolengine.EngineR
 
 	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, res := range response.Policies {
+		policyLabels := res.Policy.GetLabels()
+		// the value of the label doesn't matter, as long as it exists then the policy is excluded from reporting
+		if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+			continue
+		}
 		engineResponses = append(engineResponses, engineapi.EngineResponse{
 			Resource: *response.Resource,
 			PolicyResponse: engineapi.PolicyResponse{
