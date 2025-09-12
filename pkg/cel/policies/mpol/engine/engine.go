@@ -78,7 +78,14 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		return EngineResponse{}, err
 	}
 
-	response := EngineResponse{}
+	var object *unstructured.Unstructured
+	if o, ok := attr.GetObject().(*unstructured.Unstructured); ok {
+		object = o
+	}
+
+	response := EngineResponse{
+		Resource: object,
+	}
 
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
