@@ -88,6 +88,12 @@ spec:
               Name is the name of the test.
               This field is deprecated, use `metadata.name` instead
             type: string
+          paramResources:
+            description: Resources that act as parameters for validating/mutating
+              admission policies
+            items:
+              type: string
+            type: array
           policies:
             description: Policies are the policies to be used in the test
             items:
