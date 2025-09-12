@@ -357,7 +357,7 @@ func main() {
 					os.Exit(1)
 				}
 
-				mpolEngine := mpolengine.NewEngine(
+				mpolEngine := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 					mpolProvider,
 					func(name string) *corev1.Namespace {
 						return namespaceGetter(mgrCtx, name)
@@ -365,7 +365,7 @@ func main() {
 					nil,
 					typeConverter,
 					contextProvider,
-				)
+				), metrics.BackgroundScan)
 
 				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
 				if err != nil {
