@@ -1,0 +1,44 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: resourcequota-recreation-with-preconditions
+spec:
+  steps:
+  - name: create-test-namespace
+    try:
+    - apply:
+        file: existing-resources.yaml
+  - name: create-policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-policy-ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: resourcequota-recreation-with-preconditions
+  - name: verify-initial-resourcequota-created
+    try:
+    - sleep:
+        duration: 5s
+    - assert:
+        file: initial-generated-resources.yaml
+  - name: delete-all-resourcequotas
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ResourceQuota
+          name: default
+          namespace: test-namespace
+  - name: verify-resourcequota-recreated
+    try:
+    - sleep:
+        duration: 10s
+    - assert:
+        file: recreated-generated-resources.yaml

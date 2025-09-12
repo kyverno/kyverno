@@ -9,8 +9,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +26,40 @@ import (
 	watchTools "k8s.io/client-go/tools/watch"
 )
 
+// Helper functions for creating UpdateRequests
+func newGenerateUR(policyName string) *kyvernov2.UpdateRequest {
+	return &kyvernov2.UpdateRequest{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: kyvernov2.SchemeGroupVersion.String(),
+			Kind:       "UpdateRequest",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "ur-",
+			Namespace:    config.KyvernoNamespace(),
+			Labels:       common.GenerateLabelsSet(policyName),
+		},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.Generate,
+			Policy: policyName,
+		},
+	}
+}
+
+func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvernov1.ResourceSpec, deleteDownstream, cacheRestore bool) {
+	ur.Spec.RuleContext = append(ur.Spec.RuleContext, kyvernov2.RuleContext{
+		Rule: ruleName,
+		Trigger: kyvernov1.ResourceSpec{
+			Kind:       trigger.GetKind(),
+			Namespace:  trigger.GetNamespace(),
+			Name:       trigger.GetName(),
+			APIVersion: trigger.GetAPIVersion(),
+			UID:        trigger.GetUID(),
+		},
+		DeleteDownstream: deleteDownstream,
+		CacheRestore:     cacheRestore,
+	})
+}
+
 type Resource struct {
 	Name      string
 	Namespace string
@@ -33,7 +70,8 @@ type Resource struct {
 
 type WatchManager struct {
 	// clients
-	client dclient.Interface
+	client        dclient.Interface
+	kyvernoClient versioned.Interface
 
 	// mapper
 	restMapper meta.RESTMapper
@@ -54,12 +92,13 @@ type watcher struct {
 	metadataCache map[types.UID]Resource
 }
 
-func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
+func NewWatchManager(log logr.Logger, client dclient.Interface, kyvernoClient versioned.Interface) *WatchManager {
 	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
 	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	return &WatchManager{
 		log:             log,
 		client:          client,
+		kyvernoClient:   kyvernoClient,
 		restMapper:      restMapper,
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 		policyRefs:      map[string][]schema.GroupVersionResource{},
@@ -497,22 +536,67 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				}
 			}
 		} else {
-			if _, ok := watcher.metadataCache[uid]; ok {
+			if resource, ok := watcher.metadataCache[uid]; ok {
 				wm.log.V(4).Info("downstream resource deleted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 				// if the resource is already in the cache, then it is the downstream resource that has been deleted by the user.
-				// we need to revert it back.
-				downstream := watcher.metadataCache[uid].Data
-				// clean up parameters that shouldn't be copied
-				downstream.SetUID("")
-				downstream.SetSelfLink("")
-				downstream.SetCreationTimestamp(metav1.Time{})
-				downstream.SetManagedFields(nil)
-				downstream.SetResourceVersion("")
-				_, err := wm.client.CreateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+				// Instead of directly recreating, create an UpdateRequest to trigger proper re-evaluation including preconditions.
+				
+				// Extract policy and rule information from labels
+				labels := resource.Labels
+				if labels == nil {
+					wm.log.V(4).Info("no labels found on deleted resource, skipping UpdateRequest creation")
+					return
+				}
+				
+				policyName := labels[common.GeneratePolicyLabel]
+				ruleName := labels[common.GenerateRuleLabel]
+				sourceUID := labels[common.GenerateSourceUIDLabel]
+				
+				if policyName == "" || ruleName == "" || sourceUID == "" {
+					wm.log.V(4).Info("missing required labels on deleted resource, falling back to direct recreation",
+						"policyName", policyName, "ruleName", ruleName, "sourceUID", sourceUID)
+					// Fallback to old behavior if labels are missing
+					downstream := resource.Data.DeepCopy()
+					downstream.SetUID("")
+					downstream.SetSelfLink("")
+					downstream.SetCreationTimestamp(metav1.Time{})
+					downstream.SetManagedFields(nil)
+					downstream.SetResourceVersion("")
+					_, err := wm.client.CreateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+					if err != nil {
+						wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					} else {
+						wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					}
+					return
+				}
+				
+				// Get source/trigger resource to create the UpdateRequest
+				sourceObj, err := wm.client.GetResource(context.TODO(), "", "Namespace", "", resource.Namespace)
 				if err != nil {
-					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					wm.log.Error(err, "failed to get source resource for UpdateRequest", "namespace", resource.Namespace)
+					return
+				}
+				
+				// Create UpdateRequest to trigger proper re-evaluation
+				ur := newGenerateUR(policyName)
+				triggerSpec := common.ResourceSpecFromUnstructured(*sourceObj)
+				addRuleContext(ur, ruleName, triggerSpec, false, false)
+				
+				// Create the UpdateRequest
+				created, err := wm.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+				if err != nil {
+					wm.log.Error(err, "failed to create UpdateRequest for deleted resource re-evaluation")
+					return
+				}
+				
+				// Set the UpdateRequest to Pending state so it gets processed
+				created.Status.State = kyvernov2.Pending
+				_, err = wm.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), created, metav1.UpdateOptions{})
+				if err != nil {
+					wm.log.Error(err, "failed to update UpdateRequest status to Pending")
 				} else {
-					wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					wm.log.V(4).Info("created UpdateRequest for deleted resource re-evaluation", "ur", created.Name, "policy", policyName, "rule", ruleName)
 				}
 			}
 		}
