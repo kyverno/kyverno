@@ -41,7 +41,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -287,6 +286,7 @@ func main() {
 				// create leader factories
 				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+				nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 				contextProvider, err := libs.NewContextProvider(
 					setup.KyvernoDynamicClient,
 					nil,
@@ -298,8 +298,8 @@ func main() {
 					os.Exit(1)
 				}
 
-				namespaceGetter := func(ctx context.Context, name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+				namespaceGetter := func(name string) *corev1.Namespace {
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -316,12 +316,7 @@ func main() {
 					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
-				gpolEngine := gpolengine.NewEngine(
-					func(name string) *corev1.Namespace {
-						return namespaceGetter(signalCtx, name)
-					},
-					matching.NewMatcher(),
-				)
+				gpolEngine := gpolengine.NewEngine(namespaceGetter, matching.NewMatcher())
 
 				scheme := kruntime.NewScheme()
 				if err := policiesv1alpha1.Install(scheme); err != nil {
@@ -363,9 +358,7 @@ func main() {
 
 				mpolEngine := mpolengine.NewEngine(
 					mpolProvider,
-					func(name string) *corev1.Namespace {
-						return namespaceGetter(mgrCtx, name)
-					},
+					namespaceGetter,
 					nil,
 					typeConverter,
 					contextProvider,
