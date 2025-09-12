@@ -13,14 +13,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package v2alpha1
+package v2beta1
 
 import (
 	"time"
 
 	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -34,6 +33,7 @@ import (
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="REFRESH INTERVAL",type="string",JSONPath=".spec.apiCall.refreshInterval"
 // +kubebuilder:printcolumn:name="LAST REFRESH",type="date",JSONPath=".status.lastRefreshTime"
+// +kubebuilder:storageversion
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
@@ -48,36 +48,31 @@ type GlobalContextEntry struct {
 	Status GlobalContextEntryStatus `json:"status,omitempty"`
 }
 
-// GetStatus returns the globalcontextentry status
-func (p *GlobalContextEntry) GetStatus() *GlobalContextEntryStatus {
-	return &p.Status
-}
-
 // Validate implements programmatic validation
 func (c *GlobalContextEntry) Validate() (errs field.ErrorList) {
 	errs = append(errs, c.Spec.Validate(field.NewPath("spec"), c.Name)...)
 	return errs
 }
 
-// IsNamespaced indicates if the policy is namespace scoped
-func (c *GlobalContextEntry) IsNamespaced() bool {
-	return false
-}
-
 // GlobalContextEntrySpec stores policy exception spec
 // +kubebuilder:oneOf:={required:{kubernetesResource}}
 // +kubebuilder:oneOf:={required:{apiCall}}
 type GlobalContextEntrySpec struct {
-	// KubernetesResource stores infos about kubernetes resource that should be cached
+	// Stores a list of Kubernetes resources which will be cached.
+	// Mutually exclusive with APICall.
 	// +kubebuilder:validation:Optional
 	KubernetesResource *KubernetesResource `json:"kubernetesResource,omitempty"`
 
-	// APICall stores infos about API call that should be cached
+	// Stores results from an API call which will be cached.
+	// Mutually exclusive with KubernetesResource.
+	// This can be used to make calls to external (non-Kubernetes API server) services.
+	// It can also be used to make calls to the Kubernetes API server in such cases:
+	// 1. A POST is needed to create a resource.
+	// 2. Finer-grained control is needed. Example: To restrict the number of resources cached.
 	// +kubebuilder:validation:Optional
 	APICall *ExternalAPICall `json:"apiCall,omitempty"`
 
-	// Projections stores the data to be cached.
-	// This determines what data from the source will be cached.
+	// Projections defines the list of JMESPath expressions to extract values from the cached resource.
 	// +kubebuilder:validation:Optional
 	Projections []GlobalContextEntryProjection `json:"projections,omitempty"`
 }
@@ -91,21 +86,21 @@ func (c *GlobalContextEntrySpec) IsResource() bool {
 }
 
 // Validate implements programmatic validation
-func (c *GlobalContextEntrySpec) Validate(path *field.Path, name string) (errs field.ErrorList) {
+func (c *GlobalContextEntrySpec) Validate(path *field.Path, gctxName string) (errs field.ErrorList) {
 	if c.IsResource() && c.IsAPICall() {
-		errs = append(errs, field.Forbidden(path, "An entry cannot have both kubernetesResource and apiCall"))
+		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
 	}
 	if !c.IsResource() && !c.IsAPICall() {
-		errs = append(errs, field.Required(path, "An entry must define either kubernetesResource or apiCall"))
+		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
 	}
 	if c.IsResource() {
-		errs = append(errs, c.KubernetesResource.Validate(path.Child("kubernetesResource"))...)
+		errs = append(errs, c.KubernetesResource.Validate(path.Child("resource"))...)
 	}
 	if c.IsAPICall() {
 		errs = append(errs, c.APICall.Validate(path.Child("apiCall"))...)
 	}
-	for i, projection := range c.Projections {
-		errs = append(errs, projection.Validate(path.Child("projections").Index(i), name)...)
+	for i, p := range c.Projections {
+		errs = append(errs, p.Validate(path.Child("projections").Index(i), gctxName)...)
 	}
 	return errs
 }
@@ -125,18 +120,17 @@ type KubernetesResource struct {
 	// Group defines the group of the resource.
 	// +kubebuilder:validation:Optional
 	Group string `json:"group,omitempty"`
-
 	// Version defines the version of the resource.
-	// +kubebuilder:validation:Optional
-	Version string `json:"version,omitempty"`
-
+	// +kubebuilder:validation:Required
+	Version string `json:"version"`
 	// Resource defines the type of the resource.
+	// Requires the pluralized form of the resource kind in lowercase. (Ex., "deployments")
 	// +kubebuilder:validation:Required
 	Resource string `json:"resource"`
-
 	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 	// If left empty for namespaced resources, all resources from all namespaces will be cached.
 	// +kubebuilder:validation:Optional
+	// +optional
 	Namespace string `json:"namespace,omitempty"`
 }
 
@@ -155,76 +149,41 @@ func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
 	return errs
 }
 
-// ExternalAPICall stores infos about API call that should be cached
 type ExternalAPICall struct {
-	// URLPath defines the URL to be used for the HTTP GET or POST request.
-	// +kubebuilder:validation:Required
-	URLPath string `json:"urlPath"`
-
-	// Method defines the method for the HTTP request. Defaults to GET.
-	// Valid values are GET and POST.
-	// +kubebuilder:validation:Enum=GET;POST
+	kyvernov1.APICall `json:",inline,omitempty"`
+	// RefreshInterval defines the interval in duration at which to poll the APICall.
+	// The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+	// such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+	// +kubebuilder:validation:Format=duration
+	// +kubebuilder:default=`10m`
+	RefreshInterval *metav1.Duration `json:"refreshInterval,omitempty"`
+	// RetryLimit defines the number of times the APICall should be retried in case of failure.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=3
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="GET"
-	Method string `json:"method,omitempty"`
-
-	// RefreshInterval defines the interval at which to poll the API endpoint.
-	// The duration format is a number and a unit. Examples: 30s, 1m, 1h30m.
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="10m"
-	RefreshInterval metav1.Duration `json:"refreshInterval,omitempty"`
-
-	// RetryLimit sets the max number of times to retry the API request in case of failure. Defaults to 0 (no retries).
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=10
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:=0
+	// +optional
 	RetryLimit int `json:"retryLimit,omitempty"`
-
-	// Data specifies the POST data sent to the server.
-	// +kubebuilder:validation:Optional
-	Data []RequestData `json:"data,omitempty"`
-
-	// Service defines the service data to query.
-	// +kubebuilder:validation:Optional
-	Service *kyvernov1.ServiceCall `json:"service,omitempty"`
-}
-
-// RequestData contains the HTTP POST data
-type RequestData struct {
-	// Key is a unique identifier for the data value
-	// +kubebuilder:validation:Required
-	Key string `json:"key"`
-
-	// Value is the data value
-	// +kubebuilder:validation:Required
-	Value apiextensionsv1.JSON `json:"value"`
 }
 
 // Validate implements programmatic validation
 func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
-	if e.URLPath == "" && e.Service == nil {
-		errs = append(errs, field.Required(path.Child("urlPath"), "either urlPath or service is required"))
+	if e.RefreshInterval == nil || e.RefreshInterval.Duration == 0*time.Second {
+		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "A Resource entry requires a refresh interval greater than 0 seconds"))
 	}
-	if e.URLPath != "" && e.Service != nil {
-		errs = append(errs, field.Forbidden(path, "cannot specify both urlPath and service"))
+	if (e.Service == nil && e.URLPath == "") || (e.Service != nil && e.URLPath != "") {
+		errs = append(errs, field.Forbidden(path.Child("service"), "An External API call should either have Service or URLPath"))
 	}
-	if e.Method != "" && e.Method != "GET" && e.Method != "POST" {
-		errs = append(errs, field.Invalid(path.Child("method"), e.Method, "method must be GET or POST"))
-	}
-	if e.RefreshInterval.Duration < time.Second {
-		errs = append(errs, field.Invalid(path.Child("refreshInterval"), e.RefreshInterval.Duration, "refreshInterval must be at least 1 second"))
+	if e.Data != nil && e.Method != "POST" {
+		errs = append(errs, field.Forbidden(path.Child("method"), "An External API call with data should have method as POST"))
 	}
 	return errs
 }
 
-// GlobalContextEntryProjection stores the data to be cached.
 type GlobalContextEntryProjection struct {
-	// Name is a unique identifier for the projection.
+	// Name is the name to use for the extracted value in the context.
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
-
-	// JMESPath is a JMES expression that is used to transform the source JSON data.
+	// JMESPath is the JMESPath expression to extract the value from the cached resource.
 	// +kubebuilder:validation:Required
 	JMESPath string `json:"jmesPath"`
 }
@@ -239,10 +198,10 @@ func (p *GlobalContextEntryProjection) Validate(path *field.Path, gctxName strin
 	}
 	if p.JMESPath == "" {
 		errs = append(errs, field.Required(path.Child("jmesPath"), "A projection entry requires a JMESPath"))
-	} else {
-		if _, err := gojmespath.Compile(p.JMESPath); err != nil {
-			errs = append(errs, field.Invalid(path.Child("jmesPath"), p.JMESPath, err.Error()))
-		}
+	}
+	_, err := gojmespath.Compile(p.JMESPath)
+	if err != nil {
+		errs = append(errs, field.Invalid(path.Child("jmesPath"), p.JMESPath, err.Error()))
 	}
 	return errs
 }
