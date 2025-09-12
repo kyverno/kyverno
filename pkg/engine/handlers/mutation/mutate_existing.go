@@ -18,14 +18,17 @@ import (
 )
 
 type mutateExistingHandler struct {
-	client engineapi.Client
+	client    engineapi.Client
+	isCluster bool
 }
 
 func NewMutateExistingHandler(
 	client engineapi.Client,
+	isCluster bool,
 ) (handlers.Handler, error) {
 	return mutateExistingHandler{
-		client: client,
+		client:    client,
+		isCluster: isCluster,
 	}, nil
 }
 
@@ -39,7 +42,7 @@ func (h mutateExistingHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string

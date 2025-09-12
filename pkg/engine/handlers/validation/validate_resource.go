@@ -23,10 +23,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type validateResourceHandler struct{}
+type validateResourceHandler struct {
+	client    engineapi.Client
+	isCluster bool
+}
 
-func NewValidateResourceHandler() (handlers.Handler, error) {
-	return validateResourceHandler{}, nil
+func NewValidateResourceHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
+	return validateResourceHandler{
+		client:    client,
+		isCluster: isCluster,
+	}, nil
 }
 
 func (h validateResourceHandler) Process(
@@ -39,7 +45,7 @@ func (h validateResourceHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
