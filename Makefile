@@ -647,6 +647,16 @@ define generate_crd
 		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/crds/templates/$(3)/$(1)
+	@cat $(CRDS_PATH)/$(2)/$(1) \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
+ 		>> ./charts/crds/templates/$(3)/$(1)
+	@echo "{{- end }}" >> ./charts/crds/templates/$(3)/$(1)
 endef
 
 .PHONY: helm-setup-openreports
