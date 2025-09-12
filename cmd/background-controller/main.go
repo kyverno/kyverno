@@ -215,7 +215,6 @@ func main() {
 			globalcontextcontroller.Workers,
 		) // this controller only subscribe to events, nothing is returned...
 		policymetricscontroller.NewController(
-			setup.MetricsManager,
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			&wg,
@@ -224,7 +223,6 @@ func main() {
 			signalCtx,
 			setup.Logger,
 			setup.Configuration,
-			setup.MetricsConfiguration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
 			setup.RegistryClient,
@@ -359,7 +357,7 @@ func main() {
 					os.Exit(1)
 				}
 
-				mpolEngine := mpolengine.NewEngine(
+				mpolEngine := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 					mpolProvider,
 					func(name string) *corev1.Namespace {
 						return namespaceGetter(mgrCtx, name)
@@ -367,7 +365,7 @@ func main() {
 					nil,
 					typeConverter,
 					contextProvider,
-				)
+				), metrics.BackgroundScan)
 
 				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
 				if err != nil {
