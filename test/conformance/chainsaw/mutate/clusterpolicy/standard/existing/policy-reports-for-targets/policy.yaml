@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-existing-with-reports
+spec:
+  generateSuccessEvents: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - trigger-configmap
+          namespaces:
+          - test-reports
+    mutate:
+      mutateExistingOnPolicyUpdate: false
+      patchStrategicMerge:
+        metadata:
+          labels:
+            app: mutated
+            mutated-by: kyverno
+      targets:
+      - apiVersion: v1
+        kind: Secret
+        name: target-secret
+        namespace: '{{ request.object.metadata.namespace }}'
+    name: mutate-secret-on-configmap-create 

@@ -1,0 +1,42 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policy-reports-for-targets
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+    - apply:
+        file: chainsaw-step-01-apply-1-2.yaml
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: mutate-existing-with-reports
+  - name: step-02
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+  - name: step-03-verify-mutation
+    try:
+    - assert:
+        file: chainsaw-step-03-assert-1-1.yaml
+  - name: wait-for-reports
+    try:
+    - sleep:
+        duration: 10s
+  - name: step-04-verify-policy-reports
+    try:
+    - assert:
+        file: chainsaw-step-04-assert-1-1.yaml 

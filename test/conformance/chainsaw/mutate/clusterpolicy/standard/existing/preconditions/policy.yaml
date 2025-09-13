@@ -21,7 +21,7 @@ spec:
             namespace: "{{ request.object.metadata.name }}"
             preconditions:
               all:
-                - key: "{{ target.metadata.annotations.\"policy.lan/value\" }}"
+                - key: "{{ target.metadata.annotations.\"policy.lan/value\" || '' }}"
                   operator: Equals
                   value: foo
         patchStrategicMerge:
