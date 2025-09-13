@@ -542,9 +542,9 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: registry.k8s.io
     # -- Image repository
-    repository: registry.k8s.io/kubectl
+    repository: kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
     tag: 'v1.32.7'
