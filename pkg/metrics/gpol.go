@@ -46,11 +46,10 @@ func (m *generatingMetrics) RecordDuration(ctx context.Context, seconds float64,
 		return
 	}
 
-	name, _, backgroundMode, validationMode := GetCELPolicyInfos(&policy)
+	name, _, _, validationMode := GetCELPolicyInfos(&policy)
 
 	m.durationHistogram.Record(ctx, seconds, metric.WithAttributes(
 		attribute.String("policy_validation_mode", string(validationMode)),
-		attribute.String("policy_background_mode", string(backgroundMode)),
 		attribute.String("policy_name", name),
 		attribute.String("resource_kind", resource.GetKind()),
 		attribute.String("resource_namespace", resource.GetNamespace()),
