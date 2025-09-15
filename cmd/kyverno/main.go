@@ -735,7 +735,7 @@ func main() {
 				setup.KubeClient.CoreV1().Secrets(""),
 				nil,
 			), metrics.AdmissionRequest)
-			mpolEngine = mpolengine.NewEngine(
+			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				mpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := nsLister.Get(name)
@@ -747,7 +747,7 @@ func main() {
 				matching.NewMatcher(),
 				typeConverter,
 				contextProvider,
-			)
+			), metrics.AdmissionRequest)
 		}
 		if admissionReports {
 			ephrCounterFunc := func(c breaker.Counter) func(context.Context) bool {
