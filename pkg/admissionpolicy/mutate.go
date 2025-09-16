@@ -11,6 +11,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +36,7 @@ func Mutate(
 	gvr schema.GroupVersionResource,
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
+	userInfo *authenticationv1.UserInfo,
 	isFake bool,
 	backgroundScan bool,
 ) (engineapi.EngineResponse, error) {
@@ -58,7 +60,11 @@ func Mutate(
 			},
 		}
 	}
-	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	var user UserInfo
+	if userInfo != nil {
+		user = NewUser(*userInfo)
+	}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
 
 	if len(bindings) == 0 {
 		matchResources := ConvertMatchResources(policy.Spec.MatchConstraints)
