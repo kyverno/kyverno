@@ -1,0 +1,29 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-ephemeral-container
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: check-image-keyless
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - failureAction: Enforce
+        imageReferences:
+        - "ghcr.io/lucchmielowski/*"
+        useCache: false
+        attestors:
+        - entries:
+          - keyless:
+              subject: "luc.chmielowski@nirmata.com"
+              issuer: "https://github.com/login/oauth"
+              rekor:
+                url: https://rekor.sigstore.dev
