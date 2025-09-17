@@ -31,6 +31,7 @@ func NewBaseEnv() (*cel.Env, error) {
 		library.Lists(),
 		library.Regex(),
 		library.URLs(),
+		library.Quantity(),
 	)
 }
 
