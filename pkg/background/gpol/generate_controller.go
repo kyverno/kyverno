@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -162,10 +163,14 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				}()
 			}
 		}
-		// generate reports if enabled
-		if c.reportsConfig.GenerateReportsEnabled() && len(engineResponse.PolicyResponse.Rules) > 0 {
-			if err := c.createReports(context.TODO(), *trigger, engineResponse); err != nil {
-				c.log.Error(err, "failed to create report")
+		policyLabels := policy.Policy.GetLabels()
+		// the value of the label doesn't matter, as long as it exists then the policy is excluded from reporting
+		if _, ok := policyLabels[kyverno.LabelExcludeReporting]; !ok {
+			// generate reports if enabled
+			if c.reportsConfig.GenerateReportsEnabled() && len(engineResponse.PolicyResponse.Rules) > 0 {
+				if err := c.createReports(context.TODO(), *trigger, engineResponse); err != nil {
+					c.log.Error(err, "failed to create report")
+				}
 			}
 		}
 	}

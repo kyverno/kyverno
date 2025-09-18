@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -111,6 +112,10 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 	}
 	responses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
+		policyLabels := r.Policy.GetLabels()
+		if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+			continue
+		}
 		engineResponse := engineapi.EngineResponse{
 			Resource: object,
 			PolicyResponse: engineapi.PolicyResponse{

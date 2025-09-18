@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -158,8 +159,12 @@ func (v *mutationHandler) applyMutations(
 
 	go func() {
 		if v.needsReports(request, v.admissionReports) {
-			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
-				v.log.Error(err, "failed to create report")
+			policyLabels := policyContext.Policy().GetLabels()
+			// the value of the label doesn't matter, as long as it exists then the policy is excluded from reporting
+			if _, ok := policyLabels[kyverno.LabelExcludeReporting]; !ok {
+				if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
+					v.log.Error(err, "failed to create report")
+				}
 			}
 		}
 	}()
