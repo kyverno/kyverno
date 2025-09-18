@@ -107,7 +107,7 @@ func (mcd *metricsConfig) BuildMeterProviderViews() []sdkmetric.View {
 				switch a := aggregation.(type) {
 				case sdkmetric.AggregationExplicitBucketHistogram:
 					a.Boundaries = config.BucketBoundaries
-					a.NoMinMax = false
+					a.NoMinMax = true
 					s.Aggregation = a
 				}
 			}
