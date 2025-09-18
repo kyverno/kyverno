@@ -33,7 +33,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,10 +41,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
-	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -76,8 +76,8 @@ type controller struct {
 	celpolexListener policiesv1alpha1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
-	mapLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
-	mapBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
+	mapLister        admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
+	mapBindingLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister
 	bgscanrLister    cache.GenericLister
 	cbgscanrLister   cache.GenericLister
 	nsLister         corev1listers.NamespaceLister
@@ -114,8 +114,8 @@ func NewController(
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
-	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
-	mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
+	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
+	mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
 	forceDelay time.Duration,
@@ -342,31 +342,31 @@ func (c *controller) deleteVAPBinding(obj *admissionregistrationv1.ValidatingAdm
 	c.enqueueResources()
 }
 
-func (c *controller) addMAP(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
+func (c *controller) addMAP(obj *admissionregistrationv1beta1.MutatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateMAP(old, obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
+func (c *controller) updateMAP(old, obj *admissionregistrationv1beta1.MutatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteMAP(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
+func (c *controller) deleteMAP(obj *admissionregistrationv1beta1.MutatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addMAPBinding(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func (c *controller) addMAPBinding(obj *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateMAPBinding(old, obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func (c *controller) updateMAPBinding(old, obj *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteMAPBinding(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func (c *controller) deleteMAPBinding(obj *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
 	c.enqueueResources()
 }
 
@@ -406,7 +406,7 @@ func (c *controller) needsReconcile(
 	hash string,
 	exceptions []kyvernov2.PolicyException,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) (string, bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
@@ -474,7 +474,7 @@ func (c *controller) reconcileReport(
 	exceptions []kyvernov2.PolicyException,
 	celexceptions []*policiesv1alpha1.PolicyException,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) error {
 	// namespace labels to be used by the scanner
@@ -771,7 +771,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			policies = append(policies, engineapi.NewMutatingAdmissionPolicy(&pol))
 		}
 	}
-	var mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	if c.mapBindingLister != nil {
 		// load mutating admission policy bindings
 		mapBindings, err = utils.FetchMutatingAdmissionPolicyBindings(c.mapBindingLister)

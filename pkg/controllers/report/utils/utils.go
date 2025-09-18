@@ -13,12 +13,12 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
-	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 )
 
 func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
@@ -129,8 +129,8 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 	return exceptions, nil
 }
 
-func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
-	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
+	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	if pols, err := mapLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
@@ -141,8 +141,8 @@ func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1alpha1liste
 	return policies, nil
 }
 
-func FetchMutatingAdmissionPolicyBindings(mapBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
-	var bindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+func FetchMutatingAdmissionPolicyBindings(mapBindingLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, error) {
+	var bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	if pols, err := mapBindingLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
