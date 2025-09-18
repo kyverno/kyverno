@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: skipped-pod
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu:latest
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - NET_BIND_SERVICE
+  - name: nginx
+    image: nginx:latest
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - FOO

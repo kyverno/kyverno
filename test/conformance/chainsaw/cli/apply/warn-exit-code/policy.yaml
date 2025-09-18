@@ -22,7 +22,7 @@ spec:
           If "lol" annotation is present then
           its value can be only one of "such lol", "much annotation".
         pattern:
-          # syntax refdoc: https://kyverno.io/docs/writing-policies/validate/#anchors
+          # syntax refdoc: https://kyverno.io/docs/policy-types/cluster-policy/validate/#anchors
           =(metadata):
             =(annotations):
               =(lol): such lol | much annotation

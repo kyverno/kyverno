@@ -37,11 +37,11 @@ runs:
     # install tools
     - name: Install helm
       id: helm
-      uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+      uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
     - name: Install Cosign
-      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
     - name: Install chainsaw
-      uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
+      uses: kyverno/action-install-chainsaw@6354895e0f99ab23d3e38d85cf5c71b5dc21d727 # v0.2.13
       with:
         verify: true
     # create cluster

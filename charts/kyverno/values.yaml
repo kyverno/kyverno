@@ -77,7 +77,10 @@ rbac:
 
 # Use openreports.io as the API group for reporting
 openreports:
+  # -- Enable OpenReports feature in controllers
   enabled: false
+  # -- Whether to install CRDs from the upstream OpenReports chart. Setting this to true requires enabled to also be true.
+  installCrds: false
 
 # CRDs configuration
 crds:
@@ -443,6 +446,12 @@ metricsConfig:
     kyverno_policy_execution_duration_seconds:
       # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
       disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_validating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_image_validating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
     kyverno_admission_review_duration_seconds:
       # enabled: false
       disabledLabelDimensions: ["resource_namespace"]
@@ -542,9 +551,9 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: registry.k8s.io
     # -- Image repository
-    repository: registry.k8s.io/kubectl
+    repository: kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
     tag: 'v1.32.7'
@@ -977,7 +986,7 @@ admissionController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-    # -- Unhealty pod eviction policy to be used.
+    # -- Unhealthy pod eviction policy to be used.
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
@@ -1425,7 +1434,7 @@ backgroundController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-    # -- Unhealty pod eviction policy to be used.
+    # -- Unhealthy pod eviction policy to be used.
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
@@ -1762,7 +1771,7 @@ cleanupController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-    # -- Unhealty pod eviction policy to be used.
+    # -- Unhealthy pod eviction policy to be used.
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
@@ -2066,7 +2075,7 @@ reportsController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-    # -- Unhealty pod eviction policy to be used.
+    # -- Unhealthy pod eviction policy to be used.
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
