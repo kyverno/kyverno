@@ -38,7 +38,6 @@ import (
 	flowcontrolv1beta3 "github.com/kyverno/kyverno/pkg/clients/kube/flowcontrolv1beta3"
 	internalv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/internalv1alpha1"
 	networkingv1 "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1"
-	networkingv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1alpha1"
 	networkingv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1beta1"
 	nodev1 "github.com/kyverno/kyverno/pkg/clients/kube/nodev1"
 	nodev1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/nodev1alpha1"
@@ -96,7 +95,6 @@ import (
 	k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta2 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	k8s_io_client_go_kubernetes_typed_networking_v1 "k8s.io/client-go/kubernetes/typed/networking/v1"
-	k8s_io_client_go_kubernetes_typed_networking_v1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_networking_v1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	k8s_io_client_go_kubernetes_typed_node_v1 "k8s.io/client-go/kubernetes/typed/node/v1"
 	k8s_io_client_go_kubernetes_typed_node_v1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
@@ -155,7 +153,6 @@ type clientset struct {
 	flowcontrolv1beta3            k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta3.FlowcontrolV1beta3Interface
 	internalv1alpha1              k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.InternalV1alpha1Interface
 	networkingv1                  k8s_io_client_go_kubernetes_typed_networking_v1.NetworkingV1Interface
-	networkingv1alpha1            k8s_io_client_go_kubernetes_typed_networking_v1alpha1.NetworkingV1alpha1Interface
 	networkingv1beta1             k8s_io_client_go_kubernetes_typed_networking_v1beta1.NetworkingV1beta1Interface
 	nodev1                        k8s_io_client_go_kubernetes_typed_node_v1.NodeV1Interface
 	nodev1alpha1                  k8s_io_client_go_kubernetes_typed_node_v1alpha1.NodeV1alpha1Interface
