@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	json_patch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -18,10 +20,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
+	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -89,6 +93,19 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	if len(policies) == 0 && len(auditWarnPolicies) == 0 {
 		return true, "", nil, nil
+	}
+
+	// Apply image verification mutation for UPDATE operations
+	if request.Operation == "UPDATE" {
+		imageVerifyPolicies := v.getImageVerificationPolicies(policies)
+		if len(imageVerifyPolicies) > 0 {
+			patchedRequest, err := v.applyImageVerificationMutation(ctx, request, imageVerifyPolicies)
+			if err != nil {
+				logger.Error(err, "failed to apply image verify policies")
+				return false, "", nil, nil
+			}
+			request = patchedRequest
+		}
 	}
 
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request, policies)
@@ -274,4 +291,82 @@ func (v *validationHandler) createReports(
 		}
 	}
 	return nil
+}
+
+func (v *validationHandler) getImageVerificationPolicies(policies []kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+	var imageVerifyPolicies []kyvernov1.PolicyInterface
+	for _, policy := range policies {
+		if policy.GetSpec().HasVerifyImages() {
+			imageVerifyPolicies = append(imageVerifyPolicies, policy)
+		}
+	}
+	return imageVerifyPolicies
+}
+
+func (v *validationHandler) applyImageVerificationMutation(
+	ctx context.Context,
+	request handlers.AdmissionRequest,
+	imageVerifyPolicies []kyvernov1.PolicyInterface,
+) (handlers.AdmissionRequest, error) {
+	policyContext, err := v.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+	if err != nil {
+		return request, err
+	}
+
+	var allPatches []jsonpatch.JsonPatchOperation
+	for _, policy := range imageVerifyPolicies {
+		policyContext := policyContext.WithPolicy(policy)
+
+		engineResponse, ivm := v.engine.VerifyAndPatchImages(ctx, policyContext)
+		if !engineResponse.IsEmpty() {
+			allPatches = append(allPatches, engineResponse.GetPatches()...)
+		}
+
+		if !ivm.IsEmpty() {
+			resource := policyContext.NewResource()
+			hasAnnotations := len(resource.GetAnnotations()) > 0
+			ivmPatches, err := ivm.Patches(hasAnnotations, v.log)
+			if err != nil {
+				return request, fmt.Errorf("failed to generate image verification patches: %v", err)
+			}
+			allPatches = append(allPatches, ivmPatches...)
+		}
+	}
+
+	if len(allPatches) > 0 {
+		patchedRequest, err := v.applyPatchesToRequest(request, allPatches)
+		if err != nil {
+			return request, fmt.Errorf("failed to apply patches to request: %v", err)
+		}
+		return patchedRequest, nil
+	}
+
+	return request, nil
+}
+
+func (v *validationHandler) applyPatchesToRequest(
+	request handlers.AdmissionRequest,
+	patches []jsonpatch.JsonPatchOperation,
+) (handlers.AdmissionRequest, error) {
+	patchBytes := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
+
+	decoded, err := json_patch.DecodePatch(patchBytes)
+	if err != nil {
+		return request, fmt.Errorf("failed to decode patch: %v", err)
+	}
+
+	options := &json_patch.ApplyOptions{
+		SupportNegativeIndices:   true,
+		AllowMissingPathOnRemove: true,
+		EnsurePathExistsOnAdd:    true,
+	}
+
+	patchedBytes, err := decoded.ApplyWithOptions(request.Object.Raw, options)
+	if err != nil {
+		return request, fmt.Errorf("failed to apply patch: %v", err)
+	}
+
+	newRequest := request
+	newRequest.Object.Raw = patchedBytes
+	return newRequest, nil
 }
