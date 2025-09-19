@@ -433,7 +433,7 @@ The chart values are organised per component.
 | admissionController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | admissionController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
-| admissionController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealty pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
+| admissionController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealthy pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
 | admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
 | admissionController.podSecurityContext | object | `{}` | Security context for the pod |
 | admissionController.priorityClassName | string | `""` | Optional priority class |
@@ -523,7 +523,7 @@ The chart values are organised per component.
 | backgroundController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | backgroundController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | backgroundController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
-| backgroundController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealty pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
+| backgroundController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealthy pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podSecurityContext | object | `{}` | Security context for the pod |
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
@@ -606,7 +606,7 @@ The chart values are organised per component.
 | cleanupController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | cleanupController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | cleanupController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
-| cleanupController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealty pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
+| cleanupController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealthy pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
 | cleanupController.podLabels | object | `{}` | Additional labels to add to each pod |
 | cleanupController.podSecurityContext | object | `{}` | Security context for the pod |
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
@@ -695,7 +695,7 @@ The chart values are organised per component.
 | reportsController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | reportsController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | reportsController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
-| reportsController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealty pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
+| reportsController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealthy pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podSecurityContext | object | `{}` | Security context for the pod |
 | reportsController.priorityClassName | string | `""` | Optional priority class |
