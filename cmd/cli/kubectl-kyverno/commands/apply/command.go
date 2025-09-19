@@ -56,6 +56,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
+
+	// Add the following import for helm utilities
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/helm"
 )
 
 type SkippedInvalidPolicies struct {
@@ -94,6 +97,12 @@ type ApplyCommandConfig struct {
 	GeneratedExceptionTTL time.Duration
 	JSONPaths             []string
 	ClusterWideResources  bool
+	HelmChartPath       string
+    HelmValuesFiles     []string
+    HelmSetValues       []string
+    HelmSetStringValues []string
+    HelmReleaseName     string
+    HelmIncludeCRDs     bool
 }
 
 func Command() *cobra.Command {
@@ -198,6 +207,12 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
+	cmd.Flags().StringVar(&applyCommandConfig.HelmChartPath, "chart", "", "Path to Helm chart directory or packaged chart (.tgz)")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.HelmValuesFiles, "helm-values", []string{}, "Path to Helm values files")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.HelmSetValues, "helm-set", []string{}, "Set values on the command line (can specify multiple times)")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.HelmSetStringValues, "helm-set-string", []string{}, "Set STRING values on the command line (can specify multiple times)")
+	cmd.Flags().StringVar(&applyCommandConfig.HelmReleaseName, "helm-release-name", "kyverno-test", "Name of the Helm release for templating")
+	cmd.Flags().BoolVar(&applyCommandConfig.HelmIncludeCRDs, "helm-include-crds", false, "Include CRDs in the templated output")
 	return cmd
 }
 
@@ -222,6 +237,21 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		}
 		deprecations.CheckUserInfo(out, c.UserInfoPath, info)
 		userInfo = &info.RequestInfo
+	}
+	// Check if Helm chart processing is requested
+	var resources []*unstructured.Unstructured
+	if c.HelmChartPath != "" {
+		helmResources, err := c.processHelmChart(out)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to process Helm chart: %w", err)
+		}
+		
+		// Add Helm-rendered resources to the resource list
+		resources = append(resources, helmResources...)
+		
+		if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
+			fmt.Fprintf(out, "Loaded %d resources from Helm chart %s\n", len(helmResources), c.HelmChartPath)
+		}
 	}
 	variables, err := variables.New(out, nil, "", c.ValuesFile, nil, c.Variables...)
 	if err != nil {
@@ -363,6 +393,61 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	responses = append(responses, responses5...)
 	responses = append(responses, responses6...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
+}
+
+func (c *ApplyCommandConfig) processHelmChart(out io.Writer) ([]*unstructured.Unstructured, error) {
+    // Initialize Helm renderer
+    renderer, err := helm.NewRenderer()
+    if err != nil {
+        return nil, fmt.Errorf("failed to create Helm renderer: %w", err)
+    }
+    
+    // Validate chart path
+    loader := helm.NewChartLoader()
+    if err := loader.ValidateChartPath(c.HelmChartPath); err != nil {
+        return nil, fmt.Errorf("invalid chart path: %w", err)
+    }
+    
+    // Validate values files
+    valuesProcessor := helm.NewValuesProcessor()
+    for _, valuesFile := range c.HelmValuesFiles {
+        if err := valuesProcessor.ValidateValuesFile(valuesFile); err != nil {
+            return nil, fmt.Errorf("invalid values file: %w", err)
+        }
+    }
+    
+    // Configure Helm rendering
+    helmConfig := &helm.HelmConfig{
+        ChartPath:       c.HelmChartPath,
+        ValuesFiles:     c.HelmValuesFiles,
+        SetValues:       c.HelmSetValues,
+        SetStringValues: c.HelmSetStringValues,
+        ReleaseName:     c.HelmReleaseName,
+        Namespace:       c.Namespace,
+        IncludeCRDs:     c.HelmIncludeCRDs,
+    }
+    
+    // Set default namespace if not provided
+    if helmConfig.Namespace == "" {
+        helmConfig.Namespace = "default"
+    }
+    
+    // Render the chart
+    result, err := renderer.RenderChart(context.Background(), helmConfig)
+    if err != nil {
+        return nil, fmt.Errorf("failed to render Helm chart: %w", err)
+    }
+    
+    // Convert to unstructured resources
+    resources, err := renderer.ConvertToUnstructured(result.Resources)
+    if err != nil {
+        return nil, fmt.Errorf("failed to convert rendered resources: %w", err)
+    }
+    
+    // Log success
+    fmt.Fprintf(out, "Successfully rendered %d resources from Helm chart %s\n", len(resources), c.HelmChartPath)
+    
+    return resources, nil
 }
 
 func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
@@ -916,6 +1001,38 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
+	// Helm-specific validation
+    if c.HelmChartPath != "" {
+        // Validate that we have either resources OR Helm chart, not both
+        if len(c.ResourcePaths) > 0 {
+            return fmt.Errorf("cannot specify both --resource and --chart flags; use one or the other")
+        }
+        
+        if len(c.JSONPaths) > 0 {
+            return fmt.Errorf("cannot specify both --json and --chart flags; use one or the other")
+        }
+        
+        // If we have a Helm chart but no policies, that's an error
+        if len(c.PolicyPaths) == 0 {
+            return fmt.Errorf("policies are required when using --chart flag")
+        }
+    }
+    
+    // If Helm-specific flags are used without --chart, that's an error
+    if c.HelmChartPath == "" {
+        if len(c.HelmValuesFiles) > 0 {
+            return fmt.Errorf("--helm-values flag can only be used with --chart")
+        }
+        if len(c.HelmSetValues) > 0 {
+            return fmt.Errorf("--helm-set flag can only be used with --chart")
+        }
+        if len(c.HelmSetStringValues) > 0 {
+            return fmt.Errorf("--helm-set-string flag can only be used with --chart")
+        }
+        if c.HelmReleaseName != "kyverno-test" {
+            return fmt.Errorf("--helm-release-name flag can only be used with --chart")
+        }
+    }
 	return nil
 }
 
