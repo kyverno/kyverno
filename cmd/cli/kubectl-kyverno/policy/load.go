@@ -37,6 +37,7 @@ var (
 	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
+	ndpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
 	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
@@ -58,6 +59,7 @@ type LoaderResults struct {
 	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
 	GeneratingPolicies      []policiesv1alpha1.GeneratingPolicy
 	DeletingPolicies        []policiesv1alpha1.DeletingPolicy
+	NamespacedDeletingPolicies []policiesv1alpha1.NamespacedDeletingPolicy
 	MutatingPolicies        []policiesv1alpha1.MutatingPolicy
 	NonFatalErrors          []LoaderError
 }
@@ -76,6 +78,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
+	l.NamespacedDeletingPolicies = append(l.NamespacedDeletingPolicies, results.NamespacedDeletingPolicies...)
 	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
 }
 
@@ -205,12 +208,18 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.GeneratingPolicies = append(results.GeneratingPolicies, *typed)
-		case dpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.DeletingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.DeletingPolicies = append(results.DeletingPolicies, *typed)
+	case dpV1alpha1:
+		typed, err := convert.To[policiesv1alpha1.DeletingPolicy](untyped)
+		if err != nil {
+			return nil, err
+		}
+		results.DeletingPolicies = append(results.DeletingPolicies, *typed)
+	case ndpV1alpha1:
+		typed, err := convert.To[policiesv1alpha1.NamespacedDeletingPolicy](untyped)
+		if err != nil {
+			return nil, err
+		}
+		results.NamespacedDeletingPolicies = append(results.NamespacedDeletingPolicies, *typed)
 		case mpV1alpha1:
 			typed, err := convert.To[policiesv1alpha1.MutatingPolicy](untyped)
 			if err != nil {

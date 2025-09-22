@@ -117,8 +117,8 @@ func TestHandleValidPolicy(t *testing.T) {
 	compiledDpol, _ := comp.Compile(dpol, nil)
 
 	pol := Policy{
-		*dpol,
-		compiledDpol,
+		Policy:         dpol,
+		CompiledPolicy: compiledDpol,
 	}
 
 	engine := NewEngine(nsResolver, mapper, &fakeContext{}, matcher)
@@ -142,8 +142,8 @@ func TestHandleWithPolex(t *testing.T) {
 
 	invalidCompiledPolicy, _ := comp.Compile(invalidDpol, []*policiesv1alpha1.PolicyException{polex})
 	pol := Policy{
-		*invalidDpol,
-		invalidCompiledPolicy,
+		Policy:         invalidDpol,
+		CompiledPolicy: invalidCompiledPolicy,
 	}
 
 	engine := NewEngine(nsResolver, invalidMapper, &fakeContext{}, matcher)
@@ -154,17 +154,17 @@ func TestHandleWithPolex(t *testing.T) {
 }
 
 func TestHandleConstraintsNil(t *testing.T) {
-	pol := Policy{
-		policiesv1alpha1.DeletingPolicy{
-			Spec: policiesv1alpha1.DeletingPolicySpec{
-				MatchConstraints: nil,
-			},
+	policy := &policiesv1alpha1.DeletingPolicy{
+		Spec: policiesv1alpha1.DeletingPolicySpec{
+			MatchConstraints: nil,
 		},
-		nil,
 	}
 
-	compiled, _ := comp.Compile(&pol.Policy, nil)
-	pol.CompiledPolicy = compiled
+	compiled, _ := comp.Compile(policy, nil)
+	pol := Policy{
+		Policy:         policy,
+		CompiledPolicy: compiled,
+	}
 
 	resource := unstructured.Unstructured{}
 	resource.SetAPIVersion("apps/v1")
@@ -186,26 +186,26 @@ func TestHandleConstraintsNil(t *testing.T) {
 }
 
 func TestHandleError(t *testing.T) {
-	pol := Policy{
-		policiesv1alpha1.DeletingPolicy{
-			Spec: policiesv1alpha1.DeletingPolicySpec{
-				MatchConstraints: &v1.MatchResources{
-					NamespaceSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "key ", Operator: "In", Values: []string{"bad value"}}}},
-					ObjectSelector:    &metav1.LabelSelector{},
-					ResourceRules: []v1.NamedRuleWithOperations{{
-						RuleWithOperations: v1.RuleWithOperations{
-							Rule:       v1.Rule{APIGroups: []string{"*"}, APIVersions: []string{"*"}, Resources: []string{"deployments"}},
-							Operations: []v1.OperationType{"*"},
-						},
-					}},
-				},
+	policy := &policiesv1alpha1.DeletingPolicy{
+		Spec: policiesv1alpha1.DeletingPolicySpec{
+			MatchConstraints: &v1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "key ", Operator: "In", Values: []string{"bad value"}}}},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Rule:       v1.Rule{APIGroups: []string{"*"}, APIVersions: []string{"*"}, Resources: []string{"deployments"}},
+						Operations: []v1.OperationType{"*"},
+					},
+				}},
 			},
 		},
-		nil,
 	}
 
-	compiled, _ := comp.Compile(&pol.Policy, nil)
-	pol.CompiledPolicy = compiled
+	compiled, _ := comp.Compile(policy, nil)
+	pol := Policy{
+		Policy:         policy,
+		CompiledPolicy: compiled,
+	}
 
 	resource := unstructured.Unstructured{}
 	resource.SetAPIVersion("apps/v1")
