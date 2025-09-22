@@ -226,6 +226,10 @@ config:
   # -- (string) The configmap name (required if `create` is `false`).
   name: ~
 
+  # -- Default value for allowExistingViolations in validation rules.
+  # When not explicitly set in a policy, this value will be used.
+  defaultAllowExistingViolations: true
+
   # -- Additional annotations to add to the configmap.
   annotations: {}
 
