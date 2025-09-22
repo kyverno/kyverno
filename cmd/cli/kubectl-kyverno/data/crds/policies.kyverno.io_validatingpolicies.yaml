@@ -1528,6 +1528,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.evaluation.mode
     served: true
     storage: true
     subresources:
