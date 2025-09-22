@@ -24,15 +24,15 @@ import (
 // Helper function to create complete trigger labels for testing
 func createTriggerLabels() map[string]string {
 	return map[string]string{
-		common.GeneratePolicyLabel:        "test-policy",
-		common.GenerateRuleLabel:          "test-rule",
-		common.GenerateTriggerNameLabel:   "test-namespace",
-		common.GenerateTriggerUIDLabel:    "test-namespace-uid",
-		common.GenerateTriggerKindLabel:   "Namespace",
+		common.GeneratePolicyLabel:         "test-policy",
+		common.GenerateRuleLabel:           "test-rule",
+		common.GenerateTriggerNameLabel:    "test-namespace",
+		common.GenerateTriggerUIDLabel:     "test-namespace-uid",
+		common.GenerateTriggerKindLabel:    "Namespace",
 		common.GenerateTriggerVersionLabel: "v1",
-		common.GenerateTriggerGroupLabel:  "",
-		common.GenerateTriggerNSLabel:     "",
-		kyverno.LabelAppManagedBy:         kyverno.ValueKyvernoApp,
+		common.GenerateTriggerGroupLabel:   "",
+		common.GenerateTriggerNSLabel:      "",
+		kyverno.LabelAppManagedBy:          kyverno.ValueKyvernoApp,
 	}
 }
 
@@ -64,15 +64,15 @@ func TestHandleDeleteCreatesUpdateRequest(t *testing.T) {
 
 	// Set the labels that would be set by Kyverno during generation
 	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:        "test-policy",
-		common.GenerateRuleLabel:          "test-rule",
-		common.GenerateTriggerNameLabel:   "test-namespace",
-		common.GenerateTriggerUIDLabel:    "test-namespace-uid",
-		common.GenerateTriggerKindLabel:   "Namespace",
+		common.GeneratePolicyLabel:         "test-policy",
+		common.GenerateRuleLabel:           "test-rule",
+		common.GenerateTriggerNameLabel:    "test-namespace",
+		common.GenerateTriggerUIDLabel:     "test-namespace-uid",
+		common.GenerateTriggerKindLabel:    "Namespace",
 		common.GenerateTriggerVersionLabel: "v1",
-		common.GenerateTriggerGroupLabel:  "",
-		common.GenerateTriggerNSLabel:     "",
-		kyverno.LabelAppManagedBy:         kyverno.ValueKyvernoApp,
+		common.GenerateTriggerGroupLabel:   "",
+		common.GenerateTriggerNSLabel:      "",
+		kyverno.LabelAppManagedBy:          kyverno.ValueKyvernoApp,
 	})
 
 	// Set up the watcher's metadata cache to simulate the resource being tracked
@@ -84,15 +84,15 @@ func TestHandleDeleteCreatesUpdateRequest(t *testing.T) {
 					Name:      "default",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						common.GeneratePolicyLabel:        "test-policy",
-						common.GenerateRuleLabel:          "test-rule",
-						common.GenerateTriggerNameLabel:   "test-namespace",
-						common.GenerateTriggerUIDLabel:    "test-namespace-uid",
-						common.GenerateTriggerKindLabel:   "Namespace",
+						common.GeneratePolicyLabel:         "test-policy",
+						common.GenerateRuleLabel:           "test-rule",
+						common.GenerateTriggerNameLabel:    "test-namespace",
+						common.GenerateTriggerUIDLabel:     "test-namespace-uid",
+						common.GenerateTriggerKindLabel:    "Namespace",
 						common.GenerateTriggerVersionLabel: "v1",
-						common.GenerateTriggerGroupLabel:  "",
-						common.GenerateTriggerNSLabel:     "",
-						kyverno.LabelAppManagedBy:         kyverno.ValueKyvernoApp,
+						common.GenerateTriggerGroupLabel:   "",
+						common.GenerateTriggerNSLabel:      "",
+						kyverno.LabelAppManagedBy:          kyverno.ValueKyvernoApp,
 					},
 					Data: resourceQuota,
 				},
@@ -239,8 +239,8 @@ func TestHandleDeleteWithCompleteLabels(t *testing.T) {
 				"test-quota-uid": {
 					Name:      "default",
 					Namespace: "test-namespace",
-					Labels: createTriggerLabels(),
-					Data: resourceQuota,
+					Labels:    createTriggerLabels(),
+					Data:      resourceQuota,
 				},
 			},
 		},
@@ -253,7 +253,7 @@ func TestHandleDeleteWithCompleteLabels(t *testing.T) {
 	urList, err := kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{})
 	assert.NoError(t, err)
 	assert.Len(t, urList.Items, 1, "UpdateRequest should be created using trigger labels")
-	
+
 	ur := urList.Items[0]
 	assert.Equal(t, kyvernov2.Generate, ur.Spec.Type)
 	assert.Equal(t, "test-policy", ur.Spec.Policy)
@@ -370,8 +370,8 @@ func TestHandleDeleteErrorCreatingUpdateRequest(t *testing.T) {
 				"test-quota-uid": {
 					Name:      "default",
 					Namespace: "test-namespace",
-					Labels: createTriggerLabels(),
-					Data: resourceQuota,
+					Labels:    createTriggerLabels(),
+					Data:      resourceQuota,
 				},
 			},
 		},
@@ -432,8 +432,8 @@ func TestHandleDeleteErrorUpdatingStatus(t *testing.T) {
 				"test-quota-uid": {
 					Name:      "default",
 					Namespace: "test-namespace",
-					Labels: createTriggerLabels(),
-					Data: resourceQuota,
+					Labels:    createTriggerLabels(),
+					Data:      resourceQuota,
 				},
 			},
 		},

@@ -541,19 +541,19 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				wm.log.V(4).Info("downstream resource deleted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 				// if the resource is already in the cache, then it is the downstream resource that has been deleted by the user.
 				// Instead of directly recreating, create an UpdateRequest to trigger proper re-evaluation including preconditions.
-				
+
 				// Extract policy and rule information from labels
 				labels := resource.Labels
 				if labels == nil {
 					wm.log.V(4).Info("no labels found on deleted resource, skipping UpdateRequest creation")
 					return
 				}
-				
+
 				policyName := labels[common.GeneratePolicyLabel]
 				ruleName := labels[common.GenerateRuleLabel]
 				triggerUID := labels[common.GenerateTriggerUIDLabel]
 				triggerKind := labels[common.GenerateTriggerKindLabel]
-				
+
 				if policyName == "" || ruleName == "" || triggerUID == "" || triggerKind == "" {
 					wm.log.V(4).Info("missing required labels on deleted resource, falling back to direct recreation",
 						"policyName", policyName, "ruleName", ruleName, "triggerUID", triggerUID, "triggerKind", triggerKind)
@@ -572,21 +572,21 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 					}
 					return
 				}
-				
+
 				// Construct the trigger resource spec from labels using the existing utility function
 				triggerSpec := generate.TriggerFromLabels(labels)
-				
+
 				// Create UpdateRequest to trigger proper re-evaluation
 				ur := newGenerateUR(policyName)
 				addRuleContext(ur, ruleName, triggerSpec, false, false)
-				
+
 				// Create the UpdateRequest
 				created, err := wm.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 				if err != nil {
 					wm.log.Error(err, "failed to create UpdateRequest for deleted resource re-evaluation")
 					return
 				}
-				
+
 				// Set the UpdateRequest to Pending state so it gets processed
 				created.Status.State = kyvernov2.Pending
 				_, err = wm.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), created, metav1.UpdateOptions{})
@@ -595,7 +595,7 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				} else {
 					wm.log.V(4).Info("created UpdateRequest for deleted resource re-evaluation", "ur", created.Name, "policy", policyName, "rule", ruleName)
 				}
-				
+
 				// Remove the resource from the metadata cache since we've handled its deletion
 				delete(watcher.metadataCache, uid)
 			}
