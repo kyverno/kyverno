@@ -507,7 +507,7 @@ func TestHandleDeleteFallbackWithCreationError(t *testing.T) {
 // Note: Complex fake client setup tests were removed to focus on functional coverage
 // The main coverage improvement comes from the tests above that cover:
 // 1. Missing labels scenario
-// 2. Resource not in cache scenario  
+// 2. Resource not in cache scenario
 // 3. Different error conditions
 
 func TestHandleDeleteMissingLabels(t *testing.T) {
