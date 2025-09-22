@@ -11,6 +11,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -550,11 +551,12 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				
 				policyName := labels[common.GeneratePolicyLabel]
 				ruleName := labels[common.GenerateRuleLabel]
-				sourceUID := labels[common.GenerateSourceUIDLabel]
+				triggerUID := labels[common.GenerateTriggerUIDLabel]
+				triggerKind := labels[common.GenerateTriggerKindLabel]
 				
-				if policyName == "" || ruleName == "" || sourceUID == "" {
+				if policyName == "" || ruleName == "" || triggerUID == "" || triggerKind == "" {
 					wm.log.V(4).Info("missing required labels on deleted resource, falling back to direct recreation",
-						"policyName", policyName, "ruleName", ruleName, "sourceUID", sourceUID)
+						"policyName", policyName, "ruleName", ruleName, "triggerUID", triggerUID, "triggerKind", triggerKind)
 					// Fallback to old behavior if labels are missing
 					downstream := resource.Data.DeepCopy()
 					downstream.SetUID("")
@@ -571,16 +573,11 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 					return
 				}
 				
-				// Get source/trigger resource to create the UpdateRequest
-				sourceObj, err := wm.client.GetResource(context.TODO(), "", "Namespace", "", resource.Namespace)
-				if err != nil {
-					wm.log.Error(err, "failed to get source resource for UpdateRequest", "namespace", resource.Namespace)
-					return
-				}
+				// Construct the trigger resource spec from labels using the existing utility function
+				triggerSpec := generate.TriggerFromLabels(labels)
 				
 				// Create UpdateRequest to trigger proper re-evaluation
 				ur := newGenerateUR(policyName)
-				triggerSpec := common.ResourceSpecFromUnstructured(*sourceObj)
 				addRuleContext(ur, ruleName, triggerSpec, false, false)
 				
 				// Create the UpdateRequest
@@ -598,6 +595,9 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				} else {
 					wm.log.V(4).Info("created UpdateRequest for deleted resource re-evaluation", "ur", created.Name, "policy", policyName, "rule", ruleName)
 				}
+				
+				// Remove the resource from the metadata cache since we've handled its deletion
+				delete(watcher.metadataCache, uid)
 			}
 		}
 	}

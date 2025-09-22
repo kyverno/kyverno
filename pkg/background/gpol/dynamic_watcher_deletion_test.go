@@ -21,6 +21,21 @@ import (
 	ktesting "k8s.io/client-go/testing"
 )
 
+// Helper function to create complete trigger labels for testing
+func createTriggerLabels() map[string]string {
+	return map[string]string{
+		common.GeneratePolicyLabel:        "test-policy",
+		common.GenerateRuleLabel:          "test-rule",
+		common.GenerateTriggerNameLabel:   "test-namespace",
+		common.GenerateTriggerUIDLabel:    "test-namespace-uid",
+		common.GenerateTriggerKindLabel:   "Namespace",
+		common.GenerateTriggerVersionLabel: "v1",
+		common.GenerateTriggerGroupLabel:  "",
+		common.GenerateTriggerNSLabel:     "",
+		kyverno.LabelAppManagedBy:         kyverno.ValueKyvernoApp,
+	}
+}
+
 func TestHandleDeleteCreatesUpdateRequest(t *testing.T) {
 	// Setup
 	client := dclient.NewEmptyFakeClient()
@@ -49,10 +64,15 @@ func TestHandleDeleteCreatesUpdateRequest(t *testing.T) {
 
 	// Set the labels that would be set by Kyverno during generation
 	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:    "test-policy",
-		common.GenerateRuleLabel:      "test-rule",
-		common.GenerateSourceUIDLabel: "test-namespace-uid",
-		kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:        "test-policy",
+		common.GenerateRuleLabel:          "test-rule",
+		common.GenerateTriggerNameLabel:   "test-namespace",
+		common.GenerateTriggerUIDLabel:    "test-namespace-uid",
+		common.GenerateTriggerKindLabel:   "Namespace",
+		common.GenerateTriggerVersionLabel: "v1",
+		common.GenerateTriggerGroupLabel:  "",
+		common.GenerateTriggerNSLabel:     "",
+		kyverno.LabelAppManagedBy:         kyverno.ValueKyvernoApp,
 	})
 
 	// Set up the watcher's metadata cache to simulate the resource being tracked
@@ -64,10 +84,15 @@ func TestHandleDeleteCreatesUpdateRequest(t *testing.T) {
 					Name:      "default",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						common.GeneratePolicyLabel:    "test-policy",
-						common.GenerateRuleLabel:      "test-rule",
-						common.GenerateSourceUIDLabel: "test-namespace-uid",
-						kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
+						common.GeneratePolicyLabel:        "test-policy",
+						common.GenerateRuleLabel:          "test-rule",
+						common.GenerateTriggerNameLabel:   "test-namespace",
+						common.GenerateTriggerUIDLabel:    "test-namespace-uid",
+						common.GenerateTriggerKindLabel:   "Namespace",
+						common.GenerateTriggerVersionLabel: "v1",
+						common.GenerateTriggerGroupLabel:  "",
+						common.GenerateTriggerNSLabel:     "",
+						kyverno.LabelAppManagedBy:         kyverno.ValueKyvernoApp,
 					},
 					Data: resourceQuota,
 				},
@@ -185,8 +210,9 @@ func TestHandleDeleteWithNilLabelsInCache(t *testing.T) {
 	assert.Len(t, urList.Items, 0, "No UpdateRequest should be created when labels in cache are nil")
 }
 
-func TestHandleDeleteErrorGettingSourceResource(t *testing.T) {
-	// Setup
+func TestHandleDeleteWithCompleteLabels(t *testing.T) {
+	// Setup - this test verifies that UpdateRequest is created when complete trigger labels are available
+	// even if the trigger resource doesn't exist in the API server anymore
 	client := dclient.NewEmptyFakeClient()
 	kyvernoClient := kyvernoclient.NewSimpleClientset()
 	log := logging.WithName("test-logging")
@@ -201,12 +227,7 @@ func TestHandleDeleteErrorGettingSourceResource(t *testing.T) {
 	resourceQuota.SetUID("test-quota-uid")
 
 	// Set complete labels
-	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:     "test-policy",
-		common.GenerateRuleLabel:       "test-rule",
-		common.GenerateSourceUIDLabel:  "test-namespace-uid",
-		"app.kubernetes.io/managed-by": "kyverno",
-	})
+	resourceQuota.SetLabels(createTriggerLabels())
 
 	// DON'T add the namespace to the client to simulate error
 
@@ -218,25 +239,25 @@ func TestHandleDeleteErrorGettingSourceResource(t *testing.T) {
 				"test-quota-uid": {
 					Name:      "default",
 					Namespace: "test-namespace",
-					Labels: map[string]string{
-						common.GeneratePolicyLabel:    "test-policy",
-						common.GenerateRuleLabel:      "test-rule",
-						common.GenerateSourceUIDLabel: "test-namespace-uid",
-						kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
-					},
+					Labels: createTriggerLabels(),
 					Data: resourceQuota,
 				},
 			},
 		},
 	}
 
-	// Test: Call handleDelete (should fail to get source resource)
+	// Test: Call handleDelete - should create UpdateRequest using label information
 	wm.handleDelete(resourceQuota, gvr)
 
-	// Verify that NO UpdateRequest was created due to error getting source resource
+	// Verify that UpdateRequest was created using trigger labels, regardless of trigger resource existence
 	urList, err := kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{})
 	assert.NoError(t, err)
-	assert.Len(t, urList.Items, 0, "No UpdateRequest should be created when source resource cannot be found")
+	assert.Len(t, urList.Items, 1, "UpdateRequest should be created using trigger labels")
+	
+	ur := urList.Items[0]
+	assert.Equal(t, kyvernov2.Generate, ur.Spec.Type)
+	assert.Equal(t, "test-policy", ur.Spec.Policy)
+	assert.Equal(t, kyvernov2.Pending, ur.Status.State)
 }
 
 func TestHandleDeleteResourceNotInCache(t *testing.T) {
@@ -339,12 +360,7 @@ func TestHandleDeleteErrorCreatingUpdateRequest(t *testing.T) {
 	resourceQuota.SetUID("test-quota-uid")
 
 	// Set the labels that would be set by Kyverno during generation
-	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:    "test-policy",
-		common.GenerateRuleLabel:      "test-rule",
-		common.GenerateSourceUIDLabel: "test-namespace-uid",
-		kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
-	})
+	resourceQuota.SetLabels(createTriggerLabels())
 
 	// Set up the watcher's metadata cache
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "resourcequotas"}
@@ -354,12 +370,7 @@ func TestHandleDeleteErrorCreatingUpdateRequest(t *testing.T) {
 				"test-quota-uid": {
 					Name:      "default",
 					Namespace: "test-namespace",
-					Labels: map[string]string{
-						common.GeneratePolicyLabel:    "test-policy",
-						common.GenerateRuleLabel:      "test-rule",
-						common.GenerateSourceUIDLabel: "test-namespace-uid",
-						kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
-					},
+					Labels: createTriggerLabels(),
 					Data: resourceQuota,
 				},
 			},
@@ -411,12 +422,7 @@ func TestHandleDeleteErrorUpdatingStatus(t *testing.T) {
 	resourceQuota.SetUID("test-quota-uid")
 
 	// Set the labels that would be set by Kyverno during generation
-	resourceQuota.SetLabels(map[string]string{
-		common.GeneratePolicyLabel:    "test-policy",
-		common.GenerateRuleLabel:      "test-rule",
-		common.GenerateSourceUIDLabel: "test-namespace-uid",
-		kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
-	})
+	resourceQuota.SetLabels(createTriggerLabels())
 
 	// Set up the watcher's metadata cache
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "resourcequotas"}
@@ -426,12 +432,7 @@ func TestHandleDeleteErrorUpdatingStatus(t *testing.T) {
 				"test-quota-uid": {
 					Name:      "default",
 					Namespace: "test-namespace",
-					Labels: map[string]string{
-						common.GeneratePolicyLabel:    "test-policy",
-						common.GenerateRuleLabel:      "test-rule",
-						common.GenerateSourceUIDLabel: "test-namespace-uid",
-						kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
-					},
+					Labels: createTriggerLabels(),
 					Data: resourceQuota,
 				},
 			},
