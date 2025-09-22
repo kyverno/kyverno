@@ -35,15 +35,15 @@ INSTALL_VERSION	     ?= 3.2.6
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.29.0
+KIND_VERSION                       ?= v0.30.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.17.3
+CONTROLLER_GEN_VERSION             ?= v0.18.0
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
-CODE_GEN_VERSION                   ?= v0.32.4
+CODE_GEN_VERSION                   ?= v0.33.4
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
@@ -51,11 +51,11 @@ GENREF_VERSION                     ?= master
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  ?= latest
 HELM                               ?= $(TOOLS_DIR)/helm
-HELM_VERSION                       ?= v3.17.3
+HELM_VERSION                       ?= v3.19.0
 HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  ?= v1.14.2
 KO                                 ?= $(TOOLS_DIR)/ko
-KO_VERSION                         ?= v0.17.1
+KO_VERSION                         ?= v0.18.0
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
@@ -650,6 +650,16 @@ define generate_crd
 		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/crds/templates/$(3)/$(1)
+	@cat $(CRDS_PATH)/$(2)/$(1) \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
+ 		>> ./charts/crds/templates/$(3)/$(1)
+	@echo "{{- end }}" >> ./charts/crds/templates/$(3)/$(1)
 endef
 
 .PHONY: helm-setup-openreports
@@ -661,6 +671,10 @@ helm-setup-openreports: $(HELM) ## Add openreports helm repo and build dependenc
 codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
 	@echo Generate helm crds... >&2
+	@rm -rf ./charts/crds/templates/kyverno.io && mkdir -p ./charts/crds/templates/kyverno.io
+	@rm -rf ./charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/crds/templates/reports.kyverno.io
+	@rm -rf ./charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/crds/templates/wgpolicyk8s.io
+	@rm -rf ./charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/crds/templates/policies.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
@@ -682,6 +696,9 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
 	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports,true)
+	@rm -rf ./charts/crds/templates/kyverno.io
+	@rm -rf ./charts/crds/templates/reports.kyverno.io
+	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs

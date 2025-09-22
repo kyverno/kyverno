@@ -15,7 +15,11 @@
 {{- end -}}
 
 {{- define "kyverno.test.annotations" -}}
-helm.sh/hook: test
+{{- $annotations := dict "helm.sh/hook" "test" -}}
+{{- with .Values.test.podAnnotations -}}
+{{- $annotations = merge $annotations . -}}
+{{- end -}}
+{{- toYaml $annotations -}}
 {{- end -}}
 
 {{- define "kyverno.test.image" -}}

@@ -61,13 +61,25 @@ func NewFilteredMutatingPolicyInformer(client versioned.Interface, resyncPeriod 
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().MutatingPolicies().List(context.TODO(), options)
+				return client.PoliciesV1alpha1().MutatingPolicies().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().MutatingPolicies().Watch(context.TODO(), options)
+				return client.PoliciesV1alpha1().MutatingPolicies().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.PoliciesV1alpha1().MutatingPolicies().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.PoliciesV1alpha1().MutatingPolicies().Watch(ctx, options)
 			},
 		},
 		&apipolicieskyvernoiov1alpha1.MutatingPolicy{},
