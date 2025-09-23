@@ -13,11 +13,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	event "github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -29,6 +32,8 @@ type handler struct {
 	kyvernoClient    versioned.Interface
 	admissionReports bool
 	reportConfig     reportutils.ReportingConfiguration
+	eventGen         event.Interface
+	configuration    config.Configuration
 }
 
 func New(
@@ -37,6 +42,7 @@ func New(
 	kyvernoClient versioned.Interface,
 	admissionReports bool,
 	reportConfig reportutils.ReportingConfiguration,
+	eventGen event.Interface,
 ) *handler {
 	return &handler{
 		context:          context,
@@ -44,6 +50,7 @@ func New(
 		kyvernoClient:    kyvernoClient,
 		admissionReports: admissionReports,
 		reportConfig:     reportConfig,
+		eventGen:         eventGen,
 	}
 }
 
@@ -62,7 +69,13 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
-		if validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
+		var blocked = false
+		for _, p := range response.Policies {
+			if p.Actions.Has(admissionregistrationv1.Deny) {
+				blocked = true
+			}
+		}
+		if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
 			err := h.admissionReport(ctx, request, response)
 			if err != nil {
 				logger.Error(err, "failed to create report")
@@ -130,5 +143,7 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 			return err
 		}
 	}
+	events := webhookutils.GenerateEvents(responses, true, h.configuration)
+	h.eventGen.Add(events...)
 	return nil
 }
