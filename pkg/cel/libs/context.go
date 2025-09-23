@@ -255,6 +255,9 @@ func (cp *contextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVersionR
 	}
 
 	r, err := cp.restMapper.RESTMapping(schema.GroupKind{Group: groupVersion.Group, Kind: kind}, groupVersion.Version)
+	if err != nil {
+		return nil, err
+	}
 
 	return &r.Resource, nil
 }
