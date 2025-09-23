@@ -1279,4 +1279,23 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:
-      - run: echo "Some conformance tests failed" && exit 1
+      - name: Report conformance test failures
+        run: |
+          echo "===================================================================="
+          echo "CONFORMANCE TESTS FAILED"
+          echo "===================================================================="
+          echo "One or more conformance test jobs failed. Check the following jobs:"
+          echo "- assert, autogen, background-only, cleanup, custom-sigstore"
+          echo "- deferred, deleting-policies, events, exceptions, filter"
+          echo "- force-failure-policy-ignore, generate, generate-validating-admission-policy"
+          echo "- generate-mutating-admission-policy, generating-policies, globalcontext"
+          echo "- image-validating-policies, lease, mutate, policy-exceptions-disabled"
+          echo "- policy-validation, rangeoperators, rbac, reports, sigstore-custom-tuf"
+          echo "- ttl, validate, validating-admission-policy-reports"
+          echo "- mutating-admission-policy-reports, validating-policies"
+          echo "- verify-images, verify-manifests, webhook-configurations, webhooks"
+          echo "- monitor-helm-secret-size, check-tests, helm-upgrade, helm-uninstall"
+          echo ""
+          echo "Review the individual job logs above to identify the specific failing tests."
+          echo "===================================================================="
+          exit 1
