@@ -35,8 +35,7 @@ spec:
   - name: step-04
     try:
     - sleep:
-        duration: 3s
-  - name: step-05
-    try:
+        duration: 5s
     - assert:
         file: chainsaw-step-05-assert-1-1.yaml
+        timeout: 30s
