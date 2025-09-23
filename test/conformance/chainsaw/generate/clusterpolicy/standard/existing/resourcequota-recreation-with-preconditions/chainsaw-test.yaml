@@ -39,6 +39,7 @@ spec:
   - name: verify-resourcequota-recreated
     try:
     - sleep:
-        duration: 10s
+        duration: 5s
     - assert:
         file: recreated-generated-resources.yaml
+        timeout: 30s
