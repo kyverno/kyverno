@@ -1384,6 +1384,16 @@ func (in *PolicyExceptionSpec) DeepCopyInto(out *PolicyExceptionSpec) {
 		*out = make([]admissionregistrationv1.MatchCondition, len(*in))
 		copy(*out, *in)
 	}
+	if in.Images != nil {
+		in, out := &in.Images, &out.Images
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.AllowedValues != nil {
+		in, out := &in.AllowedValues, &out.AllowedValues
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
