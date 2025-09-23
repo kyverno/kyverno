@@ -61,13 +61,25 @@ func NewFilteredValidatingPolicyInformer(client versioned.Interface, resyncPerio
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().ValidatingPolicies().List(context.TODO(), options)
+				return client.PoliciesV1alpha1().ValidatingPolicies().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().ValidatingPolicies().Watch(context.TODO(), options)
+				return client.PoliciesV1alpha1().ValidatingPolicies().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.PoliciesV1alpha1().ValidatingPolicies().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.PoliciesV1alpha1().ValidatingPolicies().Watch(ctx, options)
 			},
 		},
 		&apipolicieskyvernoiov1alpha1.ValidatingPolicy{},
