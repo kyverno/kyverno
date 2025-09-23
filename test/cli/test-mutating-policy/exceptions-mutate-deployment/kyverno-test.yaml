@@ -11,8 +11,8 @@ resources:
 results:
 - isMutatingPolicy: true
   kind: Deployment
-  policy: test-mpol-jsonpatch
   patchedResources: patchedResource.yaml
+  policy: test-mpol-jsonpatch
   resources:
   - dev/dev-deploy-2
   result: pass
