@@ -46,6 +46,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.list_resources_string_string_string),
 			),
+			cel.MemberOverload(
+				"list_resources_gvr_string",
+				[]*cel.Type{ContextType, GVRType, types.StringType},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.list_resources_gvr_string),
+			),
 		},
 		"Get": {
 			cel.MemberOverload(
@@ -53,6 +59,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType},
 				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.get_resource_string_string_string_string),
+			),
+			cel.MemberOverload(
+				"resource_get_gvr_string_string",
+				[]*cel.Type{ContextType, GVRType, types.StringType, types.StringType},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.get_resources_gvr_string_string),
 			),
 		},
 		"Post": {
@@ -67,6 +79,14 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
 				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.post_resource_string_string_map),
+			),
+		},
+		"ToGVR": {
+			cel.MemberOverload(
+				"convert_to_gvr_string_string",
+				[]*cel.Type{ContextType, types.StringType, types.StringType},
+				GVRType,
+				cel.FunctionBinding(impl.convert_to_gvr_string_string),
 			),
 		},
 	}
