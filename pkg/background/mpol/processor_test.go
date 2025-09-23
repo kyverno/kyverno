@@ -3,6 +3,7 @@ package mpol
 import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 
 	"context"
@@ -112,7 +113,7 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		kyvernoClient,
 		&fakeEngine{},
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "kyverno.io", Version: "v1"}}),
-		&fakeContext{},
+		&libs.FakeContextProvider{},
 		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
 	)
@@ -162,7 +163,7 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		kyvernoClient,
 		engine,
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}}),
-		&fakeContext{},
+		&libs.FakeContextProvider{},
 		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
 	)

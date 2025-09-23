@@ -36,6 +36,7 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -97,6 +98,7 @@ type controller struct {
 	reportsConfig reportutils.ReportingConfiguration
 	gctxStore     gctxstore.Store
 
+	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
 }
 
@@ -125,6 +127,7 @@ func NewController(
 	policyReports bool,
 	reportsConfig reportutils.ReportingConfiguration,
 	gctxStore gctxstore.Store,
+	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
@@ -152,6 +155,7 @@ func NewController(
 		policyReports:  policyReports,
 		reportsConfig:  reportsConfig,
 		gctxStore:      gctxStore,
+		mapper:         mapper,
 		typeConverter:  typeConverter,
 	}
 	if vpolInformer != nil {
@@ -608,7 +612,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig, c.gctxStore, c.typeConverter)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig, c.gctxStore, c.mapper, c.typeConverter)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
