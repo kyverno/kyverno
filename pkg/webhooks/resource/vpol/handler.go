@@ -73,6 +73,7 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 		for _, p := range response.Policies {
 			if p.Actions.Has(admissionregistrationv1.Deny) {
 				blocked = true
+				break
 			}
 		}
 		if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
@@ -89,7 +90,14 @@ func (h *handler) admissionResponse(request vpolengine.EngineRequest, response v
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
+		engineResponse := engineapi.EngineResponse{
+			PolicyResponse: engineapi.PolicyResponse{
+				Rules: policy.Rules,
+			},
+		}
+		blocked := false
 		if policy.Actions.Has(admissionregistrationv1.Deny) {
+			blocked = true
 			for _, rule := range policy.Rules {
 				switch rule.Status() {
 				case engineapi.RuleStatusFail:
@@ -109,6 +117,8 @@ func (h *handler) admissionResponse(request vpolengine.EngineRequest, response v
 				}
 			}
 		}
+		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{engineResponse}, blocked, h.configuration)
+		h.eventGen.Add(events...)
 	}
 	return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
 }

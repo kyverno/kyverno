@@ -825,6 +825,7 @@ func main() {
 			setup.KyvernoClient,
 			admissionReports,
 			setup.ReportingConfiguration,
+			eventGenerator,
 		)
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
