@@ -1268,8 +1268,8 @@ k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911 h1:gAXU86Fmbr/ktY17lkHwSj
 k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911/go.mod h1:GLOk5B+hDbRROvt0X2+hqX64v/zO3vXN7J78OUmBSKw=
 k8s.io/kubectl v0.33.1 h1:OJUXa6FV5bap6iRy345ezEjU9dTLxqv1zFTVqmeHb6A=
 k8s.io/kubectl v0.33.1/go.mod h1:Z07pGqXoP4NgITlPRrnmiM3qnoo1QrK1zjw85Aiz8J0=
-k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 h1:hwvWFiBzdWw1FhfY1FooPn3kzWuJ8tmbZBHi4zVsl1Y=
-k8s.io/utils v0.0.0-20250604170112-4c0f3b243397/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
+k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d h1:wAhiDyZ4Tdtt7e46e9M5ZSAJ/MnPGPs+Ki1gHw4w1R0=
+k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 oras.land/oras-go/v2 v2.5.0 h1:o8Me9kLY74Vp5uw07QXPiitjsw7qNXi8Twd+19Zf02c=
 oras.land/oras-go/v2 v2.5.0/go.mod h1:z4eisnLP530vwIOUOJeBIj0aGI0L1C3d53atvCBqZHg=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.33.0 h1:qPrZsv1cwQiFeieFlRqT627fVZ+tyfou/+S5S0H5ua0=
@@ -1287,8 +1287,8 @@ sigs.k8s.io/kustomize/kyaml v0.20.1/go.mod h1:0EmkQHRUsJxY8Ug9Niig1pUMSCGHxQ5Rkl
 sigs.k8s.io/randfill v0.0.0-20250304075658-069ef1bbf016/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
 sigs.k8s.io/randfill v1.0.0/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
-sigs.k8s.io/release-utils v0.12.1 h1:3p9w137wBTTApHlL8izdJHcCuaBe8wZhQz+B0QIAaBE=
-sigs.k8s.io/release-utils v0.12.1/go.mod h1:0z7JOb7iQcuDQcemQw5CSVrkH8evRHY0DMMjcyRB1e4=
+sigs.k8s.io/release-utils v0.12.2 h1:H06v3FuLElAkf7Ikkd9ll8hnhdtQ+OgktJAni3iIAl8=
+sigs.k8s.io/release-utils v0.12.2/go.mod h1:Ab9Lb/FpGUw4lUXj1QYbUcF2TRzll+GS7Md54W1G7sA=
 sigs.k8s.io/structured-merge-diff/v4 v4.7.0 h1:qPeWmscJcXP0snki5IYF79Z8xrl8ETFxgMd7wez1XkI=
 sigs.k8s.io/structured-merge-diff/v4 v4.7.0/go.mod h1:dDy58f92j70zLsuZVuUX5Wp9vtxXpaZnkPGWeqDfCps=
 sigs.k8s.io/yaml v1.4.0/go.mod h1:Ejl7/uTz7PSA4eKMyQCUTnhZYNmLIl+5c2lQPGR2BPY=
