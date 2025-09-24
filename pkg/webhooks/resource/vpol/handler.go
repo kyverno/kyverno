@@ -69,35 +69,68 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
-		var blocked = false
-		for _, p := range response.Policies {
-			if p.Actions.Has(admissionregistrationv1.Deny) {
-				blocked = true
-				break
-			}
-		}
-		if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
-			err := h.admissionReport(ctx, request, response)
-			if err != nil {
-				logger.Error(err, "failed to create report")
-			}
-		}
+		h.audit(ctx, logger, admissionRequest, request, response)
 	})
 	return h.admissionResponse(request, response)
+}
+
+func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
+	var blocked = false
+	for _, p := range response.Policies {
+		if p.Actions.Has(admissionregistrationv1.Deny) {
+			blocked = true
+			break
+		}
+	}
+
+	enginResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	for _, r := range response.Policies {
+		engineResponse := engineapi.EngineResponse{
+			Resource: *response.Resource,
+			PolicyResponse: engineapi.PolicyResponse{
+				Rules: r.Rules,
+			},
+		}
+		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+		enginResponses = append(enginResponses, engineResponse)
+	}
+
+	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
+		err := h.admissionReport(ctx, request, response, enginResponses)
+		if err != nil {
+			logger.Error(err, "failed to create report")
+		}
+	}
+
+	h.admissionEvent(ctx, enginResponses, blocked)
+}
+
+func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse, responses []engineapi.EngineResponse) error {
+	report := reportutils.BuildAdmissionReport(*response.Resource, request.AdmissionRequest(), responses...)
+	if len(report.GetResults()) > 0 {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *handler) admissionEvent(ctx context.Context, responses []engineapi.EngineResponse, blocked bool) {
+	for _, response := range responses {
+		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked, h.configuration)
+		h.eventGen.Add(events...)
+	}
 }
 
 func (h *handler) admissionResponse(request vpolengine.EngineRequest, response vpolengine.EngineResponse) handlers.AdmissionResponse {
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
-		engineResponse := engineapi.EngineResponse{
-			PolicyResponse: engineapi.PolicyResponse{
-				Rules: policy.Rules,
-			},
-		}
-		blocked := false
 		if policy.Actions.Has(admissionregistrationv1.Deny) {
-			blocked = true
 			for _, rule := range policy.Rules {
 				switch rule.Status() {
 				case engineapi.RuleStatusFail:
@@ -117,43 +150,6 @@ func (h *handler) admissionResponse(request vpolengine.EngineRequest, response v
 				}
 			}
 		}
-		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{engineResponse}, blocked, h.configuration)
-		h.eventGen.Add(events...)
 	}
 	return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
-}
-
-func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse) error {
-	admissionRequest := request.AdmissionRequest()
-	object, oldObject, err := admissionutils.ExtractResources(nil, admissionRequest)
-	if err != nil {
-		return err
-	}
-	if object.Object == nil {
-		object = oldObject
-	}
-	responses := make([]engineapi.EngineResponse, 0, len(response.Policies))
-	for _, r := range response.Policies {
-		engineResponse := engineapi.EngineResponse{
-			Resource: object,
-			PolicyResponse: engineapi.PolicyResponse{
-				Rules: r.Rules,
-			},
-		}
-		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-		responses = append(responses, engineResponse)
-	}
-	report := reportutils.BuildAdmissionReport(object, admissionRequest, responses...)
-	if len(report.GetResults()) > 0 {
-		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
-			return err
-		})
-		if err != nil {
-			return err
-		}
-	}
-	events := webhookutils.GenerateEvents(responses, true, h.configuration)
-	h.eventGen.Add(events...)
-	return nil
 }
