@@ -247,6 +247,22 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVal
 	return policies, nil
 }
 
+func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLister) ([]policiesv1alpha1.GeneratingPolicy, error) {
+	var policies []policiesv1alpha1.GeneratingPolicy
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	if pols, err := gpolLister.List(labels.Everything().Add(*r)); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, *pol)
+		}
+	}
+	return policies, nil
+}
+
 func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.PolicyExceptionLister, namespace string) ([]*policiesv1alpha1.PolicyException, error) {
 	exceptions, err := celexLister.PolicyExceptions(namespace).List(labels.Everything())
 	if err != nil {

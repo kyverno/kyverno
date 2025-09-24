@@ -19,6 +19,7 @@ import (
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -332,7 +333,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 
 func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 	results := map[string]policyMapEntry{}
-	cpols, err := c.cpolLister.List(labels.Everything())
+	cpols, err := utils.FetchClusterPolicies(c.cpolLister)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +347,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
-	pols, err := c.polLister.List(labels.Everything())
+	pols, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
@@ -366,12 +367,12 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 func (c *controller) createVapMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.vapLister != nil {
-		vaps, err := c.vapLister.List(labels.Everything())
+		vaps, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, vap := range vaps {
-			results.Insert(cache.MetaObjectToName(vap).String())
+			results.Insert(cache.MetaObjectToName(&vap).String())
 		}
 	}
 	return results, nil
@@ -380,12 +381,12 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 func (c *controller) createMappolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.mapLister != nil {
-		maps, err := c.mapLister.List(labels.Everything())
+		maps, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, pol := range maps {
-			results.Insert(cache.MetaObjectToName(pol).String())
+			results.Insert(cache.MetaObjectToName(&pol).String())
 		}
 	}
 	return results, nil
@@ -394,12 +395,12 @@ func (c *controller) createMappolMap() (sets.Set[string], error) {
 func (c *controller) createVPolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.vpolLister != nil {
-		vpols, err := c.vpolLister.List(labels.Everything())
+		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, vpol := range vpols {
-			results.Insert(cache.MetaObjectToName(vpol).String())
+			results.Insert(cache.MetaObjectToName(&vpol).String())
 		}
 	}
 	return results, nil
@@ -408,12 +409,12 @@ func (c *controller) createVPolMap() (sets.Set[string], error) {
 func (c *controller) createIVPolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.ivpolLister != nil {
-		ivpols, err := c.ivpolLister.List(labels.Everything())
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, ivpol := range ivpols {
-			results.Insert(cache.MetaObjectToName(ivpol).String())
+			results.Insert(cache.MetaObjectToName(&ivpol).String())
 		}
 	}
 	return results, nil
@@ -422,12 +423,12 @@ func (c *controller) createIVPolMap() (sets.Set[string], error) {
 func (c *controller) createGPOLMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.gpolLister != nil {
-		gpols, err := c.gpolLister.List(labels.Everything())
+		gpols, err := utils.FetchGeneratingPolicy(c.gpolLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, gpol := range gpols {
-			results.Insert(cache.MetaObjectToName(gpol).String())
+			results.Insert(cache.MetaObjectToName(&gpol).String())
 		}
 	}
 	return results, nil
@@ -436,12 +437,12 @@ func (c *controller) createGPOLMap() (sets.Set[string], error) {
 func (c *controller) createMPOLMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.mpolLister != nil {
-		mpols, err := c.mpolLister.List(labels.Everything())
+		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, mpol := range mpols {
-			results.Insert(cache.MetaObjectToName(mpol).String())
+			results.Insert(cache.MetaObjectToName(&mpol).String())
 		}
 	}
 	return results, nil
