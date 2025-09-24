@@ -31,4 +31,20 @@ var examples = [][]string{
 		"# Apply multiple policy with variable on multiple resource",
 		"kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml",
 	},
+	{
+        "# Apply policies to a Helm chart",
+        "kyverno apply /path/to/policy.yaml --chart /path/to/helm/chart",
+    },
+    {
+        "# Apply policies to a Helm chart with custom values",
+        "kyverno apply /path/to/policy.yaml --chart /path/to/chart --helm-values /path/to/values.yaml",
+    },
+    {
+        "# Apply policies to a Helm chart with inline values",
+        "kyverno apply /path/to/policy.yaml --chart /path/to/chart --helm-set image.tag=v1.2.3 --helm-set replicas=3",
+    },
+    {
+        "# Apply policies to a packaged Helm chart",
+        "kyverno apply /path/to/policy.yaml --chart /path/to/chart.tgz --helm-values /path/to/values.yaml",
+    },
 }
