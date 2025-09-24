@@ -33,10 +33,12 @@ import (
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	"k8s.io/client-go/discovery/cached/memory"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
+	"k8s.io/client-go/restmapper"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -141,6 +143,8 @@ func createReportControllers(
 			))
 		}
 		if backgroundScan {
+			restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(client.GetKubeClient().Discovery()))
+
 			backgroundScanController := backgroundscancontroller.NewController(
 				client,
 				kyvernoClient,
@@ -166,6 +170,7 @@ func createReportControllers(
 				policyReports,
 				reportsConfig,
 				gcstore,
+				restMapper,
 				typeConverter,
 			)
 			ctrls = append(ctrls, internal.NewController(
