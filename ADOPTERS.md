@@ -56,6 +56,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Educates Training Platform](https://educates.dev) | Educates is a FOSS Cloud Native Hands-on Training Platform in which we use Kyverno to provide proper workshop isolation between different sessions and enforcing workshop specific related policies |
 | [Kubermatic](https://www.kubermatic.com) | Kyverno is fully integrated across platform, project, and cluster levels in KKP - enabling platform teams to declaratively define, automate, and consistently enforce security, compliance, and operational policies across multi-tenant Kubernetes environments, all seamlessly managed through the KKP UI. |
 | [Sophotech](https://sopho.tech) | Sophotech leverages Kyverno as a central component of our Kubernetes security strategy. We use it to enforce policies that support SOC 2 compliance and to automate security hardening across our clusters, ensuring consistent governance and operational integrity. |
+| [Swiss Post](https://github.com/swisspost) | Introduced as a replacement of PSPs on all EKS and AKS cluster before we upgraded to K8s 1.25, we now use it to enforce a variety of best practices like having a PDB, spread constraint across all AZs, not using latest tags, automate some manual CIS Controls, etc. |
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->
