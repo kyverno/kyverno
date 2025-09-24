@@ -43,6 +43,7 @@ func New(
 	admissionReports bool,
 	reportConfig reportutils.ReportingConfiguration,
 	eventGen event.Interface,
+	configuration config.Configuration,
 ) *handler {
 	return &handler{
 		context:          context,
@@ -51,6 +52,7 @@ func New(
 		admissionReports: admissionReports,
 		reportConfig:     reportConfig,
 		eventGen:         eventGen,
+		configuration:    configuration,
 	}
 }
 
@@ -75,7 +77,7 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
-	var blocked = false
+	blocked := false
 	for _, p := range response.Policies {
 		if p.Actions.Has(admissionregistrationv1.Deny) {
 			blocked = true

@@ -826,6 +826,7 @@ func main() {
 			admissionReports,
 			setup.ReportingConfiguration,
 			eventGenerator,
+			setup.Configuration,
 		)
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
