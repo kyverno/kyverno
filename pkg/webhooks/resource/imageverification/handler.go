@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -190,8 +189,7 @@ func (v *imageVerificationHandler) handleAudit(
 			if createReport {
 				filteredEngineResponses := []engineapi.EngineResponse{}
 				for _, r := range engineResponses {
-					policyLabels := r.Policy().GetLabels()
-					if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+					if !reportutils.IsPolicyReportable(r.Policy()) {
 						continue
 					}
 					filteredEngineResponses = append(filteredEngineResponses, r)
