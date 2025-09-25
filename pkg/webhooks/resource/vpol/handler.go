@@ -85,7 +85,7 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 		}
 	}
 
-	enginResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
 			Resource: *response.Resource,
