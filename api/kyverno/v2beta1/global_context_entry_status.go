@@ -1,4 +1,4 @@
-package v2alpha1
+package v2beta1
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	// GlobalContextEntryConditionReady means that the globalcontextentry is ready
+	// PolicyConditionReady means that the globalcontextentry is ready
 	GlobalContextEntryConditionReady = "Ready"
 )
 
@@ -19,9 +19,10 @@ const (
 
 type GlobalContextEntryStatus struct {
 	// Deprecated in favor of Conditions
-	Ready bool `json:"ready"`
+	Ready *bool `json:"ready,omitempty"`
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// Indicates the time when the globalcontextentry was last refreshed successfully for the API Call
 	// +optional
 	LastRefreshTime metav1.Time `json:"lastRefreshTime,omitempty"`
 }
@@ -38,11 +39,10 @@ func (status *GlobalContextEntryStatus) SetReady(ready bool, message string) {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = GlobalContextEntryReasonFailed
 	}
-	status.Ready = ready
+	status.Ready = nil
 	meta.SetStatusCondition(&status.Conditions, condition)
 }
 
-// UpdateRefreshTime updates the lastRefreshTime field
 func (status *GlobalContextEntryStatus) UpdateRefreshTime() {
 	status.LastRefreshTime = metav1.Now()
 }
