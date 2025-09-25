@@ -149,6 +149,34 @@ func (mr *MockConfigurationMockRecorder) GetWebhookLabels() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookLabels", reflect.TypeOf((*MockConfiguration)(nil).GetWebhookLabels))
 }
 
+// GetWebhookMutating mocks base method.
+func (m *MockConfiguration) GetWebhookMutating() config.WebhookConfig {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWebhookMutating")
+	ret0, _ := ret[0].(config.WebhookConfig)
+	return ret0
+}
+
+// GetWebhookMutating indicates an expected call of GetWebhookMutating.
+func (mr *MockConfigurationMockRecorder) GetWebhookMutating() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookMutating", reflect.TypeOf((*MockConfiguration)(nil).GetWebhookMutating))
+}
+
+// GetWebhookValidating mocks base method.
+func (m *MockConfiguration) GetWebhookValidating() config.WebhookConfig {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWebhookValidating")
+	ret0, _ := ret[0].(config.WebhookConfig)
+	return ret0
+}
+
+// GetWebhookValidating indicates an expected call of GetWebhookValidating.
+func (mr *MockConfigurationMockRecorder) GetWebhookValidating() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookValidating", reflect.TypeOf((*MockConfiguration)(nil).GetWebhookValidating))
+}
+
 // IsExcluded mocks base method.
 func (m *MockConfiguration) IsExcluded(username string, groups, roles, clusterroles []string) bool {
 	m.ctrl.T.Helper()
