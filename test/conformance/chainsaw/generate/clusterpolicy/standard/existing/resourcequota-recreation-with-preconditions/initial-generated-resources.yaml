@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default
+  namespace: test-namespace
+  labels:
+    generate.kyverno.io/policy-name: resourcequota-recreation-with-preconditions
+spec:
+  hard:
+    limits.cpu: "4"
