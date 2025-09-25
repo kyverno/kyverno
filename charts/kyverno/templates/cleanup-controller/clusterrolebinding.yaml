@@ -14,5 +14,22 @@ subjects:
 - kind: ServiceAccount
   name: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
   namespace: {{ template "kyverno.namespace" . }}
+{{- if .Values.cleanupController.rbac.clusterRole.extraResources }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.cleanup-controller.roleName" . }}:additional
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.cleanup-controller.roleName" . }}:additional
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
