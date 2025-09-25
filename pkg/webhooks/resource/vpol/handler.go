@@ -94,17 +94,17 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 			},
 		}
 		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-		enginResponses = append(enginResponses, engineResponse)
+		engineResponses = append(engineResponses, engineResponse)
 	}
 
 	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
-		err := h.admissionReport(ctx, request, response, enginResponses)
+		err := h.admissionReport(ctx, request, response, engineResponses)
 		if err != nil {
 			logger.Error(err, "failed to create report")
 		}
 	}
 
-	h.admissionEvent(ctx, enginResponses, blocked)
+	h.admissionEvent(ctx, engineResponses, blocked)
 }
 
 func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse, responses []engineapi.EngineResponse) error {
