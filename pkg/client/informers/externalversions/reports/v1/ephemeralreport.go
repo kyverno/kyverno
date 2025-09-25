@@ -62,25 +62,13 @@ func NewFilteredEphemeralReportInformer(client versioned.Interface, namespace st
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ReportsV1().EphemeralReports(namespace).List(context.Background(), options)
+				return client.ReportsV1().EphemeralReports(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ReportsV1().EphemeralReports(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.ReportsV1().EphemeralReports(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.ReportsV1().EphemeralReports(namespace).Watch(ctx, options)
+				return client.ReportsV1().EphemeralReports(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apireportsv1.EphemeralReport{},

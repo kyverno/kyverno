@@ -76,6 +76,8 @@ type DeletingPolicyLike interface {
 	runtime.Object
 	GetDeletingPolicySpec() *DeletingPolicySpec
 	GetKind() string
+	GetExecutionTime() (*time.Time, error)
+	GetNextExecutionTime(time.Time) (*time.Time, error)
 }
 
 // DeletingPolicySpec is the specification of the desired behavior of the DeletingPolicy.

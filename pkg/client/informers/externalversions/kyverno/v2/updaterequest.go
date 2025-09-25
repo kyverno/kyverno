@@ -62,25 +62,13 @@ func NewFilteredUpdateRequestInformer(client versioned.Interface, namespace stri
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2().UpdateRequests(namespace).List(context.Background(), options)
+				return client.KyvernoV2().UpdateRequests(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2().UpdateRequests(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.KyvernoV2().UpdateRequests(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.KyvernoV2().UpdateRequests(namespace).Watch(ctx, options)
+				return client.KyvernoV2().UpdateRequests(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apikyvernov2.UpdateRequest{},
