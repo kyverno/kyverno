@@ -229,7 +229,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-kpols, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, ndps, mps, err := c.loadPolicies()
+	kpols, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, ndps, mps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}

@@ -50,18 +50,18 @@ type LoaderError struct {
 }
 
 type LoaderResults struct {
-	Policies                []kyvernov1.PolicyInterface
-	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
-	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MAPs                    []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	MAPBindings             []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
-	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
-	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
-	GeneratingPolicies      []policiesv1alpha1.GeneratingPolicy
-	DeletingPolicies        []policiesv1alpha1.DeletingPolicy
+	Policies                   []kyvernov1.PolicyInterface
+	VAPs                       []admissionregistrationv1.ValidatingAdmissionPolicy
+	VAPBindings                []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MAPs                       []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MAPBindings                []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	ValidatingPolicies         []policiesv1alpha1.ValidatingPolicy
+	ImageValidatingPolicies    []policiesv1alpha1.ImageValidatingPolicy
+	GeneratingPolicies         []policiesv1alpha1.GeneratingPolicy
+	DeletingPolicies           []policiesv1alpha1.DeletingPolicy
 	NamespacedDeletingPolicies []policiesv1alpha1.NamespacedDeletingPolicy
-	MutatingPolicies        []policiesv1alpha1.MutatingPolicy
-	NonFatalErrors          []LoaderError
+	MutatingPolicies           []policiesv1alpha1.MutatingPolicy
+	NonFatalErrors             []LoaderError
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {
@@ -208,18 +208,18 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.GeneratingPolicies = append(results.GeneratingPolicies, *typed)
-	case dpV1alpha1:
-		typed, err := convert.To[policiesv1alpha1.DeletingPolicy](untyped)
-		if err != nil {
-			return nil, err
-		}
-		results.DeletingPolicies = append(results.DeletingPolicies, *typed)
-	case ndpV1alpha1:
-		typed, err := convert.To[policiesv1alpha1.NamespacedDeletingPolicy](untyped)
-		if err != nil {
-			return nil, err
-		}
-		results.NamespacedDeletingPolicies = append(results.NamespacedDeletingPolicies, *typed)
+		case dpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.DeletingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.DeletingPolicies = append(results.DeletingPolicies, *typed)
+		case ndpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.NamespacedDeletingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.NamespacedDeletingPolicies = append(results.NamespacedDeletingPolicies, *typed)
 		case mpV1alpha1:
 			typed, err := convert.To[policiesv1alpha1.MutatingPolicy](untyped)
 			if err != nil {
