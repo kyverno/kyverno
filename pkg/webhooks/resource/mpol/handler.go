@@ -14,13 +14,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
+	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -32,6 +35,8 @@ type handler struct {
 	reportsConfig                reportutils.ReportingConfiguration
 	urGenerator                  webhookgenerate.Generator
 	backgroundServiceAccountName string
+	cfg                          config.Configuration
+	eventGen                     event.Interface
 }
 
 func New(
@@ -41,6 +46,8 @@ func New(
 	reportsConfig reportutils.ReportingConfiguration,
 	urGenerator webhookgenerate.Generator,
 	backgroundServiceAccountName string,
+	cfg config.Configuration,
+	eventGen event.Interface,
 ) *handler {
 	return &handler{
 		context:                      context,
@@ -49,6 +56,8 @@ func New(
 		reportsConfig:                reportsConfig,
 		urGenerator:                  urGenerator,
 		backgroundServiceAccountName: backgroundServiceAccountName,
+		cfg:                          cfg,
+		eventGen:                     eventGen,
 	}
 }
 
@@ -77,8 +86,8 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 	}
 
 	go func() {
-		if err := h.createReports(context.TODO(), response, request); err != nil {
-			logger.Error(err, "failed to create reports")
+		if err := h.audit(ctx, response, request); err != nil {
+			logger.Error(err, "failed to audit mutating policy request")
 		}
 	}()
 
@@ -114,11 +123,7 @@ func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionReque
 	return resp
 }
 
-func (h *handler) createReports(ctx context.Context, response mpolengine.EngineResponse, request celengine.EngineRequest) error {
-	if !h.needsReports(request) {
-		return nil
-	}
-
+func (h *handler) audit(ctx context.Context, response mpolengine.EngineResponse, request celengine.EngineRequest) error {
 	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, res := range response.Policies {
 		engineResponses = append(engineResponses, engineapi.EngineResponse{
@@ -127,9 +132,31 @@ func (h *handler) createReports(ctx context.Context, response mpolengine.EngineR
 				Rules: res.Rules,
 			},
 		}.WithPolicy(engineapi.NewMutatingPolicy(res.Policy)))
+		fmt.Println("=====", res.Policy.GetName(), response.Resource.GetName(), len(res.Rules))
 	}
 
-	report := reportutils.BuildMutationReport(*response.Resource, request.Request, engineResponses...)
+	events := webhookutils.GenerateEvents(engineResponses, false, h.cfg)
+	h.eventGen.Add(events...)
+
+	return h.createReports(context.TODO(), response, engineResponses, request)
+}
+
+func (h *handler) createReports(ctx context.Context, response mpolengine.EngineResponse, genericResponses []engineapi.EngineResponse, request celengine.EngineRequest) error {
+	if !h.needsReports(request) {
+		return nil
+	}
+
+	// engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	// for _, res := range response.Policies {
+	// 	engineResponses = append(engineResponses, engineapi.EngineResponse{
+	// 		Resource: *response.Resource,
+	// 		PolicyResponse: engineapi.PolicyResponse{
+	// 			Rules: res.Rules,
+	// 		},
+	// 	}.WithPolicy(engineapi.NewMutatingPolicy(res.Policy)))
+	// }
+
+	report := reportutils.BuildMutationReport(*response.Resource, request.Request, genericResponses...)
 	if len(report.GetResults()) > 0 {
 		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
