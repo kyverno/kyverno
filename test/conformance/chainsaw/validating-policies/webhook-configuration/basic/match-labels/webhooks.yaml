@@ -1,8 +1,6 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  annotations:
-    admissions.enforcer/disabled: "true"
   labels:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
@@ -13,11 +11,11 @@ webhooks:
     service:
       name: kyverno-svc
       namespace: kyverno
-      path: /vpol/check-deployment-labels
+      path: /vpol/disallow-privilege-escalation
       port: 443
   failurePolicy: Fail
   matchPolicy: Equivalent
-  name: vpol.validate.kyverno.svc-fail-finegrained-check-deployment-labels
+  name: vpol.validate.kyverno.svc-fail
   namespaceSelector:
     matchExpressions:
     - key: kubernetes.io/metadata.name
@@ -28,17 +26,20 @@ webhooks:
       operator: NotIn
       values:
       - kyverno
-  objectSelector: {}
+    matchLabels:
+       environment: staging
+  objectSelector: 
+     matchLabels:
+        app: test 
   rules:
   - apiGroups:
-    - apps
+    - ""
     apiVersions:
     - v1
     operations:
     - CREATE
     - UPDATE
     resources:
-    - deployments
+    - pods
     scope: '*'
-  sideEffects: NoneOnDryRun
-  timeoutSeconds: 20
+  
