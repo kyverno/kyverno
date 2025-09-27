@@ -338,10 +338,15 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		nextExecutionTime = executionTime
 	}
 
-	// calculate the remaining time until deletion.
-	timeRemaining := time.Until(*nextExecutionTime)
-	// add the item back to the queue after the remaining time.
-	c.queue.AddAfter(key, timeRemaining)
+	// calculate the remaining time until deletion and clamp to a sane minimum
+	// to avoid immediate hot-loops when nextExecutionTime is in the past or now.
+	const minRequeueDelay = 5 * time.Second
+	delay := time.Until(*nextExecutionTime)
+	if delay <= 0 {
+		delay = minRequeueDelay
+	}
+	// add the item back to the queue after the delay
+	c.queue.AddAfter(key, delay)
 	return nil
 }
 
