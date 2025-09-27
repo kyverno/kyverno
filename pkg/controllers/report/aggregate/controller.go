@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -184,9 +185,21 @@ func NewController(
 	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, cephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+	enqueueAll := func(items []runtime.Object) {
+		for _, item := range items {
+			itemMeta := item.(*metav1.PartialObjectMetadata)
+			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+		}
+	}
 	// enqueueReportsForPolicy queues only reports affected by a specific policy change using the cache.
 	enqueueReportsForPolicy := func(o metav1.Object) {
 		if list, err := polrInformer.Lister().List(selector); err == nil {
+			// the cache has not been built yet, enqueue all reports for reconciliation
+			if len(reportUUIDToPolicyCache) == 0 {
+				enqueueAll(list)
+				return
+			}
+
 			for _, item := range list {
 				itemMeta := item.(*metav1.PartialObjectMetadata)
 				cacheMu.Lock()
@@ -216,6 +229,11 @@ func NewController(
 			}
 		}
 		if list, err := cpolrInformer.Lister().List(selector); err == nil {
+			// the cache has not been built yet, enqueue all reports for reconciliation
+			if len(reportUUIDToPolicyCache) == 0 {
+				enqueueAll(list)
+				return
+			}
 			for _, item := range list {
 				itemMeta := item.(*metav1.PartialObjectMetadata)
 				cacheMu.Lock()
