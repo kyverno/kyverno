@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -128,9 +129,13 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			}
 
 			if p.reportsConfig.MutateExistingReportsEnabled() {
-				err := p.createReports(object, &response)
-				if err != nil {
-					logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+				policyLabels := mpol.GetLabels()
+				// the value of the label doesn't matter, as long as it exists then the policy is excluded from reporting
+				if _, ok := policyLabels[kyverno.LabelExcludeReporting]; !ok {
+					err := p.createReports(object, &response)
+					if err != nil {
+						logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+					}
 				}
 			}
 		}

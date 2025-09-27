@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -187,7 +188,15 @@ func (v *imageVerificationHandler) handleAudit(
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
 			if createReport {
-				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
+				filteredEngineResponses := []engineapi.EngineResponse{}
+				for _, r := range engineResponses {
+					policyLabels := r.Policy().GetLabels()
+					if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+						continue
+					}
+					filteredEngineResponses = append(filteredEngineResponses, r)
+				}
+				report := reportutils.BuildAdmissionReport(resource, request, filteredEngineResponses...)
 				if len(report.GetResults()) > 0 {
 					err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 						_, err := reportutils.CreateEphemeralReport(context.Background(), report, v.kyvernoClient)

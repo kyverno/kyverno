@@ -162,8 +162,9 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				}()
 			}
 		}
-		// generate reports if enabled
-		if c.reportsConfig.GenerateReportsEnabled() && len(engineResponse.PolicyResponse.Rules) > 0 {
+		if c.reportsConfig.GenerateReportsEnabled() &&
+			len(engineResponse.PolicyResponse.Rules) > 0 &&
+			reportutils.IsPolicyReportable(policy.Policy) {
 			if err := c.createReports(context.TODO(), *trigger, engineResponse); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
