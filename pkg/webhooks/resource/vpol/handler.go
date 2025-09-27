@@ -96,7 +96,7 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 		}
 		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
 		allEngineResponses = append(allEngineResponses, engineResponse)
-		if reportutils.IsPolicyReportable(r.Policy) {
+		if reportutils.IsPolicyReportable(&r.Policy) {
 			reportableEngineResponses = append(reportableEngineResponses, engineResponse)
 		}
 	}
