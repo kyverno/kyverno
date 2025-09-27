@@ -195,7 +195,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		}
 	}
 
-	if c.needsReports(trigger) {
+	if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
 		if err := c.createReports(context.TODO(), policyContext.NewResource(), engineResponse); err != nil {
 			c.log.Error(err, "failed to create report")
 		}

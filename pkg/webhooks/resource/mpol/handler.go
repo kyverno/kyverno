@@ -121,6 +121,9 @@ func (h *handler) createReports(ctx context.Context, response mpolengine.EngineR
 
 	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, res := range response.Policies {
+		if !reportutils.IsPolicyReportable(res.Policy) {
+			continue
+		}
 		engineResponses = append(engineResponses, engineapi.EngineResponse{
 			Resource: *response.Resource,
 			PolicyResponse: engineapi.PolicyResponse{
