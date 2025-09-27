@@ -50,9 +50,10 @@ type controller struct {
 }
 
 const (
-	maxRetries     = 10
-	Workers        = 3
-	ControllerName = "deleting-controller"
+	maxRetries      = 10
+	Workers         = 3
+	ControllerName  = "deleting-controller"
+	minRequeueDelay = 1 * time.Second
 )
 
 func NewController(
@@ -102,7 +103,12 @@ func NewController(
 	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
 		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletingPolicy")),
-		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "DeletingPolicy")),
+		// On update, enqueue only when generation (spec) changes; skip status-only updates
+		func(oldObj, obj *v1alpha1.DeletingPolicy) {
+			if oldObj.GetGeneration() != obj.GetGeneration() {
+				_ = enqueueFunc(logger, "updated", "DeletingPolicy")(obj)
+			}
+		},
 		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "DeletingPolicy")),
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -233,11 +239,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
-		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, *executionTime); err != nil {
+		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, time.Now()); err != nil {
 			logger.Error(err, "failed to update the cleanup policy status")
 			return err
 		}
-		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(*executionTime)
+		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(time.Now())
 		if err != nil {
 			logger.Error(err, "failed to get the policy next execution time")
 			return err
@@ -246,9 +252,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		nextExecutionTime = executionTime
 	}
 	// calculate the remaining time until deletion.
-	timeRemaining := time.Until(*nextExecutionTime)
-	// add the item back to the queue after the remaining time.
-	c.queue.AddAfter(key, timeRemaining)
+	// clamp to a sane minimum to avoid immediate hot-loops when nextExecutionTime is past/now
+	delay := time.Until(*nextExecutionTime)
+	if delay <= 0 {
+		delay = minRequeueDelay
+	}
+	// add the item back to the queue after the delay
+	c.queue.AddAfter(key, delay)
 	return nil
 }
 
