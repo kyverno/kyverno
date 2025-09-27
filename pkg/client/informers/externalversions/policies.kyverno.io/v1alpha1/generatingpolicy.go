@@ -61,25 +61,13 @@ func NewFilteredGeneratingPolicyInformer(client versioned.Interface, resyncPerio
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().GeneratingPolicies().List(context.Background(), options)
+				return client.PoliciesV1alpha1().GeneratingPolicies().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().GeneratingPolicies().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.PoliciesV1alpha1().GeneratingPolicies().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.PoliciesV1alpha1().GeneratingPolicies().Watch(ctx, options)
+				return client.PoliciesV1alpha1().GeneratingPolicies().Watch(context.TODO(), options)
 			},
 		},
 		&apipolicieskyvernoiov1alpha1.GeneratingPolicy{},

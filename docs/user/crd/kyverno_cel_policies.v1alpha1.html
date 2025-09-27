@@ -33,6 +33,8 @@
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>
                   </li><li>
+                    <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>
+                  </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-PolicyException">PolicyException</a>
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy</a>
@@ -1731,6 +1733,304 @@ Required.</p>
             
               <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">
                 <span style="font-family: monospace">MutatingPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>NamespacedDeletingPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicySpec">
+                <span style="font-family: monospace">DeletingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions is a list of conditions that must be met for a resource to be deleted.
+Conditions filter resources that have already been matched by the match constraints,
+namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
+There are a maximum of 64 conditions allowed.</p>
+<p>The exact matching logic is (in order):</p>
+<ol>
+<li>If ANY condition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL conditions evaluate to TRUE, the policy is executed.</li>
+</ol>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schedule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>The schedule in Cron format
+Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>deletionPropagationPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicyStatus">
+                <span style="font-family: monospace">DeletingPolicyStatus</span>
               </a>
             
           
@@ -3616,7 +3916,8 @@ Secrets must live in the Kyverno namespace.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
     </p>
   
 
@@ -3807,7 +4108,8 @@ Required.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
     </p>
   
 

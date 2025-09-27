@@ -10199,6 +10199,8 @@ Resource Types:
 </li><li>
 <a href="#policies.kyverno.io/v1alpha1.MutatingPolicy">MutatingPolicy</a>
 </li><li>
+<a href="#policies.kyverno.io/v1alpha1.NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>
+</li><li>
 <a href="#policies.kyverno.io/v1alpha1.PolicyException">PolicyException</a>
 </li><li>
 <a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>
@@ -11084,6 +11086,162 @@ Required.</p>
 <em>
 <a href="#policies.kyverno.io/v1alpha1.MutatingPolicyStatus">
 MutatingPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.NamespacedDeletingPolicy">NamespacedDeletingPolicy
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+policies.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>NamespacedDeletingPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicySpec">
+DeletingPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchConstraints specifies what resources this policy is designed to validate.
+The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that must be met for a resource to be deleted.
+Conditions filter resources that have already been matched by the match constraints,
+namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
+There are a maximum of 64 conditions allowed.</p>
+<p>The exact matching logic is (in order):
+1. If ANY condition evaluates to FALSE, the policy is skipped.
+2. If ALL conditions evaluate to TRUE, the policy is executed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Variables contain definitions of variables that can be used in composition of other expressions.
+Each variable is defined as a named CEL expression.
+The variables defined here will be available under <code>variables</code> in other expressions of the policy
+except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
+Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicyStatus">
+DeletingPolicyStatus
 </a>
 </em>
 </td>
@@ -12035,11 +12193,17 @@ Secrets must live in the Kyverno namespace.</p>
 <p>
 <p>CredentialsProvidersType provides the list of credential providers required.</p>
 </p>
+<h3 id="policies.kyverno.io/v1alpha1.DeletingPolicyLike">DeletingPolicyLike
+</h3>
+<p>
+<p>DeletingPolicyLike captures the common behavior shared by deleting policies regardless of scope.</p>
+</p>
 <h3 id="policies.kyverno.io/v1alpha1.DeletingPolicySpec">DeletingPolicySpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy</a>)
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy</a>, 
+<a href="#policies.kyverno.io/v1alpha1.NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
 </p>
 <p>
 <p>DeletingPolicySpec is the specification of the desired behavior of the DeletingPolicy.</p>
@@ -12139,7 +12303,8 @@ Kubernetes meta/v1.DeletionPropagation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy</a>)
+<a href="#policies.kyverno.io/v1alpha1.DeletingPolicy">DeletingPolicy</a>, 
+<a href="#policies.kyverno.io/v1alpha1.NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
 </p>
 <p>
 </p>

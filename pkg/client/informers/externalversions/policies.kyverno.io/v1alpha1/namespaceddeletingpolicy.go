@@ -32,58 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// MutatingPolicyInformer provides access to a shared informer and lister for
-// MutatingPolicies.
-type MutatingPolicyInformer interface {
+// NamespacedDeletingPolicyInformer provides access to a shared informer and lister for
+// NamespacedDeletingPolicies.
+type NamespacedDeletingPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() policieskyvernoiov1alpha1.MutatingPolicyLister
+	Lister() policieskyvernoiov1alpha1.NamespacedDeletingPolicyLister
 }
 
-type mutatingPolicyInformer struct {
+type namespacedDeletingPolicyInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
 }
 
-// NewMutatingPolicyInformer constructs a new informer for MutatingPolicy type.
+// NewNamespacedDeletingPolicyInformer constructs a new informer for NamespacedDeletingPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewMutatingPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredMutatingPolicyInformer(client, resyncPeriod, indexers, nil)
+func NewNamespacedDeletingPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredNamespacedDeletingPolicyInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredMutatingPolicyInformer constructs a new informer for MutatingPolicy type.
+// NewFilteredNamespacedDeletingPolicyInformer constructs a new informer for NamespacedDeletingPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredMutatingPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredNamespacedDeletingPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().MutatingPolicies().List(context.TODO(), options)
+				return client.PoliciesV1alpha1().NamespacedDeletingPolicies(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().MutatingPolicies().Watch(context.TODO(), options)
+				return client.PoliciesV1alpha1().NamespacedDeletingPolicies(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&apipolicieskyvernoiov1alpha1.MutatingPolicy{},
+		&apipolicieskyvernoiov1alpha1.NamespacedDeletingPolicy{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *mutatingPolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredMutatingPolicyInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *namespacedDeletingPolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredNamespacedDeletingPolicyInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *mutatingPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apipolicieskyvernoiov1alpha1.MutatingPolicy{}, f.defaultInformer)
+func (f *namespacedDeletingPolicyInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apipolicieskyvernoiov1alpha1.NamespacedDeletingPolicy{}, f.defaultInformer)
 }
 
-func (f *mutatingPolicyInformer) Lister() policieskyvernoiov1alpha1.MutatingPolicyLister {
-	return policieskyvernoiov1alpha1.NewMutatingPolicyLister(f.Informer().GetIndexer())
+func (f *namespacedDeletingPolicyInformer) Lister() policieskyvernoiov1alpha1.NamespacedDeletingPolicyLister {
+	return policieskyvernoiov1alpha1.NewNamespacedDeletingPolicyLister(f.Informer().GetIndexer())
 }

@@ -7,6 +7,7 @@ import (
 	generatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/generatingpolicies"
 	imagevalidatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/imagevalidatingpolicies"
 	mutatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/mutatingpolicies"
+	namespaceddeletingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/namespaceddeletingpolicies"
 	policyexceptions "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/policyexceptions"
 	validatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1alpha1/validatingpolicies"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -50,6 +51,10 @@ func (c *withMetrics) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_c
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingPolicy", c.clientType)
 	return mutatingpolicies.WithMetrics(c.inner.MutatingPolicies(), recorder)
 }
+func (c *withMetrics) NamespacedDeletingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedDeletingPolicyInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "NamespacedDeletingPolicy", c.clientType)
+	return namespaceddeletingpolicies.WithMetrics(c.inner.NamespacedDeletingPolicies(namespace), recorder)
+}
 func (c *withMetrics) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.PolicyExceptionInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PolicyException", c.clientType)
 	return policyexceptions.WithMetrics(c.inner.PolicyExceptions(namespace), recorder)
@@ -79,6 +84,9 @@ func (c *withTracing) ImageValidatingPolicies() github_com_kyverno_kyverno_pkg_c
 func (c *withTracing) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.MutatingPolicyInterface {
 	return mutatingpolicies.WithTracing(c.inner.MutatingPolicies(), c.client, "MutatingPolicy")
 }
+func (c *withTracing) NamespacedDeletingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedDeletingPolicyInterface {
+	return namespaceddeletingpolicies.WithTracing(c.inner.NamespacedDeletingPolicies(namespace), c.client, "NamespacedDeletingPolicy")
+}
 func (c *withTracing) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.PolicyExceptionInterface {
 	return policyexceptions.WithTracing(c.inner.PolicyExceptions(namespace), c.client, "PolicyException")
 }
@@ -105,6 +113,9 @@ func (c *withLogging) ImageValidatingPolicies() github_com_kyverno_kyverno_pkg_c
 }
 func (c *withLogging) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.MutatingPolicyInterface {
 	return mutatingpolicies.WithLogging(c.inner.MutatingPolicies(), c.logger.WithValues("resource", "MutatingPolicies"))
+}
+func (c *withLogging) NamespacedDeletingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedDeletingPolicyInterface {
+	return namespaceddeletingpolicies.WithLogging(c.inner.NamespacedDeletingPolicies(namespace), c.logger.WithValues("resource", "NamespacedDeletingPolicies").WithValues("namespace", namespace))
 }
 func (c *withLogging) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.PolicyExceptionInterface {
 	return policyexceptions.WithLogging(c.inner.PolicyExceptions(namespace), c.logger.WithValues("resource", "PolicyExceptions").WithValues("namespace", namespace))

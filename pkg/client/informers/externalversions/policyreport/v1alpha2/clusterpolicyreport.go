@@ -61,25 +61,13 @@ func NewFilteredClusterPolicyReportInformer(client versioned.Interface, resyncPe
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().List(context.Background(), options)
+				return client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Watch(ctx, options)
+				return client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Watch(context.TODO(), options)
 			},
 		},
 		&apipolicyreportv1alpha2.ClusterPolicyReport{},

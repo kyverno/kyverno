@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func Validate(dpol *v1alpha1.DeletingPolicy) ([]string, error) {
+func Validate(dpol v1alpha1.DeletingPolicyLike) ([]string, error) {
 	warnings := make([]string, 0)
 	err := make(field.ErrorList, 0)
 
@@ -16,7 +16,10 @@ func Validate(dpol *v1alpha1.DeletingPolicy) ([]string, error) {
 		err = errList
 	}
 
-	if dpol.Spec.MatchConstraints == nil || len(dpol.Spec.MatchConstraints.ResourceRules) == 0 {
+	spec := dpol.GetDeletingPolicySpec()
+	if spec == nil {
+		err = append(err, field.Required(field.NewPath("spec"), "spec must not be nil"))
+	} else if spec.MatchConstraints == nil || len(spec.MatchConstraints.ResourceRules) == 0 {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 

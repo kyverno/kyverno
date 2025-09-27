@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -38,6 +39,11 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 	if resource.GetAPIVersion() != "" && resource.GetKind() != "" {
 		namespace := resource.GetNamespace()
 
+		spec := policy.Policy.GetDeletingPolicySpec()
+		if spec == nil {
+			return EngineResponse{}, fmt.Errorf("deleting policy %s has no spec", policy.Policy.GetName())
+		}
+
 		mapping, err := e.mapper.RESTMapping(resource.GroupVersionKind().GroupKind(), resource.GroupVersionKind().Version)
 		if err != nil {
 			return EngineResponse{}, err
@@ -63,7 +69,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 			ns = e.nsResolver(namespace)
 		}
 
-		if matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, ns); err != nil {
+		if matches, err := e.matchPolicy(spec.MatchConstraints, attr, ns); err != nil {
 			return EngineResponse{}, err
 		} else if !matches {
 			return EngineResponse{Match: false}, err

@@ -19,8 +19,8 @@ func GetDeletingMetrics() DeletingMetrics {
 }
 
 type DeletingMetrics interface {
-	RecordDeletedObject(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation)
-	RecordDeletingFailure(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation)
+	RecordDeletedObject(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicyLike, deletionPropagation *metav1.DeletionPropagation)
+	RecordDeletingFailure(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicyLike, deletionPropagation *metav1.DeletionPropagation)
 }
 
 type deletingMetrics struct {
@@ -49,7 +49,7 @@ func (m *deletingMetrics) init(meter metric.Meter) {
 	}
 }
 
-func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation) {
+func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicyLike, deletionPropagation *metav1.DeletionPropagation) {
 	if m.deletedObjectsTotal == nil {
 		return
 	}
@@ -72,7 +72,7 @@ func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, kind, namespa
 	m.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 }
 
-func (m *deletingMetrics) RecordDeletingFailure(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation) {
+func (m *deletingMetrics) RecordDeletingFailure(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicyLike, deletionPropagation *metav1.DeletionPropagation) {
 	if m.deletingFailuresTotal == nil {
 		return
 	}
