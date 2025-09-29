@@ -132,7 +132,6 @@ func (h *handler) audit(ctx context.Context, response mpolengine.EngineResponse,
 				Rules: res.Rules,
 			},
 		}.WithPolicy(engineapi.NewMutatingPolicy(res.Policy)))
-		fmt.Println("=====", res.Policy.GetName(), response.Resource.GetName(), len(res.Rules))
 	}
 
 	events := webhookutils.GenerateEvents(engineResponses, false, h.cfg)

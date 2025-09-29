@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: policies.kyverno.io/v1alpha1
+  kind: MutatingPolicy
+  name: test-admission-reporting-mpol
+reason: PolicyViolation
+# related:
+#   apiVersion: v1
+#   kind: ConfigMap
+#   name: test-cm-1
+#   namespace: isolated-ns
+reportingComponent: kyverno-scan
+---
+apiVersion: v1
+involvedObject:
+  apiVersion: v1
+  kind: ConfigMap
+  name: test-cm-1
+  namespace: isolated-ns
+kind: Event
+metadata:
+  namespace: isolated-ns
+reason: PolicyViolation
+reportingComponent: kyverno-scan
