@@ -59,7 +59,7 @@ func TestCompletionCommandExecution(t *testing.T) {
 			rootCmd := &cobra.Command{
 				Use: "kyverno",
 			}
-			
+
 			// Add the completion command to the root
 			completionCmd := Command()
 			rootCmd.AddCommand(completionCmd)
@@ -148,7 +148,7 @@ func TestCompletionDocValues(t *testing.T) {
 
 	assert.NotEmpty(t, description, "description should not be empty")
 	assert.Greater(t, len(description), 5, "description should have multiple lines")
-	
+
 	// Check that description contains key terms
 	descText := strings.Join(description, " ")
 	assert.Contains(t, descText, "autocompletion", "description should mention autocompletion")
@@ -165,7 +165,7 @@ func TestCompletionDocValues(t *testing.T) {
 			exampleText += line + " "
 		}
 	}
-	
+
 	assert.Contains(t, exampleText, "bash", "examples should include bash")
 	assert.Contains(t, exampleText, "zsh", "examples should include zsh")
 	assert.Contains(t, exampleText, "fish", "examples should include fish")
@@ -177,7 +177,7 @@ func TestCompletionCommandIntegration(t *testing.T) {
 	rootCmd := &cobra.Command{
 		Use: "kyverno",
 	}
-	
+
 	// Add some dummy subcommands to test completion
 	applyCmd := &cobra.Command{
 		Use: "apply",
@@ -185,7 +185,7 @@ func TestCompletionCommandIntegration(t *testing.T) {
 	testCmd := &cobra.Command{
 		Use: "test",
 	}
-	
+
 	rootCmd.AddCommand(applyCmd)
 	rootCmd.AddCommand(testCmd)
 	rootCmd.AddCommand(Command())
@@ -197,7 +197,7 @@ func TestCompletionCommandIntegration(t *testing.T) {
 
 	// Test executing completion for bash to ensure it works in context
 	rootCmd.SetArgs([]string{"completion", "bash"})
-	
+
 	err = rootCmd.Execute()
 	assert.NoError(t, err)
 }
@@ -205,7 +205,7 @@ func TestCompletionCommandIntegration(t *testing.T) {
 func TestCompletionRunEFunction(t *testing.T) {
 	// Test the RunE function directly
 	cmd := Command()
-	
+
 	testCases := []struct {
 		name        string
 		args        []string
@@ -248,7 +248,7 @@ func TestCompletionRunEFunction(t *testing.T) {
 
 			// Call the RunE function directly (bypassing Args validation)
 			err := cmd.RunE(cmd, tc.args)
-			
+
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {
