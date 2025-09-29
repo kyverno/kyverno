@@ -101,9 +101,9 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
-		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletigPolicy")),
-		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "DeletigPolicy")),
-		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "DeletigPolicy")),
+		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletingPolicy")),
+		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "DeletingPolicy")),
+		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "DeletingPolicy")),
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
