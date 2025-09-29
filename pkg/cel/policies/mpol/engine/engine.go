@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -10,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -17,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/client-go/tools/cache"
 )
 
 type Engine interface {
@@ -173,6 +176,19 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	} else if result.Error != nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("evaluation", engineapi.Mutation, "failed to evaluate policy", result.Error, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 		return ruleResponse, nil
+	} else if len(result.Exceptions) > 0 {
+		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
+		var keys []string
+		for i := range result.Exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(result.Exceptions[i])
+			if err != nil {
+				ruleResponse.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Mutation, "failed to compute exception key", err, nil))
+				return ruleResponse, nil
+			}
+			keys = append(keys, key)
+			exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
+		}
+		ruleResponse.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Mutation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions))
 	} else {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}

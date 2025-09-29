@@ -13,11 +13,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	event "github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -29,6 +32,8 @@ type handler struct {
 	kyvernoClient    versioned.Interface
 	admissionReports bool
 	reportConfig     reportutils.ReportingConfiguration
+	eventGen         event.Interface
+	configuration    config.Configuration
 }
 
 func New(
@@ -37,6 +42,8 @@ func New(
 	kyvernoClient versioned.Interface,
 	admissionReports bool,
 	reportConfig reportutils.ReportingConfiguration,
+	eventGen event.Interface,
+	configuration config.Configuration,
 ) *handler {
 	return &handler{
 		context:          context,
@@ -44,6 +51,8 @@ func New(
 		kyvernoClient:    kyvernoClient,
 		admissionReports: admissionReports,
 		reportConfig:     reportConfig,
+		eventGen:         eventGen,
+		configuration:    configuration,
 	}
 }
 
@@ -62,14 +71,61 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
-		if validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
-			err := h.admissionReport(ctx, request, response)
-			if err != nil {
-				logger.Error(err, "failed to create report")
-			}
-		}
+		h.audit(ctx, logger, admissionRequest, request, response)
 	})
 	return h.admissionResponse(request, response)
+}
+
+func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
+	blocked := false
+	for _, p := range response.Policies {
+		if p.Actions.Has(admissionregistrationv1.Deny) {
+			blocked = true
+			break
+		}
+	}
+
+	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	for _, r := range response.Policies {
+		engineResponse := engineapi.EngineResponse{
+			Resource: *response.Resource,
+			PolicyResponse: engineapi.PolicyResponse{
+				Rules: r.Rules,
+			},
+		}
+		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+		engineResponses = append(engineResponses, engineResponse)
+	}
+
+	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
+		err := h.admissionReport(ctx, request, response, engineResponses)
+		if err != nil {
+			logger.Error(err, "failed to create report")
+		}
+	}
+
+	h.admissionEvent(ctx, engineResponses, blocked)
+}
+
+func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse, responses []engineapi.EngineResponse) error {
+	report := reportutils.BuildAdmissionReport(*response.Resource, request.AdmissionRequest(), responses...)
+	if len(report.GetResults()) > 0 {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *handler) admissionEvent(ctx context.Context, responses []engineapi.EngineResponse, blocked bool) {
+	for _, response := range responses {
+		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked, h.configuration)
+		h.eventGen.Add(events...)
+	}
 }
 
 func (h *handler) admissionResponse(request vpolengine.EngineRequest, response vpolengine.EngineResponse) handlers.AdmissionResponse {
@@ -98,37 +154,4 @@ func (h *handler) admissionResponse(request vpolengine.EngineRequest, response v
 		}
 	}
 	return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
-}
-
-func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse) error {
-	admissionRequest := request.AdmissionRequest()
-	object, oldObject, err := admissionutils.ExtractResources(nil, admissionRequest)
-	if err != nil {
-		return err
-	}
-	if object.Object == nil {
-		object = oldObject
-	}
-	responses := make([]engineapi.EngineResponse, 0, len(response.Policies))
-	for _, r := range response.Policies {
-		engineResponse := engineapi.EngineResponse{
-			Resource: object,
-			PolicyResponse: engineapi.PolicyResponse{
-				Rules: r.Rules,
-			},
-		}
-		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-		responses = append(responses, engineResponse)
-	}
-	report := reportutils.BuildAdmissionReport(object, admissionRequest, responses...)
-	if len(report.GetResults()) > 0 {
-		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
-			return err
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
