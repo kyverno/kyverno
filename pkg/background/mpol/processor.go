@@ -13,8 +13,11 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -35,6 +38,8 @@ type processor struct {
 	statusControl common.StatusControlInterface
 
 	reportsConfig reportutils.ReportingConfiguration
+	cfg           config.Configuration
+	eventGen      event.Interface
 }
 
 func NewProcessor(client dclient.Interface,
@@ -44,6 +49,8 @@ func NewProcessor(client dclient.Interface,
 	context libs.Context,
 	reportsConfig reportutils.ReportingConfiguration,
 	statusControl common.StatusControlInterface,
+	cfg config.Configuration,
+	eventGen event.Interface,
 ) *processor {
 	return &processor{
 		client:        client,
@@ -53,6 +60,8 @@ func NewProcessor(client dclient.Interface,
 		context:       context,
 		statusControl: statusControl,
 		reportsConfig: reportsConfig,
+		cfg:           cfg,
+		eventGen:      eventGen,
 	}
 }
 
@@ -127,18 +136,16 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			}
 
-			if p.reportsConfig.MutateExistingReportsEnabled() {
-				err := p.createReports(object, &response)
-				if err != nil {
-					logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
-				}
+			if err := p.audit(object, &response); err != nil {
+				logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
 			}
+
 		}
 	}
 	return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 }
 
-func (p *processor) createReports(object *unstructured.Unstructured, response *mpolengine.EngineResponse) error {
+func (p *processor) audit(object *unstructured.Unstructured, response *mpolengine.EngineResponse) error {
 	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, res := range response.Policies {
 		engineResponses = append(engineResponses, engineapi.EngineResponse{
@@ -148,6 +155,26 @@ func (p *processor) createReports(object *unstructured.Unstructured, response *m
 			},
 		}.WithPolicy(engineapi.NewMutatingPolicy(res.Policy)))
 	}
+
+	events := webhookutils.GenerateEvents(engineResponses, false, p.cfg)
+	p.eventGen.Add(events...)
+
+	if p.reportsConfig.MutateExistingReportsEnabled() {
+		return p.createReports(object, engineResponses)
+	}
+	return nil
+}
+
+func (p *processor) createReports(object *unstructured.Unstructured, engineResponses []engineapi.EngineResponse) error {
+	// engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	// for _, res := range response.Policies {
+	// 	engineResponses = append(engineResponses, engineapi.EngineResponse{
+	// 		Resource: *response.PatchedResource,
+	// 		PolicyResponse: engineapi.PolicyResponse{
+	// 			Rules: res.Rules,
+	// 		},
+	// 	}.WithPolicy(engineapi.NewMutatingPolicy(res.Policy)))
+	// }
 
 	report := reportutils.BuildMutateExistingReport(object.GetNamespace(), object.GroupVersionKind(), object.GetName(), object.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {

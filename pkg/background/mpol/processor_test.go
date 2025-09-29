@@ -22,6 +22,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/event"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -116,6 +118,8 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		&libs.FakeContextProvider{},
 		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
+		config.NewDefaultConfiguration(false),
+		event.NewFake(),
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -166,6 +170,8 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		&libs.FakeContextProvider{},
 		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
+		config.NewDefaultConfiguration(false),
+		event.NewFake(),
 	)
 
 	ur := &kyvernov2.UpdateRequest{

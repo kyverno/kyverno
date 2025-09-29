@@ -145,16 +145,6 @@ func (h *handler) createReports(ctx context.Context, response mpolengine.EngineR
 		return nil
 	}
 
-	// engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
-	// for _, res := range response.Policies {
-	// 	engineResponses = append(engineResponses, engineapi.EngineResponse{
-	// 		Resource: *response.Resource,
-	// 		PolicyResponse: engineapi.PolicyResponse{
-	// 			Rules: res.Rules,
-	// 		},
-	// 	}.WithPolicy(engineapi.NewMutatingPolicy(res.Policy)))
-	// }
-
 	report := reportutils.BuildMutationReport(*response.Resource, request.Request, genericResponses...)
 	if len(report.GetResults()) > 0 {
 		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
