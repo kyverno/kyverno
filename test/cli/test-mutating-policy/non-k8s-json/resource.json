@@ -1,0 +1,14 @@
+{
+  "user": {
+    "name": "john",
+    "email": "john@example.com",
+    "settings": {
+      "theme": "dark",
+      "notifications": true
+    }
+  },
+  "application": {
+    "name": "web-app",
+    "version": "1.0.0"
+  }
+}

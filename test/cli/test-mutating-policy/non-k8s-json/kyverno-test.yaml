@@ -1,0 +1,13 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: non-k8s-json-mutation-test
+jsonPayload: ./resource.json
+policies:
+- policy.yaml
+results:
+- isMutatingPolicy: true
+  kind: ""
+  policy: test-non-k8s-json-mutation
+  result: pass
+  patchedResources: patched-resource.yaml

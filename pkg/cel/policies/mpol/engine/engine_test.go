@@ -590,7 +590,7 @@ func TestHandleJSONPayload(t *testing.T) {
 }
 
 func TestMatchedMutateExistingPoliciesJSONPayload(t *testing.T) {
-	t.Run("JSON payload in MatchedMutateExistingPolicies", func(t *testing.T) {
+	t.Run("JSON payload in MatchedMutateExistingPolicies returns nil", func(t *testing.T) {
 		// Create a sample JSON payload
 		jsonPayload := &unstructured.Unstructured{
 			Object: map[string]interface{}{
@@ -610,6 +610,7 @@ func TestMatchedMutateExistingPoliciesJSONPayload(t *testing.T) {
 
 		resp := eng.MatchedMutateExistingPolicies(ctx, req)
 
-		assert.NotNil(t, resp)
+		// JSON payloads should return nil since there's no concept of "mutate existing" for non-K8s resources
+		assert.Nil(t, resp)
 	})
 }

@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: test-non-k8s-json-mutation
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["*"]
+      apiVersions: ["*"]
+      operations: ["CREATE"]
+      resources: ["*"]
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        [
+          JSONPatch{
+            op: "add",
+            path: "/processedBy",
+            value: "kyverno"
+          },
+          JSONPatch{
+            op: "add",
+            path: "/user/settings/validated",
+            value: true
+          }
+        ]

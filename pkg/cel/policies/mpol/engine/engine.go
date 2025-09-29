@@ -207,50 +207,32 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 }
 
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
-	var object, oldObject unstructured.Unstructured
-	var admissionRequest admissionv1.AdmissionRequest
-	var dryRun bool
-	var namespaceName string
-
-	// Handle JSON payload vs Kubernetes admission request
+	// For JSON payloads, there's no concept of "mutate existing" since these aren't Kubernetes resources
+	// that exist in a cluster. JSON payloads are evaluated via CLI and don't have admission/existing resources.
 	if request.JsonPayload != nil {
-		// Handle non-K8s JSON payload
-		object = *request.JsonPayload
-		oldObject = unstructured.Unstructured{} // Empty for JSON payloads
+		return nil
+	}
 
-		// Create minimal admission request for JSON payload
-		admissionRequest = admissionv1.AdmissionRequest{
-			Kind:      metav1.GroupVersionKind{Kind: "JSONPayload"},
-			Resource:  metav1.GroupVersionResource{Resource: "jsonpayloads"},
-			Name:      "json-payload",
-			Namespace: "",
-			Operation: admissionv1.Create,
-			DryRun:    &dryRun,
-		}
-		namespaceName = ""
-	} else {
-		// Handle Kubernetes admission request
-		var err error
-		object, oldObject, err = admissionutils.ExtractResources(nil, request.Request)
-		if err != nil {
-			return nil
-		}
-		admissionRequest = request.Request
-		if request.Request.DryRun != nil {
-			dryRun = *request.Request.DryRun
-		}
-		namespaceName = request.Request.Namespace
+	// Handle Kubernetes admission request
+	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
+	if err != nil {
+		return nil
+	}
+
+	dryRun := false
+	if request.Request.DryRun != nil {
+		dryRun = *request.Request.DryRun
 	}
 
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
-		schema.GroupVersionKind(admissionRequest.Kind),
-		admissionRequest.Namespace,
-		admissionRequest.Name,
-		schema.GroupVersionResource(admissionRequest.Resource),
-		admissionRequest.SubResource,
-		admission.Operation(admissionRequest.Operation),
+		schema.GroupVersionKind(request.Request.Kind),
+		request.Request.Namespace,
+		request.Request.Name,
+		schema.GroupVersionResource(request.Request.Resource),
+		request.Request.SubResource,
+		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
 		// TODO
@@ -258,8 +240,8 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 	)
 
 	var namespace *corev1.Namespace
-	if namespaceName != "" {
-		namespace = e.nsResolver(namespaceName)
+	if ns := request.Request.Namespace; ns != "" {
+		namespace = e.nsResolver(ns)
 	}
 
 	return e.provider.MatchesMutateExisting(ctx, attr, namespace)
