@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
@@ -17,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/client-go/tools/cache"
 )
 
 type Engine interface {
@@ -78,7 +81,14 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		return EngineResponse{}, err
 	}
 
-	response := EngineResponse{}
+	var object *unstructured.Unstructured
+	if o, ok := attr.GetObject().(*unstructured.Unstructured); ok {
+		object = o
+	}
+
+	response := EngineResponse{
+		Resource: object,
+	}
 
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
@@ -145,13 +155,15 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: &mpol.Policy,
+		Rules:  []engineapi.RuleResponse{},
 	}
 
+	startTime := time.Now()
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if err != nil {
-			ruleResponse.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
+			ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 			return ruleResponse, nil
 		} else if !matches {
 			return ruleResponse, nil
@@ -159,13 +171,26 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	}
 	result := mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
 	if result == nil {
-		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RuleSkip("", engineapi.Mutation, "skip", nil))
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "skip", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 		return ruleResponse, nil
 	} else if result.Error != nil {
-		ruleResponse.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Mutation, "failed to evaluate policy", result.Error, nil))
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("evaluation", engineapi.Mutation, "failed to evaluate policy", result.Error, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 		return ruleResponse, nil
+	} else if len(result.Exceptions) > 0 {
+		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
+		var keys []string
+		for i := range result.Exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(result.Exceptions[i])
+			if err != nil {
+				ruleResponse.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Mutation, "failed to compute exception key", err, nil))
+				return ruleResponse, nil
+			}
+			keys = append(keys, key)
+			exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
+		}
+		ruleResponse.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Mutation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions))
 	} else {
-		ruleResponse.Rules = append(ruleResponse.Rules, *engineapi.RulePass("", engineapi.Mutation, "success", nil))
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
 	return ruleResponse, result.PatchedResource
 }
