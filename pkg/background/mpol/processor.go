@@ -139,7 +139,6 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			if err := p.audit(object, &response); err != nil {
 				logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
 			}
-
 		}
 	}
 	return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
