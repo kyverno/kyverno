@@ -14,7 +14,7 @@ import (
 )
 
 type Compiler interface {
-	Compile(policy policiesv1alpha1.DeletingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy *policiesv1alpha1.DeletingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -23,13 +23,9 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy policiesv1alpha1.DeletingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	if policy == nil {
 		return nil, field.ErrorList{field.Required(field.NewPath("policy"), "policy must not be nil")}
-	}
-	spec := policy.GetDeletingPolicySpec()
-	if spec == nil {
-		return nil, field.ErrorList{field.Required(field.NewPath("spec"), "spec must not be nil")}
 	}
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
@@ -68,16 +64,16 @@ func (c *compilerImpl) Compile(policy policiesv1alpha1.DeletingPolicyLike, excep
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	path := field.NewPath("spec")
-	conditions := make([]cel.Program, 0, len(spec.Conditions))
+	conditions := make([]cel.Program, 0, len(policy.Spec.Conditions))
 	{
 		path := path.Child("conditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, spec.Conditions...)
+		programs, errs := compiler.CompileMatchConditions(path, env, policy.Spec.Conditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		conditions = append(conditions, programs...)
 	}
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -94,8 +90,8 @@ func (c *compilerImpl) Compile(policy policiesv1alpha1.DeletingPolicyLike, excep
 		})
 	}
 	return &Policy{
-		deletionPropagationPolicy: spec.DeletionPropagationPolicy,
-		schedule:                  spec.Schedule,
+		deletionPropagationPolicy: policy.Spec.DeletionPropagationPolicy,
+		schedule:                  policy.Spec.Schedule,
 		conditions:                conditions,
 		variables:                 variables,
 		exceptions:                compiledExceptions,

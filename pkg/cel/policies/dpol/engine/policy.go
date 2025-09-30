@@ -6,6 +6,6 @@ import (
 )
 
 type Policy struct {
-	Policy         policiesv1alpha1.DeletingPolicyLike
+	Policy         policiesv1alpha1.DeletingPolicy
 	CompiledPolicy *compiler.Policy
 }

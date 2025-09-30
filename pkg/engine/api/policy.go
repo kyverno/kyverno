@@ -113,7 +113,7 @@ type GenericPolicy interface {
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
-	AsDeletingPolicy() policiesv1alpha1.DeletingPolicyLike
+	AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy
 }
 type genericPolicy struct {
 	metav1.Object
@@ -124,7 +124,7 @@ type genericPolicy struct {
 	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
 	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
 	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
-	DeletingPolicy            policiesv1alpha1.DeletingPolicyLike
+	DeletingPolicy            *policiesv1alpha1.DeletingPolicy
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -159,7 +159,7 @@ func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy 
 	return p.GeneratingPolicy
 }
 
-func (p *genericPolicy) AsDeletingPolicy() policiesv1alpha1.DeletingPolicyLike {
+func (p *genericPolicy) AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy {
 	return p.DeletingPolicy
 }
 
@@ -202,7 +202,7 @@ func (p *genericPolicy) GetKind() string {
 	case p.GeneratingPolicy != nil:
 		return "GeneratingPolicy"
 	case p.DeletingPolicy != nil:
-		return p.DeletingPolicy.GetKind()
+		return "DeletingPolicy"
 	}
 	return ""
 }
@@ -211,8 +211,6 @@ func (p *genericPolicy) IsNamespaced() bool {
 	switch {
 	case p.PolicyInterface != nil:
 		return p.PolicyInterface.IsNamespaced()
-	case p.DeletingPolicy != nil:
-		return p.DeletingPolicy.GetNamespace() != ""
 	}
 	return false
 }
@@ -284,23 +282,5 @@ func NewDeletingPolicy(pol *policiesv1alpha1.DeletingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:         pol,
 		DeletingPolicy: pol,
-	}
-}
-
-func NewNamespacedDeletingPolicy(pol *policiesv1alpha1.NamespacedDeletingPolicy) GenericPolicy {
-	return &genericPolicy{
-		Object:         pol,
-		DeletingPolicy: pol,
-	}
-}
-
-func NewDeletingPolicyFromLike(pol policiesv1alpha1.DeletingPolicyLike) GenericPolicy {
-	switch typed := pol.(type) {
-	case *policiesv1alpha1.DeletingPolicy:
-		return NewDeletingPolicy(typed)
-	case *policiesv1alpha1.NamespacedDeletingPolicy:
-		return NewNamespacedDeletingPolicy(typed)
-	default:
-		return nil
 	}
 }

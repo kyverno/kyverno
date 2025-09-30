@@ -20,24 +20,20 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 
 func NewProvider(
 	compiler dpolcompiler.Compiler,
-	policies []policiesv1alpha1.DeletingPolicyLike,
+	policies []policiesv1alpha1.DeletingPolicy,
 	exceptions []*policiesv1alpha1.PolicyException,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
-		if policy == nil {
-			continue
-		}
-		policyKind := policy.GetKind()
 		var matchedExceptions []*policiesv1alpha1.PolicyException
 		for _, polex := range exceptions {
 			for _, ref := range polex.Spec.PolicyRefs {
-				if ref.Name == policy.GetName() && ref.Kind == policyKind {
+				if ref.Name == policy.GetName() && ref.Kind == policy.Kind {
 					matchedExceptions = append(matchedExceptions, polex)
 				}
 			}
 		}
-		compiled, errs := compiler.Compile(policy, matchedExceptions)
+		compiled, errs := compiler.Compile(&policy, matchedExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 		}
