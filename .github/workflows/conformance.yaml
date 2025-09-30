@@ -825,7 +825,7 @@ jobs:
           verify: true
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@819d566d24a563bb99666dbda770871eb85710a1
+        uses: sigstore/scaffolding/actions/setup@d40cf576f588d980142f0b8462c425d7b32f00b1
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version }}
