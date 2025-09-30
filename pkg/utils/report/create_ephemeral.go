@@ -5,11 +5,23 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func IsPolicyReportable(pol metav1.Object) bool {
+	if pol == nil { // invalid behavior
+		return false
+	}
+	labels := pol.GetLabels()
+	if _, ok := labels[kyverno.LabelExcludeReporting]; ok {
+		return false
+	}
+	return true
+}
 
 // IsNamespaceTerminationError checks if the error is due to namespace being terminated
 func IsNamespaceTerminationError(err error) bool {
