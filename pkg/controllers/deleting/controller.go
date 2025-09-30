@@ -3,6 +3,7 @@ package deleting
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,7 +18,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/metrics"
+	pkgmetrics "github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -47,6 +48,7 @@ type controller struct {
 	configuration config.Configuration
 	cmResolver    engineapi.ConfigmapResolver
 	eventGen      event.Interface
+	metrics       pkgmetrics.DeletingMetrics
 }
 
 const (
@@ -96,14 +98,15 @@ func NewController(
 		configuration: configuration,
 		cmResolver:    cmResolver,
 		eventGen:      eventGen,
+		metrics:       pkgmetrics.GetDeletingMetrics(),
 		provider:      provider,
 		engine:        engine,
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
-		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletigPolicy")),
-		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "DeletigPolicy")),
-		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "DeletigPolicy")),
+		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletingPolicy")),
+		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "DeletingPolicy")),
+		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "DeletingPolicy")),
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -115,9 +118,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy engine.Policy) error {
-	metrics := metrics.GetDeletingMetrics()
-
-	spec := ePolicy.Policy.Spec
+	spec := ePolicy.Policy.GetDeletingPolicySpec()
 	policy := ePolicy.Policy
 
 	debug := logger.V(4)
@@ -140,12 +141,13 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 	for _, kind := range kinds {
 		debug := debug.WithValues("kind", kind)
 		debug.Info("processing...")
-		list, err := c.client.ListResource(ctx, "", kind, "", policy.Spec.MatchConstraints.ObjectSelector)
+		list, err := c.client.ListResource(ctx, "", kind, "", spec.MatchConstraints.ObjectSelector)
 		if err != nil {
 			debug.Error(err, "failed to list resources")
 			errs = append(errs, err)
-			if metrics != nil {
-				metrics.RecordDeletingFailure(ctx, kind, "", policy, deleteOptions.PropagationPolicy)
+			// record failure metric
+			if c.metrics != nil {
+				c.metrics.RecordDeletingFailure(ctx, kind, "", policy, deleteOptions.PropagationPolicy)
 			}
 			// Check if this is a recoverable error (permission denied, resource not found, etc.)
 			if dclient.IsRecoverableError(err) {
@@ -190,16 +192,16 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
-				if metrics != nil {
-					metrics.RecordDeletingFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+				if c.metrics != nil {
+					c.metrics.RecordDeletingFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, err)
 				c.eventGen.Add(e)
 			} else {
-				if metrics != nil {
-					metrics.RecordDeletedObject(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+				if c.metrics != nil {
+					c.metrics.RecordDeletedObject(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Info("resource deleted")
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
@@ -252,20 +254,36 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1alpha1.DeletingPolicy, time time.Time) error {
-	err := controllerutils.UpdateStatus(ctx, &policy, c.kyvernoClient.PoliciesV1alpha1().DeletingPolicies(), func(p *v1alpha1.DeletingPolicy) error {
-		p.Status = v1alpha1.DeletingPolicyStatus{
-			LastExecutionTime: metav1.NewTime(time),
+func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1alpha1.DeletingPolicyLike, time time.Time) error {
+	switch p := policy.(type) {
+	case *v1alpha1.DeletingPolicy:
+		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1alpha1().DeletingPolicies(), func(p *v1alpha1.DeletingPolicy) error {
+			p.Status = v1alpha1.DeletingPolicyStatus{
+				LastExecutionTime: metav1.NewTime(time),
+			}
+			return nil
+		}, func(current, expect *v1alpha1.DeletingPolicy) bool {
+			return datautils.DeepEqual(current.Status, expect.Status)
+		})
+		if err != nil {
+			return err
 		}
-
-		return nil
-	}, func(current, expect *v1alpha1.DeletingPolicy) bool {
-		return datautils.DeepEqual(current.Status, expect.Status)
-	})
-	if err != nil {
-		return err
+		logging.Info("updated deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace(), "status", p.Status)
+	case *v1alpha1.NamespacedDeletingPolicy:
+		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1alpha1().NamespacedDeletingPolicies(p.GetNamespace()), func(p *v1alpha1.NamespacedDeletingPolicy) error {
+			p.Status = v1alpha1.DeletingPolicyStatus{
+				LastExecutionTime: metav1.NewTime(time),
+			}
+			return nil
+		}, func(current, expect *v1alpha1.NamespacedDeletingPolicy) bool {
+			return datautils.DeepEqual(current.Status, expect.Status)
+		})
+		if err != nil {
+			return err
+		}
+		logging.Info("updated namespaced deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace(), "status", p.Status)
+	default:
+		return fmt.Errorf("unsupported policy type: %T", policy)
 	}
-	logging.Info("updated deleting policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", policy.Status)
-
 	return nil
 }

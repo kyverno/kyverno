@@ -16,7 +16,16 @@ webhooks:
   failurePolicy: Fail
   matchPolicy: Equivalent
   name: vpol.validate.kyverno.svc-fail
-  namespaceSelector: {}
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
   objectSelector: {}
   rules:
   - apiGroups:

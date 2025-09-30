@@ -9,7 +9,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -44,7 +43,6 @@ func NewValidationHandler(
 	eventGen event.Interface,
 	admissionReports bool,
 	metrics metrics.MetricsConfigManager,
-	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
 	reportConfig reportutils.ReportingConfiguration,
 ) ValidationHandler {
@@ -57,7 +55,6 @@ func NewValidationHandler(
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
 		metrics:          metrics,
-		cfg:              cfg,
 		nsLister:         nsLister,
 		reportConfig:     reportConfig,
 	}
@@ -72,7 +69,6 @@ type validationHandler struct {
 	eventGen         event.Interface
 	admissionReports bool
 	metrics          metrics.MetricsConfigManager
-	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
 	reportConfig     reportutils.ReportingConfiguration
 }

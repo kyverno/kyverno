@@ -274,7 +274,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
-		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, nil)
+		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}

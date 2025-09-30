@@ -298,6 +298,11 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				log.V(2).Info("warning: reason", err.Error())
+				return nil, nil
+			}
+
 			log.Error(err, "failed to apply generate rule")
 			return nil, err
 		}

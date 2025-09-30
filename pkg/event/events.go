@@ -51,7 +51,12 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 		fmt.Fprintf(&b, "%s %s", resource.Kind, resource.Name)
 	}
 
-	fmt.Fprintf(&b, ": [%s] %s", resp.Name(), resp.Status())
+	if resp.Name() != "" {
+		fmt.Fprintf(&b, ": [%s] %s", resp.Name(), resp.Status())
+	} else {
+		fmt.Fprintf(&b, ": %s", resp.Status())
+	}
+
 	if blocked {
 		fmt.Fprintf(&b, " (blocked)")
 	}
@@ -396,7 +401,7 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 	}
 }
 
-func NewDeletingPolicyEvent(policy v1alpha1.DeletingPolicy, resource unstructured.Unstructured, err error) Info {
+func NewDeletingPolicyEvent(policy v1alpha1.DeletingPolicyLike, resource unstructured.Unstructured, err error) Info {
 	regarding := corev1.ObjectReference{
 		APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		Kind:       policy.GetKind(),
