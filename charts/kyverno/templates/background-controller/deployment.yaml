@@ -1,6 +1,6 @@
 {{- if .Values.backgroundController.enabled -}}
 {{- if not .Values.templating.debug -}}
-{{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken -}}
+{{- $automountSAToken := .Values.backgroundController.rbac.serviceAccount.automountServiceAccountToken -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
