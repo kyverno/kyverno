@@ -9,7 +9,7 @@ import (
 )
 
 type Provider interface {
-    Get(context.Context, string, string) (Policy, error)
+	Get(context.Context, string, string) (Policy, error)
 }
 
 type ProviderFunc func(context.Context) ([]Policy, error)

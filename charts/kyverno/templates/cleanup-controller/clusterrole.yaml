@@ -64,6 +64,7 @@ rules:
       - policies.kyverno.io
     resources:
       - deletingpolicies
+      - namespaceddeletingpolicies
     verbs:
       - get
       - list
