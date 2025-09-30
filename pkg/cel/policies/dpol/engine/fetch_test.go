@@ -24,6 +24,26 @@ func (f fakeNilPolicyLister) List(selector labels.Selector) ([]*policiesv1alpha1
 	return nil, nil
 }
 
+type fakeNilNamespacedPolicyNsLister struct{}
+
+func (f fakeNilNamespacedPolicyNsLister) List(selector labels.Selector) ([]*policiesv1alpha1.NamespacedDeletingPolicy, error) {
+    return nil, nil
+}
+
+func (f fakeNilNamespacedPolicyNsLister) Get(name string) (*policiesv1alpha1.NamespacedDeletingPolicy, error) {
+    return nil, nil
+}
+
+type fakeNilNamespacedPolicyLister struct{}
+
+func (f fakeNilNamespacedPolicyLister) List(selector labels.Selector) ([]*policiesv1alpha1.NamespacedDeletingPolicy, error) {
+    return nil, nil
+}
+
+func (f fakeNilNamespacedPolicyLister) NamespacedDeletingPolicies(namespace string) policiesv1alpha1listers.NamespacedDeletingPolicyNamespaceLister {
+    return fakeNilNamespacedPolicyNsLister{}
+}
+
 type fakePolexLister struct{}
 
 func (f fakePolexLister) List(selector labels.Selector) ([]*policiesv1alpha1.PolicyException, error) {
