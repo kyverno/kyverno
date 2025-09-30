@@ -12,8 +12,8 @@ func Test_NamespacedDeletingPolicy(t *testing.T) {
 	created := time.Now()
 	ndpol := NamespacedDeletingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-namespaced-deleting-policy",
-			Namespace: "test-namespace",
+			Name:              "test-namespaced-deleting-policy",
+			Namespace:         "test-namespace",
 			CreationTimestamp: metav1.NewTime(created),
 		},
 		Spec: DeletingPolicySpec{
@@ -43,8 +43,8 @@ func Test_NamespacedDeletingPolicy(t *testing.T) {
 				Kind: "NamespacedDeletingPolicy",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-policy",
-				Namespace: "test-namespace",
+				Name:              "test-policy",
+				Namespace:         "test-namespace",
 				CreationTimestamp: metav1.NewTime(created),
 			},
 			Spec: DeletingPolicySpec{
@@ -138,8 +138,8 @@ func Test_NamespacedDeletingPolicy(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				ndpol := NamespacedDeletingPolicy{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-policy",
-						Namespace: "test-namespace",
+						Name:              "test-policy",
+						Namespace:         "test-namespace",
 						CreationTimestamp: metav1.NewTime(created),
 					},
 					Spec: DeletingPolicySpec{
