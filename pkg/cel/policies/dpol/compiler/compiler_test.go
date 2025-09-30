@@ -12,7 +12,7 @@ import (
 func TestCompile(t *testing.T) {
 	tests := []struct {
 		name       string
-		policy     v1alpha1.DeletingPolicyLike
+		policy     *v1alpha1.DeletingPolicy
 		exceptions []*v1alpha1.PolicyException
 		wantErr    bool
 	}{
@@ -38,16 +38,6 @@ func TestCompile(t *testing.T) {
 							Expression: "object.metadata.name == 'foo'",
 						},
 					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "namespaced policy",
-			policy: &v1alpha1.NamespacedDeletingPolicy{
-				ObjectMeta: metav1.ObjectMeta{Name: "namespaced"},
-				Spec: v1alpha1.DeletingPolicySpec{
-					Schedule: "* * * * *",
 				},
 			},
 			wantErr: false,
