@@ -78,9 +78,9 @@ func NewController(
 	)
 	keyFunc := controllerutils.MetaNamespaceKeyT[v1alpha1.DeletingPolicyLike]
 	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
-	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[*v1alpha1.DeletingPolicy] {
+	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[v1alpha1.DeletingPolicyLike] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
-		return func(obj *v1alpha1.DeletingPolicy) error {
+		return func(obj v1alpha1.DeletingPolicyLike) error {
 			logger := logger.WithValues("name", obj.GetName())
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
