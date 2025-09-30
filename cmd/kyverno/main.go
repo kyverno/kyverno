@@ -24,6 +24,8 @@ import (
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
@@ -45,6 +47,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
@@ -53,6 +56,7 @@ import (
 	webhookscelexception "github.com/kyverno/kyverno/pkg/webhooks/celexception"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/gpol"
@@ -87,6 +91,13 @@ const (
 	celExceptionControllerFinalizerName = "kyverno.io/celexceptionwebhooks"
 	gctxControllerFinalizerName         = "kyverno.io/globalcontextwebhooks"
 )
+
+// noOpGpolHandler is a no-op handler for GeneratingPolicies when CRDs are not available
+type noOpGpolHandler struct{}
+
+func (h *noOpGpolHandler) Generate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	return admissionutils.Response(request.UID, nil)
+}
 
 var (
 	caSecretName  string
@@ -637,12 +648,32 @@ func main() {
 			os.Exit(1)
 		}
 		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
+
+		// Check if UpdateRequests CRD exists before using it
+		updateRequestsAvailable := true
+		if err := kubeutils.CRDsInstalled(setup.ApiServerClient, "updaterequests.kyverno.io"); err != nil {
+			setup.Logger.Info("UpdateRequests CRD not available, disabling background generation", "error", err)
+			updateRequestsAvailable = false
+		}
+
+		// Check if PolicyExceptions CRD exists before using it
+		policyExceptionsAvailable := internal.PolicyExceptionEnabled()
+		if policyExceptionsAvailable {
+			if err := kubeutils.CRDsInstalled(setup.ApiServerClient, "policyexceptions.policies.kyverno.io"); err != nil {
+				setup.Logger.Info("PolicyExceptions CRD not available, disabling policy exceptions", "error", err)
+				policyExceptionsAvailable = false
+			}
+		}
+
 		// create webhooks server
-		urgen := webhookgenerate.NewGenerator(
-			setup.KyvernoClient,
-			kyvernoInformer.Kyverno().V2().UpdateRequests(),
-			urGenerator,
-		)
+		var urgen webhookgenerate.Generator
+		if updateRequestsAvailable {
+			urgen = webhookgenerate.NewGenerator(
+				setup.KyvernoClient,
+				kyvernoInformer.Kyverno().V2().UpdateRequests(),
+				urGenerator,
+			)
+		}
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,
 			backgroundServiceAccountName,
@@ -686,19 +717,26 @@ func main() {
 			}
 			// create compiler
 			compiler := vpolcompiler.NewCompiler()
+
+			// Create PolicyExceptions lister conditionally
+			var policyExceptionsLister policiesv1alpha1listers.PolicyExceptionLister
+			if policyExceptionsAvailable {
+				policyExceptionsLister = kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister()
+			}
+
 			// create vpolProvider
-			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, policyExceptionsLister, policyExceptionsAvailable)
 			if err != nil {
 				setup.Logger.Error(err, "failed to create vpol provider")
 				os.Exit(1)
 			}
-			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, policyExceptionsLister, policyExceptionsAvailable)
 			if err != nil {
 				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
 			}
 			mpolcompiler := mpolcompiler.NewCompiler()
-			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, mgr, setup.KubeClient.Discovery().OpenAPIV3(), policyExceptionsLister, policyExceptionsAvailable)
 			if err != nil {
 				setup.Logger.Error(err, "failed to create mpol provider")
 				os.Exit(1)
@@ -798,6 +836,12 @@ func main() {
 			})
 		}
 
+		// Create UpdateRequests lister conditionally
+		var updateRequestsLister kyvernov2listers.UpdateRequestNamespaceLister
+		if updateRequestsAvailable {
+			updateRequestsLister = kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
+		}
+
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
 			setup.KyvernoDynamicClient,
@@ -806,7 +850,7 @@ func main() {
 			setup.MetricsManager,
 			policyCache,
 			nsLister,
-			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+			updateRequestsLister,
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			urgen,
@@ -832,7 +876,23 @@ func main() {
 			ivpolEngine,
 			contextProvider,
 		)
-		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister())
+		// Create GeneratingPolicies handlers conditionally
+		var gpolHandler interface {
+			Generate(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time) handlers.AdmissionResponse
+		}
+		if updateRequestsAvailable {
+			// Check if GeneratingPolicies CRD exists
+			if err := kubeutils.CRDsInstalled(setup.ApiServerClient, "generatingpolicies.policies.kyverno.io"); err != nil {
+				setup.Logger.Info("GeneratingPolicies CRD not available, disabling generating policies", "error", err)
+				// Create a no-op handler
+				gpolHandler = &noOpGpolHandler{}
+			} else {
+				gpolHandler = gpol.New(urgen, kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister())
+			}
+		} else {
+			// Create a no-op handler when UpdateRequests are not available
+			gpolHandler = &noOpGpolHandler{}
+		}
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
@@ -855,7 +915,7 @@ func main() {
 				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
 				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.Validate),
 				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
-				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.Generate),
+				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandler.Generate),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
