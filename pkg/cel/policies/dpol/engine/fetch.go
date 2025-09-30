@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
@@ -35,10 +36,13 @@ func (r *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	if err != nil {
 		return Policy{}, err
 	}
+	if policy == nil {
+		return Policy{}, fmt.Errorf("deleting policy %s not found", name)
+	}
 	// get exceptions that match the policy
 	var exceptions []*policiesv1alpha1.PolicyException
 	if r.polexEnabled {
-		exceptions, err = engine.ListExceptions(r.polexLister, policy.Kind, policy.GetName())
+		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
 		if err != nil {
 			return Policy{}, err
 		}
@@ -49,7 +53,7 @@ func (r *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	}
 
 	return Policy{
-		Policy:         *policy,
+		Policy:         policy,
 		CompiledPolicy: compiled,
 	}, nil
 }
