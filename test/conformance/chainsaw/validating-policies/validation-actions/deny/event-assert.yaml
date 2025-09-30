@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: policies.kyverno.io/v1alpha1
+  kind: ValidatingPolicy
+  name: check-deployment-labels
+reason: PolicyViolation
+reportingComponent: kyverno-admission
+---
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: policies.kyverno.io/v1alpha1
+  kind: ValidatingPolicy
+  name: check-deployment-labels
+reason: PolicyViolation
+reportingComponent: kyverno-scan

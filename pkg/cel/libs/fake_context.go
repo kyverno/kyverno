@@ -56,6 +56,10 @@ func (cp *FakeContextProvider) GetImageData(string) (map[string]any, error) {
 	panic("not implemented")
 }
 
+func (cp *FakeContextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVersionResource, error) {
+	panic("not implemented")
+}
+
 func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {

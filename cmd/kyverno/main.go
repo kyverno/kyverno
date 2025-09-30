@@ -65,12 +65,14 @@ import (
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery/cached/memory"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -486,6 +488,8 @@ func main() {
 			strings.Split(omitEvents, ",")...,
 		)
 		gcstore := store.New()
+		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
+
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
@@ -650,6 +654,7 @@ func main() {
 			nil,
 			gcstore,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			restMapper,
 			false,
 		)
 		if err != nil {
@@ -739,7 +744,7 @@ func main() {
 				setup.KubeClient.CoreV1().Secrets(""),
 				nil,
 			), metrics.AdmissionRequest)
-			mpolEngine = mpolengine.NewEngine(
+			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				mpolProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := nsLister.Get(name)
@@ -751,7 +756,7 @@ func main() {
 				matching.NewMatcher(),
 				typeConverter,
 				contextProvider,
-			)
+			), metrics.AdmissionRequest)
 		}
 		if admissionReports {
 			ephrCounterFunc := func(c breaker.Counter) func(context.Context) bool {
@@ -820,6 +825,8 @@ func main() {
 			setup.KyvernoClient,
 			admissionReports,
 			setup.ReportingConfiguration,
+			eventGenerator,
+			setup.Configuration,
 		)
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
