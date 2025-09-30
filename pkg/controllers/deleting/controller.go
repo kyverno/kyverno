@@ -45,7 +45,7 @@ type controller struct {
 
 	// queue
 	queue   workqueue.TypedRateLimitingInterface[any]
-	enqueue controllerutils.EnqueueFuncT[*v1alpha1.DeletingPolicy]
+	enqueue controllerutils.EnqueueFuncT[v1alpha1.DeletingPolicyLike]
 
 	// config
 	configuration config.Configuration
@@ -76,11 +76,8 @@ func NewController(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 	)
-    keyFunc := controllerutils.MetaNamespaceKeyT[*v1alpha1.DeletingPolicy]
-    baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
-	
-    ndKeyFunc := controllerutils.MetaNamespaceKeyT[*v1alpha1.NamespacedDeletingPolicy]
-    baseNdEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(ndKeyFunc, controllerutils.Queue(queue)))
+	keyFunc := controllerutils.MetaNamespaceKeyT[v1alpha1.DeletingPolicyLike]
+	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
 	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[*v1alpha1.DeletingPolicy] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
 		return func(obj *v1alpha1.DeletingPolicy) error {
@@ -117,27 +114,14 @@ func NewController(
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-   
-	ndEnqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[*v1alpha1.NamespacedDeletingPolicy] {
-        logger = logger.WithValues("kind", kind, "operation", operation)
-        return func(obj *v1alpha1.NamespacedDeletingPolicy) error {
-            l := logger.WithValues("name", obj.GetName(), "namespace", obj.GetNamespace())
-            l.V(2).Info(operation)
-            if err := baseNdEnqueueFunc(obj); err != nil {
-                l.Error(err, "failed to enqueue object", "obj", obj)
-                return err
-            }
-            return nil
-        }
-    }
-    if _, err := controllerutils.AddEventHandlersT(
-        ndpolInformer.Informer(),
-        controllerutils.AddFuncT(logger, ndEnqueueFunc(logger, "added", "NamespacedDeletingPolicy")),
-        controllerutils.UpdateFuncT(logger, ndEnqueueFunc(logger, "updated", "NamespacedDeletingPolicy")),
-        controllerutils.DeleteFuncT(logger, ndEnqueueFunc(logger, "deleted", "NamespacedDeletingPolicy")),
-    ); err != nil {
-        logger.Error(err, "failed to register namespaced event handlers")
-    }
+	if _, err := controllerutils.AddEventHandlersT(
+		ndpolInformer.Informer(),
+		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "NamespacedDeletingPolicy")),
+		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "NamespacedDeletingPolicy")),
+		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "NamespacedDeletingPolicy")),
+	); err != nil {
+		logger.Error(err, "failed to register namespaced event handlers")
+	}
 	return c
 }
 
