@@ -231,12 +231,13 @@ func main() {
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 
 				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
-				provider := engine.NewFetchProvider(
-					compiler.NewCompiler(),
-					kyvernoInformer.Policies().V1alpha1().DeletingPolicies().Lister(),
-					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
-					internal.PolicyExceptionEnabled(),
-				)
+                provider := engine.NewFetchProvider(
+                    compiler.NewCompiler(),
+                    kyvernoInformer.Policies().V1alpha1().DeletingPolicies().Lister(),
+                    kyvernoInformer.Policies().V1alpha1().NamespacedDeletingPolicies().Lister(),
+                    kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+                    internal.PolicyExceptionEnabled(),
+                )
 
 				// controllers
 				renewer := tls.NewCertRenewer(
@@ -368,10 +369,11 @@ func main() {
 				)
 				deletingController := internal.NewController(
 					deleting.ControllerName,
-					deleting.NewController(
+                    deleting.NewController(
 						setup.KyvernoDynamicClient,
 						setup.KyvernoClient,
-						kyvernoInformer.Policies().V1alpha1().DeletingPolicies(),
+                        kyvernoInformer.Policies().V1alpha1().DeletingPolicies(),
+                        kyvernoInformer.Policies().V1alpha1().NamespacedDeletingPolicies(),
 						provider,
 						engine.NewEngine(
 							func(name string) *corev1.Namespace {

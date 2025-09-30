@@ -22,10 +22,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -61,6 +64,7 @@ func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	polInformer kyvernov1alpha1informers.DeletingPolicyInformer,
+	ndpolInformer kyvernov1alpha1informers.NamespacedDeletingPolicyInformer,
 	provider engine.Provider,
 	engine *engine.Engine,
 	nsLister corev1listers.NamespaceLister,
@@ -72,8 +76,11 @@ func NewController(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 	)
-	keyFunc := controllerutils.MetaNamespaceKeyT[*v1alpha1.DeletingPolicy]
-	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
+    keyFunc := controllerutils.MetaNamespaceKeyT[*v1alpha1.DeletingPolicy]
+    baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
+	
+    ndKeyFunc := controllerutils.MetaNamespaceKeyT[*v1alpha1.NamespacedDeletingPolicy]
+    baseNdEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(ndKeyFunc, controllerutils.Queue(queue)))
 	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[*v1alpha1.DeletingPolicy] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
 		return func(obj *v1alpha1.DeletingPolicy) error {
@@ -110,6 +117,27 @@ func NewController(
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+   
+	ndEnqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[*v1alpha1.NamespacedDeletingPolicy] {
+        logger = logger.WithValues("kind", kind, "operation", operation)
+        return func(obj *v1alpha1.NamespacedDeletingPolicy) error {
+            l := logger.WithValues("name", obj.GetName(), "namespace", obj.GetNamespace())
+            l.V(2).Info(operation)
+            if err := baseNdEnqueueFunc(obj); err != nil {
+                l.Error(err, "failed to enqueue object", "obj", obj)
+                return err
+            }
+            return nil
+        }
+    }
+    if _, err := controllerutils.AddEventHandlersT(
+        ndpolInformer.Informer(),
+        controllerutils.AddFuncT(logger, ndEnqueueFunc(logger, "added", "NamespacedDeletingPolicy")),
+        controllerutils.UpdateFuncT(logger, ndEnqueueFunc(logger, "updated", "NamespacedDeletingPolicy")),
+        controllerutils.DeleteFuncT(logger, ndEnqueueFunc(logger, "deleted", "NamespacedDeletingPolicy")),
+    ); err != nil {
+        logger.Error(err, "failed to register namespaced event handlers")
+    }
 	return c
 }
 
@@ -120,6 +148,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy engine.Policy) error {
 	spec := ePolicy.Policy.GetDeletingPolicySpec()
 	policy := ePolicy.Policy
+	policyNamespace := policy.GetNamespace()
 
 	debug := logger.V(4)
 	var errs []error
@@ -141,7 +170,11 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 	for _, kind := range kinds {
 		debug := debug.WithValues("kind", kind)
 		debug.Info("processing...")
-		list, err := c.client.ListResource(ctx, "", kind, "", spec.MatchConstraints.ObjectSelector)
+		listNamespace := policyNamespace
+		if listNamespace != "" && !isNamespacedKind(kind, restMapper) {
+			listNamespace = ""
+		}
+		list, err := c.client.ListResource(ctx, "", kind, listNamespace, spec.MatchConstraints.ObjectSelector)
 		if err != nil {
 			debug.Error(err, "failed to list resources")
 			errs = append(errs, err)
@@ -164,6 +197,9 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			resource := list.Items[i]
 
 			namespace := resource.GetNamespace()
+			if policyNamespace != "" && namespace != policyNamespace {
+				continue
+			}
 			name := resource.GetName()
 			debug := logger.WithValues("name", name, "namespace", namespace)
 			gvk := resource.GroupVersionKind()
@@ -213,7 +249,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
-	policy, err := c.provider.Get(ctx, name)
+	policy, err := c.provider.Get(ctx, namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -252,6 +288,26 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	// add the item back to the queue after the remaining time.
 	c.queue.AddAfter(key, timeRemaining)
 	return nil
+}
+
+func isNamespacedKind(kind string, mapper apimeta.RESTMapper) bool {
+	if mapper == nil {
+		return false
+	}
+	apiVersion, kindStr := kubeutils.GetKindFromGVK(kind)
+	kindStr, _ = kubeutils.SplitSubresource(kindStr)
+	if apiVersion == "" || kindStr == "" {
+		return false
+	}
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return false
+	}
+	mapping, err := mapper.RESTMapping(schema.GroupKind{Group: gv.Group, Kind: kindStr}, gv.Version)
+	if err != nil || mapping.Scope == nil {
+		return false
+	}
+	return mapping.Scope.Name() == apimeta.RESTScopeNameNamespace
 }
 
 func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1alpha1.DeletingPolicyLike, time time.Time) error {

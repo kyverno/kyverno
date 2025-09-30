@@ -129,8 +129,8 @@ func TestGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider := NewFetchProvider(*tt.compiler, tt.dpol, tt.polex, tt.polexEnabled)
-			_, err := provider.Get(ctx, tt.polName)
+            provider := NewFetchProvider(*tt.compiler, tt.dpol, nil, tt.polex, tt.polexEnabled)
+            _, err := provider.Get(ctx, "", tt.polName)
 			if tt.wantErr {
 				assert.Error(t, err, err.Error())
 			} else {

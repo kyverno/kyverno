@@ -13,6 +13,7 @@ import (
 type fetchProvider struct {
 	compiler     compiler.Compiler
 	dpolLister   policiesv1alpha1listers.DeletingPolicyLister
+    ndpolLister  policiesv1alpha1listers.NamespacedDeletingPolicyLister
 	polexLister  policiesv1alpha1listers.PolicyExceptionLister
 	polexEnabled bool
 }
@@ -20,24 +21,34 @@ type fetchProvider struct {
 func NewFetchProvider(
 	compiler compiler.Compiler,
 	dpolLister policiesv1alpha1listers.DeletingPolicyLister,
+    ndpolLister policiesv1alpha1listers.NamespacedDeletingPolicyLister,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *fetchProvider {
 	return &fetchProvider{
 		compiler:     compiler,
 		dpolLister:   dpolLister,
+        ndpolLister:  ndpolLister,
 		polexLister:  polexLister,
 		polexEnabled: polexEnabled,
 	}
 }
 
-func (r *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
-	policy, err := r.dpolLister.Get(name)
+func (r *fetchProvider) Get(ctx context.Context, namespace, name string) (Policy, error) {
+    var (
+        policy policiesv1alpha1.DeletingPolicyLike
+        err    error
+    )
+    if namespace == "" {
+        policy, err = r.dpolLister.Get(name)
+    } else {
+        policy, err = r.ndpolLister.NamespacedDeletingPolicies(namespace).Get(name)
+    }
 	if err != nil {
 		return Policy{}, err
 	}
 	if policy == nil {
-		return Policy{}, fmt.Errorf("deleting policy %s not found", name)
+        return Policy{}, fmt.Errorf("deleting policy %s/%s not found", namespace, name)
 	}
 	// get exceptions that match the policy
 	var exceptions []*policiesv1alpha1.PolicyException
