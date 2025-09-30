@@ -195,7 +195,11 @@ func NewController(
 	enqueueReportsForPolicy := func(o metav1.Object) {
 		if list, err := polrInformer.Lister().List(selector); err == nil {
 			// the cache has not been built yet, enqueue all reports for reconciliation
-			if len(reportUUIDToPolicyCache) == 0 {
+			cacheMu.Lock()
+			cacheLen := len(reportUUIDToPolicyCache)
+			cacheMu.Unlock()
+
+			if cacheLen == 0 {
 				enqueueAll(list)
 				return
 			}
@@ -230,10 +234,15 @@ func NewController(
 		}
 		if list, err := cpolrInformer.Lister().List(selector); err == nil {
 			// the cache has not been built yet, enqueue all reports for reconciliation
-			if len(reportUUIDToPolicyCache) == 0 {
+			cacheMu.Lock()
+			cacheLen := len(reportUUIDToPolicyCache)
+			cacheMu.Unlock()
+
+			if cacheLen == 0 {
 				enqueueAll(list)
 				return
 			}
+
 			for _, item := range list {
 				itemMeta := item.(*metav1.PartialObjectMetadata)
 				cacheMu.Lock()
