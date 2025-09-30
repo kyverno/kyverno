@@ -187,7 +187,14 @@ func (v *imageVerificationHandler) handleAudit(
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
 			if createReport {
-				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
+				filteredEngineResponses := []engineapi.EngineResponse{}
+				for _, r := range engineResponses {
+					if !reportutils.IsPolicyReportable(r.Policy()) {
+						continue
+					}
+					filteredEngineResponses = append(filteredEngineResponses, r)
+				}
+				report := reportutils.BuildAdmissionReport(resource, request, filteredEngineResponses...)
 				if len(report.GetResults()) > 0 {
 					err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
 						_, err := reportutils.CreateEphemeralReport(context.Background(), report, v.kyvernoClient)
