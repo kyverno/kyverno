@@ -182,6 +182,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	}
 	return updateURStatus(c.statusControl, *ur, multierr.Combine(failures...), generatedResources)
 }
+
 func (c *CELGenerateController) audit(ctx context.Context, engineResponse engineapi.EngineResponse, generatedResources []kyvernov1.ResourceSpec) error {
 	if engineResponse.IsEmpty() {
 		return nil
