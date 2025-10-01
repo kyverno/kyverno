@@ -180,7 +180,7 @@ func (h *handler) admissionReport(ctx context.Context, request celengine.EngineR
 }
 
 func (h *handler) admissionEvent(ctx context.Context, responses []engineapi.EngineResponse, blocked bool) {
-	for i, response := range responses {
+	for _, response := range responses {
 		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked)
 		h.eventGen.Add(events...)
 	}
