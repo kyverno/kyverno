@@ -47,12 +47,12 @@ func (r *fetchProvider) Get(ctx context.Context, namespace, name string) (Policy
 	if err != nil {
 		return Policy{}, err
 	}
-    if policy == nil {
-        if namespace == "" {
-            return Policy{}, fmt.Errorf("deleting policy %s not found", name)
-        }
-        return Policy{}, fmt.Errorf("deleting policy %s/%s not found", namespace, name)
-    }
+	if policy == nil {
+		if namespace == "" {
+			return Policy{}, fmt.Errorf("deleting policy %s not found", name)
+		}
+		return Policy{}, fmt.Errorf("deleting policy %s/%s not found", namespace, name)
+	}
 	// get exceptions that match the policy
 	var exceptions []*policiesv1alpha1.PolicyException
 	if r.polexEnabled {
