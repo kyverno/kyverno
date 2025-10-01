@@ -137,7 +137,6 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.eventGen,
 		h.admissionReports,
 		h.metricsConfig,
-		h.configuration,
 		h.nsLister,
 		h.reportingConfig,
 	)

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: label-params
+  namespace: default
+data:
+  replicas: 10

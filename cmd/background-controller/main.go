@@ -41,7 +41,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -215,7 +214,6 @@ func main() {
 			globalcontextcontroller.Workers,
 		) // this controller only subscribe to events, nothing is returned...
 		policymetricscontroller.NewController(
-			setup.MetricsManager,
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			&wg,
@@ -224,7 +222,6 @@ func main() {
 			signalCtx,
 			setup.Logger,
 			setup.Configuration,
-			setup.MetricsConfiguration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
 			setup.RegistryClient,
@@ -285,10 +282,19 @@ func main() {
 				// create leader factories
 				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+				nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+
+				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
+				if err != nil {
+					setup.Logger.Error(err, "failed to create RESTMapper")
+					os.Exit(1)
+				}
+
 				contextProvider, err := libs.NewContextProvider(
 					setup.KyvernoDynamicClient,
 					nil,
 					gcstore,
+					restMapper,
 					false,
 				)
 				if err != nil {
@@ -296,8 +302,8 @@ func main() {
 					os.Exit(1)
 				}
 
-				namespaceGetter := func(ctx context.Context, name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+				namespaceGetter := func(name string) *corev1.Namespace {
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -314,12 +320,7 @@ func main() {
 					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
-				gpolEngine := gpolengine.NewEngine(
-					func(name string) *corev1.Namespace {
-						return namespaceGetter(signalCtx, name)
-					},
-					matching.NewMatcher(),
-				)
+				gpolEngine := gpolengine.NewEngine(namespaceGetter, matching.NewMatcher())
 
 				scheme := kruntime.NewScheme()
 				if err := policiesv1alpha1.Install(scheme); err != nil {
@@ -359,21 +360,13 @@ func main() {
 					os.Exit(1)
 				}
 
-				mpolEngine := mpolengine.NewEngine(
+				mpolEngine := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 					mpolProvider,
-					func(name string) *corev1.Namespace {
-						return namespaceGetter(mgrCtx, name)
-					},
+					namespaceGetter,
 					nil,
 					typeConverter,
 					contextProvider,
-				)
-
-				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
-				if err != nil {
-					setup.Logger.Error(err, "failed to create RESTMapper")
-					os.Exit(1)
-				}
+				), metrics.BackgroundScan)
 
 				// create leader controllers
 				leaderControllers, err := createrLeaderControllers(

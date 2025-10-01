@@ -73,6 +73,7 @@ runs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
+          -a "kind=image" \
           ${{ steps.ko-publish.outputs.digest }}
     - shell: bash
       env:

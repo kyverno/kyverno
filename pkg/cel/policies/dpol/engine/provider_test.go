@@ -15,7 +15,7 @@ func TestNewProvider(t *testing.T) {
 	tests := []struct {
 		name       string
 		compiler   compiler.Compiler
-		policies   []policiesv1alpha1.DeletingPolicy
+		policies   []policiesv1alpha1.DeletingPolicyLike
 		exceptions []*policiesv1alpha1.PolicyException
 		wantErr    bool
 		wantCount  int
@@ -23,8 +23,8 @@ func TestNewProvider(t *testing.T) {
 		{
 			name:     "valid policy without exceptions",
 			compiler: c,
-			policies: []policiesv1alpha1.DeletingPolicy{
-				{
+			policies: []policiesv1alpha1.DeletingPolicyLike{
+				&policiesv1alpha1.DeletingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "p1"},
 					TypeMeta:   metav1.TypeMeta{Kind: "DeletingPolicy"},
 				},
@@ -35,8 +35,8 @@ func TestNewProvider(t *testing.T) {
 		{
 			name:     "valid policy with matching exception",
 			compiler: c,
-			policies: []policiesv1alpha1.DeletingPolicy{
-				{
+			policies: []policiesv1alpha1.DeletingPolicyLike{
+				&policiesv1alpha1.DeletingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "p2"},
 					TypeMeta:   metav1.TypeMeta{Kind: "DeletingPolicy"},
 				},
@@ -49,6 +49,17 @@ func TestNewProvider(t *testing.T) {
 							{Name: "p2", Kind: "DeletingPolicy"},
 						},
 					},
+				},
+			},
+			wantErr:   false,
+			wantCount: 1,
+		},
+		{
+			name:     "namespaced policy",
+			compiler: c,
+			policies: []policiesv1alpha1.DeletingPolicyLike{
+				&policiesv1alpha1.NamespacedDeletingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "np1"},
 				},
 			},
 			wantErr:   false,

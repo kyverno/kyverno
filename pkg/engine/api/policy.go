@@ -6,6 +6,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // Everything someone might need to validate a single ValidatingAdmissionPolicy
@@ -13,10 +14,15 @@ import (
 type ValidatingAdmissionPolicyData struct {
 	definition *admissionregistrationv1.ValidatingAdmissionPolicy
 	bindings   []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	params     []runtime.Object
 }
 
 func (p *ValidatingAdmissionPolicyData) AddBinding(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	p.bindings = append(p.bindings, binding)
+}
+
+func (p *ValidatingAdmissionPolicyData) AddParam(param runtime.Object) {
+	p.params = append(p.params, param)
 }
 
 func (p *ValidatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1.ValidatingAdmissionPolicy {
@@ -25,6 +31,10 @@ func (p *ValidatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1
 
 func (p *ValidatingAdmissionPolicyData) GetBindings() []admissionregistrationv1.ValidatingAdmissionPolicyBinding {
 	return p.bindings
+}
+
+func (p *ValidatingAdmissionPolicyData) GetParams() []runtime.Object {
+	return p.params
 }
 
 func NewValidatingAdmissionPolicyData(
@@ -41,11 +51,16 @@ func NewValidatingAdmissionPolicyData(
 type MutatingAdmissionPolicyData struct {
 	definition *admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	params     []runtime.Object
 }
 
 // AddBinding appends a MAPB to the policy data
 func (m *MutatingAdmissionPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
 	m.bindings = append(m.bindings, b)
+}
+
+func (m *MutatingAdmissionPolicyData) AddParam(p runtime.Object) {
+	m.params = append(m.params, p)
 }
 
 func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
@@ -54,6 +69,10 @@ func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1al
 
 func (p *MutatingAdmissionPolicyData) GetBindings() []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
 	return p.bindings
+}
+
+func (p *MutatingAdmissionPolicyData) GetParams() []runtime.Object {
+	return p.params
 }
 
 // NewMutatingPolicyData initializes a MAP wrapper with no bindings
@@ -94,7 +113,7 @@ type GenericPolicy interface {
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
-	AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy
+	AsDeletingPolicy() policiesv1alpha1.DeletingPolicyLike
 }
 type genericPolicy struct {
 	metav1.Object
@@ -105,7 +124,7 @@ type genericPolicy struct {
 	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
 	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
 	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
-	DeletingPolicy            *policiesv1alpha1.DeletingPolicy
+	DeletingPolicy            policiesv1alpha1.DeletingPolicyLike
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -140,7 +159,7 @@ func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy 
 	return p.GeneratingPolicy
 }
 
-func (p *genericPolicy) AsDeletingPolicy() *policiesv1alpha1.DeletingPolicy {
+func (p *genericPolicy) AsDeletingPolicy() policiesv1alpha1.DeletingPolicyLike {
 	return p.DeletingPolicy
 }
 
@@ -183,7 +202,7 @@ func (p *genericPolicy) GetKind() string {
 	case p.GeneratingPolicy != nil:
 		return "GeneratingPolicy"
 	case p.DeletingPolicy != nil:
-		return "DeletingPolicy"
+		return p.DeletingPolicy.GetKind()
 	}
 	return ""
 }
@@ -192,6 +211,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 	switch {
 	case p.PolicyInterface != nil:
 		return p.PolicyInterface.IsNamespaced()
+	case p.DeletingPolicy != nil:
+		return p.DeletingPolicy.GetNamespace() != ""
 	}
 	return false
 }
@@ -263,5 +284,23 @@ func NewDeletingPolicy(pol *policiesv1alpha1.DeletingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:         pol,
 		DeletingPolicy: pol,
+	}
+}
+
+func NewNamespacedDeletingPolicy(pol *policiesv1alpha1.NamespacedDeletingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:         pol,
+		DeletingPolicy: pol,
+	}
+}
+
+func NewDeletingPolicyFromLike(pol policiesv1alpha1.DeletingPolicyLike) GenericPolicy {
+	switch typed := pol.(type) {
+	case *policiesv1alpha1.DeletingPolicy:
+		return NewDeletingPolicy(typed)
+	case *policiesv1alpha1.NamespacedDeletingPolicy:
+		return NewNamespacedDeletingPolicy(typed)
+	default:
+		return nil
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	"github.com/stretchr/testify/assert"
@@ -15,29 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-
-// mock Context
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
-	panic("not implemented")
-}
 
 var (
 	invalidDpol = &policiesv1alpha1.DeletingPolicy{}
@@ -117,11 +95,11 @@ func TestHandleValidPolicy(t *testing.T) {
 	compiledDpol, _ := comp.Compile(dpol, nil)
 
 	pol := Policy{
-		*dpol,
-		compiledDpol,
+		Policy:         dpol,
+		CompiledPolicy: compiledDpol,
 	}
 
-	engine := NewEngine(nsResolver, mapper, &fakeContext{}, matcher)
+	engine := NewEngine(nsResolver, mapper, &libs.FakeContextProvider{}, matcher)
 	resp, err := engine.Handle(ctx, pol, resource)
 
 	assert.NoError(t, err)
@@ -142,11 +120,84 @@ func TestHandleWithPolex(t *testing.T) {
 
 	invalidCompiledPolicy, _ := comp.Compile(invalidDpol, []*policiesv1alpha1.PolicyException{polex})
 	pol := Policy{
-		*invalidDpol,
-		invalidCompiledPolicy,
+		Policy:         invalidDpol,
+		CompiledPolicy: invalidCompiledPolicy,
 	}
 
-	engine := NewEngine(nsResolver, invalidMapper, &fakeContext{}, matcher)
+	engine := NewEngine(nsResolver, invalidMapper, &libs.FakeContextProvider{}, matcher)
+	resp, err := engine.Handle(ctx, pol, resource)
+
+	assert.Error(t, err)
+	assert.False(t, resp.Match)
+}
+
+func TestHandleConstraintsNil(t *testing.T) {
+	policy := &policiesv1alpha1.DeletingPolicy{
+		Spec: policiesv1alpha1.DeletingPolicySpec{
+			MatchConstraints: nil,
+		},
+	}
+
+	compiled, _ := comp.Compile(policy, nil)
+	pol := Policy{
+		Policy:         policy,
+		CompiledPolicy: compiled,
+	}
+
+	resource := unstructured.Unstructured{}
+	resource.SetAPIVersion("apps/v1")
+	resource.SetKind("Deployment")
+	resource.SetName("test")
+	resource.SetNamespace("default")
+
+	mapper.Add(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "Deployment",
+	}, meta.RESTScopeNamespace)
+
+	engine := NewEngine(nsResolver, mapper, &libs.FakeContextProvider{}, matcher)
+	resp, err := engine.Handle(ctx, pol, resource)
+
+	assert.NoError(t, err)
+	assert.False(t, resp.Match)
+}
+
+func TestHandleError(t *testing.T) {
+	policy := &policiesv1alpha1.DeletingPolicy{
+		Spec: policiesv1alpha1.DeletingPolicySpec{
+			MatchConstraints: &v1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "key ", Operator: "In", Values: []string{"bad value"}}}},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Rule:       v1.Rule{APIGroups: []string{"*"}, APIVersions: []string{"*"}, Resources: []string{"deployments"}},
+						Operations: []v1.OperationType{"*"},
+					},
+				}},
+			},
+		},
+	}
+
+	compiled, _ := comp.Compile(policy, nil)
+	pol := Policy{
+		Policy:         policy,
+		CompiledPolicy: compiled,
+	}
+
+	resource := unstructured.Unstructured{}
+	resource.SetAPIVersion("apps/v1")
+	resource.SetKind("Deployment")
+	resource.SetName("test")
+	resource.SetNamespace("default")
+
+	mapper.Add(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "Deployment",
+	}, meta.RESTScopeNamespace)
+
+	engine := NewEngine(nsResolver, mapper, &libs.FakeContextProvider{}, matcher)
 	resp, err := engine.Handle(ctx, pol, resource)
 
 	assert.Error(t, err)
