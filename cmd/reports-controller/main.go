@@ -336,6 +336,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
 		eventController := internal.NewController(
