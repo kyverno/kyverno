@@ -149,10 +149,10 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return err
 	}
 
-	kinds := admissionpolicy.GetKinds(spec.MatchConstraints, restMapper)
+	gvrList := admissionpolicy.GetGVRs(spec.MatchConstraints, restMapper)
 
-	for _, kind := range kinds {
-		debug := debug.WithValues("kind", kind)
+	for _, gvr := range gvrList {
+		debug := debug.WithValues("gvr", gvr)
 		debug.Info("processing...")
 		listNamespace := policyNamespace
 		if listNamespace != "" && !isNamespacedKind(kind, restMapper) {
@@ -165,11 +165,11 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			errs = append(errs, err)
 			// record failure metric
 			if c.metrics != nil {
-				c.metrics.RecordDeletingFailure(ctx, kind, "", policy, deleteOptions.PropagationPolicy)
+				c.metrics.RecordDeletingFailure(ctx, gvr.Resource, "", policy, deleteOptions.PropagationPolicy)
 			}
 			// Check if this is a recoverable error (permission denied, resource not found, etc.)
 			if dclient.IsRecoverableError(err) {
-				logger.V(2).Info("skipping resource kind due to access restrictions", "kind", kind, "error", err.Error())
+				logger.V(2).Info("skipping resource due to access restrictions", "resource", gvr.Resource, "error", err.Error())
 			} else {
 				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
 				errs = append(errs, err)
@@ -211,7 +211,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
 				if c.metrics != nil {
-					c.metrics.RecordDeletingFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+					c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
@@ -219,7 +219,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 				c.eventGen.Add(e)
 			} else {
 				if c.metrics != nil {
-					c.metrics.RecordDeletedObject(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+					c.metrics.RecordDeletedObject(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Info("resource deleted")
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
