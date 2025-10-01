@@ -156,7 +156,8 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		debug.Info("processing...")
 		listNamespace := policyNamespace
 		if listNamespace != "" && !isNamespacedKind(kind, restMapper) {
-			listNamespace = ""
+			debug.Info("skipping cluster-scoped kind for namespaced policy")
+			continue
 		}
 		list, err := c.client.ListResource(ctx, "", kind, listNamespace, spec.MatchConstraints.ObjectSelector)
 		if err != nil {
@@ -181,9 +182,6 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			resource := list.Items[i]
 
 			namespace := resource.GetNamespace()
-			if policyNamespace != "" && namespace != policyNamespace {
-				continue
-			}
 			name := resource.GetName()
 			debug := logger.WithValues("name", name, "namespace", namespace)
 			gvk := resource.GroupVersionKind()
