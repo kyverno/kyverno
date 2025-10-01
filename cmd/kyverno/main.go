@@ -831,6 +831,10 @@ func main() {
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
 			contextProvider,
+			setup.KyvernoClient,
+			admissionReports,
+			setup.ReportingConfiguration,
+			eventGenerator,
 		)
 		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister())
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
