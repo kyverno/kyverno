@@ -485,6 +485,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
 		gcstore := store.New()
@@ -826,7 +827,6 @@ func main() {
 			admissionReports,
 			setup.ReportingConfiguration,
 			eventGenerator,
-			setup.Configuration,
 		)
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
