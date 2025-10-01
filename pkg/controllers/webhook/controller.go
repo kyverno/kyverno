@@ -61,6 +61,7 @@ const (
 	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
 	tickerInterval            = 10 * time.Second
+	celExpressionCacheMaxAge  = 10 * time.Minute
 )
 
 var (
@@ -152,6 +153,8 @@ type controller struct {
 
 	// stateRecorder records policies that are configured successfully in webhook object
 	stateRecorder StateRecorder
+
+	celExpressionCache *expressionCache
 }
 
 func NewController(
@@ -224,7 +227,8 @@ func NewController(
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
 		},
-		stateRecorder: stateRecorder,
+		stateRecorder:      stateRecorder,
+		celExpressionCache: NewExpressionCache(),
 	}
 	// Set up the CRD change callback
 	c.discoveryClient.OnChanged(c.OnCRDChange)
@@ -291,9 +295,13 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		vpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
+		mpolInformer.Informer(),
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -315,6 +323,38 @@ func NewController(
 	}
 	configuration.OnChanged(c.enqueueAll)
 	return &c
+}
+
+func (c *controller) handlePolicyCreate(obj interface{}) {
+	if policy, ok := obj.(interface {
+		GetMatchConditions() []admissionregistrationv1.MatchCondition
+	}); ok {
+		c.celExpressionCache.AddPolicyExpressions(policy.GetMatchConditions())
+	}
+	c.enqueueResourceWebhooks(0)
+}
+
+func (c *controller) handlePolicyUpdate(oldObj, newObj interface{}) {
+	if oldPolicy, ok := oldObj.(interface {
+		GetMatchConditions() []admissionregistrationv1.MatchCondition
+	}); ok {
+		c.celExpressionCache.RemovePolicyExpressions(oldPolicy.GetMatchConditions())
+	}
+	if newPolicy, ok := newObj.(interface {
+		GetMatchConditions() []admissionregistrationv1.MatchCondition
+	}); ok {
+		c.celExpressionCache.UpdatePolicyExpressions(newPolicy.GetMatchConditions())
+	}
+	c.enqueueResourceWebhooks(0)
+}
+
+func (c *controller) handlePolicyDelete(obj interface{}) {
+	if policy, ok := obj.(interface {
+		GetMatchConditions() []admissionregistrationv1.MatchCondition
+	}); ok {
+		c.celExpressionCache.RemovePolicyExpressions(policy.GetMatchConditions())
+	}
+	c.enqueueResourceWebhooks(0)
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
@@ -1308,7 +1348,13 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	vpols := make([]engineapi.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
 		if vpol.Spec.AdmissionEnabled() && !vpol.GetStatus().Generated {
-			vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
+			validConditions, err := c.celExpressionCache.ValidateMatchConditions(vpol.GetSpec().MatchConditions)
+			if err != nil {
+				logger.V(6).Info("skip building the webhook with Kubernetes unknown match conditions", "policy", vpol.GetName(), "error", err.ToAggregate().Error())
+			}
+			if len(validConditions) == len(vpol.GetSpec().MatchConditions) {
+				vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
+			}
 		}
 	}
 	return vpols, nil
