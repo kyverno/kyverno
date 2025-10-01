@@ -85,7 +85,8 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 		}
 	}
 
-	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	allEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
 			Resource: *response.Resource,
@@ -94,17 +95,20 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 			},
 		}
 		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-		engineResponses = append(engineResponses, engineResponse)
+		allEngineResponses = append(allEngineResponses, engineResponse)
+		if reportutils.IsPolicyReportable(&r.Policy) {
+			reportableEngineResponses = append(reportableEngineResponses, engineResponse)
+		}
 	}
 
 	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
-		err := h.admissionReport(ctx, request, response, engineResponses)
+		err := h.admissionReport(ctx, request, response, reportableEngineResponses)
 		if err != nil {
 			logger.Error(err, "failed to create report")
 		}
 	}
 
-	h.admissionEvent(ctx, engineResponses, blocked)
+	h.admissionEvent(ctx, allEngineResponses, blocked)
 }
 
 func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse, responses []engineapi.EngineResponse) error {

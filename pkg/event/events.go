@@ -401,7 +401,7 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 	}
 }
 
-func NewDeletingPolicyEvent(policy v1alpha1.DeletingPolicy, resource unstructured.Unstructured, err error) Info {
+func NewDeletingPolicyEvent(policy v1alpha1.DeletingPolicyLike, resource unstructured.Unstructured, err error) Info {
 	regarding := corev1.ObjectReference{
 		APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		Kind:       policy.GetKind(),
