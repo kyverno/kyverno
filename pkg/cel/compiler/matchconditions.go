@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	admissionregistration "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -20,7 +20,7 @@ var (
 	lazyNonStrictStatelessCELCompiler     plugincel.Compiler
 )
 
-func CompileMatchConditionsWithKubernetesEnv(conditions []admissionregistration.MatchCondition, preexistingExpressions map[string]bool) field.ErrorList {
+func CompileMatchConditionsWithKubernetesEnv(conditions []admissionregistrationv1.MatchCondition, preexistingExpressions map[string]bool) field.ErrorList {
 	var allErrors field.ErrorList
 	conditionNames := sets.New[string]()
 
@@ -41,7 +41,7 @@ func CompileMatchConditionsWithKubernetesEnv(conditions []admissionregistration.
 	return allErrors
 }
 
-func validateMatchCondition(condition *admissionregistration.MatchCondition, preexistingExpressions map[string]bool, fldPath *field.Path) field.ErrorList {
+func validateMatchCondition(condition *admissionregistrationv1.MatchCondition, preexistingExpressions map[string]bool, fldPath *field.Path) field.ErrorList {
 	var allErrors field.ErrorList
 	trimmedExpression := strings.TrimSpace(condition.Expression)
 	if len(trimmedExpression) == 0 {
