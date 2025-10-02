@@ -130,62 +130,26 @@ func (c *expressionCache) AddExpression(condition admissionregistration.MatchCon
 		errors:     errors,
 		isValid:    len(errors) == 0,
 		compiledAt: time.Now(),
-		isStored:   true, // New expressions are considered stored
-	}
-
-	c.cache[hash] = compiled
-}
-
-// UpdateExpression updates an existing expression in the cache
-func (c *expressionCache) UpdateExpression(condition admissionregistration.MatchCondition) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Update preexisting expressions
-	c.preexistingExpressions[condition.Expression] = true
-
-	// Re-compile and update the expression
-	hash := c.hashMatchCondition(condition)
-	errors := compiler.CompileMatchConditionsWithKubernetesEnv([]admissionregistration.MatchCondition{condition}, c.preexistingExpressions)
-
-	compiled := &compiledExpression{
-		expression: condition.Expression,
-		hash:       hash,
-		errors:     errors,
-		isValid:    len(errors) == 0,
-		compiledAt: time.Now(),
 		isStored:   true,
 	}
 
 	c.cache[hash] = compiled
 }
 
-// RemoveExpression removes an expression from the cache
 func (c *expressionCache) RemoveExpression(condition admissionregistration.MatchCondition) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	hash := c.hashMatchCondition(condition)
 	delete(c.cache, hash)
-
-	// Note: We don't remove from preexistingExpressions as it might be used by other policies
 }
 
-// AddPolicyExpressions adds all match conditions from a policy to the cache
 func (c *expressionCache) AddPolicyExpressions(conditions []admissionregistration.MatchCondition) {
 	for _, condition := range conditions {
 		c.AddExpression(condition)
 	}
 }
 
-// UpdatePolicyExpressions updates all match conditions from a policy in the cache
-func (c *expressionCache) UpdatePolicyExpressions(conditions []admissionregistration.MatchCondition) {
-	for _, condition := range conditions {
-		c.UpdateExpression(condition)
-	}
-}
-
-// RemovePolicyExpressions removes all match conditions from a policy from the cache
 func (c *expressionCache) RemovePolicyExpressions(conditions []admissionregistration.MatchCondition) {
 	for _, condition := range conditions {
 		c.RemoveExpression(condition)

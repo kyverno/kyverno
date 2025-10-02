@@ -343,7 +343,7 @@ func (c *controller) handlePolicyUpdate(oldObj, newObj interface{}) {
 	if newPolicy, ok := newObj.(interface {
 		GetMatchConditions() []admissionregistrationv1.MatchCondition
 	}); ok {
-		c.celExpressionCache.UpdatePolicyExpressions(newPolicy.GetMatchConditions())
+		c.celExpressionCache.AddPolicyExpressions(newPolicy.GetMatchConditions())
 	}
 	c.enqueueResourceWebhooks(0)
 }
