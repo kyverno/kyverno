@@ -10,6 +10,7 @@ import (
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/logging"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -141,8 +142,9 @@ func makeUnstructured(res, group, version, kind, name, ns string, uid types.UID,
 
 func TestNewWatchManager(t *testing.T) {
 	client := dclient.NewEmptyFakeClient()
+	kyvernoClient := kyvernoclient.NewSimpleClientset()
 	log := logging.WithName("test-logging")
-	wm := NewWatchManager(log, client)
+	wm := NewWatchManager(log, client, kyvernoClient)
 	assert.NotNil(t, &wm)
 }
 
