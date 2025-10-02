@@ -251,10 +251,10 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	}
 
 	if err != nil {
-		events = event.NewBackgroundFailedEvent(err, policy, rule, event.MutateExistingController,
+		events = event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), rule, event.MutateExistingController,
 			kyvernov1.ResourceSpec{Kind: target.GetKind(), Namespace: target.GetNamespace(), Name: target.GetName()})
 	} else {
-		events = event.NewBackgroundSuccessEvent(event.MutateExistingController, policy,
+		events = event.NewBackgroundSuccessEvent(event.MutateExistingController, engineapi.NewKyvernoPolicy(policy),
 			[]kyvernov1.ResourceSpec{{Kind: target.GetKind(), Namespace: target.GetNamespace(), Name: target.GetName()}})
 	}
 
