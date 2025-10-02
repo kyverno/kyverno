@@ -25,7 +25,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -42,7 +45,7 @@ type controller struct {
 
 	// queue
 	queue   workqueue.TypedRateLimitingInterface[any]
-	enqueue controllerutils.EnqueueFuncT[*v1alpha1.DeletingPolicy]
+	enqueue controllerutils.EnqueueFuncT[v1alpha1.DeletingPolicyLike]
 
 	// config
 	configuration config.Configuration
@@ -61,6 +64,7 @@ func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	polInformer kyvernov1alpha1informers.DeletingPolicyInformer,
+	ndpolInformer kyvernov1alpha1informers.NamespacedDeletingPolicyInformer,
 	provider engine.Provider,
 	engine *engine.Engine,
 	nsLister corev1listers.NamespaceLister,
@@ -72,11 +76,11 @@ func NewController(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 	)
-	keyFunc := controllerutils.MetaNamespaceKeyT[*v1alpha1.DeletingPolicy]
+	keyFunc := controllerutils.MetaNamespaceKeyT[v1alpha1.DeletingPolicyLike]
 	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
-	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[*v1alpha1.DeletingPolicy] {
+	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[v1alpha1.DeletingPolicyLike] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
-		return func(obj *v1alpha1.DeletingPolicy) error {
+		return func(obj v1alpha1.DeletingPolicyLike) error {
 			logger := logger.WithValues("name", obj.GetName())
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
@@ -110,6 +114,14 @@ func NewController(
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+	if _, err := controllerutils.AddEventHandlersT(
+		ndpolInformer.Informer(),
+		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "NamespacedDeletingPolicy")),
+		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "NamespacedDeletingPolicy")),
+		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "NamespacedDeletingPolicy")),
+	); err != nil {
+		logger.Error(err, "failed to register namespaced event handlers")
+	}
 	return c
 }
 
@@ -120,6 +132,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy engine.Policy) error {
 	spec := ePolicy.Policy.GetDeletingPolicySpec()
 	policy := ePolicy.Policy
+	policyNamespace := policy.GetNamespace()
 
 	debug := logger.V(4)
 	var errs []error
@@ -131,27 +144,45 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return errors.New("matchConstraints is required")
 	}
 
+	selector, err := metav1.LabelSelectorAsSelector(spec.MatchConstraints.ObjectSelector)
+	if err != nil {
+		debug.Error(err, "failed to parse label selector")
+		return err
+	}
+
 	restMapper, err := restmapper.GetRESTMapper(c.client, false)
 	if err != nil {
 		return err
 	}
 
-	kinds := admissionpolicy.GetKinds(spec.MatchConstraints, restMapper)
+	gvrList := admissionpolicy.GetGVRs(spec.MatchConstraints, restMapper)
 
-	for _, kind := range kinds {
-		debug := debug.WithValues("kind", kind)
+	for _, gvr := range gvrList {
+		var client dynamic.ResourceInterface
+
+		debug := debug.WithValues("gvr", gvr)
 		debug.Info("processing...")
-		list, err := c.client.ListResource(ctx, "", kind, "", spec.MatchConstraints.ObjectSelector)
+		if policyNamespace != "" && !isNamespaced(gvr, restMapper) {
+			logger.WithValues("gvr", gvr).Error(errors.New("cluster-scoped kind cannot be used in namespaced policy"), "skipping cluster-scoped resource")
+			continue
+		}
+
+		client = c.client.GetDynamicInterface().Resource(gvr)
+		if policyNamespace != "" {
+			client = client.(dynamic.NamespaceableResourceInterface).Namespace(policyNamespace)
+		}
+
+		list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 		if err != nil {
 			debug.Error(err, "failed to list resources")
 			errs = append(errs, err)
 			// record failure metric
 			if c.metrics != nil {
-				c.metrics.RecordDeletingFailure(ctx, kind, "", policy, deleteOptions.PropagationPolicy)
+				c.metrics.RecordDeletingFailure(ctx, gvr.Resource, "", policy, deleteOptions.PropagationPolicy)
 			}
 			// Check if this is a recoverable error (permission denied, resource not found, etc.)
 			if dclient.IsRecoverableError(err) {
-				logger.V(2).Info("skipping resource kind due to access restrictions", "kind", kind, "error", err.Error())
+				logger.V(2).Info("skipping resource due to access restrictions", "resource", gvr.Resource, "error", err.Error())
 			} else {
 				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
 				errs = append(errs, err)
@@ -193,7 +224,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
 				if c.metrics != nil {
-					c.metrics.RecordDeletingFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+					c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
@@ -201,7 +232,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 				c.eventGen.Add(e)
 			} else {
 				if c.metrics != nil {
-					c.metrics.RecordDeletedObject(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+					c.metrics.RecordDeletedObject(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Info("resource deleted")
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
@@ -213,7 +244,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
-	policy, err := c.provider.Get(ctx, name)
+	policy, err := c.provider.Get(ctx, namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -252,6 +283,23 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	// add the item back to the queue after the remaining time.
 	c.queue.AddAfter(key, timeRemaining)
 	return nil
+}
+
+func isNamespaced(gvr schema.GroupVersionResource, mapper apimeta.RESTMapper) bool {
+	if mapper == nil {
+		return false
+	}
+	kind, err := mapper.KindFor(gvr)
+	if err != nil {
+		return false
+	}
+
+	mapping, err := mapper.RESTMapping(kind.GroupKind(), kind.Version)
+	if err != nil || mapping.Scope == nil {
+		return false
+	}
+
+	return mapping.Scope.Name() == apimeta.RESTScopeNameNamespace
 }
 
 func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1alpha1.DeletingPolicyLike, time time.Time) error {
