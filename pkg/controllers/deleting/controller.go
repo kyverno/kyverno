@@ -162,7 +162,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 
 		debug := debug.WithValues("gvr", gvr)
 		debug.Info("processing...")
-		if policyNamespace != "" && !isNamespacedKind(gvr, restMapper) {
+		if policyNamespace != "" && !isNamespaced(gvr, restMapper) {
 			logger.WithValues("gvr", gvr).Error(errors.New("cluster-scoped kind cannot be used in namespaced policy"), "skipping cluster-scoped resource")
 			continue
 		}
@@ -172,10 +172,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			client = client.(dynamic.NamespaceableResourceInterface).Namespace(policyNamespace)
 		}
 
-		list, err := client.List(ctx, metav1.ListOptions{
-			LabelSelector: selector.String(),
-		})
-
+		list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 		if err != nil {
 			debug.Error(err, "failed to list resources")
 			errs = append(errs, err)
@@ -288,7 +285,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func isNamespacedKind(gvr schema.GroupVersionResource, mapper apimeta.RESTMapper) bool {
+func isNamespaced(gvr schema.GroupVersionResource, mapper apimeta.RESTMapper) bool {
 	if mapper == nil {
 		return false
 	}
