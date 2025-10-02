@@ -316,6 +316,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
 			for _, r := range reps.Policies {
+				if len(r.Rules) == 0 {
+					continue
+				}
 				patched := *reps.Resource
 				if reps.PatchedResource != nil {
 					patched = *reps.PatchedResource
@@ -415,6 +418,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 			}
 			for _, r := range reps.Policies {
+				if len(r.Rules) == 0 {
+					continue
+				}
 				response := engineapi.EngineResponse{
 					Resource: *reps.Resource,
 					PolicyResponse: engineapi.PolicyResponse{
