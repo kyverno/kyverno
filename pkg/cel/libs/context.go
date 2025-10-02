@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -114,13 +115,21 @@ func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
 	return utils.GetValue(data.Data())
 }
 
-func (cp *contextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (cp *contextProvider) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
 	}
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.List(context.TODO(), metav1.ListOptions{})
+
+	labelSelector := labels.Everything()
+	if len(l) > 0 {
+		labelSelector = labels.SelectorFromSet(l)
+	}
+
+	return resourceInteface.List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+	})
 }
 
 func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
