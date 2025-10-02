@@ -119,7 +119,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
-			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
+			events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
 				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 			c.eventGen.Add(events...)
 		}
@@ -211,7 +211,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		c.eventGen.Add(e)
 	}
 
-	e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, policy, genResources)
+	e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, engineapi.NewKyvernoPolicy(policy), genResources)
 	c.eventGen.Add(e...)
 
 	return genResources, err
