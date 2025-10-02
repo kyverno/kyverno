@@ -2,6 +2,7 @@ package gpol
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -15,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	event "github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -43,6 +45,8 @@ type CELGenerateController struct {
 	reportsConfig reportutils.ReportingConfiguration
 	breaker.Breaker
 
+	eventGen event.Interface
+
 	log logr.Logger
 }
 
@@ -56,6 +60,7 @@ func NewCELGenerateController(
 	watchManager *WatchManager,
 	statusControl common.StatusControlInterface,
 	reportsConfig reportutils.ReportingConfiguration,
+	eventGen event.Interface,
 	log logr.Logger,
 ) *CELGenerateController {
 	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
@@ -70,6 +75,7 @@ func NewCELGenerateController(
 		watchManager:  watchManager,
 		statusControl: statusControl,
 		reportsConfig: reportsConfig,
+		eventGen:      eventGen,
 		log:           log,
 	}
 }
@@ -142,6 +148,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			engineResponse.PolicyResponse.Rules = []engineapi.RuleResponse{*res.Result}
 			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicy(&res.Policy))
 			if res.Result.Status() == engineapi.RuleStatusSkip {
+				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
 				continue
 			}
 			for _, resource := range res.Result.GeneratedResources() {
@@ -161,6 +168,9 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 					}
 				}()
 			}
+			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
+				logger.Error(err, "failed to audit gpol", "gpol", ur.Spec.GetPolicyKey())
+			}
 		}
 		if c.reportsConfig.GenerateReportsEnabled() &&
 			len(engineResponse.PolicyResponse.Rules) > 0 &&
@@ -171,6 +181,39 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		}
 	}
 	return updateURStatus(c.statusControl, *ur, multierr.Combine(failures...), generatedResources)
+}
+
+func (c *CELGenerateController) audit(ctx context.Context, engineResponse engineapi.EngineResponse, generatedResources []kyvernov1.ResourceSpec) error {
+	if engineResponse.IsEmpty() {
+		return nil
+	}
+
+	if engineResponse.IsSuccessful() {
+		c.eventGen.Add(event.NewBackgroundSuccessEvent(event.GeneratePolicyController, engineResponse.Policy(), generatedResources)...)
+		for _, gen := range generatedResources {
+			c.eventGen.Add(event.NewResourceGenerationEvent(
+				engineResponse.Policy().GetName(),
+				engineResponse.PolicyResponse.Rules[0].Name(),
+				event.GeneratePolicyController,
+				gen))
+		}
+	}
+	if engineResponse.IsFailed() || engineResponse.IsError() {
+		trigger := kyvernov1.ResourceSpec{
+			Kind:       engineResponse.Resource.GetKind(),
+			APIVersion: engineResponse.Resource.GetAPIVersion(),
+			Name:       engineResponse.Resource.GetName(),
+			Namespace:  engineResponse.Resource.GetNamespace(),
+		}
+		c.eventGen.Add(event.NewBackgroundFailedEvent(
+			errors.New(engineResponse.PolicyResponse.Rules[0].Message()),
+			engineResponse.Policy(),
+			engineResponse.PolicyResponse.Rules[0].Name(),
+			event.GeneratePolicyController,
+			trigger)...)
+	}
+
+	return nil
 }
 
 func (c *CELGenerateController) createReports(

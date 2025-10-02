@@ -1,28 +1,24 @@
 package mpol
 
 import (
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/cel/engine"
-	"github.com/kyverno/kyverno/pkg/cel/libs"
-	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-
 	"context"
 	"errors"
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-
+	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-
+	"github.com/kyverno/kyverno/pkg/event"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -116,6 +112,7 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		&libs.FakeContextProvider{},
 		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
+		event.NewFake(),
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -166,6 +163,7 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		&libs.FakeContextProvider{},
 		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
+		event.NewFake(),
 	)
 
 	ur := &kyvernov2.UpdateRequest{
