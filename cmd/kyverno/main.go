@@ -485,6 +485,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
 		gcstore := store.New()
@@ -826,18 +827,21 @@ func main() {
 			admissionReports,
 			setup.ReportingConfiguration,
 			eventGenerator,
-			setup.Configuration,
 		)
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
 			contextProvider,
+			setup.KyvernoClient,
+			admissionReports,
+			setup.ReportingConfiguration,
+			eventGenerator,
 		)
 		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister())
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
-		mpolHandlers := mpol.New(contextProvider, mpolEngine, setup.KyvernoClient, setup.ReportingConfiguration, urgen, backgroundServiceAccountName)
+		mpolHandlers := mpol.New(contextProvider, mpolEngine, setup.KyvernoClient, setup.ReportingConfiguration, urgen, backgroundServiceAccountName, eventGenerator)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
 			Enabled: internal.PolicyExceptionEnabled(),
 		})
