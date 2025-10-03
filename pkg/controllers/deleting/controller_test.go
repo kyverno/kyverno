@@ -130,7 +130,7 @@ type providerAdapter struct {
 	name  string
 }
 
-func (p providerAdapter) Get(ctx context.Context, name string) (dpolengine.Policy, error) {
+func (p providerAdapter) Get(ctx context.Context, name, namespace string) (dpolengine.Policy, error) {
 	list, err := p.fetch.Fetch(ctx)
 	if err != nil {
 		return dpolengine.Policy{}, err

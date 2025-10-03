@@ -111,7 +111,7 @@ func NewController(
 		polInformer.Informer(),
 		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletingPolicy")),
 		// On update, enqueue only when generation (spec) changes; skip status-only updates
-		func(oldObj, obj *v1alpha1.DeletingPolicy) {
+		func(oldObj, obj v1alpha1.DeletingPolicyLike) {
 			if oldObj.GetGeneration() != obj.GetGeneration() {
 				_ = enqueueFunc(logger, "updated", "DeletingPolicy")(obj)
 			}
