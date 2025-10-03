@@ -22,13 +22,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -144,32 +144,45 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return errors.New("matchConstraints is required")
 	}
 
+	selector, err := metav1.LabelSelectorAsSelector(spec.MatchConstraints.ObjectSelector)
+	if err != nil {
+		debug.Error(err, "failed to parse label selector")
+		return err
+	}
+
 	restMapper, err := restmapper.GetRESTMapper(c.client, false)
 	if err != nil {
 		return err
 	}
 
-	kinds := admissionpolicy.GetKinds(spec.MatchConstraints, restMapper)
+	gvrList := admissionpolicy.GetGVRs(spec.MatchConstraints, restMapper)
 
-	for _, kind := range kinds {
-		debug := debug.WithValues("kind", kind)
+	for _, gvr := range gvrList {
+		var client dynamic.ResourceInterface
+
+		debug := debug.WithValues("gvr", gvr)
 		debug.Info("processing...")
-		listNamespace := policyNamespace
-		if listNamespace != "" && !isNamespacedKind(kind, restMapper) {
-			logger.Error(nil, "skipping cluster-scoped kind for namespaced policy", "kind", kind)
+		if policyNamespace != "" && !isNamespaced(gvr, restMapper) {
+			logger.WithValues("gvr", gvr).Error(errors.New("cluster-scoped kind cannot be used in namespaced policy"), "skipping cluster-scoped resource")
 			continue
 		}
-		list, err := c.client.ListResource(ctx, "", kind, listNamespace, spec.MatchConstraints.ObjectSelector)
+
+		client = c.client.GetDynamicInterface().Resource(gvr)
+		if policyNamespace != "" {
+			client = client.(dynamic.NamespaceableResourceInterface).Namespace(policyNamespace)
+		}
+
+		list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 		if err != nil {
 			debug.Error(err, "failed to list resources")
 			errs = append(errs, err)
 			// record failure metric
 			if c.metrics != nil {
-				c.metrics.RecordDeletingFailure(ctx, kind, "", policy, deleteOptions.PropagationPolicy)
+				c.metrics.RecordDeletingFailure(ctx, gvr.Resource, "", policy, deleteOptions.PropagationPolicy)
 			}
 			// Check if this is a recoverable error (permission denied, resource not found, etc.)
 			if dclient.IsRecoverableError(err) {
-				logger.V(2).Info("skipping resource kind due to access restrictions", "kind", kind, "error", err.Error())
+				logger.V(2).Info("skipping resource due to access restrictions", "resource", gvr.Resource, "error", err.Error())
 			} else {
 				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
 				errs = append(errs, err)
@@ -211,7 +224,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
 				if c.metrics != nil {
-					c.metrics.RecordDeletingFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+					c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
@@ -219,7 +232,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 				c.eventGen.Add(e)
 			} else {
 				if c.metrics != nil {
-					c.metrics.RecordDeletedObject(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+					c.metrics.RecordDeletedObject(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Info("resource deleted")
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
@@ -272,23 +285,20 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func isNamespacedKind(kind string, mapper apimeta.RESTMapper) bool {
+func isNamespaced(gvr schema.GroupVersionResource, mapper apimeta.RESTMapper) bool {
 	if mapper == nil {
 		return false
 	}
-	apiVersion, kindStr := kubeutils.GetKindFromGVK(kind)
-	kindStr, _ = kubeutils.SplitSubresource(kindStr)
-	if apiVersion == "" || kindStr == "" {
-		return false
-	}
-	gv, err := schema.ParseGroupVersion(apiVersion)
+	kind, err := mapper.KindFor(gvr)
 	if err != nil {
 		return false
 	}
-	mapping, err := mapper.RESTMapping(schema.GroupKind{Group: gv.Group, Kind: kindStr}, gv.Version)
+
+	mapping, err := mapper.RESTMapping(kind.GroupKind(), kind.Version)
 	if err != nil || mapping.Scope == nil {
 		return false
 	}
+
 	return mapping.Scope.Name() == apimeta.RESTScopeNameNamespace
 }
 
