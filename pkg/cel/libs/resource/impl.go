@@ -25,7 +25,31 @@ func (c *impl) list_resources_string_string_string(args ...ref.Val) ref.Val {
 	} else if namespace, err := utils.GetArg[string](args, 3); err != nil {
 		return err
 	} else {
-		list, err := self.ListResources(apiVersion, resource, namespace)
+		list, err := self.ListResources(apiVersion, resource, namespace, nil)
+		if err != nil {
+			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			return types.NewErr("failed to list resource: %v", err)
+		}
+		return c.NativeToValue(list.UnstructuredContent())
+	}
+}
+
+func (c *impl) list_resources_string_string_string_map(args ...ref.Val) ref.Val {
+	if len(args) != 5 {
+		return types.NewErr("expected 5 arguments, got %d", len(args))
+	}
+	if self, err := utils.GetArg[Context](args, 0); err != nil {
+		return err
+	} else if apiVersion, err := utils.GetArg[string](args, 1); err != nil {
+		return err
+	} else if resource, err := utils.GetArg[string](args, 2); err != nil {
+		return err
+	} else if namespace, err := utils.GetArg[string](args, 3); err != nil {
+		return err
+	} else if labels, err := utils.GetArg[map[string]string](args, 4); err != nil {
+		return err
+	} else {
+		list, err := self.ListResources(apiVersion, resource, namespace, labels)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to list resource: %v", err)
@@ -41,7 +65,18 @@ func (c *impl) list_resources_gvr_string(args ...ref.Val) ref.Val {
 	if gvr, err := utils.GetArg[*schema.GroupVersionResource](args, 1); err != nil {
 		return err
 	} else {
-		return c.post_resource_string_string_string_map(args[0], types.String(gvr.GroupVersion().String()), types.String(gvr.Resource), args[2])
+		return c.list_resources_string_string_string(args[0], types.String(gvr.GroupVersion().String()), types.String(gvr.Resource), args[2])
+	}
+}
+
+func (c *impl) list_resources_gvr_string_map(args ...ref.Val) ref.Val {
+	if len(args) != 4 {
+		return types.NewErr("expected 4 arguments, got %d", len(args))
+	}
+	if gvr, err := utils.GetArg[*schema.GroupVersionResource](args, 1); err != nil {
+		return err
+	} else {
+		return c.list_resources_string_string_string_map(args[0], types.String(gvr.GroupVersion().String()), types.String(gvr.Resource), args[2], args[3])
 	}
 }
 
