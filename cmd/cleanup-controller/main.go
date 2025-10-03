@@ -170,6 +170,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 		)
 		eventController := internal.NewController(
 			event.ControllerName,
@@ -233,6 +234,7 @@ func main() {
 				provider := engine.NewFetchProvider(
 					compiler.NewCompiler(),
 					kyvernoInformer.Policies().V1alpha1().DeletingPolicies().Lister(),
+					kyvernoInformer.Policies().V1alpha1().NamespacedDeletingPolicies().Lister(),
 					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
 					internal.PolicyExceptionEnabled(),
 				)
@@ -371,6 +373,7 @@ func main() {
 						setup.KyvernoDynamicClient,
 						setup.KyvernoClient,
 						kyvernoInformer.Policies().V1alpha1().DeletingPolicies(),
+						kyvernoInformer.Policies().V1alpha1().NamespacedDeletingPolicies(),
 						provider,
 						engine.NewEngine(
 							func(name string) *corev1.Namespace {

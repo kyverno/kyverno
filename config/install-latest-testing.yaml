@@ -58236,6 +58236,7 @@ rules:
       - policies.kyverno.io
     resources:
       - deletingpolicies
+      - namespaceddeletingpolicies
     verbs:
       - get
       - list
@@ -58244,6 +58245,7 @@ rules:
       - policies.kyverno.io
     resources:
       - deletingpolicies/status
+      - namespaceddeletingpolicies/status
     verbs:
       - update
   - apiGroups:
