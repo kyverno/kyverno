@@ -163,7 +163,7 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 	}
 }
 
-func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
+func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
 	var events []Info
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
@@ -197,7 +197,7 @@ func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule 
 	return events
 }
 
-func NewBackgroundSuccessEvent(source Source, policy kyvernov1.PolicyInterface, resources []kyvernov1.ResourceSpec) []Info {
+func NewBackgroundSuccessEvent(source Source, policy engineapi.GenericPolicy, resources []kyvernov1.ResourceSpec) []Info {
 	events := make([]Info, 0, len(resources))
 	msg := "resource generated"
 	action := ResourceGenerated

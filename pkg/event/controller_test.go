@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
@@ -32,7 +33,7 @@ func TestEventGenerator(t *testing.T) {
 	logger := logr.Discard()
 
 	eventsClient := clientset.EventsV1()
-	eventGenerator := NewEventGenerator(eventsClient, logger, 1000)
+	eventGenerator := NewEventGenerator(eventsClient, logger, 1000, config.NewDefaultConfiguration(false))
 
 	go eventGenerator.Run(ctx, Workers)
 	time.Sleep(1 * time.Second)

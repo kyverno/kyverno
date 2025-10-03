@@ -260,7 +260,7 @@ func (eh existenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 }
 
 func validateExistenceListResource(handler resourceElementHandler, resourceList []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string, ac *AnchorMap) (string, error) {
-	// the idea is all the element in the pattern array should be present atleast once in the resource list
+	// the idea is all the element in the pattern array should be present at least once in the resource list
 	// if non satisfy then throw an error
 	for i, resourceElement := range resourceList {
 		currentPath := path + strconv.Itoa(i) + "/"

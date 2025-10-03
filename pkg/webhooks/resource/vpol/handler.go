@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -33,7 +32,6 @@ type handler struct {
 	admissionReports bool
 	reportConfig     reportutils.ReportingConfiguration
 	eventGen         event.Interface
-	configuration    config.Configuration
 }
 
 func New(
@@ -43,7 +41,6 @@ func New(
 	admissionReports bool,
 	reportConfig reportutils.ReportingConfiguration,
 	eventGen event.Interface,
-	configuration config.Configuration,
 ) *handler {
 	return &handler{
 		context:          context,
@@ -52,7 +49,6 @@ func New(
 		admissionReports: admissionReports,
 		reportConfig:     reportConfig,
 		eventGen:         eventGen,
-		configuration:    configuration,
 	}
 }
 
@@ -85,7 +81,8 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 		}
 	}
 
-	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	allEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
 			Resource: *response.Resource,
@@ -94,17 +91,20 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 			},
 		}
 		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-		engineResponses = append(engineResponses, engineResponse)
+		allEngineResponses = append(allEngineResponses, engineResponse)
+		if reportutils.IsPolicyReportable(&r.Policy) {
+			reportableEngineResponses = append(reportableEngineResponses, engineResponse)
+		}
 	}
 
 	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
-		err := h.admissionReport(ctx, request, response, engineResponses)
+		err := h.admissionReport(ctx, request, response, reportableEngineResponses)
 		if err != nil {
 			logger.Error(err, "failed to create report")
 		}
 	}
 
-	h.admissionEvent(ctx, engineResponses, blocked)
+	h.admissionEvent(ctx, allEngineResponses, blocked)
 }
 
 func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse, responses []engineapi.EngineResponse) error {
@@ -123,7 +123,7 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 
 func (h *handler) admissionEvent(ctx context.Context, responses []engineapi.EngineResponse, blocked bool) {
 	for _, response := range responses {
-		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked, h.configuration)
+		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked)
 		h.eventGen.Add(events...)
 	}
 }
