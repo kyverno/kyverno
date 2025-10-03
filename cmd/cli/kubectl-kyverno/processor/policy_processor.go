@@ -373,7 +373,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
 		compiler := vpolcompiler.NewCompiler()
-		provider, err := vpolengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
+		policies := make([]policiesv1alpha1.ValidatingPolicyLike, 0, len(p.ValidatingPolicies))
+		for i := range p.ValidatingPolicies {
+			policies = append(policies, &p.ValidatingPolicies[i])
+		}
+		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}

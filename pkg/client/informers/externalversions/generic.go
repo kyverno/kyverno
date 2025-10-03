@@ -88,6 +88,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().MutatingPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("namespaceddeletingpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().NamespacedDeletingPolicies().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("namespacedvalidatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().NamespacedValidatingPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("policyexceptions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().PolicyExceptions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("validatingpolicies"):

@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,12 +29,13 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 
 func NewProvider(
 	compiler vpolcompiler.Compiler,
-	policies []policiesv1alpha1.ValidatingPolicy,
+	policies []policiesv1alpha1.ValidatingPolicyLike,
 	exceptions []*policiesv1alpha1.PolicyException,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
-		actions := sets.New(policy.Spec.ValidationActions()...)
+		spec := policy.GetValidatingPolicySpec()
+		actions := sets.New(spec.ValidationActions()...)
 		var matchedExceptions []*policiesv1alpha1.PolicyException
 		for _, polex := range exceptions {
 			for _, ref := range polex.Spec.PolicyRefs {
@@ -42,28 +44,44 @@ func NewProvider(
 				}
 			}
 		}
-		compiled, errs := compiler.Compile(&policy, matchedExceptions)
+		compiled, errs := compiler.Compile(policy, matchedExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 		}
+
+		vp := policiesv1alpha1.ValidatingPolicy{
+			TypeMeta: v1.TypeMeta{
+				Kind:       policy.GetKind(),
+				APIVersion: policiesv1alpha1.GroupVersion.String(),
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Name:        policy.GetName(),
+				Namespace:   policy.GetNamespace(),
+				Labels:      policy.GetLabels(),
+				Annotations: policy.GetAnnotations(),
+			},
+			Spec:   *spec,
+			Status: *policy.GetStatus(),
+		}
 		out = append(out, Policy{
 			Actions:        actions,
-			Policy:         policy,
+			Policy:         vp,
 			CompiledPolicy: compiled,
 		})
-		generated, err := autogen.Autogen(&policy)
+		generated, err := autogen.Autogen(&vp)
 		if err != nil {
 			return nil, err
 		}
 		for _, autogen := range generated {
-			policy.Spec = *autogen.Spec
-			compiled, errs := compiler.Compile(&policy, matchedExceptions)
+			vpc := vp
+			vpc.Spec = *autogen.Spec
+			compiled, errs := compiler.Compile(&vpc, matchedExceptions)
 			if len(errs) > 0 {
-				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
+				return nil, fmt.Errorf("failed to compile policy %s (%w)", vpc.GetName(), errs.ToAggregate())
 			}
 			out = append(out, Policy{
 				Actions:        actions,
-				Policy:         policy,
+				Policy:         vpc,
 				CompiledPolicy: compiled,
 			})
 		}

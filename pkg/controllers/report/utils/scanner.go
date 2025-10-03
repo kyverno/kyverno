@@ -177,7 +177,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range vpols {
 		if pol := policy.AsValidatingPolicy(); pol != nil {
 			compiler := vpolcompiler.NewCompiler()
-			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, exceptions)
+			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
