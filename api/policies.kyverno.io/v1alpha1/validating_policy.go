@@ -132,9 +132,6 @@ func (s *ValidatingPolicy) GetStatus() *ValidatingPolicyStatus {
 }
 
 func (s *ValidatingPolicy) GetKind() string {
-	if kind := s.TypeMeta.Kind; kind != "" {
-		return kind
-	}
 	return ValidatingPolicyKind
 }
 
