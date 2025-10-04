@@ -28,6 +28,8 @@ type MutatingPolicyExpansion interface{}
 
 type NamespacedDeletingPolicyExpansion interface{}
 
+type NamespacedValidatingPolicyExpansion interface{}
+
 type PolicyExceptionExpansion interface{}
 
 type ValidatingPolicyExpansion interface{}

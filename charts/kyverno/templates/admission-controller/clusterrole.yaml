@@ -102,6 +102,8 @@ rules:
     resources:
       - validatingpolicies
       - validatingpolicies/status
+      - namespacedvalidatingpolicies
+      - namespacedvalidatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
       - generatingpolicies

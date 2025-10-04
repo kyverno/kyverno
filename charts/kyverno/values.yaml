@@ -113,6 +113,7 @@ crds:
       generatingpolicies: true
       deletingpolicies: true
       namespaceddeletingpolicies: true
+      namespacedvalidatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
