@@ -136,6 +136,10 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy engine.Policy) error {
+	if c.client == nil {
+		return nil
+	}
+
 	spec := ePolicy.Policy.GetDeletingPolicySpec()
 	policy := ePolicy.Policy
 	policyNamespace := policy.GetNamespace()
@@ -273,7 +277,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, time.Now()); err != nil {
-			logger.Error(err, "failed to update the cleanup policy status")
+			logger.Error(err, "failed to update the deleting policy status")
 			return err
 		}
 		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(time.Now())

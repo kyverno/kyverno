@@ -69,6 +69,10 @@ func (c *captureQueue) AddAfter(item any, delay time.Duration) {
 // time is in the past (due to an old LastExecutionTime).
 func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	pol := policiesv1alpha1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "",
+			Name:      "dpol",
+		},
 		Spec: policiesv1alpha1.DeletingPolicySpec{
 			Schedule: "* * * * *",
 			MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -130,7 +134,7 @@ type providerAdapter struct {
 	name  string
 }
 
-func (p providerAdapter) Get(ctx context.Context, name, namespace string) (dpolengine.Policy, error) {
+func (p providerAdapter) Get(ctx context.Context, namespace, name string) (dpolengine.Policy, error) {
 	list, err := p.fetch.Fetch(ctx)
 	if err != nil {
 		return dpolengine.Policy{}, err
