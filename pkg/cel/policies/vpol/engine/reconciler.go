@@ -77,7 +77,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		delete(r.policies, req.NamespacedName.String())
 		return ctrl.Result{}, nil
 	}
-
+	// get exceptions that match the policy
 	var exceptions []*policiesv1alpha1.PolicyException
 	var err error
 	if r.polexEnabled {
