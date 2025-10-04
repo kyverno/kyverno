@@ -284,6 +284,17 @@ func NewNamespacedValidatingPolicy(pol *policiesv1alpha1.NamespacedValidatingPol
 	}
 }
 
+func NewValidatingPolicyFromLike(pol policiesv1alpha1.ValidatingPolicyLike) GenericPolicy {
+	switch typed := pol.(type) {
+	case *policiesv1alpha1.ValidatingPolicy:
+		return NewValidatingPolicy(typed)
+	case *policiesv1alpha1.NamespacedValidatingPolicy:
+		return NewNamespacedValidatingPolicy(typed)
+	default:
+		return nil
+	}
+}
+
 func NewImageValidatingPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                pol,

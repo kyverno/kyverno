@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,40 +47,24 @@ func NewProvider(
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 		}
-
-		vp := policiesv1alpha1.ValidatingPolicy{
-			TypeMeta: v1.TypeMeta{
-				Kind:       policy.GetKind(),
-				APIVersion: policiesv1alpha1.GroupVersion.String(),
-			},
-			ObjectMeta: v1.ObjectMeta{
-				Name:        policy.GetName(),
-				Namespace:   policy.GetNamespace(),
-				Labels:      policy.GetLabels(),
-				Annotations: policy.GetAnnotations(),
-			},
-			Spec:   *spec,
-			Status: *policy.GetStatus(),
-		}
 		out = append(out, Policy{
 			Actions:        actions,
-			Policy:         vp,
+			Policy:         policy,
 			CompiledPolicy: compiled,
 		})
-		generated, err := autogen.Autogen(&vp)
+		generated, err := autogen.Autogen(policy)
 		if err != nil {
 			return nil, err
 		}
 		for _, autogen := range generated {
-			vpc := vp
-			vpc.Spec = *autogen.Spec
-			compiled, errs := compiler.Compile(&vpc, matchedExceptions)
+			spec = autogen.Spec
+			compiled, errs := compiler.Compile(policy, matchedExceptions)
 			if len(errs) > 0 {
-				return nil, fmt.Errorf("failed to compile policy %s (%w)", vpc.GetName(), errs.ToAggregate())
+				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 			}
 			out = append(out, Policy{
 				Actions:        actions,
-				Policy:         vpc,
+				Policy:         policy,
 				CompiledPolicy: compiled,
 			})
 		}
@@ -98,7 +81,9 @@ func NewKubeProvider(
 	polexEnabled bool,
 ) (Provider, error) {
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
-	builder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1alpha1.ValidatingPolicy{})
+	builder := ctrl.NewControllerManagedBy(mgr).
+		For(&policiesv1alpha1.ValidatingPolicy{}).
+		Watches(&policiesv1alpha1.NamespacedValidatingPolicy{}, &handler.EnqueueRequestForObject{})
 	if polexEnabled {
 		exceptionHandlerFuncs := &handler.Funcs{
 			CreateFunc: func(

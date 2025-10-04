@@ -24,8 +24,8 @@ import (
 type (
 	EngineRequest  = engine.EngineRequest
 	EngineResponse = engine.EngineResponse
-	Engine         = engine.Engine[policiesv1alpha1.ValidatingPolicy]
-	Predicate      = func(policiesv1alpha1.ValidatingPolicy) bool
+	Engine         = engine.Engine[policiesv1alpha1.ValidatingPolicyLike]
+	Predicate      = func(policiesv1alpha1.ValidatingPolicyLike) bool
 )
 
 type engineImpl struct {
@@ -113,8 +113,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
+	spec := policy.Policy.GetValidatingPolicySpec()
 	if e.matcher != nil {
-		matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, namespace)
+		matches, err := e.matchPolicy(spec.MatchConstraints, attr, namespace)
 		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
 			return response

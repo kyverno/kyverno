@@ -62,6 +62,7 @@ type PolicyProcessor struct {
 	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
+	NamespacedValidatingPolicies      []policiesv1alpha1.NamespacedValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
 	Resource                          unstructured.Unstructured
@@ -425,7 +426,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
@@ -444,7 +445,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}

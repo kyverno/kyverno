@@ -14,6 +14,11 @@ func Validate(vpol v1alpha1.ValidatingPolicyLike) ([]string, error) {
 
 	if spec == nil {
 		err = append(err, field.Required(field.NewPath("spec"), "spec must not be nil"))
+		warnings := make([]string, 0)
+		for _, e := range err.ToAggregate().Errors() {
+			warnings = append(warnings, e.Error())
+		}
+		return warnings, err.ToAggregate()
 	}
 
 	compiler := compiler.NewCompiler()
