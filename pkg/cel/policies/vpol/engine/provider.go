@@ -90,9 +90,13 @@ func NewKubeProvider(
 	polexEnabled bool,
 ) (Provider, error) {
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
-	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1alpha1.ValidatingPolicy{}).
-		Watches(&policiesv1alpha1.NamespacedValidatingPolicy{}, &handler.EnqueueRequestForObject{})
+
+	vpolBuilder := ctrl.NewControllerManagedBy(mgr).
+		For(&policiesv1alpha1.ValidatingPolicy{})
+
+	nvpolBuilder := ctrl.NewControllerManagedBy(mgr).
+		For(&policiesv1alpha1.NamespacedValidatingPolicy{})
+
 	if polexEnabled {
 		exceptionHandlerFuncs := &handler.Funcs{
 			CreateFunc: func(
@@ -138,10 +142,16 @@ func NewKubeProvider(
 				}
 			},
 		}
-		builder = builder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
+		vpolBuilder = vpolBuilder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
+		nvpolBuilder = nvpolBuilder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
 	}
-	if err := builder.Complete(reconciler); err != nil {
-		return nil, fmt.Errorf("failed to construct validatingpolicies manager: %w", err)
+
+	if err := vpolBuilder.Complete(reconciler); err != nil {
+		return nil, fmt.Errorf("failed to construct validatingpolicy controller: %w", err)
 	}
+	if err := nvpolBuilder.Complete(reconciler); err != nil {
+		return nil, fmt.Errorf("failed to construct namespacedvalidatingpolicy controller: %w", err)
+	}
+
 	return reconciler, nil
 }
