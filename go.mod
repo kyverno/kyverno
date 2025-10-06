@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.24.6
+go 1.25.1
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -152,7 +152,7 @@ require (
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/aliyun/credentials-go v1.4.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
-	github.com/aptible/supercronic v0.2.36
+	github.com/aptible/supercronic v0.2.37
 	github.com/aws/aws-sdk-go-v2 v1.36.5 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.29.17 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.70 // indirect
@@ -379,7 +379,7 @@ require (
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
