@@ -1,0 +1,3 @@
+apiVersion: v2
+name: reports.kyverno.io
+version: v0.0.0

@@ -1,3 +1,3 @@
 apiVersion: v2
-name: crds
+name: kyverno.io
 version: v0.0.0

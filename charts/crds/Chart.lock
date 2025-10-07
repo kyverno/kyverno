@@ -1,0 +1,15 @@
+dependencies:
+- name: kyverno.io
+  repository: file://../kyverno.io
+  version: v0.0.0
+- name: policies.kyverno.io
+  repository: file://../policies.kyverno.io
+  version: v0.0.0
+- name: reports.kyverno.io
+  repository: file://../reports.kyverno.io
+  version: v0.0.0
+- name: wgpolicyk8s.io
+  repository: file://../wgpolicyk8s.io
+  version: v0.0.0
+digest: sha256:57f7ff6390b7f28ffbb4be8c020972bf0d5bbcc7f545f0425d617edd77f578d4
+generated: "2025-10-07T16:10:53.767839+02:00"
