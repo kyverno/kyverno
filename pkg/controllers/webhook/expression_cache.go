@@ -112,15 +112,12 @@ func (c *expressionCache) InvalidateOnPolicyChange() {
 	c.Invalidate()
 }
 
-// AddExpression adds a new expression to the cache and preexisting set
 func (c *expressionCache) AddExpression(condition admissionregistrationv1.MatchCondition) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Add to preexisting expressions for future compilations
 	c.preexistingExpressions[condition.Expression] = true
 
-	// Pre-compile and cache the expression
 	hash := c.hashMatchCondition(condition)
 	errors := compiler.CompileMatchConditionsWithKubernetesEnv([]admissionregistrationv1.MatchCondition{condition}, c.preexistingExpressions)
 
