@@ -61,7 +61,6 @@ const (
 	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
 	tickerInterval            = 10 * time.Second
-	celExpressionCacheMaxAge  = 10 * time.Minute
 )
 
 var (
@@ -307,17 +306,13 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		gpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		ivpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -985,7 +980,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		"/mpol",
 		c.servicePort,
 		caBundle,
-		mpols)
+		mpols,
+		c.celExpressionCache)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -998,7 +994,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
-		ivpols)...)
+		ivpols,
+		c.celExpressionCache)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
 	for _, w := range validate {
@@ -1195,7 +1192,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		"/vpol",
 		c.servicePort,
 		caBundle,
-		pols)...)
+		pols,
+		c.celExpressionCache)...)
 
 	gpols, err := c.getGeneratingPolicies()
 	if err != nil {
@@ -1207,7 +1205,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		"/gpol",
 		c.servicePort,
 		caBundle,
-		gpols)...)
+		gpols,
+		c.celExpressionCache)...)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -1219,7 +1218,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		"/ivpol/validate",
 		c.servicePort,
 		caBundle,
-		ivpols)...)
+		ivpols,
+		c.celExpressionCache)...)
 
 	policies := append(pols, gpols...)
 	policies = append(policies, ivpols...)
@@ -1348,13 +1348,7 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	vpols := make([]engineapi.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
 		if vpol.Spec.AdmissionEnabled() && !vpol.GetStatus().Generated {
-			validConditions, err := c.celExpressionCache.ValidateMatchConditions(vpol.GetSpec().MatchConditions)
-			if err != nil {
-				logger.V(6).Info("skip building the webhook with Kubernetes unknown match conditions", "policy", vpol.GetName(), "error", err.ToAggregate().Error())
-			}
-			if len(validConditions) == len(vpol.GetSpec().MatchConditions) {
-				vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
-			}
+			vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 		}
 	}
 	return vpols, nil
