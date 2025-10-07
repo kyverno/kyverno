@@ -30,6 +30,8 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -43,6 +45,7 @@ type scanner struct {
 	client          dclient.Interface
 	reportingConfig reportutils.ReportingConfiguration
 	gctxStore       gctxstore.Store
+	mapper          meta.RESTMapper
 	typeConverter   patch.TypeConverterManager
 }
 
@@ -73,6 +76,7 @@ func NewScanner(
 	client dclient.Interface,
 	reportingConfig reportutils.ReportingConfiguration,
 	gctxStore gctxstore.Store,
+	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
 ) Scanner {
 	return &scanner{
@@ -83,6 +87,7 @@ func NewScanner(
 		client:          client,
 		reportingConfig: reportingConfig,
 		gctxStore:       gctxStore,
+		mapper:          mapper,
 		typeConverter:   typeConverter,
 	}
 }
@@ -191,6 +196,7 @@ func (s *scanner) ScanResource(
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 				s.gctxStore,
+				s.mapper,
 				false,
 			)
 			if err != nil {
@@ -243,6 +249,7 @@ func (s *scanner) ScanResource(
 				// TODO
 				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 				s.gctxStore,
+				s.mapper,
 				false,
 			)
 			engine := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
@@ -273,11 +280,14 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			engineResponse, err := engine.Handle(ctx, request, nil)
+			patched := engineResponse.PatchedResource
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
 				for j, r := range policy.Rules {
 					if r.Status() == engineapi.RuleStatusPass {
-						policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+						if !equality.Semantic.DeepEqual(resource.DeepCopyObject(), patched.DeepCopyObject()) {
+							policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+						}
 					}
 				}
 				rules = append(rules, policy.Rules...)
@@ -308,7 +318,7 @@ func (s *scanner) ScanResource(
 				s.client.GetKubeClient().CoreV1().Secrets(""),
 				nil,
 			), metrics.BackgroundScan)
-			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New(), false)
+			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New(), s.mapper, false)
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
 				results[&ivpols[i]] = ScanResult{nil, err}

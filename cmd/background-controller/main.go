@@ -189,6 +189,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
 		eventController := internal.NewController(
@@ -283,10 +284,18 @@ func main() {
 				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+
+				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
+				if err != nil {
+					setup.Logger.Error(err, "failed to create RESTMapper")
+					os.Exit(1)
+				}
+
 				contextProvider, err := libs.NewContextProvider(
 					setup.KyvernoDynamicClient,
 					nil,
 					gcstore,
+					restMapper,
 					false,
 				)
 				if err != nil {
@@ -359,12 +368,6 @@ func main() {
 					typeConverter,
 					contextProvider,
 				), metrics.BackgroundScan)
-
-				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
-				if err != nil {
-					setup.Logger.Error(err, "failed to create RESTMapper")
-					os.Exit(1)
-				}
 
 				// create leader controllers
 				leaderControllers, err := createrLeaderControllers(

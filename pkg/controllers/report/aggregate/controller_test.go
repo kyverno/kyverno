@@ -116,36 +116,6 @@ var (
 			},
 		},
 	}
-	rep = &openreportsv1alpha1.Report{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-report-pod",
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "kyverno",
-			},
-		},
-		Scope: &corev1.ObjectReference{
-			APIVersion: "v1",
-			Kind:       "Pod",
-			Name:       "test-pod",
-			Namespace:  "default",
-		},
-		Results: []openreportsv1alpha1.ReportResult{
-			{
-				Description: "validation error: Pods must have a 'app' label",
-				Policy:      "default/require-app-label",
-				Rule:        "check-app-label",
-				Result:      openreports.StatusFail,
-				Scored:      true,
-				Source:      "kyverno",
-				Properties: map[string]string{
-					"process": "background scan",
-				},
-			},
-		},
-		Summary: openreportsv1alpha1.ReportSummary{
-			Fail: 1,
-		},
-	}
 )
 
 func newFakeMetaClient() (metadatainformers.SharedInformerFactory, metafake.MetadataClient, metafake.MetadataClient) {
