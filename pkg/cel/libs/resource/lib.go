@@ -47,10 +47,22 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				cel.FunctionBinding(impl.list_resources_string_string_string),
 			),
 			cel.MemberOverload(
+				"resource_list_string_string_string_map",
+				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.StringType)},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.list_resources_string_string_string_map),
+			),
+			cel.MemberOverload(
 				"list_resources_gvr_string",
 				[]*cel.Type{ContextType, GVRType, types.StringType},
 				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.list_resources_gvr_string),
+			),
+			cel.MemberOverload(
+				"list_resources_gvr_string_map",
+				[]*cel.Type{ContextType, GVRType, types.StringType, types.NewMapType(types.StringType, types.StringType)},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.list_resources_gvr_string_map),
 			),
 		},
 		"Get": {
