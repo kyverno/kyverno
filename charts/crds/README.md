@@ -6,10 +6,10 @@
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | This field can be overwritten by setting crds.labels in the parent chart |
-| groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `reports.kyverno.io` |
-| groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | This field can be overwritten by setting crds.labels in the parent chart |
-| groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | This field can be overwritten by setting crds.labels in the parent chart |
+| groups.kyverno | object | `{"cleanuppolicies":false,"clustercleanuppolicies":false,"clusterpolicies":false,"globalcontextentries":false,"policies":false,"policyexceptions":false,"updaterequests":false}` | Install CRDs in group `kyverno.io` |
+| groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
+| groups.reports | object | `{"clusterephemeralreports":false,"ephemeralreports":false}` | Install CRDs in group `reports.kyverno.io` |
+| groups.wgpolicyk8s | object | `{"clusterpolicyreports":false,"policyreports":false}` | Install CRDs in group `wgpolicyk8s.io` |
 | annotations | object | `{}` | This field can be overwritten by setting crds.annotations in the parent chart |
 | customLabels | object | `{}` | This field can be overwritten by setting crds.labels in the parent chart |
 

@@ -637,16 +637,6 @@ codegen-cli-all: codegen-cli-docs
 codegen-cli-all: codegen-cli-api-docs
 
 define generate_crd
-	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
-	@cat $(CRDS_PATH)/$(2)/$(1) \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
-		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
- 		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
-	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/crds/templates/$(3)/$(1)
 	@cat $(CRDS_PATH)/$(2)/$(1) \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
@@ -672,10 +662,6 @@ codegen-helm-crds: codegen-crds-all
 	@rm -rf ./charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/crds/templates/wgpolicyk8s.io
 	@rm -rf ./charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/crds/templates/policies.kyverno.io
-	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
-	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
-	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
-	@rm -rf ./charts/kyverno/charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/policies.kyverno.io
 	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
 	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
 	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
@@ -694,9 +680,6 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
 	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports,true)
-	@rm -rf ./charts/crds/templates/kyverno.io
-	@rm -rf ./charts/crds/templates/reports.kyverno.io
-	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs

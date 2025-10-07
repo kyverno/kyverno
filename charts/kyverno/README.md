@@ -882,8 +882,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
+| file://../crds | crds | v0.0.0 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers

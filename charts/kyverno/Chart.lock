@@ -3,10 +3,10 @@ dependencies:
   repository: ""
   version: v0.0.0
 - name: crds
-  repository: ""
+  repository: file://../crds
   version: v0.0.0
 - name: openreports
   repository: https://openreports.github.io/reports-api
   version: 0.1.0
-digest: sha256:67ca35821e96f24c58ac344228fd3641c727dd71cd09bd7ca24b4fbc3879e095
-generated: "2025-08-31T17:19:05.475432+05:30"
+digest: sha256:0f5dbe4379d18c7bb9d197670ea45a57ffb25cb48e1e78989c8dcdd3cd8aa8a8
+generated: "2025-10-07T13:00:12.519359+02:00"
