@@ -5,12 +5,16 @@ dependencies:
   - name: kyverno.io
     version: v0.0.0
     repository: file://../kyverno.io
+    alias: kyverno-io
   - name: policies.kyverno.io
     version: v0.0.0
     repository: file://../policies.kyverno.io
+    alias: policies-kyverno-io
   - name: reports.kyverno.io
     version: v0.0.0
     repository: file://../reports.kyverno.io
+    alias: reports-kyverno-io
   - name: wgpolicyk8s.io
     version: v0.0.0
     repository: file://../wgpolicyk8s.io
+    alias: wgpolicyk8s-io

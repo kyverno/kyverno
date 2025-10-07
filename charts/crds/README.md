@@ -2,15 +2,24 @@
 
 ![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square)
 
+## Requirements
+
+| Repository | Name | Version |
+|------------|------|---------|
+| file://../kyverno.io | groups.kyverno(kyverno.io) | v0.0.0 |
+| file://../policies.kyverno.io | groups.policies(policies.kyverno.io) | v0.0.0 |
+| file://../reports.kyverno.io | groups.reports(reports.kyverno.io) | v0.0.0 |
+| file://../wgpolicyk8s.io | groups.wgpolicyk8s(wgpolicyk8s.io) | v0.0.0 |
+
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | reportsServer.enabled | bool | `false` | Kyverno reports-server is used in your cluster |
-| groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | This field can be overwritten by setting crds.labels in the parent chart |
-| groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `reports.kyverno.io` |
-| groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | This field can be overwritten by setting crds.labels in the parent chart |
-| groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | This field can be overwritten by setting crds.labels in the parent chart |
+| groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
+| groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
+| groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
+| groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
 | annotations | object | `{}` | This field can be overwritten by setting crds.annotations in the parent chart |
 | customLabels | object | `{}` | This field can be overwritten by setting crds.labels in the parent chart |
 
