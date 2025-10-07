@@ -1,0 +1,12 @@
+# -- Resources to install
+resources:
+  clusterephemeralreports: true
+  ephemeralreports: true
+
+# -- Additional CRDs annotations
+annotations: {}
+  # argocd.argoproj.io/sync-options: Replace=true
+  # strategy.spinnaker.io/replace: 'true'
+
+# -- Additional CRDs labels
+labels: {}

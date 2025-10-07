@@ -1,0 +1,17 @@
+# -- Resources to install
+resources:
+  cleanuppolicies: true
+  clustercleanuppolicies: true
+  clusterpolicies: true
+  globalcontextentries: true
+  policies: true
+  policyexceptions: true
+  updaterequests: true
+
+# -- Additional CRDs annotations
+annotations: {}
+  # argocd.argoproj.io/sync-options: Replace=true
+  # strategy.spinnaker.io/replace: 'true'
+
+# -- Additional CRDs labels
+labels: {}

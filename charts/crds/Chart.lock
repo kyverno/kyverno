@@ -11,5 +11,5 @@ dependencies:
 - name: wgpolicyk8s.io
   repository: file://../wgpolicyk8s.io
   version: v0.0.0
-digest: sha256:42c11d72729d82cdcc5a8475e88e5003dbae041ec95c1a3665f7735c42764d2b
-generated: "2025-10-07T16:48:17.592814+02:00"
+digest: sha256:57f7ff6390b7f28ffbb4be8c020972bf0d5bbcc7f545f0425d617edd77f578d4
+generated: "2025-10-07T16:55:42.940956+02:00"

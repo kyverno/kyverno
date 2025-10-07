@@ -637,7 +637,7 @@ codegen-cli-all: codegen-cli-docs
 codegen-cli-all: codegen-cli-api-docs
 
 define generate_crd
-	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/$(3)/templates/$(1)
+	@echo "{{- if .Values.resources.$(5) }}" > ./charts/$(3)/templates/$(1)
 	@cat $(CRDS_PATH)/$(2)/$(1) \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \

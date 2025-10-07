@@ -1,4 +1,4 @@
-{{- if .Values.groups.policies.validatingpolicies }}
+{{- if .Values.resources.validatingpolicies }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition

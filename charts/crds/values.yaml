@@ -1,17 +1,7 @@
-# -- Internal settings used with `helm template` to generate install manifest
-# @ignored
-templating:
-  enabled: false
-  debug: false
-  version: ~
+kyverno.io:
 
-reportsServer:
-  # -- Kyverno reports-server is used in your cluster
-  enabled: false
-
-groups:
   # -- Install CRDs in group `kyverno.io`
-  kyverno:
+  resources:
     cleanuppolicies: true
     clustercleanuppolicies: true
     clusterpolicies: true
@@ -20,8 +10,18 @@ groups:
     policyexceptions: true
     updaterequests: true
 
+  # -- Additional CRDs annotations
+  annotations: {}
+    # argocd.argoproj.io/sync-options: Replace=true
+    # strategy.spinnaker.io/replace: 'true'
+
+  # -- Additional CRDs labels
+  labels: {}
+
+policies.kyverno.io:
+
   # -- Install CRDs in group `policies.kyverno.io`
-  policies:
+  resources:
     validatingpolicies: true
     imagevalidatingpolicies: true
     policyexceptions: true
@@ -29,22 +29,40 @@ groups:
     generatingpolicies: true
     deletingpolicies: true
 
+  # -- Additional CRDs annotations
+  annotations: {}
+    # argocd.argoproj.io/sync-options: Replace=true
+    # strategy.spinnaker.io/replace: 'true'
+
+  # -- Additional CRDs labels
+  labels: {}
+
+reports.kyverno.io:
+
   # -- Install CRDs in group `reports.kyverno.io`
-  reports:
+  resources:
     clusterephemeralreports: true
     ephemeralreports: true
 
+  # -- Additional CRDs annotations
+  annotations: {}
+    # argocd.argoproj.io/sync-options: Replace=true
+    # strategy.spinnaker.io/replace: 'true'
+
+  # -- Additional CRDs labels
+  labels: {}
+
+wgpolicyk8s.io:
+
   # -- Install CRDs in group `wgpolicyk8s.io`
-  wgpolicyk8s:
+  resources:
     clusterpolicyreports: true
     policyreports: true
 
-# -- Additional CRDs annotations
-# -- This field can be overwritten by setting crds.annotations in the parent chart
-annotations: {}
-  # argocd.argoproj.io/sync-options: Replace=true
-  # strategy.spinnaker.io/replace: 'true'
+  # -- Additional CRDs annotations
+  annotations: {}
+    # argocd.argoproj.io/sync-options: Replace=true
+    # strategy.spinnaker.io/replace: 'true'
 
-# -- Additional CRDs labels
-# -- This field can be overwritten by setting crds.labels in the parent chart
-customLabels: {}
+  # -- Additional CRDs labels
+  labels: {}
