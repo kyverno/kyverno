@@ -89,13 +89,14 @@ crds:
   install: true
 
   reportsServer:
-      # -- Kyverno reports-server is used in your cluster
+
+    # -- Kyverno reports-server is used in your cluster
     enabled: false
 
-  groups:
+  kyverno.io:
 
     # -- Install CRDs in group `kyverno.io`
-    kyverno:
+    resources:
       cleanuppolicies: true
       clustercleanuppolicies: true
       clusterpolicies: true
@@ -104,33 +105,62 @@ crds:
       policyexceptions: true
       updaterequests: true
 
+    # -- Additional CRDs annotations
+    annotations: {}
+      # argocd.argoproj.io/sync-options: Replace=true
+      # strategy.spinnaker.io/replace: 'true'
+
+    # -- Additional CRDs labels
+    labels: {}
+
+  policies.kyverno.io:
+
     # -- Install CRDs in group `policies.kyverno.io`
-    policies:
+    resources:
       validatingpolicies: true
-      policyexceptions: true
       imagevalidatingpolicies: true
+      policyexceptions: true
       mutatingpolicies: true
       generatingpolicies: true
       deletingpolicies: true
-      namespaceddeletingpolicies: true
+
+    # -- Additional CRDs annotations
+    annotations: {}
+      # argocd.argoproj.io/sync-options: Replace=true
+      # strategy.spinnaker.io/replace: 'true'
+
+    # -- Additional CRDs labels
+    labels: {}
+
+  reports.kyverno.io:
 
     # -- Install CRDs in group `reports.kyverno.io`
-    reports:
+    resources:
       clusterephemeralreports: true
       ephemeralreports: true
 
+    # -- Additional CRDs annotations
+    annotations: {}
+      # argocd.argoproj.io/sync-options: Replace=true
+      # strategy.spinnaker.io/replace: 'true'
+
+    # -- Additional CRDs labels
+    labels: {}
+
+  wgpolicyk8s.io:
+
     # -- Install CRDs in group `wgpolicyk8s.io`
-    wgpolicyk8s:
+    resources:
       clusterpolicyreports: true
       policyreports: true
 
-  # -- Additional CRDs annotations
-  annotations: {}
-    # argocd.argoproj.io/sync-options: Replace=true
-    # strategy.spinnaker.io/replace: 'true'
+    # -- Additional CRDs annotations
+    annotations: {}
+      # argocd.argoproj.io/sync-options: Replace=true
+      # strategy.spinnaker.io/replace: 'true'
 
-  # -- Additional CRDs labels
-  customLabels: {}
+    # -- Additional CRDs labels
+    labels: {}
 
   migration:
 

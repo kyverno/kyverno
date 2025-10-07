@@ -1,3 +1,7 @@
 apiVersion: v2
 name: policies.kyverno.io
 version: v0.0.0
+dependencies:
+- name: kyverno-lib
+  version: 0.0.0
+  repository: file://../kyverno-lib
