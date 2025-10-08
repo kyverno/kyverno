@@ -3499,3 +3499,82 @@ func TestValidate_CEL_SkipValidationForDelete_WhenNoOperationsSpecified(t *testi
 	assert.Equal(t, engineapi.RuleStatusSkip, er.PolicyResponse.Rules[0].Status())
 	assert.Equal(t, "skip validation for delete operation", er.PolicyResponse.Rules[0].Message())
 }
+
+func TestValidate_CEL_DoNotSkipValidationForDelete_WhenDeleteOperationSpecified(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "restrict-binding-system-groups"
+		},
+		"spec": {
+			"validationFailureAction": "Enforce",
+			"background": true,
+			"rules": [
+				{
+					"name": "restrict-masters",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"RoleBinding",
+										"ClusterRoleBinding"
+									],
+									"operations": [
+										"CREATE",
+										"UPDATE", 
+										"DELETE"
+									]
+								}
+							}
+						]
+					},
+					"validate": {
+						"cel": {
+							"expressions": [
+								{
+									"expression": "object.roleRef.name != 'system:masters'",
+									"message": "Binding to system:masters is not allowed."
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawResource := []byte(`{
+		"apiVersion": "rbac.authorization.k8s.io/v1",
+		"kind": "ClusterRoleBinding",
+		"metadata": {
+			"name": "goodcrb01"
+		},
+		"subjects": [
+			{
+				"kind": "Group",
+				"name": "secret-reader",
+				"apiGroup": "rbac.authorization.k8s.io"
+			}
+		],
+		"roleRef": {
+			"kind": "ClusterRole",
+			"name": "manager",
+			"apiGroup": "rbac.authorization.k8s.io"
+		}
+	}`)
+
+	var policy kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), newPolicyContext(t, *resourceUnstructured, kyvernov1.Delete, nil).WithPolicy(&policy), cfg, nil)
+
+	// Should NOT be skipped since DELETE is explicitly specified
+	assert.Equal(t, engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Status())
+	assert.Equal(t, "Validation rule 'restrict-masters' passed.", er.PolicyResponse.Rules[0].Message())
+}

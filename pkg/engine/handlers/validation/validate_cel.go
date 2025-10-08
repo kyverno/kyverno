@@ -71,7 +71,6 @@ func (h validateCELHandler) Process(
 				}
 			}
 		}
-
 	}
 	// check if there are policy exceptions that match the incoming resource
 	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
@@ -123,7 +122,7 @@ func (h validateCELHandler) Process(
 	if resource.Object == nil {
 		ns = oldResource.GetNamespace()
 		name = oldResource.GetName()
-		object = nil
+		object = oldResource.DeepCopyObject()
 	} else {
 		ns = resource.GetNamespace()
 		name = resource.GetName()
