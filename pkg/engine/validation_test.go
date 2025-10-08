@@ -3466,7 +3466,6 @@ func TestValidate_CEL_SkipValidationForDelete_WhenNoOperationsSpecified(t *testi
 		}
 	}`)
 
-	// Good resource from GitHub issue - should be deletable
 	rawResource := []byte(`{
 		"apiVersion": "rbac.authorization.k8s.io/v1",
 		"kind": "ClusterRoleBinding",
@@ -3574,7 +3573,6 @@ func TestValidate_CEL_DoNotSkipValidationForDelete_WhenDeleteOperationSpecified(
 
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), newPolicyContext(t, *resourceUnstructured, kyvernov1.Delete, nil).WithPolicy(&policy), cfg, nil)
 
-	// Should NOT be skipped since DELETE is explicitly specified
 	assert.Equal(t, engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Status())
 	assert.Equal(t, "Validation rule 'restrict-masters' passed.", er.PolicyResponse.Rules[0].Message())
 }
