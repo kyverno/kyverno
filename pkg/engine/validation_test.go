@@ -3416,3 +3416,86 @@ func TestValidate_DenyOverridesValidate(t *testing.T) {
 	assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusFail)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[1].Message(), "Using the 'latest' tag is not allowed."), "The deny message did not match")
 }
+
+func TestValidate_CEL_SkipValidationForDelete_WhenNoOperationsSpecified(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "restrict-binding-system-groups",
+			"annotations": {
+				"policies.kyverno.io/title": "Restrict Binding System Groups in CEL expressions",
+				"policies.kyverno.io/category": "RBAC Best Practices in CEL",
+				"policies.kyverno.io/severity": "medium",
+				"policies.kyverno.io/subject": "RoleBinding, ClusterRoleBinding, RBAC",
+				"policies.kyverno.io/minversion": "1.11.0",
+				"kyverno.io/kubernetes-version": "1.26",
+				"policies.kyverno.io/description": "Certain system groups exist in Kubernetes which grant permissions that are used for certain system-level functions yet typically never appropriate for other users. This policy prevents creating bindings for system:masters group."
+			}
+		},
+		"spec": {
+			"validationFailureAction": "Enforce",
+			"background": true,
+			"rules": [
+				{
+					"name": "restrict-masters",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"RoleBinding",
+										"ClusterRoleBinding"
+									]
+								}
+							}
+						]
+					},
+					"validate": {
+						"cel": {
+							"expressions": [
+								{
+									"expression": "object.roleRef.name != 'system:masters'",
+									"message": "Binding to system:masters is not allowed."
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	// Good resource from GitHub issue - should be deletable
+	rawResource := []byte(`{
+		"apiVersion": "rbac.authorization.k8s.io/v1",
+		"kind": "ClusterRoleBinding",
+		"metadata": {
+			"name": "goodcrb01"
+		},
+		"subjects": [
+			{
+				"kind": "Group",
+				"name": "secret-reader",
+				"apiGroup": "rbac.authorization.k8s.io"
+			}
+		],
+		"roleRef": {
+			"kind": "ClusterRole",
+			"name": "manager",
+			"apiGroup": "rbac.authorization.k8s.io"
+		}
+	}`)
+
+	var policy kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), newPolicyContext(t, *resourceUnstructured, kyvernov1.Delete, nil).WithPolicy(&policy), cfg, nil)
+
+	assert.Equal(t, engineapi.RuleStatusSkip, er.PolicyResponse.Rules[0].Status())
+	assert.Equal(t, "skip validation for delete operation", er.PolicyResponse.Rules[0].Message())
+}

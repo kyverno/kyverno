@@ -48,6 +48,31 @@ func (h validateCELHandler) Process(
 	_ engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	// skip validation for delete operation if no operations are specified in the rule
+	if policyContext.Operation() == kyvernov1.Delete {
+		deletedResourceGVK, _ := policyContext.ResourceKind()
+		deletedResourceKind := deletedResourceGVK.Kind
+		if rule.MatchResources.Any != nil {
+			for _, resMatch := range rule.MatchResources.Any {
+				if resMatch.ResourceDescription.Operations == nil &&
+					resMatch.ResourceDescription.ContainsKind(deletedResourceKind) {
+					return resource, handlers.WithResponses(
+						engineapi.RuleSkip(rule.Name, engineapi.Validation, "skip validation for delete operation", rule.ReportProperties),
+					)
+				}
+			}
+		} else if rule.MatchResources.All != nil {
+			for _, resMatch := range rule.MatchResources.All {
+				if resMatch.ResourceDescription.Operations == nil &&
+					resMatch.ResourceDescription.ContainsKind(deletedResourceKind) {
+					return resource, handlers.WithResponses(
+						engineapi.RuleSkip(rule.Name, engineapi.Validation, "skip validation for delete operation", rule.ReportProperties),
+					)
+				}
+			}
+		}
+
+	}
 	// check if there are policy exceptions that match the incoming resource
 	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
