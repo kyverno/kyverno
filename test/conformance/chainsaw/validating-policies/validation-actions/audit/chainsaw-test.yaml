@@ -23,3 +23,7 @@ spec:
     try:
     - create:
         file: deployment.yaml
+  - name: check events
+    try:
+    - assert:
+        file: event-assert.yaml

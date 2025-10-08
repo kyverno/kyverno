@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
@@ -12,6 +13,7 @@ import (
 type fetchProvider struct {
 	compiler     compiler.Compiler
 	dpolLister   policiesv1alpha1listers.DeletingPolicyLister
+	ndpolLister  policiesv1alpha1listers.NamespacedDeletingPolicyLister
 	polexLister  policiesv1alpha1listers.PolicyExceptionLister
 	polexEnabled bool
 }
@@ -19,26 +21,42 @@ type fetchProvider struct {
 func NewFetchProvider(
 	compiler compiler.Compiler,
 	dpolLister policiesv1alpha1listers.DeletingPolicyLister,
+	ndpolLister policiesv1alpha1listers.NamespacedDeletingPolicyLister,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *fetchProvider {
 	return &fetchProvider{
 		compiler:     compiler,
 		dpolLister:   dpolLister,
+		ndpolLister:  ndpolLister,
 		polexLister:  polexLister,
 		polexEnabled: polexEnabled,
 	}
 }
 
-func (r *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
-	policy, err := r.dpolLister.Get(name)
+func (r *fetchProvider) Get(ctx context.Context, namespace, name string) (Policy, error) {
+	var (
+		policy policiesv1alpha1.DeletingPolicyLike
+		err    error
+	)
+	if namespace == "" {
+		policy, err = r.dpolLister.Get(name)
+	} else {
+		policy, err = r.ndpolLister.NamespacedDeletingPolicies(namespace).Get(name)
+	}
 	if err != nil {
 		return Policy{}, err
+	}
+	if policy == nil {
+		if namespace == "" {
+			return Policy{}, fmt.Errorf("deleting policy %s not found", name)
+		}
+		return Policy{}, fmt.Errorf("deleting policy %s/%s not found", namespace, name)
 	}
 	// get exceptions that match the policy
 	var exceptions []*policiesv1alpha1.PolicyException
 	if r.polexEnabled {
-		exceptions, err = engine.ListExceptions(r.polexLister, policy.Kind, policy.GetName())
+		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
 		if err != nil {
 			return Policy{}, err
 		}
@@ -47,9 +65,8 @@ func (r *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	if errList != nil {
 		return Policy{}, errList.ToAggregate()
 	}
-
 	return Policy{
-		Policy:         *policy,
+		Policy:         policy,
 		CompiledPolicy: compiled,
 	}, nil
 }
