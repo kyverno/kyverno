@@ -7,17 +7,16 @@ templating:
 
 groups:
   # -- Install CRDs in group `kyverno.io`
-  # -- This field can be overwritten by setting crds.labels in the parent chart
   kyverno:
-    cleanuppolicies: true
-    clustercleanuppolicies: true
-    clusterpolicies: true
-    globalcontextentries: true
-    policies: true
-    policyexceptions: true
-    updaterequests: true
+    cleanuppolicies: false
+    clustercleanuppolicies: false
+    clusterpolicies: false
+    globalcontextentries: false
+    policies: false
+    policyexceptions: false
+    updaterequests: false
 
-  # -- Install CRDs in group `reports.kyverno.io`
+  # -- Install CRDs in group `policies.kyverno.io`
   policies:
     validatingpolicies: true
     imagevalidatingpolicies: true
@@ -26,16 +25,15 @@ groups:
     generatingpolicies: true
     deletingpolicies: true
 
-  # -- This field can be overwritten by setting crds.labels in the parent chart
+  # -- Install CRDs in group `reports.kyverno.io`
   reports:
-    clusterephemeralreports: true
-    ephemeralreports: true
+    clusterephemeralreports: false
+    ephemeralreports: false
 
   # -- Install CRDs in group `wgpolicyk8s.io`
-  # -- This field can be overwritten by setting crds.labels in the parent chart
   wgpolicyk8s:
-    clusterpolicyreports: true
-    policyreports: true
+    clusterpolicyreports: false
+    policyreports: false
 
 # -- Additional CRDs annotations
 # -- This field can be overwritten by setting crds.annotations in the parent chart
