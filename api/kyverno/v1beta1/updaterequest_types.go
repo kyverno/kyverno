@@ -162,23 +162,3 @@ type UpdateRequestList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []UpdateRequest `json:"items"`
 }
-
-func (s *UpdateRequestSpec) GetRequestType() RequestType {
-	return s.Type
-}
-
-func (s *UpdateRequestSpec) GetPolicyKey() string {
-	return s.Policy
-}
-
-func (s *UpdateRequestSpec) GetRuleName() string {
-	return s.Rule
-}
-
-func (s *UpdateRequestSpec) GetSynchronize() bool {
-	return s.Synchronize
-}
-
-func (s *UpdateRequestSpec) GetResource() kyvernov1.ResourceSpec {
-	return s.Resource
-}
