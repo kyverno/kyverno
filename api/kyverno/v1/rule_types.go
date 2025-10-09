@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -188,12 +189,13 @@ func (r *Rule) HasValidate() bool {
 }
 
 // HasValidateAllowExistingViolations() checks for allowExisitingViolations under validate rule
-func (r *Rule) HasValidateAllowExistingViolations() bool {
-	allowExisitingViolations := true
+func (r *Rule) HasValidateAllowExistingViolations(cfg config.Configuration) bool {
+	// If explicitly set in the policy, use that value
 	if r.Validation != nil && r.Validation.AllowExistingViolations != nil {
-		allowExisitingViolations = *r.Validation.AllowExistingViolations
+		return *r.Validation.AllowExistingViolations
 	}
-	return allowExisitingViolations
+	// Otherwise use the global config value
+	return cfg.GetDefaultAllowExistingViolations()
 }
 
 // HasGenerate checks for generate rule

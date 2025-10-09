@@ -54,6 +54,9 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
+
+	// configuration stores Kyverno configuration
+	configuration config.Configuration
 }
 
 // engineapi.PolicyContext interface
@@ -185,12 +188,18 @@ func (c PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyCo
 	return &c
 }
 
+// Config returns the configuration
+func (c *PolicyContext) Config() config.Configuration {
+	return c.configuration
+}
+
 // Constructors
 
-func newPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {
+func newPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface, configuration config.Configuration) *PolicyContext {
 	return &PolicyContext{
-		operation:   operation,
-		jsonContext: jsonContext,
+		operation:     operation,
+		jsonContext:   jsonContext,
+		configuration: configuration,
 	}
 }
 
@@ -231,7 +240,7 @@ func NewPolicyContext(
 	if err := enginectx.AddOperation(string(operation)); err != nil {
 		return nil, err
 	}
-	policyContext := newPolicyContextWithJsonContext(operation, enginectx)
+	policyContext := newPolicyContextWithJsonContext(operation, enginectx, configuration)
 	if operation != kyvernov1.Delete {
 		policyContext = policyContext.WithNewResource(resource)
 	} else {
@@ -262,7 +271,7 @@ func NewPolicyContextFromAdmissionRequest(
 	if err := engineCtx.AddImageInfos(&newResource, configuration); err != nil {
 		return nil, fmt.Errorf("failed to add image information to the policy rule context: %w", err)
 	}
-	policyContext := newPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), engineCtx).
+	policyContext := newPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), engineCtx, configuration).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
