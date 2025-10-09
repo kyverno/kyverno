@@ -25,6 +25,7 @@ import (
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	v1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -94,6 +95,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().PolicyExceptions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("validatingpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().ValidatingPolicies().Informer()}, nil
+
+		// Group=policies.kyverno.io, Version=v1beta1
+	case v1beta1.SchemeGroupVersion.WithResource("validatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().ValidatingPolicies().Informer()}, nil
 
 		// Group=reports.kyverno.io, Version=v1
 	case reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"):
