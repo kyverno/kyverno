@@ -107,6 +107,8 @@ const (
 	excludeClusterRoles           = "excludeClusterRoles"
 	generateSuccessEvents         = "generateSuccessEvents"
 	webhooks                      = "webhooks"
+	webhookValidating             = "webhookValidating"
+	webhookMutating               = "webhookMutating"
 	webhookAnnotations            = "webhookAnnotations"
 	webhookLabels                 = "webhookLabels"
 	matchConditions               = "matchConditions"
@@ -190,6 +192,10 @@ type Configuration interface {
 	GetGenerateSuccessEvents() bool
 	// GetWebhook returns the webhook config
 	GetWebhook() WebhookConfig
+	// GetWebhookValidating returns the webhook validating config
+	GetWebhookValidating() WebhookConfig
+	// GetWebhookMutating returns the webhook mutating config
+	GetWebhookMutating() WebhookConfig
 	// GetWebhookAnnotations returns annotations to set on webhook configs
 	GetWebhookAnnotations() map[string]string
 	// GetWebhookLabels returns labels to set on webhook configs
@@ -214,6 +220,8 @@ type configuration struct {
 	filters                       []filter
 	generateSuccessEvents         bool
 	webhook                       WebhookConfig
+	webhookValidating             WebhookConfig
+	webhookMutating               WebhookConfig
 	webhookAnnotations            map[string]string
 	webhookLabels                 map[string]string
 	matchConditions               []admissionregistrationv1.MatchCondition
@@ -328,6 +336,36 @@ func (cd *configuration) GetWebhook() WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.webhook
+}
+
+func (cd *configuration) GetWebhookValidating() WebhookConfig {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+
+	merged := cd.webhookValidating
+	if merged.NamespaceSelector == nil {
+		merged.NamespaceSelector = cd.webhook.NamespaceSelector
+	}
+	if merged.ObjectSelector == nil {
+		merged.ObjectSelector = cd.webhook.ObjectSelector
+	}
+
+	return merged
+}
+
+func (cd *configuration) GetWebhookMutating() WebhookConfig {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+
+	merged := cd.webhookMutating
+	if merged.NamespaceSelector == nil {
+		merged.NamespaceSelector = cd.webhook.NamespaceSelector
+	}
+	if merged.ObjectSelector == nil {
+		merged.ObjectSelector = cd.webhook.ObjectSelector
+	}
+
+	return merged
 }
 
 func (cd *configuration) GetWebhookAnnotations() map[string]string {
@@ -473,6 +511,34 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.V(2).Info("webhooks configured")
 		}
 	}
+	// load webhook validating
+	webhookValidating, ok := data[webhookValidating]
+	if !ok {
+		logger.V(2).Info("webhookValidating not set")
+	} else {
+		logger := logger.WithValues("webhookValidating", webhookValidating)
+		webhookValidating, err := parseWebhooks(webhookValidating)
+		if err != nil {
+			logger.Error(err, "failed to parse webhook validating")
+		} else {
+			cd.webhookValidating = *webhookValidating
+			logger.V(2).Info("webhookValidating configured")
+		}
+	}
+	// load webhook mutating
+	webhookMutating, ok := data[webhookMutating]
+	if !ok {
+		logger.V(2).Info("webhookMutating not set")
+	} else {
+		logger := logger.WithValues("webhookMutating", webhookMutating)
+		webhookMutating, err := parseWebhooks(webhookMutating)
+		if err != nil {
+			logger.Error(err, "failed to parse webhook mutating")
+		} else {
+			cd.webhookMutating = *webhookMutating
+			logger.V(2).Info("webhookMutating configured")
+		}
+	}
 	// load webhook annotations
 	webhookAnnotations, ok := data[webhookAnnotations]
 	if !ok {
@@ -541,6 +607,8 @@ func (cd *configuration) unload() {
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
 	cd.webhook = WebhookConfig{}
+	cd.webhookValidating = WebhookConfig{}
+	cd.webhookMutating = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	logger.V(2).Info("configuration unloaded")
