@@ -1,5 +1,5 @@
 {{- if .Values.crds.migration.enabled -}}
-{{- if not .Values.templating.enabled -}}
+{{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.crds.migration.serviceAccount.automountServiceAccountToken }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
