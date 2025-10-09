@@ -714,8 +714,8 @@ codegen-manifest-install-latest: helm-setup-openreports
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=latest \
+		--set global.templating.enabled=true \
+		--set global.templating.version=latest \
 		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
@@ -730,9 +730,9 @@ codegen-manifest-debug: helm-setup-openreports
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=latest \
-		--set templating.debug=true \
+		--set global.templating.enabled=true \
+		--set global.templating.version=latest \
+		--set global.templating.debug=true \
 		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
@@ -746,8 +746,8 @@ codegen-manifest-release: helm-setup-openreports
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=$(VERSION) \
+		--set global.templating.enabled=true \
+		--set global.templating.version=$(VERSION) \
 		--set admissionController.container.image.tag=$(VERSION) \
 		--set admissionController.initContainer.image.tag=$(VERSION) \
 		--set cleanupController.image.tag=$(VERSION) \
