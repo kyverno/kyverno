@@ -153,7 +153,7 @@ func (v *mutationHandler) applyMutations(
 		}
 	}
 
-	events := webhookutils.GenerateEvents(engineResponses, false, cfg)
+	events := webhookutils.GenerateEvents(engineResponses, false)
 	v.eventGen.Add(events...)
 
 	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
