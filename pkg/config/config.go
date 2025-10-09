@@ -111,9 +111,16 @@ const (
 	webhookLabels                 = "webhookLabels"
 	matchConditions               = "matchConditions"
 	updateRequestThreshold        = "updateRequestThreshold"
+	enableUpdateRequestCleanup    = "enableUpdateRequestCleanup"
+	updateRequestCleanupTTL       = "updateRequestCleanupTTL"
 )
 
 const UpdateRequestThreshold = 1000
+
+const (
+	// DefaultUpdateRequestCleanupTTL is the default TTL for UpdateRequest cleanup
+	DefaultUpdateRequestCleanupTTL = "2m"
+)
 
 var (
 	// kyvernoNamespace is the Kyverno namespace
@@ -202,6 +209,10 @@ type Configuration interface {
 	OnChanged(func())
 	// GetUpdateRequestThreshold gets the threshold limit for the total number of updaterequests
 	GetUpdateRequestThreshold() int64
+	// GetEnableUpdateRequestCleanup returns if UpdateRequest cleanup is enabled
+	GetEnableUpdateRequestCleanup() bool
+	// GetUpdateRequestCleanupTTL returns the TTL for UpdateRequest cleanup
+	GetUpdateRequestCleanupTTL() string
 }
 
 // configuration stores the configuration
@@ -220,6 +231,8 @@ type configuration struct {
 	mux                           sync.RWMutex
 	callbacks                     []func()
 	updateRequestThreshold        int64
+	enableUpdateRequestCleanup    bool
+	updateRequestCleanupTTL       string
 }
 
 type match struct {
@@ -354,6 +367,18 @@ func (cd *configuration) GetUpdateRequestThreshold() int64 {
 	return cd.updateRequestThreshold
 }
 
+func (cd *configuration) GetEnableUpdateRequestCleanup() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.enableUpdateRequestCleanup
+}
+
+func (cd *configuration) GetUpdateRequestCleanupTTL() string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.updateRequestCleanupTTL
+}
+
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	if cm != nil {
 		cd.load(cm)
@@ -385,6 +410,8 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	// load filters
 	cd.filters = parseKinds(data[resourceFilters])
 	cd.updateRequestThreshold = UpdateRequestThreshold
+	cd.enableUpdateRequestCleanup = false
+	cd.updateRequestCleanupTTL = DefaultUpdateRequestCleanupTTL
 	logger.V(4).Info("filters configured", "filters", cd.filters)
 	// load defaultRegistry
 	defaultRegistry, ok := data[defaultRegistry]
@@ -528,6 +555,31 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.V(2).Info("enableDefaultRegistryMutation configured")
 		}
 	}
+
+	// load enableUpdateRequestCleanup
+	cleanupEnabled, ok := data[enableUpdateRequestCleanup]
+	if !ok {
+		logger.V(2).Info("enableUpdateRequestCleanup not set")
+	} else {
+		logger := logger.WithValues("enableUpdateRequestCleanup", cleanupEnabled)
+		enabled, err := strconv.ParseBool(cleanupEnabled)
+		if err != nil {
+			logger.Error(err, "enableUpdateRequestCleanup is not a boolean")
+		} else {
+			cd.enableUpdateRequestCleanup = enabled
+			logger.V(2).Info("enableUpdateRequestCleanup configured")
+		}
+	}
+
+	// load updateRequestCleanupTTL
+	cleanupTTL, ok := data[updateRequestCleanupTTL]
+	if !ok {
+		logger.V(2).Info("updateRequestCleanupTTL not set")
+	} else {
+		logger := logger.WithValues("updateRequestCleanupTTL", cleanupTTL)
+		cd.updateRequestCleanupTTL = cleanupTTL
+		logger.V(2).Info("updateRequestCleanupTTL configured")
+	}
 }
 
 func (cd *configuration) unload() {
@@ -541,6 +593,9 @@ func (cd *configuration) unload() {
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
 	cd.webhook = WebhookConfig{}
+	cd.updateRequestThreshold = UpdateRequestThreshold
+	cd.enableUpdateRequestCleanup = false
+	cd.updateRequestCleanupTTL = DefaultUpdateRequestCleanupTTL
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	logger.V(2).Info("configuration unloaded")
