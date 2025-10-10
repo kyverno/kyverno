@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	enginecompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -68,12 +68,12 @@ func (c *captureQueue) AddAfter(item any, delay time.Duration) {
 // Test that deleting controller reconcile clamps the requeue delay when the next execution
 // time is in the past (due to an old LastExecutionTime).
 func TestReconcile_ClampPastNextExecution(t *testing.T) {
-	pol := policiesv1alpha1.DeletingPolicy{
+	pol := policiesv1beta1.DeletingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "",
 			Name:      "dpol",
 		},
-		Spec: policiesv1alpha1.DeletingPolicySpec{
+		Spec: policiesv1beta1.DeletingPolicySpec{
 			Schedule: "* * * * *",
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -90,7 +90,7 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 				},
 			},
 		},
-		Status: policiesv1alpha1.DeletingPolicyStatus{
+		Status: policiesv1beta1.DeletingPolicyStatus{
 			LastExecutionTime: metav1.NewTime(
 				time.Date(1901, 1, 1, 0, 0, 0, 0, time.UTC),
 			),
@@ -109,7 +109,7 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	cq := &captureQueue{TypedRateLimitingInterface: baseQ}
 
 	compiler := enginecompiler.NewCompiler()
-	provFunc, err := dpolengine.NewProvider(compiler, []policiesv1alpha1.DeletingPolicyLike{&pol}, nil)
+	provFunc, err := dpolengine.NewProvider(compiler, []policiesv1beta1.DeletingPolicyLike{&pol}, nil)
 	if err != nil {
 		t.Fatalf("provider init failed: %v", err)
 	}
