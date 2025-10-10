@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// DeletingPolicies returns a DeletingPolicyInformer.
 	DeletingPolicies() DeletingPolicyInformer
+	// MutatingPolicies returns a MutatingPolicyInformer.
+	MutatingPolicies() MutatingPolicyInformer
 	// NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 	NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
@@ -46,6 +48,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // DeletingPolicies returns a DeletingPolicyInformer.
 func (v *version) DeletingPolicies() DeletingPolicyInformer {
 	return &deletingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// MutatingPolicies returns a MutatingPolicyInformer.
+func (v *version) MutatingPolicies() MutatingPolicyInformer {
+	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.

@@ -22,6 +22,10 @@ package v1beta1
 // DeletingPolicyLister.
 type DeletingPolicyListerExpansion interface{}
 
+// MutatingPolicyListerExpansion allows custom methods to be added to
+// MutatingPolicyLister.
+type MutatingPolicyListerExpansion interface{}
+
 // NamespacedDeletingPolicyListerExpansion allows custom methods to be added to
 // NamespacedDeletingPolicyLister.
 type NamespacedDeletingPolicyListerExpansion interface{}

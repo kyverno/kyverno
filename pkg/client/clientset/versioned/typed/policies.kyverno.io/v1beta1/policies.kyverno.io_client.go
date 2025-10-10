@@ -29,6 +29,7 @@ import (
 type PoliciesV1beta1Interface interface {
 	RESTClient() rest.Interface
 	DeletingPoliciesGetter
+	MutatingPoliciesGetter
 	NamespacedDeletingPoliciesGetter
 	ValidatingPoliciesGetter
 }
@@ -40,6 +41,10 @@ type PoliciesV1beta1Client struct {
 
 func (c *PoliciesV1beta1Client) DeletingPolicies() DeletingPolicyInterface {
 	return newDeletingPolicies(c)
+}
+
+func (c *PoliciesV1beta1Client) MutatingPolicies() MutatingPolicyInterface {
+	return newMutatingPolicies(c)
 }
 
 func (c *PoliciesV1beta1Client) NamespacedDeletingPolicies(namespace string) NamespacedDeletingPolicyInterface {

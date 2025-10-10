@@ -20,6 +20,8 @@ package v1beta1
 
 type DeletingPolicyExpansion interface{}
 
+type MutatingPolicyExpansion interface{}
+
 type NamespacedDeletingPolicyExpansion interface{}
 
 type ValidatingPolicyExpansion interface{}
