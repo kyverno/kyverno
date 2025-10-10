@@ -56263,10 +56263,8 @@ metadata:
   labels:
     app.kubernetes.io/component: crds
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: latest
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
   name: policyexceptions.policies.kyverno.io
