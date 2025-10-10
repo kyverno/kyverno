@@ -35,6 +35,7 @@ var (
 	vapV1              = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	nvpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("NamespacedValidatingPolicy")
 	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
@@ -52,18 +53,19 @@ type LoaderError struct {
 }
 
 type LoaderResults struct {
-	Policies                   []kyvernov1.PolicyInterface
-	VAPs                       []admissionregistrationv1.ValidatingAdmissionPolicy
-	VAPBindings                []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MAPs                       []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	MAPBindings                []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
-	ValidatingPolicies         []policiesv1alpha1.ValidatingPolicy
-	ImageValidatingPolicies    []policiesv1alpha1.ImageValidatingPolicy
-	GeneratingPolicies         []policiesv1alpha1.GeneratingPolicy
-	DeletingPolicies           []policiesv1beta1.DeletingPolicy
-	NamespacedDeletingPolicies []policiesv1beta1.NamespacedDeletingPolicy
-	MutatingPolicies           []policiesv1alpha1.MutatingPolicy
-	NonFatalErrors             []LoaderError
+	Policies                     []kyvernov1.PolicyInterface
+	VAPs                         []admissionregistrationv1.ValidatingAdmissionPolicy
+	VAPBindings                  []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MAPs                         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	MAPBindings                  []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	ValidatingPolicies           []policiesv1alpha1.ValidatingPolicy
+	NamespacedValidatingPolicies []policiesv1alpha1.NamespacedValidatingPolicy
+	ImageValidatingPolicies      []policiesv1alpha1.ImageValidatingPolicy
+	GeneratingPolicies           []policiesv1alpha1.GeneratingPolicy
+	DeletingPolicies             []policiesv1beta1.DeletingPolicy
+	NamespacedDeletingPolicies   []policiesv1beta1.NamespacedDeletingPolicy
+	MutatingPolicies             []policiesv1alpha1.MutatingPolicy
+	NonFatalErrors               []LoaderError
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {
@@ -186,6 +188,12 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.ValidatingPolicies = append(results.ValidatingPolicies, *typed)
+		case nvpV1alpha1:
+			typed, err := convert.To[policiesv1alpha1.NamespacedValidatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.NamespacedValidatingPolicies = append(results.NamespacedValidatingPolicies, *typed)
 		case ivpV1alpha1:
 			typed, err := convert.To[policiesv1alpha1.ImageValidatingPolicy](untyped)
 			if err != nil {

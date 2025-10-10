@@ -173,6 +173,9 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.MutatingAdmissionPolicy != nil:
 		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
 	case p.ValidatingPolicy != nil:
+		if apiVersion := p.ValidatingPolicy.APIVersion; apiVersion != "" {
+			return apiVersion
+		}
 		return policiesv1alpha1.GroupVersion.String()
 	case p.ImageValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
@@ -195,7 +198,7 @@ func (p *genericPolicy) GetKind() string {
 	case p.MutatingAdmissionPolicy != nil:
 		return "MutatingAdmissionPolicy"
 	case p.ValidatingPolicy != nil:
-		return "ValidatingPolicy"
+		return p.ValidatingPolicy.GetKind()
 	case p.ImageValidatingPolicy != nil:
 		return "ImageValidatingPolicy"
 	case p.MutatingPolicy != nil:
@@ -212,6 +215,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 	switch {
 	case p.PolicyInterface != nil:
 		return p.PolicyInterface.IsNamespaced()
+	case p.ValidatingPolicy != nil:
+		return p.ValidatingPolicy.GetNamespace() != ""
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""
 	}
@@ -257,6 +262,37 @@ func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:           pol,
 		ValidatingPolicy: pol,
+	}
+}
+
+func NewNamespacedValidatingPolicy(pol *policiesv1alpha1.NamespacedValidatingPolicy) GenericPolicy {
+	if pol == nil {
+		return nil
+	}
+	apiVersion := pol.APIVersion
+	if apiVersion == "" {
+		apiVersion = policiesv1alpha1.GroupVersion.String()
+	}
+	converted := policiesv1alpha1.ValidatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: pol.GetKind(), APIVersion: apiVersion},
+		ObjectMeta: pol.ObjectMeta,
+		Spec:       pol.Spec,
+		Status:     pol.Status,
+	}
+	return &genericPolicy{
+		Object:           pol,
+		ValidatingPolicy: &converted,
+	}
+}
+
+func NewValidatingPolicyFromLike(pol policiesv1alpha1.ValidatingPolicyLike) GenericPolicy {
+	switch typed := pol.(type) {
+	case *policiesv1alpha1.ValidatingPolicy:
+		return NewValidatingPolicy(typed)
+	case *policiesv1alpha1.NamespacedValidatingPolicy:
+		return NewNamespacedValidatingPolicy(typed)
+	default:
+		return nil
 	}
 }
 
