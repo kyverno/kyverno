@@ -16,6 +16,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -351,7 +352,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	allDeletingPolicies := make([]policiesv1alpha1.DeletingPolicyLike, 0, len(dps)+len(ndps))
+	allDeletingPolicies := make([]policiesv1beta1.DeletingPolicyLike, 0, len(dps)+len(ndps))
 	for i := range dps {
 		allDeletingPolicies = append(allDeletingPolicies, &dps[i])
 	}
@@ -659,7 +660,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 }
 
 func (c *ApplyCommandConfig) applyDeletingPolicies(
-	dps []policiesv1alpha1.DeletingPolicyLike,
+	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1alpha1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,
@@ -764,8 +765,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1alpha1.ValidatingPolicy,
 	[]policiesv1alpha1.ImageValidatingPolicy,
 	[]policiesv1alpha1.GeneratingPolicy,
-	[]policiesv1alpha1.DeletingPolicy,
-	[]policiesv1alpha1.NamespacedDeletingPolicy,
+	[]policiesv1beta1.DeletingPolicy,
+	[]policiesv1beta1.NamespacedDeletingPolicy,
 	[]policiesv1alpha1.MutatingPolicy,
 	error,
 ) {
@@ -778,8 +779,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	var ivps []policiesv1alpha1.ImageValidatingPolicy
 	var gps []policiesv1alpha1.GeneratingPolicy
-	var dps []policiesv1alpha1.DeletingPolicy
-	var ndps []policiesv1alpha1.NamespacedDeletingPolicy
+	var dps []policiesv1beta1.DeletingPolicy
+	var ndps []policiesv1beta1.NamespacedDeletingPolicy
 	var mps []policiesv1alpha1.MutatingPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)

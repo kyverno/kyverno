@@ -28,12 +28,22 @@ import (
 
 type PoliciesV1beta1Interface interface {
 	RESTClient() rest.Interface
+	DeletingPoliciesGetter
+	NamespacedDeletingPoliciesGetter
 	ValidatingPoliciesGetter
 }
 
 // PoliciesV1beta1Client is used to interact with features provided by the policies.kyverno.io group.
 type PoliciesV1beta1Client struct {
 	restClient rest.Interface
+}
+
+func (c *PoliciesV1beta1Client) DeletingPolicies() DeletingPolicyInterface {
+	return newDeletingPolicies(c)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedDeletingPolicies(namespace string) NamespacedDeletingPolicyInterface {
+	return newNamespacedDeletingPolicies(c, namespace)
 }
 
 func (c *PoliciesV1beta1Client) ValidatingPolicies() ValidatingPolicyInterface {

@@ -237,8 +237,8 @@ func main() {
 				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
 				provider := engine.NewFetchProvider(
 					compiler.NewCompiler(),
-					kyvernoInformer.Policies().V1alpha1().DeletingPolicies().Lister(),
-					kyvernoInformer.Policies().V1alpha1().NamespacedDeletingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().DeletingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies().Lister(),
 					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
 					internal.PolicyExceptionEnabled(),
 				)
@@ -374,8 +374,8 @@ func main() {
 					deleting.NewController(
 						setup.KyvernoDynamicClient,
 						setup.KyvernoClient,
-						kyvernoInformer.Policies().V1alpha1().DeletingPolicies(),
-						kyvernoInformer.Policies().V1alpha1().NamespacedDeletingPolicies(),
+						kyvernoInformer.Policies().V1beta1().DeletingPolicies(),
+						kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies(),
 						provider,
 						engine.NewEngine(
 							func(name string) *corev1.Namespace {

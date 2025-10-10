@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 )
 
@@ -20,7 +21,7 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 
 func NewProvider(
 	compiler dpolcompiler.Compiler,
-	policies []policiesv1alpha1.DeletingPolicyLike,
+	policies []policiesv1beta1.DeletingPolicyLike,
 	exceptions []*policiesv1alpha1.PolicyException,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
