@@ -130,7 +130,6 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
 	)
 
