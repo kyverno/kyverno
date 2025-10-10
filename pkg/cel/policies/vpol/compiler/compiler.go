@@ -118,6 +118,8 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 }
 
 func createBaseVpolEnv() (*environment.EnvSet, error) {
+	// build a registry and set it in the env with unsafe ptr ?
+
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
