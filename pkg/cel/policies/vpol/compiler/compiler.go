@@ -14,11 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
-	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/environment"
 )
@@ -117,7 +114,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	}, nil
 }
 
-func createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func createBaseVpolEnv() (*environment.EnvSet, error) {
 	// build a registry and set it in the env with unsafe ptr ?
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
@@ -125,26 +122,22 @@ func createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 		cel.Variable(compiler.ObjectKey, cel.DynType),
 		cel.Variable(compiler.OldObjectKey, cel.DynType),
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
+		cel.Types(compiler.NamespaceType.CelType()),
+		cel.Types(compiler.RequestType.CelType()),
 	)
 
-	// this has to be a base compiler version that is a default and it must be separate from the kubernetes version
-	base := environment.MustBaseEnvSet(version.MajorMinor(1, 0), false)
-	env, err := base.Env(environment.StoredExpressions)
+	// declaration type env options has to be added to the env before variables of custom types
+	variablesProvider, err := initializeVariablesProvider()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	// this has to happen here becuase you cant call this on the env if it has any custom types for some reason
-	var declTypes []*apiservercel.DeclType
-	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
-	for _, declType := range declTypes {
-		baseOpts = append(baseOpts, cel.Types(declType.CelType()))
-	}
-	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
+
+	declProvider := apiservercel.NewDeclTypeProvider(compiler.NamespaceType, compiler.RequestType)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+
 	baseOpts = append(baseOpts, declOptions...)
 	baseOpts = append(baseOpts,
 		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
@@ -155,26 +148,12 @@ func createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")))
 
+	base := environment.MustBaseEnvSet(version.MajorMinor(1, 0), false)
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(0, 0),
 			EnvOptions:        baseOpts,
 		},
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	return extendedBase, variablesProvider, nil
-}
-
-func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
-	var allErrs field.ErrorList
-	extendedBase, variablesProvider, err := createBaseVpolEnv()
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-
-	customEnv, err := extendedBase.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
@@ -213,9 +192,24 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		},
 	)
 	if err != nil {
+		return nil, err
+	}
+	return extendedBase, nil
+}
+
+func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+	var allErrs field.ErrorList
+	extendedBase, err := createBaseVpolEnv()
+	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
-	env, err := customEnv.Env(environment.StoredExpressions)
+
+	variablesProvider, err := initializeVariablesProvider()
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	env, err := extendedBase.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -255,7 +249,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), customEnv.StoredExpressionsEnv(), polex.Spec.MatchConditions...)
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -275,9 +269,12 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	}, nil
 }
 
-func ConvertVariable(in admissionregistrationv1.Variable) plugincel.NamedExpressionAccessor {
-	return &validating.Variable{
-		Name:       in.Name,
-		Expression: in.Expression,
+func initializeVariablesProvider() (*compiler.VariablesProvider, error) {
+	base := environment.MustBaseEnvSet(version.MajorMinor(1, 0), false)
+	e, err := base.Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, err
 	}
+
+	return compiler.NewVariablesProvider(e.CELTypeProvider()), nil
 }
