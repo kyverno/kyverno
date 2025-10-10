@@ -117,7 +117,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	}, nil
 }
 
-func createBaseVpolEnv() (*environment.EnvSet, types.Provider, error) {
+func createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	// build a registry and set it in the env with unsafe ptr ?
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
@@ -231,7 +231,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		matchConditions = append(matchConditions, programs...)
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, compiler.NewVariablesProvider(variablesProvider), policy.Spec.Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}

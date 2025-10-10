@@ -46,7 +46,7 @@ func CompileMatchConditions(path *field.Path, env *cel.Env, matchConditions ...a
 	return result, allErrs
 }
 
-func CompileVariable(path *field.Path, env *cel.Env, variablesProvider *variablesProvider, variable admissionregistrationv1.Variable) (cel.Program, field.ErrorList) {
+func CompileVariable(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variable admissionregistrationv1.Variable) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
@@ -54,7 +54,7 @@ func CompileVariable(path *field.Path, env *cel.Env, variablesProvider *variable
 		if err := issues.Err(); err != nil {
 			return nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
-		variablesProvider.RegisterField(variable.Name, ast.OutputType())
+		VariablesProvider.RegisterField(variable.Name, ast.OutputType())
 		prog, err := env.Program(ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
@@ -63,13 +63,13 @@ func CompileVariable(path *field.Path, env *cel.Env, variablesProvider *variable
 	}
 }
 
-func CompileVariables(path *field.Path, env *cel.Env, variablesProvider *variablesProvider, variables ...admissionregistrationv1.Variable) (result map[string]cel.Program, allErrs field.ErrorList) {
+func CompileVariables(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variables ...admissionregistrationv1.Variable) (result map[string]cel.Program, allErrs field.ErrorList) {
 	if len(variables) == 0 {
 		return nil, nil
 	}
 	result = make(map[string]cel.Program, len(variables))
 	for i, variable := range variables {
-		prog, errs := CompileVariable(path.Index(i), env, variablesProvider, variable)
+		prog, errs := CompileVariable(path.Index(i), env, VariablesProvider, variable)
 		allErrs = append(allErrs, errs...)
 		if prog != nil {
 			result[variable.Name] = prog
