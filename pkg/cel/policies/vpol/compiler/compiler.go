@@ -194,6 +194,10 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
+	env, err := extendedBase.Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
 
 	path := field.NewPath("spec")
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
@@ -206,7 +210,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		matchConditions = append(matchConditions, programs...)
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, compiler.NewVariablesProvider(env.CELTypeProvider()), policy.Spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
