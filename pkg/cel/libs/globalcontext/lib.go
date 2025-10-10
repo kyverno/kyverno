@@ -6,11 +6,18 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 const libraryName = "kyverno.globalcontext"
 
 type lib struct{}
+
+func VersionedOption() environment.VersionedOptions {
+	return environment.VersionedOptions{
+		IntroducedVersion: nil,
+	}
+}
 
 func Lib() cel.EnvOption {
 	// create the cel lib env option

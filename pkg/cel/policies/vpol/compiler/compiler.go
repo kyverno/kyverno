@@ -14,8 +14,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/version"
+	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	apiservercel "k8s.io/apiserver/pkg/cel"
+	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 type Exception struct {
@@ -114,44 +119,12 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 
 func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	base, err := compiler.NewBaseEnv()
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-	options := []cel.EnvOption{
+	baseOpts := compiler.DefaultEnvOptions()
+	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
 		cel.Variable(compiler.OldObjectKey, cel.DynType),
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-	}
-	var declTypes []*apiservercel.DeclType
-	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
-	for _, declType := range declTypes {
-		options = append(options, cel.Types(declType.CelType()))
-	}
-	variablesProvider := compiler.NewVariablesProvider(base.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
-	declOptions, err := declProvider.EnvOptions(variablesProvider)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-	options = append(options, declOptions...)
-	// TODO: params, authorizer, authorizer.requestResource ?
-	env, err := base.Extend(options...)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-	path := field.NewPath("spec")
-	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
-	{
-		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, policy.Spec.MatchConditions...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		matchConditions = append(matchConditions, programs...)
-	}
-	env, err = env.Extend(
 		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
 		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(compiler.HttpKey, http.ContextType),
@@ -159,40 +132,108 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
-		globalcontext.Lib(),
-		http.Lib(),
-		image.Lib(),
-		imagedata.Lib(),
-		resource.Lib(),
-		user.Lib(),
+	)
+
+	// this has to be a base compiler version that is a default and it must be separate from the kubernetes version
+	base := environment.MustBaseEnvSet(version.MajorMinor(1, 0), false)
+	extendedBase, err := base.Extend(
+		environment.VersionedOptions{
+			IntroducedVersion: version.MajorMinor(0, 0),
+			EnvOptions:        baseOpts,
+		},
+	)
+
+	compositedCompiler, err := plugincel.NewCompositedCompiler(extendedBase)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	optionsVars := plugincel.OptionalVariableDeclarations{
+		HasParams:     false,
+		HasAuthorizer: false,
+		HasPatchTypes: false,
+		StrictCost:    true,
+	}
+
+	variables := map[string]cel.Program{}
+	for _, v := range policy.Spec.Variables {
+		compiled := compositedCompiler.CompileAndStoreVariable(ConvertVariable(v), optionsVars, environment.StoredExpressions)
+		variables[v.Name] = compiled.Program
+	}
+
+	customEnv, err := base.Extend(
+		environment.VersionedOptions{
+			IntroducedVersion: nil,
+			EnvOptions: []cel.EnvOption{
+				globalcontext.Lib(),
+			},
+		},
+		environment.VersionedOptions{
+			IntroducedVersion: nil,
+			EnvOptions: []cel.EnvOption{
+				http.Lib(),
+			},
+		},
+		environment.VersionedOptions{
+			IntroducedVersion: nil,
+			EnvOptions: []cel.EnvOption{
+				image.Lib(),
+			},
+		},
+		environment.VersionedOptions{
+			IntroducedVersion: nil,
+			EnvOptions: []cel.EnvOption{
+				imagedata.Lib(),
+			},
+		},
+		environment.VersionedOptions{
+			IntroducedVersion: nil,
+			EnvOptions: []cel.EnvOption{
+				resource.Lib(),
+			},
+		},
+		environment.VersionedOptions{
+			IntroducedVersion: nil,
+			EnvOptions: []cel.EnvOption{
+				user.Lib(),
+			},
+		},
 	)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
+
+	path := field.NewPath("spec")
+	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
+	{
+		path := path.Child("matchConditions")
+		programs, errs := compiler.CompileMatchConditions(path, customEnv.StoredExpressionsEnv(), policy.Spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		matchConditions = append(matchConditions, programs...)
 	}
+
 	validations := make([]compiler.Validation, 0, len(policy.Spec.Validations))
 	{
 		path := path.Child("validations")
 		for i, rule := range policy.Spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, env, rule)
+			program, errs := compiler.CompileValidation(path, customEnv.StoredExpressionsEnv(), rule)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
 			validations = append(validations, program)
 		}
 	}
-	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, policy.Spec.AuditAnnotations...)
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), customEnv.StoredExpressionsEnv(), policy.Spec.AuditAnnotations...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), customEnv.StoredExpressionsEnv(), polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -210,4 +251,11 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		auditAnnotations: auditAnnotations,
 		exceptions:       compiledExceptions,
 	}, nil
+}
+
+func ConvertVariable(in admissionregistrationv1.Variable) plugincel.NamedExpressionAccessor {
+	return &validating.Variable{
+		Name:       in.Name,
+		Expression: in.Expression,
+	}
 }
