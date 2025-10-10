@@ -142,25 +142,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		},
 	)
 
-	compositedCompiler, err := plugincel.NewCompositedCompiler(extendedBase)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-
-	optionsVars := plugincel.OptionalVariableDeclarations{
-		HasParams:     false,
-		HasAuthorizer: false,
-		HasPatchTypes: false,
-		StrictCost:    true,
-	}
-
-	variables := map[string]cel.Program{}
-	for _, v := range policy.Spec.Variables {
-		compiled := compositedCompiler.CompileAndStoreVariable(ConvertVariable(v), optionsVars, environment.StoredExpressions)
-		variables[v.Name] = compiled.Program
-	}
-
-	customEnv, err := base.Extend(
+	customEnv, err := extendedBase.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
@@ -200,6 +182,24 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	compositedCompiler, err := plugincel.NewCompositedCompiler(customEnv)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	optionsVars := plugincel.OptionalVariableDeclarations{
+		HasParams:     false,
+		HasAuthorizer: false,
+		HasPatchTypes: false,
+		StrictCost:    true,
+	}
+
+	variables := map[string]cel.Program{}
+	for _, v := range policy.Spec.Variables {
+		compiled := compositedCompiler.CompileAndStoreVariable(ConvertVariable(v), optionsVars, environment.StoredExpressions)
+		variables[v.Name] = compiled.Program
 	}
 
 	path := field.NewPath("spec")
