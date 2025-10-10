@@ -28,6 +28,10 @@ type FakePoliciesV1beta1 struct {
 	*testing.Fake
 }
 
+func (c *FakePoliciesV1beta1) MutatingPolicies() v1beta1.MutatingPolicyInterface {
+	return newFakeMutatingPolicies(c)
+}
+
 func (c *FakePoliciesV1beta1) ValidatingPolicies() v1beta1.ValidatingPolicyInterface {
 	return newFakeValidatingPolicies(c)
 }

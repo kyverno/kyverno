@@ -19,3 +19,12 @@ type ValidatingPolicyAutogen struct {
 	Targets []Target              `json:"targets"`
 	Spec    *ValidatingPolicySpec `json:"spec"`
 }
+
+type MutatingPolicyAutogenStatus struct {
+	Configs map[string]MutatingPolicyAutogen `json:"configs,omitempty"`
+}
+
+type MutatingPolicyAutogen struct {
+	Targets []Target            `json:"targets"`
+	Spec    *MutatingPolicySpec `json:"spec"`
+}

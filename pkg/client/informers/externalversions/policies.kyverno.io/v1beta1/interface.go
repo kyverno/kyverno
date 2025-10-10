@@ -24,6 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// MutatingPolicies returns a MutatingPolicyInformer.
+	MutatingPolicies() MutatingPolicyInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
 	ValidatingPolicies() ValidatingPolicyInformer
 }
@@ -37,6 +39,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// MutatingPolicies returns a MutatingPolicyInformer.
+func (v *version) MutatingPolicies() MutatingPolicyInformer {
+	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // ValidatingPolicies returns a ValidatingPolicyInformer.

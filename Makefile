@@ -782,7 +782,7 @@ codegen-fix-all: codegen-fix-tests
 
 .PHONY: codegen-all
 codegen-all: ## Generate all generated code
-# codegen-all: codegen-api-all
+codegen-all: codegen-api-all
 codegen-all: codegen-client-all
 codegen-all: codegen-crds-all
 codegen-all: codegen-cli-all

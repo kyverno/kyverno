@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1beta1
 
+// MutatingPolicyListerExpansion allows custom methods to be added to
+// MutatingPolicyLister.
+type MutatingPolicyListerExpansion interface{}
+
 // ValidatingPolicyListerExpansion allows custom methods to be added to
 // ValidatingPolicyLister.
 type ValidatingPolicyListerExpansion interface{}
