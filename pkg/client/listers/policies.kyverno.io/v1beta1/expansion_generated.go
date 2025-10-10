@@ -18,9 +18,21 @@ limitations under the License.
 
 package v1beta1
 
+// DeletingPolicyListerExpansion allows custom methods to be added to
+// DeletingPolicyLister.
+type DeletingPolicyListerExpansion interface{}
+
 // MutatingPolicyListerExpansion allows custom methods to be added to
 // MutatingPolicyLister.
 type MutatingPolicyListerExpansion interface{}
+
+// NamespacedDeletingPolicyListerExpansion allows custom methods to be added to
+// NamespacedDeletingPolicyLister.
+type NamespacedDeletingPolicyListerExpansion interface{}
+
+// NamespacedDeletingPolicyNamespaceListerExpansion allows custom methods to be added to
+// NamespacedDeletingPolicyNamespaceLister.
+type NamespacedDeletingPolicyNamespaceListerExpansion interface{}
 
 // ValidatingPolicyListerExpansion allows custom methods to be added to
 // ValidatingPolicyLister.

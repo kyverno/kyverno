@@ -28,8 +28,16 @@ type FakePoliciesV1beta1 struct {
 	*testing.Fake
 }
 
+func (c *FakePoliciesV1beta1) DeletingPolicies() v1beta1.DeletingPolicyInterface {
+	return newFakeDeletingPolicies(c)
+}
+
 func (c *FakePoliciesV1beta1) MutatingPolicies() v1beta1.MutatingPolicyInterface {
 	return newFakeMutatingPolicies(c)
+}
+
+func (c *FakePoliciesV1beta1) NamespacedDeletingPolicies(namespace string) v1beta1.NamespacedDeletingPolicyInterface {
+	return newFakeNamespacedDeletingPolicies(c, namespace)
 }
 
 func (c *FakePoliciesV1beta1) ValidatingPolicies() v1beta1.ValidatingPolicyInterface {

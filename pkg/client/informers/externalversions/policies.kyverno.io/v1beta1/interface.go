@@ -24,8 +24,12 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// DeletingPolicies returns a DeletingPolicyInformer.
+	DeletingPolicies() DeletingPolicyInformer
 	// MutatingPolicies returns a MutatingPolicyInformer.
 	MutatingPolicies() MutatingPolicyInformer
+	// NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
+	NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
 	ValidatingPolicies() ValidatingPolicyInformer
 }
@@ -41,9 +45,19 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
+// DeletingPolicies returns a DeletingPolicyInformer.
+func (v *version) DeletingPolicies() DeletingPolicyInformer {
+	return &deletingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // MutatingPolicies returns a MutatingPolicyInformer.
 func (v *version) MutatingPolicies() MutatingPolicyInformer {
 	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
+func (v *version) NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer {
+	return &namespacedDeletingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ValidatingPolicies returns a ValidatingPolicyInformer.
