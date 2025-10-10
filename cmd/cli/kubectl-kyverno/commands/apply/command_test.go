@@ -196,9 +196,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
-				PolicyReport:  true,
+				PolicyPaths:     []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
+				PolicyReport:    true,
+				DropEmptyFields: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -212,9 +213,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
-				PolicyReport:  true,
+				PolicyPaths:     []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
+				PolicyReport:    true,
+				DropEmptyFields: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -411,6 +413,26 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-empty-fields/policy.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/cli/test-empty-fields/deployment-1.yaml",
+					"../../../../../test/cli/test-empty-fields/deployment-2.yaml",
+				},
+				PolicyReport:    true,
+				DropEmptyFields: true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	compareSummary := func(expected openreportsv1alpha1.ReportSummary, actual openreportsv1alpha1.ReportSummary, desc string) {
@@ -532,9 +554,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod1.yaml"},
-				PolicyReport:  true,
+				PolicyPaths:     []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:   []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod1.yaml"},
+				PolicyReport:    true,
+				DropEmptyFields: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -548,9 +571,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"},
-				PolicyReport:  true,
+				PolicyPaths:     []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:   []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"},
+				PolicyReport:    true,
+				DropEmptyFields: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -631,10 +655,11 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod1.yaml"},
-				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
-				PolicyReport:  true,
+				PolicyPaths:     []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
+				ResourcePaths:   []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod1.yaml"},
+				ContextPath:     "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
+				PolicyReport:    true,
+				DropEmptyFields: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -648,10 +673,11 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod2.yaml"},
-				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
-				PolicyReport:  true,
+				PolicyPaths:     []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
+				ResourcePaths:   []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod2.yaml"},
+				ContextPath:     "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
+				PolicyReport:    true,
+				DropEmptyFields: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{

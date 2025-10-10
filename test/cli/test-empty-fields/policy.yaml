@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: basic-pod-validation
+spec:
+  validationFailureAction: enforce  
+  background: false
+  rules:
+    - name: validate-containers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+      validate:
+        message: "Deployment must have at least one container with an image"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - image: "*"
