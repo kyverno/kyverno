@@ -117,8 +117,7 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	}, nil
 }
 
-func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
-	var allErrs field.ErrorList
+func createBaseVpolEnv() (*environment.EnvSet, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -141,6 +140,18 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 			EnvOptions:        baseOpts,
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+	return extendedBase, nil
+}
+
+func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+	var allErrs field.ErrorList
+	extendedBase, err := createBaseVpolEnv()
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
 
 	customEnv, err := extendedBase.Extend(
 		environment.VersionedOptions{
@@ -182,24 +193,6 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-
-	compositedCompiler, err := plugincel.NewCompositedCompiler(customEnv)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-
-	optionsVars := plugincel.OptionalVariableDeclarations{
-		HasParams:     false,
-		HasAuthorizer: false,
-		HasPatchTypes: false,
-		StrictCost:    true,
-	}
-
-	variables := map[string]cel.Program{}
-	for _, v := range policy.Spec.Variables {
-		compiled := compositedCompiler.CompileAndStoreVariable(ConvertVariable(v), optionsVars, environment.StoredExpressions)
-		variables[v.Name] = compiled.Program
 	}
 
 	path := field.NewPath("spec")
