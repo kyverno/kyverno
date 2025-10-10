@@ -124,17 +124,35 @@ func createBaseVpolEnv() (*environment.EnvSet, error) {
 		cel.Variable(compiler.ObjectKey, cel.DynType),
 		cel.Variable(compiler.OldObjectKey, cel.DynType),
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
+	)
+
+	// this has to be a base compiler version that is a default and it must be separate from the kubernetes version
+	base := environment.MustBaseEnvSet(version.MajorMinor(1, 0), false)
+	env, err := base.Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, err
+	}
+	// this has to happen here becuase you cant call this on the env if it has any custom types for some reason
+	var declTypes []*apiservercel.DeclType
+	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
+	for _, declType := range declTypes {
+		baseOpts = append(baseOpts, cel.Types(declType.CelType()))
+	}
+	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		return nil, err
+	}
+	baseOpts = append(baseOpts, declOptions...)
+	baseOpts = append(baseOpts, ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
 		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
-		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
-	)
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")))
 
-	// this has to be a base compiler version that is a default and it must be separate from the kubernetes version
-	base := environment.MustBaseEnvSet(version.MajorMinor(1, 0), false)
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(0, 0),
@@ -196,26 +214,6 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	env, err := customEnv.Env(environment.StoredExpressions)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-
-	// ammar: refactor or wrap this logic somehow
-	options := []cel.EnvOption{}
-	var declTypes []*apiservercel.DeclType
-	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
-	for _, declType := range declTypes {
-		options = append(options, cel.Types(declType.CelType()))
-	}
-	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
-	declOptions, err := declProvider.EnvOptions(variablesProvider)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-	options = append(options, declOptions...)
-	// TODO: params, authorizer, authorizer.requestResource ?
-	env, err = env.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
