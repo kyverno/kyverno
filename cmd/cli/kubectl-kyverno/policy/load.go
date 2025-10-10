@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/ext/resource/convert"
@@ -38,7 +39,8 @@ var (
 	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
-	ndpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
+	dpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("DeletingPolicy")
+	ndpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
 	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
@@ -60,8 +62,8 @@ type LoaderResults struct {
 	NamespacedValidatingPolicies []policiesv1alpha1.NamespacedValidatingPolicy
 	ImageValidatingPolicies      []policiesv1alpha1.ImageValidatingPolicy
 	GeneratingPolicies           []policiesv1alpha1.GeneratingPolicy
-	DeletingPolicies             []policiesv1alpha1.DeletingPolicy
-	NamespacedDeletingPolicies   []policiesv1alpha1.NamespacedDeletingPolicy
+	DeletingPolicies             []policiesv1beta1.DeletingPolicy
+	NamespacedDeletingPolicies   []policiesv1beta1.NamespacedDeletingPolicy
 	MutatingPolicies             []policiesv1alpha1.MutatingPolicy
 	NonFatalErrors               []LoaderError
 }
@@ -216,14 +218,14 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.GeneratingPolicies = append(results.GeneratingPolicies, *typed)
-		case dpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.DeletingPolicy](untyped)
+		case dpV1alpha1, dpV1beta1:
+			typed, err := convert.To[policiesv1beta1.DeletingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.DeletingPolicies = append(results.DeletingPolicies, *typed)
-		case ndpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.NamespacedDeletingPolicy](untyped)
+		case ndpV1beta1:
+			typed, err := convert.To[policiesv1beta1.NamespacedDeletingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}

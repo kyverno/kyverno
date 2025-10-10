@@ -44,10 +44,6 @@ func (c *FakePoliciesV1alpha1) MutatingPolicies() v1alpha1.MutatingPolicyInterfa
 	return newFakeMutatingPolicies(c)
 }
 
-func (c *FakePoliciesV1alpha1) NamespacedDeletingPolicies(namespace string) v1alpha1.NamespacedDeletingPolicyInterface {
-	return newFakeNamespacedDeletingPolicies(c, namespace)
-}
-
 func (c *FakePoliciesV1alpha1) NamespacedValidatingPolicies(namespace string) v1alpha1.NamespacedValidatingPolicyInterface {
 	return newFakeNamespacedValidatingPolicies(c, namespace)
 }
