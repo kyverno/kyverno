@@ -162,37 +162,37 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 
 	customEnv, err := base.Extend(
 		environment.VersionedOptions{
-			IntroducedVersion: nil,
+			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
 				globalcontext.Lib(),
 			},
 		},
 		environment.VersionedOptions{
-			IntroducedVersion: nil,
+			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
 				http.Lib(),
 			},
 		},
 		environment.VersionedOptions{
-			IntroducedVersion: nil,
+			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
 				image.Lib(),
 			},
 		},
 		environment.VersionedOptions{
-			IntroducedVersion: nil,
+			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
 				imagedata.Lib(),
 			},
 		},
 		environment.VersionedOptions{
-			IntroducedVersion: nil,
+			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
 				resource.Lib(),
 			},
 		},
 		environment.VersionedOptions{
-			IntroducedVersion: nil,
+			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
 				user.Lib(),
 			},
