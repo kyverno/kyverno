@@ -117,9 +117,8 @@ func (c *compilerImpl) compileForJSON(policy *policiesv1alpha1.ValidatingPolicy,
 	}, nil
 }
 
-func createBaseVpolEnv() (*environment.EnvSet, error) {
+func createBaseVpolEnv() (*environment.EnvSet, types.Provider, error) {
 	// build a registry and set it in the env with unsafe ptr ?
-
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -132,7 +131,7 @@ func createBaseVpolEnv() (*environment.EnvSet, error) {
 	base := environment.MustBaseEnvSet(version.MajorMinor(1, 0), false)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// this has to happen here becuase you cant call this on the env if it has any custom types for some reason
 	var declTypes []*apiservercel.DeclType
@@ -144,10 +143,11 @@ func createBaseVpolEnv() (*environment.EnvSet, error) {
 	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	baseOpts = append(baseOpts, declOptions...)
-	baseOpts = append(baseOpts, ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
+	baseOpts = append(baseOpts,
+		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
 		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
@@ -162,14 +162,14 @@ func createBaseVpolEnv() (*environment.EnvSet, error) {
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return extendedBase, nil
+	return extendedBase, variablesProvider, nil
 }
 
 func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	extendedBase, err := createBaseVpolEnv()
+	extendedBase, variablesProvider, err := createBaseVpolEnv()
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -231,7 +231,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		matchConditions = append(matchConditions, programs...)
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, compiler.NewVariablesProvider(env.CELTypeProvider()), policy.Spec.Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, compiler.NewVariablesProvider(variablesProvider), policy.Spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
