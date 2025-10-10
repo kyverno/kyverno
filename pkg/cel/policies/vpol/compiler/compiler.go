@@ -213,6 +213,11 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		matchConditions = append(matchConditions, programs...)
 	}
 
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
+
 	validations := make([]compiler.Validation, 0, len(policy.Spec.Validations))
 	{
 		path := path.Child("validations")
