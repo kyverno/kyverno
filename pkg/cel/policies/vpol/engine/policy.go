@@ -9,6 +9,6 @@ import (
 
 type Policy struct {
 	Actions        sets.Set[admissionregistrationv1.ValidationAction]
-	Policy         policiesv1alpha1.ValidatingPolicy
+	Policy         policiesv1alpha1.ValidatingPolicyLike
 	CompiledPolicy *compiler.Policy
 }

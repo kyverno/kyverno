@@ -689,6 +689,7 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
 	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
 	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedvalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedvalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
 	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
