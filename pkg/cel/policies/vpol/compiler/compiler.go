@@ -195,7 +195,27 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
-	env, err := extendedBase.Env(environment.StoredExpressions)
+	env, err := customEnv.Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	// ammar: refactor or wrap this logic somehow
+	options := []cel.EnvOption{}
+	var declTypes []*apiservercel.DeclType
+	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
+	for _, declType := range declTypes {
+		options = append(options, cel.Types(declType.CelType()))
+	}
+	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+	options = append(options, declOptions...)
+	// TODO: params, authorizer, authorizer.requestResource ?
+	env, err = env.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -204,7 +224,7 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, customEnv.StoredExpressionsEnv(), policy.Spec.MatchConditions...)
+		programs, errs := compiler.CompileMatchConditions(path, env, policy.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -221,14 +241,14 @@ func (c *compilerImpl) compileForKubernetes(policy *policiesv1alpha1.ValidatingP
 		path := path.Child("validations")
 		for i, rule := range policy.Spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, customEnv.StoredExpressionsEnv(), rule)
+			program, errs := compiler.CompileValidation(path, env, rule)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
 			validations = append(validations, program)
 		}
 	}
-	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), customEnv.StoredExpressionsEnv(), policy.Spec.AuditAnnotations...)
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, policy.Spec.AuditAnnotations...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
