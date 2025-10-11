@@ -188,8 +188,6 @@ func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLi
 }
 
 func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
-	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
-
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -205,6 +203,7 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
+	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
