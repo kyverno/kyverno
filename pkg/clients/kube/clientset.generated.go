@@ -38,7 +38,6 @@ import (
 	flowcontrolv1beta3 "github.com/kyverno/kyverno/pkg/clients/kube/flowcontrolv1beta3"
 	internalv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/internalv1alpha1"
 	networkingv1 "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1"
-	networkingv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1alpha1"
 	networkingv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/networkingv1beta1"
 	nodev1 "github.com/kyverno/kyverno/pkg/clients/kube/nodev1"
 	nodev1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/nodev1alpha1"
@@ -96,7 +95,6 @@ import (
 	k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta2 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	k8s_io_client_go_kubernetes_typed_networking_v1 "k8s.io/client-go/kubernetes/typed/networking/v1"
-	k8s_io_client_go_kubernetes_typed_networking_v1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_networking_v1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	k8s_io_client_go_kubernetes_typed_node_v1 "k8s.io/client-go/kubernetes/typed/node/v1"
 	k8s_io_client_go_kubernetes_typed_node_v1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
@@ -155,7 +153,6 @@ type clientset struct {
 	flowcontrolv1beta3            k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta3.FlowcontrolV1beta3Interface
 	internalv1alpha1              k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.InternalV1alpha1Interface
 	networkingv1                  k8s_io_client_go_kubernetes_typed_networking_v1.NetworkingV1Interface
-	networkingv1alpha1            k8s_io_client_go_kubernetes_typed_networking_v1alpha1.NetworkingV1alpha1Interface
 	networkingv1beta1             k8s_io_client_go_kubernetes_typed_networking_v1beta1.NetworkingV1beta1Interface
 	nodev1                        k8s_io_client_go_kubernetes_typed_node_v1.NodeV1Interface
 	nodev1alpha1                  k8s_io_client_go_kubernetes_typed_node_v1alpha1.NodeV1alpha1Interface
@@ -285,9 +282,6 @@ func (c *clientset) InternalV1alpha1() k8s_io_client_go_kubernetes_typed_apiserv
 func (c *clientset) NetworkingV1() k8s_io_client_go_kubernetes_typed_networking_v1.NetworkingV1Interface {
 	return c.networkingv1
 }
-func (c *clientset) NetworkingV1alpha1() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.NetworkingV1alpha1Interface {
-	return c.networkingv1alpha1
-}
 func (c *clientset) NetworkingV1beta1() k8s_io_client_go_kubernetes_typed_networking_v1beta1.NetworkingV1beta1Interface {
 	return c.networkingv1beta1
 }
@@ -384,7 +378,6 @@ func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.Metr
 		flowcontrolv1beta3:            flowcontrolv1beta3.WithMetrics(inner.FlowcontrolV1beta3(), m, clientType),
 		internalv1alpha1:              internalv1alpha1.WithMetrics(inner.InternalV1alpha1(), m, clientType),
 		networkingv1:                  networkingv1.WithMetrics(inner.NetworkingV1(), m, clientType),
-		networkingv1alpha1:            networkingv1alpha1.WithMetrics(inner.NetworkingV1alpha1(), m, clientType),
 		networkingv1beta1:             networkingv1beta1.WithMetrics(inner.NetworkingV1beta1(), m, clientType),
 		nodev1:                        nodev1.WithMetrics(inner.NodeV1(), m, clientType),
 		nodev1alpha1:                  nodev1alpha1.WithMetrics(inner.NodeV1alpha1(), m, clientType),
@@ -445,7 +438,6 @@ func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_
 		flowcontrolv1beta3:            flowcontrolv1beta3.WithTracing(inner.FlowcontrolV1beta3(), "FlowcontrolV1beta3"),
 		internalv1alpha1:              internalv1alpha1.WithTracing(inner.InternalV1alpha1(), "InternalV1alpha1"),
 		networkingv1:                  networkingv1.WithTracing(inner.NetworkingV1(), "NetworkingV1"),
-		networkingv1alpha1:            networkingv1alpha1.WithTracing(inner.NetworkingV1alpha1(), "NetworkingV1alpha1"),
 		networkingv1beta1:             networkingv1beta1.WithTracing(inner.NetworkingV1beta1(), "NetworkingV1beta1"),
 		nodev1:                        nodev1.WithTracing(inner.NodeV1(), "NodeV1"),
 		nodev1alpha1:                  nodev1alpha1.WithTracing(inner.NodeV1alpha1(), "NodeV1alpha1"),
@@ -506,7 +498,6 @@ func WrapWithLogging(inner k8s_io_client_go_kubernetes.Interface, logger logr.Lo
 		flowcontrolv1beta3:            flowcontrolv1beta3.WithLogging(inner.FlowcontrolV1beta3(), logger.WithValues("group", "FlowcontrolV1beta3")),
 		internalv1alpha1:              internalv1alpha1.WithLogging(inner.InternalV1alpha1(), logger.WithValues("group", "InternalV1alpha1")),
 		networkingv1:                  networkingv1.WithLogging(inner.NetworkingV1(), logger.WithValues("group", "NetworkingV1")),
-		networkingv1alpha1:            networkingv1alpha1.WithLogging(inner.NetworkingV1alpha1(), logger.WithValues("group", "NetworkingV1alpha1")),
 		networkingv1beta1:             networkingv1beta1.WithLogging(inner.NetworkingV1beta1(), logger.WithValues("group", "NetworkingV1beta1")),
 		nodev1:                        nodev1.WithLogging(inner.NodeV1(), logger.WithValues("group", "NodeV1")),
 		nodev1alpha1:                  nodev1alpha1.WithLogging(inner.NodeV1alpha1(), logger.WithValues("group", "NodeV1alpha1")),
