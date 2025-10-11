@@ -4,6 +4,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
@@ -16,71 +17,45 @@ import (
 	ivpolvar "github.com/kyverno/kyverno/pkg/imageverification/variables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
+	"k8s.io/apiserver/pkg/cel/environment"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+var ivpolCompilerVersion = version.MajorMinor(1, 0)
 
 type Compiler interface {
 	Compile(*policiesv1alpha1.ImageValidatingPolicy, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
-	return &compiler{
+	return &compilerImpl{
 		ictx:   ictx,
 		lister: lister,
 		reqGVR: reqGVR,
 	}
 }
 
-type compiler struct {
+type compilerImpl struct {
 	ictx   imagedataloader.ImageContext
 	lister k8scorev1.SecretInterface
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compilerImpl) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
-	base, err := engine.NewBaseEnv()
+
+	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(ivpolicy)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-	var declTypes []*apiservercel.DeclType
-	declTypes = append(declTypes, imageverify.Types()...)
-	options := []cel.EnvOption{
-		cel.Variable(engine.ResourceKey, resource.ContextType),
-		cel.Variable(engine.HttpKey, http.ContextType),
-		cel.Variable(engine.ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
-		cel.Variable(engine.AttestorsKey, cel.MapType(cel.StringType, cel.DynType)),
-		cel.Variable(engine.AttestationsKey, cel.MapType(cel.StringType, cel.StringType)),
-		cel.Variable(engine.ImageDataKey, imagedata.ContextType),
 	}
 
-	if ivpolicy.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
-		options = append(options, cel.Variable(engine.RequestKey, engine.RequestType.CelType()))
-		options = append(options, cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()))
-		options = append(options, cel.Variable(engine.ObjectKey, cel.DynType))
-		options = append(options, cel.Variable(engine.OldObjectKey, cel.DynType))
-		options = append(options, cel.Variable(engine.VariablesKey, engine.VariablesType))
-		options = append(options, cel.Variable(engine.GlobalContextKey, globalcontext.ContextType))
-	} else {
-		options = append(options, cel.Variable(engine.ObjectKey, cel.DynType))
+	env, err := ivpolEnvSet.Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	for _, declType := range declTypes {
-		options = append(options, cel.Types(declType.CelType()))
-	}
-	variablesProvider := engine.NewVariablesProvider(base.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
-	declOptions, err := declProvider.EnvOptions(variablesProvider)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-	options = append(options, declOptions...)
-	options = append(options, globalcontext.Lib(), http.Lib(), image.Lib(), imagedata.Lib(), imageverify.Lib(c.ictx, ivpolicy, c.lister), resource.Lib(), user.Lib())
-	env, err := base.Extend(options...)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
 	path := field.NewPath("spec")
 	matchConditions := make([]cel.Program, 0, len(ivpolicy.Spec.MatchConditions))
 	{
@@ -174,6 +149,84 @@ func (c *compiler) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exc
 		exceptions:           compiledExceptions,
 		variables:            variables,
 	}, nil
+}
+
+func (c *compilerImpl) createBaseIvpolEnv(ivpol *v1alpha1.ImageValidatingPolicy) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+	baseOpts := compiler.DefaultEnvOptions()
+	baseOpts = append(baseOpts,
+		cel.Variable(engine.ResourceKey, resource.ContextType),
+		cel.Variable(engine.HttpKey, http.ContextType),
+		cel.Variable(engine.ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
+		cel.Variable(engine.AttestorsKey, cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable(engine.AttestationsKey, cel.MapType(cel.StringType, cel.StringType)),
+		cel.Variable(engine.ImageDataKey, imagedata.ContextType),
+	)
+
+	if ivpol.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
+		baseOpts = append(baseOpts,
+			cel.Variable(engine.RequestKey, engine.RequestType.CelType()),
+			cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()),
+			cel.Variable(engine.ObjectKey, cel.DynType),
+			cel.Variable(engine.OldObjectKey, cel.DynType),
+			cel.Variable(engine.VariablesKey, engine.VariablesType),
+			cel.Variable(engine.GlobalContextKey, globalcontext.ContextType),
+		)
+	} else {
+		baseOpts = append(baseOpts, cel.Variable(engine.ObjectKey, cel.DynType))
+	}
+
+	base := environment.MustBaseEnvSet(ivpolCompilerVersion, false)
+	env, err := base.Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(compiler.NamespaceType, compiler.RequestType)
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	baseOpts = append(baseOpts, declOptions...)
+
+	extendedBase, err := base.Extend(
+		environment.VersionedOptions{
+			IntroducedVersion: ivpolCompilerVersion,
+			EnvOptions:        baseOpts,
+		},
+		// libaries
+		environment.VersionedOptions{
+			IntroducedVersion: ivpolCompilerVersion,
+			EnvOptions: []cel.EnvOption{
+				globalcontext.Lib(
+					globalcontext.Latest(),
+				),
+				http.Lib(
+					http.Latest(),
+				),
+				image.Lib(
+					image.Latest(),
+				),
+				imagedata.Lib(
+					imagedata.Latest(),
+				),
+				imageverify.Lib(
+					imageverify.Latest(), c.ictx, ivpol, c.lister,
+				),
+				resource.Lib(
+					resource.Latest(),
+				),
+				user.Lib(
+					user.Latest(),
+				),
+			},
+		},
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return extendedBase, variablesProvider, nil
 }
 
 func getAttestations(att []v1alpha1.Attestation) map[string]string {

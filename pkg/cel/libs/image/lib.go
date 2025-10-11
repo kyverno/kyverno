@@ -2,17 +2,22 @@ package image
 
 import (
 	"github.com/google/cel-go/cel"
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 const libraryName = "kyverno.image"
 
-func Lib() cel.EnvOption {
-	return cel.Lib(imageLib)
+func Lib(v *version.Version) cel.EnvOption {
+	return cel.Lib(&imageLibType{version: v})
 }
 
-var imageLib = &imageLibType{}
+func Latest() *version.Version {
+	return version.MajorMinor(1, 0)
+}
 
-type imageLibType struct{}
+type imageLibType struct {
+	version *version.Version
+}
 
 func (*imageLibType) LibraryName() string {
 	return libraryName

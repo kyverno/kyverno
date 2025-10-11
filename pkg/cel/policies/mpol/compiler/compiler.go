@@ -49,12 +49,12 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 				cel.Variable(compiler.ResourceKey, resource.ContextType),
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
-				globalcontext.Lib(),
-				http.Lib(),
-				image.Lib(),
-				imagedata.Lib(),
-				resource.Lib(),
-				user.Lib(),
+				globalcontext.Lib(image.Latest()),
+				http.Lib(image.Latest()),
+				image.Lib(image.Latest()),
+				imagedata.Lib(imagedata.Latest()),
+				resource.Lib(resource.Latest()),
+				user.Lib(user.Latest()),
 			},
 		},
 	)
@@ -75,7 +75,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 	}
 
 	if policy.Spec.Variables != nil {
-		compositedCompiler.CompileAndStoreVariables(convertVariables(policy.Spec.Variables), optionsVars, environment.StoredExpressions)
+		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.Spec.Variables), optionsVars, environment.StoredExpressions)
 	}
 
 	// Compile match conditions and collect errors

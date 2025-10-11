@@ -7,6 +7,32 @@ import (
 	"k8s.io/apiserver/pkg/cel/library"
 )
 
+func DefaultEnvOptions() []cel.EnvOption {
+	return []cel.EnvOption{
+		cel.HomogeneousAggregateLiterals(),
+		cel.EagerlyValidateDeclarations(true),
+		cel.DefaultUTCTimeZone(true),
+		cel.CrossTypeNumericComparisons(true),
+		// register common libs
+		cel.OptionalTypes(),
+		ext.Bindings(),
+		ext.Encoders(),
+		ext.Lists(),
+		ext.Math(),
+		ext.Protos(),
+		ext.Sets(),
+		ext.Strings(),
+		// register kubernetes libs
+		library.CIDR(),
+		library.Format(),
+		library.IP(),
+		library.Lists(),
+		library.Regex(),
+		library.URLs(),
+		library.Quantity(),
+	}
+}
+
 func NewBaseEnv() (*cel.Env, error) {
 	// create new cel env
 	return cel.NewEnv(
@@ -42,6 +68,6 @@ func NewMatchImageEnv() (*cel.Env, error) {
 	}
 	return base.Extend(
 		cel.Variable(ImageRefKey, cel.StringType),
-		image.Lib(),
+		image.Lib(image.Latest()),
 	)
 }

@@ -9,8 +9,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
+	"k8s.io/apiserver/pkg/cel/environment"
 )
+
+var gpolCompilerVersion = version.MajorMinor(1, 0)
 
 type Compiler interface {
 	Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
@@ -22,34 +26,84 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
-	var allErrs field.ErrorList
-	base, err := compiler.NewBaseEnv()
+func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
+	base := environment.MustBaseEnvSet(gpolCompilerVersion, false)
+	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, nil, err
 	}
-	options := []cel.EnvOption{
+
+	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(compiler.NamespaceType, compiler.RequestType)
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	baseOpts := compiler.DefaultEnvOptions()
+	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
 		cel.Variable(compiler.OldObjectKey, cel.DynType),
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
+		cel.Types(compiler.NamespaceType.CelType()),
+		cel.Types(compiler.RequestType.CelType()),
+	)
+
+	// baseOpts = append(baseOpts, declOptions...)
+
+	baseOpts = append(baseOpts,
+		cel.Variable(compiler.GeneratorKey, generator.ContextType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+	)
+
+	baseOpts = append(baseOpts, declOptions...)
+
+	extendedBase, err := base.Extend(
+		environment.VersionedOptions{
+			IntroducedVersion: gpolCompilerVersion,
+			EnvOptions:        baseOpts,
+		},
+		// libaries
+		environment.VersionedOptions{
+			IntroducedVersion: gpolCompilerVersion,
+			EnvOptions: []cel.EnvOption{
+				generator.Lib(
+					generator.Latest(),
+				),
+				globalcontext.Lib(
+					globalcontext.Latest(),
+				),
+				http.Lib(
+					http.Latest(),
+				),
+				resource.Lib(
+					resource.Latest(),
+				),
+			},
+		},
+	)
+	if err != nil {
+		return nil, nil, err
 	}
-	var declTypes []*apiservercel.DeclType
-	declTypes = append(declTypes, compiler.NamespaceType, compiler.RequestType)
-	for _, declType := range declTypes {
-		options = append(options, cel.Types(declType.CelType()))
-	}
-	variablesProvider := compiler.NewVariablesProvider(base.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
-	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	return extendedBase, variablesProvider, nil
+}
+
+func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+	var allErrs field.ErrorList
+	gpolEnvSet, variablesProvider, err := createBaseGpolEnv()
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
-	options = append(options, declOptions...)
-	env, err := base.Extend(options...)
+
+	env, err := gpolEnvSet.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
+
 	path := field.NewPath("spec")
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
 	{
@@ -60,17 +114,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
-	env, err = env.Extend(
-		cel.Variable(compiler.GeneratorKey, generator.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
-		generator.Lib(),
-		resource.Lib(),
-		globalcontext.Lib(),
-		http.Lib(),
-	)
+
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
