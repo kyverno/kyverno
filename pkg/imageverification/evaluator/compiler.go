@@ -160,19 +160,17 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol *v1alpha1.ImageValidatingPolicy)
 		cel.Variable(engine.AttestorsKey, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(engine.AttestationsKey, cel.MapType(cel.StringType, cel.StringType)),
 		cel.Variable(engine.ImageDataKey, imagedata.ContextType),
+		cel.Variable(engine.ObjectKey, cel.DynType),
 	)
 
 	if ivpol.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
 		baseOpts = append(baseOpts,
 			cel.Variable(engine.RequestKey, engine.RequestType.CelType()),
 			cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()),
-			cel.Variable(engine.ObjectKey, cel.DynType),
 			cel.Variable(engine.OldObjectKey, cel.DynType),
 			cel.Variable(engine.VariablesKey, engine.VariablesType),
 			cel.Variable(engine.GlobalContextKey, globalcontext.ContextType),
 		)
-	} else {
-		baseOpts = append(baseOpts, cel.Variable(engine.ObjectKey, cel.DynType))
 	}
 
 	base := environment.MustBaseEnvSet(ivpolCompilerVersion, false)
