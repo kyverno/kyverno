@@ -62,25 +62,13 @@ func NewFilteredNamespacedValidatingPolicyInformer(client versioned.Interface, n
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().NamespacedValidatingPolicies(namespace).List(context.Background(), options)
+				return client.PoliciesV1alpha1().NamespacedValidatingPolicies(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().NamespacedValidatingPolicies(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.PoliciesV1alpha1().NamespacedValidatingPolicies(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.PoliciesV1alpha1().NamespacedValidatingPolicies(namespace).Watch(ctx, options)
+				return client.PoliciesV1alpha1().NamespacedValidatingPolicies(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apipolicieskyvernoiov1alpha1.NamespacedValidatingPolicy{},
