@@ -63,6 +63,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&DeletingPolicy{},
 		&DeletingPolicyList{},
+		&GeneratingPolicy{},
+		&GeneratingPolicyList{},
 		&MutatingPolicy{},
 		&MutatingPolicyList{},
 		&NamespacedDeletingPolicy{},

@@ -32,6 +32,10 @@ func (c *FakePoliciesV1beta1) DeletingPolicies() v1beta1.DeletingPolicyInterface
 	return newFakeDeletingPolicies(c)
 }
 
+func (c *FakePoliciesV1beta1) GeneratingPolicies() v1beta1.GeneratingPolicyInterface {
+	return newFakeGeneratingPolicies(c)
+}
+
 func (c *FakePoliciesV1beta1) MutatingPolicies() v1beta1.MutatingPolicyInterface {
 	return newFakeMutatingPolicies(c)
 }
