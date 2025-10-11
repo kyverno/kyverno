@@ -27,6 +27,21 @@ func NewCompiler() Compiler {
 type compilerImpl struct{}
 
 func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
+	baseOpts := compiler.DefaultEnvOptions()
+	baseOpts = append(baseOpts,
+		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
+		cel.Variable(compiler.ObjectKey, cel.DynType),
+		cel.Variable(compiler.OldObjectKey, cel.DynType),
+		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
+		cel.Types(compiler.NamespaceType.CelType()),
+		cel.Types(compiler.RequestType.CelType()),
+		cel.Variable(compiler.GeneratorKey, generator.ContextType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+	)
+
 	base := environment.MustBaseEnvSet(gpolCompilerVersion, false)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
@@ -39,26 +54,6 @@ func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 	if err != nil {
 		return nil, nil, err
 	}
-
-	baseOpts := compiler.DefaultEnvOptions()
-	baseOpts = append(baseOpts,
-		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
-		cel.Variable(compiler.ObjectKey, cel.DynType),
-		cel.Variable(compiler.OldObjectKey, cel.DynType),
-		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-		cel.Types(compiler.NamespaceType.CelType()),
-		cel.Types(compiler.RequestType.CelType()),
-	)
-
-	// baseOpts = append(baseOpts, declOptions...)
-
-	baseOpts = append(baseOpts,
-		cel.Variable(compiler.GeneratorKey, generator.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
-	)
 
 	baseOpts = append(baseOpts, declOptions...)
 
