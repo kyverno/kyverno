@@ -189,6 +189,22 @@ func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLi
 
 func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
+
+	baseOpts := compiler.DefaultEnvOptions()
+	baseOpts = append(baseOpts,
+		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
+		cel.Variable(compiler.ObjectKey, cel.DynType),
+		cel.Variable(compiler.OldObjectKey, cel.DynType),
+		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
+		cel.Types(compiler.NamespaceType.CelType()),
+		cel.Types(compiler.RequestType.CelType()),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
+		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+	)
+
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -201,28 +217,10 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 		return nil, nil, err
 	}
 
-	baseOpts := compiler.DefaultEnvOptions()
-	baseOpts = append(baseOpts,
-		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
-		cel.Variable(compiler.ObjectKey, cel.DynType),
-		cel.Variable(compiler.OldObjectKey, cel.DynType),
-		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-		cel.Types(compiler.NamespaceType.CelType()),
-		cel.Types(compiler.RequestType.CelType()),
-	)
-
 	baseOpts = append(baseOpts, declOptions...)
 
-	baseOpts = append(baseOpts,
-		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
-		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
-		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
-	)
-
+	// the custom types have to be registered after the decl options have been registered, because these are what allow
+	// go struct type resolution
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: vpolCompilerVersion,
@@ -232,6 +230,8 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 		environment.VersionedOptions{
 			IntroducedVersion: vpolCompilerVersion,
 			EnvOptions: []cel.EnvOption{
+				ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
+				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
 				globalcontext.Lib(
 					globalcontext.Latest(),
 				),
