@@ -72,8 +72,8 @@ $(KIND):
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kind@$(KIND_VERSION)
 
 $(CONTROLLER_GEN):
-	@echo Install controller-gen... >&2
-	@cd ./hack/controller-gen && GOBIN=$(TOOLS_DIR) go install -buildvcs=false
+	@echo "Install controller-gen (module@version)..." >&2
+	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
 
 $(CLIENT_GEN):
 	@echo Install client-gen... >&2
