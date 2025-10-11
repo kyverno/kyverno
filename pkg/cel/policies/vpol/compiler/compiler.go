@@ -188,23 +188,6 @@ func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLi
 }
 
 func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
-	baseOpts := compiler.DefaultEnvOptions()
-	baseOpts = append(baseOpts,
-		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
-		cel.Variable(compiler.ObjectKey, cel.DynType),
-		cel.Variable(compiler.OldObjectKey, cel.DynType),
-		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-		cel.Types(compiler.NamespaceType.CelType()),
-		cel.Types(compiler.RequestType.CelType()),
-		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
-		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
-		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
-	)
-
 	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
@@ -217,7 +200,28 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 	if err != nil {
 		return nil, nil, err
 	}
+
+	baseOpts := compiler.DefaultEnvOptions()
+	baseOpts = append(baseOpts,
+		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
+		cel.Variable(compiler.ObjectKey, cel.DynType),
+		cel.Variable(compiler.OldObjectKey, cel.DynType),
+		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
+		cel.Types(compiler.NamespaceType.CelType()),
+		cel.Types(compiler.RequestType.CelType()),
+	)
+
 	baseOpts = append(baseOpts, declOptions...)
+
+	baseOpts = append(baseOpts,
+		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
+		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
+	)
 
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
