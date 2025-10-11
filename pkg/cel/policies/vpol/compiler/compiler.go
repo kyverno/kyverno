@@ -38,7 +38,7 @@ func NewCompiler() Compiler {
 type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
-	switch policy.GetSpec().EvaluationMode() {
+	switch policy.GetValidatingPolicySpec().EvaluationMode() {
 	case policiesv1alpha1.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
 	default:
@@ -59,25 +59,27 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 	}
 
 	path := field.NewPath("spec")
-	matchConditions := make([]cel.Program, 0, len(policy.GetSpec().MatchConditions))
+	spec := policy.GetValidatingPolicySpec()
+
+	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, policy.GetSpec().MatchConditions...)
+		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.GetSpec().Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
-	validations := make([]compiler.Validation, 0, len(policy.GetSpec().Validations))
+	validations := make([]compiler.Validation, 0, len(spec.Validations))
 	{
 		path := path.Child("validations")
-		for i, rule := range policy.GetSpec().Validations {
+		for i, rule := range spec.Validations {
 			path := path.Index(i)
 			program, errs := compiler.CompileValidation(path, env, rule)
 			if errs != nil {
@@ -86,7 +88,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 			validations = append(validations, program)
 		}
 	}
-	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, policy.GetSpec().AuditAnnotations...)
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, spec.AuditAnnotations...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -139,10 +141,12 @@ func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLi
 	}
 
 	path := field.NewPath("spec")
-	matchConditions := make([]cel.Program, 0, len(policy.GetSpec().MatchConditions))
+	spec := policy.GetValidatingPolicySpec()
+
+	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, policy.GetSpec().MatchConditions...)
+		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -156,15 +160,15 @@ func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLi
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.GetSpec().Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
-	validations := make([]compiler.Validation, 0, len(policy.GetSpec().Validations))
+	validations := make([]compiler.Validation, 0, len(spec.Validations))
 	{
 		path := path.Child("validations")
-		for i, rule := range policy.GetSpec().Validations {
+		for i, rule := range spec.Validations {
 			path := path.Index(i)
 			program, errs := compiler.CompileValidation(path, env, rule)
 			if errs != nil {
