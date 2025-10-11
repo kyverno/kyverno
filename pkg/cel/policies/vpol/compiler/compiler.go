@@ -40,7 +40,7 @@ type compilerImpl struct{}
 func (c *compilerImpl) Compile(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
 	case policiesv1alpha1.EvaluationModeJSON:
-		return c.compileForJSON(policy, exceptions)
+		return c.compileForJSON(policy)
 	default:
 		return c.compileForKubernetes(policy, exceptions)
 	}
@@ -115,7 +115,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 	}, nil
 }
 
-func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {

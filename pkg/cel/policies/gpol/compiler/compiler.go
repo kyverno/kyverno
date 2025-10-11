@@ -57,6 +57,8 @@ func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 
 	baseOpts = append(baseOpts, declOptions...)
 
+	// the custom types have to be registered after the decl options have been registered, because these are what allow
+	// go struct type resolution
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: gpolCompilerVersion,

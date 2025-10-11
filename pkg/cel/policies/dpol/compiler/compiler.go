@@ -115,6 +115,8 @@ func (c *compilerImpl) createBaseDpolEnv() (*environment.EnvSet, *compiler.Varia
 
 	baseOpts = append(baseOpts, declOptions...)
 
+	// the custom types have to be registered after the decl options have been registered, because these are what allow
+	// go struct type resolution
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: dpolCompilerVersion,
