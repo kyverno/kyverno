@@ -54,4 +54,5 @@ data:
   {{- with .Values.config.matchConditions }}
   matchConditions: {{ toJson . | quote }}
   {{- end }}
+  defaultAllowExistingViolations: {{ .Values.config.defaultAllowExistingViolations | quote }}
 {{- end -}}
