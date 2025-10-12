@@ -64,6 +64,7 @@ type controller struct {
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
 	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	nvpolLister policiesv1alpha1listers.NamespacedValidatingPolicyLister
 	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
 	gpolLister  policiesv1alpha1listers.GeneratingPolicyLister
 	mpolLister  policiesv1alpha1listers.MutatingPolicyLister
@@ -95,6 +96,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
@@ -289,6 +291,17 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if nvpolInformer != nil {
+		c.nvpolLister = nvpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			nvpolInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if ivpolInformer != nil {
 		c.ivpolLister = ivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
@@ -428,6 +441,20 @@ func (c *controller) createVPolMap() (sets.Set[string], error) {
 		}
 		for _, vpol := range vpols {
 			results.Insert(cache.MetaObjectToName(&vpol).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createNVPolMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.nvpolLister != nil {
+		nvpols, err := c.nvpolLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, nvpol := range nvpols {
+			results.Insert(cache.MetaObjectToName(nvpol).String())
 		}
 	}
 	return results, nil
@@ -725,6 +752,10 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
+	nvpolMap, err := c.createNVPolMap()
+	if err != nil {
+		return err
+	}
 	ivpolMap, err := c.createIVPolMap()
 	if err != nil {
 		return err
@@ -742,6 +773,7 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		vap:    vapMap,
 		mappol: mappolMap,
 		vpol:   vpolMap,
+		nvpol:  nvpolMap,
 		ivpol:  ivpolMap,
 		gpol:   gpolMap,
 		mpol:   mpolMap,

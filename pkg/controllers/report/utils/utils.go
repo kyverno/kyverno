@@ -215,6 +215,27 @@ func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicy
 	return policies, nil
 }
 
+func FetchNamespacedValidatingPolicies(nvpolLister policiesv1alpha1listers.NamespacedValidatingPolicyLister, namespace string) ([]policiesv1alpha1.NamespacedValidatingPolicy, error) {
+	var policies []policiesv1alpha1.NamespacedValidatingPolicy
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var pols []*policiesv1alpha1.NamespacedValidatingPolicy
+	if namespace != "" {
+		pols, err = nvpolLister.NamespacedValidatingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		pols, err = nvpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, pol := range pols {
+		policies = append(policies, *pol)
+	}
+	return policies, nil
+}
+
 func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyLister) ([]policiesv1alpha1.MutatingPolicy, error) {
 	var policies []policiesv1alpha1.MutatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
