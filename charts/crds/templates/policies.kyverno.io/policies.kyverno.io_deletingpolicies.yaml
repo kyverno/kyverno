@@ -31,7 +31,6 @@ spec:
     - jsonPath: .status.conditionStatus.ready
       name: READY
       type: string
-    deprecated: true
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -574,7 +573,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -1126,7 +1125,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 {{- end }}
