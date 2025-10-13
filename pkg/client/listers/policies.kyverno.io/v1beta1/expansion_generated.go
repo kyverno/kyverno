@@ -38,6 +38,14 @@ type NamespacedDeletingPolicyListerExpansion interface{}
 // NamespacedDeletingPolicyNamespaceLister.
 type NamespacedDeletingPolicyNamespaceListerExpansion interface{}
 
+// PolicyExceptionListerExpansion allows custom methods to be added to
+// PolicyExceptionLister.
+type PolicyExceptionListerExpansion interface{}
+
+// PolicyExceptionNamespaceListerExpansion allows custom methods to be added to
+// PolicyExceptionNamespaceLister.
+type PolicyExceptionNamespaceListerExpansion interface{}
+
 // ValidatingPolicyListerExpansion allows custom methods to be added to
 // ValidatingPolicyLister.
 type ValidatingPolicyListerExpansion interface{}
