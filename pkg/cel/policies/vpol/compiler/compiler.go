@@ -9,6 +9,7 @@ import (
 	"github.com/google/cel-go/ext"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
@@ -263,4 +264,3 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 	}
 	return extendedBase, variablesProvider, nil
 }
-
