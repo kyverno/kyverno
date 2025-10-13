@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/ext"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
@@ -17,11 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
-
-type Exception struct {
-	AllowedImages []string `cel:"allowedImages"`
-	AllowedValues []string `cel:"allowedValues"`
-}
 
 type Compiler interface {
 	Compile(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
@@ -36,13 +32,13 @@ type compilerImpl struct{}
 func (c *compilerImpl) Compile(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetSpec().EvaluationMode() {
 	case policiesv1alpha1.EvaluationModeJSON:
-		return c.compileForJSON(policy, exceptions)
+		return c.compileForJSON(policy)
 	default:
 		return c.compileForKubernetes(policy, exceptions)
 	}
 }
 
-func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -142,6 +138,24 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
+	env, err = env.Extend(
+		ext.NativeTypes(reflect.TypeFor[cellibs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
+		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		globalcontext.Lib(),
+		http.Lib(),
+		image.Lib(),
+		imagedata.Lib(),
+		resource.Lib(),
+		user.Lib(),
+	)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
 	path := field.NewPath("spec")
 	spec := policy.GetValidatingPolicySpec()
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
@@ -152,24 +166,6 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
-	}
-	env, err = env.Extend(
-		ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
-		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
-		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
-		globalcontext.Lib(),
-		http.Lib(),
-		image.Lib(),
-		imagedata.Lib(),
-		resource.Lib(),
-		user.Lib(),
-	)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
 	if errs != nil {
