@@ -5,6 +5,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -22,7 +23,7 @@ type lib struct {
 }
 
 func Latest() *version.Version {
-	return version.MajorMinor(1, 0)
+	return versions.ImageVerifyVersion
 }
 
 func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) cel.EnvOption {

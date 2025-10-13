@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
 	"k8s.io/apimachinery/pkg/util/version"
 )
 
@@ -17,7 +18,7 @@ type lib struct {
 }
 
 func Latest() *version.Version {
-	return version.MajorMinor(1, 0)
+	return versions.HttpVersion
 }
 
 func Lib(v *version.Version) cel.EnvOption {
