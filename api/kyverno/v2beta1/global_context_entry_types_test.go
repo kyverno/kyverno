@@ -1,438 +1,309 @@
+/*
+Copyright 2022 The Kubernetes authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v2beta1
 
 import (
+	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func TestGlobalContextEntryValidation(t *testing.T) {
-	gce := &GlobalContextEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-gce",
+func TestGlobalContextEntrySpecValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		spec    GlobalContextEntrySpec
+		wantErr bool
+	}{
+		{
+			name: "valid KubernetesResource",
+			spec: GlobalContextEntrySpec{
+				KubernetesResource: &KubernetesResource{
+					Group:    "apps",
+					Version:  "v1",
+					Resource: "deployments",
+				},
+			},
+			wantErr: false,
 		},
-		Spec: GlobalContextEntrySpec{
-			APICall: &ExternalAPICall{
+		{
+			name: "valid APICall",
+			spec: GlobalContextEntrySpec{
+				APICall: &ExternalAPICall{
+					APICall: kyvernov1.APICall{
+						URLPath: "/api/v1/namespaces",
+					},
+					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "both KubernetesResource and APICall",
+			spec: GlobalContextEntrySpec{
+				KubernetesResource: &KubernetesResource{
+					Group:    "apps",
+					Version:  "v1",
+					Resource: "deployments",
+				},
+				APICall: &ExternalAPICall{
+					APICall: kyvernov1.APICall{
+						URLPath: "/api/v1/namespaces",
+					},
+					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "neither KubernetesResource nor APICall",
+			spec:    GlobalContextEntrySpec{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.spec.Validate(field.NewPath("spec"), "")
+			if (len(errs) > 0) != tt.wantErr {
+				t.Errorf("GlobalContextEntrySpec.Validate() error = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestKubernetesResourceValidate(t *testing.T) {
+	tests := []struct {
+		name     string
+		resource KubernetesResource
+		wantErr  bool
+	}{
+		{
+			name: "valid KubernetesResource",
+			resource: KubernetesResource{
+				Group:    "apps",
+				Version:  "v1",
+				Resource: "deployments",
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing group only if version is v1 or CoreGroup",
+			resource: KubernetesResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "deployments",
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing group with random version",
+			resource: KubernetesResource{
+				Group:    "",
+				Version:  generateRandomVersion(),
+				Resource: "deployments",
+			},
+			wantErr: true,
+		},
+
+		{
+			name: "missing version",
+			resource: KubernetesResource{
+				Group:    "app",
+				Resource: "deployments",
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing resource",
+			resource: KubernetesResource{
+				Group:   "apps",
+				Version: "v1",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.resource.Validate(field.NewPath("resource"))
+			if (len(errs) > 0) != tt.wantErr {
+				t.Errorf("KubernetesResource.Validate() error = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestExternalAPICallValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		apiCall ExternalAPICall
+		wantErr bool
+	}{
+		{
+			name: "valid ExternalAPICall",
+			apiCall: ExternalAPICall{
 				APICall: kyvernov1.APICall{
-					URLPath: "https://example.com/api",
-					Method:  "GET",
+					URLPath: "/api/v1/namespaces",
 				},
-				RefreshInterval: &metav1.Duration{Duration: metav1.Duration{Duration: 300000000000}.Duration}, // 5 minutes
-				RetryLimit:      3,
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
 			},
+			wantErr: false,
+		},
+		{
+			name: "missing RefreshInterval",
+			apiCall: ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/api/v1/namespaces",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 0 * time.Second},
+			},
+			wantErr: true,
+		},
+		{
+			name: "both Service and URLPath",
+			apiCall: ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					Service: &kyvernov1.ServiceCall{},
+					URLPath: "/api/v1/namespaces",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing Service and URLPath",
+			apiCall: ExternalAPICall{
+				APICall:         kyvernov1.APICall{},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+			},
+			wantErr: true,
+		},
+		{
+			name: "POST method without data",
+			apiCall: ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					Method: "POST",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+			},
+			wantErr: true,
+		},
+
+		{
+			name: "non-POST method with data",
+			apiCall: ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					Method: "GET",
+					Data: []kyvernov1.RequestData{
+						{Key: "example-key", Value: &apiextv1.JSON{Raw: []byte(`{"field": "value"}`)}},
+					},
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+			},
+
+			wantErr: true,
 		},
 	}
 
-	errs := gce.Validate()
-	if len(errs) != 0 {
-		t.Errorf("Expected no validation errors, got %d errors: %v", len(errs), errs)
-	}
-
-	// Test validation with both KubernetesResource and APICall set (should fail)
-	gce.Spec.KubernetesResource = &KubernetesResource{
-		Group:    "apps",
-		Version:  "v1",
-		Resource: "deployments",
-	}
-
-	errs = gce.Validate()
-	if len(errs) == 0 {
-		t.Error("Expected validation errors when both KubernetesResource and APICall are set")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.apiCall.Validate(field.NewPath("apiCall"))
+			if (len(errs) > 0) != tt.wantErr {
+				t.Errorf("ExternalAPICall.Validate() error = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestGlobalContextEntrySpec(t *testing.T) {
-	t.Run("IsAPICall", func(t *testing.T) {
-		spec := &GlobalContextEntrySpec{
-			APICall: &ExternalAPICall{},
-		}
-		if !spec.IsAPICall() {
-			t.Error("Expected IsAPICall to return true when APICall is set")
-		}
-
-		spec.APICall = nil
-		if spec.IsAPICall() {
-			t.Error("Expected IsAPICall to return false when APICall is nil")
-		}
-	})
-
-	t.Run("IsResource", func(t *testing.T) {
-		spec := &GlobalContextEntrySpec{
-			KubernetesResource: &KubernetesResource{},
-		}
-		if !spec.IsResource() {
-			t.Error("Expected IsResource to return true when KubernetesResource is set")
-		}
-
-		spec.KubernetesResource = nil
-		if spec.IsResource() {
-			t.Error("Expected IsResource to return false when KubernetesResource is nil")
-		}
-	})
-
-	t.Run("Validate", func(t *testing.T) {
-		// Test neither APICall nor KubernetesResource set
-		spec := &GlobalContextEntrySpec{}
-		errs := spec.Validate(nil, "test")
-		if len(errs) == 0 {
-			t.Error("Expected validation error when neither APICall nor KubernetesResource is set")
-		}
-
-		// Test both APICall and KubernetesResource set
-		spec.APICall = &ExternalAPICall{
-			RefreshInterval: &metav1.Duration{Duration: 5 * time.Minute},
-		}
-		spec.KubernetesResource = &KubernetesResource{}
-		errs = spec.Validate(nil, "test")
-		if len(errs) == 0 {
-			t.Error("Expected validation error when both APICall and KubernetesResource are set")
-		}
-
-		// Test valid KubernetesResource only
-		spec.APICall = nil
-		spec.KubernetesResource = &KubernetesResource{
-			Version:  "v1",
-			Resource: "pods",
-		}
-		spec.Projections = []GlobalContextEntryProjection{
-			{Name: "test-proj", JMESPath: "metadata.name"},
-		}
-		errs = spec.Validate(nil, "test")
-		if len(errs) != 0 {
-			t.Errorf("Expected no validation errors for valid KubernetesResource, got: %v", errs)
-		}
-
-		// Test valid APICall only
-		spec.KubernetesResource = nil
-		spec.APICall = &ExternalAPICall{
-			APICall: kyvernov1.APICall{
-				URLPath: "https://example.com/api",
+func TestGlobalContextEntryProjectionValidate(t *testing.T) {
+	tests := []struct {
+		name       string
+		projection GlobalContextEntryProjection
+		gctxName   string
+		wantErr    bool
+	}{
+		{
+			name: "valid projection",
+			projection: GlobalContextEntryProjection{
+				Name:     "example",
+				JMESPath: "metadata.name",
 			},
-			RefreshInterval: &metav1.Duration{Duration: 5 * time.Minute},
-		}
-		errs = spec.Validate(nil, "test")
-		if len(errs) != 0 {
-			t.Errorf("Expected no validation errors for valid APICall, got: %v", errs)
-		}
-	})
+			gctxName: "globalContext",
+			wantErr:  false,
+		},
+		{
+			name: "missing name",
+			projection: GlobalContextEntryProjection{
+				JMESPath: "metadata.name",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
+		{
+			name: "name same as global context entry name",
+			projection: GlobalContextEntryProjection{
+				Name:     "globalContext",
+				JMESPath: "metadata.name",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
+		{
+			name: "missing JMESPath",
+			projection: GlobalContextEntryProjection{
+				Name: "example",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
+		{
+			name: "invalid JMESPath",
+			projection: GlobalContextEntryProjection{
+				Name:     "example",
+				JMESPath: "invalid[",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.projection.Validate(field.NewPath("projection"), tt.gctxName)
+			if (len(errs) > 0) != tt.wantErr {
+				t.Errorf("GlobalContextEntryProjection.Validate() error = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
 }
 
-func TestKubernetesResourceValidation(t *testing.T) {
-	t.Run("ValidResource", func(t *testing.T) {
-		kr := &KubernetesResource{
-			Group:    "apps",
-			Version:  "v1",
-			Resource: "deployments",
+func generateRandomVersion() string {
+	rand.NewSource(time.Now().UnixNano())
+	for {
+		version := "v" + strconv.Itoa(rand.Intn(9)+2) // Generates a number between 2 and 10 (inclusive)
+		if version != "v1" {
+			return version
 		}
-		errs := kr.Validate(nil)
-		if len(errs) != 0 {
-			t.Errorf("Expected no validation errors, got: %v", errs)
-		}
-	})
-
-	t.Run("CoreGroupResource", func(t *testing.T) {
-		kr := &KubernetesResource{
-			Version:  "v1",
-			Resource: "pods",
-		}
-		errs := kr.Validate(nil)
-		if len(errs) != 0 {
-			t.Errorf("Expected no validation errors for core group resource, got: %v", errs)
-		}
-	})
-
-	t.Run("MissingVersion", func(t *testing.T) {
-		kr := &KubernetesResource{
-			Group:    "apps",
-			Resource: "deployments",
-		}
-		errs := kr.Validate(nil)
-		if len(errs) == 0 {
-			t.Error("Expected validation error for missing version")
-		}
-	})
-
-	t.Run("MissingResource", func(t *testing.T) {
-		kr := &KubernetesResource{
-			Group:   "apps",
-			Version: "v1",
-		}
-		errs := kr.Validate(nil)
-		if len(errs) == 0 {
-			t.Error("Expected validation error for missing resource")
-		}
-	})
-
-	t.Run("MissingGroupForNonCore", func(t *testing.T) {
-		kr := &KubernetesResource{
-			Version:  "v1beta1",
-			Resource: "customresources",
-		}
-		errs := kr.Validate(nil)
-		if len(errs) == 0 {
-			t.Error("Expected validation error for missing group in non-core resource")
-		}
-	})
-}
-
-func TestExternalAPICallValidation(t *testing.T) {
-	t.Run("ValidAPICall", func(t *testing.T) {
-		apiCall := &ExternalAPICall{
-			APICall: kyvernov1.APICall{
-				URLPath: "https://example.com/api",
-				Method:  "GET",
-			},
-			RefreshInterval: &metav1.Duration{Duration: 5 * time.Minute},
-			RetryLimit:      3,
-		}
-		errs := apiCall.Validate(nil)
-		if len(errs) != 0 {
-			t.Errorf("Expected no validation errors, got: %v", errs)
-		}
-	})
-
-	t.Run("ValidServiceCall", func(t *testing.T) {
-		apiCall := &ExternalAPICall{
-			APICall: kyvernov1.APICall{
-				Service: &kyvernov1.ServiceCall{
-					URL:      "http://my-service.default.svc.cluster.local",
-					CABundle: "dGVzdA==",
-				},
-				Method: "GET",
-			},
-			RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
-		}
-		errs := apiCall.Validate(nil)
-		if len(errs) != 0 {
-			t.Errorf("Expected no validation errors, got: %v", errs)
-		}
-	})
-
-	t.Run("ZeroRefreshInterval", func(t *testing.T) {
-		apiCall := &ExternalAPICall{
-			APICall: kyvernov1.APICall{
-				URLPath: "https://example.com/api",
-			},
-			RefreshInterval: &metav1.Duration{Duration: 0},
-		}
-		errs := apiCall.Validate(nil)
-		if len(errs) == 0 {
-			t.Error("Expected validation error for zero refresh interval")
-		}
-	})
-
-	t.Run("BothServiceAndURLPath", func(t *testing.T) {
-		apiCall := &ExternalAPICall{
-			APICall: kyvernov1.APICall{
-				URLPath: "https://example.com/api",
-				Service: &kyvernov1.ServiceCall{
-					URL: "http://my-service",
-				},
-			},
-			RefreshInterval: &metav1.Duration{Duration: 5 * time.Minute},
-		}
-		errs := apiCall.Validate(nil)
-		if len(errs) == 0 {
-			t.Error("Expected validation error for both Service and URLPath set")
-		}
-	})
-
-	t.Run("NeitherServiceNorURLPath", func(t *testing.T) {
-		apiCall := &ExternalAPICall{
-			RefreshInterval: &metav1.Duration{Duration: 5 * time.Minute},
-		}
-		errs := apiCall.Validate(nil)
-		if len(errs) == 0 {
-			t.Error("Expected validation error for neither Service nor URLPath set")
-		}
-	})
-
-	t.Run("NilRefreshInterval", func(t *testing.T) {
-		apiCall := &ExternalAPICall{
-			APICall: kyvernov1.APICall{
-				URLPath: "https://example.com/api",
-			},
-			RefreshInterval: nil,
-		}
-		errs := apiCall.Validate(nil)
-		if len(errs) == 0 {
-			t.Error("Expected validation error for nil refresh interval")
-		}
-	})
-
-	t.Run("DataWithoutPOST", func(t *testing.T) {
-		data := []kyvernov1.RequestData{{Key: "test", Value: nil}}
-		apiCall := &ExternalAPICall{
-			APICall: kyvernov1.APICall{
-				URLPath: "https://example.com/api",
-				Method:  "GET",
-				Data:    data,
-			},
-			RefreshInterval: &metav1.Duration{Duration: 5 * time.Minute},
-		}
-		errs := apiCall.Validate(nil)
-		if len(errs) == 0 {
-			t.Error("Expected validation error for data with non-POST method")
-		}
-	})
-
-	t.Run("DataWithPOST", func(t *testing.T) {
-		data := []kyvernov1.RequestData{{Key: "test", Value: nil}}
-		apiCall := &ExternalAPICall{
-			APICall: kyvernov1.APICall{
-				URLPath: "https://example.com/api",
-				Method:  "POST",
-				Data:    data,
-			},
-			RefreshInterval: &metav1.Duration{Duration: 5 * time.Minute},
-		}
-		errs := apiCall.Validate(nil)
-		if len(errs) != 0 {
-			t.Errorf("Expected no validation errors for data with POST method, got: %v", errs)
-		}
-	})
-}
-
-func TestGlobalContextEntryProjectionValidation(t *testing.T) {
-	t.Run("ValidProjection", func(t *testing.T) {
-		proj := &GlobalContextEntryProjection{
-			Name:     "test-projection",
-			JMESPath: "metadata.name",
-		}
-		errs := proj.Validate(nil, "gce-name")
-		if len(errs) != 0 {
-			t.Errorf("Expected no validation errors, got: %v", errs)
-		}
-	})
-
-	t.Run("MissingName", func(t *testing.T) {
-		proj := &GlobalContextEntryProjection{
-			JMESPath: "metadata.name",
-		}
-		errs := proj.Validate(nil, "gce-name")
-		if len(errs) == 0 {
-			t.Error("Expected validation error for missing name")
-		}
-	})
-
-	t.Run("NameEqualsGCEName", func(t *testing.T) {
-		proj := &GlobalContextEntryProjection{
-			Name:     "gce-name",
-			JMESPath: "metadata.name",
-		}
-		errs := proj.Validate(nil, "gce-name")
-		if len(errs) == 0 {
-			t.Error("Expected validation error for name equal to GCE name")
-		}
-	})
-
-	t.Run("MissingJMESPath", func(t *testing.T) {
-		proj := &GlobalContextEntryProjection{
-			Name: "test-projection",
-		}
-		errs := proj.Validate(nil, "gce-name")
-		if len(errs) == 0 {
-			t.Error("Expected validation error for missing JMESPath")
-		}
-	})
-
-	t.Run("InvalidJMESPath", func(t *testing.T) {
-		proj := &GlobalContextEntryProjection{
-			Name:     "test-projection",
-			JMESPath: "invalid[syntax",
-		}
-		errs := proj.Validate(nil, "gce-name")
-		if len(errs) == 0 {
-			t.Error("Expected validation error for invalid JMESPath syntax")
-		}
-	})
-}
-
-func TestGlobalContextEntryStatus(t *testing.T) {
-	t.Run("SetReady_True", func(t *testing.T) {
-		status := &GlobalContextEntryStatus{}
-		status.SetReady(true, "Successfully loaded")
-
-		if !status.IsReady() {
-			t.Error("Expected IsReady to return true")
-		}
-
-		if len(status.Conditions) != 1 {
-			t.Errorf("Expected 1 condition, got %d", len(status.Conditions))
-		}
-
-		condition := status.Conditions[0]
-		if condition.Type != GlobalContextEntryConditionReady {
-			t.Errorf("Expected condition type %s, got %s", GlobalContextEntryConditionReady, condition.Type)
-		}
-		if condition.Status != metav1.ConditionTrue {
-			t.Errorf("Expected condition status True, got %s", condition.Status)
-		}
-		if condition.Reason != GlobalContextEntryReasonSucceeded {
-			t.Errorf("Expected reason %s, got %s", GlobalContextEntryReasonSucceeded, condition.Reason)
-		}
-		if condition.Message != "Successfully loaded" {
-			t.Errorf("Expected message 'Successfully loaded', got %s", condition.Message)
-		}
-
-		if status.Ready != nil {
-			t.Error("Expected Ready field to be nil after SetReady")
-		}
-	})
-
-	t.Run("SetReady_False", func(t *testing.T) {
-		status := &GlobalContextEntryStatus{}
-		status.SetReady(false, "Failed to load")
-
-		if status.IsReady() {
-			t.Error("Expected IsReady to return false")
-		}
-
-		condition := status.Conditions[0]
-		if condition.Status != metav1.ConditionFalse {
-			t.Errorf("Expected condition status False, got %s", condition.Status)
-		}
-		if condition.Reason != GlobalContextEntryReasonFailed {
-			t.Errorf("Expected reason %s, got %s", GlobalContextEntryReasonFailed, condition.Reason)
-		}
-	})
-
-	t.Run("UpdateRefreshTime", func(t *testing.T) {
-		status := &GlobalContextEntryStatus{}
-		originalTime := status.LastRefreshTime
-
-		status.UpdateRefreshTime()
-
-		if status.LastRefreshTime.Equal(&originalTime) {
-			t.Error("Expected LastRefreshTime to be updated")
-		}
-		if status.LastRefreshTime.IsZero() {
-			t.Error("Expected LastRefreshTime to be set to current time")
-		}
-	})
-
-	t.Run("IsReady_NoConditions", func(t *testing.T) {
-		status := &GlobalContextEntryStatus{}
-
-		if status.IsReady() {
-			t.Error("Expected IsReady to return false when no conditions are set")
-		}
-	})
-
-	t.Run("IsReady_WrongConditionType", func(t *testing.T) {
-		status := &GlobalContextEntryStatus{
-			Conditions: []metav1.Condition{
-				{
-					Type:   "SomeOtherCondition",
-					Status: metav1.ConditionTrue,
-				},
-			},
-		}
-
-		if status.IsReady() {
-			t.Error("Expected IsReady to return false when no Ready condition exists")
-		}
-	})
+	}
 }

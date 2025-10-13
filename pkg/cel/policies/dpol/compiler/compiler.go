@@ -3,6 +3,7 @@ package compiler
 import (
 	"github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
@@ -14,7 +15,7 @@ import (
 )
 
 type Compiler interface {
-	Compile(policy *policiesv1alpha1.DeletingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -23,9 +24,13 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	if policy == nil {
 		return nil, field.ErrorList{field.Required(field.NewPath("policy"), "policy must not be nil")}
+	}
+	spec := policy.GetDeletingPolicySpec()
+	if spec == nil {
+		return nil, field.ErrorList{field.Required(field.NewPath("spec"), "spec must not be nil")}
 	}
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
@@ -64,16 +69,16 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptio
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	path := field.NewPath("spec")
-	conditions := make([]cel.Program, 0, len(policy.Spec.Conditions))
+	conditions := make([]cel.Program, 0, len(spec.Conditions))
 	{
 		path := path.Child("conditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, policy.Spec.Conditions...)
+		programs, errs := compiler.CompileMatchConditions(path, env, spec.Conditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		conditions = append(conditions, programs...)
 	}
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -90,8 +95,8 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.DeletingPolicy, exceptio
 		})
 	}
 	return &Policy{
-		deletionPropagationPolicy: policy.Spec.DeletionPropagationPolicy,
-		schedule:                  policy.Spec.Schedule,
+		deletionPropagationPolicy: spec.DeletionPropagationPolicy,
+		schedule:                  spec.Schedule,
 		conditions:                conditions,
 		variables:                 variables,
 		exceptions:                compiledExceptions,

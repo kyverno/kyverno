@@ -30,6 +30,7 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -177,7 +178,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range vpols {
 		if pol := policy.AsValidatingPolicy(); pol != nil {
 			compiler := vpolcompiler.NewCompiler()
-			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, exceptions)
+			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
@@ -279,11 +280,14 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			engineResponse, err := engine.Handle(ctx, request, nil)
+			patched := engineResponse.PatchedResource
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
 				for j, r := range policy.Rules {
 					if r.Status() == engineapi.RuleStatusPass {
-						policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+						if !equality.Semantic.DeepEqual(resource.DeepCopyObject(), patched.DeepCopyObject()) {
+							policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+						}
 					}
 				}
 				rules = append(rules, policy.Rules...)
