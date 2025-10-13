@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
@@ -20,7 +21,10 @@ import (
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var vpolCompilerVersion = version.MajorMinor(1, 0)
+var (
+	vpolCompilerVersion = version.MajorMinor(1, 0)
+	compileError        = "validating policy compiler " + vpolCompilerVersion.String() + " error: %s"
+)
 
 type Exception struct {
 	AllowedImages []string `cel:"allowedImages"`
@@ -50,16 +54,18 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 	var allErrs field.ErrorList
 	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv()
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	env, err := vpolEnvSet.Env(environment.StoredExpressions)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	path := field.NewPath("spec")
 	spec := policy.GetValidatingPolicySpec()
+	// append a place holder error to the errors list to be displayed in case the error list was returned
+	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	{

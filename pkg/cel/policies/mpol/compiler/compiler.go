@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"fmt"
+
 	cel "github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -20,6 +22,11 @@ import (
 	environment "k8s.io/apiserver/pkg/cel/environment"
 )
 
+var (
+	mpolCompilerVersion = version.MajorMinor(1, 0)
+	compileError        = "mutating policy compiler " + mpolCompilerVersion.String() + "error: %s"
+)
+
 type Compiler interface {
 	Compile(policy *policiesv1alpha1.MutatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
@@ -32,6 +39,9 @@ type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
+
+	// append a place holder error to the errors list to be displayed in case the error list was returned
+	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
 	extendedEnvSet, err := baseEnvSet.Extend(
@@ -59,12 +69,12 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		},
 	)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	compositedCompiler, err := plugincel.NewCompositedCompiler(extendedEnvSet)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	optionsVars := plugincel.OptionalVariableDeclarations{

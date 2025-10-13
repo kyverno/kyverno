@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"fmt"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -17,7 +19,10 @@ import (
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var dpolCompilerVersion = version.MajorMinor(1, 0)
+var (
+	dpolCompilerVersion = version.MajorMinor(1, 0)
+	compileError        = "deleting policy compiler " + dpolCompilerVersion.String() + "error: %s"
+)
 
 type Compiler interface {
 	Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
@@ -40,15 +45,17 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	var allErrs field.ErrorList
 	dpolEnvSet, variablesProvider, err := c.createBaseDpolEnv()
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	env, err := dpolEnvSet.Env(environment.StoredExpressions)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	path := field.NewPath("spec")
+	// append a place holder error to the errors list to be displayed in case the error list was returned
+	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 	conditions := make([]cel.Program, 0, len(spec.Conditions))
 	{
 		path := path.Child("conditions")

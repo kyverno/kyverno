@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"fmt"
+
 	"github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -14,7 +16,10 @@ import (
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var gpolCompilerVersion = version.MajorMinor(1, 0)
+var (
+	gpolCompilerVersion = version.MajorMinor(1, 0)
+	compileError        = "generating policy compiler " + gpolCompilerVersion.String() + "error: %s"
+)
 
 type Compiler interface {
 	Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
@@ -93,15 +98,18 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 	var allErrs field.ErrorList
 	gpolEnvSet, variablesProvider, err := createBaseGpolEnv()
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	env, err := gpolEnvSet.Env(environment.StoredExpressions)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	path := field.NewPath("spec")
+	// append a place holder error to the errors list to be displayed in case the error list was returned
+	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
+
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
@@ -112,9 +120,6 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 		matchConditions = append(matchConditions, programs...)
 	}
 
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
 	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
