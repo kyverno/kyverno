@@ -24,7 +24,7 @@ import (
 
 var (
 	mpolCompilerVersion = version.MajorMinor(1, 0)
-	compileError        = "mutating policy compiler " + mpolCompilerVersion.String() + "error: %s"
+	compileError        = "mutating policy compiler " + mpolCompilerVersion.String() + " error: %s"
 )
 
 type Compiler interface {

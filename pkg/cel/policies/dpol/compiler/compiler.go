@@ -21,7 +21,7 @@ import (
 
 var (
 	dpolCompilerVersion = version.MajorMinor(1, 0)
-	compileError        = "deleting policy compiler " + dpolCompilerVersion.String() + "error: %s"
+	compileError        = "deleting policy compiler " + dpolCompilerVersion.String() + " error: %s"
 )
 
 type Compiler interface {

@@ -18,7 +18,7 @@ import (
 
 var (
 	gpolCompilerVersion = version.MajorMinor(1, 0)
-	compileError        = "generating policy compiler " + gpolCompilerVersion.String() + "error: %s"
+	compileError        = "generating policy compiler " + gpolCompilerVersion.String() + " error: %s"
 )
 
 type Compiler interface {
