@@ -61,13 +61,25 @@ func NewFilteredClusterCleanupPolicyInformer(client versioned.Interface, resyncP
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2beta1().ClusterCleanupPolicies().List(context.TODO(), options)
+				return client.KyvernoV2beta1().ClusterCleanupPolicies().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2beta1().ClusterCleanupPolicies().Watch(context.TODO(), options)
+				return client.KyvernoV2beta1().ClusterCleanupPolicies().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV2beta1().ClusterCleanupPolicies().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV2beta1().ClusterCleanupPolicies().Watch(ctx, options)
 			},
 		},
 		&apikyvernov2beta1.ClusterCleanupPolicy{},

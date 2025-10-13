@@ -26,7 +26,7 @@ func Test_Validate(t *testing.T) {
 				opts: ValidationOptions{
 					Enabled: false,
 				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10ns"}}}`),
+				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10s"}}}`),
 			},
 			want:    1,
 			wantErr: false,
@@ -37,7 +37,7 @@ func Test_Validate(t *testing.T) {
 				opts: ValidationOptions{
 					Enabled: true,
 				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10ns"},"kubernetesResource":{"group":"apis/networking.k8s.io","version":"v1","resource":"ingresses","namespace":"apps"}}}`),
+				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10s"},"kubernetesResource":{"group":"apis/networking.k8s.io","version":"v1","resource":"ingresses","namespace":"apps"}}}`),
 			},
 			want:    0,
 			wantErr: true,
@@ -59,7 +59,7 @@ func Test_Validate(t *testing.T) {
 				opts: ValidationOptions{
 					Enabled: true,
 				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10ns"}}}`),
+				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10s"}}}`),
 			},
 			want:    0,
 			wantErr: false,
