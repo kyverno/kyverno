@@ -4,6 +4,7 @@ import (
 	"github.com/go-logr/logr"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1beta1"
 	deletingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/deletingpolicies"
+	generatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/generatingpolicies"
 	mutatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/mutatingpolicies"
 	namespaceddeletingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/namespaceddeletingpolicies"
 	validatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/validatingpolicies"
@@ -36,6 +37,10 @@ func (c *withMetrics) DeletingPolicies() github_com_kyverno_kyverno_pkg_client_c
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "DeletingPolicy", c.clientType)
 	return deletingpolicies.WithMetrics(c.inner.DeletingPolicies(), recorder)
 }
+func (c *withMetrics) GeneratingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.GeneratingPolicyInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "GeneratingPolicy", c.clientType)
+	return generatingpolicies.WithMetrics(c.inner.GeneratingPolicies(), recorder)
+}
 func (c *withMetrics) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.MutatingPolicyInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingPolicy", c.clientType)
 	return mutatingpolicies.WithMetrics(c.inner.MutatingPolicies(), recorder)
@@ -60,6 +65,9 @@ func (c *withTracing) RESTClient() rest.Interface {
 func (c *withTracing) DeletingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.DeletingPolicyInterface {
 	return deletingpolicies.WithTracing(c.inner.DeletingPolicies(), c.client, "DeletingPolicy")
 }
+func (c *withTracing) GeneratingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.GeneratingPolicyInterface {
+	return generatingpolicies.WithTracing(c.inner.GeneratingPolicies(), c.client, "GeneratingPolicy")
+}
 func (c *withTracing) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.MutatingPolicyInterface {
 	return mutatingpolicies.WithTracing(c.inner.MutatingPolicies(), c.client, "MutatingPolicy")
 }
@@ -80,6 +88,9 @@ func (c *withLogging) RESTClient() rest.Interface {
 }
 func (c *withLogging) DeletingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.DeletingPolicyInterface {
 	return deletingpolicies.WithLogging(c.inner.DeletingPolicies(), c.logger.WithValues("resource", "DeletingPolicies"))
+}
+func (c *withLogging) GeneratingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.GeneratingPolicyInterface {
+	return generatingpolicies.WithLogging(c.inner.GeneratingPolicies(), c.logger.WithValues("resource", "GeneratingPolicies"))
 }
 func (c *withLogging) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.MutatingPolicyInterface {
 	return mutatingpolicies.WithLogging(c.inner.MutatingPolicies(), c.logger.WithValues("resource", "MutatingPolicies"))
