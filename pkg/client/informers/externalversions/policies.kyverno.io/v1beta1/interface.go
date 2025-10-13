@@ -26,10 +26,14 @@ import (
 type Interface interface {
 	// DeletingPolicies returns a DeletingPolicyInformer.
 	DeletingPolicies() DeletingPolicyInformer
+	// GeneratingPolicies returns a GeneratingPolicyInformer.
+	GeneratingPolicies() GeneratingPolicyInformer
 	// MutatingPolicies returns a MutatingPolicyInformer.
 	MutatingPolicies() MutatingPolicyInformer
 	// NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 	NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer
+	// PolicyExceptions returns a PolicyExceptionInformer.
+	PolicyExceptions() PolicyExceptionInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
 	ValidatingPolicies() ValidatingPolicyInformer
 }
@@ -50,6 +54,11 @@ func (v *version) DeletingPolicies() DeletingPolicyInformer {
 	return &deletingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// GeneratingPolicies returns a GeneratingPolicyInformer.
+func (v *version) GeneratingPolicies() GeneratingPolicyInformer {
+	return &generatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // MutatingPolicies returns a MutatingPolicyInformer.
 func (v *version) MutatingPolicies() MutatingPolicyInformer {
 	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -58,6 +67,11 @@ func (v *version) MutatingPolicies() MutatingPolicyInformer {
 // NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 func (v *version) NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer {
 	return &namespacedDeletingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// PolicyExceptions returns a PolicyExceptionInformer.
+func (v *version) PolicyExceptions() PolicyExceptionInformer {
+	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ValidatingPolicies returns a ValidatingPolicyInformer.

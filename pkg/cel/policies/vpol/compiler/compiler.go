@@ -235,8 +235,8 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 		environment.VersionedOptions{
 			IntroducedVersion: vpolCompilerVersion,
 			EnvOptions: []cel.EnvOption{
-				ext.NativeTypes(reflect.TypeFor[Exception](), ext.ParseStructTags(true)),
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
+				ext.NativeTypes(reflect.TypeFor[cellibs.Exception](), ext.ParseStructTags(true)),
+				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 				globalcontext.Lib(
 					globalcontext.Latest(),
 				),
@@ -263,3 +263,4 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 	}
 	return extendedBase, variablesProvider, nil
 }
+
