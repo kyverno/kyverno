@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -136,11 +137,27 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
+				webhook.NamespaceSelector = mergeLabelSelectors(
+					p.GetMatchConstraints().NamespaceSelector,
+					cfg.GetWebhook().NamespaceSelector,
+				)
+				webhook.ObjectSelector = mergeLabelSelectors(
+					p.GetMatchConstraints().ObjectSelector,
+					cfg.GetWebhook().ObjectSelector,
+				)
 				fineGrainedIgnoreList = append(fineGrainedIgnoreList, webhook)
 			} else {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 				webhook.Name = name + "-fail-finegrained-" + p.GetName()
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
+				webhook.NamespaceSelector = mergeLabelSelectors(
+					p.GetMatchConstraints().NamespaceSelector,
+					cfg.GetWebhook().NamespaceSelector,
+				)
+				webhook.ObjectSelector = mergeLabelSelectors(
+					p.GetMatchConstraints().ObjectSelector,
+					cfg.GetWebhook().ObjectSelector,
+				)
 				fineGrainedFailList = append(fineGrainedFailList, webhook)
 			}
 		}
@@ -173,16 +190,26 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
-		if cfg.GetWebhook().NamespaceSelector != nil {
-			webhookIgnore.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-			webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-		}
-		if cfg.GetWebhook().ObjectSelector != nil {
-			webhookIgnore.ObjectSelector = cfg.GetWebhook().ObjectSelector
-			webhookFail.ObjectSelector = cfg.GetWebhook().ObjectSelector
-		}
+		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
+
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
+			webhookIgnore.NamespaceSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().NamespaceSelector,
+				cfg.GetWebhook().NamespaceSelector,
+			)
+			webhookIgnore.ObjectSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().ObjectSelector,
+				cfg.GetWebhook().ObjectSelector,
+			)
+			webhookFail.NamespaceSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().NamespaceSelector,
+				cfg.GetWebhook().NamespaceSelector,
+			)
+			webhookFail.ObjectSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().ObjectSelector,
+				cfg.GetWebhook().ObjectSelector,
+			)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
 				rules, err := vpolautogen.Autogen(vpol)
@@ -248,4 +275,32 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		}
 	}
 	return webhooks
+}
+
+func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+
+	merged := &metav1.LabelSelector{
+		MatchLabels:      map[string]string{},
+		MatchExpressions: []metav1.LabelSelectorRequirement{},
+	}
+
+	// copy a
+	for k, v := range a.MatchLabels {
+		merged.MatchLabels[k] = v
+	}
+	merged.MatchExpressions = append(merged.MatchExpressions, a.MatchExpressions...)
+
+	// copy b
+	for k, v := range b.MatchLabels {
+		merged.MatchLabels[k] = v
+	}
+	merged.MatchExpressions = append(merged.MatchExpressions, b.MatchExpressions...)
+
+	return merged
 }

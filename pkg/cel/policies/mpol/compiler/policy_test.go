@@ -11,6 +11,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -102,7 +103,7 @@ func TestVariables(t *testing.T) {
 		cctx := &compositionContext{
 			ctx:             ctx,
 			evaluator:       evaluator,
-			contextProvider: &fakeContext{},
+			contextProvider: &libs.FakeContextProvider{},
 		}
 
 		act := &fakeActivation{
@@ -157,7 +158,7 @@ func TestVariables(t *testing.T) {
 		cctx := &compositionContext{
 			ctx:             ctx,
 			evaluator:       evaluator,
-			contextProvider: &fakeContext{},
+			contextProvider: &libs.FakeContextProvider{},
 		}
 
 		act := &fakeActivation{
@@ -339,7 +340,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.EqualError(t, res.Error, "match error")
 	})
@@ -353,7 +354,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
+		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.Nil(t, resp)
 	})
 
@@ -372,7 +373,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.EqualError(t, res.Error, "patch failed")
 	})
@@ -393,7 +394,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
 	})
