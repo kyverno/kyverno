@@ -138,9 +138,7 @@ func Convert_v2beta1_GlobalContextEntrySpec_To_v2alpha1_GlobalContextEntrySpec(i
 // Convert_v2alpha1_GlobalContextEntryStatus_To_v2beta1_GlobalContextEntryStatus converts a v2alpha1 GlobalContextEntryStatus to v2beta1
 func Convert_v2alpha1_GlobalContextEntryStatus_To_v2beta1_GlobalContextEntryStatus(in *kyvernov2alpha1.GlobalContextEntryStatus, out *GlobalContextEntryStatus, s conversion.Scope) error {
 	out.Conditions = make([]metav1.Condition, len(in.Conditions))
-	for i, cond := range in.Conditions {
-		out.Conditions[i] = cond
-	}
+	copy(out.Conditions, in.Conditions)
 
 	out.LastRefreshTime = in.LastRefreshTime
 
@@ -150,9 +148,7 @@ func Convert_v2alpha1_GlobalContextEntryStatus_To_v2beta1_GlobalContextEntryStat
 // Convert_v2beta1_GlobalContextEntryStatus_To_v2alpha1_GlobalContextEntryStatus converts a v2beta1 GlobalContextEntryStatus to v2alpha1
 func Convert_v2beta1_GlobalContextEntryStatus_To_v2alpha1_GlobalContextEntryStatus(in *GlobalContextEntryStatus, out *kyvernov2alpha1.GlobalContextEntryStatus, s conversion.Scope) error {
 	out.Conditions = make([]metav1.Condition, len(in.Conditions))
-	for i, cond := range in.Conditions {
-		out.Conditions[i] = cond
-	}
+	copy(out.Conditions, in.Conditions)
 
 	out.LastRefreshTime = in.LastRefreshTime
 
