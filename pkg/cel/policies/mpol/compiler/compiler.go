@@ -40,9 +40,6 @@ type compilerImpl struct{}
 func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 
-	// append a place holder error to the errors list to be displayed in case the error list was returned
-	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
-
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
 	extendedEnvSet, err := baseEnvSet.Extend(
 		environment.VersionedOptions{
