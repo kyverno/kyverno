@@ -344,7 +344,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			}
 		}
 		if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-			e := event.NewBackgroundFailedEvent(err, policy, "", event.GeneratePolicyController,
+			e := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), "", event.GeneratePolicyController,
 				kyvernov1.ResourceSpec{Kind: new.GetKind(), Namespace: new.GetNamespace(), Name: new.GetName()})
 			h.eventGen.Add(e...)
 			return err

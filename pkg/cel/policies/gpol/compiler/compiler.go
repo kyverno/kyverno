@@ -1,12 +1,19 @@
 package compiler
 
 import (
+	"reflect"
+
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/ext"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/image"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -50,6 +57,25 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
+	env, err = env.Extend(
+		ext.NativeTypes(reflect.TypeFor[cellibs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.GeneratorKey, generator.ContextType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.HttpKey, http.ContextType),
+		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		generator.Lib(),
+		resource.Lib(),
+		globalcontext.Lib(),
+		http.Lib(),
+		image.Lib(),
+		imagedata.Lib(),
+	)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
 	path := field.NewPath("spec")
 	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
 	{
@@ -59,20 +85,6 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
-	}
-	env, err = env.Extend(
-		cel.Variable(compiler.GeneratorKey, generator.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
-		generator.Lib(),
-		resource.Lib(),
-		globalcontext.Lib(),
-		http.Lib(),
-	)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
 	if errs != nil {

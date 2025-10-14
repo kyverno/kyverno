@@ -156,7 +156,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	wg.Wait()
 	if !ok {
 		logger.V(4).Info("admission request denied")
-		events := webhookutils.GenerateEvents(enforceResponses, true, h.configuration)
+		events := webhookutils.GenerateEvents(enforceResponses, true)
 		h.eventGen.Add(events...)
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
@@ -166,12 +166,12 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 		switch {
 		case len(auditResponses) == 0:
-			events = webhookutils.GenerateEvents(enforceResponses, false, h.configuration)
+			events = webhookutils.GenerateEvents(enforceResponses, false)
 		case len(enforceResponses) == 0:
-			events = webhookutils.GenerateEvents(auditResponses, false, h.configuration)
+			events = webhookutils.GenerateEvents(auditResponses, false)
 		default:
 			responses := mergeEngineResponses(auditResponses, enforceResponses)
-			events = webhookutils.GenerateEvents(responses, false, h.configuration)
+			events = webhookutils.GenerateEvents(responses, false)
 		}
 
 		h.eventGen.Add(events...)
@@ -218,7 +218,6 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 			h.engine,
 			h.eventGen,
 			h.admissionReports,
-			h.configuration,
 			h.nsLister,
 			h.reportingConfig,
 		)

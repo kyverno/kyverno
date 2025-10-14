@@ -33,7 +33,7 @@
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>
                   </li><li>
-                    <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>
+                    <a href="#policies-kyverno-io-v1alpha1-NamespacedValidatingPolicy">NamespacedValidatingPolicy</a>
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-PolicyException">PolicyException</a>
                   </li><li>
@@ -1756,7 +1756,7 @@ Required.</p>
     </table>
   
 
-  <H3 id="policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy
+  <H3 id="policies-kyverno-io-v1alpha1-NamespacedValidatingPolicy">NamespacedValidatingPolicy
     </H3>
 
   
@@ -1781,7 +1781,7 @@ Required.</p>
           </tr>
           <tr>
             <td><code>kind</code></br>string</td>
-            <td><code>NamespacedDeletingPolicy</code></td>
+            <td><code>NamespacedValidatingPolicy</code></td>
           </tr>
         
 
@@ -1836,8 +1836,8 @@ Required.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicySpec">
-                <span style="font-family: monospace">DeletingPolicySpec</span>
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicySpec">
+                <span style="font-family: monospace">ValidatingPolicySpec</span>
               </a>
             
           
@@ -1891,7 +1891,98 @@ Required.</p>
     
     
       <tr>
-        <td><code>conditions</code>
+        <td><code>validations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations contain CEL expressions which is used to apply the validation.
+Validations and AuditAnnotations may not both be empty; a minimum of one Validations or AuditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>failurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+<p>failurePolicy does not define how validations that evaluate to false are handled.</p>
+<p>When failurePolicy is set to Fail, the validationActions field define how failures are enforced.</p>
+<p>Allowed values are Ignore or Fail. Defaults to Fail.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
           
           </br>
 
@@ -1905,14 +1996,22 @@ Required.</p>
         <td>
           
 
-          <p>Conditions is a list of conditions that must be met for a resource to be deleted.
-Conditions filter resources that have already been matched by the match constraints,
-namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
-There are a maximum of 64 conditions allowed.</p>
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
+<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
+manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
-<li>If ANY condition evaluates to FALSE, the policy is skipped.</li>
-<li>If ALL conditions evaluate to TRUE, the policy is executed.</li>
+<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
+<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
+<li>If any matchCondition evaluates to an error (but none are FALSE):
+<ul>
+<li>If failurePolicy=Fail, reject the request</li>
+<li>If failurePolicy=Ignore, the policy is skipped</li>
+</ul>
+</li>
 </ol>
 
 
@@ -1958,7 +2057,36 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
-        <td><code>schedule</code>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">ValidatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationActions</code>
           
           <span style="color:blue;"> *</span>
           
@@ -1967,14 +2095,14 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
           
             
-              <span style="font-family: monospace">string</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.ValidationAction</span>
             
           
         </td>
         <td>
           
 
-          <p>The schedule in Cron format
+          <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
 Required.</p>
 
 
@@ -1988,21 +2116,52 @@ Required.</p>
     
     
       <tr>
-        <td><code>deletionPropagationPolicy</code>
+        <td><code>webhookConfiguration</code>
           
           </br>
 
           
           
             
-              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
             
           
         </td>
         <td>
           
 
-          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
+                <span style="font-family: monospace">EvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
 
 
           
@@ -2029,8 +2188,8 @@ Required.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicyStatus">
-                <span style="font-family: monospace">DeletingPolicyStatus</span>
+              <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyStatus">
+                <span style="font-family: monospace">ValidatingPolicyStatus</span>
               </a>
             
           
@@ -3916,8 +4075,7 @@ Secrets must live in the Kyverno namespace.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
     </p>
   
 
@@ -4108,8 +4266,7 @@ Required.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
     </p>
   
 
@@ -8760,6 +8917,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-NamespacedValidatingPolicy">NamespacedValidatingPolicy</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
     </p>
@@ -9111,6 +9269,7 @@ Required.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-NamespacedValidatingPolicy">NamespacedValidatingPolicy</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy</a>)
     </p>
   
