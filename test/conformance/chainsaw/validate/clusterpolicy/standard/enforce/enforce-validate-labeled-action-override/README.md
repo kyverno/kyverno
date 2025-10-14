@@ -11,4 +11,4 @@ This test verifies that the `validateFailureActionOverrides` works with a namesp
 
 ## Reference Issue(s)
 
-8837
+11601
