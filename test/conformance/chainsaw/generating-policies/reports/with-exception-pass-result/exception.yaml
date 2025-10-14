@@ -8,6 +8,6 @@ spec:
     kind: GeneratingPolicy
   matchConditions:
     - name: "check-namespace-name"
-      expression: "object.metadata.name == 'testing'"
+      expression: "object.metadata.name == 'testing-3'"
   reportResult: pass
   

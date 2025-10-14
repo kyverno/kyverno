@@ -6,12 +6,12 @@ metadata:
   ownerReferences:
   - apiVersion: v1
     kind: Namespace
-    name: production
+    name: production-1
 results:
 - message: policy evaluated successfully
   policy: reports-with-exceptions
   properties:
-    generated-resources: /v1, Kind=ConfigMap Name=zk-kafka-address Namespace=production
+    generated-resources: /v1, Kind=ConfigMap Name=zk-kafka-address Namespace=production-1
     process: admission review
   result: pass
   rule: reports-with-exceptions
@@ -20,7 +20,7 @@ results:
 scope:
   apiVersion: v1
   kind: Namespace
-  name: production
+  name: production-1
 summary:
   error: 0
   fail: 0
@@ -36,7 +36,7 @@ metadata:
   ownerReferences:
   - apiVersion: v1
     kind: Namespace
-    name: testing
+    name: testing-1
 results:
 - policy: reports-with-exceptions
   properties:
@@ -49,7 +49,7 @@ results:
 scope:
   apiVersion: v1
   kind: Namespace
-  name: testing
+  name: testing-1
 summary:
   error: 0
   fail: 0
