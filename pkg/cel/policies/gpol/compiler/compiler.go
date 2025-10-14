@@ -2,13 +2,19 @@ package compiler
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/ext"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/image"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -45,6 +51,7 @@ func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
+		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 	)
 
 	base := environment.MustBaseEnvSet(gpolCompilerVersion, false)
@@ -73,6 +80,8 @@ func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 		environment.VersionedOptions{
 			IntroducedVersion: gpolCompilerVersion,
 			EnvOptions: []cel.EnvOption{
+				ext.NativeTypes(reflect.TypeFor[cellibs.Exception](), ext.ParseStructTags(true)),
+				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 				generator.Lib(
 					generator.Latest(),
 				),
@@ -84,6 +93,12 @@ func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 				),
 				resource.Lib(
 					resource.Latest(),
+				),
+				image.Lib(
+					image.Latest(),
+				),
+				imagedata.Lib(
+					imagedata.Latest(),
 				),
 			},
 		},
@@ -152,3 +167,4 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 		exceptions:      compiledExceptions,
 	}, nil
 }
+
