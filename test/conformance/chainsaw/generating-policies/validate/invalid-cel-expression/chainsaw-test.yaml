@@ -10,5 +10,4 @@ spec:
         content: kubectl apply -f policy.yaml
         check:
           ($error != null): true
-          # This check ensures stderr contains the expected error text, ignoring warnings or prefixes.
           (contains(trim_space($stderr), "Error from server: error when creating \"policy.yaml\": admission webhook \"validate-policy.kyverno.svc\" denied the request: spec.generate[0].expression: Invalid value: \"generator.Apply(variables.configmap)\"")): true
