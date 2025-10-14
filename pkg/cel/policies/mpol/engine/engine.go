@@ -121,6 +121,8 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	}
 
 	// Create user info from admission request
+	// Note: request.Request.UserInfo is a struct (not a pointer), so it cannot be nil.
+	// We check Username != "" to determine if the UserInfo contains valid data.
 	var user admissionpolicy.UserInfo
 	if request.Request.UserInfo.Username != "" {
 		user = admissionpolicy.NewUser(request.Request.UserInfo)
@@ -212,6 +214,8 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 	}
 
 	// Create user info from admission request
+	// Note: request.Request.UserInfo is a struct (not a pointer), so it cannot be nil.
+	// We check Username != "" to determine if the UserInfo contains valid data.
 	var user admissionpolicy.UserInfo
 	if request.Request.UserInfo.Username != "" {
 		user = admissionpolicy.NewUser(request.Request.UserInfo)
