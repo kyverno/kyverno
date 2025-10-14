@@ -11,7 +11,7 @@ spec:
         -----BEGIN CERTIFICATE-----
         -----REDACTED-----
         -----END CERTIFICATE-----
-    refreshInterval: 10ns
+    refreshInterval: 10s
   kubernetesResource:
     group: apis/networking.k8s.io
     version: v1
