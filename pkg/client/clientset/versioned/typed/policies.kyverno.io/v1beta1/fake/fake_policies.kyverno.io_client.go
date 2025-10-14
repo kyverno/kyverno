@@ -32,12 +32,20 @@ func (c *FakePoliciesV1beta1) DeletingPolicies() v1beta1.DeletingPolicyInterface
 	return newFakeDeletingPolicies(c)
 }
 
+func (c *FakePoliciesV1beta1) GeneratingPolicies() v1beta1.GeneratingPolicyInterface {
+	return newFakeGeneratingPolicies(c)
+}
+
 func (c *FakePoliciesV1beta1) MutatingPolicies() v1beta1.MutatingPolicyInterface {
 	return newFakeMutatingPolicies(c)
 }
 
 func (c *FakePoliciesV1beta1) NamespacedDeletingPolicies(namespace string) v1beta1.NamespacedDeletingPolicyInterface {
 	return newFakeNamespacedDeletingPolicies(c, namespace)
+}
+
+func (c *FakePoliciesV1beta1) PolicyExceptions(namespace string) v1beta1.PolicyExceptionInterface {
+	return newFakePolicyExceptions(c, namespace)
 }
 
 func (c *FakePoliciesV1beta1) ValidatingPolicies() v1beta1.ValidatingPolicyInterface {

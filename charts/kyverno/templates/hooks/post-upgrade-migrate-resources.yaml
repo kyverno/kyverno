@@ -21,6 +21,14 @@ rules:
     - list
     - update
   - apiGroups:
+    - policies.kyverno.io
+    resources:
+    - '*'
+    verbs:
+    - get
+    - list
+    - update
+  - apiGroups:
     - apiextensions.k8s.io
     resources:
     - customresourcedefinitions
@@ -74,7 +82,7 @@ metadata:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: post-upgrade
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    # helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "200"
 spec:
   backoffLimit: 2
