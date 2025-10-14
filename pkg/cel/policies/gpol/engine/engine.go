@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/cel/engine"
@@ -111,17 +113,51 @@ func (e *Engine) generate(
 	}
 	if len(exceptions) != 0 {
 		genericpolex := make([]engineapi.GenericException, 0, len(exceptions))
-		var keys []string
-		for i := range exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(exceptions[i])
+		keys := make([]string, 0, len(exceptions))
+
+		var (
+			highestPriority int
+			selectedIndex   int
+		)
+		for i, ex := range exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(ex)
 			if err != nil {
-				response.Result = engineapi.RuleError("exception", engineapi.Generation, "failed to compute exception key", err, nil)
+				response.Result = engineapi.RuleError(
+					"exception",
+					engineapi.Generation,
+					"failed to compute exception key",
+					err,
+					nil,
+				)
 				return response
 			}
 			keys = append(keys, key)
-			genericpolex = append(genericpolex, engineapi.NewCELPolicyException(exceptions[i]))
+			genericpolex = append(genericpolex, engineapi.NewCELPolicyException(ex))
+
+			// evaluate exception priority from label
+			if val, ok := ex.GetLabels()["polex.kyverno.io/priority"]; ok {
+				if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
+					highestPriority = p
+					selectedIndex = i
+				}
+			}
 		}
-		response.Result = engineapi.RuleSkip(policy.Policy.Name, engineapi.Generation, "policy is skipped due to policy exceptions: "+strings.Join(keys, ", "), nil).WithExceptions(genericpolex)
+		// determine final result based on highest-priority exception
+		selectedException := exceptions[selectedIndex]
+		reportResult := selectedException.Spec.ReportResult
+
+		joinedKeys := strings.Join(keys, ", ")
+		msgPrefix := "rule is %s due to policy exception: " + joinedKeys
+		switch reportResult {
+		case string(engineapi.RuleStatusPass):
+			response.Result = engineapi.RulePass("exception", engineapi.Generation,
+				fmt.Sprintf(msgPrefix, "passed"), nil,
+			).WithExceptions(genericpolex)
+		default:
+			response.Result = engineapi.RuleSkip("exception", engineapi.Generation,
+				fmt.Sprintf(msgPrefix, "skipped"), nil,
+			).WithExceptions(genericpolex)
+		}
 		return response
 	}
 	response.Result = engineapi.RulePass(policy.Policy.Name, engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)

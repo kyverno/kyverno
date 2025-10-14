@@ -47,6 +47,13 @@ type PolicyExceptionSpec struct {
 	// These values can be referenced in CEL expressions via `exceptions.allowedValues`.
 	// +optional
 	AllowedValues []string `json:"allowedValues,omitempty"`
+
+	// ReportResult indicates whether the policy exception should be reported in the policy report
+	// as a skip result or pass result. Defaults to "skip".
+	// +optional
+	// +kubebuilder:validation:Enum=skip;pass
+	// +kubebuilder:default=skip
+	ReportResult string `json:"reportResult,omitempty"`
 }
 
 // Validate implements programmatic validation
