@@ -167,4 +167,3 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 		exceptions:      compiledExceptions,
 	}, nil
 }
-
