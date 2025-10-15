@@ -8,9 +8,7 @@ metadata:
     kind: Deployment
     name: skipped-deployment
 results:
-- message: 'rule is passed due to policy exception: default/exclude-skipped-deployment-1,
-    default/exclude-skipped-deployment-2'
-  policy: with-multiple-exceptions
+- policy: with-multiple-exceptions
   properties:
     exceptions: exclude-skipped-deployment-1,exclude-skipped-deployment-2
     process: background scan

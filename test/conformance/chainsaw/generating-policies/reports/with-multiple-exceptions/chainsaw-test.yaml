@@ -8,7 +8,7 @@ spec:
   - name: create exception
     try:
     - create:
-        file: exception.yaml
+        file: exceptions.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -22,15 +22,15 @@ spec:
       with:
         bindings:
         - name: name
-          value: reports-with-exceptions
+          value: with-multiple-exceptions
   - name: sleep
     try:
     - sleep:
         duration: 5s
-  - name: create first trigger
+  - name: create triggers
     try:
     - apply:
-        file: trigger-1.yaml
+        file: triggers.yaml
   - name: sleep
     try:
     - sleep:
@@ -38,16 +38,4 @@ spec:
   - name: check that the reports are generated
     try:
     - assert:
-        file: pass-report-assert.yaml
-  - name: create second trigger
-    try:
-    - apply:
-        file: trigger-2.yaml
-  - name: sleep
-    try:
-    - sleep:   
-        duration: 5s
-  - name: check that the reports are generated
-    try:
-    - assert:
-        file: skip-report-assert.yaml
+        file: report-assert.yaml

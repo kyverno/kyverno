@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -135,7 +136,7 @@ func (e *Engine) generate(
 			genericpolex = append(genericpolex, engineapi.NewCELPolicyException(ex))
 
 			// evaluate exception priority from label
-			if val, ok := ex.GetLabels()["polex.kyverno.io/priority"]; ok {
+			if val, ok := ex.GetLabels()[reportutils.LabelPolicyExceptionPriority]; ok {
 				if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
 					highestPriority = p
 					selectedIndex = i

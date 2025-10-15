@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: testing-1
+  name: production-4
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: production-1
+  name: testing-4
