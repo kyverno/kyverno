@@ -284,7 +284,7 @@ func (s *scanner) ScanResource(
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
 				for j, r := range policy.Rules {
-					if r.Status() == engineapi.RuleStatusPass {
+					if r.Status() == engineapi.RuleStatusPass && len(r.Exceptions()) == 0 {
 						if !equality.Semantic.DeepEqual(resource.DeepCopyObject(), patched.DeepCopyObject()) {
 							policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
 						}
