@@ -111,6 +111,9 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 	}
 	responses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
+		if !reportutils.IsPolicyReportable(&r.Policy) {
+			continue
+		}
 		engineResponse := engineapi.EngineResponse{
 			Resource: object,
 			PolicyResponse: engineapi.PolicyResponse{

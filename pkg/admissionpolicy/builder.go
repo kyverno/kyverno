@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -139,6 +140,10 @@ func BuildValidatingAdmissionPolicy(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(vap)
+	policyLabels := policy.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		vap.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
 	return nil
 }
 
@@ -236,6 +241,10 @@ func BuildMutatingAdmissionPolicy(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapol)
+	policyLabels := mp.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
 }
 
 // BuildMutatingAdmissionPolicyBinding is used to build a Kubernetes MutatingAdmissionPolicyBinding from a MutatingPolicy
