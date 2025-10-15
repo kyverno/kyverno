@@ -110,6 +110,15 @@ spec:
                   - name
                   type: object
                 type: array
+              reportResult:
+                default: skip
+                description: |-
+                  ReportResult indicates whether the policy exception should be reported in the policy report
+                  as a skip result or pass result. Defaults to "skip".
+                enum:
+                - skip
+                - pass
+                type: string
             required:
             - policyRefs
             type: object
@@ -214,6 +223,15 @@ spec:
                   - name
                   type: object
                 type: array
+              reportResult:
+                default: skip
+                description: |-
+                  ReportResult indicates whether the policy exception should be reported in the policy report
+                  as a skip result or pass result. Defaults to "skip".
+                enum:
+                - skip
+                - pass
+                type: string
             required:
             - policyRefs
             type: object
