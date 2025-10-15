@@ -130,7 +130,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			}
 
-			if p.reportsConfig.MutateExistingReportsEnabled() {
+			if p.reportsConfig.MutateExistingReportsEnabled() && reportutils.IsPolicyReportable(mpol) {
 				err := p.createReports(object, &response)
 				if err != nil {
 					logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
