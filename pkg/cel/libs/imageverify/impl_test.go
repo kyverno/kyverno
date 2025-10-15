@@ -61,7 +61,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(imgCtx, ivpol, nil),
+		Lib(nil, imgCtx, ivpol, nil),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -99,7 +99,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(imgCtx, ivpol, nil),
+		Lib(nil, imgCtx, ivpol, nil),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)

@@ -56,6 +56,28 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper met
 	return kindList
 }
 
+func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []schema.GroupVersionResource {
+	if matchResources == nil {
+		return nil
+	}
+
+	var gvrList []schema.GroupVersionResource
+	for _, rule := range matchResources.ResourceRules {
+		if len(rule.APIGroups) == 0 || len(rule.APIVersions) == 0 {
+			continue
+		}
+
+		for _, group := range rule.APIGroups {
+			for _, version := range rule.APIVersions {
+				for _, resource := range rule.Resources {
+					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
+				}
+			}
+		}
+	}
+	return gvrList
+}
+
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
 	var kinds []string
 

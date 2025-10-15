@@ -699,7 +699,7 @@ generator.Apply(
 			assert.NoError(t, err)
 			env, err := base.Extend(
 				cel.Variable(GeneratorKey, generator.ContextType),
-				generator.Lib(),
+				generator.Lib(nil),
 			)
 			assert.NoError(t, err)
 			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)

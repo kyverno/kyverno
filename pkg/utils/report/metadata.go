@@ -48,6 +48,7 @@ const (
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
 	LabelPrefixMutatingAdmissionPolicy          = "mutatingadmissionpolicy.apiserver.io/"
 	LabelPrefixMutatingAdmissionPolicyBinding   = "mutatingadmissionpolicybinding.apiserver.io/"
+	LabelPolicyExceptionPriority                = "polex.kyverno.io/priority"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )

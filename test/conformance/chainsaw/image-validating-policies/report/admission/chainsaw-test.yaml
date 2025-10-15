@@ -27,3 +27,7 @@ spec:
     try:
     - assert:
         file: report.yaml
+  - name: check events
+    try:
+    - assert:
+        file: events-assert.yaml

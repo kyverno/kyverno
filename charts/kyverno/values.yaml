@@ -1,11 +1,11 @@
-# -- Internal settings used with `helm template` to generate install manifest
-# @ignored
-templating:
-  enabled: false
-  debug: false
-  version: ~
-
 global:
+
+  # -- Internal settings used with `helm template` to generate install manifest
+  # @ignored
+  templating:
+    enabled: false
+    debug: false
+    version: ~
 
   image:
     # -- (string) Global value that allows to set a single image registry across all deployments.
@@ -112,6 +112,8 @@ crds:
       mutatingpolicies: true
       generatingpolicies: true
       deletingpolicies: true
+      namespaceddeletingpolicies: true
+      namespacedvalidatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -145,6 +147,14 @@ crds:
       - policies.kyverno.io
       - policyexceptions.kyverno.io
       - updaterequests.kyverno.io
+      - deletingpolicies.policies.kyverno.io
+      - generatingpolicies.policies.kyverno.io
+      - imagevalidatingpolicies.policies.kyverno.io
+      - mutatingpolicies.policies.kyverno.io
+      - namespaceddeletingpolicies.policies.kyverno.io
+      - namespacedvalidatingpolicies.policies.kyverno.io
+      - policyexceptions.policies.kyverno.io
+      - validatingpolicies.policies.kyverno.io
 
     image:
       # -- (string) Image registry
@@ -1638,10 +1648,6 @@ cleanupController:
   # -- cleanupController server port
   # in case you are using hostNetwork: true, you might want to change the port the cleanupController is listening to
   server:
-    port: 9443
-  # -- cleanupController webhook server port
-  # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
-  webhookServer:
     port: 9443
 
   # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.

@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -20,7 +21,7 @@ func GetValidatingMetrics() ValidatingMetrics {
 }
 
 type ValidatingMetrics interface {
-	RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1alpha1.ValidatingPolicy, resource *unstructured.Unstructured, operation string)
+	RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1alpha1.ValidatingPolicyLike, resource *unstructured.Unstructured, operation string)
 }
 
 type validatingMetrics struct {
@@ -41,16 +42,18 @@ func (m *validatingMetrics) init(meter metric.Meter) {
 	}
 }
 
-func (m *validatingMetrics) RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1alpha1.ValidatingPolicy, resource *unstructured.Unstructured, operation string) {
+func (m *validatingMetrics) RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1alpha1.ValidatingPolicyLike, resource *unstructured.Unstructured, operation string) {
 	if m.durationHistogram == nil {
 		return
 	}
 
-	name, _, backgroundMode, validationMode := GetCELPolicyInfos(&policy)
+	name := policy.GetName()
+	backgroundMode := policy.BackgroundEnabled()
+	validationMode := policy.GetValidatingPolicySpec().EvaluationMode()
 
 	m.durationHistogram.Record(ctx, seconds, metric.WithAttributes(
 		attribute.String("policy_validation_mode", string(validationMode)),
-		attribute.String("policy_background_mode", string(backgroundMode)),
+		attribute.String("policy_background_mode", fmt.Sprintf("%t", backgroundMode)),
 		attribute.String("policy_name", name),
 		attribute.String("resource_kind", resource.GetKind()),
 		attribute.String("resource_namespace", resource.GetNamespace()),

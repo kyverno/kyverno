@@ -463,7 +463,8 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--input ./api/kyverno/v2alpha1 \
 		--input ./api/reports/v1 \
 		--input ./api/policyreport/v1alpha2 \
-		--input ./api/policies.kyverno.io/v1alpha1
+		--input ./api/policies.kyverno.io/v1alpha1 \
+		--input ./api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
@@ -479,7 +480,8 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v2alpha1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		./api/policies.kyverno.io/v1alpha1
+		./api/policies.kyverno.io/v1alpha1 \
+		./api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
@@ -497,7 +499,8 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v2alpha1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		./api/policies.kyverno.io/v1alpha1
+		./api/policies.kyverno.io/v1alpha1 \
+		./api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: ## Generate client wrappers
@@ -537,6 +540,7 @@ codegen-crds-policies: $(CONTROLLER_GEN)
 	@rm -rf $(CRDS_PATH)/policies.kyverno.io && mkdir -p $(CRDS_PATH)/policies.kyverno.io
 	@$(CONTROLLER_GEN) \
 		paths=./api/policies.kyverno.io/v1alpha1/... \
+		paths=./api/policies.kyverno.io/v1beta1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policies.kyverno.io
 
@@ -685,10 +689,12 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
 	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
 	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedvalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedvalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
 	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
 	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespaceddeletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespaceddeletingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
@@ -713,8 +719,8 @@ codegen-manifest-install-latest: helm-setup-openreports
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=latest \
+		--set global.templating.enabled=true \
+		--set global.templating.version=latest \
 		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
@@ -729,9 +735,9 @@ codegen-manifest-debug: helm-setup-openreports
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=latest \
-		--set templating.debug=true \
+		--set global.templating.enabled=true \
+		--set global.templating.version=latest \
+		--set global.templating.debug=true \
 		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
@@ -745,8 +751,8 @@ codegen-manifest-release: helm-setup-openreports
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=$(VERSION) \
+		--set global.templating.enabled=true \
+		--set global.templating.version=$(VERSION) \
 		--set admissionController.container.image.tag=$(VERSION) \
 		--set admissionController.initContainer.image.tag=$(VERSION) \
 		--set cleanupController.image.tag=$(VERSION) \

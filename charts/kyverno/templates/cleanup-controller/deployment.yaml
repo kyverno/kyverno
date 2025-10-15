@@ -1,5 +1,5 @@
 {{- if .Values.cleanupController.enabled -}}
-{{- if not .Values.templating.debug -}}
+{{- if not .Values.global.templating.debug -}}
 {{- $automountSAToken := .Values.cleanupController.rbac.serviceAccount.automountServiceAccountToken -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -7,7 +7,7 @@ metadata:
   name: {{ template "kyverno.cleanup-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   finalizers:
   - kyverno.io/policywebhooks
   - kyverno.io/ttlwebhooks
@@ -112,9 +112,8 @@ spec:
             - --caSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
             - --tlsSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
             - --servicePort={{ .Values.cleanupController.service.port }}
-            - --cleanupServerPort={{ .Values.cleanupController.server.port }}
-            - --webhookServerPort={{ .Values.cleanupController.webhookServer.port }}
             - --resyncPeriod={{ .Values.cleanupController.resyncPeriod | default .Values.global.resyncPeriod }}
+            - --cleanupServerPort={{ .Values.cleanupController.server.port }}
             {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
             - --autoDeleteWebhooks
             {{- end }}
