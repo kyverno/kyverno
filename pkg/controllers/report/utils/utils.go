@@ -216,7 +216,6 @@ func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicy
 }
 
 func FetchNamespacedValidatingPolicies(nvpolLister policiesv1alpha1listers.NamespacedValidatingPolicyLister, namespace string) ([]policiesv1alpha1.NamespacedValidatingPolicy, error) {
-	var policies []policiesv1alpha1.NamespacedValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -230,6 +229,7 @@ func FetchNamespacedValidatingPolicies(nvpolLister policiesv1alpha1listers.Names
 	if err != nil {
 		return nil, err
 	}
+	policies := make([]policiesv1alpha1.NamespacedValidatingPolicy, 0, len(pols))
 	for _, pol := range pols {
 		policies = append(policies, *pol)
 	}
