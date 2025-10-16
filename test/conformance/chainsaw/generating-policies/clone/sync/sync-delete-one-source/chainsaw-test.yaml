@@ -35,6 +35,7 @@ spec:
     try:
     - apply:
         file: trigger.yaml
+  - name: sleep
     try:
     - sleep:
         duration: 5s
