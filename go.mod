@@ -87,7 +87,7 @@ require (
 	k8s.io/pod-security-admission v0.34.1
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.22.0
-	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5
+	sigs.k8s.io/kubectl-validate v0.0.5-0.20250909135530-dad770c1cb46
 	sigs.k8s.io/kustomize/api v0.20.1
 	sigs.k8s.io/kustomize/kyaml v0.20.1
 	sigs.k8s.io/release-utils v0.12.2
