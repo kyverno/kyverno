@@ -8,7 +8,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/assert"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -563,7 +563,7 @@ func Test_MutateResource(t *testing.T) {
 			expectedResource, err := kubeutils.BytesToUnstructured(tt.expectedRawResource)
 			assert.NilError(t, err)
 
-			var policy admissionregistrationv1alpha1.MutatingAdmissionPolicy
+			var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
 			err = json.Unmarshal(tt.rawPolicy, &policy)
 			assert.NilError(t, err)
 
@@ -726,7 +726,7 @@ func Test_MutateResourceWithBackgroundScanEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var policy admissionregistrationv1alpha1.MutatingAdmissionPolicy
+			var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
 			err := json.Unmarshal(tt.rawPolicy, &policy)
 			assert.NilError(t, err)
 

@@ -47,7 +47,7 @@ import (
 	"github.com/spf13/cobra"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -399,8 +399,8 @@ func (c *ApplyCommandConfig) applyPolicies(
 	vpols []policiesv1alpha1.ValidatingPolicy,
 	gpols []policiesv1alpha1.GeneratingPolicy,
 	mpols []policiesv1alpha1.MutatingPolicy,
-	maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
-	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	maps []admissionregistrationv1beta1.MutatingAdmissionPolicy,
+	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	parameterResources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
@@ -763,8 +763,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]kyvernov1.PolicyInterface,
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	[]admissionregistrationv1alpha1.MutatingAdmissionPolicy,
-	[]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	[]admissionregistrationv1beta1.MutatingAdmissionPolicy,
+	[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	[]policiesv1alpha1.ValidatingPolicy,
 	[]policiesv1alpha1.NamespacedValidatingPolicy,
 	[]policiesv1alpha1.ImageValidatingPolicy,
@@ -780,8 +780,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	var vps []policiesv1alpha1.ValidatingPolicy
 	var nvps []policiesv1alpha1.NamespacedValidatingPolicy
-	var maps []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	var mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	var maps []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	var ivps []policiesv1alpha1.ImageValidatingPolicy
 	var gps []policiesv1alpha1.GeneratingPolicy
 	var dps []policiesv1beta1.DeletingPolicy

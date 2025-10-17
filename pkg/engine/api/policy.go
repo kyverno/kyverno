@@ -6,6 +6,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -50,13 +51,13 @@ func NewValidatingAdmissionPolicyData(
 
 // MutatingPolicyData holds a MAP and its associated MAPBs
 type MutatingAdmissionPolicyData struct {
-	definition *admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	bindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	definition *admissionregistrationv1beta1.MutatingAdmissionPolicy
+	bindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	params     []runtime.Object
 }
 
 // AddBinding appends a MAPB to the policy data
-func (m *MutatingAdmissionPolicyData) AddBinding(b admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func (m *MutatingAdmissionPolicyData) AddBinding(b admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
 	m.bindings = append(m.bindings, b)
 }
 
@@ -64,11 +65,11 @@ func (m *MutatingAdmissionPolicyData) AddParam(p runtime.Object) {
 	m.params = append(m.params, p)
 }
 
-func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1alpha1.MutatingAdmissionPolicy {
+func (p *MutatingAdmissionPolicyData) GetDefinition() *admissionregistrationv1beta1.MutatingAdmissionPolicy {
 	return p.definition
 }
 
-func (p *MutatingAdmissionPolicyData) GetBindings() []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
+func (p *MutatingAdmissionPolicyData) GetBindings() []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding {
 	return p.bindings
 }
 
@@ -78,8 +79,8 @@ func (p *MutatingAdmissionPolicyData) GetParams() []runtime.Object {
 
 // NewMutatingPolicyData initializes a MAP wrapper with no bindings
 func NewMutatingAdmissionPolicyData(
-	policy *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
-	bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	policy *admissionregistrationv1beta1.MutatingAdmissionPolicy,
+	bindings ...admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 ) *MutatingAdmissionPolicyData {
 	return &MutatingAdmissionPolicyData{
 		definition: policy,
@@ -244,14 +245,14 @@ func NewValidatingAdmissionPolicyWithBindings(pol *admissionregistrationv1.Valid
 	}
 }
 
-func NewMutatingAdmissionPolicy(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy) GenericPolicy {
+func NewMutatingAdmissionPolicy(pol *admissionregistrationv1beta1.MutatingAdmissionPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                  pol,
 		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol),
 	}
 }
 
-func NewMutatingAdmissionPolicyWithBindings(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy, bindings ...admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) GenericPolicy {
+func NewMutatingAdmissionPolicyWithBindings(pol *admissionregistrationv1beta1.MutatingAdmissionPolicy, bindings ...admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) GenericPolicy {
 	return &genericPolicy{
 		Object:                  pol,
 		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol, bindings...),
