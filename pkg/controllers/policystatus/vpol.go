@@ -53,3 +53,13 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1alpha1
 	)
 	return err
 }
+
+func (c controller) updateNVpolStatus(ctx context.Context, nvpol *policiesv1alpha1.NamespacedValidatingPolicy) error {
+	updateFunc := func(nvpol *policiesv1alpha1.NamespacedValidatingPolicy) error {
+		p := engineapi.NewNamespacedValidatingPolicy(nvpol)
+		return c.updateVpolStatus(ctx, p.AsValidatingPolicy())
+	}
+	return controllerutils.UpdateStatus(ctx, nvpol, c.client.PoliciesV1alpha1().NamespacedValidatingPolicies(nvpol.Namespace), updateFunc, func(current, expect *policiesv1alpha1.NamespacedValidatingPolicy) bool {
+		return datautils.DeepEqual(current.Status, expect.Status)
+	})
+}

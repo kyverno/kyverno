@@ -71,6 +71,7 @@ type controller struct {
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
+	nvpolLister      policiesv1alpha1listers.NamespacedValidatingPolicyLister
 	mpolLister       policiesv1alpha1listers.MutatingPolicyLister
 	ivpolLister      policiesv1alpha1listers.ImageValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
@@ -110,6 +111,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
@@ -161,6 +163,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nvpolInformer != nil {
+		c.nvpolLister = nvpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(nvpolInformer.Informer(), c.addNVP, c.updateNVP, c.deleteNVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -287,6 +295,20 @@ func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
 }
 
 func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addNVP(obj *policiesv1alpha1.NamespacedValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateNVP(old, obj *policiesv1alpha1.NamespacedValidatingPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteNVP(obj *policiesv1alpha1.NamespacedValidatingPolicy) {
 	c.enqueueResources()
 }
 
@@ -728,6 +750,15 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
 			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
+		}
+	}
+	if c.nvpolLister != nil {
+		nvpols, err := utils.FetchNamespacedValidatingPolicies(c.nvpolLister, namespace)
+		if err != nil {
+			return err
+		}
+		for _, nvpol := range celpolicies.RemoveNoneBackgroundPolicies(nvpols) {
+			policies = append(policies, engineapi.NewNamespacedValidatingPolicy(&nvpol))
 		}
 	}
 	if c.mpolLister != nil {

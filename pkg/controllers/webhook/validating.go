@@ -92,6 +92,22 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					}
 				}
 			}
+			if nvpol, ok := p.(*policiesv1alpha1.NamespacedValidatingPolicy); ok {
+				policies, err := vpolautogen.Autogen(nvpol)
+				if err != nil {
+					continue
+				}
+				for _, config := range slices.Sorted(maps.Keys(policies)) {
+					policy := policies[config]
+					webhook.MatchConditions = append(
+						webhook.MatchConditions,
+						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+					)
+					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
+						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+					}
+				}
+			}
 			if ivpol, ok := p.(*policiesv1alpha1.ImageValidatingPolicy); ok {
 				policies, err := ivpolautogen.Autogen(ivpol)
 				if err != nil {
