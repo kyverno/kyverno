@@ -304,9 +304,11 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			expressionCache := NewExpressionCache()
 			var vpols []engineapi.GenericPolicy
 			for _, vpol := range tt.vpols {
 				vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
+				expressionCache.AddPolicyExpressions(vpol.GetMatchConditions())
 			}
 			webhooks := buildWebhookRules(
 				config.NewDefaultConfiguration(false),
@@ -316,6 +318,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				vpols,
+				expressionCache,
 			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
@@ -522,9 +525,11 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			expressionCache := NewExpressionCache()
 			var ivpols []engineapi.GenericPolicy
 			for _, ivpol := range tt.ivpols {
 				ivpols = append(ivpols, engineapi.NewImageValidatingPolicy(ivpol))
+				expressionCache.AddPolicyExpressions(ivpol.GetMatchConditions())
 			}
 			webhooks := buildWebhookRules(
 				config.NewDefaultConfiguration(false),
@@ -534,6 +539,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				ivpols,
+				expressionCache,
 			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {

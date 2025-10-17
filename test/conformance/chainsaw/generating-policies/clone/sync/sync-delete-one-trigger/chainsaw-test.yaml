@@ -42,7 +42,7 @@ spec:
   - name: sleep
     try:
     - sleep:
-        duration: 3s
+        duration: 5s
   - name: check that the downstreams are generated
     try:
     - assert:

@@ -3,6 +3,7 @@ package api
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -113,7 +114,7 @@ type GenericPolicy interface {
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
-	AsDeletingPolicy() policiesv1alpha1.DeletingPolicyLike
+	AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike
 }
 type genericPolicy struct {
 	metav1.Object
@@ -124,7 +125,7 @@ type genericPolicy struct {
 	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
 	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
 	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
-	DeletingPolicy            policiesv1alpha1.DeletingPolicyLike
+	DeletingPolicy            policiesv1beta1.DeletingPolicyLike
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -159,7 +160,7 @@ func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy 
 	return p.GeneratingPolicy
 }
 
-func (p *genericPolicy) AsDeletingPolicy() policiesv1alpha1.DeletingPolicyLike {
+func (p *genericPolicy) AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike {
 	return p.DeletingPolicy
 }
 
@@ -172,6 +173,9 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.MutatingAdmissionPolicy != nil:
 		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
 	case p.ValidatingPolicy != nil:
+		if apiVersion := p.ValidatingPolicy.APIVersion; apiVersion != "" {
+			return apiVersion
+		}
 		return policiesv1alpha1.GroupVersion.String()
 	case p.ImageValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
@@ -194,7 +198,7 @@ func (p *genericPolicy) GetKind() string {
 	case p.MutatingAdmissionPolicy != nil:
 		return "MutatingAdmissionPolicy"
 	case p.ValidatingPolicy != nil:
-		return "ValidatingPolicy"
+		return p.ValidatingPolicy.GetKind()
 	case p.ImageValidatingPolicy != nil:
 		return "ImageValidatingPolicy"
 	case p.MutatingPolicy != nil:
@@ -211,6 +215,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 	switch {
 	case p.PolicyInterface != nil:
 		return p.PolicyInterface.IsNamespaced()
+	case p.ValidatingPolicy != nil:
+		return p.ValidatingPolicy.GetNamespace() != ""
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""
 	}
@@ -259,6 +265,37 @@ func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
 	}
 }
 
+func NewNamespacedValidatingPolicy(pol *policiesv1alpha1.NamespacedValidatingPolicy) GenericPolicy {
+	if pol == nil {
+		return nil
+	}
+	apiVersion := pol.APIVersion
+	if apiVersion == "" {
+		apiVersion = policiesv1alpha1.GroupVersion.String()
+	}
+	converted := policiesv1alpha1.ValidatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: pol.GetKind(), APIVersion: apiVersion},
+		ObjectMeta: pol.ObjectMeta,
+		Spec:       pol.Spec,
+		Status:     pol.Status,
+	}
+	return &genericPolicy{
+		Object:           pol,
+		ValidatingPolicy: &converted,
+	}
+}
+
+func NewValidatingPolicyFromLike(pol policiesv1alpha1.ValidatingPolicyLike) GenericPolicy {
+	switch typed := pol.(type) {
+	case *policiesv1alpha1.ValidatingPolicy:
+		return NewValidatingPolicy(typed)
+	case *policiesv1alpha1.NamespacedValidatingPolicy:
+		return NewNamespacedValidatingPolicy(typed)
+	default:
+		return nil
+	}
+}
+
 func NewImageValidatingPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                pol,
@@ -280,25 +317,25 @@ func NewGeneratingPolicy(pol *policiesv1alpha1.GeneratingPolicy) GenericPolicy {
 	}
 }
 
-func NewDeletingPolicy(pol *policiesv1alpha1.DeletingPolicy) GenericPolicy {
+func NewDeletingPolicy(pol *policiesv1beta1.DeletingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:         pol,
 		DeletingPolicy: pol,
 	}
 }
 
-func NewNamespacedDeletingPolicy(pol *policiesv1alpha1.NamespacedDeletingPolicy) GenericPolicy {
+func NewNamespacedDeletingPolicy(pol *policiesv1beta1.NamespacedDeletingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:         pol,
 		DeletingPolicy: pol,
 	}
 }
 
-func NewDeletingPolicyFromLike(pol policiesv1alpha1.DeletingPolicyLike) GenericPolicy {
+func NewDeletingPolicyFromLike(pol policiesv1beta1.DeletingPolicyLike) GenericPolicy {
 	switch typed := pol.(type) {
-	case *policiesv1alpha1.DeletingPolicy:
+	case *policiesv1beta1.DeletingPolicy:
 		return NewDeletingPolicy(typed)
-	case *policiesv1alpha1.NamespacedDeletingPolicy:
+	case *policiesv1beta1.NamespacedDeletingPolicy:
 		return NewNamespacedDeletingPolicy(typed)
 	default:
 		return nil

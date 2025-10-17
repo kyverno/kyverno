@@ -11,7 +11,7 @@ var ContextType = types.NewOpaqueType("resource.Context")
 var GVRType = types.NewOpaqueType("schema.GroupVersionResource")
 
 type ContextInterface interface {
-	ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error)
+	ListResources(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error)
 	GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error)
 	PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error)
 	ToGVR(apiVersion, kind string) (*schema.GroupVersionResource, error)

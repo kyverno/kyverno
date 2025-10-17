@@ -189,6 +189,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
 		eventController := internal.NewController(
@@ -320,7 +321,7 @@ func main() {
 					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
-				gpolEngine := gpolengine.NewEngine(namespaceGetter, matching.NewMatcher())
+				gpolEngine := gpolengine.NewMetricsEngine(gpolengine.NewEngine(namespaceGetter, matching.NewMatcher()))
 
 				scheme := kruntime.NewScheme()
 				if err := policiesv1alpha1.Install(scheme); err != nil {
@@ -383,7 +384,7 @@ func main() {
 					bgscanInterval,
 					urGenerator,
 					contextProvider,
-					*gpolEngine,
+					gpolEngine,
 					gpolProvider,
 					mpolEngine,
 					restMapper,
