@@ -65,6 +65,9 @@ type TestResultBase struct {
 	// CloneSourceResource takes the resource configuration file in yaml format
 	// from the user which is meant to be cloned by the generate rule.
 	CloneSourceResource string `json:"cloneSourceResource,omitempty"`
+
+	// FailOnMissingResources indicates if the test should fail if the patched/generated resources are missing.
+	FailOnMissingResources bool `json:"failOnMissingResources,omitempty"`
 }
 
 // TestResultData declares a test result data
