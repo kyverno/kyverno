@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"fmt"
+
 	cel "github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -18,6 +20,11 @@ import (
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	matchconditions "k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	environment "k8s.io/apiserver/pkg/cel/environment"
+)
+
+var (
+	mpolCompilerVersion = version.MajorMinor(1, 0)
+	compileError        = "mutating policy compiler " + mpolCompilerVersion.String() + " error: %s"
 )
 
 type Compiler interface {
@@ -49,22 +56,22 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 				cel.Variable(compiler.ResourceKey, resource.ContextType),
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
-				globalcontext.Lib(),
-				http.Lib(),
-				image.Lib(),
-				imagedata.Lib(),
-				resource.Lib(),
-				user.Lib(),
+				globalcontext.Lib(image.Latest()),
+				http.Lib(image.Latest()),
+				image.Lib(image.Latest()),
+				imagedata.Lib(imagedata.Latest()),
+				resource.Lib(resource.Latest()),
+				user.Lib(user.Latest()),
 			},
 		},
 	)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	compositedCompiler, err := plugincel.NewCompositedCompiler(extendedEnvSet)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	optionsVars := plugincel.OptionalVariableDeclarations{
@@ -75,7 +82,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 	}
 
 	if policy.Spec.Variables != nil {
-		compositedCompiler.CompileAndStoreVariables(convertVariables(policy.Spec.Variables), optionsVars, environment.StoredExpressions)
+		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.Spec.Variables), optionsVars, environment.StoredExpressions)
 	}
 
 	// Compile match conditions and collect errors

@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedDeletingPolicy
+metadata:
+  name: restart-test-delete-policy
+  namespace: ndpol-schedule
+spec:
+  schedule: "*/1 * * * *"
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  conditions:
+    - name: is-nginx
+      expression: >
+        object.spec.containers.all(c, c.image.startsWith("nginx"))
+
