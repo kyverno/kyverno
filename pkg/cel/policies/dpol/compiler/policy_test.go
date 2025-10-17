@@ -10,6 +10,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -55,33 +56,10 @@ func (e *evalErrorProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.
 	return nil, nil, errors.New("forced match error")
 }
 
-// mock Context
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
-	panic("not implemented")
-}
-
 func TestEvaluate(t *testing.T) {
 	ctx := context.Background()
 	obj := unstructured.Unstructured{}
-	ctxLib := &fakeContext{}
+	ctxLib := &libs.FakeContextProvider{}
 
 	t.Run("variable returns value", func(t *testing.T) {
 		p := &Policy{variables: map[string]cel.Program{"test": &valueProgram{}}}

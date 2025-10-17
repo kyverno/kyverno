@@ -5,6 +5,12 @@ metadata:
 spec:
   matchConstraints:
     matchPolicy: Exact
+    namespaceSelector:
+     matchLabels:
+       environment: staging
+    objectSelector:
+      matchLabels:
+        app: test
     resourceRules:
     - apiGroups:   [apps]
       apiVersions: [v1]

@@ -1,0 +1,13 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: exclude-skipped-deployment
+spec:
+  policyRefs:
+  - name: "with-exception-pass-result"
+    kind: ValidatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'skipped-deployment'"
+  reportResult: pass
+  

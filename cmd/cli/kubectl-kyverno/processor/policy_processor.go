@@ -62,6 +62,7 @@ type PolicyProcessor struct {
 	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
+	NamespacedValidatingPolicies      []policiesv1alpha1.NamespacedValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
 	Resource                          unstructured.Unstructured
@@ -274,7 +275,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
-		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, nil)
+		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -373,7 +374,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
 		compiler := vpolcompiler.NewCompiler()
-		provider, err := vpolengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
+		policies := make([]policiesv1alpha1.ValidatingPolicyLike, 0, len(p.ValidatingPolicies))
+		for i := range p.ValidatingPolicies {
+			policies = append(policies, &p.ValidatingPolicies[i])
+		}
+		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -421,7 +426,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
@@ -440,7 +445,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}

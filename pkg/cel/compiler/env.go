@@ -7,10 +7,8 @@ import (
 	"k8s.io/apiserver/pkg/cel/library"
 )
 
-func NewBaseEnv() (*cel.Env, error) {
-	// create new cel env
-	return cel.NewEnv(
-		// configure env
+func DefaultEnvOptions() []cel.EnvOption {
+	return []cel.EnvOption{
 		cel.HomogeneousAggregateLiterals(),
 		cel.EagerlyValidateDeclarations(true),
 		cel.DefaultUTCTimeZone(true),
@@ -31,6 +29,14 @@ func NewBaseEnv() (*cel.Env, error) {
 		library.Lists(),
 		library.Regex(),
 		library.URLs(),
+		library.Quantity(),
+	}
+}
+
+func NewBaseEnv() (*cel.Env, error) {
+	// create new cel env
+	return cel.NewEnv(
+		DefaultEnvOptions()...,
 	)
 }
 
@@ -41,6 +47,6 @@ func NewMatchImageEnv() (*cel.Env, error) {
 	}
 	return base.Extend(
 		cel.Variable(ImageRefKey, cel.StringType),
-		image.Lib(),
+		image.Lib(image.Latest()),
 	)
 }

@@ -6,15 +6,23 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 const libraryName = "kyverno.resource"
 
-type lib struct{}
+type lib struct {
+	version *version.Version
+}
 
-func Lib() cel.EnvOption {
+func Latest() *version.Version {
+	return versions.ResourceVersion
+}
+
+func Lib(v *version.Version) cel.EnvOption {
 	// create the cel lib env option
-	return cel.Lib(&lib{})
+	return cel.Lib(&lib{version: v})
 }
 
 func (*lib) LibraryName() string {
@@ -46,6 +54,24 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.list_resources_string_string_string),
 			),
+			cel.MemberOverload(
+				"resource_list_string_string_string_map",
+				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.StringType)},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.list_resources_string_string_string_map),
+			),
+			cel.MemberOverload(
+				"list_resources_gvr_string",
+				[]*cel.Type{ContextType, GVRType, types.StringType},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.list_resources_gvr_string),
+			),
+			cel.MemberOverload(
+				"list_resources_gvr_string_map",
+				[]*cel.Type{ContextType, GVRType, types.StringType, types.NewMapType(types.StringType, types.StringType)},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.list_resources_gvr_string_map),
+			),
 		},
 		"Get": {
 			cel.MemberOverload(
@@ -53,6 +79,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.StringType, types.StringType},
 				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.get_resource_string_string_string_string),
+			),
+			cel.MemberOverload(
+				"resource_get_gvr_string_string",
+				[]*cel.Type{ContextType, GVRType, types.StringType, types.StringType},
+				types.NewMapType(types.StringType, types.AnyType),
+				cel.FunctionBinding(impl.get_resources_gvr_string_string),
 			),
 		},
 		"Post": {
@@ -67,6 +99,14 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				[]*cel.Type{ContextType, types.StringType, types.StringType, types.NewMapType(types.StringType, types.AnyType)},
 				types.NewMapType(types.StringType, types.AnyType),
 				cel.FunctionBinding(impl.post_resource_string_string_map),
+			),
+		},
+		"ToGVR": {
+			cel.MemberOverload(
+				"convert_to_gvr_string_string",
+				[]*cel.Type{ContextType, types.StringType, types.StringType},
+				GVRType,
+				cel.FunctionBinding(impl.convert_to_gvr_string_string),
 			),
 		},
 	}

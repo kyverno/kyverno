@@ -19,6 +19,7 @@ import (
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -29,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -183,9 +185,25 @@ func NewController(
 	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, cephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+	enqueueAll := func(items []runtime.Object) {
+		for _, item := range items {
+			itemMeta := item.(*metav1.PartialObjectMetadata)
+			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+		}
+	}
 	// enqueueReportsForPolicy queues only reports affected by a specific policy change using the cache.
 	enqueueReportsForPolicy := func(o metav1.Object) {
 		if list, err := polrInformer.Lister().List(selector); err == nil {
+			// the cache has not been built yet, enqueue all reports for reconciliation
+			cacheMu.Lock()
+			cacheLen := len(reportUUIDToPolicyCache)
+			cacheMu.Unlock()
+
+			if cacheLen == 0 {
+				enqueueAll(list)
+				return
+			}
+
 			for _, item := range list {
 				itemMeta := item.(*metav1.PartialObjectMetadata)
 				cacheMu.Lock()
@@ -215,6 +233,16 @@ func NewController(
 			}
 		}
 		if list, err := cpolrInformer.Lister().List(selector); err == nil {
+			// the cache has not been built yet, enqueue all reports for reconciliation
+			cacheMu.Lock()
+			cacheLen := len(reportUUIDToPolicyCache)
+			cacheMu.Unlock()
+
+			if cacheLen == 0 {
+				enqueueAll(list)
+				return
+			}
+
 			for _, item := range list {
 				itemMeta := item.(*metav1.PartialObjectMetadata)
 				cacheMu.Lock()
@@ -225,9 +253,8 @@ func NewController(
 					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
 					continue
 				}
-				for _, polNsName := range sets.List(policiesForReport) {
-					policyNameParts := strings.Split(polNsName, "/")
-					if o.GetName() != policyNameParts[1] {
+				for _, polName := range sets.List(policiesForReport) {
+					if o.GetName() != polName {
 						continue
 					}
 					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
@@ -333,7 +360,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 
 func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 	results := map[string]policyMapEntry{}
-	cpols, err := c.cpolLister.List(labels.Everything())
+	cpols, err := utils.FetchClusterPolicies(c.cpolLister)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +374,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
-	pols, err := c.polLister.List(labels.Everything())
+	pols, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
@@ -367,12 +394,12 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 func (c *controller) createVapMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.vapLister != nil {
-		vaps, err := c.vapLister.List(labels.Everything())
+		vaps, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, vap := range vaps {
-			results.Insert(cache.MetaObjectToName(vap).String())
+			results.Insert(cache.MetaObjectToName(&vap).String())
 		}
 	}
 	return results, nil
@@ -381,12 +408,12 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 func (c *controller) createMappolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.mapLister != nil {
-		maps, err := c.mapLister.List(labels.Everything())
+		maps, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, pol := range maps {
-			results.Insert(cache.MetaObjectToName(pol).String())
+			results.Insert(cache.MetaObjectToName(&pol).String())
 		}
 	}
 	return results, nil
@@ -395,12 +422,12 @@ func (c *controller) createMappolMap() (sets.Set[string], error) {
 func (c *controller) createVPolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.vpolLister != nil {
-		vpols, err := c.vpolLister.List(labels.Everything())
+		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, vpol := range vpols {
-			results.Insert(cache.MetaObjectToName(vpol).String())
+			results.Insert(cache.MetaObjectToName(&vpol).String())
 		}
 	}
 	return results, nil
@@ -409,12 +436,12 @@ func (c *controller) createVPolMap() (sets.Set[string], error) {
 func (c *controller) createIVPolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.ivpolLister != nil {
-		ivpols, err := c.ivpolLister.List(labels.Everything())
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, ivpol := range ivpols {
-			results.Insert(cache.MetaObjectToName(ivpol).String())
+			results.Insert(cache.MetaObjectToName(&ivpol).String())
 		}
 	}
 	return results, nil
@@ -423,12 +450,12 @@ func (c *controller) createIVPolMap() (sets.Set[string], error) {
 func (c *controller) createGPOLMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.gpolLister != nil {
-		gpols, err := c.gpolLister.List(labels.Everything())
+		gpols, err := utils.FetchGeneratingPolicy(c.gpolLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, gpol := range gpols {
-			results.Insert(cache.MetaObjectToName(gpol).String())
+			results.Insert(cache.MetaObjectToName(&gpol).String())
 		}
 	}
 	return results, nil
@@ -437,12 +464,12 @@ func (c *controller) createGPOLMap() (sets.Set[string], error) {
 func (c *controller) createMPOLMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.mpolLister != nil {
-		mpols, err := c.mpolLister.List(labels.Everything())
+		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
 		if err != nil {
 			return nil, err
 		}
 		for _, mpol := range mpols {
-			results.Insert(cache.MetaObjectToName(mpol).String())
+			results.Insert(cache.MetaObjectToName(&mpol).String())
 		}
 	}
 	return results, nil
