@@ -67,21 +67,21 @@ func Test_aggregationSelector_memoryLeakPrevention(t *testing.T) {
 	// This test specifically validates the memory leak fix
 	config := kconfig.NewDefaultMetricsConfiguration()
 	selector := aggregationSelector(config)
-	
+
 	// Test histogram aggregation
 	histogramAgg := selector(sdkmetric.InstrumentKindHistogram)
-	
+
 	// Verify it's the correct type
 	hist, ok := histogramAgg.(sdkmetric.AggregationExplicitBucketHistogram)
 	if !ok {
 		t.Fatalf("Expected AggregationExplicitBucketHistogram, got %T", histogramAgg)
 	}
-	
+
 	// Critical test: NoMinMax must be true to prevent memory leak
 	if !hist.NoMinMax {
 		t.Errorf("MEMORY LEAK: NoMinMax must be true to prevent histogram min/max accumulation. Got NoMinMax=%v", hist.NoMinMax)
 	}
-	
+
 	// Verify boundaries are set correctly
 	expectedBoundaries := config.GetBucketBoundaries()
 	if !reflect.DeepEqual(hist.Boundaries, expectedBoundaries) {
@@ -94,21 +94,21 @@ func Test_aggregationSelector_withCustomBoundaries(t *testing.T) {
 	config := &mockMetricsConfig{
 		bucketBoundaries: []float64{0.1, 0.5, 1.0, 5.0},
 	}
-	
+
 	selector := aggregationSelector(config)
 	result := selector(sdkmetric.InstrumentKindHistogram)
-	
+
 	hist, ok := result.(sdkmetric.AggregationExplicitBucketHistogram)
 	if !ok {
 		t.Fatalf("Expected AggregationExplicitBucketHistogram, got %T", result)
 	}
-	
+
 	// Verify custom boundaries
 	expected := []float64{0.1, 0.5, 1.0, 5.0}
 	if !reflect.DeepEqual(hist.Boundaries, expected) {
 		t.Errorf("Expected custom boundaries %v, got %v", expected, hist.Boundaries)
 	}
-	
+
 	// Critical: NoMinMax must still be true even with custom boundaries
 	if !hist.NoMinMax {
 		t.Errorf("NoMinMax must be true even with custom boundaries to prevent memory leak")
