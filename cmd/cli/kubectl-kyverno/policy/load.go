@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
@@ -42,8 +43,10 @@ var (
 	dpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("DeletingPolicy")
 	ndpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
 	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
-	mapV1alpha1        = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
-	mapBindingV1alpha1 = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
+	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapV1beta1         = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
+	mapBindingV1beta1  = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	defaultLoader      = kubectlValidateLoader
 )
 
@@ -200,13 +203,13 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
-		case mapV1alpha1:
+		case mapV1alpha1, mapV1beta1:
 			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.MAPs = append(results.MAPs, *typed)
-		case mapBindingV1alpha1:
+		case mapBindingV1alpha1, mapBindingV1beta1:
 			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](untyped)
 			if err != nil {
 				return nil, err
