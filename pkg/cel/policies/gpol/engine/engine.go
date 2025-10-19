@@ -20,20 +20,24 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type Engine struct {
+type Engine interface {
+	Handle(request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error)
+}
+
+type engineImpl struct {
 	nsResolver engine.NamespaceResolver
 	matcher    matching.Matcher
 }
 
-func NewEngine(nsResolver engine.NamespaceResolver, matcher matching.Matcher) *Engine {
-	return &Engine{
+func NewEngine(nsResolver engine.NamespaceResolver, matcher matching.Matcher) Engine {
+	return &engineImpl{
 		nsResolver: nsResolver,
 		matcher:    matcher,
 	}
 }
 
 // Handle evaluates a generating policy against the trigger in the provided request.
-func (e *Engine) Handle(request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error) {
+func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error) {
 	var response EngineResponse
 	// load objects
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
@@ -84,7 +88,7 @@ func (e *Engine) Handle(request engine.EngineRequest, policy Policy, cacheRestor
 	return response, nil
 }
 
-func (e *Engine) generate(
+func (e *engineImpl) generate(
 	ctx context.Context,
 	policy Policy,
 	attr admission.Attributes,
@@ -165,7 +169,7 @@ func (e *Engine) generate(
 	return response
 }
 
-func (e *Engine) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {
+func (e *engineImpl) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {
 	if constraints == nil {
 		return false, nil
 	}
