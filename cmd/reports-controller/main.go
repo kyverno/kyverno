@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/restmapper"
@@ -90,14 +91,21 @@ func createReportControllers(
 	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
 	var mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
+	var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
 	var mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
+	var mapAlphaBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 	if validatingAdmissionPolicyReports {
 		vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 		vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 	}
 	if mutatingAdmissionPolicyReports {
-		mapInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
-		mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
+		mapAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+		mapAlphaBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+
+		if kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 34, 0) {
+			mapInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
+			mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
+		}
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
@@ -112,6 +120,7 @@ func createReportControllers(
 			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 			mapInformer,
+			mapAlphaInformer,
 			metaClient,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -138,6 +147,7 @@ func createReportControllers(
 					policiesV1alpha1.MutatingPolicies(),
 					vapInformer,
 					mapInformer,
+					mapAlphaInformer,
 				),
 				aggregationWorkers,
 			))
@@ -160,7 +170,9 @@ func createReportControllers(
 				vapInformer,
 				vapBindingInformer,
 				mapInformer,
+				mapAlphaInformer,
 				mapBindingInformer,
+				mapAlphaBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,
 				backgroundScanInterval,

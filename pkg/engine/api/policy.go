@@ -127,6 +127,8 @@ type genericPolicy struct {
 	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
 	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
 	DeletingPolicy            policiesv1beta1.DeletingPolicyLike
+	// originalAPIVersion tracks the original API version for converted policies
+	originalAPIVersion string
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -172,7 +174,10 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.ValidatingAdmissionPolicy != nil:
 		return admissionregistrationv1.SchemeGroupVersion.String()
 	case p.MutatingAdmissionPolicy != nil:
-		return admissionregistrationv1alpha1.SchemeGroupVersion.String()
+		if p.originalAPIVersion != "" {
+			return p.originalAPIVersion
+		}
+		return admissionregistrationv1beta1.SchemeGroupVersion.String()
 	case p.ValidatingPolicy != nil:
 		if apiVersion := p.ValidatingPolicy.APIVersion; apiVersion != "" {
 			return apiVersion
@@ -249,6 +254,172 @@ func NewMutatingAdmissionPolicy(pol *admissionregistrationv1beta1.MutatingAdmiss
 	return &genericPolicy{
 		Object:                  pol,
 		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(pol),
+	}
+}
+
+func NewMutatingAdmissionPolicyAlpha(pol *admissionregistrationv1alpha1.MutatingAdmissionPolicy) GenericPolicy {
+	v1beta1Pol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: admissionregistrationv1beta1.SchemeGroupVersion.String(),
+			Kind:       "MutatingAdmissionPolicy",
+		},
+		ObjectMeta: pol.ObjectMeta,
+		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
+			ParamKind:          convertParamKind(pol.Spec.ParamKind),
+			MatchConstraints:   convertMatchConstraints(pol.Spec.MatchConstraints),
+			Variables:          convertVariables(pol.Spec.Variables),
+			Mutations:          convertMutations(pol.Spec.Mutations),
+			FailurePolicy:      (*admissionregistrationv1beta1.FailurePolicyType)(pol.Spec.FailurePolicy),
+			MatchConditions:    convertMatchConditions(pol.Spec.MatchConditions),
+			ReinvocationPolicy: admissionregistrationv1beta1.ReinvocationPolicyType(pol.Spec.ReinvocationPolicy),
+		},
+	}
+	return &genericPolicy{
+		Object:                  v1beta1Pol,
+		MutatingAdmissionPolicy: NewMutatingAdmissionPolicyData(v1beta1Pol),
+		originalAPIVersion:      admissionregistrationv1alpha1.SchemeGroupVersion.String(),
+	}
+}
+
+func convertParamKind(paramKind *admissionregistrationv1alpha1.ParamKind) *admissionregistrationv1beta1.ParamKind {
+	if paramKind == nil {
+		return nil
+	}
+	return &admissionregistrationv1beta1.ParamKind{
+		APIVersion: paramKind.APIVersion,
+		Kind:       paramKind.Kind,
+	}
+}
+
+func convertMatchConstraints(matchConstraints *admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources {
+	if matchConstraints == nil {
+		return nil
+	}
+	return &admissionregistrationv1beta1.MatchResources{
+		ResourceRules:        convertResourceRules(matchConstraints.ResourceRules),
+		ExcludeResourceRules: convertResourceRules(matchConstraints.ExcludeResourceRules),
+		MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(matchConstraints.MatchPolicy),
+	}
+}
+
+func convertResourceRules(rules []admissionregistrationv1alpha1.NamedRuleWithOperations) []admissionregistrationv1beta1.NamedRuleWithOperations {
+	result := make([]admissionregistrationv1beta1.NamedRuleWithOperations, len(rules))
+	for i, r := range rules {
+		result[i] = admissionregistrationv1beta1.NamedRuleWithOperations{
+			ResourceNames: r.ResourceNames,
+			RuleWithOperations: admissionregistrationv1beta1.RuleWithOperations{
+				Operations: convertOperations(r.Operations),
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   r.APIGroups,
+					APIVersions: r.APIVersions,
+					Resources:   r.Resources,
+					Scope:       (*admissionregistrationv1beta1.ScopeType)(r.Scope),
+				},
+			},
+		}
+	}
+	return result
+}
+
+func convertOperations(ops []admissionregistrationv1alpha1.OperationType) []admissionregistrationv1beta1.OperationType {
+	result := make([]admissionregistrationv1beta1.OperationType, len(ops))
+	for i, op := range ops {
+		result[i] = admissionregistrationv1beta1.OperationType(op)
+	}
+	return result
+}
+
+func convertVariables(vars []admissionregistrationv1alpha1.Variable) []admissionregistrationv1beta1.Variable {
+	result := make([]admissionregistrationv1beta1.Variable, len(vars))
+	for i, v := range vars {
+		result[i] = admissionregistrationv1beta1.Variable{
+			Name:       v.Name,
+			Expression: v.Expression,
+		}
+	}
+	return result
+}
+
+func convertMutations(mutations []admissionregistrationv1alpha1.Mutation) []admissionregistrationv1beta1.Mutation {
+	result := make([]admissionregistrationv1beta1.Mutation, len(mutations))
+	for i, m := range mutations {
+		result[i] = admissionregistrationv1beta1.Mutation{
+			PatchType:          admissionregistrationv1beta1.PatchType(m.PatchType),
+			ApplyConfiguration: convertApplyConfiguration(m.ApplyConfiguration),
+			JSONPatch:          convertJSONPatch(m.JSONPatch),
+		}
+	}
+	return result
+}
+
+func convertApplyConfiguration(applyConfig *admissionregistrationv1alpha1.ApplyConfiguration) *admissionregistrationv1beta1.ApplyConfiguration {
+	if applyConfig == nil {
+		return nil
+	}
+	return &admissionregistrationv1beta1.ApplyConfiguration{
+		Expression: applyConfig.Expression,
+	}
+}
+
+func convertJSONPatch(jsonPatch *admissionregistrationv1alpha1.JSONPatch) *admissionregistrationv1beta1.JSONPatch {
+	if jsonPatch == nil {
+		return nil
+	}
+	return &admissionregistrationv1beta1.JSONPatch{
+		Expression: jsonPatch.Expression,
+	}
+}
+
+func convertMatchConditions(conditions []admissionregistrationv1alpha1.MatchCondition) []admissionregistrationv1beta1.MatchCondition {
+	result := make([]admissionregistrationv1beta1.MatchCondition, len(conditions))
+	for i, c := range conditions {
+		result[i] = admissionregistrationv1beta1.MatchCondition{
+			Name:       c.Name,
+			Expression: c.Expression,
+		}
+	}
+	return result
+}
+
+func ConvertMutatingAdmissionPolicyBindingsAlpha(bindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding {
+	result := make([]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, len(bindings))
+	for i, binding := range bindings {
+		result[i] = admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: admissionregistrationv1beta1.SchemeGroupVersion.String(),
+				Kind:       "MutatingAdmissionPolicyBinding",
+			},
+			ObjectMeta: binding.ObjectMeta,
+			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+				PolicyName:     binding.Spec.PolicyName,
+				ParamRef:       convertParamRef(binding.Spec.ParamRef),
+				MatchResources: convertMatchResourcesForBinding(binding.Spec.MatchResources),
+			},
+		}
+	}
+	return result
+}
+
+func convertParamRef(paramRef *admissionregistrationv1alpha1.ParamRef) *admissionregistrationv1beta1.ParamRef {
+	if paramRef == nil {
+		return nil
+	}
+	return &admissionregistrationv1beta1.ParamRef{
+		Name:                    paramRef.Name,
+		Namespace:               paramRef.Namespace,
+		Selector:                paramRef.Selector,
+		ParameterNotFoundAction: (*admissionregistrationv1beta1.ParameterNotFoundActionType)(paramRef.ParameterNotFoundAction),
+	}
+}
+
+func convertMatchResourcesForBinding(matchResources *admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources {
+	if matchResources == nil {
+		return nil
+	}
+	return &admissionregistrationv1beta1.MatchResources{
+		ResourceRules:        convertResourceRules(matchResources.ResourceRules),
+		ExcludeResourceRules: convertResourceRules(matchResources.ExcludeResourceRules),
+		MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(matchResources.MatchPolicy),
 	}
 }
 

@@ -21,6 +21,8 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,8 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
@@ -84,14 +88,15 @@ type controller struct {
 	client dclient.Interface
 
 	// listers
-	polLister   kyvernov1listers.PolicyLister
-	cpolLister  kyvernov1listers.ClusterPolicyLister
-	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
-	mpolLister  policiesv1alpha1listers.MutatingPolicyLister
-	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
-	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
-	mapLister   admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
-	metaClient  metaclient.UpstreamInterface
+	polLister      kyvernov1listers.PolicyLister
+	cpolLister     kyvernov1listers.ClusterPolicyLister
+	vpolLister     policiesv1alpha1listers.ValidatingPolicyLister
+	mpolLister     policiesv1alpha1listers.MutatingPolicyLister
+	ivpolLister    policiesv1alpha1listers.ImageValidatingPolicyLister
+	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
+	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
+	metaClient     metaclient.UpstreamInterface
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -110,6 +115,7 @@ func NewController(
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
+	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 	metaClient metaclient.UpstreamInterface,
 ) Controller {
 	c := controller{
@@ -150,6 +156,12 @@ func NewController(
 	if mapInformer != nil {
 		c.mapLister = mapInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mapInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mapAlphaInformer != nil {
+		c.mapAlphaLister = mapAlphaInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mapAlphaInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -339,6 +351,28 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			}
 		}
 	}
+	if c.mapAlphaLister != nil {
+		mapAlphaPolicies, err := utils.FetchMutatingAdmissionPoliciesAlpha(c.mapAlphaLister)
+		if err != nil {
+			return err
+		}
+		for _, policy := range mapAlphaPolicies {
+			var matchConstraints *admissionregistrationv1beta1.MatchResources
+			if policy.Spec.MatchConstraints != nil {
+				matchConstraints = &admissionregistrationv1beta1.MatchResources{
+					ResourceRules:        convertResourceRulesForResourceController(policy.Spec.MatchConstraints.ResourceRules),
+					ExcludeResourceRules: convertResourceRulesForResourceController(policy.Spec.MatchConstraints.ExcludeResourceRules),
+					MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(policy.Spec.MatchConstraints.MatchPolicy),
+				}
+			}
+			converted := admissionpolicy.ConvertMatchResources(matchConstraints)
+			kinds := admissionpolicy.GetKinds(converted, restMapper)
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
 	if c.vpolLister != nil {
 		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
 		if err != nil {
@@ -490,4 +524,31 @@ func (c *controller) deleteHash(obj *unstructured.Unstructured, gvr schema.Group
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	return c.updateDynamicWatchers(ctx)
+}
+
+func convertResourceRulesForResourceController(rules []admissionregistrationv1alpha1.NamedRuleWithOperations) []admissionregistrationv1beta1.NamedRuleWithOperations {
+	result := make([]admissionregistrationv1beta1.NamedRuleWithOperations, len(rules))
+	for i, r := range rules {
+		result[i] = admissionregistrationv1beta1.NamedRuleWithOperations{
+			ResourceNames: r.ResourceNames,
+			RuleWithOperations: admissionregistrationv1beta1.RuleWithOperations{
+				Operations: convertOperationsForResourceController(r.Operations),
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   r.APIGroups,
+					APIVersions: r.APIVersions,
+					Resources:   r.Resources,
+					Scope:       (*admissionregistrationv1beta1.ScopeType)(r.Scope),
+				},
+			},
+		}
+	}
+	return result
+}
+
+func convertOperationsForResourceController(ops []admissionregistrationv1alpha1.OperationType) []admissionregistrationv1beta1.OperationType {
+	result := make([]admissionregistrationv1beta1.OperationType, len(ops))
+	for i, op := range ops {
+		result[i] = admissionregistrationv1beta1.OperationType(op)
+	}
+	return result
 }

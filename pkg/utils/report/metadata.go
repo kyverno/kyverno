@@ -108,7 +108,7 @@ func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.Valid
 	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
 }
 
-func MutatingAdmissionPolicyBindingLabel(binding admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) string {
+func MutatingAdmissionPolicyBindingLabel(binding metav1.Object) string {
 	return LabelPrefixMutatingAdmissionPolicyBinding + binding.GetName()
 }
 
@@ -198,7 +198,7 @@ func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, 
 }
 
 func SetMutatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
-	controllerutils.SetLabel(report, MutatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
+	controllerutils.SetLabel(report, MutatingAdmissionPolicyBindingLabel(&binding), binding.GetResourceVersion())
 }
 
 func GetSource(report metav1.Object) string {

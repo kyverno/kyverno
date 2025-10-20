@@ -14,12 +14,14 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 )
 
@@ -155,8 +157,36 @@ func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1lister
 	return policies, nil
 }
 
+func FetchMutatingAdmissionPoliciesAlpha(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
+	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	if pols, err := mapLister.List(labels.Everything().Add(*r)); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, *pol)
+		}
+	}
+	return policies, nil
+}
+
 func FetchMutatingAdmissionPolicyBindings(mapBindingLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, error) {
 	var bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+	if pols, err := mapBindingLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			bindings = append(bindings, *pol)
+		}
+	}
+	return bindings, nil
+}
+
+func FetchMutatingAdmissionPolicyBindingsAlpha(mapBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
+	var bindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	if pols, err := mapBindingLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
