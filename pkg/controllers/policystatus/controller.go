@@ -47,6 +47,7 @@ func NewController(
 	dclient dclient.Interface,
 	client versioned.Interface,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
@@ -88,6 +89,22 @@ func NewController(
 	)
 	if err != nil {
 		logger.Error(err, "failed to register event handlers for ValidatingPolicy")
+	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		nvpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			nvpol, ok := obj.(*policiesv1alpha1.NamespacedValidatingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, nvpol.Name))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for NamespacedValidatingPolicy")
 	}
 
 	_, _, err = controllerutils.AddExplicitEventHandlers(
@@ -165,6 +182,18 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 
 		return c.updateVpolStatus(ctx, vpol)
 	}
+	if polType == webhook.NamespacedValidatingPolicyType {
+		nvpol, err := c.client.PoliciesV1alpha1().NamespacedValidatingPolicies(namespace).Get(ctx, polName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("namespaced validating policy not found", "name", polName, "namespace", namespace)
+				return nil
+			}
+			return err
+		}
+
+		return c.updateNVpolStatus(ctx, nvpol)
+	}
 	if polType == webhook.ImageValidatingPolicyType {
 		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
 		if err != nil {
@@ -184,6 +213,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 				logger.V(4).Info("mutating policy not found", "name", polName)
 				return nil
 			}
+			return err
 		}
 		return c.updateMpolStatus(ctx, mpol)
 	}
@@ -213,6 +243,11 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsValidatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsValidatingPolicy().GetStatus().ConditionStatus
+	case webhook.NamespacedValidatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, policy.GetName())
+		matchConstraints = policy.AsNamespacedValidatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsNamespacedValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsNamespacedValidatingPolicy().GetSpec().BackgroundEnabled())
+		status = &policy.AsNamespacedValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.ImageValidatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName())
 		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()

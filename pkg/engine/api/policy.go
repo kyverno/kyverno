@@ -105,6 +105,8 @@ type GenericPolicy interface {
 	AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData
 	// AsValidatingPolicy returns the validating policy
 	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
+	// AsNamespacedValidatingPolicy returns the namespaced validating policy
+	AsNamespacedValidatingPolicy() *policiesv1alpha1.NamespacedValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
 	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
@@ -118,14 +120,15 @@ type GenericPolicy interface {
 }
 type genericPolicy struct {
 	metav1.Object
-	PolicyInterface           kyvernov1.PolicyInterface
-	ValidatingAdmissionPolicy *ValidatingAdmissionPolicyData
-	MutatingAdmissionPolicy   *MutatingAdmissionPolicyData
-	ValidatingPolicy          *policiesv1alpha1.ValidatingPolicy
-	ImageValidatingPolicy     *policiesv1alpha1.ImageValidatingPolicy
-	MutatingPolicy            *policiesv1alpha1.MutatingPolicy
-	GeneratingPolicy          *policiesv1alpha1.GeneratingPolicy
-	DeletingPolicy            policiesv1beta1.DeletingPolicyLike
+	PolicyInterface            kyvernov1.PolicyInterface
+	ValidatingAdmissionPolicy  *ValidatingAdmissionPolicyData
+	MutatingAdmissionPolicy    *MutatingAdmissionPolicyData
+	ValidatingPolicy           *policiesv1alpha1.ValidatingPolicy
+	NamespacedValidatingPolicy *policiesv1alpha1.NamespacedValidatingPolicy
+	ImageValidatingPolicy      *policiesv1alpha1.ImageValidatingPolicy
+	MutatingPolicy             *policiesv1alpha1.MutatingPolicy
+	GeneratingPolicy           *policiesv1alpha1.GeneratingPolicy
+	DeletingPolicy             policiesv1beta1.DeletingPolicyLike
 }
 
 func (p *genericPolicy) AsObject() any {
@@ -146,6 +149,10 @@ func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 
 func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy {
 	return p.ValidatingPolicy
+}
+
+func (p *genericPolicy) AsNamespacedValidatingPolicy() *policiesv1alpha1.NamespacedValidatingPolicy {
+	return p.NamespacedValidatingPolicy
 }
 
 func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy {
@@ -280,8 +287,9 @@ func NewNamespacedValidatingPolicy(pol *policiesv1alpha1.NamespacedValidatingPol
 		Status:     pol.Status,
 	}
 	return &genericPolicy{
-		Object:           pol,
-		ValidatingPolicy: &converted,
+		Object:                     pol,
+		ValidatingPolicy:           &converted,
+		NamespacedValidatingPolicy: pol,
 	}
 }
 
