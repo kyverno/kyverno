@@ -537,7 +537,7 @@ func convertResourceRulesForResourceController(rules []admissionregistrationv1al
 					APIGroups:   r.APIGroups,
 					APIVersions: r.APIVersions,
 					Resources:   r.Resources,
-					Scope:       (*admissionregistrationv1beta1.ScopeType)(r.Scope),
+					Scope:       r.Scope,
 				},
 			},
 		}
@@ -547,8 +547,6 @@ func convertResourceRulesForResourceController(rules []admissionregistrationv1al
 
 func convertOperationsForResourceController(ops []admissionregistrationv1alpha1.OperationType) []admissionregistrationv1beta1.OperationType {
 	result := make([]admissionregistrationv1beta1.OperationType, len(ops))
-	for i, op := range ops {
-		result[i] = admissionregistrationv1beta1.OperationType(op)
-	}
+	copy(result, ops)
 	return result
 }
