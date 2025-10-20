@@ -271,7 +271,7 @@ func NewMutatingAdmissionPolicyAlpha(pol *admissionregistrationv1alpha1.Mutating
 			Mutations:          convertMutations(pol.Spec.Mutations),
 			FailurePolicy:      (*admissionregistrationv1beta1.FailurePolicyType)(pol.Spec.FailurePolicy),
 			MatchConditions:    convertMatchConditions(pol.Spec.MatchConditions),
-			ReinvocationPolicy: admissionregistrationv1beta1.ReinvocationPolicyType(pol.Spec.ReinvocationPolicy),
+			ReinvocationPolicy: pol.Spec.ReinvocationPolicy,
 		},
 	}
 	return &genericPolicy{
@@ -313,7 +313,7 @@ func convertResourceRules(rules []admissionregistrationv1alpha1.NamedRuleWithOpe
 					APIGroups:   r.APIGroups,
 					APIVersions: r.APIVersions,
 					Resources:   r.Resources,
-					Scope:       (*admissionregistrationv1beta1.ScopeType)(r.Scope),
+					Scope:       r.Scope,
 				},
 			},
 		}
@@ -323,9 +323,7 @@ func convertResourceRules(rules []admissionregistrationv1alpha1.NamedRuleWithOpe
 
 func convertOperations(ops []admissionregistrationv1alpha1.OperationType) []admissionregistrationv1beta1.OperationType {
 	result := make([]admissionregistrationv1beta1.OperationType, len(ops))
-	for i, op := range ops {
-		result[i] = admissionregistrationv1beta1.OperationType(op)
-	}
+	copy(result, ops)
 	return result
 }
 
