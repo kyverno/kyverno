@@ -87,6 +87,7 @@ type controller struct {
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
 	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
+	nvpolLister policiesv1alpha1listers.NamespacedValidatingPolicyLister
 	mpolLister  policiesv1alpha1listers.MutatingPolicyLister
 	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
 	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -106,6 +107,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -126,6 +128,12 @@ func NewController(
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nvpolInformer != nil {
+		c.nvpolLister = nvpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, nvpolInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
