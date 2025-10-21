@@ -53,6 +53,8 @@ func BuildRecorderKey(policyType, name string) string {
 	switch policyType {
 	case ValidatingPolicyType:
 		return ValidatingPolicyType + "/" + name
+	case NamespacedValidatingPolicyType:
+		return NamespacedValidatingPolicyType + "/" + name
 	case ImageValidatingPolicyType:
 		return ImageValidatingPolicyType + "/" + name
 	case MutatingPolicyType:
