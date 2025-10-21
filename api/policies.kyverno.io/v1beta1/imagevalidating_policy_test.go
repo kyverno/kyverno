@@ -202,7 +202,7 @@ func TestImageValidatingPolicySpec_EvaluationMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.policy.EvaluationMode()
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, string(tt.want), string(got))
 		})
 	}
 }
@@ -277,7 +277,7 @@ func TestImageValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
-		want   *WebhookConfiguration
+		want   *v1alpha1.WebhookConfiguration
 	}{{
 		name:   "nil",
 		policy: &ImageValidatingPolicy{},
@@ -289,7 +289,7 @@ func TestImageValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
 				WebhookConfiguration: &v1alpha1.WebhookConfiguration{},
 			},
 		},
-		want: &WebhookConfiguration{},
+		want: &v1alpha1.WebhookConfiguration{},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
