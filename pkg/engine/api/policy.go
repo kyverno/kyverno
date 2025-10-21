@@ -105,9 +105,9 @@ type GenericPolicy interface {
 	// AsValidatingAdmissionPolicy returns the validating admission policy with its bindings
 	AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData
 	// AsValidatingPolicy returns the validating policy
-	AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy
+	AsValidatingPolicy() *policiesv1beta1.ValidatingPolicy
 	// AsNamespacedValidatingPolicy returns the namespaced validating policy
-	AsNamespacedValidatingPolicy() *policiesv1alpha1.NamespacedValidatingPolicy
+	AsNamespacedValidatingPolicy() *policiesv1beta1.NamespacedValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
 	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
@@ -124,8 +124,8 @@ type genericPolicy struct {
 	PolicyInterface            kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicy  *ValidatingAdmissionPolicyData
 	MutatingAdmissionPolicy    *MutatingAdmissionPolicyData
-	ValidatingPolicy           *policiesv1alpha1.ValidatingPolicy
-	NamespacedValidatingPolicy *policiesv1alpha1.NamespacedValidatingPolicy
+	ValidatingPolicy           *policiesv1beta1.ValidatingPolicy
+	NamespacedValidatingPolicy *policiesv1beta1.NamespacedValidatingPolicy
 	ImageValidatingPolicy      *policiesv1alpha1.ImageValidatingPolicy
 	MutatingPolicy             *policiesv1alpha1.MutatingPolicy
 	GeneratingPolicy           *policiesv1alpha1.GeneratingPolicy
@@ -150,11 +150,11 @@ func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 	return p.MutatingAdmissionPolicy
 }
 
-func (p *genericPolicy) AsValidatingPolicy() *policiesv1alpha1.ValidatingPolicy {
+func (p *genericPolicy) AsValidatingPolicy() *policiesv1beta1.ValidatingPolicy {
 	return p.ValidatingPolicy
 }
 
-func (p *genericPolicy) AsNamespacedValidatingPolicy() *policiesv1alpha1.NamespacedValidatingPolicy {
+func (p *genericPolicy) AsNamespacedValidatingPolicy() *policiesv1beta1.NamespacedValidatingPolicy {
 	return p.NamespacedValidatingPolicy
 }
 
@@ -435,22 +435,22 @@ func NewMutatingAdmissionPolicyWithBindings(pol *admissionregistrationv1beta1.Mu
 	}
 }
 
-func NewValidatingPolicy(pol *policiesv1alpha1.ValidatingPolicy) GenericPolicy {
+func NewValidatingPolicy(pol *policiesv1beta1.ValidatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:           pol,
 		ValidatingPolicy: pol,
 	}
 }
 
-func NewNamespacedValidatingPolicy(pol *policiesv1alpha1.NamespacedValidatingPolicy) GenericPolicy {
+func NewNamespacedValidatingPolicy(pol *policiesv1beta1.NamespacedValidatingPolicy) GenericPolicy {
 	if pol == nil {
 		return nil
 	}
 	apiVersion := pol.APIVersion
 	if apiVersion == "" {
-		apiVersion = policiesv1alpha1.GroupVersion.String()
+		apiVersion = policiesv1beta1.GroupVersion.String()
 	}
-	converted := policiesv1alpha1.ValidatingPolicy{
+	converted := policiesv1beta1.ValidatingPolicy{
 		TypeMeta:   metav1.TypeMeta{Kind: pol.GetKind(), APIVersion: apiVersion},
 		ObjectMeta: pol.ObjectMeta,
 		Spec:       pol.Spec,
@@ -463,11 +463,11 @@ func NewNamespacedValidatingPolicy(pol *policiesv1alpha1.NamespacedValidatingPol
 	}
 }
 
-func NewValidatingPolicyFromLike(pol policiesv1alpha1.ValidatingPolicyLike) GenericPolicy {
+func NewValidatingPolicyFromLike(pol policiesv1beta1.ValidatingPolicyLike) GenericPolicy {
 	switch typed := pol.(type) {
-	case *policiesv1alpha1.ValidatingPolicy:
+	case *policiesv1beta1.ValidatingPolicy:
 		return NewValidatingPolicy(typed)
-	case *policiesv1alpha1.NamespacedValidatingPolicy:
+	case *policiesv1beta1.NamespacedValidatingPolicy:
 		return NewNamespacedValidatingPolicy(typed)
 	default:
 		return nil

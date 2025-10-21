@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -220,7 +221,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var spec policiesv1alpha1.ValidatingPolicySpec
+			var spec policiesv1beta1.ValidatingPolicySpec
 			err := json.Unmarshal(test.policySpec, &spec)
 			assert.NoError(t, err)
 			genRule, err := generateRuleForControllers(spec, test.controllers)
@@ -441,7 +442,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			var spec policiesv1alpha1.ValidatingPolicySpec
+			var spec policiesv1beta1.ValidatingPolicySpec
 			err := json.Unmarshal(tt.policySpec, &spec)
 			assert.NoError(t, err)
 			genRule, err := generateRuleForControllers(spec, sets.New("cronjobs"))

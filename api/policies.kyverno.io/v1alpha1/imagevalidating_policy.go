@@ -57,8 +57,12 @@ func (s *ImageValidatingPolicy) GetMatchConditions() []admissionregistrationv1.M
 	return s.Spec.MatchConditions
 }
 
-func (s *ImageValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
+func (s *ImageValidatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
 }
 
 func (s *ImageValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
