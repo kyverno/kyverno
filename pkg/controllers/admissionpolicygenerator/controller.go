@@ -52,6 +52,7 @@ type controller struct {
 	// listers
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
+	nvpolLister      policiesv1alpha1listers.NamespacedValidatingPolicyLister
 	mpolLister       policiesv1alpha1listers.MutatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
 	celpolexLister   policiesv1alpha1listers.PolicyExceptionLister
@@ -73,6 +74,7 @@ func NewController(
 	discoveryClient dclient.IDiscovery,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	celpolexInformer policiesv1alpha1informers.PolicyExceptionInformer,
@@ -93,6 +95,7 @@ func NewController(
 		discoveryClient: discoveryClient,
 		cpolLister:      cpolInformer.Lister(),
 		vpolLister:      vpolInformer.Lister(),
+		nvpolLister:     nvpolInformer.Lister(),
 		mpolLister:      mpolInformer.Lister(),
 		polexLister:     polexInformer.Lister(),
 		celpolexLister:  celpolexInformer.Lister(),

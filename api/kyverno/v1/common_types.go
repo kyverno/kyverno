@@ -529,7 +529,7 @@ type Validation struct {
 
 	// Assert defines a kyverno-json assertion tree.
 	// +optional
-	Assert AssertionTree `json:"assert"`
+	Assert *AssertionTree `json:"assert,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission

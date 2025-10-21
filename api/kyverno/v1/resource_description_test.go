@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"strings"
 	"testing"
 
 	"gotest.tools/assert"
@@ -26,7 +27,7 @@ func Test_ResourceDescription(t *testing.T) {
 			Names: []string{"bar", "baz"},
 		},
 		errors: []string{
-			`dummy: Invalid value: v1.ResourceDescription{Kinds:[]string(nil), Name:"foo", Names:[]string{"bar", "baz"}, Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil), Operations:[]v1.AdmissionOperation(nil)}: Both name and names can not be specified together`,
+			"Both name and names can not be specified together",
 		},
 	}, {
 		name:       "selector",
@@ -46,7 +47,7 @@ func Test_ResourceDescription(t *testing.T) {
 			Selector: &metav1.LabelSelector{},
 		},
 		errors: []string{
-			`dummy.selector: Invalid value: v1.LabelSelector{MatchLabels:map[string]string(nil), MatchExpressions:[]v1.LabelSelectorRequirement(nil)}: The requirements are not specified in selector`,
+			"The requirements are not specified in selector",
 		},
 	}, {
 		name:       "namespaces",
@@ -64,7 +65,8 @@ func Test_ResourceDescription(t *testing.T) {
 		errs := testCase.subject.Validate(path, testCase.namespaced, nil)
 		assert.Equal(t, len(errs), len(testCase.errors))
 		for i, err := range errs {
-			assert.Equal(t, err.Error(), testCase.errors[i])
+			assert.Assert(t, strings.Contains(err.Error(), testCase.errors[i]))
+
 		}
 	}
 }

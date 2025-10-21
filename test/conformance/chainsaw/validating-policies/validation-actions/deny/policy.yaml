@@ -1,7 +1,7 @@
 apiVersion: policies.kyverno.io/v1alpha1
 kind: ValidatingPolicy
 metadata:
-  name: check-deployment-labels
+  name: check-deployment-labels-deny
 spec:
   validationActions:
     - Deny

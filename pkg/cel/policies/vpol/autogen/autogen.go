@@ -11,20 +11,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func Autogen(policy *policiesv1alpha1.ValidatingPolicy) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
+func Autogen(policy policiesv1alpha1.ValidatingPolicyLike) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
-	if !autogen.CanAutoGen(policy.Spec.MatchConstraints) {
+	spec := policy.GetValidatingPolicySpec()
+	if !autogen.CanAutoGen(spec.MatchConstraints) {
 		return nil, nil
 	}
 	actualControllers := autogen.AllConfigs
-	if policy.Spec.AutogenConfiguration != nil &&
-		policy.Spec.AutogenConfiguration.PodControllers != nil &&
-		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
+	if spec.AutogenConfiguration != nil &&
+		spec.AutogenConfiguration.PodControllers != nil &&
+		spec.AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return generateRuleForControllers(policy.Spec, actualControllers)
+	return generateRuleForControllers(*spec, actualControllers)
 }
 
 func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {

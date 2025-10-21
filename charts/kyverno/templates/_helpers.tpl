@@ -1,8 +1,15 @@
 {{/* vim: set filetype=mustache: */}}
 
+{{/* Validate OpenReports configuration */}}
+{{- define "kyverno.validateOpenReports" -}}
+{{- if and (not .Values.openreports.enabled) .Values.openreports.installCrds -}}
+{{- fail "OpenReports CRD installation (openreports.installCrds) cannot be enabled when the feature (openreports.enabled) is disabled" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "kyverno.chartVersion" -}}
-{{- if .Values.templating.enabled -}}
-  {{- required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" -}}
+{{- if .Values.global.templating.enabled -}}
+  {{- required "templating.version is required when templating.enabled is true" .Values.global.templating.version | replace "+" "_" -}}
 {{- else -}}
   {{- .Chart.Version | replace "+" "_" -}}
 {{- end -}}

@@ -1,0 +1,19 @@
+openreports:
+  # Test case 1: OpenReports disabled
+  enabled: false
+  installCrds: false
+---
+openreports:
+  # Test case 2: OpenReports enabled but CRDs not installed
+  enabled: true
+  installCrds: false
+---
+openreports:
+  # Test case 3: OpenReports enabled with CRDs installed
+  enabled: true
+  installCrds: true
+---
+openreports:
+  # Test case 4: Invalid configuration - should fail validation
+  enabled: false
+  installCrds: true
