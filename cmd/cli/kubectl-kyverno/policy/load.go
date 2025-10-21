@@ -38,7 +38,6 @@ var (
 	vpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
 	vpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("ValidatingPolicy")
 	nvpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("NamespacedValidatingPolicy")
-	nvpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedValidatingPolicy")
 	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	gpsV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("GeneratingPolicy")
