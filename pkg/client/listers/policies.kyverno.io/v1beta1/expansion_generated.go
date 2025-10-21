@@ -26,6 +26,10 @@ type DeletingPolicyListerExpansion interface{}
 // GeneratingPolicyLister.
 type GeneratingPolicyListerExpansion interface{}
 
+// ImageValidatingPolicyListerExpansion allows custom methods to be added to
+// ImageValidatingPolicyLister.
+type ImageValidatingPolicyListerExpansion interface{}
+
 // MutatingPolicyListerExpansion allows custom methods to be added to
 // MutatingPolicyLister.
 type MutatingPolicyListerExpansion interface{}

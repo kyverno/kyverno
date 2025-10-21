@@ -30,6 +30,7 @@ type PoliciesV1beta1Interface interface {
 	RESTClient() rest.Interface
 	DeletingPoliciesGetter
 	GeneratingPoliciesGetter
+	ImageValidatingPoliciesGetter
 	MutatingPoliciesGetter
 	NamespacedDeletingPoliciesGetter
 	PolicyExceptionsGetter
@@ -47,6 +48,10 @@ func (c *PoliciesV1beta1Client) DeletingPolicies() DeletingPolicyInterface {
 
 func (c *PoliciesV1beta1Client) GeneratingPolicies() GeneratingPolicyInterface {
 	return newGeneratingPolicies(c)
+}
+
+func (c *PoliciesV1beta1Client) ImageValidatingPolicies() ImageValidatingPolicyInterface {
+	return newImageValidatingPolicies(c)
 }
 
 func (c *PoliciesV1beta1Client) MutatingPolicies() MutatingPolicyInterface {
