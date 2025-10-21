@@ -39,6 +39,7 @@ var (
 	vpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("ValidatingPolicy")
 	nvpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("NamespacedValidatingPolicy")
 	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	ivpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	gpsV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
@@ -200,7 +201,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.NamespacedValidatingPolicies = append(results.NamespacedValidatingPolicies, *typed)
-		case ivpV1alpha1:
+		case ivpV1alpha1, ivpV1beta1:
 			typed, err := convert.To[policiesv1alpha1.ImageValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
