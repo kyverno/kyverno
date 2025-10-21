@@ -43,7 +43,7 @@ LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
-CODE_GEN_VERSION                   ?= v0.33.4
+CODE_GEN_VERSION                   ?= v0.34.1
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
@@ -1159,7 +1159,7 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+	@$(HELM) install metrics-server metrics-server --repo https://kubernetes-sigs.github.io/metrics-server/ \
 		--namespace kube-system --wait \
 		--values ./scripts/config/dev/metrics-server.yaml
 
