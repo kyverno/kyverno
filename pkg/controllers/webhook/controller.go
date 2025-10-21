@@ -1103,6 +1103,12 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 		failurePolicy := webhook.failurePolicy
 		timeout := capTimeout(webhook.maxWebhookTimeout)
 		name, path := webhookNameAndPath(*webhook, config.MutatingWebhookName, config.MutatingWebhookServicePath)
+		// Use webhook-specific namespace selector if available (for namespaced policies),
+		// otherwise use global configuration
+		namespaceSelector := webhookCfg.NamespaceSelector
+		if webhook.namespaceSelector != nil {
+			namespaceSelector = webhook.namespaceSelector
+		}
 		mutatingWebhooks = append(
 			mutatingWebhooks,
 			admissionregistrationv1.MutatingWebhook{
@@ -1112,7 +1118,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
-				NamespaceSelector:       webhookCfg.NamespaceSelector,
+				NamespaceSelector:       namespaceSelector,
 				ObjectSelector:          objectSelector,
 				TimeoutSeconds:          &timeout,
 				ReinvocationPolicy:      &ifNeeded,
@@ -1332,6 +1338,12 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 		timeout := capTimeout(webhook.maxWebhookTimeout)
 		name, path := webhookNameAndPath(*webhook, config.ValidatingWebhookName, config.ValidatingWebhookServicePath)
 		failurePolicy := webhook.failurePolicy
+		// Use webhook-specific namespace selector if available (for namespaced policies),
+		// otherwise use global configuration
+		namespaceSelector := webhookCfg.NamespaceSelector
+		if webhook.namespaceSelector != nil {
+			namespaceSelector = webhook.namespaceSelector
+		}
 		validatingWebhooks = append(
 			validatingWebhooks,
 			admissionregistrationv1.ValidatingWebhook{
@@ -1341,7 +1353,7 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
-				NamespaceSelector:       webhookCfg.NamespaceSelector,
+				NamespaceSelector:       namespaceSelector,
 				ObjectSelector:          objectSelector,
 				TimeoutSeconds:          &timeout,
 				MatchConditions:         webhook.matchConditions,
