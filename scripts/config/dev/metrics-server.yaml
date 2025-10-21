@@ -1,4 +1,4 @@
-extraArgs:
+args:
   - --kubelet-insecure-tls=true
 
 apiService:

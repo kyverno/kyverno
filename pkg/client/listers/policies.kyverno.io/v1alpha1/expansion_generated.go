@@ -34,13 +34,13 @@ type ImageValidatingPolicyListerExpansion interface{}
 // MutatingPolicyLister.
 type MutatingPolicyListerExpansion interface{}
 
-// NamespacedDeletingPolicyListerExpansion allows custom methods to be added to
-// NamespacedDeletingPolicyLister.
-type NamespacedDeletingPolicyListerExpansion interface{}
+// NamespacedValidatingPolicyListerExpansion allows custom methods to be added to
+// NamespacedValidatingPolicyLister.
+type NamespacedValidatingPolicyListerExpansion interface{}
 
-// NamespacedDeletingPolicyNamespaceListerExpansion allows custom methods to be added to
-// NamespacedDeletingPolicyNamespaceLister.
-type NamespacedDeletingPolicyNamespaceListerExpansion interface{}
+// NamespacedValidatingPolicyNamespaceListerExpansion allows custom methods to be added to
+// NamespacedValidatingPolicyNamespaceLister.
+type NamespacedValidatingPolicyNamespaceListerExpansion interface{}
 
 // PolicyExceptionListerExpansion allows custom methods to be added to
 // PolicyExceptionLister.

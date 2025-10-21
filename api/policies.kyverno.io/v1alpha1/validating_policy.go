@@ -6,6 +6,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+)
+
+const (
+	ValidatingPolicyKind           = "ValidatingPolicy"
+	NamespacedValidatingPolicyKind = "NamespacedValidatingPolicy"
 )
 
 // +genclient
@@ -17,6 +23,7 @@ import (
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +kubebuilder:selectablefield:JSONPath=`.spec.evaluation.mode`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
 
 type ValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -25,6 +32,50 @@ type ValidatingPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status ValidatingPolicyStatus `json:"status,omitempty"`
+}
+
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope="Namespaced",shortName=nvpol,categories=kyverno
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
+// +kubebuilder:selectablefield:JSONPath=`.spec.evaluation.mode`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NamespacedValidatingPolicy struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ValidatingPolicySpec `json:"spec"`
+	// Status contains policy runtime data.
+	// +optional
+	Status ValidatingPolicyStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacedValidatingPolicyList is a list of NamespacedValidatingPolicy instances
+type NamespacedValidatingPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []NamespacedValidatingPolicy `json:"items"`
+}
+
+// ValidatingPolicyLike captures the common behaviour shared by validating policies regardless of scope.
+// +k8s:deepcopy-gen=false
+type ValidatingPolicyLike interface {
+	metav1.Object
+	runtime.Object
+	GetSpec() *ValidatingPolicySpec
+	GetStatus() *ValidatingPolicyStatus
+	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
+	GetMatchConstraints() admissionregistrationv1.MatchResources
+	GetMatchConditions() []admissionregistrationv1.MatchCondition
+	GetVariables() []admissionregistrationv1.Variable
+	GetValidatingPolicySpec() *ValidatingPolicySpec
+	BackgroundEnabled() bool
+	GetKind() string
 }
 
 // BackgroundEnabled checks if background is set to true
@@ -82,7 +133,61 @@ func (s *ValidatingPolicy) GetStatus() *ValidatingPolicyStatus {
 }
 
 func (s *ValidatingPolicy) GetKind() string {
-	return "ValidatingPolicy"
+	return ValidatingPolicyKind
+}
+
+func (s *ValidatingPolicy) GetValidatingPolicySpec() *ValidatingPolicySpec {
+	return &s.Spec
+}
+
+func (s *NamespacedValidatingPolicy) GetSpec() *ValidatingPolicySpec {
+	return &s.Spec
+}
+
+func (s *NamespacedValidatingPolicy) GetStatus() *ValidatingPolicyStatus {
+	return &s.Status
+}
+
+func (s *NamespacedValidatingPolicy) GetKind() string {
+	return NamespacedValidatingPolicyKind
+}
+
+func (s *NamespacedValidatingPolicy) GetValidatingPolicySpec() *ValidatingPolicySpec {
+	return &s.Spec
+}
+
+func (s *NamespacedValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+	return *s.Spec.MatchConstraints
+}
+
+func (s *NamespacedValidatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.Spec.MatchConditions
+}
+
+func (s *NamespacedValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
+		return admissionregistrationv1.Ignore
+	}
+	if s.Spec.FailurePolicy == nil {
+		return admissionregistrationv1.Fail
+	}
+	return *s.Spec.FailurePolicy
+}
+
+func (s *NamespacedValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+	return s.Spec.WebhookConfiguration
+}
+
+func (s *NamespacedValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
+	return s.Spec.Variables
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s NamespacedValidatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
 }
 
 func (status *ValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {

@@ -27,7 +27,7 @@ import (
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -62,7 +62,7 @@ type Scanner interface {
 		string,
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-		[]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+		[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 		[]*policiesv1alpha1.PolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
@@ -99,7 +99,7 @@ func (s *scanner) ScanResource(
 	subResource string,
 	ns *corev1.Namespace,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	exceptions []*policiesv1alpha1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
@@ -178,7 +178,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range vpols {
 		if pol := policy.AsValidatingPolicy(); pol != nil {
 			compiler := vpolcompiler.NewCompiler()
-			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, exceptions)
+			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
@@ -284,7 +284,7 @@ func (s *scanner) ScanResource(
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
 				for j, r := range policy.Rules {
-					if r.Status() == engineapi.RuleStatusPass {
+					if r.Status() == engineapi.RuleStatusPass && len(r.Exceptions()) == 0 {
 						if !equality.Semantic.DeepEqual(resource.DeepCopyObject(), patched.DeepCopyObject()) {
 							policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
 						}

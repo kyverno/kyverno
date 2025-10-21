@@ -1,4 +1,4 @@
-apiVersion: policies.kyverno.io/v1alpha1
+apiVersion: policies.kyverno.io/v1beta1
 kind: NamespacedDeletingPolicy
 metadata:
   name: delete-configmap-without-rbac
@@ -10,8 +10,6 @@ spec:
         apiVersions: ["v1"]
         resources: ["configmaps"]
   conditions:
-    - name: match-namespace
-      expression: object.metadata.namespace == "ndpol-rbac-missing"
     - name: match-name
       expression: object.metadata.name == "rbac-missing-configmap"
   schedule: "*/1 * * * *"
