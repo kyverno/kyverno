@@ -38,8 +38,10 @@ import (
 	"k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -61,17 +63,18 @@ type controller struct {
 	dclient  dclient.Interface
 
 	// listers
-	polLister   kyvernov1listers.PolicyLister
-	cpolLister  kyvernov1listers.ClusterPolicyLister
-	vpolLister  policiesv1alpha1listers.ValidatingPolicyLister
-	nvpolLister policiesv1alpha1listers.NamespacedValidatingPolicyLister
-	ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister
-	gpolLister  policiesv1alpha1listers.GeneratingPolicyLister
-	mpolLister  policiesv1alpha1listers.MutatingPolicyLister
-	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
-	mapLister   admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
-	ephrLister  cache.GenericLister
-	cephrLister cache.GenericLister
+	polLister      kyvernov1listers.PolicyLister
+	cpolLister     kyvernov1listers.ClusterPolicyLister
+	vpolLister     policiesv1alpha1listers.ValidatingPolicyLister
+	nvpolLister    policiesv1alpha1listers.NamespacedValidatingPolicyLister
+	ivpolLister    policiesv1alpha1listers.ImageValidatingPolicyLister
+	gpolLister     policiesv1alpha1listers.GeneratingPolicyLister
+	mpolLister     policiesv1alpha1listers.MutatingPolicyLister
+	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
+	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
+	ephrLister     cache.GenericLister
+	cephrLister    cache.GenericLister
 
 	// reportUUIDToPolicyCache maps report UUIDs to policies that affect them for targeted reconciliation.
 	// This avoids processing all reports when a single policy changes.
@@ -101,7 +104,8 @@ func NewController(
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
-	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
+	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
+	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -357,6 +361,17 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if mapAlphaInformer != nil {
+		c.mapAlphaLister = mapAlphaInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			mapAlphaInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	return &c
 }
 
@@ -422,6 +437,15 @@ func (c *controller) createMappolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.mapLister != nil {
 		maps, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
+		if err != nil {
+			return nil, err
+		}
+		for _, pol := range maps {
+			results.Insert(cache.MetaObjectToName(&pol).String())
+		}
+	}
+	if c.mapAlphaLister != nil {
+		maps, err := utils.FetchMutatingAdmissionPoliciesAlpha(c.mapAlphaLister)
 		if err != nil {
 			return nil, err
 		}
