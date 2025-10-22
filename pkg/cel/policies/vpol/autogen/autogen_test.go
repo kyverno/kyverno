@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
@@ -234,7 +233,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 func TestGenerateCronJobRule(t *testing.T) {
 	tests := []struct {
 		policySpec    []byte
-		generatedRule map[string]policiesv1alpha1.ValidatingPolicyAutogen
+		generatedRule map[string]policiesv1beta1.ValidatingPolicyAutogen
 	}{
 		{
 			policySpec: []byte(`{
@@ -263,12 +262,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -328,12 +327,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -400,12 +399,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
