@@ -84,7 +84,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 				policy = pol
 			}
 			resource := policyContext.NewResource()
-			events := event.NewBackgroundFailedEvent(err, policy, "", event.GeneratePolicyController,
+			events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), "", event.GeneratePolicyController,
 				kyvernov1.ResourceSpec{Kind: resource.GetKind(), Namespace: resource.GetNamespace(), Name: resource.GetName()})
 			h.eventGen.Add(events...)
 		}

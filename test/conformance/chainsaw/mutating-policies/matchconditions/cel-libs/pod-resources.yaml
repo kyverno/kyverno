@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod01
+spec:
+  containers:
+  - name: pod01-01
+    image: corp.reg.com/busybox:1.35
+  - name: pod01-02
+    image: ghcr.io/kyverno/test-busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod02
+spec:
+  initContainers:
+  - name: pod02-01-init
+    image: corp.reg.com/busybox:1.35
+  - name: pod02-02-init
+    image: ghcr.io/kyverno/test-busybox:1.35
+  containers:
+  - name: pod02-01
+    image: ghcr.io/kyverno/test-busybox:1.35
+  - name: pod02-02
+    image: ghcr.io/kyverno/test-busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod03
+spec:
+  initContainers:
+  - name: pod03-01-init
+    image: ghcr.io/kyverno/test-busybox:1.35
+  - name: pod03-02-init
+    image: ghcr.io/kyverno/test-busybox:1.35
+  containers:
+  - name: pod03-01
+    image: corp.reg.com/busybox:1.35
+  - name: pod03-02
+    image: ghcr.io/kyverno/test-busybox:1.35
+  imagePullSecrets:
+  - name: foo-bar
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod04
+spec:
+  initContainers:
+  - name: pod04-01-init
+    image: ghcr.io/kyverno/test-busybox:1.35
+  - name: pod04-02-init
+    image: corp.reg.com/busybox:1.35
+  containers:
+  - name: pod04-01
+    image: corp.reg.com/busybox:1.35
+  - name: pod04-02
+    image: ghcr.io/kyverno/test-busybox:1.35
+  imagePullSecrets:
+  - name: my-secret
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod05
+spec:
+  initContainers:
+  - name: pod05-01-init
+    image: ghcr.io/kyverno/test-busybox:1.35
+  - name: pod05-02-init
+    image: ghcr.io/kyverno/test-busybox:1.35
+  containers:
+  - name: pod05-01
+    image: ghcr.io/kyverno/test-busybox:1.35
+  - name: pod05-02
+    image: ghcr.io/kyverno/test-busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod06
+spec:
+  containers:
+  - name: pod06-01
+    image: ghcr.io/kyverno/test-busybox:1.35
+  - name: pod06-02
+    image: ghcr.io/kyverno/test-busybox:1.35

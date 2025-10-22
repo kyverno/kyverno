@@ -88,22 +88,22 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 	}
 	// list
 	{
-		got, err := cp.ListResources("v1", "configmaps", "test-ns")
+		got, err := cp.ListResources("v1", "configmaps", "test-ns", nil)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, len(got.Items))
 	}
 	{
-		got, err := cp.ListResources("v1", "configmaps", "wrong-ns")
+		got, err := cp.ListResources("v1", "configmaps", "wrong-ns", nil)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, len(got.Items))
 	}
 	{
-		got, err := cp.ListResources("v1", "wrongs", "test-ns")
+		got, err := cp.ListResources("v1", "wrongs", "test-ns", nil)
 		assert.Error(t, err)
 		assert.Nil(t, got)
 	}
 	{
-		got, err := cp.ListResources("wrong", "configmaps", "test-ns")
+		got, err := cp.ListResources("wrong", "configmaps", "test-ns", nil)
 		assert.Error(t, err)
 		assert.Nil(t, got)
 	}

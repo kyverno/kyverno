@@ -24,6 +24,10 @@ jobs:
       uses: ./.github/actions/setup-build-env
       timeout-minutes: 10
     - name: Create cluster
-      run: make kind-create-cluster
+      run: |
+        set -e
+        make kind-create-cluster
     - name: Verify generated code is up to date
-      run: make verify-codegen
+      run:  |
+        set -e
+        make verify-codegen

@@ -1,6 +1,9 @@
 global:
   crdWatcher: true
 
+metricsConfig:
+  metricsRefreshInterval: 1m
+
 features:
   policyExceptions:
     enabled: true

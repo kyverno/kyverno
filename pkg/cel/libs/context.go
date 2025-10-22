@@ -18,8 +18,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -54,12 +56,14 @@ type contextProvider struct {
 	generatedResources []*unstructured.Unstructured
 	genCtx             generateContext
 	cliEvaluation      bool
+	restMapper         meta.RESTMapper
 }
 
 func NewContextProvider(
 	client dclient.Interface,
 	imageOpts []imagedataloader.Option,
 	gctxStore gctxstore.Store,
+	restMapper meta.RESTMapper,
 	cliEvaluation bool,
 ) (Context, error) {
 	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
@@ -71,6 +75,7 @@ func NewContextProvider(
 		imagedata:          idl,
 		gctxStore:          gctxStore,
 		cliEvaluation:      cliEvaluation,
+		restMapper:         restMapper,
 		generatedResources: make([]*unstructured.Unstructured, 0),
 	}, nil
 }
@@ -110,13 +115,21 @@ func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
 	return utils.GetValue(data.Data())
 }
 
-func (cp *contextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (cp *contextProvider) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
 	}
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.List(context.TODO(), metav1.ListOptions{})
+
+	labelSelector := labels.Everything()
+	if len(l) > 0 {
+		labelSelector = labels.SelectorFromSet(l)
+	}
+
+	return resourceInteface.List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+	})
 }
 
 func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
@@ -242,6 +255,20 @@ func (cp *contextProvider) SetGenerateContext(
 
 func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {
 	return cp.generatedResources
+}
+
+func (cp *contextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVersionResource, error) {
+	groupVersion, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := cp.restMapper.RESTMapping(schema.GroupKind{Group: groupVersion.Group, Kind: kind}, groupVersion.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	return &r.Resource, nil
 }
 
 func (cp *contextProvider) ClearGeneratedResources() {

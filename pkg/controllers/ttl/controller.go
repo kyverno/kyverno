@@ -8,9 +8,6 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,13 +32,8 @@ type controller struct {
 	informer     cache.SharedIndexInformer
 	registration cache.ResourceEventHandlerRegistration
 	logger       logr.Logger
-	metrics      ttlMetrics
+	metrics      metrics.TTLInfoMetrics
 	gvr          schema.GroupVersionResource
-}
-
-type ttlMetrics struct {
-	deletedObjectsTotal metric.Int64Counter
-	ttlFailureTotal     metric.Int64Counter
 }
 
 func newController(client metadata.Getter, metainformer informers.GenericInformer, logger logr.Logger, gvr schema.GroupVersionResource) (*controller, error) {
@@ -57,7 +49,7 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		lister:   metainformer.Lister(),
 		informer: metainformer.Informer(),
 		logger:   logger,
-		metrics:  newTTLMetrics(logger),
+		metrics:  metrics.GetTTLInfoMetrics(),
 		gvr:      gvr,
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
@@ -73,28 +65,6 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	}
 	c.registration = registration
 	return c, nil
-}
-
-func newTTLMetrics(logger logr.Logger) ttlMetrics {
-	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
-	deletedObjectsTotal, err := meter.Int64Counter(
-		"kyverno_ttl_controller_deletedobjects",
-		metric.WithDescription("can be used to track number of deleted objects by the ttl resource controller."),
-	)
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, ttl_controller_deletedobjects_total")
-	}
-	ttlFailureTotal, err := meter.Int64Counter(
-		"kyverno_ttl_controller_errors",
-		metric.WithDescription("can be used to track number of ttl cleanup failures."),
-	)
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, ttl_controller_errors_total")
-	}
-	return ttlMetrics{
-		deletedObjectsTotal: deletedObjectsTotal,
-		ttlFailureTotal:     ttlFailureTotal,
-	}
 }
 
 func (c *controller) Start(ctx context.Context, workers int) {
@@ -163,12 +133,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		logger.V(2).Info("object is not of type metav1.Object")
 		return err
 	}
-	commonLabels := []attribute.KeyValue{
-		attribute.String("resource_namespace", metaObj.GetNamespace()),
-		attribute.String("resource_group", c.gvr.Group),
-		attribute.String("resource_version", c.gvr.Version),
-		attribute.String("resource_resource", c.gvr.Resource),
-	}
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
 		return nil
@@ -192,15 +156,15 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
-			if c.metrics.ttlFailureTotal != nil {
-				c.metrics.ttlFailureTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
+			if c.metrics != nil {
+				c.metrics.RecordTTLFailure(context.Background(), c.gvr, metaObj.GetNamespace())
 			}
 			return err
 		}
 		logger.V(2).Info("resource has been deleted")
 	} else {
-		if c.metrics.deletedObjectsTotal != nil {
-			c.metrics.deletedObjectsTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
+		if c.metrics != nil {
+			c.metrics.RecordDeletedObject(context.Background(), c.gvr, metaObj.GetNamespace())
 		}
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)

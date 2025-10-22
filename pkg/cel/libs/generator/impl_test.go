@@ -16,7 +16,7 @@ func Test_apply_generator_string_list(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("generator", ContextType),
-		Lib(),
+		Lib(nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -62,7 +62,7 @@ func Test_apply_generator_string_list_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("generator", ContextType),
-		Lib(),
+		Lib(nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)

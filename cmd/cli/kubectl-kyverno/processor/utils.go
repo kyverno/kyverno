@@ -26,6 +26,7 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, c
 			dclient,
 			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 			gctxstore.New(),
+			restMapper,
 			true,
 		)
 	}

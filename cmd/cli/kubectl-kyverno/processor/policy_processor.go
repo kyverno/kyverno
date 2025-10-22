@@ -45,7 +45,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,9 +59,10 @@ type PolicyProcessor struct {
 	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	MutatingAdmissionPolicies         []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
+	NamespacedValidatingPolicies      []policiesv1alpha1.NamespacedValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
 	Resource                          unstructured.Unstructured
@@ -108,7 +109,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	isCluster := false
 	eng := engine.NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
@@ -275,7 +275,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
-		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, nil)
+		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -374,7 +374,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
 		compiler := vpolcompiler.NewCompiler()
-		provider, err := vpolengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
+		policies := make([]policiesv1alpha1.ValidatingPolicyLike, 0, len(p.ValidatingPolicies))
+		for i := range p.ValidatingPolicies {
+			policies = append(policies, &p.ValidatingPolicies[i])
+		}
+		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -422,7 +426,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
@@ -441,7 +445,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}

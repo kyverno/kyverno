@@ -17,13 +17,18 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type validateImageHandler struct{}
+type validateImageHandler struct {
+	client    engineapi.Client
+	isCluster bool
+}
 
 func NewValidateImageHandler(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	configuration config.Configuration,
+	client engineapi.Client,
+	isCluster bool,
 ) (handlers.Handler, error) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		return nil, nil
@@ -35,7 +40,10 @@ func NewValidateImageHandler(
 	if len(ruleImages) == 0 {
 		return nil, nil
 	}
-	return validateImageHandler{}, nil
+	return validateImageHandler{
+		client:    client,
+		isCluster: isCluster,
+	}, nil
 }
 
 func (h validateImageHandler) Process(
@@ -48,7 +56,7 @@ func (h validateImageHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string

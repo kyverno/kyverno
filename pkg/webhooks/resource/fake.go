@@ -59,7 +59,6 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 		reportingConfig: report.NewReportingConfig("validate", "mutate", "mutateExisiting", "generate", "imageVerify"),
 		engine: engine.NewEngine(
 			configuration,
-			config.NewDefaultMetricsConfiguration(),
 			jp,
 			adapters.Client(dclient),
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),

@@ -1,9 +1,6 @@
 package v1alpha1
 
 import (
-	"time"
-
-	"github.com/aptible/supercronic/cronexpr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -16,6 +13,7 @@ import (
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
 
 type DeletingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -87,29 +85,4 @@ type DeletingPolicyStatus struct {
 	// +optional
 	ConditionStatus   ConditionStatus `json:"conditionStatus,omitempty"`
 	LastExecutionTime metav1.Time     `json:"lastExecutionTime,omitempty"`
-}
-
-// GetExecutionTime returns the execution time of the policy
-func (p *DeletingPolicy) GetExecutionTime() (*time.Time, error) {
-	lastExecutionTime := p.Status.LastExecutionTime.Time
-	if lastExecutionTime.IsZero() {
-		creationTime := p.GetCreationTimestamp().Time
-		return p.GetNextExecutionTime(creationTime)
-	} else {
-		return p.GetNextExecutionTime(lastExecutionTime)
-	}
-}
-
-// GetNextExecutionTime returns the next execution time of the policy
-func (p *DeletingPolicy) GetNextExecutionTime(time time.Time) (*time.Time, error) {
-	cronExpr, err := cronexpr.Parse(p.Spec.Schedule)
-	if err != nil {
-		return nil, err
-	}
-	nextExecutionTime := cronExpr.Next(time)
-	return &nextExecutionTime, nil
-}
-
-func (p *DeletingPolicy) GetKind() string {
-	return "DeletingPolicy"
 }

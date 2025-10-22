@@ -72,8 +72,7 @@ func TestConvertObjectToUnstructured(t *testing.T) {
 				"apiVersion": "v1",
 				"kind":       "Namespace",
 				"metadata": map[string]any{
-					"name":              "foo",
-					"creationTimestamp": nil,
+					"name": "foo",
 				},
 				"spec":   map[string]any{},
 				"status": map[string]any{},
@@ -113,8 +112,7 @@ func TestObjectToResolveVal(t *testing.T) {
 		},
 		want: map[string]any{
 			"metadata": map[string]any{
-				"name":              "test",
-				"creationTimestamp": nil,
+				"name": "test",
 			},
 			"spec":   map[string]any{},
 			"status": map[string]any{},
@@ -150,8 +148,7 @@ func TestGetValue(t *testing.T) {
 		},
 		want: map[string]any{
 			"metadata": map[string]any{
-				"name":              "test",
-				"creationTimestamp": nil,
+				"name": "test",
 			},
 			"spec":   map[string]any{},
 			"status": map[string]any{},

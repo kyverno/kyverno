@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example
+  namespace: ndpol-test
+spec:
+  containers:
+  - image: nginx:latest
+    name: example
+

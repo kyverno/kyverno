@@ -18,7 +18,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: check-deployment-labels
+          value: check-deployment-labels-deny
   - name: create deployment
     try:
     - create:
@@ -26,4 +26,8 @@ spec:
         expect:
           - check:
               ($error): >-
-                admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy check-deployment-labels failed: Deployment labels must be env=prod
+                admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy check-deployment-labels-deny failed: Deployment labels must be env=prod
+  - name: check events
+    try:
+    - assert:
+        file: event-assert.yaml

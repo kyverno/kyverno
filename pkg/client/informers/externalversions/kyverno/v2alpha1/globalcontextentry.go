@@ -61,13 +61,25 @@ func NewFilteredGlobalContextEntryInformer(client versioned.Interface, resyncPer
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2alpha1().GlobalContextEntries().List(context.TODO(), options)
+				return client.KyvernoV2alpha1().GlobalContextEntries().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2alpha1().GlobalContextEntries().Watch(context.TODO(), options)
+				return client.KyvernoV2alpha1().GlobalContextEntries().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV2alpha1().GlobalContextEntries().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV2alpha1().GlobalContextEntries().Watch(ctx, options)
 			},
 		},
 		&apikyvernov2alpha1.GlobalContextEntry{},

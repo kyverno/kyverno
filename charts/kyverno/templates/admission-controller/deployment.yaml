@@ -1,4 +1,4 @@
-{{- if not .Values.templating.debug -}}
+{{- if not .Values.global.templating.debug -}}
 {{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: apps/v1
 kind: Deployment
@@ -6,7 +6,7 @@ metadata:
   name: {{ template "kyverno.admission-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   finalizers:
   - kyverno.io/webhooks
   - kyverno.io/exceptionwebhooks

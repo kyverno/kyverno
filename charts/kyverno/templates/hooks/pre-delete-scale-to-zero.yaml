@@ -1,5 +1,5 @@
 {{- if .Values.webhooksCleanup.enabled -}}
-{{- if not .Values.templating.enabled -}}
+{{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: batch/v1
 kind: Job

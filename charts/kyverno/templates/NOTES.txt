@@ -35,14 +35,6 @@ The following components have been installed in your cluster:
 ⚠️  WARNING: Match conditions require a Kubernetes 1.27+ cluster with `AdmissionWebhookMatchConditions` feature gate enabled.
 {{- end }}
 
-{{- with .Values.features.generateValidatingAdmissionPolicy.enabled }}
-⚠️  WARNING: Generating ValidatingAdmissionPolicy requires a Kubernetes 1.27+ cluster with `ValidatingAdmissionPolicy` feature gate and `admissionregistration.k8s.io` API group enabled.
-{{- end }}
-
-{{- with .Values.features.validatingAdmissionPolicyReports.enabled }}
-⚠️  WARNING: Generating reports from ValidatingAdmissionPolicies requires a Kubernetes 1.27+ cluster with `ValidatingAdmissionPolicy` feature gate and `admissionregistration.k8s.io` API group enabled.
-{{- end }}
-
 {{- with .Values.features.generateMutatingAdmissionPolicy.enabled }}
 ⚠️  WARNING: Generating MutatingAdmissionPolicy requires a Kubernetes 1.32+ cluster with `MutatingAdmissionPolicy` feature gate and `admissionregistration.k8s.io` API group enabled.
 {{- end }}

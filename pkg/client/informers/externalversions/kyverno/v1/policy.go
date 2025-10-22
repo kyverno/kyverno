@@ -62,13 +62,25 @@ func NewFilteredPolicyInformer(client versioned.Interface, namespace string, res
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().Policies(namespace).List(context.TODO(), options)
+				return client.KyvernoV1().Policies(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV1().Policies(namespace).Watch(context.TODO(), options)
+				return client.KyvernoV1().Policies(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV1().Policies(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV1().Policies(namespace).Watch(ctx, options)
 			},
 		},
 		&apikyvernov1.Policy{},

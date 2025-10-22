@@ -9,6 +9,7 @@ resources:
 results:
 - isMutatingPolicy: true
   kind: Deployment
+  patchedResources: patchedResource.yaml
   policy: test-mpol-jsonpatch
   resources:
   - dev/dev-deploy-2

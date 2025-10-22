@@ -10,9 +10,12 @@ spec:
       operations:  [CREATE, UPDATE]
       resources:   [deployments]
   variables:
+    - name: gvr
+      expression: >-
+        resource.ToGVR("v1", "Pod")
     - name: pod
       expression: >-
-        resource.Get("v1", "pods", object.metadata.namespace, "policy-pod")
+        resource.Get(variables.gvr, object.metadata.namespace, "policy-pod")
     - name: environment
       expression: >-
         has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == variables.pod.metadata.labels.env

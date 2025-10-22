@@ -74,6 +74,11 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1"},
 	}
+	namespacedValidatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"namespacedvalidatingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1alpha1"},
+	}
 	imagevalidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"imagevalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
@@ -121,6 +126,7 @@ type controller struct {
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
+	nvpolLister       policiesv1alpha1listers.NamespacedValidatingPolicyLister
 	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
 	mpolLister        policiesv1alpha1listers.MutatingPolicyLister
@@ -152,6 +158,8 @@ type controller struct {
 
 	// stateRecorder records policies that are configured successfully in webhook object
 	stateRecorder StateRecorder
+
+	celExpressionCache *expressionCache
 }
 
 func NewController(
@@ -165,6 +173,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
@@ -175,7 +184,6 @@ func NewController(
 	server string,
 	defaultTimeout int32,
 	servicePort int32,
-	webhookServerPort int32,
 	autoUpdateWebhooks bool,
 	autoDeleteWebhooks bool,
 	admissionReports bool,
@@ -201,6 +209,7 @@ func NewController(
 		cpolLister:          cpolInformer.Lister(),
 		polLister:           polInformer.Lister(),
 		vpolLister:          vpolInformer.Lister(),
+		nvpolLister:         nvpolInformer.Lister(),
 		gpolLister:          gpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
 		mpolLister:          mpolInformer.Lister(),
@@ -224,7 +233,8 @@ func NewController(
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
 		},
-		stateRecorder: stateRecorder,
+		stateRecorder:      stateRecorder,
+		celExpressionCache: NewExpressionCache(),
 	}
 	// Set up the CRD change callback
 	c.discoveryClient.OnChanged(c.OnCRDChange)
@@ -291,30 +301,68 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		vpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
+		nvpolInformer.Informer(),
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
+		mpolInformer.Informer(),
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		gpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		ivpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	configuration.OnChanged(c.enqueueAll)
 	return &c
+}
+
+func (c *controller) handlePolicyCreate(obj interface{}) {
+	if policy, ok := obj.(interface {
+		GetMatchConditions() []admissionregistrationv1.MatchCondition
+	}); ok {
+		c.celExpressionCache.AddPolicyExpressions(policy.GetMatchConditions())
+	}
+	c.enqueueResourceWebhooks(0)
+}
+
+func (c *controller) handlePolicyUpdate(oldObj, newObj interface{}) {
+	if oldPolicy, ok := oldObj.(interface {
+		GetMatchConditions() []admissionregistrationv1.MatchCondition
+	}); ok {
+		c.celExpressionCache.RemovePolicyExpressions(oldPolicy.GetMatchConditions())
+	}
+	if newPolicy, ok := newObj.(interface {
+		GetMatchConditions() []admissionregistrationv1.MatchCondition
+	}); ok {
+		c.celExpressionCache.AddPolicyExpressions(newPolicy.GetMatchConditions())
+	}
+	c.enqueueResourceWebhooks(0)
+}
+
+func (c *controller) handlePolicyDelete(obj interface{}) {
+	if policy, ok := obj.(interface {
+		GetMatchConditions() []admissionregistrationv1.MatchCondition
+	}); ok {
+		c.celExpressionCache.RemovePolicyExpressions(policy.GetMatchConditions())
+	}
+	c.enqueueResourceWebhooks(0)
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
@@ -836,6 +884,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Update,
 					},
 				}, {
+					Rule: namespacedValidatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}, {
 					Rule: imagevalidatingPolicyRule,
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
@@ -945,7 +999,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		"/mpol",
 		c.servicePort,
 		caBundle,
-		mpols)
+		mpols,
+		c.celExpressionCache)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -958,7 +1013,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
-		ivpols)...)
+		ivpols,
+		c.celExpressionCache)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
 	for _, w := range validate {
@@ -1155,7 +1211,21 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		"/vpol",
 		c.servicePort,
 		caBundle,
-		pols)...)
+		pols,
+		c.celExpressionCache)...)
+
+	nvpols, err := c.getNamespacedValidatingPolicies()
+	if err != nil {
+		return err
+	}
+	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+		c.server,
+		config.NamespacedValidatingPolicyWebhookName,
+		"/nvpol",
+		c.servicePort,
+		caBundle,
+		nvpols,
+		c.celExpressionCache)...)
 
 	gpols, err := c.getGeneratingPolicies()
 	if err != nil {
@@ -1167,7 +1237,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		"/gpol",
 		c.servicePort,
 		caBundle,
-		gpols)...)
+		gpols,
+		c.celExpressionCache)...)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -1179,9 +1250,11 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		"/ivpol/validate",
 		c.servicePort,
 		caBundle,
-		ivpols)...)
+		ivpols,
+		c.celExpressionCache)...)
 
-	policies := append(pols, gpols...)
+	policies := append(pols, nvpols...)
+	policies = append(policies, gpols...)
 	policies = append(policies, ivpols...)
 	c.recordPolicyState(policies...)
 	return nil
@@ -1312,6 +1385,20 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 		}
 	}
 	return vpols, nil
+}
+
+func (c *controller) getNamespacedValidatingPolicies() ([]engineapi.GenericPolicy, error) {
+	namespacedvalidatingpolicies, err := c.nvpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	nvpols := make([]engineapi.GenericPolicy, 0)
+	for _, nvpol := range namespacedvalidatingpolicies {
+		if nvpol.Spec.AdmissionEnabled() && !nvpol.GetStatus().Generated {
+			nvpols = append(nvpols, engineapi.NewNamespacedValidatingPolicy(nvpol))
+		}
+	}
+	return nvpols, nil
 }
 
 func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) {

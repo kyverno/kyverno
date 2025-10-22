@@ -8,6 +8,7 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -142,29 +143,6 @@ func TestGetPatches(t *testing.T) {
 	})
 }
 
-// mock Context
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
-	panic("not implemented")
-}
-
 type mockAttributes struct{}
 
 func (m *mockAttributes) GetName() string      { return "" }
@@ -239,7 +217,7 @@ func TestEvaluate(t *testing.T) {
 		provider, err := NewProvider(compiler.NewCompiler(), pols, polexs)
 
 		assert.NoError(t, err)
-		engine := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+		engine := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.NotNil(t, resp)
@@ -247,7 +225,7 @@ func TestEvaluate(t *testing.T) {
 	})
 
 	t.Run("provider fetch failure returns error and empty response", func(t *testing.T) {
-		engine := NewEngine(&mockFailingProvider{}, nsResolver, matcher, typeConverter, &fakeContext{})
+		engine := NewEngine(&mockFailingProvider{}, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.Error(t, err)
@@ -300,7 +278,7 @@ func TestEvaluate(t *testing.T) {
 			provider,
 			func(ns string) *corev1.Namespace {
 				return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
-			}, matcher, &fakeTypeConverter{}, &fakeContext{})
+			}, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
 		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.NotNil(t, resp)
@@ -419,7 +397,7 @@ func TestHandle(t *testing.T) {
 				},
 				matching.NewMatcher(),
 				&fakeTypeConverter{},
-				&fakeContext{},
+				&libs.FakeContextProvider{},
 			)
 
 			dryRun := true
@@ -489,7 +467,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 
-		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 
 		resp := eng.MatchedMutateExistingPolicies(ctx, req)
 
@@ -516,7 +494,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 		polexs := []*policiesv1alpha1.PolicyException{}
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 
-		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 
 		resp := eng.MatchedMutateExistingPolicies(ctx, req)
 

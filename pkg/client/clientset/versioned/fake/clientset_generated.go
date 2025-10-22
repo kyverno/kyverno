@@ -28,10 +28,13 @@ import (
 	fakekyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1/fake"
 	policiesv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1alpha1"
 	fakepoliciesv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1alpha1/fake"
+	policiesv1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1beta1"
+	fakepoliciesv1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1beta1/fake"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	fakewgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2/fake"
 	reportsv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/reports/v1"
 	fakereportsv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/reports/v1/fake"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -59,9 +62,13 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 	cs.discovery = &fakediscovery.FakeDiscovery{Fake: &cs.Fake}
 	cs.AddReactor("*", "*", testing.ObjectReaction(o))
 	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
+		var opts metav1.ListOptions
+		if watchActcion, ok := action.(testing.WatchActionImpl); ok {
+			opts = watchActcion.ListOptions
+		}
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
-		watch, err := o.Watch(gvr, ns)
+		watch, err := o.Watch(gvr, ns, opts)
 		if err != nil {
 			return false, nil, err
 		}
@@ -111,6 +118,11 @@ func (c *Clientset) KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface {
 // PoliciesV1alpha1 retrieves the PoliciesV1alpha1Client
 func (c *Clientset) PoliciesV1alpha1() policiesv1alpha1.PoliciesV1alpha1Interface {
 	return &fakepoliciesv1alpha1.FakePoliciesV1alpha1{Fake: &c.Fake}
+}
+
+// PoliciesV1beta1 retrieves the PoliciesV1beta1Client
+func (c *Clientset) PoliciesV1beta1() policiesv1beta1.PoliciesV1beta1Interface {
+	return &fakepoliciesv1beta1.FakePoliciesV1beta1{Fake: &c.Fake}
 }
 
 // Wgpolicyk8sV1alpha2 retrieves the Wgpolicyk8sV1alpha2Client

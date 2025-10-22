@@ -1,5 +1,5 @@
 {{- if .Values.crds.migration.enabled -}}
-{{- if not .Values.templating.enabled -}}
+{{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.crds.migration.serviceAccount.automountServiceAccountToken }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -14,6 +14,14 @@ metadata:
 rules:
   - apiGroups:
     - kyverno.io
+    resources:
+    - '*'
+    verbs:
+    - get
+    - list
+    - update
+  - apiGroups:
+    - policies.kyverno.io
     resources:
     - '*'
     verbs:
@@ -74,7 +82,7 @@ metadata:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: post-upgrade
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    # helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "200"
 spec:
   backoffLimit: 2

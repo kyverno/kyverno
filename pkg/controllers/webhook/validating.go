@@ -13,14 +13,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
+func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache) []admissionregistrationv1.ValidatingWebhook {
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
-		if p.GetMatchConditions() != nil {
+		if validConditions(expressionCache, p.GetMatchConditions()) != nil {
 			fineGrained = append(fineGrained, policy)
 		} else if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
 			fineGrained = append(fineGrained, policy)
@@ -51,11 +52,11 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 							Resource: "pods",
 							Kind:     "Pod",
 						}},
-						p.GetMatchConditions(),
+						validConditions(expressionCache, p.GetMatchConditions()),
 					)...,
 				)
 			} else {
-				webhook.MatchConditions = append(webhook.MatchConditions, p.GetMatchConditions()...)
+				webhook.MatchConditions = append(webhook.MatchConditions, validConditions(expressionCache, p.GetMatchConditions())...)
 			}
 
 			if _, ok := p.(*policiesv1alpha1.GeneratingPolicy); ok {
@@ -84,7 +85,23 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, policy.Spec.MatchConditions)...,
+						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+					)
+					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
+						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+					}
+				}
+			}
+			if nvpol, ok := p.(*policiesv1alpha1.NamespacedValidatingPolicy); ok {
+				policies, err := vpolautogen.Autogen(nvpol)
+				if err != nil {
+					continue
+				}
+				for _, config := range slices.Sorted(maps.Keys(policies)) {
+					policy := policies[config]
+					webhook.MatchConditions = append(
+						webhook.MatchConditions,
+						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -100,7 +117,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, policy.Spec.MatchConditions)...,
+						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -118,7 +135,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, policy.Spec.GetMatchConditions())...,
+						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.GetMatchConditions()))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -136,11 +153,27 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
+				webhook.NamespaceSelector = mergeLabelSelectors(
+					p.GetMatchConstraints().NamespaceSelector,
+					cfg.GetWebhook().NamespaceSelector,
+				)
+				webhook.ObjectSelector = mergeLabelSelectors(
+					p.GetMatchConstraints().ObjectSelector,
+					cfg.GetWebhook().ObjectSelector,
+				)
 				fineGrainedIgnoreList = append(fineGrainedIgnoreList, webhook)
 			} else {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 				webhook.Name = name + "-fail-finegrained-" + p.GetName()
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
+				webhook.NamespaceSelector = mergeLabelSelectors(
+					p.GetMatchConstraints().NamespaceSelector,
+					cfg.GetWebhook().NamespaceSelector,
+				)
+				webhook.ObjectSelector = mergeLabelSelectors(
+					p.GetMatchConstraints().ObjectSelector,
+					cfg.GetWebhook().ObjectSelector,
+				)
 				fineGrainedFailList = append(fineGrainedFailList, webhook)
 			}
 		}
@@ -173,16 +206,26 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
-		if cfg.GetWebhook().NamespaceSelector != nil {
-			webhookIgnore.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-			webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-		}
-		if cfg.GetWebhook().ObjectSelector != nil {
-			webhookIgnore.ObjectSelector = cfg.GetWebhook().ObjectSelector
-			webhookFail.ObjectSelector = cfg.GetWebhook().ObjectSelector
-		}
+		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
+
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
+			webhookIgnore.NamespaceSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().NamespaceSelector,
+				cfg.GetWebhook().NamespaceSelector,
+			)
+			webhookIgnore.ObjectSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().ObjectSelector,
+				cfg.GetWebhook().ObjectSelector,
+			)
+			webhookFail.NamespaceSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().NamespaceSelector,
+				cfg.GetWebhook().NamespaceSelector,
+			)
+			webhookFail.ObjectSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().ObjectSelector,
+				cfg.GetWebhook().ObjectSelector,
+			)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
 				rules, err := vpolautogen.Autogen(vpol)
@@ -248,4 +291,46 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		}
 	}
 	return webhooks
+}
+
+func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+
+	merged := &metav1.LabelSelector{
+		MatchLabels:      map[string]string{},
+		MatchExpressions: []metav1.LabelSelectorRequirement{},
+	}
+
+	// copy a
+	for k, v := range a.MatchLabels {
+		merged.MatchLabels[k] = v
+	}
+	merged.MatchExpressions = append(merged.MatchExpressions, a.MatchExpressions...)
+
+	// copy b
+	for k, v := range b.MatchLabels {
+		merged.MatchLabels[k] = v
+	}
+	merged.MatchExpressions = append(merged.MatchExpressions, b.MatchExpressions...)
+
+	return merged
+}
+
+func validConditions(celExpressionCache *expressionCache, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	if celExpressionCache == nil {
+		return nil
+	}
+	valid, err := celExpressionCache.ValidateMatchConditions(conditions)
+	if err != nil {
+		logger.V(6).Info("skip building the webhook with Kubernetes unknown match conditions", "error", err.ToAggregate().Error())
+	}
+	if len(valid) == len(conditions) {
+		return conditions
+	}
+	return nil
 }
