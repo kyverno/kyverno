@@ -93,7 +93,7 @@ func NewKubeProvider(
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
 
 	vpolBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1alpha1.ValidatingPolicy{})
+		For(&policiesv1beta1.ValidatingPolicy{})
 
 	nvpolBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&policiesv1beta1.NamespacedValidatingPolicy{})

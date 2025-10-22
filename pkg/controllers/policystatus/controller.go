@@ -82,11 +82,11 @@ func NewController(
 		vpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
-			vpol, ok := obj.(*policiesv1alpha1.ValidatingPolicy)
+			vpol, ok := obj.(*policiesv1beta1.ValidatingPolicy)
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ValidatingPolicyType, vpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ValidatingPolicyType, vpol.Name, ""))
 		},
 	)
 	if err != nil {
@@ -102,7 +102,7 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, nvpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, nvpol.Name, nvpol.Namespace))
 		},
 	)
 	if err != nil {
@@ -118,7 +118,7 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, ivpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, ivpol.Name, ""))
 		},
 	)
 	if err != nil {
@@ -134,7 +134,7 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, mpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, mpol.Name, ""))
 		},
 	)
 	if err != nil {
@@ -150,7 +150,7 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.GeneratingPolicyType, gpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.GeneratingPolicyType, gpol.Name, ""))
 		},
 	)
 	if err != nil {
@@ -170,13 +170,13 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 	}
 }
 
-func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error {
-	polType, polName := webhook.ParseRecorderKey(key)
+func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, _ string, _ string) error {
+	polType, name, namespace := webhook.ParseRecorderKey(key)
 	if polType == webhook.ValidatingPolicyType {
-		vpol, err := c.client.PoliciesV1beta1().ValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		vpol, err := c.client.PoliciesV1beta1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("validating policy not found", "name", polName)
+				logger.V(4).Info("validating policy not found", "name", name)
 				return nil
 			}
 			return err
@@ -185,22 +185,21 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return c.updateVpolStatus(ctx, vpol)
 	}
 	if polType == webhook.NamespacedValidatingPolicyType {
-		nvpol, err := c.client.PoliciesV1beta1().NamespacedValidatingPolicies(namespace).Get(ctx, polName, metav1.GetOptions{})
+		nvpol, err := c.client.PoliciesV1beta1().NamespacedValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("namespaced validating policy not found", "name", polName, "namespace", namespace)
+				logger.V(4).Info("namespaced validating policy not found", "name", name, "namespace", namespace)
 				return nil
 			}
 			return err
 		}
-
 		return c.updateNVpolStatus(ctx, nvpol)
 	}
 	if polType == webhook.ImageValidatingPolicyType {
-		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("imageVerification policy not found", "name", polName)
+				logger.V(4).Info("imageVerification policy not found", "name", name)
 				return nil
 			}
 			return err
@@ -209,10 +208,10 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.MutatingPolicyType {
-		mpol, err := c.client.PoliciesV1alpha1().MutatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		mpol, err := c.client.PoliciesV1alpha1().MutatingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("mutating policy not found", "name", polName)
+				logger.V(4).Info("mutating policy not found", "name", name)
 				return nil
 			}
 			return err
@@ -221,10 +220,10 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.GeneratingPolicyType {
-		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("generating policy not found", "name", polName)
+				logger.V(4).Info("generating policy not found", "name", name)
 				return nil
 			}
 			return err
@@ -241,17 +240,17 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	backgroundOnly := false
 	switch policy.GetKind() {
 	case webhook.ImageValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName())
+		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsImageValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.MutatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName())
+		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsMutatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsMutatingPolicy().GetStatus().ConditionStatus
 	case webhook.GeneratingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName())
+		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
 		status = &policy.AsGeneratingPolicy().GetStatus().ConditionStatus
 	}
@@ -281,12 +280,12 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 	backgroundOnly := false
 	switch policy.GetKind() {
 	case webhook.ValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName())
+		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsValidatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.NamespacedValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, policy.GetName())
+		key = webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, policy.GetName(), policy.GetNamespace())
 		matchConstraints = policy.AsNamespacedValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsNamespacedValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsNamespacedValidatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsNamespacedValidatingPolicy().GetStatus().ConditionStatus

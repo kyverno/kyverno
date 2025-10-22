@@ -79,7 +79,7 @@ var (
 	namespacedValidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"namespacedvalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1beta1"},
 	}
 	imagevalidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"imagevalidatingpolicies"},
@@ -514,7 +514,7 @@ func (c *controller) recordKyvernoPolicyState(webhookConfigurationName string, p
 
 func (c *controller) recordPolicyState(policies ...engineapi.GenericPolicy) {
 	for _, policy := range policies {
-		if key := BuildRecorderKey(policy.GetKind(), policy.GetName()); key != "" {
+		if key := BuildRecorderKey(policy.GetKind(), policy.GetName(), policy.GetNamespace()); key != "" {
 			c.stateRecorder.Record(key)
 		}
 	}

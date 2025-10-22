@@ -306,17 +306,17 @@ func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVP(obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) addVP(obj *policiesv1beta1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) updateVP(old, obj *policiesv1beta1.ValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) deleteVP(obj *policiesv1beta1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 

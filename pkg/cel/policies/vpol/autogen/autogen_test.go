@@ -17,7 +17,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		name          string
 		controllers   sets.Set[string]
 		policySpec    []byte
-		generatedRule map[string]policiesv1alpha1.ValidatingPolicyAutogen
+		generatedRule map[string]policiesv1beta1.ValidatingPolicyAutogen
 	}{
 		{
 			name:        "autogen rule for deployments",
@@ -48,12 +48,12 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -109,13 +109,13 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "apps", Version: "v1", Resource: "daemonsets", Kind: "DaemonSet"},
 						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -177,15 +177,15 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "apps", Version: "v1", Resource: "daemonsets", Kind: "DaemonSet"},
 						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
 						{Group: "apps", Version: "v1", Resource: "replicasets", Kind: "ReplicaSet"},
 						{Group: "apps", Version: "v1", Resource: "statefulsets", Kind: "StatefulSet"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{

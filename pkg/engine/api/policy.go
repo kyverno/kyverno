@@ -190,6 +190,11 @@ func (p *genericPolicy) GetAPIVersion() string {
 			return apiVersion
 		}
 		return policiesv1alpha1.GroupVersion.String()
+	case p.NamespacedValidatingPolicy != nil:
+		if apiVersion := p.ValidatingPolicy.APIVersion; apiVersion != "" {
+			return apiVersion
+		}
+		return policiesv1beta1.GroupVersion.String()
 	case p.ImageValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	case p.MutatingPolicy != nil:
@@ -212,6 +217,8 @@ func (p *genericPolicy) GetKind() string {
 		return "MutatingAdmissionPolicy"
 	case p.ValidatingPolicy != nil:
 		return p.ValidatingPolicy.GetKind()
+	case p.NamespacedValidatingPolicy != nil:
+		return p.NamespacedValidatingPolicy.GetKind()
 	case p.ImageValidatingPolicy != nil:
 		return "ImageValidatingPolicy"
 	case p.MutatingPolicy != nil:
@@ -228,8 +235,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 	switch {
 	case p.PolicyInterface != nil:
 		return p.PolicyInterface.IsNamespaced()
-	case p.ValidatingPolicy != nil:
-		return p.ValidatingPolicy.GetNamespace() != ""
+	case p.NamespacedValidatingPolicy != nil:
+		return true
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""
 	}
@@ -443,22 +450,8 @@ func NewValidatingPolicy(pol *policiesv1beta1.ValidatingPolicy) GenericPolicy {
 }
 
 func NewNamespacedValidatingPolicy(pol *policiesv1beta1.NamespacedValidatingPolicy) GenericPolicy {
-	if pol == nil {
-		return nil
-	}
-	apiVersion := pol.APIVersion
-	if apiVersion == "" {
-		apiVersion = policiesv1beta1.GroupVersion.String()
-	}
-	converted := policiesv1beta1.ValidatingPolicy{
-		TypeMeta:   metav1.TypeMeta{Kind: pol.GetKind(), APIVersion: apiVersion},
-		ObjectMeta: pol.ObjectMeta,
-		Spec:       pol.Spec,
-		Status:     pol.Status,
-	}
 	return &genericPolicy{
 		Object:                     pol,
-		ValidatingPolicy:           &converted,
 		NamespacedValidatingPolicy: pol,
 	}
 }

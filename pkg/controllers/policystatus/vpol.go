@@ -55,11 +55,44 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1beta1.
 }
 
 func (c controller) updateNVpolStatus(ctx context.Context, nvpol *policiesv1beta1.NamespacedValidatingPolicy) error {
-	updateFunc := func(nvpol *policiesv1beta1.NamespacedValidatingPolicy) error {
-		p := engineapi.NewNamespacedValidatingPolicy(nvpol)
-		return c.updateVpolStatus(ctx, p.AsValidatingPolicy())
+	updateFunc := func(vpol *policiesv1beta1.NamespacedValidatingPolicy) error {
+		p := engineapi.NewNamespacedValidatingPolicy(vpol)
+		// conditions
+		conditionStatus := c.reconcileBeta1Conditions(ctx, p)
+		ready := true
+		for _, condition := range conditionStatus.Conditions {
+			if condition.Status != metav1.ConditionTrue {
+				ready = false
+				break
+			}
+		}
+		if conditionStatus.Ready == nil || conditionStatus.IsReady() != ready {
+			conditionStatus.Ready = &ready
+		}
+		// autogen
+		rules, err := vpolautogen.Autogen(vpol)
+		if err != nil {
+			return err
+		}
+		autogenStatus := policiesv1beta1.ValidatingPolicyAutogenStatus{
+			Configs: rules,
+		}
+		// assign
+		status := vpol.GetStatus()
+		vpol.Status = policiesv1beta1.ValidatingPolicyStatus{
+			ConditionStatus: *conditionStatus,
+			Autogen:         autogenStatus,
+			Generated:       status.Generated,
+		}
+		return nil
 	}
-	return controllerutils.UpdateStatus(ctx, nvpol, c.client.PoliciesV1beta1().NamespacedValidatingPolicies(nvpol.Namespace), updateFunc, func(current, expect *policiesv1beta1.NamespacedValidatingPolicy) bool {
-		return datautils.DeepEqual(current.Status, expect.Status)
-	})
+	err := controllerutils.UpdateStatus(ctx,
+		nvpol,
+		c.client.PoliciesV1beta1().NamespacedValidatingPolicies(nvpol.Namespace),
+		updateFunc,
+		func(current, expect *policiesv1beta1.NamespacedValidatingPolicy) bool {
+			return datautils.DeepEqual(current.Status, expect.Status)
+		},
+	)
+	return err
 }
