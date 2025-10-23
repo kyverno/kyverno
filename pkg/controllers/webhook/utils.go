@@ -3,6 +3,7 @@ package webhook
 import (
 	"cmp"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -200,6 +201,57 @@ func less[T cmp.Ordered](a []T, b []T) int {
 		}
 	}
 	return 0
+}
+
+func deDuplicatedRules(rules []admissionregistrationv1.RuleWithOperations) []admissionregistrationv1.RuleWithOperations {
+	seen := make(map[string]struct{})
+	uniqueRules := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
+
+	for _, rule := range rules {
+		key := generateRuleKey(rule)
+		if _, exist := seen[key]; !exist {
+			seen[key] = struct{}{}
+			uniqueRules = append(uniqueRules, rule)
+		}
+	}
+	return uniqueRules
+}
+
+func generateRuleKey(rule admissionregistrationv1.RuleWithOperations) string {
+	var b strings.Builder
+
+	copiedGroups := make([]string, len(rule.APIGroups))
+	copy(copiedGroups, rule.APIGroups)
+	sort.Strings(copiedGroups)
+	b.WriteString(strings.Join(copiedGroups, ","))
+	b.WriteString("|")
+
+	copiedVersions := make([]string, len(rule.APIVersions))
+	copy(copiedVersions, rule.APIVersions)
+	sort.Strings(copiedVersions)
+	b.WriteString(strings.Join(copiedVersions, ","))
+	b.WriteString("|")
+
+	copiedResources := make([]string, len(rule.Resources))
+	copy(copiedResources, rule.Resources)
+	sort.Strings(copiedResources)
+	b.WriteString(strings.Join(copiedResources, ","))
+	b.WriteString("|")
+
+	opsCopy := make([]string, len(rule.Operations))
+	for i, op := range rule.Operations {
+		opsCopy[i] = string(op)
+	}
+
+	sort.Strings(opsCopy)
+	b.WriteString(strings.Join(opsCopy, ","))
+	b.WriteString("|")
+
+	b.WriteString("|s:")
+	if rule.Scope != nil {
+		b.WriteString(string(*rule.Scope))
+	}
+	return b.String()
 }
 
 const (
