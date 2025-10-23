@@ -668,6 +668,11 @@ helm-setup-openreports: $(HELM) ## Add openreports helm repo and build dependenc
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) dependency build ./charts/kyverno
 
+.PHONY: helm-dependency-update
+helm-dependency-update: $(HELM) ## Update helm dependencies
+	@echo Updating helm dependencies... >&2
+	@cd charts/kyverno && $(HELM) dependency update
+	
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
