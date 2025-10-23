@@ -60,7 +60,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 				http.Lib(image.Latest()),
 				image.Lib(image.Latest()),
 				imagedata.Lib(imagedata.Latest()),
-				resource.Lib(resource.Latest()),
+				resource.Lib(policy.GetNamespace(), resource.Latest()),
 				user.Lib(user.Latest()),
 			},
 		},
