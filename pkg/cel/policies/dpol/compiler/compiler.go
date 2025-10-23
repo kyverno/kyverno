@@ -43,7 +43,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 		return nil, field.ErrorList{field.Required(field.NewPath("spec"), "spec must not be nil")}
 	}
 	var allErrs field.ErrorList
-	dpolEnvSet, variablesProvider, err := c.createBaseDpolEnv()
+	dpolEnvSet, variablesProvider, err := c.createBaseDpolEnv(policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -90,7 +90,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	}, nil
 }
 
-func (c *compilerImpl) createBaseDpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -146,6 +146,7 @@ func (c *compilerImpl) createBaseDpolEnv() (*environment.EnvSet, *compiler.Varia
 					imagedata.Latest(),
 				),
 				resource.Lib(
+					namespace,
 					resource.Latest(),
 				),
 			},

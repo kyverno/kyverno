@@ -13,8 +13,21 @@ func TestLib(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("image", ContextType),
-		Lib(nil),
+		cel.Variable("resource", ContextType),
+		Lib("", nil),
+	}
+	env, err := base.Extend(options...)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+}
+
+func TestNamespaceLib(t *testing.T) {
+	base, err := compiler.NewBaseEnv()
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	options := []cel.EnvOption{
+		cel.Variable("resource", ContextType),
+		Lib("default", nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)

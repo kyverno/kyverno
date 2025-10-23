@@ -37,7 +37,7 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -92,6 +92,7 @@ func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 					http.Latest(),
 				),
 				resource.Lib(
+					namespace,
 					resource.Latest(),
 				),
 				image.Lib(
@@ -111,7 +112,7 @@ func createBaseGpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, erro
 
 func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	gpolEnvSet, variablesProvider, err := createBaseGpolEnv()
+	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
