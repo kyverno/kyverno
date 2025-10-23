@@ -18,6 +18,7 @@ func TestRclientAdapter_ForRef_Integration(t *testing.T) {
 	require.NotNil(t, adapter)
 
 	ctx := context.Background()
+	// Test without platform parameter (backward compatibility)
 	result, err := adapter.ForRef(ctx, "docker.io/library/hello-world:latest")
 
 	if err != nil {
@@ -31,6 +32,35 @@ func TestRclientAdapter_ForRef_Integration(t *testing.T) {
 	assert.Equal(t, "docker.io/library/hello-world:latest", result.Image)
 	assert.Contains(t, result.ResolvedImage, "docker.io/library/hello-world@sha256:")
 	assert.Equal(t, "index.docker.io", result.Registry) // Docker Hub uses index.docker.io
+	assert.Equal(t, "library/hello-world", result.Repository)
+	assert.Equal(t, "latest", result.Identifier)
+
+	assert.NotNil(t, result.Manifest)
+	assert.NotNil(t, result.Config)
+}
+
+func TestRclientAdapter_ForRef_WithPlatform(t *testing.T) {
+	client, err := registryclient.New()
+	require.NoError(t, err)
+
+	adapter := RegistryClient(client)
+	require.NotNil(t, adapter)
+
+	ctx := context.Background()
+	// Test with platform parameter
+	result, err := adapter.ForRef(ctx, "docker.io/library/hello-world:latest", "linux/arm64")
+
+	if err != nil {
+		t.Skipf("Skipping test due to network error: %v", err)
+		return
+	}
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Equal(t, "docker.io/library/hello-world:latest", result.Image)
+	assert.Contains(t, result.ResolvedImage, "docker.io/library/hello-world@sha256:")
+	assert.Equal(t, "index.docker.io", result.Registry)
 	assert.Equal(t, "library/hello-world", result.Repository)
 	assert.Equal(t, "latest", result.Identifier)
 
