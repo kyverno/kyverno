@@ -230,11 +230,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, vaps, vapBindings, maps, mapBindings, vps, nvps, ivps, gps, dps, ndps, mps, err := c.loadPolicies()
+	kpols, vaps, vapBindings, maps, mapBindings, vps, nvps, ivps, nivps, gps, dps, ndps, mps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps)+len(ndps))
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(nivps)+len(gps)+len(dps)+len(ndps))
 	for _, pol := range kpols {
 		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
 	}
@@ -252,6 +252,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	for _, pol := range ivps {
 		genericPolicies = append(genericPolicies, engineapi.NewImageValidatingPolicy(&pol))
+	}
+	for i := range nivps {
+		genericPolicies = append(genericPolicies, engineapi.NewNamespacedImageValidatingPolicy(&nivps[i]))
 	}
 	for _, pol := range gps {
 		genericPolicies = append(genericPolicies, engineapi.NewGeneratingPolicy(&pol))
@@ -311,6 +314,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(vaps)
 		policyRulesCount += len(vps)
 		policyRulesCount += len(ivps)
+		policyRulesCount += len(nivps)
 		policyRulesCount += len(maps)
 		policyRulesCount += len(gps)
 		policyRulesCount += len(dps)
@@ -351,7 +355,16 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
+	// Convert both cluster-scoped and namespaced IVPs to the common ImageValidatingPolicyLike interface
+	allImageValidatingPolicies := make([]policiesv1alpha1.ImageValidatingPolicyLike, 0, len(ivps)+len(nivps))
+	for i := range ivps {
+		allImageValidatingPolicies = append(allImageValidatingPolicies, &ivps[i])
+	}
+	for i := range nivps {
+		allImageValidatingPolicies = append(allImageValidatingPolicies, &nivps[i])
+	}
+
+	responses4, err := c.applyImageValidatingPolicies(allImageValidatingPolicies, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -534,7 +547,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 }
 
 func (c *ApplyCommandConfig) applyImageValidatingPolicies(
-	ivps []policiesv1alpha1.ImageValidatingPolicy,
+	ivps []policiesv1alpha1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1alpha1.PolicyException,
@@ -617,18 +630,18 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
-	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
+	pMap := make(map[string]policiesv1alpha1.ImageValidatingPolicyLike)
 	for i := range ivps {
 		p := ivps[i]
-		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
+		pMap[p.GetName()] = p
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -657,7 +670,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, rslt.AuditAnnotations),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
@@ -771,6 +784,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1beta1.ValidatingPolicy,
 	[]policiesv1beta1.NamespacedValidatingPolicy,
 	[]policiesv1alpha1.ImageValidatingPolicy,
+	[]policiesv1alpha1.NamespacedImageValidatingPolicy,
 	[]policiesv1alpha1.GeneratingPolicy,
 	[]policiesv1beta1.DeletingPolicy,
 	[]policiesv1beta1.NamespacedDeletingPolicy,
@@ -786,6 +800,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var maps []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	var ivps []policiesv1alpha1.ImageValidatingPolicy
+	var nivps []policiesv1alpha1.NamespacedImageValidatingPolicy
 	var gps []policiesv1alpha1.GeneratingPolicy
 	var dps []policiesv1beta1.DeletingPolicy
 	var ndps []policiesv1beta1.NamespacedDeletingPolicy
@@ -795,12 +810,12 @@ func (c *ApplyCommandConfig) loadPolicies() (
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -813,11 +828,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -837,6 +852,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				maps = append(maps, loaderResults.MAPs...)
 				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
+				nivps = append(nivps, loaderResults.NamespacedImageValidatingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
 				ndps = append(ndps, loaderResults.NamespacedDeletingPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
@@ -859,6 +875,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				maps = append(maps, loaderResults.MAPs...)
 				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
+				nivps = append(nivps, loaderResults.NamespacedImageValidatingPolicies...)
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
 				ndps = append(ndps, loaderResults.NamespacedDeletingPolicies...)
@@ -871,7 +888,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		}
 	}
-	return policies, vaps, vapBindings, maps, mapBindings, vps, nvps, ivps, gps, dps, ndps, mps, nil
+	return policies, vaps, vapBindings, maps, mapBindings, vps, nvps, ivps, nivps, gps, dps, ndps, mps, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
