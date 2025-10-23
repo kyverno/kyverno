@@ -85,7 +85,7 @@ func Test_namespaced_impl_get_resource_string_string_string_error(t *testing.T) 
 	}, {
 		name: "bad arg 4",
 		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.String("v1"), types.String("pods"), types.Bool(false)},
-		want: types.NewErr("invalid arg 4: type conversion error from bool to 'string'"),
+		want: types.NewErr("invalid arg 3: type conversion error from bool to 'string'"),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -137,7 +137,7 @@ func Test_namespaced_impl_list_resources_string_string_string(t *testing.T) {
 	object := out.Value().(map[string]any)
 	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["apiVersion"].(string), "apps/v1")
 	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["kind"].(string), "Deployment")
-	assert.Equal(t, object["metadata"].(map[string]any)["namespace"].(string), "default")
+	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["metadata"].(map[string]any)["namespace"].(string), "default")
 }
 
 func Test_namespaced_impl_list_resources_string_string_map(t *testing.T) {
@@ -184,7 +184,7 @@ func Test_namespaced_impl_list_resources_string_string_map(t *testing.T) {
 	object := out.Value().(map[string]any)
 	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["apiVersion"].(string), "apps/v1")
 	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["kind"].(string), "Deployment")
-	assert.Equal(t, object["metadata"].(map[string]any)["namespace"].(string), "default")
+	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["metadata"].(map[string]any)["namespace"].(string), "default")
 }
 
 func Test_namespaced_impl_list_resources_string_string_error(t *testing.T) {
@@ -207,20 +207,16 @@ func Test_namespaced_impl_list_resources_string_string_error(t *testing.T) {
 		want: types.NewErr("expected 3 arguments, got %d", 0),
 	}, {
 		name: "bad arg 1",
-		args: []ref.Val{types.String("foo"), types.String("v1"), types.String("pods"), types.String("name")},
+		args: []ref.Val{types.String("foo"), types.String("v1"), types.String("pods")},
 		want: types.NewErr("invalid arg 0: unsupported native conversion from string to 'resource.Context'"),
 	}, {
 		name: "bad arg 2",
-		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.Bool(false), types.String("pods"), types.String("name")},
+		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.Bool(false), types.String("pods")},
 		want: types.NewErr("invalid arg 1: type conversion error from bool to 'string'"),
 	}, {
 		name: "bad arg 3",
-		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.String("v1"), types.Bool(false), types.String("name")},
+		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.String("v1"), types.Bool(false)},
 		want: types.NewErr("invalid arg 2: type conversion error from bool to 'string'"),
-	}, {
-		name: "bad arg 4",
-		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.String("v1"), types.String("pods"), types.Bool(false)},
-		want: types.NewErr("invalid arg 3: type conversion error from bool to 'string'"),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -245,7 +241,6 @@ func Test_namespaced_post_resource_string_string_map(t *testing.T) {
 resource.Post(
 	"apps/v1",
 	"deployments",
-	"default",
 	{
 		"apiVersion": dyn("apps/v1"),
 		"kind":       dyn("Deployment"),
@@ -317,34 +312,6 @@ func Test_namespaced_impl_post_resource_string_string_map_error(t *testing.T) {
 		name: "bad arg 4",
 		args: []ref.Val{env.CELTypeAdapter().NativeToValue(Context{}), types.String("v1"), types.String("pods"), types.Bool(false)},
 		want: types.NewErr("invalid arg 3: type conversion error from bool to '*structpb.Struct'"),
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &namespacedImpl{namespace: "default"}
-			got := c.post_resource_string_string_map(tt.args...)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func Test_namespaced_impl_post_resource_string_map_error(t *testing.T) {
-	base, err := compiler.NewBaseEnv()
-	assert.NoError(t, err)
-	assert.NotNil(t, base)
-	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("default", nil),
-	)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	tests := []struct {
-		name string
-		args []ref.Val
-		want ref.Val
-	}{{
-		name: "not enough args",
-		args: nil,
-		want: types.NewErr("expected 3 arguments, got %d", 0),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
