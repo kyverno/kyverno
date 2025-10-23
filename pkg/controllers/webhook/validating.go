@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
@@ -25,7 +26,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			fineGrained = append(fineGrained, policy)
 		} else if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
 			fineGrained = append(fineGrained, policy)
-		} else if p.GetWebhookConfiguration() != nil && p.GetWebhookConfiguration().TimeoutSeconds != nil {
+		} else if p.GetTimeoutSeconds() != nil {
 			fineGrained = append(fineGrained, policy)
 		} else {
 			basic = append(basic, policy)
@@ -46,7 +47,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					webhook.MatchConditions,
 					autogen.CreateMatchConditions(
 						"",
-						[]policiesv1alpha1.Target{{
+						[]policiesv1beta1.Target{{
 							Group:    "",
 							Version:  "v1",
 							Resource: "pods",
@@ -76,7 +77,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 				}
 			}
-			if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
+			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
 				policies, err := vpolautogen.Autogen(vpol)
 				if err != nil {
 					continue
@@ -92,7 +93,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					}
 				}
 			}
-			if nvpol, ok := p.(*policiesv1alpha1.NamespacedValidatingPolicy); ok {
+			if nvpol, ok := p.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
 				policies, err := vpolautogen.Autogen(nvpol)
 				if err != nil {
 					continue
@@ -115,9 +116,13 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 				for _, config := range slices.Sorted(maps.Keys(policies)) {
 					policy := policies[config]
+					targets := make([]policiesv1beta1.Target, 0, len(policy.Targets))
+					for _, target := range policy.Targets {
+						targets = append(targets, policiesv1beta1.Target(target))
+					}
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -133,9 +138,13 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 				for _, config := range slices.Sorted(maps.Keys(policies)) {
 					policy := policies[config]
+					targets := make([]policiesv1beta1.Target, 0, len(policy.Targets))
+					for _, target := range policy.Targets {
+						targets = append(targets, policiesv1beta1.Target(target))
+					}
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.GetMatchConditions()))...,
+						autogen.CreateMatchConditions(config, targets, validConditions(expressionCache, policy.Spec.GetMatchConditions()))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -146,8 +155,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
 				webhook.MatchPolicy = p.GetMatchConstraints().MatchPolicy
 			}
-			if p.GetWebhookConfiguration() != nil && p.GetWebhookConfiguration().TimeoutSeconds != nil {
-				webhook.TimeoutSeconds = p.GetWebhookConfiguration().TimeoutSeconds
+			if p.GetTimeoutSeconds() != nil {
+				webhook.TimeoutSeconds = p.GetTimeoutSeconds()
 			}
 			if p.GetFailurePolicy() == admissionregistrationv1.Ignore {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
@@ -227,7 +236,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				cfg.GetWebhook().ObjectSelector,
 			)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
-			if vpol, ok := p.(*policiesv1alpha1.ValidatingPolicy); ok {
+			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
 				rules, err := vpolautogen.Autogen(vpol)
 				if err != nil {
 					continue

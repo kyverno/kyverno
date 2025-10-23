@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
@@ -25,7 +26,7 @@ import (
 )
 
 type Policy struct {
-	mode             policiesv1alpha1.EvaluationMode
+	mode             policiesv1beta1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
@@ -43,7 +44,7 @@ func (p *Policy) Evaluate(
 	context libs.Context,
 ) (*EvaluationResult, error) {
 	switch p.mode {
-	case policiesv1alpha1.EvaluationModeJSON:
+	case policiesv1beta1.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
 		return p.evaluateKubernetes(ctx, attr, request, namespace, context)

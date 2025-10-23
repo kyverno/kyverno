@@ -110,13 +110,14 @@ func createReportControllers(
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
 	policiesV1alpha1 := kyvernoInformer.Policies().V1alpha1()
+	policiesV1beta1 := kyvernoInformer.Policies().V1beta1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
-			policiesV1alpha1.ValidatingPolicies(),
-			policiesV1alpha1.NamespacedValidatingPolicies(),
+			policiesV1beta1.ValidatingPolicies(),
+			policiesV1beta1.NamespacedValidatingPolicies(),
 			policiesV1alpha1.MutatingPolicies(),
 			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
@@ -142,8 +143,8 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
-					policiesV1alpha1.ValidatingPolicies(),
-					policiesV1alpha1.NamespacedValidatingPolicies(),
+					policiesV1beta1.ValidatingPolicies(),
+					policiesV1beta1.NamespacedValidatingPolicies(),
 					policiesV1alpha1.ImageValidatingPolicies(),
 					policiesV1alpha1.GeneratingPolicies(),
 					policiesV1alpha1.MutatingPolicies(),
@@ -164,8 +165,8 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				policiesV1alpha1.ValidatingPolicies(),
-				policiesV1alpha1.NamespacedValidatingPolicies(),
+				policiesV1beta1.ValidatingPolicies(),
+				policiesV1beta1.NamespacedValidatingPolicies(),
 				policiesV1alpha1.MutatingPolicies(),
 				policiesV1alpha1.ImageValidatingPolicies(),
 				policiesV1alpha1.PolicyExceptions(),
