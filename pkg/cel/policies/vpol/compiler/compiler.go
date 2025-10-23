@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -33,7 +34,7 @@ type Exception struct {
 }
 
 type Compiler interface {
-	Compile(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -42,16 +43,16 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
-	case policiesv1alpha1.EvaluationModeJSON:
+	case policiesv1beta1.EvaluationModeJSON:
 		return c.compileForJSON(policy)
 	default:
 		return c.compileForKubernetes(policy, exceptions)
 	}
 }
 
-func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv()
 	if err != nil {
@@ -112,7 +113,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 		})
 	}
 	return &Policy{
-		mode:             policiesv1alpha1.EvaluationModeKubernetes,
+		mode:             policiesv1beta1.EvaluationModeKubernetes,
 		failurePolicy:    policy.GetFailurePolicy(),
 		matchConditions:  matchConditions,
 		variables:        variables,
@@ -122,7 +123,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 	}, nil
 }
 
-func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -186,7 +187,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLi
 	}
 
 	return &Policy{
-		mode:            policiesv1alpha1.EvaluationModeJSON,
+		mode:            policiesv1beta1.EvaluationModeJSON,
 		failurePolicy:   policy.GetFailurePolicy(),
 		matchConditions: matchConditions,
 		variables:       variables,

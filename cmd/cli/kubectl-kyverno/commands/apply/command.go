@@ -333,6 +333,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		vaps,
 		vapBindings,
 		vps,
+		nvps,
 		gps,
 		mps,
 		maps,
@@ -396,7 +397,8 @@ func (c *ApplyCommandConfig) applyPolicies(
 	policies []kyvernov1.PolicyInterface,
 	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	vpols []policiesv1alpha1.ValidatingPolicy,
+	vpols []policiesv1beta1.ValidatingPolicy,
+	nvpols []policiesv1beta1.NamespacedValidatingPolicy,
 	gpols []policiesv1alpha1.GeneratingPolicy,
 	mpols []policiesv1alpha1.MutatingPolicy,
 	maps []admissionregistrationv1beta1.MutatingAdmissionPolicy,
@@ -447,6 +449,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
+			NamespacedValidatingPolicies:      nvpols,
 			GeneratingPolicies:                gpols,
 			MutatingPolicies:                  mpols,
 			MutatingAdmissionPolicies:         maps,
@@ -765,8 +768,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	[]admissionregistrationv1beta1.MutatingAdmissionPolicy,
 	[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
-	[]policiesv1alpha1.ValidatingPolicy,
-	[]policiesv1alpha1.NamespacedValidatingPolicy,
+	[]policiesv1beta1.ValidatingPolicy,
+	[]policiesv1beta1.NamespacedValidatingPolicy,
 	[]policiesv1alpha1.ImageValidatingPolicy,
 	[]policiesv1alpha1.GeneratingPolicy,
 	[]policiesv1beta1.DeletingPolicy,
@@ -778,8 +781,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var policies []kyvernov1.PolicyInterface
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	var vps []policiesv1alpha1.ValidatingPolicy
-	var nvps []policiesv1alpha1.NamespacedValidatingPolicy
+	var vps []policiesv1beta1.ValidatingPolicy
+	var nvps []policiesv1beta1.NamespacedValidatingPolicy
 	var maps []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	var ivps []policiesv1alpha1.ImageValidatingPolicy

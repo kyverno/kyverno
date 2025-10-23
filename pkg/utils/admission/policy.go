@@ -26,13 +26,13 @@ func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 		}
 		return api.NewKyvernoPolicy(policy), nil
 	case "ValidatingPolicy":
-		var policy *v1alpha1.ValidatingPolicy
+		var policy *v1beta1.ValidatingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
 		return api.NewValidatingPolicy(policy), nil
 	case "NamespacedValidatingPolicy":
-		var policy *v1alpha1.NamespacedValidatingPolicy
+		var policy *v1beta1.NamespacedValidatingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}

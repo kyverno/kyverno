@@ -281,8 +281,12 @@ func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolic
 	return admissionregistrationv1.FailurePolicyType(*s.Spec.FailurePolicy)
 }
 
-func (s *MutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
+func (s *MutatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
 }
 
 func (s *MutatingPolicy) GetVariables() []admissionregistrationv1.Variable {

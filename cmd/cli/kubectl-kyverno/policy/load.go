@@ -37,7 +37,7 @@ var (
 	vapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
 	vpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("ValidatingPolicy")
-	nvpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("NamespacedValidatingPolicy")
+	nvpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedValidatingPolicy")
 	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	ivpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
@@ -65,8 +65,8 @@ type LoaderResults struct {
 	VAPBindings                  []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MAPs                         []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	MAPBindings                  []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
-	ValidatingPolicies           []policiesv1alpha1.ValidatingPolicy
-	NamespacedValidatingPolicies []policiesv1alpha1.NamespacedValidatingPolicy
+	ValidatingPolicies           []policiesv1beta1.ValidatingPolicy
+	NamespacedValidatingPolicies []policiesv1beta1.NamespacedValidatingPolicy
 	ImageValidatingPolicies      []policiesv1alpha1.ImageValidatingPolicy
 	GeneratingPolicies           []policiesv1alpha1.GeneratingPolicy
 	DeletingPolicies             []policiesv1beta1.DeletingPolicy
@@ -190,13 +190,13 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.VAPBindings = append(results.VAPBindings, *typed)
 		case vpV1alpha1, vpV1beta1:
-			typed, err := convert.To[policiesv1alpha1.ValidatingPolicy](untyped)
+			typed, err := convert.To[policiesv1beta1.ValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.ValidatingPolicies = append(results.ValidatingPolicies, *typed)
-		case nvpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.NamespacedValidatingPolicy](untyped)
+		case nvpV1beta1:
+			typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
