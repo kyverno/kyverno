@@ -193,11 +193,10 @@ func testCommandExecute(
 	return nil
 }
 
-func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured) (bool, string, string) {
+func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resourcePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured) (bool, string, string) {
 	expected := test.Result
-	expectedPatchResources := test.PatchedResources
-	if expectedPatchResources != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, expectedPatchResources))
+	if test.PatchedResources != "" {
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.PatchedResources), "PatchedResources")
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -208,7 +207,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource))
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
