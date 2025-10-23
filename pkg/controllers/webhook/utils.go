@@ -20,6 +20,9 @@ func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1alpha1.Gener
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		return vpol
 	}
+	if nvpol := policy.AsNamespacedValidatingPolicy(); nvpol != nil {
+		return nvpol
+	}
 	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
 		return ivpol
 	}

@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
@@ -16,9 +17,11 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -73,8 +76,8 @@ type controller struct {
 	// listers
 	polLister             kyvernov1listers.PolicyLister
 	cpolLister            kyvernov1listers.ClusterPolicyLister
-	vpolLister            policiesv1alpha1listers.ValidatingPolicyLister
-	nvpolLister           policiesv1alpha1listers.NamespacedValidatingPolicyLister
+	vpolLister            policiesv1beta1listers.ValidatingPolicyLister
+	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister            policiesv1alpha1listers.MutatingPolicyLister
 	ivpolLister           policiesv1alpha1listers.ImageValidatingPolicyLister
 	polexLister           kyvernov2listers.PolicyExceptionLister
@@ -115,8 +118,8 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
+	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
@@ -303,31 +306,31 @@ func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVP(obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) addVP(obj *policiesv1beta1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) updateVP(old, obj *policiesv1beta1.ValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) deleteVP(obj *policiesv1beta1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addNVP(obj *policiesv1alpha1.NamespacedValidatingPolicy) {
+func (c *controller) addNVP(obj *policiesv1beta1.NamespacedValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateNVP(old, obj *policiesv1alpha1.NamespacedValidatingPolicy) {
+func (c *controller) updateNVP(old, obj *policiesv1beta1.NamespacedValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteNVP(obj *policiesv1alpha1.NamespacedValidatingPolicy) {
+func (c *controller) deleteNVP(obj *policiesv1beta1.NamespacedValidatingPolicy) {
 	c.enqueueResources()
 }
 

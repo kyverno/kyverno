@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -28,7 +29,7 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 
 func NewProvider(
 	compiler vpolcompiler.Compiler,
-	policies []policiesv1alpha1.ValidatingPolicyLike,
+	policies []policiesv1beta1.ValidatingPolicyLike,
 	exceptions []*policiesv1alpha1.PolicyException,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
@@ -57,12 +58,12 @@ func NewProvider(
 			return nil, err
 		}
 		for _, autogen := range generated {
-			var autogenPolicy policiesv1alpha1.ValidatingPolicyLike
-			if vp, ok := policy.(*policiesv1alpha1.ValidatingPolicy); ok {
+			var autogenPolicy policiesv1beta1.ValidatingPolicyLike
+			if vp, ok := policy.(*policiesv1beta1.ValidatingPolicy); ok {
 				vpCopy := vp.DeepCopy()
 				vpCopy.Spec = *autogen.Spec
 				autogenPolicy = vpCopy
-			} else if nvp, ok := policy.(*policiesv1alpha1.NamespacedValidatingPolicy); ok {
+			} else if nvp, ok := policy.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
 				nvpCopy := nvp.DeepCopy()
 				nvpCopy.Spec = *autogen.Spec
 				autogenPolicy = nvpCopy
@@ -92,10 +93,10 @@ func NewKubeProvider(
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
 
 	vpolBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1alpha1.ValidatingPolicy{})
+		For(&policiesv1beta1.ValidatingPolicy{})
 
 	nvpolBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1alpha1.NamespacedValidatingPolicy{})
+		For(&policiesv1beta1.NamespacedValidatingPolicy{})
 
 	if polexEnabled {
 		exceptionHandlerFuncs := &handler.Funcs{

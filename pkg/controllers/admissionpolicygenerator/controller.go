@@ -12,9 +12,11 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -51,8 +53,8 @@ type controller struct {
 
 	// listers
 	cpolLister       kyvernov1listers.ClusterPolicyLister
-	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
-	nvpolLister      policiesv1alpha1listers.NamespacedValidatingPolicyLister
+	vpolLister       policiesv1beta1listers.ValidatingPolicyLister
+	nvpolLister      policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister       policiesv1alpha1listers.MutatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
 	celpolexLister   policiesv1alpha1listers.PolicyExceptionLister
@@ -73,8 +75,8 @@ func NewController(
 	kyvernoClient versioned.Interface,
 	discoveryClient dclient.IDiscovery,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
+	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	celpolexInformer policiesv1alpha1informers.PolicyExceptionInformer,
@@ -250,7 +252,7 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		latest.Status.Generated = generated
 		latest.Status.GetConditionStatus().Message = msg
 
-		new, err := c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update validating policy status", vpol.GetName(), "status", new.Status)
 		}

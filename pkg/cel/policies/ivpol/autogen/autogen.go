@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -27,7 +28,7 @@ func Autogen(policy *policiesv1alpha1.ImageValidatingPolicy) (map[string]policie
 }
 
 func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
-	mapping := map[string][]policiesv1alpha1.Target{}
+	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
 			targets := mapping[config.ReplacementsRef]
@@ -50,8 +51,13 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
+		t := make([]policiesv1alpha1.Target, 0, len(targets))
+		for _, target := range targets {
+			t = append(t, policiesv1alpha1.Target(target))
+		}
+
 		rules[config] = policiesv1alpha1.ImageValidatingPolicyAutogen{
-			Targets: targets,
+			Targets: t,
 			Spec:    spec,
 		}
 	}

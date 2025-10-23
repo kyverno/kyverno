@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -43,9 +44,9 @@ func newReconciler(
 }
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var policy policiesv1alpha1.ValidatingPolicyLike
+	var policy policiesv1beta1.ValidatingPolicyLike
 	if req.NamespacedName.Namespace == "" {
-		var vp policiesv1alpha1.ValidatingPolicy
+		var vp policiesv1beta1.ValidatingPolicy
 		err := r.client.Get(ctx, req.NamespacedName, &vp)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -58,7 +59,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		policy = &vp
 	} else {
-		var nvp policiesv1alpha1.NamespacedValidatingPolicy
+		var nvp policiesv1beta1.NamespacedValidatingPolicy
 		err := r.client.Get(ctx, req.NamespacedName, &nvp)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -104,11 +105,11 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	for _, autogen := range generated {
 		tempPolicy := policy
-		if vp, ok := policy.(*policiesv1alpha1.ValidatingPolicy); ok {
+		if vp, ok := policy.(*policiesv1beta1.ValidatingPolicy); ok {
 			vpCopy := vp.DeepCopy()
 			vpCopy.Spec = *autogen.Spec
 			tempPolicy = vpCopy
-		} else if nvp, ok := policy.(*policiesv1alpha1.NamespacedValidatingPolicy); ok {
+		} else if nvp, ok := policy.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
 			nvpCopy := nvp.DeepCopy()
 			nvpCopy.Spec = *autogen.Spec
 			tempPolicy = nvpCopy

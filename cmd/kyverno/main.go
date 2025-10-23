@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
@@ -169,8 +170,8 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().NamespacedValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
@@ -287,8 +288,8 @@ func createrLeaderControllers(
 	policyStatusController := policystatuscontroller.NewController(
 		dynamicClient,
 		kyvernoClient,
-		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().NamespacedValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
@@ -326,8 +327,8 @@ func createrLeaderControllers(
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
-			kyvernoInformer.Policies().V1alpha1().NamespacedValidatingPolicies(),
+			kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
+			kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
 			kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
 			kyvernoInformer.Policies().V1alpha1().PolicyExceptions(),
@@ -671,6 +672,10 @@ func main() {
 			// create a controller manager
 			scheme := kruntime.NewScheme()
 			if err := policiesv1alpha1.Install(scheme); err != nil {
+				setup.Logger.Error(err, "failed to initialize scheme")
+				os.Exit(1)
+			}
+			if err := policiesv1beta1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
 			}

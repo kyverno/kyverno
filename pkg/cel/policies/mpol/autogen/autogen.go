@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -31,7 +32,7 @@ func Autogen(policy *policiesv1alpha1.MutatingPolicy) (map[string]policiesv1alph
 }
 
 func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.MutatingPolicyAutogen, error) {
-	mapping := map[string][]policiesv1alpha1.Target{}
+	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
 			targets := mapping[config.ReplacementsRef]
@@ -54,7 +55,7 @@ func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, confi
 			}
 		}
 
-		slices.SortFunc(targets, func(a, b policiesv1alpha1.Target) int {
+		slices.SortFunc(targets, func(a, b policiesv1beta1.Target) int {
 			if x := cmp.Compare(a.Group, b.Group); x != 0 {
 				return x
 			}
@@ -69,8 +70,14 @@ func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, confi
 			}
 			return 0
 		})
+
+		t := make([]policiesv1alpha1.Target, 0, len(targets))
+		for _, target := range targets {
+			t = append(t, policiesv1alpha1.Target(target))
+		}
+
 		rules[config] = policiesv1alpha1.MutatingPolicyAutogen{
-			Targets: targets,
+			Targets: t,
 			Spec:    spec,
 		}
 	}

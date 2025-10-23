@@ -8,10 +8,12 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/webhook"
@@ -46,8 +48,8 @@ type controller struct {
 func NewController(
 	dclient dclient.Interface,
 	client versioned.Interface,
-	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
+	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
@@ -80,11 +82,11 @@ func NewController(
 		vpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
-			vpol, ok := obj.(*policiesv1alpha1.ValidatingPolicy)
+			vpol, ok := obj.(*policiesv1beta1.ValidatingPolicy)
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ValidatingPolicyType, vpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ValidatingPolicyType, vpol.Name, ""))
 		},
 	)
 	if err != nil {
@@ -96,11 +98,11 @@ func NewController(
 		nvpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
-			nvpol, ok := obj.(*policiesv1alpha1.NamespacedValidatingPolicy)
+			nvpol, ok := obj.(*policiesv1beta1.NamespacedValidatingPolicy)
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, nvpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, nvpol.Name, nvpol.Namespace))
 		},
 	)
 	if err != nil {
@@ -116,7 +118,7 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, ivpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, ivpol.Name, ""))
 		},
 	)
 	if err != nil {
@@ -132,7 +134,7 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, mpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, mpol.Name, ""))
 		},
 	)
 	if err != nil {
@@ -148,7 +150,7 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.GeneratingPolicyType, gpol.Name))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.GeneratingPolicyType, gpol.Name, ""))
 		},
 	)
 	if err != nil {
@@ -168,13 +170,13 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 	}
 }
 
-func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error {
-	polType, polName := webhook.ParseRecorderKey(key)
+func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, _ string, _ string) error {
+	polType, name, namespace := webhook.ParseRecorderKey(key)
 	if polType == webhook.ValidatingPolicyType {
-		vpol, err := c.client.PoliciesV1alpha1().ValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		vpol, err := c.client.PoliciesV1beta1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("validating policy not found", "name", polName)
+				logger.V(4).Info("validating policy not found", "name", name)
 				return nil
 			}
 			return err
@@ -183,22 +185,21 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return c.updateVpolStatus(ctx, vpol)
 	}
 	if polType == webhook.NamespacedValidatingPolicyType {
-		nvpol, err := c.client.PoliciesV1alpha1().NamespacedValidatingPolicies(namespace).Get(ctx, polName, metav1.GetOptions{})
+		nvpol, err := c.client.PoliciesV1beta1().NamespacedValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("namespaced validating policy not found", "name", polName, "namespace", namespace)
+				logger.V(4).Info("namespaced validating policy not found", "name", name, "namespace", namespace)
 				return nil
 			}
 			return err
 		}
-
 		return c.updateNVpolStatus(ctx, nvpol)
 	}
 	if polType == webhook.ImageValidatingPolicyType {
-		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("imageVerification policy not found", "name", polName)
+				logger.V(4).Info("imageVerification policy not found", "name", name)
 				return nil
 			}
 			return err
@@ -207,10 +208,10 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.MutatingPolicyType {
-		mpol, err := c.client.PoliciesV1alpha1().MutatingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		mpol, err := c.client.PoliciesV1alpha1().MutatingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("mutating policy not found", "name", polName)
+				logger.V(4).Info("mutating policy not found", "name", name)
 				return nil
 			}
 			return err
@@ -219,10 +220,10 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.GeneratingPolicyType {
-		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, polName, metav1.GetOptions{})
+		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(4).Info("generating policy not found", "name", polName)
+				logger.V(4).Info("generating policy not found", "name", name)
 				return nil
 			}
 			return err
@@ -238,28 +239,18 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	status := &policiesv1alpha1.ConditionStatus{}
 	backgroundOnly := false
 	switch policy.GetKind() {
-	case webhook.ValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName())
-		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
-		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsValidatingPolicy().GetSpec().BackgroundEnabled())
-		status = &policy.AsValidatingPolicy().GetStatus().ConditionStatus
-	case webhook.NamespacedValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, policy.GetName())
-		matchConstraints = policy.AsNamespacedValidatingPolicy().GetMatchConstraints()
-		backgroundOnly = (!policy.AsNamespacedValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsNamespacedValidatingPolicy().GetSpec().BackgroundEnabled())
-		status = &policy.AsNamespacedValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.ImageValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName())
+		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsImageValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.MutatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName())
+		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsMutatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsMutatingPolicy().GetStatus().ConditionStatus
 	case webhook.GeneratingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName())
+		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
 		status = &policy.AsGeneratingPolicy().GetStatus().ConditionStatus
 	}
@@ -272,8 +263,56 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		}
 	}
 
+	gvrs := c.resolveGVRs(matchConstraints.ResourceRules)
+	errs := c.permissionsCheck(ctx, gvrs)
+	if errs != nil {
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
+	} else {
+		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
+	}
+	return status
+}
+
+func (c controller) reconcileBeta1Conditions(ctx context.Context, policy engineapi.GenericPolicy) *policiesv1beta1.ConditionStatus {
+	var key string
+	var matchConstraints admissionregistrationv1.MatchResources
+	status := &policiesv1beta1.ConditionStatus{}
+	backgroundOnly := false
+	switch policy.GetKind() {
+	case webhook.ValidatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName(), "")
+		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsValidatingPolicy().GetSpec().BackgroundEnabled())
+		status = &policy.AsValidatingPolicy().GetStatus().ConditionStatus
+	case webhook.NamespacedValidatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, policy.GetName(), policy.GetNamespace())
+		matchConstraints = policy.AsNamespacedValidatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsNamespacedValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsNamespacedValidatingPolicy().GetSpec().BackgroundEnabled())
+		status = &policy.AsNamespacedValidatingPolicy().GetStatus().ConditionStatus
+	}
+
+	if !backgroundOnly {
+		if ready, ok := c.polStateRecorder.Ready(key); ready {
+			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
+		} else if ok {
+			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
+		}
+	}
+
+	gvrs := c.resolveGVRs(matchConstraints.ResourceRules)
+	errs := c.permissionsCheck(ctx, gvrs)
+	if errs != nil {
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
+	} else {
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
+	}
+
+	return status
+}
+
+func (c controller) resolveGVRs(rules []admissionregistrationv1.NamedRuleWithOperations) []metav1.GroupVersionResource {
 	gvrs := []metav1.GroupVersionResource{}
-	for _, rule := range matchConstraints.ResourceRules {
+	for _, rule := range rules {
 		for _, g := range rule.RuleWithOperations.APIGroups {
 			for _, v := range rule.RuleWithOperations.APIVersions {
 				for _, r := range rule.RuleWithOperations.Resources {
@@ -287,6 +326,10 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		}
 	}
 
+	return gvrs
+}
+
+func (c controller) permissionsCheck(ctx context.Context, gvrs []metav1.GroupVersionResource) []error {
 	var errs []error
 	for _, gvr := range gvrs {
 		for _, verb := range []string{"get", "list", "watch"} {
@@ -301,10 +344,5 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		}
 	}
 
-	if errs != nil {
-		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
-	} else {
-		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
-	}
-	return status
+	return errs
 }

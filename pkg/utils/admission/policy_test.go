@@ -77,7 +77,7 @@ func TestUnmarshalPolicy(t *testing.T) {
 					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsKyvernoPolicy())
 				}
 			case "ValidatingPolicy":
-				var expectedPolicy *v1alpha1.ValidatingPolicy
+				var expectedPolicy *v1beta1.ValidatingPolicy
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}

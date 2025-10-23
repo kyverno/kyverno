@@ -7,6 +7,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestGetMatchConstraints(t *testing.T) {
@@ -199,26 +200,28 @@ func TestGetAndSetMatchConstrainst(t *testing.T) {
 	})
 }
 
-func TestGetWebhookConfiguration(t *testing.T) {
+func TestGetTimeoutSeconds(t *testing.T) {
 	t.Run("returns nil when WebhookConfiguration is nil", func(t *testing.T) {
 		policy := MutatingPolicy{
 			Spec: MutatingPolicySpec{
 				WebhookConfiguration: nil,
 			},
 		}
-		result := policy.GetWebhookConfiguration()
+		result := policy.GetTimeoutSeconds()
 		assert.Nil(t, result, "expected nil, got %+v", result)
 	})
 
-	t.Run("returns non-nil WebhookConfiguration", func(t *testing.T) {
-		cfg := &WebhookConfiguration{}
+	t.Run("returns non-nil TimeoutSeconds", func(t *testing.T) {
+		cfg := &WebhookConfiguration{
+			TimeoutSeconds: ptr.To[int32](30),
+		}
 		policy := MutatingPolicy{
 			Spec: MutatingPolicySpec{
 				WebhookConfiguration: cfg,
 			},
 		}
-		result := policy.GetWebhookConfiguration()
-		assert.Equal(t, result, cfg, "expected %+v, got %+v", cfg, result)
+		result := policy.GetTimeoutSeconds()
+		assert.Equal(t, result, cfg.TimeoutSeconds, "expected %+v, got %+v", cfg, result)
 	})
 }
 
