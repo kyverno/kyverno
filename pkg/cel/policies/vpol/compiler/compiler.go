@@ -54,7 +54,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exce
 
 func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv()
+	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -142,7 +142,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, http.Lib(http.Latest()), image.Lib(image.Latest()), resource.Lib(resource.Latest()))
+	options = append(options, http.Lib(http.Latest()), image.Lib(image.Latest()), resource.Lib(policy.GetNamespace(), resource.Latest()))
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -195,7 +195,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -252,6 +252,7 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 					imagedata.Latest(),
 				),
 				resource.Lib(
+					namespace,
 					resource.Latest(),
 				),
 				user.Lib(

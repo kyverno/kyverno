@@ -213,6 +213,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol *v1alpha1.ImageValidatingPolicy)
 					imageverify.Latest(), c.ictx, ivpol, c.lister,
 				),
 				resource.Lib(
+					ivpol.GetNamespace(),
 					resource.Latest(),
 				),
 				user.Lib(
