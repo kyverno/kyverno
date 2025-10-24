@@ -270,6 +270,94 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			expectedRules: 1,
 			expectedError: false,
 		},
+		{
+			name: "deployment with match conditions - metadata.annotations",
+			spec: &policiesv1alpha1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
+					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							},
+						},
+					},
+				},
+				MatchConditions: []admissionregistrationv1alpha1.MatchCondition{
+					{
+						Name:       "check-annotations",
+						Expression: "has(object.metadata.annotations) && ('inject-certs' in object.metadata.annotations && object.metadata.annotations['inject-certs'] == 'enabled')",
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
+  spec: Object.spec{
+    containers: object.spec.containers.map(container, Object.spec.containers{
+      name: container.name,
+      securityContext: Object.spec.containers.securityContext{
+        allowPrivilegeEscalation: false
+      }
+    })
+  }
+}`,
+						},
+					},
+				},
+			},
+			configs:       sets.New("deployments"),
+			expectedRules: 1,
+			expectedError: false,
+		},
+		{
+			name: "cronjob with match conditions - metadata.labels",
+			spec: &policiesv1alpha1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
+					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							},
+						},
+					},
+				},
+				MatchConditions: []admissionregistrationv1alpha1.MatchCondition{
+					{
+						Name:       "check-labels",
+						Expression: "has(object.metadata.labels) && object.metadata.labels['app'] == 'myapp'",
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
+  spec: Object.spec{
+    containers: [Object.spec.containers{
+      name: "app",
+      securityContext: Object.spec.containers.securityContext{
+        allowPrivilegeEscalation: false
+      }
+    }]
+  }
+}`,
+						},
+					},
+				},
+			},
+			configs:       sets.New("cronjobs"),
+			expectedRules: 1,
+			expectedError: false,
+		},
 	}
 
 	for _, tt := range tests {
