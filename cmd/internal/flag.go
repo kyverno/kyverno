@@ -30,6 +30,8 @@ var (
 	otelCollector        string
 	metricsHost          string
 	metricsPort          int
+	metricsCaSecretName  string
+	metricsTlsSecretName string
 	transportCreds       string
 	disableMetricsExport bool
 	// kubeconfig
@@ -107,6 +109,8 @@ func initMetricsFlags() {
 	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
 	flag.StringVar(&metricsHost, "metricsHost", "", "Expose prometheus metrics at the given host. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
 	flag.IntVar(&metricsPort, "metricsPort", 8000, "Expose prometheus metrics at the given port, default to 8000.")
+	flag.StringVar(&metricsCaSecretName, "metricsCaSecretName", "", "The secret name which contains the CA certificate for the metrics endpoint.")
+	flag.StringVar(&metricsTlsSecretName, "metricsTlsSecretName", "", "The secret name which contains the TLS certs for the metrics endpoint.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
@@ -313,6 +317,14 @@ func CleanupServerHost() string {
 
 func GlobalContextEnabled() bool {
 	return enableGlobalContext
+}
+
+func MetricsCaSecretName() string {
+	return metricsCaSecretName
+}
+
+func MetricsTlsSecretName() string {
+	return metricsTlsSecretName
 }
 
 func printFlagSettings(logger logr.Logger) {
