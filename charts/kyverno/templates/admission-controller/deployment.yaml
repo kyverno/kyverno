@@ -188,6 +188,10 @@ spec:
             {{- if not .Values.admissionController.metering.disabled }}
             - --otelConfig={{ .Values.admissionController.metering.config }}
             - --metricsPort={{ .Values.admissionController.metering.port }}
+            {{- if .Values.admissionController.metering.secure }}
+            - --metricsCaSecretName={{ template "kyverno.admission-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTlsSecretName={{ template "kyverno.admission-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            {{- end }}
             {{- with .Values.admissionController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}

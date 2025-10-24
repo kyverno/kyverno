@@ -134,6 +134,10 @@ spec:
             {{- if not .Values.cleanupController.metering.disabled }}
             - --otelConfig={{ .Values.cleanupController.metering.config }}
             - --metricsPort={{ .Values.cleanupController.metering.port }}
+            {{- if .Values.cleanupController.metering.secure }}
+            - --metricsCaSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTlsSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            {{- end }}
             {{- with .Values.cleanupController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}

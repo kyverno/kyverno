@@ -1289,6 +1289,10 @@ admissionController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Create self-signed certificates at deployment time.
+    createSelfSignedCert: false
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1631,6 +1635,10 @@ backgroundController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Create self-signed certificates at deployment time.
+    createSelfSignedCert: false
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2020,6 +2028,10 @@ cleanupController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Create self-signed certificates at deployment time.
+    createSelfSignedCert: false
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2340,6 +2352,10 @@ reportsController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Create self-signed certificates at deployment time.
+    createSelfSignedCert: false
     # -- (string) Otel collector endpoint
     collector: ~
     # -- (string) Otel collector credentials
