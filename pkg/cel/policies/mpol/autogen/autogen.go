@@ -48,6 +48,13 @@ func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, confi
 		match := autogen.CreateMatchConstraints(targets, operations)
 		spec.SetMatchConstraints(*match)
 
+		for i := range spec.MatchConditions {
+			if spec.MatchConditions[i].Expression != "" {
+				convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
+				spec.MatchConditions[i].Expression = convertedExpr
+			}
+		}
+
 		for i := range spec.Mutations {
 			if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
 				convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
