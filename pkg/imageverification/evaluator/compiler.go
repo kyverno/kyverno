@@ -26,7 +26,7 @@ import (
 var ivpolCompilerVersion = version.MajorMinor(1, 0)
 
 type Compiler interface {
-	Compile(*policiesv1alpha1.ImageValidatingPolicy, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
+	Compile(policiesv1alpha1.ImageValidatingPolicyLike, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
@@ -43,7 +43,7 @@ type compilerImpl struct {
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compilerImpl) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compilerImpl) Compile(ivpolicy policiesv1alpha1.ImageValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 
 	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(ivpolicy)
@@ -56,11 +56,12 @@ func (c *compilerImpl) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy,
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
+	spec := ivpolicy.GetSpec()
 	path := field.NewPath("spec")
-	matchConditions := make([]cel.Program, 0, len(ivpolicy.Spec.MatchConditions))
+	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := engine.CompileMatchConditions(path, env, ivpolicy.Spec.MatchConditions...)
+		programs, errs := engine.CompileMatchConditions(path, env, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -70,17 +71,17 @@ func (c *compilerImpl) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy,
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
-	matchImageReferences, errs := engine.CompileMatchImageReferences(path.Child("matchImageReferences"), matchImageEnv, ivpolicy.Spec.MatchImageReferences...)
+	matchImageReferences, errs := engine.CompileMatchImageReferences(path.Child("matchImageReferences"), matchImageEnv, spec.MatchImageReferences...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
-	imageExtractors, errs := engine.CompileImageExtractors(path.Child("images"), env, c.reqGVR, ivpolicy.Spec.ImageExtractors...)
+	imageExtractors, errs := engine.CompileImageExtractors(path.Child("images"), env, c.reqGVR, spec.ImageExtractors...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
-	variables, errs := engine.CompileVariables(path.Child("variables"), env, variablesProvider, ivpolicy.Spec.Variables...)
+	variables, errs := engine.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -88,16 +89,16 @@ func (c *compilerImpl) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy,
 	var compiledAttestors []*ivpolvar.CompiledAttestor
 	{
 		path := path.Child("attestors")
-		compiledAttestors, errs = ivpolvar.CompileAttestors(path, ivpolicy.Spec.Attestors, env)
+		compiledAttestors, errs = ivpolvar.CompileAttestors(path, spec.Attestors, env)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 	}
 
-	validations := make([]engine.Validation, 0, len(ivpolicy.Spec.Validations))
+	validations := make([]engine.Validation, 0, len(spec.Validations))
 	{
 		path := path.Child("validations")
-		for i, rule := range ivpolicy.Spec.Validations {
+		for i, rule := range spec.Validations {
 			path := path.Index(i)
 			program, errs := engine.CompileValidation(path, env, rule)
 			if errs != nil {
@@ -107,10 +108,10 @@ func (c *compilerImpl) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy,
 		}
 	}
 
-	auditAnnotations := make(map[string]cel.Program, len(ivpolicy.Spec.AuditAnnotations))
+	auditAnnotations := make(map[string]cel.Program, len(spec.AuditAnnotations))
 	{
 		path := path.Child("auditAnnotations")
-		for i, auditAnnotation := range ivpolicy.Spec.AuditAnnotations {
+		for i, auditAnnotation := range spec.AuditAnnotations {
 			path := path.Index(i)
 			program, errs := engine.CompileAuditAnnotation(path, env, auditAnnotation)
 			if errs != nil {
@@ -144,14 +145,14 @@ func (c *compilerImpl) Compile(ivpolicy *policiesv1alpha1.ImageValidatingPolicy,
 		auditAnnotations:     auditAnnotations,
 		imageExtractors:      imageExtractors,
 		attestors:            compiledAttestors,
-		attestationList:      getAttestations(ivpolicy.Spec.Attestations),
-		creds:                ivpolicy.Spec.Credentials,
+		attestationList:      getAttestations(spec.Attestations),
+		creds:                spec.Credentials,
 		exceptions:           compiledExceptions,
 		variables:            variables,
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(ivpol *v1alpha1.ImageValidatingPolicy) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1alpha1.ImageValidatingPolicyLike) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
@@ -163,7 +164,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol *v1alpha1.ImageValidatingPolicy)
 		cel.Variable(engine.ObjectKey, cel.DynType),
 	)
 
-	if ivpol.Spec.EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
+	if ivpol.GetSpec().EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
 		baseOpts = append(baseOpts,
 			cel.Variable(engine.RequestKey, engine.RequestType.CelType()),
 			cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()),

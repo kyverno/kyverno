@@ -26,6 +26,8 @@ type ImageValidatingPolicyExpansion interface{}
 
 type MutatingPolicyExpansion interface{}
 
+type NamespacedImageValidatingPolicyExpansion interface{}
+
 type PolicyExceptionExpansion interface{}
 
 type ValidatingPolicyExpansion interface{}

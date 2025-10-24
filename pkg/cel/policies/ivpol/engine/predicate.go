@@ -7,12 +7,12 @@ import (
 
 func MatchNames(names ...string) Predicate {
 	if len(names) == 0 {
-		return func(policiesv1alpha1.ImageValidatingPolicy) bool { return true }
+		return func(policiesv1alpha1.ImageValidatingPolicyLike) bool { return true }
 	}
 	if len(names) == 1 {
 		name := names[0]
-		return func(policy policiesv1alpha1.ImageValidatingPolicy) bool { return policy.Name == name }
+		return func(policy policiesv1alpha1.ImageValidatingPolicyLike) bool { return policy.GetName() == name }
 	}
 	namesSet := sets.New(names...)
-	return func(policy policiesv1alpha1.ImageValidatingPolicy) bool { return namesSet.Has(policy.Name) }
+	return func(policy policiesv1alpha1.ImageValidatingPolicyLike) bool { return namesSet.Has(policy.GetName()) }
 }
