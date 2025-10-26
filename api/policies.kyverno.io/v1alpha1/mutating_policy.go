@@ -7,6 +7,12 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+)
+
+const (
+	MutatingPolicyKind           = "MutatingPolicy"
+	NamespacedMutatingPolicyKind = "NamespacedMutatingPolicy"
 )
 
 // +genclient
@@ -28,6 +34,24 @@ type MutatingPolicy struct {
 	Status MutatingPolicyStatus `json:"status,omitempty"`
 }
 
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope="Namespaced",shortName=nmpol,categories=kyverno
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
+
+type NamespacedMutatingPolicy struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              MutatingPolicySpec `json:"spec"`
+	// Status contains policy runtime data.
+	// +optional
+	Status MutatingPolicyStatus `json:"status,omitempty"`
+}
+
 type MutatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
@@ -38,6 +62,24 @@ type MutatingPolicyStatus struct {
 	// Generated indicates whether a MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
+}
+
+// MutatingPolicyLike captures the common behaviour shared by mutating policies regardless of scope.
+// +k8s:deepcopy-gen=false
+type MutatingPolicyLike interface {
+	metav1.Object
+	runtime.Object
+	GetSpec() *MutatingPolicySpec
+	GetStatus() *MutatingPolicyStatus
+	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
+	GetMatchConstraints() admissionregistrationv1.MatchResources
+	GetTargetMatchConstraints() admissionregistrationv1.MatchResources
+	GetMatchConditions() []admissionregistrationv1.MatchCondition
+	GetVariables() []admissionregistrationv1.Variable
+	GetTimeoutSeconds() *int32
+	BackgroundEnabled() bool
+	GetKind() string
+	GetMutatingPolicySpec() *MutatingPolicySpec
 }
 
 // MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.
@@ -327,11 +369,84 @@ func (s *MutatingPolicy) GetStatus() *MutatingPolicyStatus {
 }
 
 func (s *MutatingPolicy) GetKind() string {
-	return "MutatingPolicy"
+	return MutatingPolicyKind
 }
 
 func (s *MutatingPolicy) GetSpec() *MutatingPolicySpec {
 	return &s.Spec
+}
+
+func (s *MutatingPolicy) GetMutatingPolicySpec() *MutatingPolicySpec {
+	return &s.Spec
+}
+
+// NamespacedMutatingPolicy methods
+
+func (s *NamespacedMutatingPolicy) GetSpec() *MutatingPolicySpec {
+	return &s.Spec
+}
+
+func (s *NamespacedMutatingPolicy) GetStatus() *MutatingPolicyStatus {
+	return &s.Status
+}
+
+func (s *NamespacedMutatingPolicy) GetKind() string {
+	return NamespacedMutatingPolicyKind
+}
+
+func (s *NamespacedMutatingPolicy) GetMutatingPolicySpec() *MutatingPolicySpec {
+	return &s.Spec
+}
+
+func (s *NamespacedMutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	return s.Spec.GetMatchConstraints()
+}
+
+func (s *NamespacedMutatingPolicy) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.TargetMatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+
+	return s.Spec.GetTargetMatchConstraints()
+}
+
+func (s *NamespacedMutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.Spec.GetMatchConditions()
+}
+
+func (s *NamespacedMutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
+		return admissionregistrationv1.Ignore
+	}
+	if s.Spec.FailurePolicy == nil {
+		return admissionregistrationv1.Fail
+	}
+	return admissionregistrationv1.FailurePolicyType(*s.Spec.FailurePolicy)
+}
+
+func (s *NamespacedMutatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
+}
+
+func (s *NamespacedMutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
+	in := s.Spec.Variables
+	out := make([]admissionregistrationv1.Variable, len(in))
+	for i := range in {
+		out[i] = (admissionregistrationv1.Variable)(in[i])
+	}
+	return out
+}
+
+func (s NamespacedMutatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
 }
 
 func (status *MutatingPolicyStatus) GetConditionStatus() *ConditionStatus {
@@ -377,4 +492,14 @@ type MutatingPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []MutatingPolicy `json:"items"`
+}
+
+// +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacedMutatingPolicyList is a list of NamespacedMutatingPolicy instances
+type NamespacedMutatingPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []NamespacedMutatingPolicy `json:"items"`
 }

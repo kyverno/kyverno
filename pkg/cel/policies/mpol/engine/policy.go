@@ -6,6 +6,6 @@ import (
 )
 
 type Policy struct {
-	Policy         policiesv1alpha1.MutatingPolicy
+	Policy         policiesv1alpha1.MutatingPolicyLike
 	CompiledPolicy *compiler.Policy
 }

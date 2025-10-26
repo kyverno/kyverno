@@ -84,12 +84,12 @@ func TestFetch(t *testing.T) {
 			policyMap: map[string][]Policy{
 				"ns1/policy1": {
 					{
-						Policy: policiesv1alpha1.MutatingPolicy{
+						Policy: &policiesv1alpha1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy1"},
 						},
 					},
 					{
-						Policy: policiesv1alpha1.MutatingPolicy{
+						Policy: &policiesv1alpha1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy2"},
 						},
 					},
@@ -103,7 +103,7 @@ func TestFetch(t *testing.T) {
 			policyMap: map[string][]Policy{
 				"ns1/policy1": {
 					{
-						Policy: policiesv1alpha1.MutatingPolicy{
+						Policy: &policiesv1alpha1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy1"},
 							Spec: policiesv1alpha1.MutatingPolicySpec{
 								EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
@@ -115,7 +115,7 @@ func TestFetch(t *testing.T) {
 						},
 					},
 					{
-						Policy: policiesv1alpha1.MutatingPolicy{
+						Policy: &policiesv1alpha1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy2"},
 							Spec: policiesv1alpha1.MutatingPolicySpec{
 								EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
@@ -136,7 +136,7 @@ func TestFetch(t *testing.T) {
 			policyMap: map[string][]Policy{
 				"ns1/policy2": {
 					{
-						Policy: policiesv1alpha1.MutatingPolicy{
+						Policy: &policiesv1alpha1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy2"},
 							Spec: policiesv1alpha1.MutatingPolicySpec{
 								EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
@@ -194,7 +194,7 @@ func TestMatchesMutateExisting(t *testing.T) {
 			policies: map[string][]Policy{
 				"test/policy1": {
 					{
-						Policy: policiesv1alpha1.MutatingPolicy{
+						Policy: &policiesv1alpha1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy1"},
 							Spec: policiesv1alpha1.MutatingPolicySpec{
 								EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
@@ -217,7 +217,7 @@ func TestMatchesMutateExisting(t *testing.T) {
 			policies: map[string][]Policy{
 				"test/policy2": {
 					{
-						Policy: policiesv1alpha1.MutatingPolicy{
+						Policy: &policiesv1alpha1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy2"},
 							Spec: policiesv1alpha1.MutatingPolicySpec{
 								EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
@@ -244,7 +244,7 @@ func TestMatchesMutateExisting(t *testing.T) {
 			policies: map[string][]Policy{
 				"test/policy3": {
 					{
-						Policy: policiesv1alpha1.MutatingPolicy{
+						Policy: &policiesv1alpha1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy3"},
 						},
 					},

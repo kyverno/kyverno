@@ -128,6 +128,7 @@ type genericPolicy struct {
 	NamespacedValidatingPolicy *policiesv1beta1.NamespacedValidatingPolicy
 	ImageValidatingPolicy      *policiesv1alpha1.ImageValidatingPolicy
 	MutatingPolicy             *policiesv1alpha1.MutatingPolicy
+	NamespacedMutatingPolicy   *policiesv1alpha1.NamespacedMutatingPolicy
 	GeneratingPolicy           *policiesv1alpha1.GeneratingPolicy
 	DeletingPolicy             policiesv1beta1.DeletingPolicyLike
 	// originalAPIVersion tracks the original API version for converted policies
@@ -166,6 +167,10 @@ func (p *genericPolicy) AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy {
 	return p.MutatingPolicy
 }
 
+func (p *genericPolicy) AsNamespacedMutatingPolicy() *policiesv1alpha1.NamespacedMutatingPolicy {
+	return p.NamespacedMutatingPolicy
+}
+
 func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy {
 	return p.GeneratingPolicy
 }
@@ -199,6 +204,8 @@ func (p *genericPolicy) GetAPIVersion() string {
 		return policiesv1alpha1.GroupVersion.String()
 	case p.MutatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
+	case p.NamespacedMutatingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
 	case p.GeneratingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	case p.DeletingPolicy != nil:
@@ -223,6 +230,8 @@ func (p *genericPolicy) GetKind() string {
 		return "ImageValidatingPolicy"
 	case p.MutatingPolicy != nil:
 		return "MutatingPolicy"
+	case p.NamespacedMutatingPolicy != nil:
+		return "NamespacedMutatingPolicy"
 	case p.GeneratingPolicy != nil:
 		return "GeneratingPolicy"
 	case p.DeletingPolicy != nil:
@@ -478,6 +487,24 @@ func NewMutatingPolicy(pol *policiesv1alpha1.MutatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:         pol,
 		MutatingPolicy: pol,
+	}
+}
+
+func NewNamespacedMutatingPolicy(pol *policiesv1alpha1.NamespacedMutatingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:         pol,
+		NamespacedMutatingPolicy: pol,
+	}
+}
+
+func NewMutatingPolicyFromLike(pol policiesv1alpha1.MutatingPolicyLike) GenericPolicy {
+	switch typed := pol.(type) {
+	case *policiesv1alpha1.MutatingPolicy:
+		return NewMutatingPolicy(typed)
+	case *policiesv1alpha1.NamespacedMutatingPolicy:
+		return NewNamespacedMutatingPolicy(typed)
+	default:
+		return nil
 	}
 }
 

@@ -28,7 +28,7 @@ var (
 )
 
 type Compiler interface {
-	Compile(policy *policiesv1alpha1.MutatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1alpha1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -37,8 +37,10 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1alpha1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
+
+	spec := policy.GetMutatingPolicySpec()
 
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
 	extendedEnvSet, err := baseEnvSet.Extend(
@@ -81,13 +83,13 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		StrictCost:    true,
 	}
 
-	if policy.Spec.Variables != nil {
-		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.Spec.Variables), optionsVars, environment.StoredExpressions)
+	if spec.Variables != nil {
+		compositedCompiler.CompileAndStoreVariables(ConvertVariables(spec.Variables), optionsVars, environment.StoredExpressions)
 	}
 
 	// Compile match conditions and collect errors
 	var matcher matchconditions.Matcher = nil
-	matchConditions := policy.Spec.MatchConditions
+	matchConditions := spec.MatchConditions
 	if len(matchConditions) > 0 {
 		matchExpressionAccessors := make([]plugincel.ExpressionAccessor, len(matchConditions))
 		for i := range matchConditions {
@@ -107,7 +109,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		matcher = matchconditions.NewMatcher(
 			evaluator,
 			&failurePolicy,
-			"policy", "validate", policy.Name)
+			"policy", "validate", policy.GetName())
 	}
 
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
@@ -126,7 +128,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 	var patchers []patch.Patcher
 	patchOptions := optionsVars
 	patchOptions.HasPatchTypes = true
-	for i, m := range policy.Spec.Mutations {
+	for i, m := range spec.Mutations {
 		switch m.PatchType {
 		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {

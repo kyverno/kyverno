@@ -330,7 +330,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewMutatingPolicy(r.Policy))
+				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
 				p.Rc.addMutateResponse(response)
 
 				err = p.processMutateEngineResponse(response, resPath)

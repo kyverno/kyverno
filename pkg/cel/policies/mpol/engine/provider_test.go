@@ -108,8 +108,8 @@ func TestStaticProviderFetch(t *testing.T) {
 
 	provider := &staticProvider{
 		policies: []Policy{
-			{Policy: policy1},
-			{Policy: policy2},
+			{Policy: &policy1},
+			{Policy: &policy2},
 		},
 	}
 
@@ -131,20 +131,21 @@ func TestStaticProviderFetch(t *testing.T) {
 func TestStaticProviderMatchesMutateExisting(t *testing.T) {
 	trueBool := true
 
+	matchPolicy := &policiesv1alpha1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "match"},
+		Spec: policiesv1alpha1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
+				MutateExistingConfiguration: &policiesv1alpha1.MutateExistingConfiguration{
+					Enabled: &trueBool,
+				},
+			},
+			MatchConstraints: &admissionregistrationv1alpha1.MatchResources{}, // match everything
+		},
+	}
 	provider := &staticProvider{
 		policies: []Policy{
 			{
-				Policy: policiesv1alpha1.MutatingPolicy{
-					ObjectMeta: metav1.ObjectMeta{Name: "match"},
-					Spec: policiesv1alpha1.MutatingPolicySpec{
-						EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
-							MutateExistingConfiguration: &policiesv1alpha1.MutateExistingConfiguration{
-								Enabled: &trueBool,
-							},
-						},
-						MatchConstraints: &admissionregistrationv1alpha1.MatchResources{}, // match everything
-					},
-				},
+				Policy:         matchPolicy,
 				CompiledPolicy: &compiler.Policy{},
 			},
 		},

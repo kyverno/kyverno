@@ -73,7 +73,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, errs[0]
 	}
 	policies := []Policy{{
-		Policy:         policy,
+		Policy:         &policy,
 		CompiledPolicy: compiled,
 	}}
 
@@ -88,7 +88,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, errs[0]
 		}
 		policies = append(policies, Policy{
-			Policy:         policy,
+			Policy:         &policy,
 			CompiledPolicy: compiled,
 		})
 	}
