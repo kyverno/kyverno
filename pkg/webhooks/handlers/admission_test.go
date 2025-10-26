@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
+	"github.com/go-logr/logr/testr"
 	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,8 +25,7 @@ func mockAdmissionHandler(response AdmissionResponse) AdmissionHandler {
 }
 
 func TestWithAdmission(t *testing.T) {
-	zapLog, _ := zap.NewDevelopment()
-	logger := zapr.NewLogger(zapLog)
+	logger := testr.New(t)
 
 	baseAdmissionRequest := &admissionv1.AdmissionRequest{
 		UID:       types.UID("test-uid"),
