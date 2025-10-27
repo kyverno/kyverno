@@ -121,15 +121,16 @@ type GenericPolicy interface {
 }
 type genericPolicy struct {
 	metav1.Object
-	PolicyInterface            kyvernov1.PolicyInterface
-	ValidatingAdmissionPolicy  *ValidatingAdmissionPolicyData
-	MutatingAdmissionPolicy    *MutatingAdmissionPolicyData
-	ValidatingPolicy           *policiesv1beta1.ValidatingPolicy
-	NamespacedValidatingPolicy *policiesv1beta1.NamespacedValidatingPolicy
-	ImageValidatingPolicy      *policiesv1alpha1.ImageValidatingPolicy
-	MutatingPolicy             *policiesv1alpha1.MutatingPolicy
-	GeneratingPolicy           *policiesv1alpha1.GeneratingPolicy
-	DeletingPolicy             policiesv1beta1.DeletingPolicyLike
+	PolicyInterface                 kyvernov1.PolicyInterface
+	ValidatingAdmissionPolicy       *ValidatingAdmissionPolicyData
+	MutatingAdmissionPolicy         *MutatingAdmissionPolicyData
+	ValidatingPolicy                *policiesv1beta1.ValidatingPolicy
+	NamespacedValidatingPolicy      *policiesv1beta1.NamespacedValidatingPolicy
+	ImageValidatingPolicy           *policiesv1alpha1.ImageValidatingPolicy
+	NamespacedImageValidatingPolicy *policiesv1alpha1.NamespacedImageValidatingPolicy
+	MutatingPolicy                  *policiesv1alpha1.MutatingPolicy
+	GeneratingPolicy                *policiesv1alpha1.GeneratingPolicy
+	DeletingPolicy                  policiesv1beta1.DeletingPolicyLike
 	// originalAPIVersion tracks the original API version for converted policies
 	originalAPIVersion string
 }
@@ -197,6 +198,8 @@ func (p *genericPolicy) GetAPIVersion() string {
 		return policiesv1beta1.GroupVersion.String()
 	case p.ImageValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
+	case p.NamespacedImageValidatingPolicy != nil:
+		return policiesv1alpha1.GroupVersion.String()
 	case p.MutatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	case p.GeneratingPolicy != nil:
@@ -220,7 +223,9 @@ func (p *genericPolicy) GetKind() string {
 	case p.NamespacedValidatingPolicy != nil:
 		return p.NamespacedValidatingPolicy.GetKind()
 	case p.ImageValidatingPolicy != nil:
-		return "ImageValidatingPolicy"
+		return p.ImageValidatingPolicy.GetKind()
+	case p.NamespacedImageValidatingPolicy != nil:
+		return p.NamespacedImageValidatingPolicy.GetKind()
 	case p.MutatingPolicy != nil:
 		return "MutatingPolicy"
 	case p.GeneratingPolicy != nil:
@@ -236,6 +241,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 	case p.PolicyInterface != nil:
 		return p.PolicyInterface.IsNamespaced()
 	case p.NamespacedValidatingPolicy != nil:
+		return true
+	case p.NamespacedImageValidatingPolicy != nil:
 		return true
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""
@@ -471,6 +478,24 @@ func NewImageValidatingPolicy(pol *policiesv1alpha1.ImageValidatingPolicy) Gener
 	return &genericPolicy{
 		Object:                pol,
 		ImageValidatingPolicy: pol,
+	}
+}
+
+func NewNamespacedImageValidatingPolicy(pol *policiesv1alpha1.NamespacedImageValidatingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:                          pol,
+		NamespacedImageValidatingPolicy: pol,
+	}
+}
+
+func NewImageValidatingPolicyFromLike(pol policiesv1alpha1.ImageValidatingPolicyLike) GenericPolicy {
+	switch typed := pol.(type) {
+	case *policiesv1alpha1.ImageValidatingPolicy:
+		return NewImageValidatingPolicy(typed)
+	case *policiesv1alpha1.NamespacedImageValidatingPolicy:
+		return NewNamespacedImageValidatingPolicy(typed)
+	default:
+		return nil
 	}
 }
 
