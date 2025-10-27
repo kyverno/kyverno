@@ -152,7 +152,7 @@ func NewProvider(
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 		}
 		out = append(out, Policy{
-			Policy:         policy,
+			Policy:         &policy,
 			CompiledPolicy: compiled,
 		})
 		generated, err := autogen.Autogen(&policy)
@@ -166,7 +166,7 @@ func NewProvider(
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 			}
 			out = append(out, Policy{
-				Policy:         policy,
+				Policy:         &policy,
 				CompiledPolicy: compiled,
 			})
 		}

@@ -66,6 +66,7 @@ type PolicyProcessor struct {
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
+	NamespacedMutatingPolicies        []policiesv1alpha1.NamespacedMutatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
@@ -330,7 +331,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewMutatingPolicy(r.Policy))
+				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
 				p.Rc.addMutateResponse(response)
 
 				err = p.processMutateEngineResponse(response, resPath)

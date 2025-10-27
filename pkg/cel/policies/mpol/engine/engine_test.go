@@ -85,7 +85,7 @@ func TestGetPatches(t *testing.T) {
 		assert.Equal(t, "value2", patches[0].Value)
 
 		assert.Len(t, er.Policies, 1)
-		assert.Equal(t, "sample-policy", er.Policies[0].Policy.Name)
+		assert.Equal(t, "sample-policy", er.Policies[0].Policy.GetName())
 		assert.Len(t, er.Policies[0].Rules, 1)
 	})
 
@@ -190,7 +190,7 @@ var (
 	nsResolver = func(ns string) *corev1.Namespace {
 		return nil
 	}
-	predicate     = func(p policiesv1alpha1.MutatingPolicy) bool { return true }
+	predicate     = func(p policiesv1alpha1.MutatingPolicyLike) bool { return true }
 	typeConverter = compiler.NewStaticTypeConverterManager(openapi.NewClient(&rest.RESTClient{}))
 )
 
@@ -334,7 +334,7 @@ func TestHandle(t *testing.T) {
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return true },
+			predicate:      func(p policiesv1alpha1.MutatingPolicyLike) bool { return true },
 			expectPolicies: 1,
 			expectPatched:  true,
 			expectLabel:    "test",
@@ -350,7 +350,7 @@ func TestHandle(t *testing.T) {
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return false },
+			predicate:      func(p policiesv1alpha1.MutatingPolicyLike) bool { return false },
 			expectPolicies: 0,
 			expectPatched:  false,
 		},
@@ -373,7 +373,7 @@ func TestHandle(t *testing.T) {
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return true },
+			predicate:      func(p policiesv1alpha1.MutatingPolicyLike) bool { return true },
 			expectPolicies: 1,
 			expectPatched:  false,
 		},
