@@ -492,7 +492,7 @@ func NewMutatingPolicy(pol *policiesv1alpha1.MutatingPolicy) GenericPolicy {
 
 func NewNamespacedMutatingPolicy(pol *policiesv1alpha1.NamespacedMutatingPolicy) GenericPolicy {
 	return &genericPolicy{
-		Object:         pol,
+		Object:                   pol,
 		NamespacedMutatingPolicy: pol,
 	}
 }
