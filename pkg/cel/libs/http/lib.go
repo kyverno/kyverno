@@ -1,12 +1,8 @@
 package http
 
 import (
-	"net/http"
-	"reflect"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/ext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
 	"k8s.io/apimachinery/pkg/util/version"
 )
@@ -32,7 +28,6 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		ext.NativeTypes(reflect.TypeFor[http.Request]()),
 		c.extendEnv,
 	}
 }
