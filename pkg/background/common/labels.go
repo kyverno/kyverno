@@ -71,7 +71,7 @@ func PolicyInfo(labels map[string]string, policy kyvernov1.PolicyInterface, rule
 }
 
 func TriggerInfo(labels map[string]string, obj unstructured.Unstructured) {
-	labels[GenerateTriggerNameLabel] = obj.GetName()
+	labels[GenerateTriggerNameLabel] = trimByLength(obj.GetName(), 63)
 	labels[GenerateTriggerVersionLabel] = obj.GroupVersionKind().Version
 	labels[GenerateTriggerGroupLabel] = obj.GroupVersionKind().Group
 	labels[GenerateTriggerKindLabel] = obj.GetKind()
