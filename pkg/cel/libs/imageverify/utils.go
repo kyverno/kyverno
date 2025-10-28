@@ -5,12 +5,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 )
 
-func attestationMap(ivpol *v1alpha1.ImageValidatingPolicy) map[string]v1alpha1.Attestation {
+func attestationMap(ivpol v1alpha1.ImageValidatingPolicyLike) map[string]v1alpha1.Attestation {
 	if ivpol == nil {
 		return nil
 	}
-
-	return arrToMap(ivpol.Spec.Attestations)
+	spec := ivpol.GetSpec()
+	return arrToMap(spec.Attestations)
 }
 
 type ARR_TYPE interface {
