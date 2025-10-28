@@ -11,6 +11,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -179,7 +180,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.NamespacedDeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.NamespacedValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.NamespacedDeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
@@ -262,6 +263,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
+			NamespacedValidatingPolicies:      results.NamespacedValidatingPolicies,
 			GeneratingPolicies:                results.GeneratingPolicies,
 			MutatingPolicies:                  results.MutatingPolicies,
 			MutatingAdmissionPolicies:         results.MAPs,
@@ -308,7 +310,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 
 		if len(results.DeletingPolicies) != 0 || len(results.NamespacedDeletingPolicies) != 0 {
-			dpolInputs := make([]policiesv1alpha1.DeletingPolicyLike, 0, len(results.DeletingPolicies)+len(results.NamespacedDeletingPolicies))
+			dpolInputs := make([]policiesv1beta1.DeletingPolicyLike, 0, len(results.DeletingPolicies)+len(results.NamespacedDeletingPolicies))
 			for i := range results.DeletingPolicies {
 				dpolInputs = append(dpolInputs, &results.DeletingPolicies[i])
 			}
@@ -388,7 +390,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 
 		if len(results.DeletingPolicies) != 0 || len(results.NamespacedDeletingPolicies) != 0 {
-			dpolInputs := make([]policiesv1alpha1.DeletingPolicyLike, 0, len(results.DeletingPolicies)+len(results.NamespacedDeletingPolicies))
+			dpolInputs := make([]policiesv1beta1.DeletingPolicyLike, 0, len(results.DeletingPolicies)+len(results.NamespacedDeletingPolicies))
 			for i := range results.DeletingPolicies {
 				dpolInputs = append(dpolInputs, &results.DeletingPolicies[i])
 			}
@@ -439,7 +441,12 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
+	// Convert to ImageValidatingPolicyLike interface
+	ivpsLike := make([]policiesv1alpha1.ImageValidatingPolicyLike, len(ivps))
+	for i := range ivps {
+		ivpsLike[i] = &ivps[i]
+	}
+	provider, err := ivpolengine.NewProvider(ivpsLike, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -508,17 +515,17 @@ func applyImageValidatingPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
-	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
+	pMap := make(map[string]policiesv1alpha1.ImageValidatingPolicyLike)
 	for i := range ivps {
-		p := ivps[i]
-		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
+		p := &ivps[i]
+		pMap[p.GetName()] = p
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -547,7 +554,7 @@ func applyImageValidatingPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
@@ -556,7 +563,7 @@ func applyImageValidatingPolicies(
 }
 
 func applyDeletingPolicies(
-	dps []policiesv1alpha1.DeletingPolicyLike,
+	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1alpha1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,

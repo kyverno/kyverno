@@ -60,6 +60,7 @@ func NewServer(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	discovery dclient.IDiscovery,
+	webhookServerHost string,
 	webhookServerPort int32,
 ) Server {
 	mux := httprouter.New()
@@ -232,7 +233,7 @@ func NewServer(
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
 		server: &http.Server{
-			Addr: fmt.Sprintf(":%d", webhookServerPort),
+			Addr: fmt.Sprintf("[%s]:%d", webhookServerHost, webhookServerPort),
 			TLSConfig: &tls.Config{
 				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 					certPem, keyPem, err := tlsProvider()

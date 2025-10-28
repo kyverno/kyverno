@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -401,7 +402,7 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 	}
 }
 
-func NewDeletingPolicyEvent(policy v1alpha1.DeletingPolicyLike, resource unstructured.Unstructured, err error) Info {
+func NewDeletingPolicyEvent(policy v1beta1.DeletingPolicyLike, resource unstructured.Unstructured, err error) Info {
 	regarding := corev1.ObjectReference{
 		APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		Kind:       policy.GetKind(),

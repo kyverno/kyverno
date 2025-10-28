@@ -276,7 +276,7 @@ func TestImageValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
-		want   *WebhookConfiguration
+		want   *int32
 	}{{
 		name:   "nil",
 		policy: &ImageValidatingPolicy{},
@@ -285,14 +285,16 @@ func TestImageValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
 		name: "fail",
 		policy: &ImageValidatingPolicy{
 			Spec: ImageValidatingPolicySpec{
-				WebhookConfiguration: &WebhookConfiguration{},
+				WebhookConfiguration: &WebhookConfiguration{
+					TimeoutSeconds: ptr.To(int32(30)),
+				},
 			},
 		},
-		want: &WebhookConfiguration{},
+		want: ptr.To(int32(30)),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.policy.GetWebhookConfiguration()
+			got := tt.policy.GetTimeoutSeconds()
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -8,8 +8,8 @@
 {{- end -}}
 
 {{- define "kyverno.chartVersion" -}}
-{{- if .Values.templating.enabled -}}
-  {{- required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" -}}
+{{- if .Values.global.templating.enabled -}}
+  {{- required "templating.version is required when templating.enabled is true" .Values.global.templating.version | replace "+" "_" -}}
 {{- else -}}
   {{- .Chart.Version | replace "+" "_" -}}
 {{- end -}}
