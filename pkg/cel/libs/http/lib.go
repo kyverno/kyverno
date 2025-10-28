@@ -7,15 +7,23 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 const libraryName = "kyverno.http"
 
-type lib struct{}
+type lib struct {
+	version *version.Version
+}
 
-func Lib() cel.EnvOption {
+func Latest() *version.Version {
+	return versions.HttpVersion
+}
+
+func Lib(v *version.Version) cel.EnvOption {
 	// create the cel lib env option
-	return cel.Lib(&lib{})
+	return cel.Lib(&lib{version: v})
 }
 
 func (*lib) LibraryName() string {

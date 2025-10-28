@@ -12,6 +12,7 @@ import (
 // +kubebuilder:resource:path=generatingpolicies,scope="Cluster",shortName=gpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
 
 type GeneratingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -41,8 +42,12 @@ func (s *GeneratingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePol
 	return admissionregistrationv1.Ignore
 }
 
-func (s *GeneratingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
+func (s *GeneratingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
 }
 
 func (s *GeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {

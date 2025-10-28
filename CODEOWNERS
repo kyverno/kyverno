@@ -6,9 +6,9 @@
 /pkg/autogen            @eddycharly
 /pkg/background         @realshuting
 /pkg/engine             @eddycharly @realshuting @MariamFahmy98 @KhaledEmaraDev
-/pkg/event              @KhaledEmaraDev
-/pkg/globalcontext      @KhaledEmaraDev
-/pkg/policy/mutate      @realshuting
+/pkg/event              @KhaledEmaraDev @aerosouund
+/pkg/globalcontext      @KhaledEmaraDev @liuxu623
+/pkg/policy/mutate      @realshuting @aerosouund
 /pkg/pss                @realshuting @YTGhost
 /pkg/utils              @eddycharly
 /pkg/userinfo           @realshuting
@@ -17,3 +17,8 @@
 /test                   @eddycharly @realshuting @MariamFahmy98 @KhaledEmaraDev
 /pkg/cosign             @Vishal-Chdhry
 /pkg/notary             @Vishal-Chdhry
+/cmd/cli/               @aerosouund
+/pkg/openreports        @aerosouund
+/pkg/controller/report  @aerosouund
+/pkg/cel                @aerosouund
+/pkg/admissionpolicy    @aerosouund

@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -402,7 +402,7 @@ spec:
             - state
             type: object
         type: object
-    served: true
+    served: false
     storage: false
     subresources:
       status: {}

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -43,16 +44,33 @@ func newReconciler(
 }
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var policy policiesv1alpha1.ValidatingPolicy
-	err := r.client.Get(ctx, req.NamespacedName, &policy)
-	if errors.IsNotFound(err) {
-		r.lock.Lock()
-		defer r.lock.Unlock()
-		delete(r.policies, req.NamespacedName.String())
-		return ctrl.Result{}, nil
-	}
-	if err != nil {
-		return ctrl.Result{}, err
+	var policy policiesv1beta1.ValidatingPolicyLike
+	if req.NamespacedName.Namespace == "" {
+		var vp policiesv1beta1.ValidatingPolicy
+		err := r.client.Get(ctx, req.NamespacedName, &vp)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				r.lock.Lock()
+				defer r.lock.Unlock()
+				delete(r.policies, req.NamespacedName.String())
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
+		}
+		policy = &vp
+	} else {
+		var nvp policiesv1beta1.NamespacedValidatingPolicy
+		err := r.client.Get(ctx, req.NamespacedName, &nvp)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				r.lock.Lock()
+				defer r.lock.Unlock()
+				delete(r.policies, req.NamespacedName.String())
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
+		}
+		policy = &nvp
 	}
 	if policy.GetStatus().Generated {
 		r.lock.Lock()
@@ -62,39 +80,49 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	// get exceptions that match the policy
 	var exceptions []*policiesv1alpha1.PolicyException
+	var err error
 	if r.polexEnabled {
 		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
-	compiled, errs := r.compiler.Compile(&policy, exceptions)
+	compiled, errs := r.compiler.Compile(policy, exceptions)
 	if len(errs) > 0 {
 		fmt.Println(errs)
-		// No need to retry it
 		return ctrl.Result{}, nil
 	}
-	actions := sets.New(policy.Spec.ValidationActions()...)
+	spec := policy.GetValidatingPolicySpec()
+	actions := sets.New(spec.ValidationActions()...)
 	policies := []Policy{{
 		Actions:        actions,
 		Policy:         policy,
 		CompiledPolicy: compiled,
 	}}
-	generated, err := autogen.Autogen(&policy)
+	generated, err := autogen.Autogen(policy)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	for _, autogen := range generated {
-		policy.Spec = *autogen.Spec
-		compiled, errs := r.compiler.Compile(&policy, exceptions)
+		tempPolicy := policy
+		if vp, ok := policy.(*policiesv1beta1.ValidatingPolicy); ok {
+			vpCopy := vp.DeepCopy()
+			vpCopy.Spec = *autogen.Spec
+			tempPolicy = vpCopy
+		} else if nvp, ok := policy.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
+			nvpCopy := nvp.DeepCopy()
+			nvpCopy.Spec = *autogen.Spec
+			tempPolicy = nvpCopy
+		}
+
+		compiled, errs := r.compiler.Compile(tempPolicy, exceptions)
 		if len(errs) > 0 {
 			fmt.Println(errs)
-			// No need to retry it
 			return ctrl.Result{}, nil
 		}
 		policies = append(policies, Policy{
 			Actions:        actions,
-			Policy:         policy,
+			Policy:         tempPolicy,
 			CompiledPolicy: compiled,
 		})
 	}

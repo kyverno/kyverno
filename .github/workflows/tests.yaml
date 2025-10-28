@@ -32,7 +32,7 @@ jobs:
     - name: Unit test
       run: make test-unit
     - name: Upload coverage
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
       with:
         name: coverage.out
         path: coverage.out
@@ -51,7 +51,7 @@ jobs:
       with:
         name: coverage.out
     - name: Upload Report to Codecov
-      uses: codecov/codecov-action@fdcc8476540edceab3de004e990f80d881c6cc00 # v5.5.0
+      uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
       with:
         files: ./coverage.out
         fail_ci_if_error: true

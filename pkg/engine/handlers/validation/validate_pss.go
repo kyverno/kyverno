@@ -25,10 +25,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type validatePssHandler struct{}
+type validatePssHandler struct {
+	client    engineapi.Client
+	isCluster bool
+}
 
-func NewValidatePssHandler() (handlers.Handler, error) {
-	return validatePssHandler{}, nil
+func NewValidatePssHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
+	return validatePssHandler{
+		client:    client,
+		isCluster: isCluster,
+	}, nil
 }
 
 func (h validatePssHandler) Process(
@@ -59,7 +65,7 @@ func (h validatePssHandler) validate(
 	}
 
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		var polex kyvernov2.PolicyException
 		hasPodSecurity := true
