@@ -28,10 +28,14 @@ type Interface interface {
 	DeletingPolicies() DeletingPolicyInformer
 	// GeneratingPolicies returns a GeneratingPolicyInformer.
 	GeneratingPolicies() GeneratingPolicyInformer
+	// ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
+	ImageValidatingPolicies() ImageValidatingPolicyInformer
 	// MutatingPolicies returns a MutatingPolicyInformer.
 	MutatingPolicies() MutatingPolicyInformer
 	// NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 	NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer
+	// NamespacedValidatingPolicies returns a NamespacedValidatingPolicyInformer.
+	NamespacedValidatingPolicies() NamespacedValidatingPolicyInformer
 	// PolicyExceptions returns a PolicyExceptionInformer.
 	PolicyExceptions() PolicyExceptionInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
@@ -59,6 +63,11 @@ func (v *version) GeneratingPolicies() GeneratingPolicyInformer {
 	return &generatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// ImageValidatingPolicies returns a ImageValidatingPolicyInformer.
+func (v *version) ImageValidatingPolicies() ImageValidatingPolicyInformer {
+	return &imageValidatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // MutatingPolicies returns a MutatingPolicyInformer.
 func (v *version) MutatingPolicies() MutatingPolicyInformer {
 	return &mutatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -67,6 +76,11 @@ func (v *version) MutatingPolicies() MutatingPolicyInformer {
 // NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 func (v *version) NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer {
 	return &namespacedDeletingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NamespacedValidatingPolicies returns a NamespacedValidatingPolicyInformer.
+func (v *version) NamespacedValidatingPolicies() NamespacedValidatingPolicyInformer {
+	return &namespacedValidatingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyExceptions returns a PolicyExceptionInformer.

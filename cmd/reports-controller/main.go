@@ -37,6 +37,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/restmapper"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -89,29 +90,39 @@ func createReportControllers(
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-	var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
-	var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
+	var mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
+	var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
+	var mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
+	var mapAlphaBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 	if validatingAdmissionPolicyReports {
 		vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 		vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 	}
 	if mutatingAdmissionPolicyReports {
-		mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
-		mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+		mapAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+		mapAlphaBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+
+		if kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 34, 0) {
+			mapInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
+			mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
+		}
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
 	policiesV1alpha1 := kyvernoInformer.Policies().V1alpha1()
+	policiesV1beta1 := kyvernoInformer.Policies().V1beta1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
-			policiesV1alpha1.ValidatingPolicies(),
+			policiesV1beta1.ValidatingPolicies(),
+			policiesV1beta1.NamespacedValidatingPolicies(),
 			policiesV1alpha1.MutatingPolicies(),
 			policiesV1alpha1.ImageValidatingPolicies(),
 			vapInformer,
 			mapInformer,
+			mapAlphaInformer,
 			metaClient,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -132,12 +143,14 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
-					policiesV1alpha1.ValidatingPolicies(),
+					policiesV1beta1.ValidatingPolicies(),
+					policiesV1beta1.NamespacedValidatingPolicies(),
 					policiesV1alpha1.ImageValidatingPolicies(),
 					policiesV1alpha1.GeneratingPolicies(),
 					policiesV1alpha1.MutatingPolicies(),
 					vapInformer,
 					mapInformer,
+					mapAlphaInformer,
 				),
 				aggregationWorkers,
 			))
@@ -152,7 +165,8 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				policiesV1alpha1.ValidatingPolicies(),
+				policiesV1beta1.ValidatingPolicies(),
+				policiesV1beta1.NamespacedValidatingPolicies(),
 				policiesV1alpha1.MutatingPolicies(),
 				policiesV1alpha1.ImageValidatingPolicies(),
 				policiesV1alpha1.PolicyExceptions(),
@@ -160,7 +174,9 @@ func createReportControllers(
 				vapInformer,
 				vapBindingInformer,
 				mapInformer,
+				mapAlphaInformer,
 				mapBindingInformer,
+				mapAlphaBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,
 				backgroundScanInterval,

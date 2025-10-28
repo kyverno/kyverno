@@ -43,7 +43,7 @@ LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
-CODE_GEN_VERSION                   ?= v0.33.4
+CODE_GEN_VERSION                   ?= v0.34.1
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
@@ -691,6 +691,7 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
 	$(call generate_crd,policies.kyverno.io_namespacedvalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedvalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedimagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedimagevalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
 	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
 	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
@@ -1159,7 +1160,7 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+	@$(HELM) install metrics-server metrics-server --repo https://kubernetes-sigs.github.io/metrics-server/ \
 		--namespace kube-system --wait \
 		--values ./scripts/config/dev/metrics-server.yaml
 

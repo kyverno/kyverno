@@ -20,6 +20,9 @@ func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1alpha1.Gener
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		return vpol
 	}
+	if nvpol := policy.AsNamespacedValidatingPolicy(); nvpol != nil {
+		return nvpol
+	}
 	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
 		return ivpol
 	}
@@ -194,8 +197,9 @@ func less[T cmp.Ordered](a []T, b []T) int {
 }
 
 const (
-	ValidatingPolicyType      = "ValidatingPolicy"
-	ImageValidatingPolicyType = "ImageValidatingPolicy"
-	MutatingPolicyType        = "MutatingPolicy"
-	GeneratingPolicyType      = "GeneratingPolicy"
+	ValidatingPolicyType           = "ValidatingPolicy"
+	NamespacedValidatingPolicyType = "NamespacedValidatingPolicy"
+	ImageValidatingPolicyType      = "ImageValidatingPolicy"
+	MutatingPolicyType             = "MutatingPolicy"
+	GeneratingPolicyType           = "GeneratingPolicy"
 )

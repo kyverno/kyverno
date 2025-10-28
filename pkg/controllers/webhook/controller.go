@@ -16,8 +16,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -74,6 +76,11 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1"},
 	}
+	namespacedValidatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"namespacedvalidatingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1beta1"},
+	}
 	imagevalidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"imagevalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
@@ -120,7 +127,8 @@ type controller struct {
 	vwcLister         admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
-	vpolLister        policiesv1alpha1listers.ValidatingPolicyLister
+	vpolLister        policiesv1beta1listers.ValidatingPolicyLister
+	nvpolLister       policiesv1beta1listers.NamespacedValidatingPolicyLister
 	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
 	mpolLister        policiesv1alpha1listers.MutatingPolicyLister
@@ -166,7 +174,8 @@ func NewController(
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
-	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
+	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
@@ -202,6 +211,7 @@ func NewController(
 		cpolLister:          cpolInformer.Lister(),
 		polLister:           polInformer.Lister(),
 		vpolLister:          vpolInformer.Lister(),
+		nvpolLister:         nvpolInformer.Lister(),
 		gpolLister:          gpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
 		mpolLister:          mpolInformer.Lister(),
@@ -293,6 +303,12 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		vpolInformer.Informer(),
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
+		nvpolInformer.Informer(),
 		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -498,7 +514,7 @@ func (c *controller) recordKyvernoPolicyState(webhookConfigurationName string, p
 
 func (c *controller) recordPolicyState(policies ...engineapi.GenericPolicy) {
 	for _, policy := range policies {
-		if key := BuildRecorderKey(policy.GetKind(), policy.GetName()); key != "" {
+		if key := BuildRecorderKey(policy.GetKind(), policy.GetName(), policy.GetNamespace()); key != "" {
 			c.stateRecorder.Record(key)
 		}
 	}
@@ -870,6 +886,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Update,
 					},
 				}, {
+					Rule: namespacedValidatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}, {
 					Rule: imagevalidatingPolicyRule,
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
@@ -1194,6 +1216,19 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		pols,
 		c.celExpressionCache)...)
 
+	nvpols, err := c.getNamespacedValidatingPolicies()
+	if err != nil {
+		return err
+	}
+	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+		c.server,
+		config.NamespacedValidatingPolicyWebhookName,
+		"/nvpol",
+		c.servicePort,
+		caBundle,
+		nvpols,
+		c.celExpressionCache)...)
+
 	gpols, err := c.getGeneratingPolicies()
 	if err != nil {
 		return err
@@ -1220,7 +1255,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		ivpols,
 		c.celExpressionCache)...)
 
-	policies := append(pols, gpols...)
+	policies := append(pols, nvpols...)
+	policies = append(policies, gpols...)
 	policies = append(policies, ivpols...)
 	c.recordPolicyState(policies...)
 	return nil
@@ -1351,6 +1387,20 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 		}
 	}
 	return vpols, nil
+}
+
+func (c *controller) getNamespacedValidatingPolicies() ([]engineapi.GenericPolicy, error) {
+	namespacedvalidatingpolicies, err := c.nvpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	nvpols := make([]engineapi.GenericPolicy, 0)
+	for _, nvpol := range namespacedvalidatingpolicies {
+		if nvpol.Spec.AdmissionEnabled() && !nvpol.GetStatus().Generated {
+			nvpols = append(nvpols, engineapi.NewNamespacedValidatingPolicy(nvpol))
+		}
+	}
+	return nvpols, nil
 }
 
 func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) {

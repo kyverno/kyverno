@@ -22,9 +22,13 @@ type DeletingPolicyExpansion interface{}
 
 type GeneratingPolicyExpansion interface{}
 
+type ImageValidatingPolicyExpansion interface{}
+
 type MutatingPolicyExpansion interface{}
 
 type NamespacedDeletingPolicyExpansion interface{}
+
+type NamespacedValidatingPolicyExpansion interface{}
 
 type PolicyExceptionExpansion interface{}
 
