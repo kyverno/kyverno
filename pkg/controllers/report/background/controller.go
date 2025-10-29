@@ -80,6 +80,7 @@ type controller struct {
 	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister            policiesv1alpha1listers.MutatingPolicyLister
 	ivpolLister           policiesv1alpha1listers.ImageValidatingPolicyLister
+	nivpolLister 		  policiesv1alpha1listers.NamespacedImageValidatingPolicyLister
 	polexLister           kyvernov2listers.PolicyExceptionLister
 	celpolexListener      policiesv1alpha1listers.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -122,6 +123,7 @@ func NewController(
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	nivpolInformer policiesv1alpha1informers.NamespacedImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -191,6 +193,12 @@ func NewController(
 	if ivpolInformer != nil {
 		c.ivpolLister = ivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(ivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nivpolInformer != nil {
+		c.nivpolLister = nivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(nivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
