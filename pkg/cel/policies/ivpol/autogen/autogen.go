@@ -24,7 +24,29 @@ func Autogen(policy *policiesv1alpha1.ImageValidatingPolicy) (map[string]policie
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
 		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return autogenIvPols(policy, actualControllers)
+	return autogenIvPols(&policiesv1alpha1.ImageValidatingPolicy{
+		ObjectMeta: policy.ObjectMeta,
+		Spec:       policy.Spec,
+	}, actualControllers)
+}
+
+func AutogenNamespaced(policy *policiesv1alpha1.NamespacedImageValidatingPolicy) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+	if policy == nil {
+		return nil, nil
+	}
+	if !autogen.CanAutoGen(policy.Spec.MatchConstraints) {
+		return nil, nil
+	}
+	actualControllers := autogen.AllConfigs
+	if policy.Spec.AutogenConfiguration != nil &&
+		policy.Spec.AutogenConfiguration.PodControllers != nil &&
+		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
+	}
+	return autogenIvPols(&policiesv1alpha1.ImageValidatingPolicy{
+		ObjectMeta: policy.ObjectMeta,
+		Spec:       policy.Spec,
+	}, actualControllers)
 }
 
 func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {

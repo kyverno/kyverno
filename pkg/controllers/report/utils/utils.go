@@ -300,6 +300,27 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVal
 	return policies, nil
 }
 
+func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1alpha1listers.NamespacedImageValidatingPolicyLister, namespace string) ([]policiesv1alpha1.NamespacedImageValidatingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var pols []*policiesv1alpha1.NamespacedImageValidatingPolicy
+	if namespace != "" {
+		pols, err = nivpolLister.NamespacedImageValidatingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		pols, err = nivpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1alpha1.NamespacedImageValidatingPolicy, 0, len(pols))
+	for _, pol := range pols {
+		policies = append(policies, *pol)
+	}
+	return policies, nil
+}
+
 func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLister) ([]policiesv1alpha1.GeneratingPolicy, error) {
 	var policies []policiesv1alpha1.GeneratingPolicy
 	r, err := getExcludeReportingLabelRequirement()
