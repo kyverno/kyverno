@@ -110,7 +110,7 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 }`,
 			expected: `Object{spec: Object.spec{template: Object.spec.template{
   metadata: Object.metadata{
-    labels: Object.metadata.labels{
+    labels: Object.spec.template.metadata.labels{
       foo: "bar"
     }
   }
@@ -569,7 +569,7 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 			name:     "expression without containers",
 			config:   "deployments",
 			input:    "Object{metadata: Object.metadata{labels: Object.metadata.labels{foo: 'bar'}}}",
-			expected: "Object{spec: Object.spec{template: Object.spec.template{metadata: Object.metadata{labels: Object.metadata.labels{foo: 'bar'}}}}}",
+			expected: "Object{spec: Object.spec{template: Object.spec.template{metadata: Object.metadata{labels: Object.spec.template.metadata.labels{foo: 'bar'}}}}}",
 		},
 		{
 			name:   "complex nested expression",
