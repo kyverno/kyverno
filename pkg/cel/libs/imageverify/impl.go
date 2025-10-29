@@ -33,7 +33,7 @@ type ivfuncs struct {
 func ImageVerifyCELFuncs(
 	logger logr.Logger,
 	imgCtx imagedataloader.ImageContext,
-	ivpol *v1alpha1.ImageValidatingPolicy,
+	ivpol v1alpha1.ImageValidatingPolicyLike,
 	lister k8scorev1.SecretInterface,
 	adapter types.Adapter,
 ) (*ivfuncs, error) {
@@ -44,14 +44,15 @@ func ImageVerifyCELFuncs(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL image verification env: %v", err)
 	}
-	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, ivpol.Spec.MatchImageReferences...)
+	spec := ivpol.GetSpec()
+	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, spec.MatchImageReferences...)
 	if errs != nil {
 		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
 	return &ivfuncs{
 		Adapter:         adapter,
 		imgCtx:          imgCtx,
-		creds:           ivpol.Spec.Credentials,
+		creds:           spec.Credentials,
 		imgRules:        imgRules,
 		attestationList: attestationMap(ivpol),
 		cosignVerifier:  cosign.NewVerifier(lister, logger),

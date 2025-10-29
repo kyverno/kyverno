@@ -16,6 +16,7 @@ import (
 // +kubebuilder:resource:path=mutatingpolicies,scope="Cluster",shortName=mpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
+// +kubebuilder:storageversion
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type MutatingPolicy struct {
@@ -280,8 +281,12 @@ func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolic
 	return admissionregistrationv1.FailurePolicyType(*s.Spec.FailurePolicy)
 }
 
-func (s *MutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
+func (s *MutatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
 }
 
 func (s *MutatingPolicy) GetVariables() []admissionregistrationv1.Variable {

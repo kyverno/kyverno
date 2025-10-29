@@ -12,6 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -45,7 +46,7 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,9 +60,10 @@ type PolicyProcessor struct {
 	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
-	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
+	MutatingAdmissionPolicies         []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+	ValidatingPolicies                []policiesv1beta1.ValidatingPolicy
+	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
 	Resource                          unstructured.Unstructured
@@ -370,10 +372,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// validating policies
-	if len(p.ValidatingPolicies) != 0 {
+	if len(p.ValidatingPolicies) != 0 || len(p.NamespacedValidatingPolicies) != 0 {
 		ctx := context.TODO()
 		compiler := vpolcompiler.NewCompiler()
-		provider, err := vpolengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
+		policies := make([]policiesv1beta1.ValidatingPolicyLike, 0, len(p.ValidatingPolicies))
+		for i := range p.ValidatingPolicies {
+			policies = append(policies, &p.ValidatingPolicies[i])
+		}
+		for i := range p.NamespacedValidatingPolicies {
+			policies = append(policies, &p.NamespacedValidatingPolicies[i])
+		}
+		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -421,7 +430,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
@@ -440,7 +449,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}

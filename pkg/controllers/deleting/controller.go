@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -45,7 +45,7 @@ type controller struct {
 
 	// queue
 	queue   workqueue.TypedRateLimitingInterface[any]
-	enqueue controllerutils.EnqueueFuncT[v1alpha1.DeletingPolicyLike]
+	enqueue controllerutils.EnqueueFuncT[v1beta1.DeletingPolicyLike]
 
 	// config
 	configuration config.Configuration
@@ -55,16 +55,17 @@ type controller struct {
 }
 
 const (
-	maxRetries     = 10
-	Workers        = 3
-	ControllerName = "deleting-controller"
+	maxRetries      = 10
+	Workers         = 3
+	ControllerName  = "deleting-controller"
+	minRequeueDelay = 1 * time.Second
 )
 
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	polInformer kyvernov1alpha1informers.DeletingPolicyInformer,
-	ndpolInformer kyvernov1alpha1informers.NamespacedDeletingPolicyInformer,
+	polInformer kyvernov1beta1informers.DeletingPolicyInformer,
+	ndpolInformer kyvernov1beta1informers.NamespacedDeletingPolicyInformer,
 	provider engine.Provider,
 	engine *engine.Engine,
 	nsLister corev1listers.NamespaceLister,
@@ -76,11 +77,11 @@ func NewController(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 	)
-	keyFunc := controllerutils.MetaNamespaceKeyT[v1alpha1.DeletingPolicyLike]
+	keyFunc := controllerutils.MetaNamespaceKeyT[v1beta1.DeletingPolicyLike]
 	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
-	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[v1alpha1.DeletingPolicyLike] {
+	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[v1beta1.DeletingPolicyLike] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
-		return func(obj v1alpha1.DeletingPolicyLike) error {
+		return func(obj v1beta1.DeletingPolicyLike) error {
 			logger := logger.WithValues("name", obj.GetName())
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
@@ -109,7 +110,12 @@ func NewController(
 	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
 		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletingPolicy")),
-		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "DeletingPolicy")),
+		// On update, enqueue only when generation (spec) changes; skip status-only updates
+		func(oldObj, obj v1beta1.DeletingPolicyLike) {
+			if oldObj.GetGeneration() != obj.GetGeneration() {
+				_ = enqueueFunc(logger, "updated", "DeletingPolicy")(obj)
+			}
+		},
 		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "DeletingPolicy")),
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -117,7 +123,12 @@ func NewController(
 	if _, err := controllerutils.AddEventHandlersT(
 		ndpolInformer.Informer(),
 		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "NamespacedDeletingPolicy")),
-		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "NamespacedDeletingPolicy")),
+		// On update, enqueue only when generation (spec) changes; skip status-only updates
+		func(oldObj, obj v1beta1.DeletingPolicyLike) {
+			if oldObj.GetGeneration() != obj.GetGeneration() {
+				_ = enqueueFunc(logger, "updated", "NamespacedDeletingPolicy")(obj)
+			}
+		},
 		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "NamespacedDeletingPolicy")),
 	); err != nil {
 		logger.Error(err, "failed to register namespaced event handlers")
@@ -130,6 +141,10 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy engine.Policy) error {
+	if c.client == nil {
+		return nil
+	}
+
 	spec := ePolicy.Policy.GetDeletingPolicySpec()
 	policy := ePolicy.Policy
 	policyNamespace := policy.GetNamespace()
@@ -266,11 +281,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
-		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, *executionTime); err != nil {
-			logger.Error(err, "failed to update the cleanup policy status")
+		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, time.Now()); err != nil {
+			logger.Error(err, "failed to update the deleting policy status")
 			return err
 		}
-		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(*executionTime)
+		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(time.Now())
 		if err != nil {
 			logger.Error(err, "failed to get the policy next execution time")
 			return err
@@ -279,9 +294,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		nextExecutionTime = executionTime
 	}
 	// calculate the remaining time until deletion.
-	timeRemaining := time.Until(*nextExecutionTime)
-	// add the item back to the queue after the remaining time.
-	c.queue.AddAfter(key, timeRemaining)
+	// clamp to a sane minimum to avoid immediate hot-loops when nextExecutionTime is past/now
+	delay := time.Until(*nextExecutionTime)
+	if delay <= 0 {
+		delay = minRequeueDelay
+	}
+	// add the item back to the queue after the delay
+	c.queue.AddAfter(key, delay)
 	return nil
 }
 
@@ -302,28 +321,28 @@ func isNamespaced(gvr schema.GroupVersionResource, mapper apimeta.RESTMapper) bo
 	return mapping.Scope.Name() == apimeta.RESTScopeNameNamespace
 }
 
-func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1alpha1.DeletingPolicyLike, time time.Time) error {
+func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1beta1.DeletingPolicyLike, time time.Time) error {
 	switch p := policy.(type) {
-	case *v1alpha1.DeletingPolicy:
-		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1alpha1().DeletingPolicies(), func(p *v1alpha1.DeletingPolicy) error {
-			p.Status = v1alpha1.DeletingPolicyStatus{
+	case *v1beta1.DeletingPolicy:
+		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1beta1().DeletingPolicies(), func(p *v1beta1.DeletingPolicy) error {
+			p.Status = v1beta1.DeletingPolicyStatus{
 				LastExecutionTime: metav1.NewTime(time),
 			}
 			return nil
-		}, func(current, expect *v1alpha1.DeletingPolicy) bool {
+		}, func(current, expect *v1beta1.DeletingPolicy) bool {
 			return datautils.DeepEqual(current.Status, expect.Status)
 		})
 		if err != nil {
 			return err
 		}
 		logging.Info("updated deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace(), "status", p.Status)
-	case *v1alpha1.NamespacedDeletingPolicy:
-		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1alpha1().NamespacedDeletingPolicies(p.GetNamespace()), func(p *v1alpha1.NamespacedDeletingPolicy) error {
-			p.Status = v1alpha1.DeletingPolicyStatus{
+	case *v1beta1.NamespacedDeletingPolicy:
+		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1beta1().NamespacedDeletingPolicies(p.GetNamespace()), func(p *v1beta1.NamespacedDeletingPolicy) error {
+			p.Status = v1beta1.DeletingPolicyStatus{
 				LastExecutionTime: metav1.NewTime(time),
 			}
 			return nil
-		}, func(current, expect *v1alpha1.NamespacedDeletingPolicy) bool {
+		}, func(current, expect *v1beta1.NamespacedDeletingPolicy) bool {
 			return datautils.DeepEqual(current.Status, expect.Status)
 		})
 		if err != nil {

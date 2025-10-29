@@ -1,4 +1,4 @@
-{{- if .Values.templating.enabled -}}
+{{- if .Values.global.templating.enabled -}}
 apiVersion: v1
 kind: Namespace
 metadata:

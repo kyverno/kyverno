@@ -33,7 +33,7 @@
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>
                   </li><li>
-                    <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>
+                    <a href="#policies-kyverno-io-v1alpha1-NamespacedImageValidatingPolicy">NamespacedImageValidatingPolicy</a>
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-PolicyException">PolicyException</a>
                   </li><li>
@@ -1756,7 +1756,7 @@ Required.</p>
     </table>
   
 
-  <H3 id="policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy
+  <H3 id="policies-kyverno-io-v1alpha1-NamespacedImageValidatingPolicy">NamespacedImageValidatingPolicy
     </H3>
 
   
@@ -1781,7 +1781,7 @@ Required.</p>
           </tr>
           <tr>
             <td><code>kind</code></br>string</td>
-            <td><code>NamespacedDeletingPolicy</code></td>
+            <td><code>NamespacedImageValidatingPolicy</code></td>
           </tr>
         
 
@@ -1836,8 +1836,8 @@ Required.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicySpec">
-                <span style="font-family: monospace">DeletingPolicySpec</span>
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicySpec">
+                <span style="font-family: monospace">ImageValidatingPolicySpec</span>
               </a>
             
           
@@ -1862,8 +1862,6 @@ Required.</p>
       <tr>
         <td><code>matchConstraints</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
@@ -1876,8 +1874,95 @@ Required.</p>
         <td>
           
 
-          <p>MatchConstraints specifies what resources this policy is designed to validate.
-The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+          <p>MatchConstraints specifies what resources this policy is designed to validate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FailurePolicy defines how to handle failures for the admission policy. Failures can
+occur from CEL expression parse errors, type check errors, runtime errors and invalid
+or mis-configured policy definitions or bindings.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>auditAnnotations contains CEL expressions which are used to produce audit
+annotations for the audit event of the API request.
+validations and auditAnnotations may not both be empty; a least one of validations or auditAnnotations is
+required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationActions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.ValidationAction</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
 Required.</p>
 
 
@@ -1891,7 +1976,7 @@ Required.</p>
     
     
       <tr>
-        <td><code>conditions</code>
+        <td><code>matchConditions</code>
           
           </br>
 
@@ -1905,15 +1990,10 @@ Required.</p>
         <td>
           
 
-          <p>Conditions is a list of conditions that must be met for a resource to be deleted.
-Conditions filter resources that have already been matched by the match constraints,
-namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
-There are a maximum of 64 conditions allowed.</p>
-<p>The exact matching logic is (in order):</p>
-<ol>
-<li>If ANY condition evaluates to FALSE, the policy is skipped.</li>
-<li>If ALL conditions evaluate to TRUE, the policy is executed.</li>
-</ol>
+          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
+Match conditions filter requests that have already been matched by the rules,
+namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+There are a maximum of 64 match conditions allowed.</p>
 
 
           
@@ -1941,11 +2021,7 @@ There are a maximum of 64 conditions allowed.</p>
           
 
           <p>Variables contain definitions of variables that can be used in composition of other expressions.
-Each variable is defined as a named CEL expression.
-The variables defined here will be available under <code>variables</code> in other expressions of the policy
-except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
-<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
-Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
+Each variable is defined as a named CEL expression.</p>
 
 
           
@@ -1958,7 +2034,68 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
     
     
       <tr>
-        <td><code>schedule</code>
+        <td><code>validationConfigurations</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ValidationConfiguration">
+                <span style="font-family: monospace">ValidationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationConfigurations defines settings for mutating and verifying image digests, and enforcing image verification through signatures.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchImageReferences</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-MatchImageReference">
+                <span style="font-family: monospace">[]MatchImageReference</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchImageReferences is a list of Glob and CELExpressions to match images.
+Any image that matches one of the rules is considered for validation
+Any image that does not match a rule is skipped, even when they are passed as arguments to
+image verification functions</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>credentials</code>
           
           <span style="color:blue;"> *</span>
           
@@ -1967,15 +2104,16 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
           
             
-              <span style="font-family: monospace">string</span>
+              <a href="#policies-kyverno-io-v1alpha1-Credentials">
+                <span style="font-family: monospace">Credentials</span>
+              </a>
             
           
         </td>
         <td>
           
 
-          <p>The schedule in Cron format
-Required.</p>
+          <p>Credentials provides credentials that will be used for authentication with registry.</p>
 
 
           
@@ -1988,21 +2126,199 @@ Required.</p>
     
     
       <tr>
-        <td><code>deletionPropagationPolicy</code>
+        <td><code>images</code>
           
           </br>
 
           
           
             
-              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
+              <a href="#policies-kyverno-io-v1alpha1-ImageExtractor">
+                <span style="font-family: monospace">[]ImageExtractor</span>
+              </a>
             
           
         </td>
         <td>
           
 
-          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+          <p>ImageExtractors is a list of CEL expression to extract images from the resource</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>attestors</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Attestor">
+                <span style="font-family: monospace">[]Attestor</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestors provides a list of trusted authorities.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>attestations</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-Attestation">
+                <span style="font-family: monospace">[]Attestation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestations provides a list of image metadata to verify</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validations</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations contain CEL expressions which is used to apply the image validation checks.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluation</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">
+                <span style="font-family: monospace">EvaluationConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>autogen</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogenConfiguration">
+                <span style="font-family: monospace">ImageValidatingPolicyAutogenConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AutogenConfiguration defines the configuration for the generation controller.</p>
 
 
           
@@ -2029,8 +2345,8 @@ Required.</p>
           
           
             
-              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicyStatus">
-                <span style="font-family: monospace">DeletingPolicyStatus</span>
+              <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyStatus">
+                <span style="font-family: monospace">ImageValidatingPolicyStatus</span>
               </a>
             
           
@@ -2262,6 +2578,34 @@ These excluded images can be referenced in CEL expressions via <code>exceptions.
 
           <p>AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
 These values can be referenced in CEL expressions via <code>exceptions.allowedValues</code>.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>reportResult</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ReportResult indicates whether the policy exception should be reported in the policy report
+as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
 
 
           
@@ -3916,8 +4260,7 @@ Secrets must live in the Kyverno namespace.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
     </p>
   
 
@@ -4108,8 +4451,7 @@ Required.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
     </p>
   
 
@@ -5394,6 +5736,7 @@ apply a regexp for matching.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-NamespacedImageValidatingPolicy">NamespacedImageValidatingPolicy</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>)
     </p>
   
@@ -5901,7 +6244,8 @@ image verification functions</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicy">ImageValidatingPolicy</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-NamespacedImageValidatingPolicy">NamespacedImageValidatingPolicy</a>)
     </p>
   
 
@@ -7706,6 +8050,34 @@ These excluded images can be referenced in CEL expressions via <code>exceptions.
 
           <p>AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
 These values can be referenced in CEL expressions via <code>exceptions.allowedValues</code>.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>reportResult</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ReportResult indicates whether the policy exception should be reported in the policy report
+as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
 
 
           
