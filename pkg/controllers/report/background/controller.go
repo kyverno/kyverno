@@ -80,7 +80,7 @@ type controller struct {
 	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister            policiesv1alpha1listers.MutatingPolicyLister
 	ivpolLister           policiesv1alpha1listers.ImageValidatingPolicyLister
-	nivpolLister 		  policiesv1alpha1listers.NamespacedImageValidatingPolicyLister
+	nivpolLister          policiesv1alpha1listers.NamespacedImageValidatingPolicyLister
 	polexLister           kyvernov2listers.PolicyExceptionLister
 	celpolexListener      policiesv1alpha1listers.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
