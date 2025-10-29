@@ -21,7 +21,7 @@ func ClusteredPolicy() Predicate {
 	return func(policy policiesv1beta1.ValidatingPolicyLike) bool { return policy.GetNamespace() == "" }
 }
 
-func NamespaccedPolicy(namespace string) Predicate {
+func NamespacedPolicy(namespace string) Predicate {
 	return func(policy policiesv1beta1.ValidatingPolicyLike) bool { return policy.GetNamespace() == namespace }
 }
 

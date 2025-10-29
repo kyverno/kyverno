@@ -70,7 +70,7 @@ func (h *handler) ValidateNamespaced(ctx context.Context, logger logr.Logger, ad
 			policies = params
 		}
 	}
-	predicate := vpolengine.And(vpolengine.MatchNames(policies...), vpolengine.NamespaccedPolicy(admissionRequest.Namespace))
+	predicate := vpolengine.And(vpolengine.MatchNames(policies...), vpolengine.NamespacedPolicy(admissionRequest.Namespace))
 	return h.validate(ctx, logger, admissionRequest, predicate)
 }
 
