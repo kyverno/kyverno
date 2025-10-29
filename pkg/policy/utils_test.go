@@ -260,6 +260,26 @@ func Test_resourceMatches(t *testing.T) {
 			isNamespacedPolicy: false,
 			want:               true,
 		},
+		{
+			name: "Matching resource based on its name and namespace where the namespace has multiple wildcards",
+			match: kyverno.ResourceDescription{
+				Namespaces: []string{"test-ns", "te*t-n*"},
+				Kinds:      []string{"Pod"},
+				Names:      []string{"my-pod"},
+			},
+			res: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name":      "my-pod",
+						"namespace": "test-ns1",
+					},
+				},
+			},
+			isNamespacedPolicy: false,
+			want:               true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
