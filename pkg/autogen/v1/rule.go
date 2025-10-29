@@ -97,7 +97,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	} else if len(rule.MatchResources.All) > 0 {
 		rule.MatchResources.All = grf(rule.MatchResources.All, kinds)
 	} else {
-		rule.MatchResources.Kinds = kinds
+		rule.MatchResources.Kinds = convertKindsToGVK(kinds)
 	}
 	if rule.ExcludeResources != nil {
 		if len(rule.ExcludeResources.Any) > 0 {
@@ -106,7 +106,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			rule.ExcludeResources.All = grf(rule.ExcludeResources.All, kinds)
 		} else {
 			if len(rule.ExcludeResources.Kinds) != 0 {
-				rule.ExcludeResources.Kinds = kinds
+				rule.ExcludeResources.Kinds = convertKindsToGVK(kinds)
 			}
 		}
 	}
@@ -268,7 +268,7 @@ func getAnyAllAutogenRule(v kyvernov1.ResourceFilters, match string, kinds []str
 	anyKind := v.DeepCopy()
 	for i, value := range v {
 		if kubeutils.ContainsKind(value.Kinds, match) {
-			anyKind[i].Kinds = kinds
+			anyKind[i].Kinds = convertKindsToGVK(kinds)
 		}
 	}
 	return anyKind
@@ -352,7 +352,7 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
 			anyKind := r.DeepCopy()
 			for i := range anyKind {
-				anyKind[i].Kinds = kinds
+				anyKind[i].Kinds = convertKindsToGVK(kinds)
 			}
 			return anyKind
 		},

@@ -19,7 +19,32 @@ var (
 	PodControllers         = sets.New("DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController", "CronJob")
 	podControllersKindsSet = PodControllers.Union(sets.New("Pod"))
 	assertAutogenNodes     = []string{"object", "oldObject"}
+	
+	// podControllerGVKMap maps simple kind names to fully-qualified GVKs
+	podControllerGVKMap = map[string]string{
+		"DaemonSet":             "apps/v1/DaemonSet",
+		"Deployment":            "apps/v1/Deployment",
+		"Job":                   "batch/v1/Job",
+		"StatefulSet":           "apps/v1/StatefulSet",
+		"ReplicaSet":            "apps/v1/ReplicaSet",
+		"ReplicationController": "v1/ReplicationController",
+		"CronJob":               "batch/v1/CronJob",
+		"Pod":                   "v1/Pod",
+	}
 )
+
+// convertKindsToGVK converts simple kind names to fully-qualified GVKs
+func convertKindsToGVK(kinds []string) []string {
+	gvkKinds := make([]string, 0, len(kinds))
+	for _, kind := range kinds {
+		if gvk, ok := podControllerGVKMap[kind]; ok {
+			gvkKinds = append(gvkKinds, gvk)
+		} else {
+			gvkKinds = append(gvkKinds, kind)
+		}
+	}
+	return gvkKinds
+}
 
 func isKindOtherthanPod(kinds []string) bool {
 	if len(kinds) > 1 && kubeutils.ContainsKind(kinds, "Pod") {
