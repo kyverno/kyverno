@@ -48,6 +48,13 @@ func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, confi
 		match := autogen.CreateMatchConstraints(targets, operations)
 		spec.SetMatchConstraints(*match)
 
+		for i := range spec.MatchConditions {
+			if spec.MatchConditions[i].Expression != "" {
+				convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
+				spec.MatchConditions[i].Expression = convertedExpr
+			}
+		}
+
 		for i := range spec.Mutations {
 			if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
 				convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
@@ -87,15 +94,24 @@ func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, confi
 // convertPodToTemplateExpression converts pod mutation expressions to template expressions
 func convertPodToTemplateExpression(expression string, config string) string {
 	var specReplacement string
+	var metadataReplacement string
+
 	switch config {
 	case "cronjobs":
 		specReplacement = "spec.jobTemplate.spec.template.spec"
+		metadataReplacement = "spec.jobTemplate.spec.template.metadata"
 	default:
 		specReplacement = "spec.template.spec"
+		metadataReplacement = "spec.template.metadata"
 	}
 
 	expression = strings.ReplaceAll(expression, "object.spec", "object."+specReplacement)
 	expression = strings.ReplaceAll(expression, "Object.spec", "Object."+specReplacement)
+
+	expression = strings.ReplaceAll(expression, "object.metadata.labels", "object."+metadataReplacement+".labels")
+	expression = strings.ReplaceAll(expression, "Object.metadata.labels", "Object."+metadataReplacement+".labels")
+	expression = strings.ReplaceAll(expression, "object.metadata.annotations", "object."+metadataReplacement+".annotations")
+	expression = strings.ReplaceAll(expression, "Object.metadata.annotations", "Object."+metadataReplacement+".annotations")
 
 	if strings.HasPrefix(strings.TrimSpace(expression), "Object{") {
 		content := strings.TrimSpace(expression)
