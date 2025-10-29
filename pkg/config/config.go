@@ -100,19 +100,20 @@ const (
 
 // keys in config map
 const (
-	resourceFilters               = "resourceFilters"
-	defaultRegistry               = "defaultRegistry"
-	enableDefaultRegistryMutation = "enableDefaultRegistryMutation"
-	excludeGroups                 = "excludeGroups"
-	excludeUsernames              = "excludeUsernames"
-	excludeRoles                  = "excludeRoles"
-	excludeClusterRoles           = "excludeClusterRoles"
-	generateSuccessEvents         = "generateSuccessEvents"
-	webhooks                      = "webhooks"
-	webhookAnnotations            = "webhookAnnotations"
-	webhookLabels                 = "webhookLabels"
-	matchConditions               = "matchConditions"
-	updateRequestThreshold        = "updateRequestThreshold"
+	resourceFilters                = "resourceFilters"
+	defaultRegistry                = "defaultRegistry"
+	enableDefaultRegistryMutation  = "enableDefaultRegistryMutation"
+	excludeGroups                  = "excludeGroups"
+	excludeUsernames               = "excludeUsernames"
+	excludeRoles                   = "excludeRoles"
+	excludeClusterRoles            = "excludeClusterRoles"
+	generateSuccessEvents          = "generateSuccessEvents"
+	webhooks                       = "webhooks"
+	webhookAnnotations             = "webhookAnnotations"
+	webhookLabels                  = "webhookLabels"
+	matchConditions                = "matchConditions"
+	updateRequestThreshold         = "updateRequestThreshold"
+	defaultAllowExistingViolations = "defaultAllowExistingViolations"
 )
 
 const UpdateRequestThreshold = 1000
@@ -136,6 +137,8 @@ var (
 	kyvernoMetricsConfigMapName = osutils.GetEnvWithFallback("METRICS_CONFIG", "kyverno-metrics")
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
+	// defaultAllowExistingViolationsValue is the default value for allowExistingViolations in validation rules
+	defaultAllowExistingViolationsValue = getDefaultAllowExistingViolationsValue()
 )
 
 func KyvernoNamespace() string {
@@ -178,6 +181,17 @@ func KyvernoUserName(serviceaccount string) string {
 	return fmt.Sprintf("system:serviceaccount:%s:%s", kyvernoNamespace, serviceaccount)
 }
 
+func getDefaultAllowExistingViolationsValue() bool {
+	val := osutils.GetEnvWithFallback("KYVERNO_DEFAULT_ALLOW_EXISTING_VIOLATIONS", "true")
+	boolVal, err := strconv.ParseBool(val)
+	if err != nil {
+		logger.Error(err, "failed to parse KYVERNO_DEFAULT_ALLOW_EXISTING_VIOLATIONS", "value", val)
+		return true
+	}
+	logger.V(2).Info("got default allow existing violations value", "value", boolVal)
+	return boolVal
+}
+
 // Configuration to be used by consumer to check filters
 type Configuration interface {
 	// GetDefaultRegistry return default image registry
@@ -204,24 +218,27 @@ type Configuration interface {
 	OnChanged(func())
 	// GetUpdateRequestThreshold gets the threshold limit for the total number of updaterequests
 	GetUpdateRequestThreshold() int64
+	// GetDefaultAllowExistingViolations returns the default value for allowExistingViolations in validation rules
+	GetDefaultAllowExistingViolations() bool
 }
 
 // configuration stores the configuration
 type configuration struct {
-	skipResourceFilters           bool
-	defaultRegistry               string
-	enableDefaultRegistryMutation bool
-	exclusions                    match
-	inclusions                    match
-	filters                       []filter
-	generateSuccessEvents         bool
-	webhook                       WebhookConfig
-	webhookAnnotations            map[string]string
-	webhookLabels                 map[string]string
-	matchConditions               []admissionregistrationv1.MatchCondition
-	mux                           sync.RWMutex
-	callbacks                     []func()
-	updateRequestThreshold        int64
+	skipResourceFilters            bool
+	defaultRegistry                string
+	enableDefaultRegistryMutation  bool
+	exclusions                     match
+	inclusions                     match
+	filters                        []filter
+	generateSuccessEvents          bool
+	webhook                        WebhookConfig
+	webhookAnnotations             map[string]string
+	webhookLabels                  map[string]string
+	matchConditions                []admissionregistrationv1.MatchCondition
+	mux                            sync.RWMutex
+	callbacks                      []func()
+	updateRequestThreshold         int64
+	defaultAllowExistingViolations bool
 }
 
 type match struct {
@@ -268,9 +285,10 @@ func (c match) matches(username string, groups []string, roles []string, cluster
 // NewDefaultConfiguration ...
 func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 	return &configuration{
-		skipResourceFilters:           skipResourceFilters,
-		defaultRegistry:               "docker.io",
-		enableDefaultRegistryMutation: true,
+		skipResourceFilters:            skipResourceFilters,
+		defaultRegistry:                "docker.io",
+		enableDefaultRegistryMutation:  true,
+		defaultAllowExistingViolations: getDefaultAllowExistingViolationsValue(),
 	}
 }
 
@@ -356,6 +374,12 @@ func (cd *configuration) GetUpdateRequestThreshold() int64 {
 	return cd.updateRequestThreshold
 }
 
+func (cd *configuration) GetDefaultAllowExistingViolations() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.defaultAllowExistingViolations
+}
+
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	if cm != nil {
 		cd.load(cm)
@@ -384,6 +408,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	cd.matchConditions = nil
+	cd.defaultAllowExistingViolations = defaultAllowExistingViolationsValue
 	// load filters
 	cd.filters = parseKinds(data[resourceFilters])
 	cd.updateRequestThreshold = UpdateRequestThreshold
@@ -519,15 +544,32 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	}
 	threshold, ok := data[updateRequestThreshold]
 	if !ok {
-		logger.V(2).Info("enableDefaultRegistryMutation not set")
+		logger.V(2).Info("updateRequestThreshold not set")
 	} else {
-		logger := logger.WithValues("enableDefaultRegistryMutation", enableDefaultRegistryMutation)
+		logger := logger.WithValues("updateRequestThreshold", threshold)
 		urThreshold, err := strconv.ParseInt(threshold, 10, 64)
 		if err != nil {
-			logger.Error(err, "enableDefaultRegistryMutation is not a boolean")
+			logger.Error(err, "updateRequestThreshold is not a number")
 		} else {
 			cd.updateRequestThreshold = urThreshold
-			logger.V(2).Info("enableDefaultRegistryMutation configured")
+			logger.V(2).Info("updateRequestThreshold configured")
+		}
+	}
+
+	// load defaultAllowExistingViolations
+	defaultAllowValue, ok := data[defaultAllowExistingViolations]
+	if !ok {
+		logger.V(2).Info("defaultAllowExistingViolations not set, using default true")
+		cd.defaultAllowExistingViolations = true
+	} else {
+		logger := logger.WithValues("defaultAllowExistingViolations", defaultAllowValue)
+		allowValue, err := strconv.ParseBool(defaultAllowValue)
+		if err != nil {
+			logger.Error(err, "defaultAllowExistingViolations is not a boolean, using default true")
+			cd.defaultAllowExistingViolations = true
+		} else {
+			cd.defaultAllowExistingViolations = allowValue
+			logger.V(2).Info("defaultAllowExistingViolations configured")
 		}
 	}
 }
@@ -545,6 +587,7 @@ func (cd *configuration) unload() {
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
+	cd.defaultAllowExistingViolations = true
 	logger.V(2).Info("configuration unloaded")
 }
 
