@@ -145,6 +145,7 @@ func createrLeaderControllers(
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
 	autoDeleteWebhooks bool,
+	globalContextEntriesAvailable bool,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -267,38 +268,45 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, celExceptionControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, celExceptionControllerFinalizerName),
 	)
-	gctxWebhookController := genericwebhookcontroller.NewController(
-		gctxWebhookControllerName,
-		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
-		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-		caInformer,
-		deploymentInformer,
-		config.GlobalContextValidatingWebhookConfigurationName,
-		config.GlobalContextValidatingWebhookServicePath,
-		serverIP,
-		servicePort,
-		webhookServerPort,
-		nil,
-		[]admissionregistrationv1.RuleWithOperations{{
-			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{"kyverno.io"},
-				APIVersions: []string{"v2alpha1"},
-				Resources:   []string{"globalcontextentries"},
-			},
-			Operations: []admissionregistrationv1.OperationType{
-				admissionregistrationv1.Create,
-				admissionregistrationv1.Update,
-			},
-		}},
-		genericwebhookcontroller.Fail,
-		genericwebhookcontroller.None,
-		configuration,
-		caSecretName,
-		runtime,
-		autoDeleteWebhooks,
-		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
-		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
-	)
+	var gctxWebhookController internal.Controller
+	if globalContextEntriesAvailable {
+		gctxWebhookController = internal.NewController(
+			gctxWebhookControllerName,
+			genericwebhookcontroller.NewController(
+				gctxWebhookControllerName,
+				kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+				kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+				caInformer,
+				deploymentInformer,
+				config.GlobalContextValidatingWebhookConfigurationName,
+				config.GlobalContextValidatingWebhookServicePath,
+				serverIP,
+				servicePort,
+				webhookServerPort,
+				nil,
+				[]admissionregistrationv1.RuleWithOperations{{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"kyverno.io"},
+						APIVersions: []string{"v2alpha1"},
+						Resources:   []string{"globalcontextentries"},
+					},
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}},
+				genericwebhookcontroller.Fail,
+				genericwebhookcontroller.None,
+				configuration,
+				caSecretName,
+				runtime,
+				autoDeleteWebhooks,
+				webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
+				webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
+			),
+			1,
+		)
+	}
 	policyStatusController := policystatuscontroller.NewController(
 		dynamicClient,
 		kyvernoClient,
@@ -313,7 +321,9 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(celExceptionWebhookControllerName, celExceptionWebhookController, 1))
-	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
+	if gctxWebhookController != nil {
+		leaderControllers = append(leaderControllers, gctxWebhookController)
+	}
 	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
 	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
@@ -502,21 +512,31 @@ func main() {
 		gcstore := store.New()
 		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
 
-		gceController := internal.NewController(
-			globalcontextcontroller.ControllerName,
-			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
-				setup.KubeClient,
-				setup.KyvernoDynamicClient,
-				setup.KyvernoClient,
-				gcstore,
-				eventGenerator,
-				maxAPICallResponseLength,
-				true,
-				setup.Jp,
-			),
-			globalcontextcontroller.Workers,
-		)
+		// Check if GlobalContextEntries CRD exists before using it
+		globalContextEntriesAvailable := true
+		if err := kubeutils.CRDsInstalled(setup.ApiServerClient, "globalcontextentries.kyverno.io"); err != nil {
+			setup.Logger.Info("GlobalContextEntries CRD not available, disabling global context controller", "error", err)
+			globalContextEntriesAvailable = false
+		}
+
+		var gceController internal.Controller
+		if globalContextEntriesAvailable {
+			gceController = internal.NewController(
+				globalcontextcontroller.ControllerName,
+				globalcontextcontroller.NewController(
+					kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+					setup.KubeClient,
+					setup.KyvernoDynamicClient,
+					setup.KyvernoClient,
+					gcstore,
+					eventGenerator,
+					maxAPICallResponseLength,
+					true,
+					setup.Jp,
+				),
+				globalcontextcontroller.Workers,
+			)
+		}
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventController := internal.NewController(
 			event.ControllerName,
@@ -602,6 +622,7 @@ func main() {
 					webhookTimeout,
 					autoUpdateWebhooks,
 					autoDeleteWebhooks,
+					globalContextEntriesAvailable,
 					kubeInformer,
 					kubeKyvernoInformer,
 					kyvernoInformer,
@@ -962,7 +983,9 @@ func main() {
 		defer server.Stop()
 		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
-		gceController.Run(signalCtx, setup.Logger, &wg)
+		if gceController != nil {
+			gceController.Run(signalCtx, setup.Logger, &wg)
+		}
 		if polexController != nil {
 			polexController.Run(signalCtx, setup.Logger, &wg)
 		}
