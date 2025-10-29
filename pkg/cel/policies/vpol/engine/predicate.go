@@ -16,3 +16,22 @@ func MatchNames(names ...string) Predicate {
 	namesSet := sets.New(names...)
 	return func(policy policiesv1beta1.ValidatingPolicyLike) bool { return namesSet.Has(policy.GetName()) }
 }
+
+func ClusteredPolicy() Predicate {
+	return func(policy policiesv1beta1.ValidatingPolicyLike) bool { return policy.GetNamespace() == "" }
+}
+
+func NamespaccedPolicy(namespace string) Predicate {
+	return func(policy policiesv1beta1.ValidatingPolicyLike) bool { return policy.GetNamespace() == namespace }
+}
+
+func And(conditions ...Predicate) Predicate {
+	return func(policy policiesv1beta1.ValidatingPolicyLike) bool {
+		for _, condition := range conditions {
+			if condition(policy) == false {
+				return false
+			}
+		}
+		return true
+	}
+}
