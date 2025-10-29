@@ -1,6 +1,9 @@
 package policy
 
 import (
+	"path"
+	"strings"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
@@ -36,6 +39,15 @@ func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true
+		}
+		if strings.Contains(s, "*") || strings.Contains(s, "?") {
+			isMatch, err := path.Match(s, item)
+			if err != nil {
+				return false
+			}
+			if isMatch {
+				return true
+			}
 		}
 	}
 	return false
