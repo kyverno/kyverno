@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"strings"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
@@ -26,10 +28,23 @@ func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstr
 		}
 	}
 
-	if !isNamespacedPolicy && len(match.Namespaces) > 0 && !contains(match.Namespaces, res.GetNamespace()) {
+	if !isNamespacedPolicy && len(match.Namespaces) > 0 && !containsIncludingWildcards(match.Namespaces, res.GetNamespace()) {
 		return false
 	}
 	return true
+}
+
+func containsIncludingWildcards(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+
+		if strings.Contains(s, "*") || strings.Contains(s, "?") {
+			return wildcard.Match(s, item)
+		}
+	}
+	return false
 }
 
 func contains(slice []string, item string) bool {
