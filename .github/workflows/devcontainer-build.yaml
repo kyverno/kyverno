@@ -21,11 +21,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Build devcontainer image
-        run: docker build .devcontainer   
+        uses: devcontainers/ci@8bf61b26e9c3a98f69cb6ce2f88d24ff59b785c6 # v0.3
+        with:
+          imageName: kyverno-devcontainer
+          push: never
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
-          scan-type: 'fs'
+          scan-type: 'image'
+          image-ref: kyverno-devcontainer
           ignore-unfixed: true
           format: 'sarif'
           output: 'trivy-results.sarif'
