@@ -87,7 +87,7 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]Image
 	return patches, nil
 }
 
-func Validate(ivpol *policiesv1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) ([]string, error) {
+func Validate(ivpol policiesv1alpha1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) ([]string, error) {
 	ictx, er := imagedataloader.NewImageContext(lister)
 	if er != nil {
 		return nil, nil

@@ -8,7 +8,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -50,7 +49,7 @@ type compiledPolicy struct {
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
-	creds                *v1alpha1.Credentials
+	creds                *policiesv1alpha1.Credentials
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 }
