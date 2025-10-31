@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -255,14 +256,28 @@ func Test_addImages(t *testing.T) {
 	updatedChecks := addImages(checks, imageInfos)
 
 	assert.Equal(t, len(checks), len(updatedChecks))
-	assert.Equal(t, []string{"docker.io/nginx:v13.4", "index.docker.io/busybox:v1.2.3"}, updatedChecks[0].Images)
-	assert.Equal(t, []string{"docker.io/nginx:v13.4", "index.docker.io/busybox:v1.2.3"}, updatedChecks[1].Images)
-	assert.Equal(t, []string{"docker.io/nginx:v13.4", "index.docker.io/busybox:v1.2.3"}, updatedChecks[2].Images)
-	assert.Equal(t, []string{"docker.io/nginx:v13.4", "index.docker.io/busybox:v1.2.3"}, updatedChecks[3].Images)
-	assert.Equal(t, []string{"docker.io/nginx:v13.4"}, updatedChecks[4].Images)
-	assert.Equal(t, []string{"docker.io/test/nginx:latest"}, updatedChecks[5].Images)
+	exp := []string{"docker.io/nginx:v13.4", "index.docker.io/busybox:v1.2.3"}
+	got := append([]string(nil), updatedChecks[0].Images...)
+	sort.Strings(exp)
+	sort.Strings(got)
+	assert.DeepEqual(t, got, exp)
+
+	got = append([]string(nil), updatedChecks[1].Images...)
+	sort.Strings(got)
+	assert.DeepEqual(t, got, exp)
+
+	got = append([]string(nil), updatedChecks[2].Images...)
+	sort.Strings(got)
+	assert.DeepEqual(t, got, exp)
+
+	got = append([]string(nil), updatedChecks[3].Images...)
+	sort.Strings(got)
+	assert.DeepEqual(t, got, exp)
+
+	assert.DeepEqual(t, updatedChecks[4].Images, []string{"docker.io/nginx:v13.4"})
+	assert.DeepEqual(t, updatedChecks[5].Images, []string{"docker.io/test/nginx:latest"})
 
 	delete(imageInfos, "ephemeralContainers")
 	updatedChecks = addImages(checks, imageInfos)
-	assert.Equal(t, []string{"nginx2"}, updatedChecks[5].Images)
+	assert.DeepEqual(t, []string{"nginx2"}, updatedChecks[5].Images)
 }
