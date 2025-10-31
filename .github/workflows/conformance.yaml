@@ -1257,7 +1257,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
-      - run: ${{ true }}
+      - run: echo "All conformance tests passed successfully"
 
   conformance-required-failure:
     name: conformance-required
@@ -1304,4 +1304,4 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:
-      - run: ${{ false }}
+      - run: echo "Some conformance tests failed" && exit 1
