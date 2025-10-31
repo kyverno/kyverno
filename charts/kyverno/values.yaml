@@ -521,10 +521,10 @@ webhooksCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: bitnami/kubectl
+    repository: alpine/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.32.3'
+    tag: '1.33.4'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -588,10 +588,10 @@ policyReportsCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: bitnami/kubectl
+    repository: alpine/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.32.3'
+    tag: '1.33.4'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~

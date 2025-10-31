@@ -94,8 +94,8 @@ spec:
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
           command:
-            - /bin/bash
-            - '-c'
+            - /bin/sh
+            - -c
             - |-
               set -euo pipefail
               kubectl delete cm --ignore-not-found -n {{ template "kyverno.namespace" . }} {{ template "kyverno.config.configMapName" . }}

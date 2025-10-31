@@ -36,29 +36,27 @@ spec:
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.policyReportsCleanup.image "defaultTag" (default .Chart.AppVersion .Values.policyReportsCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.policyReportsCleanup.image.pullPolicy }}
           command:
-            - /bin/bash
+            - /bin/sh
             - -c
-            - |
+            - |-
               set -euo pipefail
               NAMESPACES=$(kubectl get namespaces --no-headers=true | awk '{print $1}')
 
-              for ns in ${NAMESPACES[@]};
+              for ns in $NAMESPACES
               do
-                COUNT=$(kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '/pol/{print $1}' | wc -l)
-
-                if [ $COUNT -gt 0 ]; then
+                COUNT=$(kubectl get policyreports.wgpolicyk8s.io -n "$ns" --no-headers=true | awk '/pol/{print $1}' | wc -l)
+                if [ "$COUNT" -gt 0 ]; then
                   echo "deleting $COUNT policyreports in namespace $ns"
-                  kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '/pol/{print $1}' | xargs kubectl delete -n $ns policyreports.wgpolicyk8s.io
+                  kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '/pol/{print $1}' | xargs -r kubectl delete -n $ns policyreports.wgpolicyk8s.io
                 else
                   echo "no policyreports in namespace $ns"
                 fi
               done
 
               COUNT=$(kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | wc -l)
-
-              if [ $COUNT -gt 0 ]; then
+              if [ "$COUNT" -gt 0 ]; then
                 echo "deleting $COUNT clusterpolicyreports"
-                kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | xargs kubectl delete clusterpolicyreports.wgpolicyk8s.io
+                kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | xargs -r kubectl delete clusterpolicyreports.wgpolicyk8s.io
               else
                 echo "no clusterpolicyreports"
               fi
