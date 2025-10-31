@@ -219,18 +219,27 @@ func (h validatePssHandler) validateOldObject(
 func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {
 	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
 		for i := range checks {
+			if checks[i].CheckResult.ErrList == nil {
+				continue
+			}
 			for j := range *checks[i].CheckResult.ErrList {
 				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.template.spec")
 			}
 		}
 	} else if kind == "CronJob" {
 		for i := range checks {
+			if checks[i].CheckResult.ErrList == nil {
+				continue
+			}
 			for j := range *checks[i].CheckResult.ErrList {
 				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.jobTemplate.spec.template.spec")
 			}
 		}
 	}
 	for i := range checks {
+		if checks[i].CheckResult.ErrList == nil {
+			continue
+		}
 		for j := range *checks[i].CheckResult.ErrList {
 			(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "metadata", "spec.template.metadata")
 		}

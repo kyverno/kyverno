@@ -11,7 +11,7 @@ type: Warning
 reason: PolicyViolation
 action: Resource Passed
 reportingComponent: kyverno-scan
-message: 'policy podsecurity-subrule-restricted/restricted fail: Validation rule
-    ''restricted'' failed. It violates PodSecurity "restricted:latest": (Forbidden
-    reason: unrestricted capabilities, field error list: [spec.containers[0].securityContext.capabilities.drop:
-    Required value])'
+message: 'policy podsecurity-subrule-restricted/restricted fail: Validation rule ''restricted''
+  failed. It violates PodSecurity "restricted:latest": (Forbidden reason: unrestricted
+  capabilities, field error list: [spec.containers[0].securityContext.capabilities.drop:
+  Required value])'
