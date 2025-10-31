@@ -3,6 +3,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 featureGates:
   MutatingAdmissionPolicy: true
 runtimeConfig:
+  admissionregistration.k8s.io/v1alpha1: true
   admissionregistration.k8s.io/v1beta1: true
   admissionregistration.k8s.io/v1: true
 kubeadmConfigPatches:
