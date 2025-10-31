@@ -656,8 +656,8 @@ github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e h1:gh9iMuJS
 github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e/go.mod h1:3LgZogzltja+Sx0o5CIa7d7+991v8sWXHskU0fWSOsQ=
 github.com/kyverno/pkg/ext v0.0.0-20240418121121-df8add26c55c h1:lAolpR9H8BwM5lRRvgCQ8JowswyxZRH+fgtIQzHFVCk=
 github.com/kyverno/pkg/ext v0.0.0-20240418121121-df8add26c55c/go.mod h1:02vxM0GNXz9+B/i6+rMfWAIwibUuAH+qFsd73IFskgQ=
-github.com/kyverno/pod-security-admission v0.0.0-20251030135229-0144b27ab926 h1:HSPczIaby27i4ixlKjR5Qc2VyxHLuXqZy1040gQF/HE=
-github.com/kyverno/pod-security-admission v0.0.0-20251030135229-0144b27ab926/go.mod h1:2oJ/wAoh8hld09eMTT1KzlN3dHjKEQn1xJdu1WAZMa0=
+github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f h1:9u+4QYMLdZPC8qeUB1TnfiUYRrFGYHxjYQsPiHKgJjI=
+github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f/go.mod h1:2oJ/wAoh8hld09eMTT1KzlN3dHjKEQn1xJdu1WAZMa0=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7/go.mod h1:YR/zYthNdWfO8+0IOyHDcIDBBBS2JMnYUIwSsnwmRqU=
 github.com/letsencrypt/boulder v0.0.0-20240823215653-da7865cb107b h1:j3RD0lOLpskJ4BWK49hIKjXbt0Imoi4J4KvSd6XK898=
