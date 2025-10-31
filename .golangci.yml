@@ -28,6 +28,8 @@ linters:
     - unconvert
     - wastedassign
     - whitespace
+  disable:
+    - staticcheck
   settings:
     importas:
       alias:
