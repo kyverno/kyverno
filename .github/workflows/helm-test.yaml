@@ -50,6 +50,7 @@ jobs:
         if: failure()
         uses: ./.github/actions/kyverno-logs
       - name: Get logs from liveness pod
+        if: failure()
         run: |
           kubectl -n kyverno logs pod/kyverno-cleanup-controller-liveness
 
