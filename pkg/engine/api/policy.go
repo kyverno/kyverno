@@ -198,7 +198,7 @@ func (p *genericPolicy) GetAPIVersion() string {
 		}
 		return policiesv1alpha1.GroupVersion.String()
 	case p.NamespacedValidatingPolicy != nil:
-		if apiVersion := p.ValidatingPolicy.APIVersion; apiVersion != "" {
+		if apiVersion := p.NamespacedValidatingPolicy.APIVersion; apiVersion != "" {
 			return apiVersion
 		}
 		return policiesv1beta1.GroupVersion.String()

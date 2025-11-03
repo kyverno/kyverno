@@ -493,8 +493,6 @@ Required.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -886,7 +884,24 @@ required.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           
@@ -1478,8 +1493,6 @@ or mis-configured policy definitions or bindings.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -1963,7 +1976,24 @@ required.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           
@@ -2872,8 +2902,6 @@ required.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -2975,7 +3003,24 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           
@@ -4975,8 +5020,6 @@ Required.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -5867,7 +5910,24 @@ required.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           
@@ -7331,8 +7391,6 @@ or mis-configured policy definitions or bindings.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -9300,8 +9358,6 @@ required.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -9403,7 +9459,24 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           
