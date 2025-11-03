@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.33.1
+KIND_IMAGE           ?= kindest/node:v1.34.0
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -35,15 +35,15 @@ INSTALL_VERSION	     ?= 3.2.6
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.29.0
+KIND_VERSION                       ?= v0.30.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.17.3
+CONTROLLER_GEN_VERSION             ?= v0.18.0
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
-CODE_GEN_VERSION                   ?= v0.32.4
+CODE_GEN_VERSION                   ?= v0.34.1
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
@@ -51,11 +51,11 @@ GENREF_VERSION                     ?= master
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  ?= latest
 HELM                               ?= $(TOOLS_DIR)/helm
-HELM_VERSION                       ?= v3.17.3
+HELM_VERSION                       ?= v3.19.0
 HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  ?= v1.14.2
 KO                                 ?= $(TOOLS_DIR)/ko
-KO_VERSION                         ?= v0.17.1
+KO_VERSION                         ?= v0.18.0
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
@@ -463,7 +463,8 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--input ./api/kyverno/v2alpha1 \
 		--input ./api/reports/v1 \
 		--input ./api/policyreport/v1alpha2 \
-		--input ./api/policies.kyverno.io/v1alpha1
+		--input ./api/policies.kyverno.io/v1alpha1 \
+		--input ./api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
@@ -479,7 +480,8 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v2alpha1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		./api/policies.kyverno.io/v1alpha1
+		./api/policies.kyverno.io/v1alpha1 \
+		./api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
@@ -497,7 +499,8 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v2alpha1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		./api/policies.kyverno.io/v1alpha1
+		./api/policies.kyverno.io/v1alpha1 \
+		./api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: ## Generate client wrappers
@@ -537,6 +540,7 @@ codegen-crds-policies: $(CONTROLLER_GEN)
 	@rm -rf $(CRDS_PATH)/policies.kyverno.io && mkdir -p $(CRDS_PATH)/policies.kyverno.io
 	@$(CONTROLLER_GEN) \
 		paths=./api/policies.kyverno.io/v1alpha1/... \
+		paths=./api/policies.kyverno.io/v1beta1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policies.kyverno.io
 
@@ -647,6 +651,16 @@ define generate_crd
 		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/crds/templates/$(3)/$(1)
+	@cat $(CRDS_PATH)/$(2)/$(1) \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
+ 		>> ./charts/crds/templates/$(3)/$(1)
+	@echo "{{- end }}" >> ./charts/crds/templates/$(3)/$(1)
 endef
 
 .PHONY: helm-setup-dependency-charts
@@ -663,6 +677,10 @@ helm-setup-openreports: helm-setup-dependency-charts ## (Deprecated) Use helm-se
 codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
 	@echo Generate helm crds... >&2
+	@rm -rf ./charts/crds/templates/kyverno.io && mkdir -p ./charts/crds/templates/kyverno.io
+	@rm -rf ./charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/crds/templates/reports.kyverno.io
+	@rm -rf ./charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/crds/templates/wgpolicyk8s.io
+	@rm -rf ./charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/crds/templates/policies.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
@@ -676,14 +694,20 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
 	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
 	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedvalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedvalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedimagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedimagevalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
 	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
 	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespaceddeletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespaceddeletingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
 	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports,true)
+	@rm -rf ./charts/crds/templates/kyverno.io
+	@rm -rf ./charts/crds/templates/reports.kyverno.io
+	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -701,8 +725,8 @@ codegen-manifest-install-latest: helm-setup-dependency-charts
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=latest \
+		--set global.templating.enabled=true \
+		--set global.templating.version=latest \
 		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
@@ -717,9 +741,9 @@ codegen-manifest-debug: helm-setup-dependency-charts
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=latest \
-		--set templating.debug=true \
+		--set global.templating.enabled=true \
+		--set global.templating.version=latest \
+		--set global.templating.debug=true \
 		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
@@ -733,8 +757,8 @@ codegen-manifest-release: helm-setup-dependency-charts
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=$(VERSION) \
+		--set global.templating.enabled=true \
+		--set global.templating.version=$(VERSION) \
 		--set admissionController.container.image.tag=$(VERSION) \
 		--set admissionController.initContainer.image.tag=$(VERSION) \
 		--set cleanupController.image.tag=$(VERSION) \
@@ -836,7 +860,7 @@ test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-cel-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
 
 .PHONY: test-cli-local-validate
 test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
@@ -893,10 +917,6 @@ test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
 	@echo Running local cli exception tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-exceptions
 
-.PHONY: test-cli-local-cel-exceptions
-test-cli-local-cel-exceptions: $(CLI_BIN) ## Run local CLI cel exception tests
-	@echo Running local cli cel exception tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-cel-exceptions
 
 .PHONY: test-cli-local-selector
 test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
@@ -1145,7 +1165,7 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+	@$(HELM) install metrics-server metrics-server --repo https://kubernetes-sigs.github.io/metrics-server/ \
 		--namespace kube-system --wait \
 		--values ./scripts/config/dev/metrics-server.yaml
 

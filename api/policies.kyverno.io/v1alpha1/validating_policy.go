@@ -1,11 +1,9 @@
 package v1alpha1
 
 import (
-	"context"
-
-	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -15,7 +13,9 @@ import (
 // +kubebuilder:resource:path=validatingpolicies,scope="Cluster",shortName=vpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
+// +kubebuilder:selectablefield:JSONPath=`.spec.evaluation.mode`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
 
 type ValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -26,9 +26,20 @@ type ValidatingPolicy struct {
 	Status ValidatingPolicyStatus `json:"status,omitempty"`
 }
 
-// BackgroundEnabled checks if background is set to true
-func (s ValidatingPolicy) BackgroundEnabled() bool {
-	return s.Spec.BackgroundEnabled()
+// ValidatingPolicyLike captures the common behaviour shared by validating policies regardless of scope.
+// +k8s:deepcopy-gen=false
+type ValidatingPolicyLike interface {
+	metav1.Object
+	runtime.Object
+	GetSpec() *ValidatingPolicySpec
+	GetStatus() *ValidatingPolicyStatus
+	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
+	GetMatchConstraints() admissionregistrationv1.MatchResources
+	GetMatchConditions() []admissionregistrationv1.MatchCondition
+	GetVariables() []admissionregistrationv1.Variable
+	GetValidatingPolicySpec() *ValidatingPolicySpec
+	BackgroundEnabled() bool
+	GetKind() string
 }
 
 type ValidatingPolicyStatus struct {
@@ -41,51 +52,6 @@ type ValidatingPolicyStatus struct {
 	// Generated indicates whether a ValidatingAdmissionPolicy/MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
-}
-
-func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.MatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-	return *s.Spec.MatchConstraints
-}
-
-func (s *ValidatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.Spec.MatchConditions
-}
-
-func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
-		return admissionregistrationv1.Ignore
-	}
-	if s.Spec.FailurePolicy == nil {
-		return admissionregistrationv1.Fail
-	}
-	return *s.Spec.FailurePolicy
-}
-
-func (s *ValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
-}
-
-func (s *ValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
-	return s.Spec.Variables
-}
-
-func (s *ValidatingPolicy) GetSpec() *ValidatingPolicySpec {
-	return &s.Spec
-}
-
-func (s *ValidatingPolicy) GetStatus() *ValidatingPolicyStatus {
-	return &s.Status
-}
-
-func (s *ValidatingPolicy) GetKind() string {
-	return "ValidatingPolicy"
-}
-
-func (status *ValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {
-	return &status.ConditionStatus
 }
 
 // +kubebuilder:object:root=true
@@ -138,9 +104,6 @@ type ValidatingPolicySpec struct {
 	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 	// There are a maximum of 64 match conditions allowed.
 	//
-	// If a parameter object is provided, it can be accessed via the `params` handle in the same
-	// manner as validation expressions.
-	//
 	// The exact matching logic is (in order):
 	//   1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
 	//   2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
@@ -174,6 +137,32 @@ type ValidatingPolicySpec struct {
 	AutogenConfiguration *ValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
+	// If a validation evaluates to false it is always enforced according to these actions.
+	//
+	// Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+	// to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+	// ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.
+	//
+	// validationActions is declared as a set of action values. Order does
+	// not matter. validationActions may not contain duplicates of the same action.
+	//
+	// The supported actions values are:
+	//
+	// "Deny" specifies that a validation failure results in a denied request.
+	//
+	// "Warn" specifies that a validation failure is reported to the request client
+	// in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+	// both for allowed or denied admission responses.
+	//
+	// "Audit" specifies that a validation failure is recorded in the created reports.
+	//
+	// Clients should expect to handle additional values by ignoring
+	// any values not recognized.
+	//
+	// "Deny" and "Warn" may not be used together since this combination
+	// needlessly duplicates the validation failure both in the
+	// API response body and the HTTP warning headers.
+	//
 	// Required.
 	// +listType=set
 	// +kubebuilder:validation:items:Enum=Deny;Audit;Warn
@@ -186,57 +175,6 @@ type ValidatingPolicySpec struct {
 	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
-}
-
-// GenerateValidatingAdmissionPolicyEnabled checks if validating admission policy generation is enabled
-func (s ValidatingPolicySpec) GenerateValidatingAdmissionPolicyEnabled() bool {
-	const defaultValue = false
-	if s.AutogenConfiguration == nil {
-		return defaultValue
-	}
-	if s.AutogenConfiguration.ValidatingAdmissionPolicy == nil {
-		return defaultValue
-	}
-	if s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled == nil {
-		return defaultValue
-	}
-	return *s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled
-}
-
-// AdmissionEnabled checks if admission is set to true
-func (s ValidatingPolicySpec) AdmissionEnabled() bool {
-	const defaultValue = true
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.Admission.Enabled
-}
-
-// BackgroundEnabled checks if background is set to true
-func (s ValidatingPolicySpec) BackgroundEnabled() bool {
-	const defaultValue = true
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.Background.Enabled
-}
-
-// EvaluationMode returns the evaluation mode of the policy.
-func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
-	const defaultValue = EvaluationModeKubernetes
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
-		return defaultValue
-	}
-	return s.EvaluationConfiguration.Mode
-}
-
-// ValidationActions returns the validation actions.
-func (s ValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
-	const defaultValue = admissionregistrationv1.Deny
-	if len(s.ValidationAction) == 0 {
-		return []admissionregistrationv1.ValidationAction{defaultValue}
-	}
-	return s.ValidationAction
 }
 
 type ValidatingPolicyAutogenConfiguration struct {

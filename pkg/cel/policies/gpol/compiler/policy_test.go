@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -35,7 +36,7 @@ func (m *mockProgram) Eval(any) (ref.Val, *cel.EvalDetails, error) {
 
 var (
 	gvk     = schema.GroupVersionKind{Group: "", Version: "", Kind: ""}
-	request = engine.Request(&fakeContext{}, res.GroupVersionKind(), schema.GroupVersionResource{}, "", "", "", admissionv1.Create, authenticationv1.UserInfo{}, &res, nil, false, nil)
+	request = engine.Request(&libs.FakeContextProvider{}, res.GroupVersionKind(), schema.GroupVersionResource{}, "", "", "", admissionv1.Create, authenticationv1.UserInfo{}, &res, nil, false, nil)
 	attr    = admission.NewAttributesRecord(&obj, &oldObj, gvk, "", "", gvk.GroupVersion().WithResource("res"), "", admission.Connect, &res, false, &user.DefaultInfo{})
 )
 
@@ -51,7 +52,7 @@ func TestPolicyEvaluate(t *testing.T) {
 		res.SetName("valid-name")
 		res.SetNamespace("test-ns")
 
-		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &fakeContext{})
+		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
 		assert.Nil(t, resources)
 		assert.Nil(t, exceptions)
@@ -82,7 +83,7 @@ func TestPolicyEvaluate(t *testing.T) {
 		res.SetName("exception-name")
 		res.SetNamespace("test-ns")
 
-		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &fakeContext{})
+		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
 		assert.Nil(t, resources)
 		assert.NotNil(t, exceptions)
@@ -103,7 +104,7 @@ func TestPolicyEvaluate(t *testing.T) {
 		res.SetName("bad-exception")
 		res.SetNamespace("bad-ns")
 
-		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &fakeContext{})
+		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
 		assert.Nil(t, resources)
 		assert.Nil(t, exceptions)
@@ -120,7 +121,7 @@ func TestPolicyEvaluate(t *testing.T) {
 		res.SetName("bad-match")
 		res.SetNamespace("ns")
 
-		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &fakeContext{})
+		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
 		assert.Nil(t, resources)
 		assert.Nil(t, exceptions)
@@ -139,7 +140,7 @@ func TestPolicyEvaluate(t *testing.T) {
 		res.SetName("gen-fail")
 		res.SetNamespace("ns")
 
-		_, _, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &fakeContext{})
+		_, _, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 		assert.Error(t, err)
 	})
 }

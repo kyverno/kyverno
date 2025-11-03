@@ -3,7 +3,9 @@ package admissionpolicy
 import (
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -115,7 +117,34 @@ func BuildValidatingAdmissionPolicy(
 						Expression: expression,
 					})
 				}
+				if len(celpolex.Spec.Images) > 0 {
+					quotedImages := make([]string, len(celpolex.Spec.Images))
+					for i, img := range celpolex.Spec.Images {
+						quotedImages[i] = fmt.Sprintf("'%s'", img)
+					}
+					variables = append(variables, admissionregistrationv1.Variable{
+						Name:       "allowedImages",
+						Expression: fmt.Sprintf("[%s]", strings.Join(quotedImages, ", ")),
+					})
+				}
+				if len(celpolex.Spec.AllowedValues) > 0 {
+					quotedValues := make([]string, len(celpolex.Spec.AllowedValues))
+					for i, val := range celpolex.Spec.AllowedValues {
+						quotedValues[i] = fmt.Sprintf("'%s'", val)
+					}
+					variables = append(variables, admissionregistrationv1.Variable{
+						Name:       "allowedValues",
+						Expression: fmt.Sprintf("[%s]", strings.Join(quotedValues, ", ")),
+					})
+				}
 			}
+		}
+		replacements := map[string]string{
+			"exceptions.allowedImages": "variables.allowedImages",
+			"exceptions.allowedValues": "variables.allowedValues",
+		}
+		for i := range validations {
+			validations[i].Expression = replaceExpressions(validations[i].Expression, replacements)
 		}
 	}
 
@@ -139,7 +168,18 @@ func BuildValidatingAdmissionPolicy(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(vap)
+	policyLabels := policy.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		vap.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
 	return nil
+}
+
+func replaceExpressions(expr string, replacements map[string]string) string {
+	for old, new := range replacements {
+		expr = strings.ReplaceAll(expr, old, new)
+	}
+	return expr
 }
 
 // BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding from a Kyverno policy
@@ -236,6 +276,10 @@ func BuildMutatingAdmissionPolicy(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapol)
+	policyLabels := mp.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
 }
 
 // BuildMutatingAdmissionPolicyBinding is used to build a Kubernetes MutatingAdmissionPolicyBinding from a MutatingPolicy

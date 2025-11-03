@@ -93,7 +93,8 @@ func main() {
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
-	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
+	// Deprecated: orphaned flag, use --cleanupServerPort from cmd/internal/flags.go instead
+	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server. (deprecated: replaced by --cleanupServerPort)")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.DurationVar(&interval, "ttlReconciliationInterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
@@ -126,6 +127,9 @@ func main() {
 		// setup
 		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 		defer sdown()
+		if webhookServerPort != 9443 {
+			setup.Logger.Info("--webhookServerPort is deprecated, use '--cleanupServerPort' instead")
+		}
 		if caSecretName == "" {
 			setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
 			os.Exit(1)
@@ -170,6 +174,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 		)
 		eventController := internal.NewController(
 			event.ControllerName,
@@ -209,7 +214,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, nil, gcstore, false)
+		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, nil, gcstore, restMapper, false)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create CEL context provider")
 			os.Exit(1)
@@ -232,7 +237,8 @@ func main() {
 				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
 				provider := engine.NewFetchProvider(
 					compiler.NewCompiler(),
-					kyvernoInformer.Policies().V1alpha1().DeletingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().DeletingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies().Lister(),
 					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
 					internal.PolicyExceptionEnabled(),
 				)
@@ -274,8 +280,7 @@ func main() {
 						config.CleanupValidatingWebhookConfigurationName,
 						config.CleanupValidatingWebhookServicePath,
 						serverIP,
-						int32(servicePort),       //nolint:gosec
-						int32(webhookServerPort), //nolint:gosec
+						int32(servicePort), //nolint:gosec
 						nil,
 						[]admissionregistrationv1.RuleWithOperations{
 							{
@@ -315,8 +320,7 @@ func main() {
 						config.TtlValidatingWebhookConfigurationName,
 						config.TtlValidatingWebhookServicePath,
 						serverIP,
-						int32(servicePort),       //nolint:gosec
-						int32(webhookServerPort), //nolint:gosec
+						int32(servicePort), //nolint:gosec
 						&metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{
@@ -370,7 +374,8 @@ func main() {
 					deleting.NewController(
 						setup.KyvernoDynamicClient,
 						setup.KyvernoClient,
-						kyvernoInformer.Policies().V1alpha1().DeletingPolicies(),
+						kyvernoInformer.Policies().V1beta1().DeletingPolicies(),
+						kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies(),
 						provider,
 						engine.NewEngine(
 							func(name string) *corev1.Namespace {
