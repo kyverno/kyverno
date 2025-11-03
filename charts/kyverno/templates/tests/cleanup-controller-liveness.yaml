@@ -30,7 +30,7 @@ spec:
       command:
         - /bin/sh
         - -c
-        - for i in $(seq 1 {{ .Values.test.sleep }} ); do wget -O- -S --no-check-certificate https://{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.service.port }}/health/liveness && exit 0; sleep 3; done; exit 1
+        - sleep {{ .Values.test.sleep }} ; curl -skf https://{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.service.port }}/health/liveness
   {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
   nodeSelector:
     {{- tpl (toYaml .) $ | nindent 4 }}
