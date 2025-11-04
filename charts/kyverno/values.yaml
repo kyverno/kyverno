@@ -515,12 +515,12 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: curlimages
     # -- Image repository
-    repository: busybox
+    repository: curl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.35'
+    tag: '8.10.1'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -1305,7 +1305,17 @@ backgroundController:
             - update
             - patch
             - delete
-
+        - apiGroups:
+            - resource.k8s.io
+          resources:
+            - resourceclaims
+            - resourceclaimtemplates
+          verbs:
+            - create
+            - delete
+            - update
+            - patch
+            - deletecollection
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
