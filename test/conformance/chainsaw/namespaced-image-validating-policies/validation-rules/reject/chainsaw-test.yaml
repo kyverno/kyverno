@@ -40,8 +40,8 @@ spec:
             containers:
             - name: c
               image: ghcr.io/kyverno/test-verify-image:latest
-    catch:
-    - assert:
-        anyError: true
+        expect:
+        - check:
+            ($error != null): true
 
 

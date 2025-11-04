@@ -198,7 +198,7 @@ func NewController(
 	}
 	if nivpolInformer != nil {
 		c.nivpolLister = nivpolInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(nivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
+		if _, err := controllerutils.AddEventHandlersT(nivpolInformer.Informer(), c.addNIVP, c.updateNIVP, c.deleteNIVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -367,6 +367,20 @@ func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageValidatingPolicy)
 }
 
 func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addNIVP(obj *policiesv1alpha1.NamespacedImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateNIVP(old, obj *policiesv1alpha1.NamespacedImageValidatingPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteNIVP(obj *policiesv1alpha1.NamespacedImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
