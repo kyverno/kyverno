@@ -541,3 +541,315 @@ func TestImageValidatingPolicySpec_ValidationActions(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespacedImageValidatingPolicy_GetFailurePolicy(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   admissionregistrationv1.FailurePolicyType
+	}{{
+		name:   "nil",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   admissionregistrationv1.Fail,
+	}, {
+		name: "fail",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+			},
+		},
+		want: admissionregistrationv1.Fail,
+	}, {
+		name: "ignore",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+			},
+		},
+		want: admissionregistrationv1.Ignore,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.GetFailurePolicy()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicy_GetMatchConstraints(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   admissionregistrationv1.MatchResources
+	}{{
+		name:   "nil",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   admissionregistrationv1.MatchResources{},
+	}, {
+		name: "not nil",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{},
+			},
+		},
+		want: admissionregistrationv1.MatchResources{},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.GetMatchConstraints()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicy_GetMatchConditions(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   []admissionregistrationv1.MatchCondition
+	}{{
+		name:   "nil",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   nil,
+	}, {
+		name: "empty",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{},
+			},
+		},
+		want: []admissionregistrationv1.MatchCondition{},
+	}, {
+		name: "not empty",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       "dummy",
+					Expression: "expression",
+				}},
+			},
+		},
+		want: []admissionregistrationv1.MatchCondition{{
+			Name:       "dummy",
+			Expression: "expression",
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.GetMatchConditions()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   *WebhookConfiguration
+	}{{
+		name:   "nil",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   nil,
+	}, {
+		name: "present",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				WebhookConfiguration: &WebhookConfiguration{},
+			},
+		},
+		want: &WebhookConfiguration{},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.GetWebhookConfiguration()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicy_GetVariables(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   []admissionregistrationv1.Variable
+	}{{
+		name:   "nil",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   nil,
+	}, {
+		name: "empty",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				Variables: []admissionregistrationv1.Variable{},
+			},
+		},
+		want: []admissionregistrationv1.Variable{},
+	}, {
+		name: "not empty",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				Variables: []admissionregistrationv1.Variable{{
+					Name:       "dummy",
+					Expression: "expression",
+				}},
+			},
+		},
+		want: []admissionregistrationv1.Variable{{
+			Name:       "dummy",
+			Expression: "expression",
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.GetVariables()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicy_GetSpec(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   *ImageValidatingPolicySpec
+	}{{
+		name: "empty",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{Variables: []admissionregistrationv1.Variable{}},
+		},
+		want: &ImageValidatingPolicySpec{Variables: []admissionregistrationv1.Variable{}},
+	}, {
+		name: "not empty",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{Variables: []admissionregistrationv1.Variable{{
+				Name: "dummy", Expression: "expression",
+			}}},
+		},
+		want: &ImageValidatingPolicySpec{Variables: []admissionregistrationv1.Variable{{
+			Name: "dummy", Expression: "expression",
+		}}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.GetSpec()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicy_GetStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   *ImageValidatingPolicyStatus
+	}{{
+		name:   "empty",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   &ImageValidatingPolicyStatus{},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.GetStatus()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicy_GetKind(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   string
+	}{{
+		name:   "default",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   "NamespacedImageValidatingPolicy",
+	}, {
+		name:   "custom kind ignored",
+		policy: &NamespacedImageValidatingPolicy{TypeMeta: v1.TypeMeta{Kind: "Foo"}},
+		want:   "NamespacedImageValidatingPolicy",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.GetKind()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicy_BackgroundEnabled(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   bool
+	}{{
+		name:   "nil",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   true,
+	}, {
+		name: "true",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Background: &BackgroundConfiguration{Enabled: ptr.To(true)},
+				},
+			},
+		},
+		want: true,
+	}, {
+		name: "false",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Background: &BackgroundConfiguration{Enabled: ptr.To(false)},
+				},
+			},
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.BackgroundEnabled()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNamespacedImageValidatingPolicySpec_AdmissionEnabled(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *NamespacedImageValidatingPolicy
+		want   bool
+	}{{
+		name:   "nil",
+		policy: &NamespacedImageValidatingPolicy{},
+		want:   true,
+	}, {
+		name: "true",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Admission: &AdmissionConfiguration{Enabled: ptr.To(true)},
+				},
+			},
+		},
+		want: true,
+	}, {
+		name: "false",
+		policy: &NamespacedImageValidatingPolicy{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Admission: &AdmissionConfiguration{Enabled: ptr.To(false)},
+				},
+			},
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.policy.Spec.AdmissionEnabled()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

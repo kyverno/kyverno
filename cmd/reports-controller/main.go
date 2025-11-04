@@ -169,6 +169,7 @@ func createReportControllers(
 				policiesV1beta1.NamespacedValidatingPolicies(),
 				policiesV1alpha1.MutatingPolicies(),
 				policiesV1alpha1.ImageValidatingPolicies(),
+				policiesV1alpha1.NamespacedImageValidatingPolicies(),
 				policiesV1alpha1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
