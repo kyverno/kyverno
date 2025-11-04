@@ -108,17 +108,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - resource.k8s.io
-    resources:
-      - resourceclaims
-      - resourceclaimtemplates
-    verbs:
-      - create
-      - delete
-      - update
-      - patch
-      - deletecollection
 {{- with .Values.backgroundController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
 {{- end }}
