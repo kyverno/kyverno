@@ -43,6 +43,12 @@ func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 			return nil, err
 		}
 		return api.NewImageValidatingPolicy(policy), nil
+	case "NamespacedImageValidatingPolicy":
+		var policy *v1alpha1.NamespacedImageValidatingPolicy
+		if err := json.Unmarshal(raw, &policy); err != nil {
+			return nil, err
+		}
+		return api.NewNamespacedImageValidatingPolicy(policy), nil
 	case "GeneratingPolicy":
 		var policy *v1alpha1.GeneratingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
