@@ -109,13 +109,10 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
-      - rbac.authorization.k8s.io
+      - resource.k8s.io
     resources:
-      - clusterroles
-    resourceNames:
-      - admin
-      - edit
-      - view
+      - resourceclaims
+      - resourceclaimtemplates
     verbs:
       - bind
 {{- with .Values.backgroundController.rbac.coreClusterRole.extraResources }}
