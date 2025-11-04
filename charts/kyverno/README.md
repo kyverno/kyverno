@@ -886,7 +886,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
-| https://kyverno.github.io/reports-server/ | reports-server | 0.1.3 |
+| https://kyverno.github.io/reports-server/ | reports-server | 0.1.5 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
