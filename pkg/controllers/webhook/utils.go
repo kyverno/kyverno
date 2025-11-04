@@ -218,40 +218,30 @@ func deDuplicatedRules(rules []admissionregistrationv1.RuleWithOperations) []adm
 }
 
 func generateRuleKey(rule admissionregistrationv1.RuleWithOperations) string {
-	var b strings.Builder
+	sb := strings.Builder{}
+	stringBuilderFn := func(input []string) {
+		copiedInputs := make([]string, len(input))
+		copy(copiedInputs, input)
+		sort.Strings(copiedInputs)
+		sb.WriteString(strings.Join(copiedInputs, ","))
+		sb.WriteString("|")
+	}
 
-	copiedGroups := make([]string, len(rule.APIGroups))
-	copy(copiedGroups, rule.APIGroups)
-	sort.Strings(copiedGroups)
-	b.WriteString(strings.Join(copiedGroups, ","))
-	b.WriteString("|")
-
-	copiedVersions := make([]string, len(rule.APIVersions))
-	copy(copiedVersions, rule.APIVersions)
-	sort.Strings(copiedVersions)
-	b.WriteString(strings.Join(copiedVersions, ","))
-	b.WriteString("|")
-
-	copiedResources := make([]string, len(rule.Resources))
-	copy(copiedResources, rule.Resources)
-	sort.Strings(copiedResources)
-	b.WriteString(strings.Join(copiedResources, ","))
-	b.WriteString("|")
+	stringBuilderFn(rule.APIGroups)
+	stringBuilderFn(rule.APIVersions)
+	stringBuilderFn(rule.Resources)
 
 	opsCopy := make([]string, len(rule.Operations))
 	for i, op := range rule.Operations {
 		opsCopy[i] = string(op)
 	}
+	stringBuilderFn(opsCopy)
 
-	sort.Strings(opsCopy)
-	b.WriteString(strings.Join(opsCopy, ","))
-	b.WriteString("|")
-
-	b.WriteString("|s:")
+	sb.WriteString("s:")
 	if rule.Scope != nil {
-		b.WriteString(string(*rule.Scope))
+		sb.WriteString(string(*rule.Scope))
 	}
-	return b.String()
+	return sb.String()
 }
 
 const (
