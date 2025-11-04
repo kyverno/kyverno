@@ -114,7 +114,11 @@ rules:
       - resourceclaims
       - resourceclaimtemplates
     verbs:
-      - bind
+      - create
+      - delete
+      - update
+      - patch
+      - deletecollection
 {{- with .Values.backgroundController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
 {{- end }}
