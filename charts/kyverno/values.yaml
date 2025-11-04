@@ -109,6 +109,7 @@ crds:
       validatingpolicies: true
       policyexceptions: true
       imagevalidatingpolicies: true
+      namespacedimagevalidatingpolicies: true
       mutatingpolicies: true
       generatingpolicies: true
       deletingpolicies: true
@@ -150,6 +151,7 @@ crds:
       - deletingpolicies.policies.kyverno.io
       - generatingpolicies.policies.kyverno.io
       - imagevalidatingpolicies.policies.kyverno.io
+      - namespacedimagevalidatingpolicies.policies.kyverno.io
       - mutatingpolicies.policies.kyverno.io
       - namespaceddeletingpolicies.policies.kyverno.io
       - namespacedvalidatingpolicies.policies.kyverno.io
