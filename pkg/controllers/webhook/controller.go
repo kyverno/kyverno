@@ -135,8 +135,8 @@ type controller struct {
 	vpolLister        policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister       policiesv1beta1listers.NamespacedValidatingPolicyLister
 	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
-	ivpolLister       policiesv1alpha1listers.ImageValidatingPolicyLister
-	nivpolLister      policiesv1alpha1listers.NamespacedImageValidatingPolicyLister
+	ivpolLister       policiesv1beta1listers.ImageValidatingPolicyLister
+	nivpolLister      policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	mpolLister        policiesv1alpha1listers.MutatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
@@ -183,8 +183,8 @@ func NewController(
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
-	nivpolInformer policiesv1alpha1informers.NamespacedImageValidatingPolicyInformer,
+	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
+	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,

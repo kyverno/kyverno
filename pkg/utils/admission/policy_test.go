@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,7 +87,7 @@ func TestUnmarshalPolicy(t *testing.T) {
 					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsValidatingPolicy())
 				}
 			case "ImageValidatingPolicy":
-				var expectedPolicy *v1alpha1.ImageValidatingPolicy
+				var expectedPolicy *v1beta1.ImageValidatingPolicy
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
