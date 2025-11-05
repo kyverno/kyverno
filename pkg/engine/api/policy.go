@@ -110,6 +110,8 @@ type GenericPolicy interface {
 	AsNamespacedValidatingPolicy() *policiesv1beta1.NamespacedValidatingPolicy
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy
+	// AsNamespacedImageValidatingPolicy returns the namespaced imageverificationpolicy
+	AsNamespacedImageValidatingPolicy() *policiesv1alpha1.NamespacedImageValidatingPolicy
 	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
 	AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 	// AsMutatingPolicy returns the mutating policy
@@ -161,6 +163,10 @@ func (p *genericPolicy) AsNamespacedValidatingPolicy() *policiesv1beta1.Namespac
 
 func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1alpha1.ImageValidatingPolicy {
 	return p.ImageValidatingPolicy
+}
+
+func (p *genericPolicy) AsNamespacedImageValidatingPolicy() *policiesv1alpha1.NamespacedImageValidatingPolicy {
+	return p.NamespacedImageValidatingPolicy
 }
 
 func (p *genericPolicy) AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy {

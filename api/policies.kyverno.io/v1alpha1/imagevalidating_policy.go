@@ -169,6 +169,14 @@ func (s *NamespacedImageValidatingPolicy) GetMatchConditions() []admissionregist
 	return s.Spec.MatchConditions
 }
 
+func (s *NamespacedImageValidatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
+}
+
 func (s *NamespacedImageValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
 	return s.Spec.WebhookConfiguration
 }
