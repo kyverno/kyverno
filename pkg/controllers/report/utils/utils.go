@@ -284,8 +284,8 @@ func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyList
 	return policies, nil
 }
 
-func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister) ([]policiesv1alpha1.ImageValidatingPolicy, error) {
-	var policies []policiesv1alpha1.ImageValidatingPolicy
+func FetchImageVerificationPolicies(ivpolLister policiesv1beta1listers.ImageValidatingPolicyLister) ([]policiesv1beta1.ImageValidatingPolicy, error) {
+	var policies []policiesv1beta1.ImageValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -300,12 +300,12 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVal
 	return policies, nil
 }
 
-func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1alpha1listers.NamespacedImageValidatingPolicyLister, namespace string) ([]policiesv1alpha1.NamespacedImageValidatingPolicy, error) {
+func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1beta1listers.NamespacedImageValidatingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedImageValidatingPolicy, error) {
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	var pols []*policiesv1alpha1.NamespacedImageValidatingPolicy
+	var pols []*policiesv1beta1.NamespacedImageValidatingPolicy
 	if namespace != "" {
 		pols, err = nivpolLister.NamespacedImageValidatingPolicies(namespace).List(labels.Everything().Add(*r))
 	} else {
@@ -314,7 +314,7 @@ func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1alpha1liste
 	if err != nil {
 		return nil, err
 	}
-	policies := make([]policiesv1alpha1.NamespacedImageValidatingPolicy, 0, len(pols))
+	policies := make([]policiesv1beta1.NamespacedImageValidatingPolicy, 0, len(pols))
 	for _, pol := range pols {
 		policies = append(policies, *pol)
 	}
