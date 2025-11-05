@@ -39,7 +39,7 @@ spec:
             - /bin/sh
             - -c
             - |-
-              set -euo pipefail
+              set -eu
               NAMESPACES=$(kubectl get namespaces --no-headers=true | awk '{print $1}')
 
               for ns in $NAMESPACES
