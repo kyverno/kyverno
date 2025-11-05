@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -12,11 +12,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c controller) updateNivpolStatus(ctx context.Context, nivpol *policiesv1alpha1.NamespacedImageValidatingPolicy) error {
-	updateFunc := func(nivpol *policiesv1alpha1.NamespacedImageValidatingPolicy) error {
+func (c controller) updateNivpolStatus(ctx context.Context, nivpol *policiesv1beta1.NamespacedImageValidatingPolicy) error {
+	updateFunc := func(nivpol *policiesv1beta1.NamespacedImageValidatingPolicy) error {
 		p := engineapi.NewNamespacedImageValidatingPolicy(nivpol)
 		// conditions
-		conditionStatus := c.reconcileConditions(ctx, p)
+		conditionStatus := c.reconcileBeta1Conditions(ctx, p)
 		ready := true
 		for _, condition := range conditionStatus.Conditions {
 			if condition.Status != metav1.ConditionTrue {
@@ -32,11 +32,11 @@ func (c controller) updateNivpolStatus(ctx context.Context, nivpol *policiesv1al
 		if err != nil {
 			return fmt.Errorf("failed to build autogen rules for nivpol %s: %v", nivpol.GetName(), err)
 		}
-		autogenStatus := policiesv1alpha1.ImageValidatingPolicyAutogenStatus{
+		autogenStatus := policiesv1beta1.ImageValidatingPolicyAutogenStatus{
 			Configs: rules,
 		}
 		// assign
-		nivpol.Status = policiesv1alpha1.ImageValidatingPolicyStatus{
+		nivpol.Status = policiesv1beta1.ImageValidatingPolicyStatus{
 			ConditionStatus: *conditionStatus,
 			Autogen:         autogenStatus,
 		}
@@ -44,9 +44,9 @@ func (c controller) updateNivpolStatus(ctx context.Context, nivpol *policiesv1al
 	}
 	err := controllerutils.UpdateStatus(ctx,
 		nivpol,
-		c.client.PoliciesV1alpha1().NamespacedImageValidatingPolicies(nivpol.GetNamespace()),
+		c.client.PoliciesV1beta1().NamespacedImageValidatingPolicies(nivpol.GetNamespace()),
 		updateFunc,
-		func(current, expect *policiesv1alpha1.NamespacedImageValidatingPolicy) bool {
+		func(current, expect *policiesv1beta1.NamespacedImageValidatingPolicy) bool {
 			return datautils.DeepEqual(current.Status, expect.Status)
 		},
 	)

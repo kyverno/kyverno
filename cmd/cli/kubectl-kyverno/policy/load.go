@@ -68,8 +68,8 @@ type LoaderResults struct {
 	MAPBindings                       []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1beta1.ValidatingPolicy
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
-	ImageValidatingPolicies           []policiesv1alpha1.ImageValidatingPolicy
-	NamespacedImageValidatingPolicies []policiesv1alpha1.NamespacedImageValidatingPolicy
+	ImageValidatingPolicies           []policiesv1beta1.ImageValidatingPolicy
+	NamespacedImageValidatingPolicies []policiesv1beta1.NamespacedImageValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
 	DeletingPolicies                  []policiesv1beta1.DeletingPolicy
 	NamespacedDeletingPolicies        []policiesv1beta1.NamespacedDeletingPolicy
@@ -205,13 +205,13 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.NamespacedValidatingPolicies = append(results.NamespacedValidatingPolicies, *typed)
 		case ivpV1alpha1, ivpV1beta1:
-			typed, err := convert.To[policiesv1alpha1.ImageValidatingPolicy](untyped)
+			typed, err := convert.To[policiesv1beta1.ImageValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
 		case nivpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.NamespacedImageValidatingPolicy](untyped)
+			typed, err := convert.To[policiesv1beta1.NamespacedImageValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}

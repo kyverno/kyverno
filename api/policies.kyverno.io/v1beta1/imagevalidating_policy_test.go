@@ -3,7 +3,6 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +21,7 @@ func TestImageValidatingPolicy_GetFailurePolicy(t *testing.T) {
 	}, {
 		name: "fail",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 			},
 		},
@@ -30,7 +29,7 @@ func TestImageValidatingPolicy_GetFailurePolicy(t *testing.T) {
 	}, {
 		name: "ignore",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 			},
 		},
@@ -48,11 +47,11 @@ func TestImageValidatingPolicy_GetFailurePolicy(t *testing.T) {
 func TestAttestor_GetKey(t *testing.T) {
 	tests := []struct {
 		name     string
-		attestor v1alpha1.Attestor
+		attestor Attestor
 		want     string
 	}{{
 		name: "foo",
-		attestor: v1alpha1.Attestor{
+		attestor: Attestor{
 			Name: "foo",
 		},
 		want: "foo",
@@ -68,16 +67,16 @@ func TestAttestor_GetKey(t *testing.T) {
 func TestAttestor_IsCosign(t *testing.T) {
 	tests := []struct {
 		name     string
-		attestor v1alpha1.Attestor
+		attestor Attestor
 		want     bool
 	}{{
 		name:     "no",
-		attestor: v1alpha1.Attestor{},
+		attestor: Attestor{},
 		want:     false,
 	}, {
 		name: "yes",
-		attestor: v1alpha1.Attestor{
-			Cosign: &v1alpha1.Cosign{},
+		attestor: Attestor{
+			Cosign: &Cosign{},
 		},
 		want: true,
 	}}
@@ -92,16 +91,16 @@ func TestAttestor_IsCosign(t *testing.T) {
 func TestAttestor_IsNotary(t *testing.T) {
 	tests := []struct {
 		name     string
-		attestor v1alpha1.Attestor
+		attestor Attestor
 		want     bool
 	}{{
 		name:     "no",
-		attestor: v1alpha1.Attestor{},
+		attestor: Attestor{},
 		want:     false,
 	}, {
 		name: "yes",
-		attestor: v1alpha1.Attestor{
-			Notary: &v1alpha1.Notary{},
+		attestor: Attestor{
+			Notary: &Notary{},
 		},
 		want: true,
 	}}
@@ -116,11 +115,11 @@ func TestAttestor_IsNotary(t *testing.T) {
 func TestAttestation_GetKey(t *testing.T) {
 	tests := []struct {
 		name        string
-		attestation v1alpha1.Attestation
+		attestation Attestation
 		want        string
 	}{{
 		name: "foo",
-		attestation: v1alpha1.Attestation{
+		attestation: Attestation{
 			Name: "foo",
 		},
 		want: "foo",
@@ -136,16 +135,16 @@ func TestAttestation_GetKey(t *testing.T) {
 func TestAttestation_IsInToto(t *testing.T) {
 	tests := []struct {
 		name        string
-		attestation v1alpha1.Attestation
+		attestation Attestation
 		want        bool
 	}{{
 		name:        "no",
-		attestation: v1alpha1.Attestation{},
+		attestation: Attestation{},
 		want:        false,
 	}, {
 		name: "yes",
-		attestation: v1alpha1.Attestation{
-			InToto: &v1alpha1.InToto{},
+		attestation: Attestation{
+			InToto: &InToto{},
 		},
 		want: true,
 	}}
@@ -160,16 +159,16 @@ func TestAttestation_IsInToto(t *testing.T) {
 func TestAttestation_IsReferrer(t *testing.T) {
 	tests := []struct {
 		name        string
-		attestation v1alpha1.Attestation
+		attestation Attestation
 		want        bool
 	}{{
 		name:        "no",
-		attestation: v1alpha1.Attestation{},
+		attestation: Attestation{},
 		want:        false,
 	}, {
 		name: "yes",
-		attestation: v1alpha1.Attestation{
-			Referrer: &v1alpha1.Referrer{},
+		attestation: Attestation{
+			Referrer: &Referrer{},
 		},
 		want: true,
 	}}
@@ -184,17 +183,17 @@ func TestAttestation_IsReferrer(t *testing.T) {
 func TestImageValidatingPolicySpec_EvaluationMode(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *v1alpha1.ImageValidatingPolicySpec
+		policy *ImageValidatingPolicySpec
 		want   EvaluationMode
 	}{{
 		name:   "nil",
-		policy: &v1alpha1.ImageValidatingPolicySpec{},
+		policy: &ImageValidatingPolicySpec{},
 		want:   EvaluationModeKubernetes,
 	}, {
 		name: "json",
-		policy: &v1alpha1.ImageValidatingPolicySpec{
-			EvaluationConfiguration: &v1alpha1.EvaluationConfiguration{
-				Mode: v1alpha1.EvaluationModeJSON,
+		policy: &ImageValidatingPolicySpec{
+			EvaluationConfiguration: &EvaluationConfiguration{
+				Mode: EvaluationModeJSON,
 			},
 		},
 		want: EvaluationModeJSON,
@@ -219,7 +218,7 @@ func TestImageValidatingPolicy_GetMatchConstraints(t *testing.T) {
 	}, {
 		name: "not nil",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				MatchConstraints: &admissionregistrationv1.MatchResources{},
 			},
 		},
@@ -245,7 +244,7 @@ func TestImageValidatingPolicy_GetMatchConditions(t *testing.T) {
 	}, {
 		name: "empty",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{},
 			},
 		},
@@ -253,7 +252,7 @@ func TestImageValidatingPolicy_GetMatchConditions(t *testing.T) {
 	}, {
 		name: "not empty",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{{
 					Name:       "dummy",
 					Expression: "expression",
@@ -277,7 +276,7 @@ func TestImageValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
-		want   *v1alpha1.WebhookConfiguration
+		want   *WebhookConfiguration
 	}{{
 		name:   "nil",
 		policy: &ImageValidatingPolicy{},
@@ -285,11 +284,11 @@ func TestImageValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
 	}, {
 		name: "fail",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
-				WebhookConfiguration: &v1alpha1.WebhookConfiguration{},
+			Spec: ImageValidatingPolicySpec{
+				WebhookConfiguration: &WebhookConfiguration{},
 			},
 		},
-		want: &v1alpha1.WebhookConfiguration{},
+		want: &WebhookConfiguration{},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -311,7 +310,7 @@ func TestImageValidatingPolicy_GetVariables(t *testing.T) {
 	}, {
 		name: "empty",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{},
 			},
 		},
@@ -319,7 +318,7 @@ func TestImageValidatingPolicy_GetVariables(t *testing.T) {
 	}, {
 		name: "not empty",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{{
 					Name:       "dummy",
 					Expression: "expression",
@@ -343,28 +342,28 @@ func TestImageValidatingPolicy_GetSpec(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
-		want   *v1alpha1.ImageValidatingPolicySpec
+		want   *ImageValidatingPolicySpec
 	}{{
 		name: "empty",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{},
 			},
 		},
-		want: &v1alpha1.ImageValidatingPolicySpec{
+		want: &ImageValidatingPolicySpec{
 			Variables: []admissionregistrationv1.Variable{},
 		},
 	}, {
 		name: "not empty",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
+			Spec: ImageValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{{
 					Name:       "dummy",
 					Expression: "expression",
 				}},
 			},
 		},
-		want: &v1alpha1.ImageValidatingPolicySpec{
+		want: &ImageValidatingPolicySpec{
 			Variables: []admissionregistrationv1.Variable{{
 				Name:       "dummy",
 				Expression: "expression",
@@ -383,10 +382,10 @@ func TestImageValidatingPolicy_GetStatus(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *ImageValidatingPolicy
-		want   *v1alpha1.ImageValidatingPolicyStatus
+		want   *ImageValidatingPolicyStatus
 	}{{
 		policy: &ImageValidatingPolicy{},
-		want:   &v1alpha1.ImageValidatingPolicyStatus{},
+		want:   &ImageValidatingPolicyStatus{},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -434,9 +433,9 @@ func TestImageValidatingPolicy_BackgroundEnabled(t *testing.T) {
 	}, {
 		name: "true",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
-				EvaluationConfiguration: &v1alpha1.EvaluationConfiguration{
-					Background: &v1alpha1.BackgroundConfiguration{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Background: &BackgroundConfiguration{
 						Enabled: ptr.To(true),
 					},
 				},
@@ -446,9 +445,9 @@ func TestImageValidatingPolicy_BackgroundEnabled(t *testing.T) {
 	}, {
 		name: "false",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
-				EvaluationConfiguration: &v1alpha1.EvaluationConfiguration{
-					Background: &v1alpha1.BackgroundConfiguration{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Background: &BackgroundConfiguration{
 						Enabled: ptr.To(false),
 					},
 				},
@@ -476,9 +475,9 @@ func TestImageValidatingPolicySpec_AdmissionEnabled(t *testing.T) {
 	}, {
 		name: "true",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
-				EvaluationConfiguration: &v1alpha1.EvaluationConfiguration{
-					Admission: &v1alpha1.AdmissionConfiguration{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Admission: &AdmissionConfiguration{
 						Enabled: ptr.To(true),
 					},
 				},
@@ -488,9 +487,9 @@ func TestImageValidatingPolicySpec_AdmissionEnabled(t *testing.T) {
 	}, {
 		name: "false",
 		policy: &ImageValidatingPolicy{
-			Spec: v1alpha1.ImageValidatingPolicySpec{
-				EvaluationConfiguration: &v1alpha1.EvaluationConfiguration{
-					Admission: &v1alpha1.AdmissionConfiguration{
+			Spec: ImageValidatingPolicySpec{
+				EvaluationConfiguration: &EvaluationConfiguration{
+					Admission: &AdmissionConfiguration{
 						Enabled: ptr.To(false),
 					},
 				},
@@ -517,19 +516,19 @@ func TestImageValidatingPolicySpec_ValidationActions(t *testing.T) {
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 	}, {
 		name:   "deny",
-		policy: &ImageValidatingPolicy{Spec: v1alpha1.ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 	}, {
 		name:   "warn",
-		policy: &ImageValidatingPolicy{Spec: v1alpha1.ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
 	}, {
 		name:   "audit",
-		policy: &ImageValidatingPolicy{Spec: v1alpha1.ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
 	}, {
 		name:   "multiple",
-		policy: &ImageValidatingPolicy{Spec: v1alpha1.ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
+		policy: &ImageValidatingPolicy{Spec: ImageValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn},
 	},
 	}

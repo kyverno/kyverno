@@ -356,7 +356,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
 	// Convert both cluster-scoped and namespaced IVPs to the common ImageValidatingPolicyLike interface
-	allImageValidatingPolicies := make([]policiesv1alpha1.ImageValidatingPolicyLike, 0, len(ivps)+len(nivps))
+	allImageValidatingPolicies := make([]policiesv1beta1.ImageValidatingPolicyLike, 0, len(ivps)+len(nivps))
 	for i := range ivps {
 		allImageValidatingPolicies = append(allImageValidatingPolicies, &ivps[i])
 	}
@@ -547,7 +547,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 }
 
 func (c *ApplyCommandConfig) applyImageValidatingPolicies(
-	ivps []policiesv1alpha1.ImageValidatingPolicyLike,
+	ivps []policiesv1beta1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1alpha1.PolicyException,
@@ -637,7 +637,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	}
 
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
-	pMap := make(map[string]policiesv1alpha1.ImageValidatingPolicyLike)
+	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
@@ -783,8 +783,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	[]policiesv1beta1.ValidatingPolicy,
 	[]policiesv1beta1.NamespacedValidatingPolicy,
-	[]policiesv1alpha1.ImageValidatingPolicy,
-	[]policiesv1alpha1.NamespacedImageValidatingPolicy,
+	[]policiesv1beta1.ImageValidatingPolicy,
+	[]policiesv1beta1.NamespacedImageValidatingPolicy,
 	[]policiesv1alpha1.GeneratingPolicy,
 	[]policiesv1beta1.DeletingPolicy,
 	[]policiesv1beta1.NamespacedDeletingPolicy,
@@ -799,8 +799,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var nvps []policiesv1beta1.NamespacedValidatingPolicy
 	var maps []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
-	var ivps []policiesv1alpha1.ImageValidatingPolicy
-	var nivps []policiesv1alpha1.NamespacedImageValidatingPolicy
+	var ivps []policiesv1beta1.ImageValidatingPolicy
+	var nivps []policiesv1beta1.NamespacedImageValidatingPolicy
 	var gps []policiesv1alpha1.GeneratingPolicy
 	var dps []policiesv1beta1.DeletingPolicy
 	var ndps []policiesv1beta1.NamespacedDeletingPolicy
