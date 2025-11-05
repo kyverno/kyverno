@@ -41,6 +41,8 @@ annotations:
       description: Enable the flag `--generateValidatingAdmissionPolicy` by default in the admission controller.
     - kind: changed
       description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
+    - kind: fixed
+      description: Fix webhook cleanup hook image registry defaults so global image registry is respected.
 dependencies:
   - name: grafana
     version: v0.0.0
