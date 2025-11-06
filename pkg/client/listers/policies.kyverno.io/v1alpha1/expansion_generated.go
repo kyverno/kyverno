@@ -34,14 +34,6 @@ type ImageValidatingPolicyListerExpansion interface{}
 // MutatingPolicyLister.
 type MutatingPolicyListerExpansion interface{}
 
-// NamespacedImageValidatingPolicyListerExpansion allows custom methods to be added to
-// NamespacedImageValidatingPolicyLister.
-type NamespacedImageValidatingPolicyListerExpansion interface{}
-
-// NamespacedImageValidatingPolicyNamespaceListerExpansion allows custom methods to be added to
-// NamespacedImageValidatingPolicyNamespaceLister.
-type NamespacedImageValidatingPolicyNamespaceListerExpansion interface{}
-
 // PolicyExceptionListerExpansion allows custom methods to be added to
 // PolicyExceptionLister.
 type PolicyExceptionListerExpansion interface{}

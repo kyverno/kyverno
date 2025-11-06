@@ -429,7 +429,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 }
 
 func applyImageValidatingPolicies(
-	ivps []policiesv1alpha1.ImageValidatingPolicy,
+	ivps []policiesv1beta1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1alpha1.PolicyException,
@@ -442,7 +442,7 @@ func applyImageValidatingPolicies(
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
 	// Convert to ImageValidatingPolicyLike interface
-	ivpsLike := make([]policiesv1alpha1.ImageValidatingPolicyLike, len(ivps))
+	ivpsLike := make([]policiesv1beta1.ImageValidatingPolicyLike, len(ivps))
 	for i := range ivps {
 		ivpsLike[i] = &ivps[i]
 	}
@@ -521,7 +521,7 @@ func applyImageValidatingPolicies(
 		}
 	}
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
-	pMap := make(map[string]policiesv1alpha1.ImageValidatingPolicyLike)
+	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
 	for i := range ivps {
 		p := &ivps[i]
 		pMap[p.GetName()] = p
