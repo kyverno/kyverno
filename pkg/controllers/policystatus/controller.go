@@ -50,8 +50,8 @@ func NewController(
 	client versioned.Interface,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
-	nivpolInformer policiesv1alpha1informers.NamespacedImageValidatingPolicyInformer,
+	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
+	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	reportsSA string,
@@ -115,7 +115,7 @@ func NewController(
 		ivpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
-			ivpol, ok := obj.(*policiesv1alpha1.ImageValidatingPolicy)
+			ivpol, ok := obj.(*policiesv1beta1.ImageValidatingPolicy)
 			if !ok {
 				return ""
 			}
@@ -131,7 +131,7 @@ func NewController(
 		nivpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
-			nivpol, ok := obj.(*policiesv1alpha1.NamespacedImageValidatingPolicy)
+			nivpol, ok := obj.(*policiesv1beta1.NamespacedImageValidatingPolicy)
 			if !ok {
 				return ""
 			}
@@ -213,7 +213,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return c.updateNVpolStatus(ctx, nvpol)
 	}
 	if polType == webhook.ImageValidatingPolicyType {
-		ivpol, err := c.client.PoliciesV1alpha1().ImageValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
+		ivpol, err := c.client.PoliciesV1beta1().ImageValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("imageVerification policy not found", "name", name)
@@ -225,7 +225,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.NamespacedImageValidatingPolicyType {
-		nivpol, err := c.client.PoliciesV1alpha1().NamespacedImageValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
+		nivpol, err := c.client.PoliciesV1beta1().NamespacedImageValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("namespaced image verification policy not found", "name", name, "namespace", namespace)
@@ -268,16 +268,6 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	status := &policiesv1alpha1.ConditionStatus{}
 	backgroundOnly := false
 	switch policy.GetKind() {
-	case webhook.ImageValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName(), "")
-		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()
-		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled())
-		status = &policy.AsImageValidatingPolicy().GetStatus().ConditionStatus
-	case webhook.NamespacedImageValidatingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.NamespacedImageValidatingPolicyType, policy.GetName(), policy.GetNamespace())
-		matchConstraints = policy.AsNamespacedImageValidatingPolicy().GetMatchConstraints()
-		backgroundOnly = (!policy.AsNamespacedImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsNamespacedImageValidatingPolicy().GetSpec().BackgroundEnabled())
-		status = &policy.AsNamespacedImageValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.MutatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
@@ -313,6 +303,16 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 	status := &policiesv1beta1.ConditionStatus{}
 	backgroundOnly := false
 	switch policy.GetKind() {
+	case webhook.ImageValidatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, policy.GetName(), "")
+		matchConstraints = policy.AsImageValidatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled())
+		status = &policy.AsImageValidatingPolicy().GetStatus().ConditionStatus
+	case webhook.NamespacedImageValidatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.NamespacedImageValidatingPolicyType, policy.GetName(), policy.GetNamespace())
+		matchConstraints = policy.AsNamespacedImageValidatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsNamespacedImageValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsNamespacedImageValidatingPolicy().GetSpec().BackgroundEnabled())
+		status = &policy.AsNamespacedImageValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.ValidatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
