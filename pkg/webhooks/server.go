@@ -102,6 +102,19 @@ func NewServer(
 	)
 	mux.HandlerFunc(
 		"POST",
+		"/nvpol/*policies",
+		handlerFunc("VALIDATE", resourceHandlers.NamespacedValidatingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithAdmission(vpolLogger.WithName("validate")).
+			ToHandlerFunc("NVPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
 		"/ivpol/validate/*policies",
 		handlerFunc("IVPOL-VALIDATE", resourceHandlers.ImageVerificationPolicies, "").
 			WithFilter(configuration).

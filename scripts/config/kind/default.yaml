@@ -34,6 +34,3 @@ nodes:
   - role: worker
   - role: worker
   - role: worker
-featureGates:
-  "PodDisruptionConditions": true
-  "ProcMountType": true
