@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resourcequota-recreation-with-preconditions
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: create-default-quota
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    context:
+      - name: resourcequotas
+        apiCall:
+          urlPath: "/api/v1/namespaces/{{request.object.metadata.name}}/resourcequotas"
+          jmesPath: "items[?metadata.name==`override`] | length(@)"
+    preconditions:
+      all:
+      - key: "{{ resourcequotas }}"
+        operator: Equals
+        value: 0
+    generate:
+      apiVersion: v1
+      kind: ResourceQuota
+      name: default
+      namespace: "{{request.object.metadata.name}}"
+      orphanDownstreamOnPolicyDelete: true
+      generateExisting: true
+      synchronize: true
+      data:
+        spec:
+          hard:
+            limits.cpu: "4"
