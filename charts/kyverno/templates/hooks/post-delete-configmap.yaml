@@ -97,7 +97,7 @@ spec:
             - /bin/sh
             - -c
             - |-
-              set -euo pipefail
+              set -eu
               kubectl delete cm --ignore-not-found -n {{ template "kyverno.namespace" . }} {{ template "kyverno.config.configMapName" . }}
           {{- with .Values.webhooksCleanup.securityContext }}
           securityContext:
