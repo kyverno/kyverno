@@ -669,7 +669,7 @@ jobs:
           shard-count: 3
           upgrade-scenario: ${{ matrix.upgrade }}
 
-    namespaced-deleting-policies:
+  namespaced-deleting-policies:
     runs-on: ubuntu-latest
     permissions:
       packages: read
