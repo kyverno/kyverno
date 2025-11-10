@@ -89,7 +89,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20250909135530-dad770c1cb46
 	sigs.k8s.io/kustomize/api v0.20.1
-	sigs.k8s.io/kustomize/kyaml v0.20.1
+	sigs.k8s.io/kustomize/kyaml v0.21.0
 	sigs.k8s.io/release-utils v0.12.2
 	sigs.k8s.io/yaml v1.6.0
 )
