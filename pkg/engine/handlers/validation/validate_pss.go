@@ -151,7 +151,7 @@ func (h validatePssHandler) validate(
 
 		// process the old object for UPDATE admission requests in case of enforce policies
 		if action.Enforce() {
-			allowExisitingViolations := rule.HasValidateAllowExistingViolations()
+			allowExisitingViolations := rule.HasValidateAllowExistingViolations(policyContext.Config())
 			if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
 				priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
 				if err != nil {
