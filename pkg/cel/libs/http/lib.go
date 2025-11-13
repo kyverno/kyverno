@@ -31,7 +31,7 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		ext.NativeTypes(reflect.TypeFor[struct{}]()), // reg
+		ext.NativeTypes(reflect.TypeFor[struct{}]()), // register an empty struct type since the library depends on the ext native types provider to resolve the context type
 		c.extendEnv,
 	}
 }
