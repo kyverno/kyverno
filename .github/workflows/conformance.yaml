@@ -869,11 +869,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version:
-          - v1.30.x
-          - v1.31.x
-          - v1.32.x
-          - v1.33.x
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         tests:
           - custom-sigstore
     needs: prepare-images
