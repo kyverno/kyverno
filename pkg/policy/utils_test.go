@@ -240,10 +240,103 @@ func Test_resourceMatches(t *testing.T) {
 			isNamespacedPolicy: false,
 			want:               false,
 		},
+		{
+			name: "Matching resource based on its name and namespace where the namespace is a wildcard",
+			match: kyverno.ResourceDescription{
+				Namespaces: []string{"test-ns", "test-ns1?"},
+				Kinds:      []string{"Pod"},
+				Names:      []string{"my-pod"},
+			},
+			res: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name":      "my-pod",
+						"namespace": "test-ns1a",
+					},
+				},
+			},
+			isNamespacedPolicy: false,
+			want:               true,
+		},
+		{
+			name: "Matching resource based on its name and namespace where the namespace has multiple wildcards",
+			match: kyverno.ResourceDescription{
+				Namespaces: []string{"test-ns", "te*t-n*"},
+				Kinds:      []string{"Pod"},
+				Names:      []string{"my-pod"},
+			},
+			res: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name":      "my-pod",
+						"namespace": "test-ns1",
+					},
+				},
+			},
+			isNamespacedPolicy: false,
+			want:               true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := resourceMatches(tt.match, tt.res, tt.isNamespacedPolicy); got != tt.want {
+				t.Errorf("resourceMatches() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_resourceMatchesWithWildcards(t *testing.T) {
+	tests := []struct {
+		name               string
+		namespaces         []string
+		isNamespacedPolicy bool
+		want               bool
+	}{
+		{
+			name:       "in a cluster policy, the desired namespaces have no wildcards, and the resource namespace is an exact match",
+			namespaces: []string{"default", "test-namespace"},
+			want:       true,
+		},
+		{
+			name:       "in a cluster policy, the desired namespaces have no wildcards, but the resource namespace is NOT an exact match",
+			namespaces: []string{"default", "test-namespace2"},
+			want:       false,
+		},
+		{
+			name:       "in a cluster policy, the desired namespaces have wildcards, and the resource namespace matches at least one",
+			namespaces: []string{"default", "test-*"},
+			want:       true,
+		},
+		{
+			name:       "in a cluster policy, the desired namespaces have wildcards, but the resource namespace matches NOT even one",
+			namespaces: []string{"default", "tes-*"},
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match := kyverno.ResourceDescription{
+				Namespaces: tt.namespaces,
+				Kinds:      []string{"Pod"},
+				Names:      []string{"my-pod"},
+			}
+			res := unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name":      "my-pod",
+						"namespace": "test-namespace",
+					},
+				},
+			}
+			if got := resourceMatches(match, res, tt.isNamespacedPolicy); got != tt.want {
 				t.Errorf("resourceMatches() = %v, want %v", got, tt.want)
 			}
 		})
