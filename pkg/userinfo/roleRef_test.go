@@ -75,8 +75,9 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 		Username: "system:serviceaccount:ns-1:sa",
 	}
 	type args struct {
-		roleBindings []*rbacv1.RoleBinding
-		userInfo     authenticationv1.UserInfo
+		roleBindings     []*rbacv1.RoleBinding
+		userInfo         authenticationv1.UserInfo
+		requestNamespace string
 	}
 	tests := []struct {
 		name             string
@@ -122,7 +123,30 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 			roleBindings: []*rbacv1.RoleBinding{
 				clusterRole,
 			},
-			userInfo: userInfo,
+			userInfo:         userInfo,
+			requestNamespace: clusterRole.Namespace,
+		},
+		wantClusterRoles: []string{
+			"role-1",
+		},
+	}, {
+		name: "group role with request in different namespace",
+		args: args{
+			roleBindings: []*rbacv1.RoleBinding{
+				clusterRole,
+			},
+			userInfo:         userInfo,
+			requestNamespace: "default",
+		},
+		wantClusterRoles: []string(nil),
+	}, {
+		name: "group role with request in same namespace",
+		args: args{
+			roleBindings: []*rbacv1.RoleBinding{
+				clusterRole,
+			},
+			userInfo:         userInfo,
+			requestNamespace: clusterRole.Namespace,
 		},
 		wantClusterRoles: []string{
 			"role-1",
@@ -136,7 +160,8 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 				roleInAnotherNs,
 				clusterRole,
 			},
-			userInfo: userInfo,
+			userInfo:         userInfo,
+			requestNamespace: clusterRole.Namespace,
 		},
 		wantRoles: []string{
 			"ns-1:role-1",
@@ -149,7 +174,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotRoles, gotClusterRoles := getRoleRefByRoleBindings(tt.args.roleBindings, tt.args.userInfo)
+			gotRoles, gotClusterRoles := getRoleRefByRoleBindings(tt.args.roleBindings, tt.args.userInfo, tt.args.requestNamespace)
 			if !reflect.DeepEqual(gotRoles, tt.wantRoles) {
 				t.Errorf("getRoleRefByRoleBindings() gotRoles = %v, want %v", gotRoles, tt.wantRoles)
 			}
@@ -358,6 +383,7 @@ func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 			Name: "role-2",
 		},
 	}
+
 	userInfo := authenticationv1.UserInfo{
 		Username: "system:serviceaccount:foo:sa",
 	}
@@ -430,9 +456,10 @@ func (l clusterRoleBindingLister) List(labels.Selector) ([]*rbacv1.ClusterRoleBi
 
 func TestGetRoleRef(t *testing.T) {
 	type args struct {
-		rbLister  RoleBindingLister
-		crbLister ClusterRoleBindingLister
-		userInfo  authenticationv1.UserInfo
+		rbLister         RoleBindingLister
+		crbLister        ClusterRoleBindingLister
+		userInfo         authenticationv1.UserInfo
+		requestNamespace string
 	}
 	type want struct {
 		roles        []string
@@ -508,6 +535,7 @@ func TestGetRoleRef(t *testing.T) {
 				userInfo: authenticationv1.UserInfo{
 					Username: "system:serviceaccount:ns-1:sa",
 				},
+				requestNamespace: "ns-2",
 			},
 			want: want{
 				roles:        []string{"ns-1:role-1", "ns-2:role-1"},
@@ -688,7 +716,7 @@ func TestGetRoleRef(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			roles, clusterRoles, err := GetRoleRef(tt.args.rbLister, tt.args.crbLister, tt.args.userInfo)
+			roles, clusterRoles, err := GetRoleRef(tt.args.rbLister, tt.args.crbLister, tt.args.userInfo, tt.args.requestNamespace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetRoleRef() error = %v, wantErr %v", err, tt.wantErr)
 				return
