@@ -173,7 +173,8 @@ func createrLeaderControllers(
 		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 		deploymentInformer,
 		caInformer,
@@ -290,7 +291,8 @@ func createrLeaderControllers(
 		kyvernoClient,
 		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().MutatingPolicies(),
 		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
 		reportsServiceAccountName,
@@ -692,7 +694,12 @@ func main() {
 			// create compiler
 			compiler := vpolcompiler.NewCompiler()
 			// create vpolProvider
-			vpolProvider, err := vpolengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			vpolProvider, err := vpolengine.NewKubeProvider(
+				compiler,
+				mgr,
+				kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+				internal.PolicyExceptionEnabled(),
+			)
 			if err != nil {
 				setup.Logger.Error(err, "failed to create vpol provider")
 				os.Exit(1)
@@ -861,7 +868,8 @@ func main() {
 				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
 				MutatingPolicies:                  webhooks.HandlerFunc(mpolHandlers.Mutate),
 				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
-				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.Validate),
+				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.ValidateClustered),
+				NamespacedValidatingPolicies:      webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
 				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
 				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.Generate),
 			},

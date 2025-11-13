@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -103,7 +103,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -123,7 +123,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -143,7 +143,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -163,7 +163,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -183,7 +183,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -203,7 +203,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1]
     needs: [define-matrix, prepare-images]
@@ -226,7 +226,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -246,7 +246,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -266,7 +266,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
     needs: [define-matrix, prepare-images]
@@ -289,7 +289,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -309,7 +309,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.32.5, v1.33.1]
+        k8s-version: [v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -330,7 +330,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -350,7 +350,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -370,7 +370,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
@@ -393,7 +393,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -413,7 +413,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -434,7 +434,7 @@ jobs:
       fail-fast: false
       matrix:
         kyverno-configs: [standard, default, standard,force-failure-policy-ignore]
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -454,7 +454,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1]
     needs: [define-matrix, prepare-images]
@@ -477,7 +477,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -497,7 +497,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2, 3, 4, 5]
     needs: [define-matrix, prepare-images]
@@ -520,7 +520,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -540,7 +540,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.32.5, v1.33.1]
+        k8s-version: [v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -561,7 +561,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
@@ -584,7 +584,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
@@ -599,6 +599,29 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
           upgrade-scenario: ${{ matrix.upgrade }}
+    
+  namespaced-image-validating-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+        shard-index: [0, 1, 2]
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: namespaced-image-validating-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
+          upgrade-scenario: ${{ matrix.upgrade }}
 
   validating-policies:
     runs-on: ubuntu-latest
@@ -607,7 +630,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
@@ -630,7 +653,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
@@ -646,6 +669,29 @@ jobs:
           shard-count: 3
           upgrade-scenario: ${{ matrix.upgrade }}
 
+  namespaced-deleting-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+        shard-index: [0, 1, 2]
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: deleting-policies/namespaced
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
+          upgrade-scenario: ${{ matrix.upgrade }}
+
   generating-policies:
     runs-on: ubuntu-latest
     permissions:
@@ -653,7 +699,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
@@ -669,6 +715,29 @@ jobs:
           shard-count: 3
           upgrade-scenario: ${{ matrix.upgrade }}
 
+  namespaced-validating-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+        shard-index: [0, 1, 2]
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: namespaced-validating-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
+          upgrade-scenario: ${{ matrix.upgrade }}
+
   policy-exceptions-disabled:
     runs-on: ubuntu-latest
     permissions:
@@ -676,7 +745,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -696,7 +765,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -716,7 +785,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1]
     needs: [define-matrix, prepare-images]
@@ -739,7 +808,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -759,7 +828,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -779,7 +848,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
@@ -883,7 +952,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     needs:
       - prepare-images
@@ -920,7 +989,7 @@ jobs:
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
           version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
@@ -1037,7 +1106,7 @@ jobs:
           verify: true
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
           version: v0.29.0
           node_image: kindest/node:v1.33.1
@@ -1065,7 +1134,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.30.13, v1.31.9, v1.32.5, v1.33.1]
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         kyverno-version: ["3.2"]
     needs: [prepare-images]
     steps:
@@ -1075,7 +1144,7 @@ jobs:
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
           version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
@@ -1142,7 +1211,7 @@ jobs:
           curl -LO "https://dl.k8s.io/release/${{ matrix.k8s-version.version }}/bin/linux/amd64/kubectl"
           sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
       - name: Create kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
           version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version.version }}
@@ -1211,6 +1280,7 @@ jobs:
       - image-validating-policies
       - lease
       - mutate
+      - namespaced-validating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
@@ -1257,6 +1327,7 @@ jobs:
       - image-validating-policies
       - lease
       - mutate
+      - namespaced-validating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
