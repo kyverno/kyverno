@@ -108,9 +108,13 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
+          docker run --rm -v "$PWD":/work -w /work golang:1.22 \
+            bash -lc '
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1 &&
+              $(go env GOPATH)/bin/xk6 build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0 &&
+              install -D -m 0755 ./k6 /tmp/k6
+            '
+          mkdir -p $HOME/.local/bin && docker cp $(docker create scratch):/tmp/k6 $HOME/.local/bin/k6 || true
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Run load tests using K6
         shell: bash
