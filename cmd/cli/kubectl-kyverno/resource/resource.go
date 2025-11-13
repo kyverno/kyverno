@@ -53,10 +53,49 @@ func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error)
 	if decodeErr == nil {
 		resource.SetGroupVersionKind(*metaData)
 	}
-	if resource.GetNamespace() == "" {
+	if resource.GetNamespace() == "" && !isClusterScopedResource(resource.GetKind()) {
 		resource.SetNamespace("default")
 	}
 	return resource, nil
+}
+
+// isClusterScopedResource checks if a resource kind is cluster-scoped
+func isClusterScopedResource(kind string) bool {
+	clusterScopedKinds := []string{
+		"Namespace",
+		"Node",
+		"PersistentVolume",
+		"ClusterRole",
+		"ClusterRoleBinding",
+		"ClusterPolicy",
+		"ClusterPolicyReport",
+		"StorageClass",
+		"CustomResourceDefinition",
+		"MutatingWebhookConfiguration",
+		"ValidatingWebhookConfiguration",
+		"APIService",
+		"TokenReview",
+		"SubjectAccessReview",
+		"SelfSubjectAccessReview",
+		"SelfSubjectRulesReview",
+		"CertificateSigningRequest",
+		"ValidatingAdmissionPolicy",
+		"ValidatingAdmissionPolicyBinding",
+		"MutatingAdmissionPolicy",
+		"MutatingAdmissionPolicyBinding",
+		"PriorityClass",
+		"RuntimeClass",
+		"CSIDriver",
+		"CSINode",
+		"VolumeAttachment",
+		"IngressClass",
+	}
+	for _, clusterKind := range clusterScopedKinds {
+		if kind == clusterKind {
+			return true
+		}
+	}
+	return false
 }
 
 // should be able to specify a single resource in a multi yaml file, dont error out when there are multiple resource
