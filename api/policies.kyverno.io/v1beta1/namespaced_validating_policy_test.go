@@ -1,26 +1,26 @@
-package v1alpha1
+package v1beta1
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
-func TestValidatingPolicy_GetMatchConstraints(t *testing.T) {
+func TestNamespacedValidatingPolicy_GetMatchConstraints(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   admissionregistrationv1.MatchResources
 	}{{
 		name:   "nil",
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   admissionregistrationv1.MatchResources{},
 	}, {
 		name: "not nil",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				MatchConstraints: &admissionregistrationv1.MatchResources{},
 			},
@@ -35,18 +35,18 @@ func TestValidatingPolicy_GetMatchConstraints(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicy_GetMatchConditions(t *testing.T) {
+func TestNamespacedValidatingPolicy_GetMatchConditions(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   []admissionregistrationv1.MatchCondition
 	}{{
 		name:   "nil",
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   nil,
 	}, {
 		name: "empty",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{},
 			},
@@ -54,7 +54,7 @@ func TestValidatingPolicy_GetMatchConditions(t *testing.T) {
 		want: []admissionregistrationv1.MatchCondition{},
 	}, {
 		name: "not empty",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{{
 					Name:       "dummy",
@@ -75,18 +75,18 @@ func TestValidatingPolicy_GetMatchConditions(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicy_GetFailurePolicy(t *testing.T) {
+func TestNamespacedValidatingPolicy_GetFailurePolicy(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   admissionregistrationv1.FailurePolicyType
 	}{{
 		name:   "nil",
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   admissionregistrationv1.Fail,
 	}, {
 		name: "fail",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 			},
@@ -94,14 +94,13 @@ func TestValidatingPolicy_GetFailurePolicy(t *testing.T) {
 		want: admissionregistrationv1.Fail,
 	}, {
 		name: "ignore",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 			},
 		},
 		want: admissionregistrationv1.Ignore,
-	},
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.policy.GetFailurePolicy()
@@ -110,44 +109,46 @@ func TestValidatingPolicy_GetFailurePolicy(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
+func TestNamespacedValidatingPolicy_GetWebhookConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
-		want   *WebhookConfiguration
+		policy *NamespacedValidatingPolicy
+		want   *int32
 	}{{
 		name:   "nil",
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   nil,
 	}, {
-		name: "fail",
-		policy: &ValidatingPolicy{
+		name: "not nil",
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
-				WebhookConfiguration: &WebhookConfiguration{},
+				WebhookConfiguration: &WebhookConfiguration{
+					TimeoutSeconds: ptr.To[int32](30),
+				},
 			},
 		},
-		want: &WebhookConfiguration{},
+		want: ptr.To[int32](30),
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.policy.GetWebhookConfiguration()
+			got := tt.policy.GetTimeoutSeconds()
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestValidatingPolicy_GetVariables(t *testing.T) {
+func TestNamespacedValidatingPolicy_GetVariables(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   []admissionregistrationv1.Variable
 	}{{
 		name:   "nil",
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   nil,
 	}, {
 		name: "empty",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{},
 			},
@@ -155,7 +156,7 @@ func TestValidatingPolicy_GetVariables(t *testing.T) {
 		want: []admissionregistrationv1.Variable{},
 	}, {
 		name: "not empty",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{{
 					Name:       "dummy",
@@ -176,14 +177,14 @@ func TestValidatingPolicy_GetVariables(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicy_GetSpec(t *testing.T) {
+func TestNamespacedValidatingPolicy_GetSpec(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   *ValidatingPolicySpec
 	}{{
 		name: "empty",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{},
 			},
@@ -193,7 +194,7 @@ func TestValidatingPolicy_GetSpec(t *testing.T) {
 		},
 	}, {
 		name: "not empty",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{{
 					Name:       "dummy",
@@ -216,13 +217,13 @@ func TestValidatingPolicy_GetSpec(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicy_GetStatus(t *testing.T) {
+func TestNamespacedValidatingPolicy_GetStatus(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   *ValidatingPolicyStatus
 	}{{
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   &ValidatingPolicyStatus{},
 	}}
 	for _, tt := range tests {
@@ -233,23 +234,23 @@ func TestValidatingPolicy_GetStatus(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicy_GetKind(t *testing.T) {
+func TestNamespacedValidatingPolicy_GetKind(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   string
 	}{{
 		name:   "not set",
-		policy: &ValidatingPolicy{},
-		want:   "ValidatingPolicy",
+		policy: &NamespacedValidatingPolicy{},
+		want:   "NamespacedValidatingPolicy",
 	}, {
 		name: "set",
-		policy: &ValidatingPolicy{
-			TypeMeta: v1.TypeMeta{
+		policy: &NamespacedValidatingPolicy{
+			TypeMeta: metav1.TypeMeta{
 				Kind: "Foo",
 			},
 		},
-		want: "ValidatingPolicy",
+		want: "NamespacedValidatingPolicy",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -259,33 +260,32 @@ func TestValidatingPolicy_GetKind(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicySpec_ValidationActions(t *testing.T) {
+func TestNamespacedValidatingPolicySpec_ValidationActions(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   []admissionregistrationv1.ValidationAction
 	}{{
 		name:   "nil",
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 	}, {
 		name:   "deny",
-		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
+		policy: &NamespacedValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}}},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 	}, {
 		name:   "warn",
-		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
+		policy: &NamespacedValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}}},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
 	}, {
 		name:   "audit",
-		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
+		policy: &NamespacedValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}}},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
 	}, {
 		name:   "multiple",
-		policy: &ValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
+		policy: &NamespacedValidatingPolicy{Spec: ValidatingPolicySpec{ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn}}},
 		want:   []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit, admissionregistrationv1.Warn},
-	},
-	}
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.policy.Spec.ValidationActions()
@@ -294,18 +294,18 @@ func TestValidatingPolicySpec_ValidationActions(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicy_BackgroundEnabled(t *testing.T) {
+func TestNamespacedValidatingPolicy_BackgroundEnabled(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   bool
 	}{{
 		name:   "nil",
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   true,
 	}, {
 		name: "true",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				EvaluationConfiguration: &EvaluationConfiguration{
 					Background: &BackgroundConfiguration{
@@ -317,7 +317,7 @@ func TestValidatingPolicy_BackgroundEnabled(t *testing.T) {
 		want: true,
 	}, {
 		name: "false",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				EvaluationConfiguration: &EvaluationConfiguration{
 					Background: &BackgroundConfiguration{
@@ -336,18 +336,18 @@ func TestValidatingPolicy_BackgroundEnabled(t *testing.T) {
 	}
 }
 
-func TestValidatingPolicySpec_GenerateValidatingAdmissionPolicyEnabled(t *testing.T) {
+func TestNamespacedValidatingPolicySpec_GenerateValidatingAdmissionPolicyEnabled(t *testing.T) {
 	tests := []struct {
 		name   string
-		policy *ValidatingPolicy
+		policy *NamespacedValidatingPolicy
 		want   bool
 	}{{
 		name:   "nil",
-		policy: &ValidatingPolicy{},
+		policy: &NamespacedValidatingPolicy{},
 		want:   false,
 	}, {
 		name: "nil",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				AutogenConfiguration: &ValidatingPolicyAutogenConfiguration{},
 			},
@@ -355,7 +355,7 @@ func TestValidatingPolicySpec_GenerateValidatingAdmissionPolicyEnabled(t *testin
 		want: false,
 	}, {
 		name: "nil",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				AutogenConfiguration: &ValidatingPolicyAutogenConfiguration{
 					ValidatingAdmissionPolicy: &VapGenerationConfiguration{},
@@ -365,7 +365,7 @@ func TestValidatingPolicySpec_GenerateValidatingAdmissionPolicyEnabled(t *testin
 		want: false,
 	}, {
 		name: "false",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				AutogenConfiguration: &ValidatingPolicyAutogenConfiguration{
 					ValidatingAdmissionPolicy: &VapGenerationConfiguration{
@@ -377,7 +377,7 @@ func TestValidatingPolicySpec_GenerateValidatingAdmissionPolicyEnabled(t *testin
 		want: false,
 	}, {
 		name: "true",
-		policy: &ValidatingPolicy{
+		policy: &NamespacedValidatingPolicy{
 			Spec: ValidatingPolicySpec{
 				AutogenConfiguration: &ValidatingPolicyAutogenConfiguration{
 					ValidatingAdmissionPolicy: &VapGenerationConfiguration{

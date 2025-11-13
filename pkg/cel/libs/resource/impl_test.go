@@ -17,7 +17,7 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(nil),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -57,7 +57,7 @@ func Test_impl_get_resource_string_string_string_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(nil),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -105,7 +105,7 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(nil),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -148,7 +148,7 @@ func Test_impl_list_resources_string_string_string_map(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(nil),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -194,7 +194,7 @@ func Test_impl_list_resources_string_string_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(nil),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -238,7 +238,7 @@ func Test_post_resource_string_string_string_map(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(nil),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -289,7 +289,7 @@ func Test_impl_post_resource_string_string_string_map_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(nil),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -337,7 +337,7 @@ func Test_impl_post_resource_string_string_map_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(nil),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)

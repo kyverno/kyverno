@@ -6,11 +6,13 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -229,8 +231,8 @@ func FetchValidatingAdmissionPolicyBindings(vapBindingLister admissionregistrati
 	return bindings, nil
 }
 
-func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicyLister) ([]policiesv1alpha1.ValidatingPolicy, error) {
-	var policies []policiesv1alpha1.ValidatingPolicy
+func FetchValidatingPolicies(vpolLister policiesv1beta1listers.ValidatingPolicyLister) ([]policiesv1beta1.ValidatingPolicy, error) {
+	var policies []policiesv1beta1.ValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -245,12 +247,12 @@ func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicy
 	return policies, nil
 }
 
-func FetchNamespacedValidatingPolicies(nvpolLister policiesv1alpha1listers.NamespacedValidatingPolicyLister, namespace string) ([]policiesv1alpha1.NamespacedValidatingPolicy, error) {
+func FetchNamespacedValidatingPolicies(nvpolLister policiesv1beta1listers.NamespacedValidatingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedValidatingPolicy, error) {
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	var pols []*policiesv1alpha1.NamespacedValidatingPolicy
+	var pols []*policiesv1beta1.NamespacedValidatingPolicy
 	if namespace != "" {
 		pols, err = nvpolLister.NamespacedValidatingPolicies(namespace).List(labels.Everything().Add(*r))
 	} else {
@@ -259,7 +261,7 @@ func FetchNamespacedValidatingPolicies(nvpolLister policiesv1alpha1listers.Names
 	if err != nil {
 		return nil, err
 	}
-	policies := make([]policiesv1alpha1.NamespacedValidatingPolicy, 0, len(pols))
+	policies := make([]policiesv1beta1.NamespacedValidatingPolicy, 0, len(pols))
 	for _, pol := range pols {
 		policies = append(policies, *pol)
 	}
@@ -282,8 +284,8 @@ func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyList
 	return policies, nil
 }
 
-func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister) ([]policiesv1alpha1.ImageValidatingPolicy, error) {
-	var policies []policiesv1alpha1.ImageValidatingPolicy
+func FetchImageVerificationPolicies(ivpolLister policiesv1beta1listers.ImageValidatingPolicyLister) ([]policiesv1beta1.ImageValidatingPolicy, error) {
+	var policies []policiesv1beta1.ImageValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -294,6 +296,27 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVal
 		for _, pol := range pols {
 			policies = append(policies, *pol)
 		}
+	}
+	return policies, nil
+}
+
+func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1beta1listers.NamespacedImageValidatingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedImageValidatingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var pols []*policiesv1beta1.NamespacedImageValidatingPolicy
+	if namespace != "" {
+		pols, err = nivpolLister.NamespacedImageValidatingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		pols, err = nivpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1beta1.NamespacedImageValidatingPolicy, 0, len(pols))
+	for _, pol := range pols {
+		policies = append(policies, *pol)
 	}
 	return policies, nil
 }
