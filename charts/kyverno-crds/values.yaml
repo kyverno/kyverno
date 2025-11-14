@@ -1,0 +1,40 @@
+# Default values for kyverno-crds
+installCRDs: true
+
+reportsServer:
+  enabled: false
+
+groups:
+  # kyverno.io CRDs (7 total)
+  kyverno:
+    cleanuppolicies: true
+    clustercleanuppolicies: true
+    clusterpolicies: true
+    globalcontextentries: true
+    policies: true
+    policyexceptions: true
+    updaterequests: true
+
+  # policies.kyverno.io CRDs (6 total)  
+  policies:
+    deletingpolicies: true
+    generatingpolicies: true
+    imagevalidatingpolicies: true
+    mutatingpolicies: true
+    policyexceptions: true
+    validatingpolicies: true
+
+  # reports.kyverno.io CRDs (2 total)
+  reports:
+    clusterephemeralreports: true
+    ephemeralreports: true
+
+  # wgpolicyk8s.io CRDs (2 total)
+  wgpolicyk8s:
+    clusterpolicyreports: true
+    policyreports: true
+
+annotations: {}
+customLabels: {}
+nameOverride: ""
+fullnameOverride: ""
