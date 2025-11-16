@@ -39,17 +39,50 @@ jobs:
         retention-days: 1
         if-no-files-found: error
 
-  upload-to-codecov:
-    needs:
-    - tests
+  integration-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
     - name: Checkout
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-    - name: Download coverage
+    - name: Setup build env
+      uses: ./.github/actions/setup-build-env
+      timeout-minutes: 10
+      with:
+        free-disk-space: false
+    - name: Setup envtest
+      run: |
+        go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+        setup-envtest use 1.28.x --bin-dir /tmp/envtest
+        echo "KUBEBUILDER_ASSETS=$(setup-envtest use 1.28.x --bin-dir /tmp/envtest -p path)" >> $GITHUB_ENV
+    - name: Integration tests
+      run: go test -v -tags=integration -coverprofile=coverage-integration.out ./pkg/controllers/...
+    - name: Upload coverage
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      with:
+        name: coverage-integration.out
+        path: coverage-integration.out
+        retention-days: 1
+        if-no-files-found: warn  
+
+  upload-to-codecov:
+    needs:
+    - tests
+    - integration-tests
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Checkout
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - name: Download unit coverage
       uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
       with:
         name: coverage.out
+    - name: Download integration coverage
+      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      with:
+        name: coverage-integration.out
+      continue-on-error: true
     - name: Upload Report to Codecov
       uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
       with:
@@ -57,4 +90,4 @@ jobs:
         fail_ci_if_error: true
         verbose: true
       env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}    
