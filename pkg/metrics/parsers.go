@@ -109,7 +109,7 @@ func GetCELPolicyInfos(policy GenericPolicy) (string, string, PolicyBackgroundMo
 		if slices.Contains(p.Spec.ValidationActions(), admissionregistrationv1.Deny) {
 			validationMode = admissionregistrationv1.Deny
 		}
-	case *v1alpha1.ImageValidatingPolicy:
+	case *v1beta1.ImageValidatingPolicy:
 		policyType = "ImageValidating"
 
 		if p.Spec.BackgroundEnabled() {
