@@ -201,11 +201,11 @@ func FetchMutatingAdmissionPolicyBindingsAlpha(mapBindingLister admissionregistr
 
 func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1listers.ValidatingAdmissionPolicyLister) ([]admissionregistrationv1.ValidatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1.ValidatingAdmissionPolicy
-	r, err := getExcludeReportingLabelRequirement()
+	r, err := getIncludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := vapLister.List(labels.Everything().Add(*r)); err != nil {
+	if pols, err := vapLister.List(labels.NewSelector().Add(*r)); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -351,6 +351,18 @@ func getExcludeReportingLabelRequirement() (*labels.Requirement, error) {
 		kyverno.LabelExcludeReporting,
 		selection.DoesNotExist,
 		nil, // values not needed for DoesNotExist
+	)
+	if err != nil {
+		return nil, err
+	}
+	return requirement, nil
+}
+
+func getIncludeReportingLabelRequirement() (*labels.Requirement, error) {
+	requirement, err := labels.NewRequirement(
+		kyverno.LabelEnableVAPReporting,
+		selection.Equals,
+		[]string{"true"},
 	)
 	if err != nil {
 		return nil, err
