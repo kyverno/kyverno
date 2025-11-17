@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -35,6 +36,8 @@ func GetResourceAccordingToResourcePath(
 	policyReport bool,
 	clusterWideResources bool,
 	policyResourcePath string,
+	resourceOptions loader.ResourceOptions,
+	showPerformance bool,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
 		resources, err = GetResourcesWithTest(out, fs, resourcePaths, policyResourcePath)
@@ -87,6 +90,8 @@ func GetResourceAccordingToResourcePath(
 					Namespace:            "",
 					PolicyReport:         policyReport,
 					ClusterWideResources: clusterWideResources,
+					ResourceOptions:      resourceOptions,
+					ShowPerformance:      showPerformance,
 				}
 				resources, err := fetcher.GetResources()
 				if err != nil {
@@ -105,6 +110,8 @@ func GetResourceAccordingToResourcePath(
 				Namespace:            namespace,
 				PolicyReport:         policyReport,
 				ClusterWideResources: false,
+				ResourceOptions:      resourceOptions,
+				ShowPerformance:      showPerformance,
 			}
 			namespaceResources, err := fetcher.GetResources()
 			if err != nil {
