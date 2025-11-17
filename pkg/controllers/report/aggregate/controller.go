@@ -15,8 +15,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
@@ -65,9 +67,10 @@ type controller struct {
 	// listers
 	polLister      kyvernov1listers.PolicyLister
 	cpolLister     kyvernov1listers.ClusterPolicyLister
-	vpolLister     policiesv1alpha1listers.ValidatingPolicyLister
-	nvpolLister    policiesv1alpha1listers.NamespacedValidatingPolicyLister
-	ivpolLister    policiesv1alpha1listers.ImageValidatingPolicyLister
+	vpolLister     policiesv1beta1listers.ValidatingPolicyLister
+	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
+	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
+	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	gpolLister     policiesv1alpha1listers.GeneratingPolicyLister
 	mpolLister     policiesv1alpha1listers.MutatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -98,9 +101,10 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	nvpolInformer policiesv1alpha1informers.NamespacedValidatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
+	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
+	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -308,6 +312,17 @@ func NewController(
 	}
 	if ivpolInformer != nil {
 		c.ivpolLister = ivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			ivpolInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nivpolInformer != nil {
+		c.nivpolLister = nivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
 			ivpolInformer.Informer(),
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },

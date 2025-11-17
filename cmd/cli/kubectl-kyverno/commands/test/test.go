@@ -430,7 +430,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 }
 
 func applyImageValidatingPolicies(
-	ivps []policiesv1alpha1.ImageValidatingPolicy,
+	ivps []policiesv1beta1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1alpha1.PolicyException,
@@ -442,7 +442,12 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
+	// Convert to ImageValidatingPolicyLike interface
+	ivpsLike := make([]policiesv1beta1.ImageValidatingPolicyLike, len(ivps))
+	for i := range ivps {
+		ivpsLike[i] = &ivps[i]
+	}
+	provider, err := ivpolengine.NewProvider(ivpsLike, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -511,17 +516,17 @@ func applyImageValidatingPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
-	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
+	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
 	for i := range ivps {
-		p := ivps[i]
-		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
+		p := &ivps[i]
+		pMap[p.GetName()] = p
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -550,7 +555,7 @@ func applyImageValidatingPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}

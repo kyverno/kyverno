@@ -63,6 +63,14 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
 
+	if nivpol := policy.AsNamespacedImageValidatingPolicy(); nivpol != nil {
+		warnings, err := eval.Validate(policy.AsNamespacedImageValidatingPolicy(), h.client.GetKubeClient().CoreV1().Secrets(""))
+		if err != nil {
+			logger.Error(err, "NamespacedImageValidatingPolicy validation errors")
+		}
+		return admissionutils.Response(request.UID, err, warnings...)
+	}
+
 	if mpol := policy.AsMutatingPolicy(); mpol != nil {
 		warnings, err := mpolvalidation.Validate(mpol)
 		if err != nil {

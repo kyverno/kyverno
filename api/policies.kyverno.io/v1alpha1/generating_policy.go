@@ -42,8 +42,12 @@ func (s *GeneratingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePol
 	return admissionregistrationv1.Ignore
 }
 
-func (s *GeneratingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
+func (s *GeneratingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
 }
 
 func (s *GeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
@@ -79,9 +83,6 @@ type GeneratingPolicySpec struct {
 	// Match conditions filter requests that have already been matched by the rules,
 	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 	// There are a maximum of 64 match conditions allowed.
-	//
-	// If a parameter object is provided, it can be accessed via the `params` handle in the same
-	// manner as validation expressions.
 	//
 	// The exact matching logic is (in order):
 	//   1. If ANY matchCondition evaluates to FALSE, the policy is skipped.

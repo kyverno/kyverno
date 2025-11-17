@@ -37,7 +37,7 @@ func TestConditionStatus_IsReady(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.status.GetConditionStatus().IsReady()
+			got := tt.status.ConditionStatus.IsReady()
 			assert.Equal(t, tt.want, got)
 		})
 	}
