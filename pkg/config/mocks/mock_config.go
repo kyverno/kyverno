@@ -107,6 +107,34 @@ func (mr *MockConfigurationMockRecorder) GetUpdateRequestThreshold() *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpdateRequestThreshold", reflect.TypeOf((*MockConfiguration)(nil).GetUpdateRequestThreshold))
 }
 
+// GetEnableUpdateRequestCleanup mocks base method.
+func (m *MockConfiguration) GetEnableUpdateRequestCleanup() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEnableUpdateRequestCleanup")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetEnableUpdateRequestCleanup indicates an expected call of GetEnableUpdateRequestCleanup.
+func (mr *MockConfigurationMockRecorder) GetEnableUpdateRequestCleanup() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnableUpdateRequestCleanup", reflect.TypeOf((*MockConfiguration)(nil).GetEnableUpdateRequestCleanup))
+}
+
+// GetUpdateRequestCleanupTTL mocks base method.
+func (m *MockConfiguration) GetUpdateRequestCleanupTTL() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUpdateRequestCleanupTTL")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetUpdateRequestCleanupTTL indicates an expected call of GetUpdateRequestCleanupTTL.
+func (mr *MockConfigurationMockRecorder) GetUpdateRequestCleanupTTL() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpdateRequestCleanupTTL", reflect.TypeOf((*MockConfiguration)(nil).GetUpdateRequestCleanupTTL))
+}
+
 // GetWebhook mocks base method.
 func (m *MockConfiguration) GetWebhook() config.WebhookConfig {
 	m.ctrl.T.Helper()
