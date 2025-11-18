@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
@@ -87,7 +87,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -107,7 +107,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -127,7 +127,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -147,7 +147,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -167,7 +167,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -187,7 +187,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -208,7 +208,7 @@ jobs:
         shard-index: [0, 1]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -230,7 +230,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -250,7 +250,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -271,7 +271,7 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -293,7 +293,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -313,7 +313,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -334,7 +334,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -354,7 +354,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -375,7 +375,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -397,7 +397,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -417,7 +417,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -438,7 +438,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -459,7 +459,7 @@ jobs:
         shard-index: [0, 1]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -481,7 +481,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -502,7 +502,7 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -524,7 +524,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -544,7 +544,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -566,7 +566,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -589,7 +589,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -612,7 +612,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -635,7 +635,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -658,7 +658,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -681,7 +681,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -704,7 +704,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -727,7 +727,7 @@ jobs:
         shard-index: [0, 1, 2]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -749,7 +749,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -769,7 +769,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -790,7 +790,7 @@ jobs:
         shard-index: [0, 1]
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -812,7 +812,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -832,7 +832,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -852,7 +852,7 @@ jobs:
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [define-matrix, prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -879,7 +879,7 @@ jobs:
     needs: prepare-images
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       # install tools
       - name: Install helm
         id: helm
@@ -959,9 +959,9 @@ jobs:
       - prepare-cli
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Checkout kyverno/policies
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: kyverno/policies
           path: policies
@@ -1041,7 +1041,7 @@ jobs:
     needs: prepare-images
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
@@ -1092,7 +1092,7 @@ jobs:
       - prepare-cli
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       # install tools
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
@@ -1138,7 +1138,7 @@ jobs:
         kyverno-version: ["3.2"]
     needs: [prepare-images]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Install helm
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
@@ -1201,7 +1201,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - kyverno uninstall
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Install helm
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
