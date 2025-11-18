@@ -305,7 +305,7 @@ func mutateResource(
 	compiler.CompileVariables(optionalVars)
 
 	var matchPolicy admissionregistrationv1.MatchPolicyType
-	if policy.Spec.MatchConstraints.MatchPolicy == nil {
+	if policy.Spec.MatchConstraints == nil || policy.Spec.MatchConstraints.MatchPolicy == nil {
 		matchPolicy = admissionregistrationv1.Equivalent
 	} else {
 		matchPolicy = admissionregistrationv1.MatchPolicyType(*policy.Spec.MatchConstraints.MatchPolicy)
