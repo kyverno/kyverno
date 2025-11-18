@@ -145,11 +145,11 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 
 func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
-	r, err := getExcludeReportingLabelRequirement()
+	r, err := getIncludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := mapLister.List(labels.Everything().Add(*r)); err != nil {
+	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -161,11 +161,11 @@ func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1lister
 
 func FetchMutatingAdmissionPoliciesAlpha(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	r, err := getExcludeReportingLabelRequirement()
+	r, err := getIncludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := mapLister.List(labels.Everything().Add(*r)); err != nil {
+	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
