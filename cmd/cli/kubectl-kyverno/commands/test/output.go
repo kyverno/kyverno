@@ -251,7 +251,7 @@ func printTestResult(
 							}
 
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
-							if strings.Contains(message, "not found in manifest") {
+							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
 							}
@@ -279,7 +279,7 @@ func printTestResult(
 							}
 
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
-							if strings.Contains(message, "not found in manifest") {
+							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
 							}
