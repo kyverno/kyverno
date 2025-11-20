@@ -131,7 +131,7 @@ type genericPolicy struct {
 	ImageValidatingPolicy           *policiesv1beta1.ImageValidatingPolicy
 	NamespacedImageValidatingPolicy *policiesv1beta1.NamespacedImageValidatingPolicy
 	MutatingPolicy                  *policiesv1alpha1.MutatingPolicy
-  NamespacedMutatingPolicy.       *policiesv1alpha1.NamespacedMutatingPolicy
+    NamespacedMutatingPolicy        *policiesv1alpha1.NamespacedMutatingPolicy
 	GeneratingPolicy                *policiesv1alpha1.GeneratingPolicy
 	DeletingPolicy                  policiesv1beta1.DeletingPolicyLike
 	// originalAPIVersion tracks the original API version for converted policies
