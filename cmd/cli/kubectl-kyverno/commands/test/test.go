@@ -34,6 +34,7 @@ import (
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -111,7 +112,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
@@ -135,7 +136,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
-	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir)
+	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
@@ -145,7 +146,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 
 	parameterResourcesPath := path.GetFullPaths(testCase.Test.ParamResources, testDir, isGit)
-	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, parameterResourcesPath, false, genericPolicies, dClient, "", false, false, testDir)
+	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, parameterResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load parameter resources (%s)", err)
 	}
@@ -431,7 +432,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 }
 
 func applyImageValidatingPolicies(
-	ivps []policiesv1alpha1.ImageValidatingPolicy,
+	ivps []policiesv1beta1.ImageValidatingPolicy,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1alpha1.PolicyException,
@@ -443,7 +444,12 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
+	// Convert to ImageValidatingPolicyLike interface
+	ivpsLike := make([]policiesv1beta1.ImageValidatingPolicyLike, len(ivps))
+	for i := range ivps {
+		ivpsLike[i] = &ivps[i]
+	}
+	provider, err := ivpolengine.NewProvider(ivpsLike, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -512,17 +518,17 @@ func applyImageValidatingPolicies(
 
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
 	}
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
-	pMap := make(map[string]*policiesv1alpha1.ImageValidatingPolicy)
+	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
 	for i := range ivps {
-		p := ivps[i]
-		pMap[p.GetName()] = &p
-		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: &p})
+		p := &ivps[i]
+		pMap[p.GetName()] = p
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
 	for _, json := range jsonPayloads {
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
@@ -551,7 +557,7 @@ func applyImageValidatingPolicies(
 					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicy(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}

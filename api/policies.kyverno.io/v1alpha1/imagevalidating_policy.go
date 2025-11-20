@@ -1,14 +1,12 @@
 package v1alpha1
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,87 +31,12 @@ type ImageValidatingPolicy struct {
 	Status ImageValidatingPolicyStatus `json:"status,omitempty"`
 }
 
-// BackgroundEnabled checks if background is set to true
-func (s ImageValidatingPolicy) BackgroundEnabled() bool {
-	return s.Spec.BackgroundEnabled()
-}
-
 type ImageValidatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
 
 	// +optional
 	Autogen ImageValidatingPolicyAutogenStatus `json:"autogen,omitempty"`
-}
-
-func (s *ImageValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.MatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-	return *s.Spec.MatchConstraints
-}
-
-func (s *ImageValidatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.Spec.MatchConditions
-}
-
-func (s *ImageValidatingPolicy) GetTimeoutSeconds() *int32 {
-	if s.Spec.WebhookConfiguration == nil {
-		return nil
-	}
-
-	return s.Spec.WebhookConfiguration.TimeoutSeconds
-}
-
-func (s *ImageValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
-		return admissionregistrationv1.Ignore
-	}
-	if s.Spec.FailurePolicy == nil {
-		return admissionregistrationv1.Fail
-	}
-	return *s.Spec.FailurePolicy
-}
-
-func (s *ImageValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
-	return s.Spec.Variables
-}
-
-func (s *ImageValidatingPolicy) GetSpec() *ImageValidatingPolicySpec {
-	return &s.Spec
-}
-
-func (s *ImageValidatingPolicy) GetStatus() *ImageValidatingPolicyStatus {
-	return &s.Status
-}
-
-func (s *ImageValidatingPolicy) GetKind() string {
-	return "ImageValidatingPolicy"
-}
-
-// AdmissionEnabled checks if admission is set to true
-func (s ImageValidatingPolicySpec) AdmissionEnabled() bool {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
-		return true
-	}
-	return *s.EvaluationConfiguration.Admission.Enabled
-}
-
-// BackgroundEnabled checks if background is set to true
-func (s ImageValidatingPolicySpec) BackgroundEnabled() bool {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return true
-	}
-	return *s.EvaluationConfiguration.Background.Enabled
-}
-
-// ValidationActions returns the validation actions.
-func (s ImageValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
-	const defaultValue = admissionregistrationv1.Deny
-	if len(s.ValidationAction) == 0 {
-		return []admissionregistrationv1.ValidationAction{defaultValue}
-	}
-	return s.ValidationAction
 }
 
 // +kubebuilder:object:root=true
@@ -160,6 +83,32 @@ type ImageValidatingPolicySpec struct {
 	AuditAnnotations []admissionregistrationv1.AuditAnnotation `json:"auditAnnotations,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
+	// If a validation evaluates to false it is always enforced according to these actions.
+	//
+	// Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+	// to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+	// ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.
+	//
+	// validationActions is declared as a set of action values. Order does
+	// not matter. validationActions may not contain duplicates of the same action.
+	//
+	// The supported actions values are:
+	//
+	// "Deny" specifies that a validation failure results in a denied request.
+	//
+	// "Warn" specifies that a validation failure is reported to the request client
+	// in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+	// both for allowed or denied admission responses.
+	//
+	// "Audit" specifies that a validation failure is recorded in the created reports.
+	//
+	// Clients should expect to handle additional values by ignoring
+	// any values not recognized.
+	//
+	// "Deny" and "Warn" may not be used together since this combination
+	// needlessly duplicates the validation failure both in the
+	// API response body and the HTTP warning headers.
+	//
 	// Required.
 	// +listType=set
 	// +kubebuilder:validation:items:Enum=Deny;Audit;Warn

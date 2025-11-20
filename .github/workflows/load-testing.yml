@@ -23,7 +23,7 @@ jobs:
       tests: ${{ steps.set-tests.outputs.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Set Tests
         id: set-tests
         run: echo "tests=$(jq -c . < ./test/load/k6/${{ github.event_name }}-matrix.json)" >> $GITHUB_OUTPUT
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
@@ -66,9 +66,9 @@ jobs:
         k8s-version: [v1.31.0]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -76,14 +76,14 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
           version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -108,10 +108,18 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
         run: |
@@ -148,9 +156,9 @@ jobs:
         k8s-version: [v1.31.0]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -158,14 +166,14 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
           version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -187,10 +195,18 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
         run: |
@@ -238,9 +254,9 @@ jobs:
         test: ${{ fromJson(needs.define-matrix.outputs.tests) }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -248,14 +264,14 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
           version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -283,10 +299,18 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
         run: |
