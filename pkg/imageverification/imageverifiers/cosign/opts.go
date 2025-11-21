@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/sigstore/cosign/v2/pkg/blob"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
@@ -21,7 +21,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
-func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
+func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
 	if err := initializeTuf(ctx, att.TUF); err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func checkOptions(ctx context.Context, att *v1alpha1.Cosign, baseROpts []remote.
 	return opts, nil
 }
 
-func initializeTuf(ctx context.Context, t *v1alpha1.TUF) error {
+func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
 	if t != nil {
 		var root []byte
 		var err error
@@ -183,7 +183,7 @@ func initializeTuf(ctx context.Context, t *v1alpha1.TUF) error {
 	return nil
 }
 
-func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretInterface, src *v1alpha1.Source) ([]remote.Option, error) {
+func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretInterface, src *v1beta1.Source) ([]remote.Option, error) {
 	opts := make([]remote.Option, 0)
 	if len(src.SignaturePullSecrets) > 0 {
 		signaturePullSecrets := make([]string, 0, len(src.SignaturePullSecrets))
@@ -199,7 +199,7 @@ func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretIn
 	return opts, nil
 }
 
-func getRekor(ctx context.Context, ctlog *v1alpha1.CTLog) (*client.Rekor, *cosign.TrustedTransparencyLogPubKeys, *cosign.TrustedTransparencyLogPubKeys, error) {
+func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign.TrustedTransparencyLogPubKeys, *cosign.TrustedTransparencyLogPubKeys, error) {
 	// In keyless, if no TrustRoot was defined and CTLog is nil, then default to rekor pub keys as done in cosign
 	if ctlog == nil {
 		rekorPubKeys, err := cosign.GetRekorPubs(ctx)

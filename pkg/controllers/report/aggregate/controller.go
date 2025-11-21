@@ -69,7 +69,8 @@ type controller struct {
 	cpolLister     kyvernov1listers.ClusterPolicyLister
 	vpolLister     policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
-	ivpolLister    policiesv1alpha1listers.ImageValidatingPolicyLister
+	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
+	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	gpolLister     policiesv1alpha1listers.GeneratingPolicyLister
 	mpolLister     policiesv1alpha1listers.MutatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -102,7 +103,8 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
+	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -310,6 +312,17 @@ func NewController(
 	}
 	if ivpolInformer != nil {
 		c.ivpolLister = ivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			ivpolInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nivpolInformer != nil {
+		c.nivpolLister = nivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
 			ivpolInformer.Informer(),
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },

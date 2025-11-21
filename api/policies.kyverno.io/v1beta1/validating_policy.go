@@ -251,9 +251,6 @@ type ValidatingPolicySpec struct {
 	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 	// There are a maximum of 64 match conditions allowed.
 	//
-	// If a parameter object is provided, it can be accessed via the `params` handle in the same
-	// manner as validation expressions.
-	//
 	// The exact matching logic is (in order):
 	//   1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
 	//   2. If ALL matchConditions evaluate to TRUE, the policy is evaluated.
@@ -287,6 +284,32 @@ type ValidatingPolicySpec struct {
 	AutogenConfiguration *ValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
+	// If a validation evaluates to false it is always enforced according to these actions.
+	//
+	// Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+	// to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+	// ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.
+	//
+	// validationActions is declared as a set of action values. Order does
+	// not matter. validationActions may not contain duplicates of the same action.
+	//
+	// The supported actions values are:
+	//
+	// "Deny" specifies that a validation failure results in a denied request.
+	//
+	// "Warn" specifies that a validation failure is reported to the request client
+	// in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+	// both for allowed or denied admission responses.
+	//
+	// "Audit" specifies that a validation failure is recorded in the created reports.
+	//
+	// Clients should expect to handle additional values by ignoring
+	// any values not recognized.
+	//
+	// "Deny" and "Warn" may not be used together since this combination
+	// needlessly duplicates the validation failure both in the
+	// API response body and the HTTP warning headers.
+	//
 	// Required.
 	// +listType=set
 	// +kubebuilder:validation:items:Enum=Deny;Audit;Warn

@@ -79,7 +79,8 @@ type controller struct {
 	vpolLister            policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister            policiesv1alpha1listers.MutatingPolicyLister
-	ivpolLister           policiesv1alpha1listers.ImageValidatingPolicyLister
+	ivpolLister           policiesv1beta1listers.ImageValidatingPolicyLister
+	nivpolLister          policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	polexLister           kyvernov2listers.PolicyExceptionLister
 	celpolexListener      policiesv1alpha1listers.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -121,7 +122,8 @@ func NewController(
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
+	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -191,6 +193,12 @@ func NewController(
 	if ivpolInformer != nil {
 		c.ivpolLister = ivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(ivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nivpolInformer != nil {
+		c.nivpolLister = nivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(nivpolInformer.Informer(), c.addNIVP, c.updateNIVP, c.deleteNIVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -348,17 +356,31 @@ func (c *controller) deleteMP(obj *policiesv1alpha1.MutatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
+func (c *controller) addIVP(obj *policiesv1beta1.ImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageValidatingPolicy) {
+func (c *controller) updateIVP(old, obj *policiesv1beta1.ImageValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
+func (c *controller) deleteIVP(obj *policiesv1beta1.ImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addNIVP(obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateNIVP(old, obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteNIVP(obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
 	c.enqueueResources()
 }
 

@@ -145,13 +145,23 @@ func (pc *policyController) triggerMatches(
 
 	// check if the resource's namespace matches the namespace selector
 	if nsSelector != nil {
-		nsName := resource.GetNamespace()
-		namespace, err := pc.client.GetResource(context.TODO(), "v1", "Namespace", "", nsName)
-		if err != nil {
-			pc.log.Error(err, "failed to get namespace", "name", nsName)
-			return false
+		var labels map[string]string
+		var nsName string
+		// for namespace resources, check the labels directly
+		if resource.GetKind() == "Namespace" {
+			labels = resource.GetLabels()
+			nsName = resource.GetName()
+		} else {
+			nsName := resource.GetNamespace()
+			namespace, err := pc.client.GetResource(context.TODO(), "v1", "Namespace", "", nsName)
+			if err != nil {
+				pc.log.Error(err, "failed to get namespace", "name", nsName)
+				return false
+			}
+			labels = namespace.GetLabels()
 		}
-		isMatch, err := matchutils.CheckSelector(nsSelector, namespace.GetLabels())
+		// check if the namespace labels match the namespace selector
+		isMatch, err := matchutils.CheckSelector(nsSelector, labels)
 		if err != nil {
 			pc.log.Error(err, "failed to check namespace selector", "namespace", nsName)
 			return false
