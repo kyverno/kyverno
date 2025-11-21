@@ -15,6 +15,9 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    {{- if .Values.celEnabled }}
+    policies.kyverno.io/minversion: 1.12.0
+    {{- end }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
     policies.kyverno.io/description: >-
       Privileged mode disables most security mechanisms and must not be allowed. This policy
@@ -22,6 +25,7 @@ metadata:
     {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -43,18 +47,37 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
-        {{- with index .Values "validationFailureActionByPolicy" $name }}
-        failureAction: {{ toYaml . }}
-        {{- else }}
-        failureAction: {{ .Values.validationFailureAction }}
-        {{- end }}
-        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-        failureActionOverrides: {{ toYaml . | nindent 8 }}
-        {{- end }}
-        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Privileged mode is disallowed. The fields spec.containers[*].securityContext.privileged
           and spec.initContainers[*].securityContext.privileged must be unset or set to `false`.
+        {{- if .Values.celEnabled }}
+        # Using CEL for validation
+        cel:
+          expressions:
+            - expression: |
+                object.spec.containers.all(container,
+                  !has(container.securityContext) ||
+                  !has(container.securityContext.privileged) ||
+                  container.securityContext.privileged == false
+                )
+              message: "Privileged mode is disallowed (set privileged=false)."
+            - expression: |
+                !has(object.spec.initContainers) ||
+                object.spec.initContainers.all(container,
+                  !has(container.securityContext) ||
+                  !has(container.securityContext.privileged) ||
+                  container.securityContext.privileged == false
+                )
+              message: "InitContainers must not be privileged."
+            - expression: |
+                !has(object.spec.ephemeralContainers) ||
+                object.spec.ephemeralContainers.all(container,
+                  !has(container.securityContext) ||
+                  !has(container.securityContext.privileged) ||
+                  container.securityContext.privileged == false
+                )
+              message: "EphemeralContainers must not be privileged."
+        {{- else }}
         pattern:
           spec:
             =(ephemeralContainers):
@@ -66,4 +89,5 @@ spec:
             containers:
               - =(securityContext):
                   =(privileged): "false"
+        {{- end }}
 {{- end }}
