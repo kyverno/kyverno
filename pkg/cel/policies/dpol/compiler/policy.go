@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -31,6 +32,7 @@ type Policy struct {
 func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured, context libs.Context) (*EvaluationResult, error) {
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew := map[string]any{
+		compiler.CurrentTimeKey:   time.Now(),
 		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: context},
 		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
 		compiler.ImageDataKey:     imagedata.Context{ContextInterface: context},
