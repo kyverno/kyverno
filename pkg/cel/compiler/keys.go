@@ -16,4 +16,5 @@ const (
 	GeneratorKey       = "generator"
 	VariablesKey       = "variables"
 	ExceptionsKey      = "exceptions"
+	CurrentTimeKey     = "current_time"
 )
