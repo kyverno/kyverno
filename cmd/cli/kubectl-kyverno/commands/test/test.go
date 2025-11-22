@@ -605,7 +605,7 @@ func applyDeletingPolicies(
 			policyName := dpol.Policy.GetName()
 			resp, err := engine.Handle(context.TODO(), dpol, *resource)
 			if err != nil {
-				fmt.Printf("failed to apply policy %s on JSON payload: %v\n", resource.GetName(), err)
+				fmt.Printf("failed to apply policy %s on resource: %v\n", resource.GetName(), err)
 
 				response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
 				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
