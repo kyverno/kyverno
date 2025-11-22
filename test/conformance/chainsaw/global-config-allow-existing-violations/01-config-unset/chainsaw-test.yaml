@@ -1,0 +1,75 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: config-unset
+spec:
+  steps:
+  - name: setup-config
+    try:
+    - script:
+        content: |
+          kubectl patch configmap kyverno -n kyverno --type json -p '[{"op": "remove", "path": "/data/defaultAllowExistingViolations"}]' || true
+    - sleep:
+        duration: 5s
+  - name: setup-resources
+    try:
+    - apply:
+        file: ../resources/namespace.yaml
+    - apply:
+        file: ../resources/pod.yaml
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-pod
+            namespace: global-config-test
+          status:
+            phase: Running
+  - name: test-policy-unset
+    try:
+    - apply:
+        file: ../resources/policy-unset.yaml
+    - sleep:
+        duration: 2s
+    - script:
+        content: |
+          if kubectl annotate pod test-pod -n global-config-test "test-unset=$(date +%s)" --overwrite; then exit 1; else exit 0; fi
+  - name: cleanup-policy-unset
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: require-app-label-unset
+  - name: test-policy-false
+    try:
+    - apply:
+        file: ../resources/policy-false.yaml
+    - sleep:
+        duration: 2s
+    - script:
+        content: |
+          if kubectl annotate pod test-pod -n global-config-test "test-false=$(date +%s)" --overwrite; then exit 1; else exit 0; fi
+  - name: cleanup-policy-false
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: require-app-label-false
+  - name: test-policy-true
+    try:
+    - apply:
+        file: ../resources/policy-true.yaml
+    - sleep:
+        duration: 2s
+    - script:
+        content: kubectl annotate pod test-pod -n global-config-test "test-true=$(date +%s)" --overwrite
+  - name: cleanup-policy-true
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: require-app-label-true

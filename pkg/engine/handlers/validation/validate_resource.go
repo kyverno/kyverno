@@ -163,8 +163,14 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 
 	// process the old object for UPDATE admission requests in case of enforce policies
 	if action.Enforce() {
-		allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
-		if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
+		var allowExistingViolations bool
+		if v.rule.Validation != nil && v.rule.Validation.AllowExistingViolations != nil {
+			allowExistingViolations = *v.rule.Validation.AllowExistingViolations
+		} else {
+			allowExistingViolations = v.policyContext.Config().GetDefaultAllowExistingViolations()
+		}
+
+		if engineutils.IsUpdateRequest(v.policyContext) && allowExistingViolations && v.nesting == 0 { // is update request and is the root level validate
 			priorResp, err := v.validateOldObject(ctx)
 			if err != nil {
 				v.log.V(4).Info("warning: failed to validate old object", "rule", v.rule.Name, "error", err.Error())

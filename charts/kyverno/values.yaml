@@ -266,6 +266,9 @@ config:
   # -- Generate success events.
   generateSuccessEvents: false
 
+  # -- Default value for allowExistingViolations
+  defaultAllowExistingViolations: false
+
   # -- Resource types to be skipped by the Kyverno policy engine.
   # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
   # These are joined together without spaces, run through `tpl`, and the result is set in the config map.
