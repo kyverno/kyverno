@@ -200,3 +200,17 @@ func (mr *MockConfigurationMockRecorder) ToFilter(kind, subresource, namespace, 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToFilter", reflect.TypeOf((*MockConfiguration)(nil).ToFilter), kind, subresource, namespace, name)
 }
+
+// GetDefaultAllowExistingViolations mocks base method.
+func (m *MockConfiguration) GetDefaultAllowExistingViolations() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDefaultAllowExistingViolations")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetDefaultAllowExistingViolations indicates an expected call of GetDefaultAllowExistingViolations.
+func (mr *MockConfigurationMockRecorder) GetDefaultAllowExistingViolations() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDefaultAllowExistingViolations", reflect.TypeOf((*MockConfiguration)(nil).GetDefaultAllowExistingViolations))
+}
