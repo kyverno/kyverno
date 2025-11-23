@@ -112,6 +112,8 @@ rules:
       - generatingpolicies/status
       - mutatingpolicies
       - mutatingpolicies/status
+      - namespacedmutatingpolicies
+      - namespacedmutatingpolicies/status
     verbs:
       - create
       - delete
