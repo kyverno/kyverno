@@ -51,6 +51,10 @@ func (c *withMetrics) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_c
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingPolicy", c.clientType)
 	return mutatingpolicies.WithMetrics(c.inner.MutatingPolicies(), recorder)
 }
+func (c *withMetrics) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedMutatingPolicyInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "NamespacedMutatingPolicy", c.clientType)
+	return namespacedmutatingpolicies.WithMetrics(c.inner.NamespacedMutatingPolicies(namespace), recorder)
+}
 func (c *withMetrics) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.PolicyExceptionInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PolicyException", c.clientType)
 	return policyexceptions.WithMetrics(c.inner.PolicyExceptions(namespace), recorder)
@@ -58,10 +62,6 @@ func (c *withMetrics) PolicyExceptions(namespace string) github_com_kyverno_kyve
 func (c *withMetrics) ValidatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.ValidatingPolicyInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingPolicy", c.clientType)
 	return validatingpolicies.WithMetrics(c.inner.ValidatingPolicies(), recorder)
-}
-func (c *withMetrics) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedMutatingPolicyInterface {
-	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "NamespacedMutatingPolicy", c.clientType)
-	return namespacedmutatingpolicies.WithMetrics(c.inner.NamespacedMutatingPolicies(namespace), recorder)
 }
 
 type withTracing struct {
@@ -84,14 +84,14 @@ func (c *withTracing) ImageValidatingPolicies() github_com_kyverno_kyverno_pkg_c
 func (c *withTracing) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.MutatingPolicyInterface {
 	return mutatingpolicies.WithTracing(c.inner.MutatingPolicies(), c.client, "MutatingPolicy")
 }
+func (c *withTracing) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedMutatingPolicyInterface {
+	return namespacedmutatingpolicies.WithTracing(c.inner.NamespacedMutatingPolicies(namespace), c.client, "NamespacedMutatingPolicy")
+}
 func (c *withTracing) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.PolicyExceptionInterface {
 	return policyexceptions.WithTracing(c.inner.PolicyExceptions(namespace), c.client, "PolicyException")
 }
 func (c *withTracing) ValidatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.ValidatingPolicyInterface {
 	return validatingpolicies.WithTracing(c.inner.ValidatingPolicies(), c.client, "ValidatingPolicy")
-}
-func (c *withTracing) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedMutatingPolicyInterface {
-	return namespacedmutatingpolicies.WithTracing(c.inner.NamespacedMutatingPolicies(namespace), c.client, "NamespacedMutatingPolicy")
 }
 
 type withLogging struct {
@@ -114,12 +114,12 @@ func (c *withLogging) ImageValidatingPolicies() github_com_kyverno_kyverno_pkg_c
 func (c *withLogging) MutatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.MutatingPolicyInterface {
 	return mutatingpolicies.WithLogging(c.inner.MutatingPolicies(), c.logger.WithValues("resource", "MutatingPolicies"))
 }
+func (c *withLogging) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedMutatingPolicyInterface {
+	return namespacedmutatingpolicies.WithLogging(c.inner.NamespacedMutatingPolicies(namespace), c.logger.WithValues("resource", "NamespacedMutatingPolicies").WithValues("namespace", namespace))
+}
 func (c *withLogging) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.PolicyExceptionInterface {
 	return policyexceptions.WithLogging(c.inner.PolicyExceptions(namespace), c.logger.WithValues("resource", "PolicyExceptions").WithValues("namespace", namespace))
 }
 func (c *withLogging) ValidatingPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.ValidatingPolicyInterface {
 	return validatingpolicies.WithLogging(c.inner.ValidatingPolicies(), c.logger.WithValues("resource", "ValidatingPolicies"))
-}
-func (c *withLogging) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1alpha1.NamespacedMutatingPolicyInterface {
-	return namespacedmutatingpolicies.WithLogging(c.inner.NamespacedMutatingPolicies(namespace), c.logger.WithValues("resource", "NamespacedMutatingPolicies").WithValues("namespace", namespace))
 }
