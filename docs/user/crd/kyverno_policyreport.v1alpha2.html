@@ -1,0 +1,1012 @@
+
+  <html lang="en">
+    <head>
+      <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<style>
+    .bg-blue {
+        color: #ffffff;
+        background-color: #1589dd;
+    }
+</style>
+    </head>
+    <body>
+      <div class="container">
+        
+          
+          
+            <h2 id="wgpolicyk8s-io-v1alpha2">Package: <span style="font-family: monospace">wgpolicyk8s.io/v1alpha2</span></h2>
+            <p></p>
+          
+        
+        
+          
+            
+            <h3>Resource Types:</h3>
+            <ul><li>
+                    <a href="#wgpolicyk8s-io-v1alpha2-ClusterPolicyReport">ClusterPolicyReport</a>
+                  </li><li>
+                    <a href="#wgpolicyk8s-io-v1alpha2-PolicyReport">PolicyReport</a>
+                  </li></ul>
+
+            
+            
+  <H3 id="wgpolicyk8s-io-v1alpha2-ClusterPolicyReport">ClusterPolicyReport
+    </H3>
+
+  
+
+  <p><p>ClusterPolicyReport is the Schema for the clusterpolicyreports API</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>wgpolicyk8s.io/v1alpha2</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>ClusterPolicyReport</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>scope</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">core/v1.ObjectReference</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>scopeSelector</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.LabelSelector</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
+Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>summary</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportSummary">
+                <span style="font-family: monospace">PolicyReportSummary</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportSummary provides a summary of results</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>results</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportResult">
+                <span style="font-family: monospace">[]PolicyReportResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportResult provides result details</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="wgpolicyk8s-io-v1alpha2-PolicyReport">PolicyReport
+    </H3>
+
+  
+
+  <p><p>PolicyReport is the Schema for the policyreports API</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>wgpolicyk8s.io/v1alpha2</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>PolicyReport</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>scope</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">core/v1.ObjectReference</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>scopeSelector</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.LabelSelector</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
+Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>summary</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportSummary">
+                <span style="font-family: monospace">PolicyReportSummary</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportSummary provides a summary of results</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>results</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportResult">
+                <span style="font-family: monospace">[]PolicyReportResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportResult provides result details</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="wgpolicyk8s-io-v1alpha2-PolicyReportResult">PolicyReportResult
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#wgpolicyk8s-io-v1alpha2-ClusterPolicyReport">ClusterPolicyReport</a>, 
+        <a href="#wgpolicyk8s-io-v1alpha2-PolicyReport">PolicyReport</a>)
+    </p>
+  
+
+  <p><p>PolicyReportResult provides the result for an individual policy</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>source</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Source is an identifier for the policy engine that manages this report</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>policy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Policy is the name or identifier of the policy</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rule</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rule is the name or identifier of the rule within the policy</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]core/v1.ObjectReference</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Subjects is an optional reference to the checked Kubernetes resources</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resourceSelector</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.LabelSelector</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SubjectSelector is an optional label selector for checked Kubernetes resources.
+For example, a policy result may apply to all pods that match a label.
+Either a Subject or a SubjectSelector can be specified.
+If neither are provided, the result is assumed to be for the policy report scope.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>message</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Description is a short user friendly message for the policy rule</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>result</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyResult">
+                <span style="font-family: monospace">PolicyResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Result indicates the outcome of the policy rule execution</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>scored</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Scored indicates if this result is scored</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>properties</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Properties provides additional information for the policy rule</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>timestamp</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Timestamp</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Timestamp indicates the time the result was found</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>category</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Category indicates policy category</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>severity</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicySeverity">
+                <span style="font-family: monospace">PolicySeverity</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Severity indicates policy check result criticality</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="wgpolicyk8s-io-v1alpha2-PolicyReportSummary">PolicyReportSummary
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#wgpolicyk8s-io-v1alpha2-ClusterPolicyReport">ClusterPolicyReport</a>, 
+        <a href="#wgpolicyk8s-io-v1alpha2-PolicyReport">PolicyReport</a>)
+    </p>
+  
+
+  <p><p>PolicyReportSummary provides a status count summary</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>pass</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Pass provides the count of policies whose requirements were met</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>fail</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Fail provides the count of policies whose requirements were not met</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>warn</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Warn provides the count of non-scored policies whose requirements were not met</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>error</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Error provides the count of policies that could not be evaluated</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>skip</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Skip indicates the count of policies that were not selected for evaluation</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="wgpolicyk8s-io-v1alpha2-PolicyResult">PolicyResult
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportResult">PolicyReportResult</a>)
+    </p>
+  
+
+  <p><p>PolicyResult has one of the following values:</p>
+<ul>
+<li>pass: indicates that the policy requirements are met</li>
+<li>fail: indicates that the policy requirements are not met</li>
+<li>warn: indicates that the policy requirements and not met, and the policy is not scored</li>
+<li>error: indicates that the policy could not be evaluated</li>
+<li>skip: indicates that the policy was not selected based on user inputs or applicability</li>
+</ul>
+</p>
+
+  
+
+  <H3 id="wgpolicyk8s-io-v1alpha2-PolicySeverity">PolicySeverity
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportResult">PolicyReportResult</a>)
+    </p>
+  
+
+  <p><p>PolicySeverity has one of the following values:</p>
+<ul>
+<li>critical</li>
+<li>high</li>
+<li>low</li>
+<li>medium</li>
+<li>info</li>
+</ul>
+</p>
+
+  
+
+          
+          <hr />
+        
+      </div>
+    </body>
+  </html>
