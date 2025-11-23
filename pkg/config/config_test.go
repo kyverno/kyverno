@@ -10,13 +10,13 @@ import (
 
 func Test_configuration_Load_DefaultAllowExistingViolations(t *testing.T) {
 	tests := []struct {
-		name                           string
-		data                           map[string]string
+		name                            string
+		data                            map[string]string
 		expectedAllowExistingViolations bool
 	}{
 		{
-			name:                           "not set",
-			data:                           map[string]string{},
+			name:                            "not set",
+			data:                            map[string]string{},
 			expectedAllowExistingViolations: false,
 		},
 		{
