@@ -77,25 +77,27 @@ type PolicyProcessor struct {
 	Variables                         *variables.Variables
 	ParameterResources                []runtime.Object
 	// TODO
-	ContextFs                 billy.Filesystem
-	ContextPath               string
-	Cluster                   bool
-	UserInfo                  *kyvernov2.RequestInfo
-	PolicyReport              bool
-	NamespaceSelectorMap      map[string]map[string]string
-	Stdin                     bool
-	Rc                        *ResultCounts
-	PrintPatchResource        bool
-	RuleToCloneSourceResource map[string]string
-	Client                    dclient.Interface
-	AuditWarn                 bool
-	Subresources              []v1alpha1.Subresource
-	Out                       io.Writer
-	NamespaceCache            map[string]*unstructured.Unstructured
+	ContextFs                      billy.Filesystem
+	ContextPath                    string
+	Cluster                        bool
+	UserInfo                       *kyvernov2.RequestInfo
+	PolicyReport                   bool
+	NamespaceSelectorMap           map[string]map[string]string
+	Stdin                          bool
+	Rc                             *ResultCounts
+	PrintPatchResource             bool
+	RuleToCloneSourceResource      map[string]string
+	Client                         dclient.Interface
+	AuditWarn                      bool
+	Subresources                   []v1alpha1.Subresource
+	Out                            io.Writer
+	NamespaceCache                 map[string]*unstructured.Unstructured
+	DefaultAllowExistingViolations bool
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
 	cfg := config.NewDefaultConfiguration(false)
+	cfg.SetDefaultAllowExistingViolations(p.DefaultAllowExistingViolations)
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[resource.GetNamespace()]
