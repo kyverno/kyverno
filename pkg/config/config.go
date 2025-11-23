@@ -100,19 +100,19 @@ const (
 
 // keys in config map
 const (
-	resourceFilters               = "resourceFilters"
-	defaultRegistry               = "defaultRegistry"
-	enableDefaultRegistryMutation = "enableDefaultRegistryMutation"
-	excludeGroups                 = "excludeGroups"
-	excludeUsernames              = "excludeUsernames"
-	excludeRoles                  = "excludeRoles"
-	excludeClusterRoles           = "excludeClusterRoles"
-	generateSuccessEvents         = "generateSuccessEvents"
-	webhooks                      = "webhooks"
-	webhookAnnotations            = "webhookAnnotations"
-	webhookLabels                 = "webhookLabels"
-	matchConditions               = "matchConditions"
-	updateRequestThreshold        = "updateRequestThreshold"
+	resourceFilters                = "resourceFilters"
+	defaultRegistry                = "defaultRegistry"
+	enableDefaultRegistryMutation  = "enableDefaultRegistryMutation"
+	excludeGroups                  = "excludeGroups"
+	excludeUsernames               = "excludeUsernames"
+	excludeRoles                   = "excludeRoles"
+	excludeClusterRoles            = "excludeClusterRoles"
+	generateSuccessEvents          = "generateSuccessEvents"
+	webhooks                       = "webhooks"
+	webhookAnnotations             = "webhookAnnotations"
+	webhookLabels                  = "webhookLabels"
+	matchConditions                = "matchConditions"
+	updateRequestThreshold         = "updateRequestThreshold"
 	defaultAllowExistingViolations = "defaultAllowExistingViolations"
 )
 
@@ -364,6 +364,12 @@ func (cd *configuration) GetDefaultAllowExistingViolations() bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.defaultAllowExistingViolations
+}
+
+func (cd *configuration) SetDefaultAllowExistingViolations(value bool) {
+	cd.mux.Lock()
+	defer cd.mux.Unlock()
+	cd.defaultAllowExistingViolations = value
 }
 
 func (cd *configuration) Load(cm *corev1.ConfigMap) {

@@ -54,7 +54,7 @@ type TestResponse struct {
 	Target  map[string][]engineapi.EngineResponse
 }
 
-func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, defaultAllowExistingViolations bool) (*TestResponse, error) {
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
@@ -281,6 +281,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			DefaultAllowExistingViolations:    defaultAllowExistingViolations,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -361,6 +362,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			DefaultAllowExistingViolations:    defaultAllowExistingViolations,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
