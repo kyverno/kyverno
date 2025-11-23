@@ -2,13 +2,15 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: check-deployment-replicas-vap
+  labels:
+    reports.kyverno.io/enabled: "true"
 spec:
   matchConstraints:
     resourceRules:
-    - apiGroups:   ["apps"]
-      apiVersions: ["v1"]
-      operations:  ["CREATE", "UPDATE"]
-      resources:   ["deployments"]
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["deployments"]
   validations:
     - expression: "object.spec.replicas <= 3"
       message: "Deployment spec.replicas must be less than 3."
