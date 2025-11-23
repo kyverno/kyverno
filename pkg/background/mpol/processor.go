@@ -151,7 +151,7 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 				Rules: r.Rules,
 			},
 		}
-		engineResponse = engineResponse.WithPolicy(engineapi.NewMutatingPolicy(r.Policy))
+		engineResponse = engineResponse.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
 		allEngineResponses = append(allEngineResponses, engineResponse)
 		if reportutils.IsPolicyReportable(r.Policy) {
 			reportableEngineResponses = append(reportableEngineResponses, engineResponse)

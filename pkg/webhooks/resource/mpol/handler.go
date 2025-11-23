@@ -129,7 +129,7 @@ func (h *handler) audit(ctx context.Context, response mpolengine.EngineResponse,
 				Rules: r.Rules,
 			},
 		}
-		engineResponse = engineResponse.WithPolicy(engineapi.NewMutatingPolicy(r.Policy))
+		engineResponse = engineResponse.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
 		allEngineResponses = append(allEngineResponses, engineResponse)
 		if reportutils.IsPolicyReportable(r.Policy) {
 			reportableEngineResponses = append(reportableEngineResponses, engineResponse)
@@ -187,7 +187,7 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response mp
 		for _, rule := range policy.Rules {
 			switch rule.Status() {
 			case engineapi.RuleStatusError:
-				mutationErrors = append(mutationErrors, fmt.Sprintf("Policy %s: %s", policy.Policy.Name, rule.Message()))
+				mutationErrors = append(mutationErrors, fmt.Sprintf("Policy %s: %s", policy.Policy.GetName(), rule.Message()))
 			case engineapi.RuleStatusWarn:
 				warnings = append(warnings, rule.Message())
 			}

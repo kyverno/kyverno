@@ -54,11 +54,11 @@ func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 }
 
 type MutatingPolicyResponse struct {
-	Policy *policiesv1alpha1.MutatingPolicy
+	Policy policiesv1alpha1.MutatingPolicyLike
 	Rules  []engineapi.RuleResponse
 }
 
-type Predicate = func(policiesv1alpha1.MutatingPolicy) bool
+type Predicate = func(policiesv1alpha1.MutatingPolicyLike) bool
 
 type engineImpl struct {
 	provider        Provider
@@ -157,7 +157,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
-		Policy: &mpol.Policy,
+		Policy: mpol.Policy,
 		Rules:  []engineapi.RuleResponse{},
 	}
 
