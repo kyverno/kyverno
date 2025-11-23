@@ -74,7 +74,7 @@ type LoaderResults struct {
 	DeletingPolicies                  []policiesv1beta1.DeletingPolicy
 	NamespacedDeletingPolicies        []policiesv1beta1.NamespacedDeletingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
-    NamespacedMutatingPolicies        []policiesv1alpha1.NamespacedMutatingPolicy
+	NamespacedMutatingPolicies        []policiesv1alpha1.NamespacedMutatingPolicy
 	NonFatalErrors                    []LoaderError
 }
 
