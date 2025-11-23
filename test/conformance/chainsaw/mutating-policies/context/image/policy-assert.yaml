@@ -1,8 +1,8 @@
 
 apiVersion: policies.kyverno.io/v1alpha1
-kind: MutatingPolicy
+kind: NamespacedMutatingPolicy
 metadata:
-  name: mpol-lib-image
+  name: nmpol-lib-image
 status:
   conditionStatus:
     conditions:

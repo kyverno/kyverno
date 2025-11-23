@@ -17,11 +17,13 @@ spec:
             value: policy.yaml
     - name: verify-policy
       use:
-        template: ../../../_step-templates/mutating-policy-ready.yaml
+        template: ../../../_step-templates/namespaced-mutating-policy-ready.yaml
         with:
           bindings:
           - name: name
-            value: mpol-lib-image
+            value: nmpol-lib-image
+          - name: namespace
+            value: isolated-ns
     - name: sleep
       try:
         - sleep:
