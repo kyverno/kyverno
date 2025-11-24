@@ -25,7 +25,7 @@ spec:
     - jsonPath: .status.conditionStatus.ready
       name: READY
       type: string
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
         properties:
@@ -88,6 +88,24 @@ spec:
                           Optional. Default value is "true".
                         type: boolean
                     type: object
+                  background:
+                    description: Background controls policy evaluation during background
+                      scan.
+                    properties:
+                      enabled:
+                        default: true
+                        description: |-
+                          Enabled controls if rules are applied to existing resources during a background scan.
+                          Optional. Default value is "true". The value must be set to "false" if the policy rule
+                          uses variables that are only available in the admission review request (e.g. user name).
+                        type: boolean
+                    type: object
+                  mode:
+                    description: |-
+                      Mode is the mode of policy evaluation.
+                      Allowed values are "Kubernetes" or "JSON".
+                      Optional. Default value is "Kubernetes".
+                    type: string
                   mutateExisting:
                     description: MutateExisting controls whether existing resources
                       are mutated.
@@ -176,7 +194,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the policy should not care about.
+                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -264,13 +282,12 @@ spec:
                       - Exact: match a request only if it exactly matches a specified rule.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      the admission policy does not consider requests to apps/v1beta1 or extensions/v1beta1 API groups.
+                      a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
 
                       - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      the admission policy **does** consider requests made to apps/v1beta1 or extensions/v1beta1
-                      API groups. The API server translates the request to a matched resource API if necessary.
+                      a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
 
                       Defaults to "Equivalent"
                     type: string
@@ -365,9 +382,9 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the policy based on if the
+                      ObjectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
-                      the oldObject and newObject that would be sent to the policy's expression (CEL), and
+                      the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
                       object (oldObject in the case of create, or newObject in the case of
                       delete) or an object that cannot have labels (like a
@@ -422,7 +439,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the admission policy matches.
+                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -516,125 +533,32 @@ spec:
                   description: Mutation specifies the CEL expression which is used
                     to apply the Mutation.
                   properties:
-                    applyConfiguration:
+                    expression:
                       description: |-
-                        applyConfiguration defines the desired configuration values of an object.
-                        The configuration is applied to the admission object using
-                        [structured merge diff](https://github.com/kubernetes-sigs/structured-merge-diff).
-                        A CEL expression is used to create apply configuration.
-                      properties:
-                        expression:
-                          description: "expression will be evaluated by CEL to create
-                            an apply configuration.\nref: https://github.com/google/cel-spec\n\nApply
-                            configurations are declared in CEL using object initialization.
-                            For example, this CEL expression\nreturns an apply configuration
-                            to set a single field:\n\n\tObject{\n\t  spec: Object.spec{\n\t
-                            \   serviceAccountName: \"example\"\n\t  }\n\t}\n\nApply
-                            configurations may not modify atomic structs, maps or
-                            arrays due to the risk of accidental deletion of\nvalues
-                            not included in the apply configuration.\n\nCEL expressions
-                            have access to the object types needed to create apply
-                            configurations:\n\n- 'Object' - CEL type of the resource
-                            object.\n- 'Object.<fieldName>' - CEL type of object field
-                            (such as 'Object.spec')\n- 'Object.<fieldName1>.<fieldName2>...<fieldNameN>`
-                            - CEL type of nested field (such as 'Object.spec.containers')\n\nCEL
-                            expressions have access to the contents of the API request,
-                            organized into CEL variables as well as some other useful
-                            variables:\n\n- 'object' - The object from the incoming
-                            request. The value is null for DELETE requests.\n- 'oldObject'
-                            - The existing object. The value is null for CREATE requests.\n-
-                            'request' - Attributes of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
-                            'params' - Parameter resource referred to by the policy
-                            binding being evaluated. Only populated if the policy
-                            has a ParamKind.\n- 'namespaceObject' - The namespace
-                            object that the incoming object belongs to. The value
-                            is null for cluster-scoped resources.\n- 'variables' -
-                            Map of composited variables, from its name to its lazily
-                            evaluated value.\n  For example, a variable named 'foo'
-                            can be accessed as 'variables.foo'.\n- 'authorizer' -
-                            A CEL Authorizer. May be used to perform authorization
-                            checks for the principal (user or service account) of
-                            the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
-                            'authorizer.requestResource' - A CEL ResourceCheck constructed
-                            from the 'authorizer' and configured with the\n  request
-                            resource.\n\nThe `apiVersion`, `kind`, `metadata.name`
-                            and `metadata.generateName` are always accessible from
-                            the root of the\nobject. No other metadata properties
-                            are accessible.\n\nOnly property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
-                            are accessible.\nRequired."
-                          type: string
-                      type: object
-                    jsonPatch:
-                      description: |-
-                        jsonPatch defines a [JSON patch](https://jsonpatch.com/) operation to perform a mutation to the object.
-                        A CEL expression is used to create the JSON patch.
-                      properties:
-                        expression:
-                          description: "expression will be evaluated by CEL to create
-                            a [JSON patch](https://jsonpatch.com/).\nref: https://github.com/google/cel-spec\n\nexpression
-                            must return an array of JSONPatch values.\n\nFor example,
-                            this CEL expression returns a JSON patch to conditionally
-                            modify a value:\n\n\t  [\n\t    JSONPatch{op: \"test\",
-                            path: \"/spec/example\", value: \"Red\"},\n\t    JSONPatch{op:
-                            \"replace\", path: \"/spec/example\", value: \"Green\"}\n\t
-                            \ ]\n\nTo define an object for the patch value, use Object
-                            types. For example:\n\n\t  [\n\t    JSONPatch{\n\t      op:
-                            \"add\",\n\t      path: \"/spec/selector\",\n\t      value:
-                            Object.spec.selector{matchLabels: {\"environment\": \"test\"}}\n\t
-                            \   }\n\t  ]\n\nTo use strings containing '/' and '~'
-                            as JSONPatch path keys, use \"jsonpatch.escapeKey\". For
-                            example:\n\n\t  [\n\t    JSONPatch{\n\t      op: \"add\",\n\t
-                            \     path: \"/metadata/labels/\" + jsonpatch.escapeKey(\"example.com/environment\"),\n\t
-                            \     value: \"test\"\n\t    },\n\t  ]\n\nCEL expressions
-                            have access to the types needed to create JSON patches
-                            and objects:\n\n- 'JSONPatch' - CEL type of JSON Patch
-                            operations. JSONPatch has the fields 'op', 'from', 'path'
-                            and 'value'.\n  See [JSON patch](https://jsonpatch.com/)
-                            for more details. The 'value' field may be set to any
-                            of: string,\n  integer, array, map or object.  If set,
-                            the 'path' and 'from' fields must be set to a\n  [JSON
-                            pointer](https://datatracker.ietf.org/doc/html/rfc6901/)
-                            string, where the 'jsonpatch.escapeKey()' CEL\n  function
-                            may be used to escape path keys containing '/' and '~'.\n-
-                            'Object' - CEL type of the resource object.\n- 'Object.<fieldName>'
-                            - CEL type of object field (such as 'Object.spec')\n-
-                            'Object.<fieldName1>.<fieldName2>...<fieldNameN>` - CEL
-                            type of nested field (such as 'Object.spec.containers')\n\nCEL
-                            expressions have access to the contents of the API request,
-                            organized into CEL variables as well as some other useful
-                            variables:\n\n- 'object' - The object from the incoming
-                            request. The value is null for DELETE requests.\n- 'oldObject'
-                            - The existing object. The value is null for CREATE requests.\n-
-                            'request' - Attributes of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
-                            'params' - Parameter resource referred to by the policy
-                            binding being evaluated. Only populated if the policy
-                            has a ParamKind.\n- 'namespaceObject' - The namespace
-                            object that the incoming object belongs to. The value
-                            is null for cluster-scoped resources.\n- 'variables' -
-                            Map of composited variables, from its name to its lazily
-                            evaluated value.\n  For example, a variable named 'foo'
-                            can be accessed as 'variables.foo'.\n- 'authorizer' -
-                            A CEL Authorizer. May be used to perform authorization
-                            checks for the principal (user or service account) of
-                            the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
-                            'authorizer.requestResource' - A CEL ResourceCheck constructed
-                            from the 'authorizer' and configured with the\n  request
-                            resource.\n\nCEL expressions have access to [Kubernetes
-                            CEL function libraries](https://kubernetes.io/docs/reference/using-api/cel/#cel-options-language-features-and-libraries)\nas
-                            well as:\n\n- 'jsonpatch.escapeKey' - Performs JSONPatch
-                            key escaping. '~' and  '/' are escaped as '~0' and `~1'
-                            respectively).\n\nOnly property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
-                            are accessible.\nRequired."
-                          type: string
-                      type: object
-                    patchType:
-                      description: |-
-                        patchType indicates the patch strategy used.
-                        Allowed values are "ApplyConfiguration" and "JSONPatch".
+                        Expression specifies the CEL expression which is used to apply the mutation.
                         Required.
                       type: string
+                    target:
+                      description: Target specifies the target of the mutation.
+                      properties:
+                        group:
+                          description: Group specifies the API group of the target
+                            resource.
+                          type: string
+                        kind:
+                          description: Kind specifies the kind of the target resource.
+                          type: string
+                        resource:
+                          description: Resource specifies the resource name of the
+                            target resource.
+                          type: string
+                        version:
+                          description: Version specifies the API version of the target
+                            resource.
+                          type: string
+                      type: object
                   required:
-                  - patchType
+                  - expression
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
@@ -657,7 +581,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the policy should not care about.
+                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -745,13 +669,12 @@ spec:
                       - Exact: match a request only if it exactly matches a specified rule.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      the admission policy does not consider requests to apps/v1beta1 or extensions/v1beta1 API groups.
+                      a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
 
                       - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      the admission policy **does** consider requests made to apps/v1beta1 or extensions/v1beta1
-                      API groups. The API server translates the request to a matched resource API if necessary.
+                      a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
 
                       Defaults to "Equivalent"
                     type: string
@@ -846,9 +769,9 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the policy based on if the
+                      ObjectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
-                      the oldObject and newObject that would be sent to the policy's expression (CEL), and
+                      the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
                       object (oldObject in the case of create, or newObject in the case of
                       delete) or an object that cannot have labels (like a
@@ -903,7 +826,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the admission policy matches.
+                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -996,7 +919,7 @@ spec:
                   Thus, Variables must be sorted by the order of first appearance and acyclic.
                 items:
                   description: Variable is the definition of a variable that is used
-                    for composition.
+                    for composition. A variable is defined as a named expression.
                   properties:
                     expression:
                       description: |-
@@ -1013,6 +936,7 @@ spec:
                   - expression
                   - name
                   type: object
+                  x-kubernetes-map-type: atomic
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -1081,6 +1005,24 @@ spec:
                                         Optional. Default value is "true".
                                       type: boolean
                                   type: object
+                                background:
+                                  description: Background controls policy evaluation
+                                    during background scan.
+                                  properties:
+                                    enabled:
+                                      default: true
+                                      description: |-
+                                        Enabled controls if rules are applied to existing resources during a background scan.
+                                        Optional. Default value is "true". The value must be set to "false" if the policy rule
+                                        uses variables that are only available in the admission review request (e.g. user name).
+                                      type: boolean
+                                  type: object
+                                mode:
+                                  description: |-
+                                    Mode is the mode of policy evaluation.
+                                    Allowed values are "Kubernetes" or "JSON".
+                                    Optional. Default value is "Kubernetes".
+                                  type: string
                                 mutateExisting:
                                   description: MutateExisting controls whether existing
                                     resources are mutated.
@@ -1170,7 +1112,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the policy should not care about.
+                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -1259,13 +1201,12 @@ spec:
                                     - Exact: match a request only if it exactly matches a specified rule.
                                     For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                                     but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                                    the admission policy does not consider requests to apps/v1beta1 or extensions/v1beta1 API groups.
+                                    a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
 
                                     - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
                                     For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                                     and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                                    the admission policy **does** consider requests made to apps/v1beta1 or extensions/v1beta1
-                                    API groups. The API server translates the request to a matched resource API if necessary.
+                                    a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
 
                                     Defaults to "Equivalent"
                                   type: string
@@ -1361,9 +1302,9 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the policy based on if the
+                                    ObjectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
-                                    the oldObject and newObject that would be sent to the policy's expression (CEL), and
+                                    the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
                                     object (oldObject in the case of create, or newObject in the case of
                                     delete) or an object that cannot have labels (like a
@@ -1419,7 +1360,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the admission policy matches.
+                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -1514,149 +1455,34 @@ spec:
                                 description: Mutation specifies the CEL expression
                                   which is used to apply the Mutation.
                                 properties:
-                                  applyConfiguration:
+                                  expression:
                                     description: |-
-                                      applyConfiguration defines the desired configuration values of an object.
-                                      The configuration is applied to the admission object using
-                                      [structured merge diff](https://github.com/kubernetes-sigs/structured-merge-diff).
-                                      A CEL expression is used to create apply configuration.
-                                    properties:
-                                      expression:
-                                        description: "expression will be evaluated
-                                          by CEL to create an apply configuration.\nref:
-                                          https://github.com/google/cel-spec\n\nApply
-                                          configurations are declared in CEL using
-                                          object initialization. For example, this
-                                          CEL expression\nreturns an apply configuration
-                                          to set a single field:\n\n\tObject{\n\t
-                                          \ spec: Object.spec{\n\t    serviceAccountName:
-                                          \"example\"\n\t  }\n\t}\n\nApply configurations
-                                          may not modify atomic structs, maps or arrays
-                                          due to the risk of accidental deletion of\nvalues
-                                          not included in the apply configuration.\n\nCEL
-                                          expressions have access to the object types
-                                          needed to create apply configurations:\n\n-
-                                          'Object' - CEL type of the resource object.\n-
-                                          'Object.<fieldName>' - CEL type of object
-                                          field (such as 'Object.spec')\n- 'Object.<fieldName1>.<fieldName2>...<fieldNameN>`
-                                          - CEL type of nested field (such as 'Object.spec.containers')\n\nCEL
-                                          expressions have access to the contents
-                                          of the API request, organized into CEL variables
-                                          as well as some other useful variables:\n\n-
-                                          'object' - The object from the incoming
-                                          request. The value is null for DELETE requests.\n-
-                                          'oldObject' - The existing object. The value
-                                          is null for CREATE requests.\n- 'request'
-                                          - Attributes of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
-                                          'params' - Parameter resource referred to
-                                          by the policy binding being evaluated. Only
-                                          populated if the policy has a ParamKind.\n-
-                                          'namespaceObject' - The namespace object
-                                          that the incoming object belongs to. The
-                                          value is null for cluster-scoped resources.\n-
-                                          'variables' - Map of composited variables,
-                                          from its name to its lazily evaluated value.\n
-                                          \ For example, a variable named 'foo' can
-                                          be accessed as 'variables.foo'.\n- 'authorizer'
-                                          - A CEL Authorizer. May be used to perform
-                                          authorization checks for the principal (user
-                                          or service account) of the request.\n  See
-                                          https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
-                                          'authorizer.requestResource' - A CEL ResourceCheck
-                                          constructed from the 'authorizer' and configured
-                                          with the\n  request resource.\n\nThe `apiVersion`,
-                                          `kind`, `metadata.name` and `metadata.generateName`
-                                          are always accessible from the root of the\nobject.
-                                          No other metadata properties are accessible.\n\nOnly
-                                          property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
-                                          are accessible.\nRequired."
-                                        type: string
-                                    type: object
-                                  jsonPatch:
-                                    description: |-
-                                      jsonPatch defines a [JSON patch](https://jsonpatch.com/) operation to perform a mutation to the object.
-                                      A CEL expression is used to create the JSON patch.
-                                    properties:
-                                      expression:
-                                        description: "expression will be evaluated
-                                          by CEL to create a [JSON patch](https://jsonpatch.com/).\nref:
-                                          https://github.com/google/cel-spec\n\nexpression
-                                          must return an array of JSONPatch values.\n\nFor
-                                          example, this CEL expression returns a JSON
-                                          patch to conditionally modify a value:\n\n\t
-                                          \ [\n\t    JSONPatch{op: \"test\", path:
-                                          \"/spec/example\", value: \"Red\"},\n\t
-                                          \   JSONPatch{op: \"replace\", path: \"/spec/example\",
-                                          value: \"Green\"}\n\t  ]\n\nTo define an
-                                          object for the patch value, use Object types.
-                                          For example:\n\n\t  [\n\t    JSONPatch{\n\t
-                                          \     op: \"add\",\n\t      path: \"/spec/selector\",\n\t
-                                          \     value: Object.spec.selector{matchLabels:
-                                          {\"environment\": \"test\"}}\n\t    }\n\t
-                                          \ ]\n\nTo use strings containing '/' and
-                                          '~' as JSONPatch path keys, use \"jsonpatch.escapeKey\".
-                                          For example:\n\n\t  [\n\t    JSONPatch{\n\t
-                                          \     op: \"add\",\n\t      path: \"/metadata/labels/\"
-                                          + jsonpatch.escapeKey(\"example.com/environment\"),\n\t
-                                          \     value: \"test\"\n\t    },\n\t  ]\n\nCEL
-                                          expressions have access to the types needed
-                                          to create JSON patches and objects:\n\n-
-                                          'JSONPatch' - CEL type of JSON Patch operations.
-                                          JSONPatch has the fields 'op', 'from', 'path'
-                                          and 'value'.\n  See [JSON patch](https://jsonpatch.com/)
-                                          for more details. The 'value' field may
-                                          be set to any of: string,\n  integer, array,
-                                          map or object.  If set, the 'path' and 'from'
-                                          fields must be set to a\n  [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901/)
-                                          string, where the 'jsonpatch.escapeKey()'
-                                          CEL\n  function may be used to escape path
-                                          keys containing '/' and '~'.\n- 'Object'
-                                          - CEL type of the resource object.\n- 'Object.<fieldName>'
-                                          - CEL type of object field (such as 'Object.spec')\n-
-                                          'Object.<fieldName1>.<fieldName2>...<fieldNameN>`
-                                          - CEL type of nested field (such as 'Object.spec.containers')\n\nCEL
-                                          expressions have access to the contents
-                                          of the API request, organized into CEL variables
-                                          as well as some other useful variables:\n\n-
-                                          'object' - The object from the incoming
-                                          request. The value is null for DELETE requests.\n-
-                                          'oldObject' - The existing object. The value
-                                          is null for CREATE requests.\n- 'request'
-                                          - Attributes of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
-                                          'params' - Parameter resource referred to
-                                          by the policy binding being evaluated. Only
-                                          populated if the policy has a ParamKind.\n-
-                                          'namespaceObject' - The namespace object
-                                          that the incoming object belongs to. The
-                                          value is null for cluster-scoped resources.\n-
-                                          'variables' - Map of composited variables,
-                                          from its name to its lazily evaluated value.\n
-                                          \ For example, a variable named 'foo' can
-                                          be accessed as 'variables.foo'.\n- 'authorizer'
-                                          - A CEL Authorizer. May be used to perform
-                                          authorization checks for the principal (user
-                                          or service account) of the request.\n  See
-                                          https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
-                                          'authorizer.requestResource' - A CEL ResourceCheck
-                                          constructed from the 'authorizer' and configured
-                                          with the\n  request resource.\n\nCEL expressions
-                                          have access to [Kubernetes CEL function
-                                          libraries](https://kubernetes.io/docs/reference/using-api/cel/#cel-options-language-features-and-libraries)\nas
-                                          well as:\n\n- 'jsonpatch.escapeKey' - Performs
-                                          JSONPatch key escaping. '~' and  '/' are
-                                          escaped as '~0' and `~1' respectively).\n\nOnly
-                                          property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
-                                          are accessible.\nRequired."
-                                        type: string
-                                    type: object
-                                  patchType:
-                                    description: |-
-                                      patchType indicates the patch strategy used.
-                                      Allowed values are "ApplyConfiguration" and "JSONPatch".
+                                      Expression specifies the CEL expression which is used to apply the mutation.
                                       Required.
                                     type: string
+                                  target:
+                                    description: Target specifies the target of the
+                                      mutation.
+                                    properties:
+                                      group:
+                                        description: Group specifies the API group
+                                          of the target resource.
+                                        type: string
+                                      kind:
+                                        description: Kind specifies the kind of the
+                                          target resource.
+                                        type: string
+                                      resource:
+                                        description: Resource specifies the resource
+                                          name of the target resource.
+                                        type: string
+                                      version:
+                                        description: Version specifies the API version
+                                          of the target resource.
+                                        type: string
+                                    type: object
                                 required:
-                                - patchType
+                                - expression
                                 type: object
                               type: array
                               x-kubernetes-list-type: atomic
@@ -1679,7 +1505,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the policy should not care about.
+                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -1768,13 +1594,12 @@ spec:
                                     - Exact: match a request only if it exactly matches a specified rule.
                                     For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                                     but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                                    the admission policy does not consider requests to apps/v1beta1 or extensions/v1beta1 API groups.
+                                    a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
 
                                     - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
                                     For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                                     and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                                    the admission policy **does** consider requests made to apps/v1beta1 or extensions/v1beta1
-                                    API groups. The API server translates the request to a matched resource API if necessary.
+                                    a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
 
                                     Defaults to "Equivalent"
                                   type: string
@@ -1870,9 +1695,9 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the policy based on if the
+                                    ObjectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
-                                    the oldObject and newObject that would be sent to the policy's expression (CEL), and
+                                    the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
                                     object (oldObject in the case of create, or newObject in the case of
                                     delete) or an object that cannot have labels (like a
@@ -1928,7 +1753,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the admission policy matches.
+                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -2022,7 +1847,8 @@ spec:
                                 Thus, Variables must be sorted by the order of first appearance and acyclic.
                               items:
                                 description: Variable is the definition of a variable
-                                  that is used for composition.
+                                  that is used for composition. A variable is defined
+                                  as a named expression.
                                 properties:
                                   expression:
                                     description: |-
@@ -2039,6 +1865,7 @@ spec:
                                 - expression
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               type: array
                               x-kubernetes-list-map-keys:
                               - name
@@ -2159,6 +1986,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.evaluation.mode
     served: true
     storage: true
     subresources:

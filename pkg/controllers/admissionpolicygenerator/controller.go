@@ -55,7 +55,7 @@ type controller struct {
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	vpolLister       policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister      policiesv1beta1listers.NamespacedValidatingPolicyLister
-	mpolLister       policiesv1alpha1listers.MutatingPolicyLister
+	mpolLister       policiesv1beta1listers.MutatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
 	celpolexLister   policiesv1alpha1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -77,7 +77,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	celpolexInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -263,7 +263,7 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		latest.Status.Generated = generated
 		latest.Status.GetConditionStatus().Message = msg
 
-		new, err := c.kyvernoClient.PoliciesV1alpha1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update mutating policy status", mpol.GetName(), "status", new.Status)
 		}

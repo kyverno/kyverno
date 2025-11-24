@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -240,7 +241,7 @@ func BuildValidatingAdmissionPolicyBinding(
 // BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
 func BuildMutatingAdmissionPolicy(
 	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
-	mp *policiesv1alpha1.MutatingPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1alpha1.PolicyException,
 ) {
 	var matchConditions []admissionregistrationv1alpha1.MatchCondition
@@ -255,23 +256,74 @@ func BuildMutatingAdmissionPolicy(
 			})
 		}
 	}
-	matchConditions = append(matchConditions, mp.Spec.MatchConditions...)
+	// Convert v1 MatchConditions to v1alpha1
+	for _, mc := range mp.Spec.MatchConditions {
+		matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition{
+			Name:       mc.Name,
+			Expression: mc.Expression,
+		})
+	}
 	// set owner reference
 	mapol.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: policiesv1alpha1.GroupVersion.String(),
+			APIVersion: policiesv1beta1.GroupVersion.String(),
 			Kind:       mp.GetKind(),
 			Name:       mp.GetName(),
 			UID:        mp.GetUID(),
 		},
 	}
+	// Convert v1beta1 Mutations to v1alpha1
+	mutations := make([]admissionregistrationv1alpha1.Mutation, len(mp.Spec.Mutations))
+	for i, m := range mp.Spec.Mutations {
+		mutations[i] = admissionregistrationv1alpha1.Mutation{
+			PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+			ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+				Expression: m.Expression,
+			},
+		}
+	}
+	// Convert v1 Variables to v1alpha1
+	variables := make([]admissionregistrationv1alpha1.Variable, len(mp.Spec.Variables))
+	for i, v := range mp.Spec.Variables {
+		variables[i] = admissionregistrationv1alpha1.Variable{
+			Name:       v.Name,
+			Expression: v.Expression,
+		}
+	}
+	// Convert MatchConstraints from v1 to v1alpha1
+	var matchConstraints *admissionregistrationv1alpha1.MatchResources
+	if mp.Spec.MatchConstraints != nil {
+		// Convert ResourceRules
+		resourceRules := make([]admissionregistrationv1alpha1.NamedRuleWithOperations, len(mp.Spec.MatchConstraints.ResourceRules))
+		for i, rule := range mp.Spec.MatchConstraints.ResourceRules {
+			resourceRules[i] = admissionregistrationv1alpha1.NamedRuleWithOperations(rule)
+		}
+		// Convert ExcludeResourceRules
+		excludeResourceRules := make([]admissionregistrationv1alpha1.NamedRuleWithOperations, len(mp.Spec.MatchConstraints.ExcludeResourceRules))
+		for i, rule := range mp.Spec.MatchConstraints.ExcludeResourceRules {
+			excludeResourceRules[i] = admissionregistrationv1alpha1.NamedRuleWithOperations(rule)
+		}
+		matchConstraints = &admissionregistrationv1alpha1.MatchResources{
+			NamespaceSelector:    mp.Spec.MatchConstraints.NamespaceSelector,
+			ObjectSelector:       mp.Spec.MatchConstraints.ObjectSelector,
+			ResourceRules:        resourceRules,
+			ExcludeResourceRules: excludeResourceRules,
+			MatchPolicy:          (*admissionregistrationv1alpha1.MatchPolicyType)(mp.Spec.MatchConstraints.MatchPolicy),
+		}
+	}
+	// Convert FailurePolicy from v1 to v1alpha1
+	var failurePolicy *admissionregistrationv1alpha1.FailurePolicyType
+	if mp.Spec.FailurePolicy != nil {
+		fp := admissionregistrationv1alpha1.FailurePolicyType(*mp.Spec.FailurePolicy)
+		failurePolicy = &fp
+	}
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
-		MatchConstraints:   mp.Spec.MatchConstraints,
+		MatchConstraints:   matchConstraints,
 		MatchConditions:    matchConditions,
-		Mutations:          mp.Spec.Mutations,
-		Variables:          mp.Spec.Variables,
-		FailurePolicy:      mp.Spec.FailurePolicy,
+		Mutations:          mutations,
+		Variables:          variables,
+		FailurePolicy:      failurePolicy,
 		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
 	}
 	// set labels
@@ -285,12 +337,12 @@ func BuildMutatingAdmissionPolicy(
 // BuildMutatingAdmissionPolicyBinding is used to build a Kubernetes MutatingAdmissionPolicyBinding from a MutatingPolicy
 func BuildMutatingAdmissionPolicyBinding(
 	mapbinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
-	mp *policiesv1alpha1.MutatingPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
 ) {
 	// set owner reference
 	mapbinding.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: policiesv1alpha1.GroupVersion.String(),
+			APIVersion: policiesv1beta1.GroupVersion.String(),
 			Kind:       mp.GetKind(),
 			Name:       mp.GetName(),
 			UID:        mp.GetUID(),

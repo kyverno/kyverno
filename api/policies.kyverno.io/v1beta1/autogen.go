@@ -37,3 +37,12 @@ type MutatingPolicyAutogen struct {
 	Targets []Target            `json:"targets"`
 	Spec    *MutatingPolicySpec `json:"spec"`
 }
+
+type NamespacedMutatingPolicyAutogenStatus struct {
+	Configs map[string]NamespacedMutatingPolicyAutogen `json:"configs,omitempty"`
+}
+
+type NamespacedMutatingPolicyAutogen struct {
+	Targets []Target            `json:"targets"`
+	Spec    *MutatingPolicySpec `json:"spec"`
+}

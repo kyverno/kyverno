@@ -274,11 +274,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	for i := range ndps {
 		genericPolicies = append(genericPolicies, engineapi.NewNamespacedDeletingPolicy(&ndps[i]))
 	}
-	for _, pol := range mps {
-		genericPolicies = append(genericPolicies, engineapi.NewMutatingPolicy(&pol))
+	for i := range mps {
+		genericPolicies = append(genericPolicies, engineapi.NewMutatingPolicy(&mps[i]))
 	}
-	for _, pol := range nmps {
-		genericPolicies = append(genericPolicies, engineapi.NewNamespacedMutatingPolicy(&pol))
+	for i := range nmps {
+		genericPolicies = append(genericPolicies, engineapi.NewNamespacedMutatingPolicy(&nmps[i]))
 	}
 	var targetResources []*unstructured.Unstructured
 	if len(c.TargetResourcePaths) > 0 {
@@ -426,8 +426,8 @@ func (c *ApplyCommandConfig) applyPolicies(
 	vpols []policiesv1beta1.ValidatingPolicy,
 	nvpols []policiesv1beta1.NamespacedValidatingPolicy,
 	gpols []policiesv1alpha1.GeneratingPolicy,
-	mpols []policiesv1alpha1.MutatingPolicy,
-	nmpols []policiesv1alpha1.NamespacedMutatingPolicy,
+	mpols []policiesv1beta1.MutatingPolicy,
+	nmpols []policiesv1beta1.NamespacedMutatingPolicy,
 	maps []admissionregistrationv1beta1.MutatingAdmissionPolicy,
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
@@ -809,8 +809,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1alpha1.GeneratingPolicy,
 	[]policiesv1beta1.DeletingPolicy,
 	[]policiesv1beta1.NamespacedDeletingPolicy,
-	[]policiesv1alpha1.MutatingPolicy,
-	[]policiesv1alpha1.NamespacedMutatingPolicy,
+	[]policiesv1beta1.MutatingPolicy,
+	[]policiesv1beta1.NamespacedMutatingPolicy,
 	error,
 ) {
 	// load policies
@@ -826,8 +826,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var gps []policiesv1alpha1.GeneratingPolicy
 	var dps []policiesv1beta1.DeletingPolicy
 	var ndps []policiesv1beta1.NamespacedDeletingPolicy
-	var mps []policiesv1alpha1.MutatingPolicy
-	var nmps []policiesv1alpha1.NamespacedMutatingPolicy
+	var mps []policiesv1beta1.MutatingPolicy
+	var nmps []policiesv1beta1.NamespacedMutatingPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {

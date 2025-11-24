@@ -5,6 +5,7 @@ import (
 
 	cel "github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
@@ -12,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
@@ -28,7 +29,7 @@ var (
 )
 
 type Compiler interface {
-	Compile(policy policiesv1alpha1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -37,10 +38,10 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy policiesv1alpha1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 
-	spec := policy.GetMutatingPolicySpec()
+	spec := policy.GetSpec()
 
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
 	extendedEnvSet, err := baseEnvSet.Extend(
@@ -84,7 +85,11 @@ func (c *compilerImpl) Compile(policy policiesv1alpha1.MutatingPolicyLike, excep
 	}
 
 	if spec.Variables != nil {
-		compositedCompiler.CompileAndStoreVariables(ConvertVariables(spec.Variables), optionsVars, environment.StoredExpressions)
+		v1beta1Vars := make([]admissionregistrationv1beta1.Variable, len(spec.Variables))
+		for i, v := range spec.Variables {
+			v1beta1Vars[i] = admissionregistrationv1beta1.Variable(v)
+		}
+		compositedCompiler.CompileAndStoreVariables(ConvertVariables(v1beta1Vars), optionsVars, environment.StoredExpressions)
 	}
 
 	// Compile match conditions and collect errors
@@ -129,34 +134,17 @@ func (c *compilerImpl) Compile(policy policiesv1alpha1.MutatingPolicyLike, excep
 	patchOptions := optionsVars
 	patchOptions.HasPatchTypes = true
 	for i, m := range spec.Mutations {
-		switch m.PatchType {
-		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
-			if m.JSONPatch != nil {
-				accessor := &patch.JSONPatchCondition{Expression: m.JSONPatch.Expression}
-				compileResult := compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
-				for _, err := range compileResult.CompilationErrors() {
-					allErrs = append(allErrs, field.Invalid(
-						field.NewPath("spec").Child("mutations").Index(i).Child("jsonPatch"),
-						m.JSONPatch.Expression,
-						err.Error(),
-					))
-				}
-
-				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
+		if m.Expression != "" {
+			accessor := &patch.ApplyConfigurationCondition{Expression: m.Expression}
+			compileResult := compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
+			for _, err := range compileResult.CompilationErrors() {
+				allErrs = append(allErrs, field.Invalid(
+					field.NewPath("spec").Child("mutations").Index(i).Child("expression"),
+					m.Expression,
+					err.Error(),
+				))
 			}
-		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
-			if m.ApplyConfiguration != nil {
-				accessor := &patch.ApplyConfigurationCondition{Expression: m.ApplyConfiguration.Expression}
-				compileResult := compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
-				for _, err := range compileResult.CompilationErrors() {
-					allErrs = append(allErrs, field.Invalid(
-						field.NewPath("spec").Child("mutations").Index(i).Child("applyConfiguration"),
-						m.ApplyConfiguration.Expression,
-						err.Error(),
-					))
-				}
-				patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
-			}
+			patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
 		}
 	}
 	return &Policy{

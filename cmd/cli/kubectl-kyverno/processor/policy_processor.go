@@ -65,8 +65,8 @@ type PolicyProcessor struct {
 	ValidatingPolicies                []policiesv1beta1.ValidatingPolicy
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
-	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
-	NamespacedMutatingPolicies        []policiesv1alpha1.NamespacedMutatingPolicy
+	MutatingPolicies                  []policiesv1beta1.MutatingPolicy
+	NamespacedMutatingPolicies        []policiesv1beta1.NamespacedMutatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
@@ -276,8 +276,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// MutatingPolicies
-	if len(p.MutatingPolicies) != 0 {
-		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, p.CELExceptions)
+	if len(p.MutatingPolicies) != 0 || len(p.NamespacedMutatingPolicies) != 0 {
+		compiler := mpolcompiler.NewCompiler()
+		policies := make([]policiesv1beta1.MutatingPolicyLike, 0, len(p.MutatingPolicies))
+		for i := range p.MutatingPolicies {
+			policies = append(policies, &p.MutatingPolicies[i])
+		}
+		for i := range p.NamespacedMutatingPolicies {
+			policies = append(policies, &p.NamespacedMutatingPolicies[i])
+		}
+		provider, err := mpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}

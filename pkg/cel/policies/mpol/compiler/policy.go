@@ -70,7 +70,7 @@ func (c *compositionContext) Variables(activation any) ref.Val {
 	}
 
 	for name, result := range c.evaluator.CompositionEnv.CompiledVariables {
-		result := result 
+		result := result
 		lazyMap.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := result.Program.ContextEval(c.ctx, ctxData)
 			if out != nil {
