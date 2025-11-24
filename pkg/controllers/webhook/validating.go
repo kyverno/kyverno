@@ -165,6 +165,27 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 			}
 
+			if nmpol, ok := p.(*policiesv1alpha1.NamespacedMutatingPolicy); ok {
+				policies, err := mpolautogen.AutogenNamespaced(nmpol)
+				if err != nil {
+					continue
+				}
+				for _, config := range slices.Sorted(maps.Keys(policies)) {
+					policy := policies[config]
+					targets := make([]policiesv1beta1.Target, 0, len(policy.Targets))
+					for _, target := range policy.Targets {
+						targets = append(targets, policiesv1beta1.Target(target))
+					}
+					webhook.MatchConditions = append(
+						webhook.MatchConditions,
+						autogen.CreateMatchConditions(config, targets, validConditions(expressionCache, policy.Spec.GetMatchConditions()))...,
+					)
+					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
+						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+					}
+				}
+			}
+
 			if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
 				webhook.MatchPolicy = p.GetMatchConstraints().MatchPolicy
 			}
@@ -284,6 +305,17 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			}
 			if mpol, ok := p.(*policiesv1alpha1.MutatingPolicy); ok {
 				rules, err := mpolautogen.Autogen(mpol)
+				if err != nil {
+					continue
+				}
+				for _, rule := range rules {
+					for _, match := range rule.Spec.MatchConstraints.ResourceRules {
+						webhookRules = append(webhookRules, match.RuleWithOperations)
+					}
+				}
+			}
+			if nmpol, ok := p.(*policiesv1alpha1.NamespacedMutatingPolicy); ok {
+				rules, err := mpolautogen.AutogenNamespaced(nmpol)
 				if err != nil {
 					continue
 				}

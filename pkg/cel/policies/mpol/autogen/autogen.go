@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func Autogen(policy policiesv1alpha1.MutatingPolicyLike) (map[string]policiesv1alpha1.MutatingPolicyAutogen, error) {
+func Autogen(policy *policiesv1alpha1.MutatingPolicy) (map[string]policiesv1alpha1.MutatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
@@ -32,6 +32,26 @@ func Autogen(policy policiesv1alpha1.MutatingPolicyLike) (map[string]policiesv1a
 	}
 	return generateRuleForControllers(spec, actualControllers)
 }
+
+func AutogenNamespaced(policy *policiesv1alpha1.NamespacedMutatingPolicy) (map[string]policiesv1alpha1.MutatingPolicyAutogen, error) {
+	if policy == nil {
+		return nil, nil
+	}
+
+	spec := policy.GetMutatingPolicySpec()
+	matchConstraints := policy.GetMatchConstraints()
+	if !autogen.CanAutoGen(&matchConstraints) {
+		return nil, nil
+	}
+	
+	actualControllers := autogen.AllConfigs
+	if spec.AutogenConfiguration != nil &&
+		spec.AutogenConfiguration.PodControllers != nil &&
+		spec.AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(spec.AutogenConfiguration.PodControllers.Controllers...)
+	}
+	return generateRuleForControllers(spec, actualControllers)
+}	
 
 func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.MutatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
