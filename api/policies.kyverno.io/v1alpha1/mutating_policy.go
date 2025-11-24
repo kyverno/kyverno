@@ -9,10 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	MutatingPolicyKind = "MutatingPolicy"
-)
-
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
@@ -328,7 +324,7 @@ func (s *MutatingPolicy) GetStatus() *MutatingPolicyStatus {
 }
 
 func (s *MutatingPolicy) GetKind() string {
-	return MutatingPolicyKind
+	return "MutatingPolicy"
 }
 
 func (s *MutatingPolicy) GetSpec() *MutatingPolicySpec {

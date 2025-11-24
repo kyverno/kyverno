@@ -244,7 +244,7 @@ func BuildMutatingAdmissionPolicy(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1alpha1.PolicyException,
 ) {
-	var matchConditions []admissionregistrationv1alpha1.MatchCondition
+	matchConditions := make([]admissionregistrationv1alpha1.MatchCondition, 0, len(exceptions)+len(mp.Spec.MatchConditions))
 	// convert celexceptions if exist
 	for _, exception := range exceptions {
 		for _, matchCondition := range exception.Spec.MatchConditions {
