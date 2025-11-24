@@ -66,7 +66,7 @@ type PolicyProcessor struct {
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
 	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
-	NamespacedMutatingPolicies        []policiesv1alpha1.NamespacedMutatingPolicy
+	NamespacedMutatingPolicies        []policiesv1beta1.NamespacedMutatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException

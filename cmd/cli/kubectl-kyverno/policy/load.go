@@ -48,7 +48,7 @@ var (
 	ndpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
 	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
 	mpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("MutatingPolicy")
-	nmpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("NamespacedMutatingPolicy")
+	nmpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedMutatingPolicy")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapV1beta1         = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
@@ -75,7 +75,7 @@ type LoaderResults struct {
 	DeletingPolicies                  []policiesv1beta1.DeletingPolicy
 	NamespacedDeletingPolicies        []policiesv1beta1.NamespacedDeletingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
-	NamespacedMutatingPolicies        []policiesv1alpha1.NamespacedMutatingPolicy
+	NamespacedMutatingPolicies        []policiesv1beta1.NamespacedMutatingPolicy
 	NonFatalErrors                    []LoaderError
 }
 
@@ -255,8 +255,8 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.MutatingPolicies = append(results.MutatingPolicies, *typed)
-		case nmpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.NamespacedMutatingPolicy](untyped)
+		case nmpV1beta1:
+			typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}

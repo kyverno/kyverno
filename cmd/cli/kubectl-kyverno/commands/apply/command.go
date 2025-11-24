@@ -427,7 +427,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	nvpols []policiesv1beta1.NamespacedValidatingPolicy,
 	gpols []policiesv1alpha1.GeneratingPolicy,
 	mpols []policiesv1alpha1.MutatingPolicy,
-	nmpols []policiesv1alpha1.NamespacedMutatingPolicy,
+	nmpols []policiesv1beta1.NamespacedMutatingPolicy,
 	maps []admissionregistrationv1beta1.MutatingAdmissionPolicy,
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
@@ -810,7 +810,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1beta1.DeletingPolicy,
 	[]policiesv1beta1.NamespacedDeletingPolicy,
 	[]policiesv1alpha1.MutatingPolicy,
-	[]policiesv1alpha1.NamespacedMutatingPolicy,
+	[]policiesv1beta1.NamespacedMutatingPolicy,
 	error,
 ) {
 	// load policies
@@ -827,7 +827,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var dps []policiesv1beta1.DeletingPolicy
 	var ndps []policiesv1beta1.NamespacedDeletingPolicy
 	var mps []policiesv1alpha1.MutatingPolicy
-	var nmps []policiesv1alpha1.NamespacedMutatingPolicy
+	var nmps []policiesv1beta1.NamespacedMutatingPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {

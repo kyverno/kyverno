@@ -106,6 +106,87 @@ type MutatingPolicyList struct {
 	Items           []MutatingPolicy `json:"items"`
 }
 
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope="Namespaced",shortName=nmpol,categories=kyverno
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
+// +kubebuilder:selectablefield:JSONPath=`.spec.evaluation.mode`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NamespacedMutatingPolicy struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              MutatingPolicySpec `json:"spec"`
+	// Status contains policy runtime data.
+	// +optional
+	Status MutatingPolicyStatus `json:"status,omitempty"`
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s NamespacedMutatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
+func (s *NamespacedMutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+	return *s.Spec.MatchConstraints
+}
+
+func (s *NamespacedMutatingPolicy) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.TargetMatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+	return *s.Spec.TargetMatchConstraints
+}
+
+func (s *NamespacedMutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.Spec.MatchConditions
+}
+
+func (s *NamespacedMutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
+		return admissionregistrationv1.Ignore
+	}
+	if s.Spec.FailurePolicy == nil {
+		return admissionregistrationv1.Fail
+	}
+	return *s.Spec.FailurePolicy
+}
+
+func (s *NamespacedMutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+	return s.Spec.WebhookConfiguration
+}
+
+func (s *NamespacedMutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
+	return s.Spec.Variables
+}
+
+func (s *NamespacedMutatingPolicy) GetSpec() *MutatingPolicySpec {
+	return &s.Spec
+}
+
+func (s *NamespacedMutatingPolicy) GetStatus() *MutatingPolicyStatus {
+	return &s.Status
+}
+
+func (s *NamespacedMutatingPolicy) GetKind() string {
+	return "NamespacedMutatingPolicy"
+}
+
+// +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacedMutatingPolicyList is a list of NamespacedMutatingPolicy instances
+type NamespacedMutatingPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []NamespacedMutatingPolicy `json:"items"`
+}
+
 // MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.
 type MutatingPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to evaluate.

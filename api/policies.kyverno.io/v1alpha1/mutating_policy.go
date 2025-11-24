@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	MutatingPolicyKind           = "MutatingPolicy"
-	NamespacedMutatingPolicyKind = "NamespacedMutatingPolicy"
+	MutatingPolicyKind = "MutatingPolicy"
 )
 
 // +genclient
@@ -22,28 +21,9 @@ const (
 // +kubebuilder:resource:path=mutatingpolicies,scope="Cluster",shortName=mpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
-// +kubebuilder:storageversion
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type MutatingPolicy struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              MutatingPolicySpec `json:"spec"`
-	// Status contains policy runtime data.
-	// +optional
-	Status MutatingPolicyStatus `json:"status,omitempty"`
-}
-
-// +genclient
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:scope="Namespaced",shortName=nmpol,categories=kyverno
-// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:storageversion
-
-type NamespacedMutatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              MutatingPolicySpec `json:"spec"`
@@ -377,75 +357,6 @@ func (s *MutatingPolicy) GetMutatingPolicySpec() *MutatingPolicySpec {
 	return &s.Spec
 }
 
-// NamespacedMutatingPolicy methods
-
-func (s *NamespacedMutatingPolicy) GetSpec() *MutatingPolicySpec {
-	return &s.Spec
-}
-
-func (s *NamespacedMutatingPolicy) GetStatus() *MutatingPolicyStatus {
-	return &s.Status
-}
-
-func (s *NamespacedMutatingPolicy) GetKind() string {
-	return NamespacedMutatingPolicyKind
-}
-
-func (s *NamespacedMutatingPolicy) GetMutatingPolicySpec() *MutatingPolicySpec {
-	return &s.Spec
-}
-
-func (s *NamespacedMutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.MatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-
-	return s.Spec.GetMatchConstraints()
-}
-
-func (s *NamespacedMutatingPolicy) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.TargetMatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-
-	return s.Spec.GetTargetMatchConstraints()
-}
-
-func (s *NamespacedMutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.Spec.GetMatchConditions()
-}
-
-func (s *NamespacedMutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
-		return admissionregistrationv1.Ignore
-	}
-	if s.Spec.FailurePolicy == nil {
-		return admissionregistrationv1.Fail
-	}
-	return admissionregistrationv1.FailurePolicyType(*s.Spec.FailurePolicy)
-}
-
-func (s *NamespacedMutatingPolicy) GetTimeoutSeconds() *int32 {
-	if s.Spec.WebhookConfiguration == nil {
-		return nil
-	}
-
-	return s.Spec.WebhookConfiguration.TimeoutSeconds
-}
-
-func (s *NamespacedMutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
-	in := s.Spec.Variables
-	out := make([]admissionregistrationv1.Variable, len(in))
-	for i := range in {
-		out[i] = (admissionregistrationv1.Variable)(in[i])
-	}
-	return out
-}
-
-func (s NamespacedMutatingPolicy) BackgroundEnabled() bool {
-	return s.Spec.BackgroundEnabled()
-}
-
 func (status *MutatingPolicyStatus) GetConditionStatus() *ConditionStatus {
 	return &status.ConditionStatus
 }
@@ -489,14 +400,4 @@ type MutatingPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []MutatingPolicy `json:"items"`
-}
-
-// +kubebuilder:object:root=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NamespacedMutatingPolicyList is a list of NamespacedMutatingPolicy instances
-type NamespacedMutatingPolicyList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []NamespacedMutatingPolicy `json:"items"`
 }
