@@ -580,9 +580,9 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/skipped-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/skipped-deployment.yaml"},
+				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -597,9 +597,9 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/bad-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/bad-deployment.yaml"},
+				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -614,9 +614,9 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/good-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/good-deployment.yaml"},
+				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -779,6 +779,23 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
 					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/resource.yaml"},
+				ValuesFile:    "../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/values.yaml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  2,
 					Skip:  0,
 					Error: 0,
 					Warn:  0,

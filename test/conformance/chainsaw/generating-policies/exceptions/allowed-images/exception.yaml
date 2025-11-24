@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: generate-cm-exclude-images
+spec:
+  policyRefs:
+    - name: generate-cm-exclude-images
+      kind: GeneratingPolicy
+  # list of image names to exclude
+  images:
+  - busybox:latest
+  - nginx:latest

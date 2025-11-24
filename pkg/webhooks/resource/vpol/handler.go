@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -33,7 +32,6 @@ type handler struct {
 	admissionReports bool
 	reportConfig     reportutils.ReportingConfiguration
 	eventGen         event.Interface
-	configuration    config.Configuration
 }
 
 func New(
@@ -43,7 +41,6 @@ func New(
 	admissionReports bool,
 	reportConfig reportutils.ReportingConfiguration,
 	eventGen event.Interface,
-	configuration config.Configuration,
 ) *handler {
 	return &handler{
 		context:          context,
@@ -52,19 +49,34 @@ func New(
 		admissionReports: admissionReports,
 		reportConfig:     reportConfig,
 		eventGen:         eventGen,
-		configuration:    configuration,
 	}
 }
 
-func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+func (h *handler) ValidateClustered(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
 	var policies []string
 	if params := httprouter.ParamsFromContext(ctx); params != nil {
 		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
 			policies = params
 		}
 	}
+	predicate := vpolengine.And(vpolengine.MatchNames(policies...), vpolengine.ClusteredPolicy())
+	return h.validate(ctx, logger, admissionRequest, predicate)
+}
+
+func (h *handler) ValidateNamespaced(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	var policies []string
+	if params := httprouter.ParamsFromContext(ctx); params != nil {
+		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
+			policies = params
+		}
+	}
+	predicate := vpolengine.And(vpolengine.MatchNames(policies...), vpolengine.NamespacedPolicy(admissionRequest.Namespace))
+	return h.validate(ctx, logger, admissionRequest, predicate)
+}
+
+func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, predicate vpolengine.Predicate) handlers.AdmissionResponse {
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, err := h.engine.Handle(ctx, request, vpolengine.MatchNames(policies...))
+	response, err := h.engine.Handle(ctx, request, predicate)
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
@@ -85,7 +97,8 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 		}
 	}
 
-	engineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	allEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
 			Resource: *response.Resource,
@@ -93,18 +106,21 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 				Rules: r.Rules,
 			},
 		}
-		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
-		engineResponses = append(engineResponses, engineResponse)
+		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
+		allEngineResponses = append(allEngineResponses, engineResponse)
+		if reportutils.IsPolicyReportable(r.Policy) {
+			reportableEngineResponses = append(reportableEngineResponses, engineResponse)
+		}
 	}
 
 	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
-		err := h.admissionReport(ctx, request, response, engineResponses)
+		err := h.admissionReport(ctx, request, response, reportableEngineResponses)
 		if err != nil {
 			logger.Error(err, "failed to create report")
 		}
 	}
 
-	h.admissionEvent(ctx, engineResponses, blocked)
+	h.admissionEvent(ctx, allEngineResponses, blocked)
 }
 
 func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse, responses []engineapi.EngineResponse) error {
@@ -121,9 +137,9 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 	return nil
 }
 
-func (h *handler) admissionEvent(ctx context.Context, responses []engineapi.EngineResponse, blocked bool) {
+func (h *handler) admissionEvent(_ context.Context, responses []engineapi.EngineResponse, blocked bool) {
 	for _, response := range responses {
-		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked, h.configuration)
+		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked)
 		h.eventGen.Add(events...)
 	}
 }

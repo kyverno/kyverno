@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: check-deployment-labels
+  namespace: test-namespace
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  variables:
+    - name: image
+      expression: >-
+        object.spec.template.spec.containers[0].image
+  validations:
+    - expression: >-
+        variables.image != null && variables.image != ''
+      message: >-
+        Image must be specified

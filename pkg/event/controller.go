@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
@@ -52,10 +53,11 @@ type controller struct {
 	hostname        string
 	metrics         metrics.EventMetrics
 	maxQueuedEvents int
+	cfg             config.Configuration
 }
 
 // NewEventGenerator to generate a new event controller
-func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, maxQueuedEvents int, omitEvents ...string) *controller {
+func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, maxQueuedEvents int, cfg config.Configuration, omitEvents ...string) *controller {
 	clock := clock.RealClock{}
 	hostname, _ := os.Hostname()
 
@@ -71,6 +73,7 @@ func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, ma
 		hostname:        hostname,
 		metrics:         metrics.GetEventMetrics(),
 		maxQueuedEvents: maxQueuedEvents,
+		cfg:             cfg,
 	}
 }
 
@@ -92,6 +95,11 @@ func (gen *controller) Add(infos ...Info) {
 			logger.V(6).Info("omitting event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
 			continue
 		}
+		if info.Reason == PolicyApplied && !gen.cfg.GetGenerateSuccessEvents() {
+			logger.V(6).Info("skipping event creation for successful policy applied", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
+			continue
+		}
+
 		gen.emitEvent(info)
 		logger.V(6).Info("creating event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
 	}
