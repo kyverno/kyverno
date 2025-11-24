@@ -1,7 +1,7 @@
 apiVersion: policies.kyverno.io/v1alpha1
-kind: NamespacedMutatingPolicy
+kind: MutatingPolicy
 metadata:
-  name: nmpol-lib-image
+  name: mpol-lib-image
   namespace: isolated-ns
 spec:
   matchConstraints:
