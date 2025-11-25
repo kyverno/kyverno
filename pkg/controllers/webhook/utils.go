@@ -32,9 +32,12 @@ func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1alpha1.Gener
 	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
 		return gpol
 	}
-	// Note: MutatingPolicy and NamespacedMutatingPolicy are v1beta1 types
-	// and don't implement v1alpha1.GenericPolicy, so they're checked directly
-	// in the calling code using policy.AsMutatingPolicy() / policy.AsNamespacedMutatingPolicy()
+	if mpol := policy.AsMutatingPolicy(); mpol != nil {
+		return mpol
+	}
+	if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
+		return nmpol
+	}
 	return nil
 }
 
