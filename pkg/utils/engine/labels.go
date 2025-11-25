@@ -53,6 +53,14 @@ func hasNamespaceSelector(policies []kyvernov1.PolicyInterface) bool {
 				return true
 			}
 
+			if rule.Validation != nil && rule.Validation.FailureActionOverrides != nil {
+				for _, actionOverride := range rule.Validation.FailureActionOverrides {
+					if actionOverride.NamespaceSelector != nil {
+						return true
+					}
+				}
+			}
+
 			for _, ele := range rule.MatchResources.All {
 				if ele.ResourceDescription.NamespaceSelector != nil {
 					return true
