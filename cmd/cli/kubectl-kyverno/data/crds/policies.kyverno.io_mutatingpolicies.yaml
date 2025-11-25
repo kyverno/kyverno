@@ -2678,10 +2678,36 @@ spec:
                   description: Mutation specifies the CEL expression which is used
                     to apply the Mutation.
                   properties:
+                    applyConfiguration:
+                      description: ApplyConfiguration defines desired configuration
+                        values applied via structured merge.
+                      properties:
+                        expression:
+                          description: Expression evaluated by CEL to create an apply
+                            configuration.
+                          type: string
+                      required:
+                      - expression
+                      type: object
                     expression:
+                      description: Expression holds the legacy CEL expression used
+                        to apply the mutation when patchType is not specified.
+                      type: string
+                    jsonPatch:
+                      description: JSONPatch defines a JSON patch to perform a mutation
+                        on the object.
+                      properties:
+                        expression:
+                          description: Expression evaluated by CEL to create a JSON
+                            patch.
+                          type: string
+                      required:
+                      - expression
+                      type: object
+                    patchType:
                       description: |-
-                        Expression specifies the CEL expression which is used to apply the mutation.
-                        Required.
+                        PatchType indicates the patch strategy used.
+                        Allowed values are "ApplyConfiguration" and "JSONPatch".
                       type: string
                     target:
                       description: Target specifies the target of the mutation.
@@ -2702,8 +2728,6 @@ spec:
                             resource.
                           type: string
                       type: object
-                  required:
-                  - expression
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
@@ -3600,10 +3624,38 @@ spec:
                                 description: Mutation specifies the CEL expression
                                   which is used to apply the Mutation.
                                 properties:
+                                  applyConfiguration:
+                                    description: ApplyConfiguration defines desired
+                                      configuration values applied via structured
+                                      merge.
+                                    properties:
+                                      expression:
+                                        description: Expression evaluated by CEL to
+                                          create an apply configuration.
+                                        type: string
+                                    required:
+                                    - expression
+                                    type: object
                                   expression:
+                                    description: Expression holds the legacy CEL expression
+                                      used to apply the mutation when patchType is
+                                      not specified.
+                                    type: string
+                                  jsonPatch:
+                                    description: JSONPatch defines a JSON patch to
+                                      perform a mutation on the object.
+                                    properties:
+                                      expression:
+                                        description: Expression evaluated by CEL to
+                                          create a JSON patch.
+                                        type: string
+                                    required:
+                                    - expression
+                                    type: object
+                                  patchType:
                                     description: |-
-                                      Expression specifies the CEL expression which is used to apply the mutation.
-                                      Required.
+                                      PatchType indicates the patch strategy used.
+                                      Allowed values are "ApplyConfiguration" and "JSONPatch".
                                     type: string
                                   target:
                                     description: Target specifies the target of the
@@ -3626,8 +3678,6 @@ spec:
                                           of the target resource.
                                         type: string
                                     type: object
-                                required:
-                                - expression
                                 type: object
                               type: array
                               x-kubernetes-list-type: atomic

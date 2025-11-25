@@ -275,11 +275,21 @@ func BuildMutatingAdmissionPolicy(
 	// Convert v1beta1 Mutations to v1alpha1
 	mutations := make([]admissionregistrationv1alpha1.Mutation, len(mp.Spec.Mutations))
 	for i, m := range mp.Spec.Mutations {
-		mutations[i] = admissionregistrationv1alpha1.Mutation{
-			PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
-			ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-				Expression: m.Expression,
-			},
+		switch m.EffectivePatchType() {
+		case policiesv1beta1.MutationPatchTypeJSONPatch:
+			mutations[i] = admissionregistrationv1alpha1.Mutation{
+				PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+				JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+					Expression: m.JSONPatchExpression(),
+				},
+			}
+		default:
+			mutations[i] = admissionregistrationv1alpha1.Mutation{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: m.ApplyConfigurationExpression(),
+				},
+			}
 		}
 	}
 	// Convert v1 Variables to v1alpha1

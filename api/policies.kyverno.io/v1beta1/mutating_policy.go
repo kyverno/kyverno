@@ -421,9 +421,22 @@ type Mutation struct {
 	// +optional
 	Target *MutationTarget `json:"target,omitempty"`
 
-	// Expression specifies the CEL expression which is used to apply the mutation.
-	// Required.
-	Expression string `json:"expression"`
+	// PatchType indicates the patch strategy used.
+	// Allowed values are "ApplyConfiguration" and "JSONPatch".
+	// +optional
+	PatchType MutatingPatchType `json:"patchType,omitempty"`
+
+	// ApplyConfiguration defines desired configuration values applied via structured merge.
+	// +optional
+	ApplyConfiguration *ApplyConfiguration `json:"applyConfiguration,omitempty"`
+
+	// JSONPatch defines a JSON patch to perform a mutation on the object.
+	// +optional
+	JSONPatch *JSONPatch `json:"jsonPatch,omitempty"`
+
+	// Expression holds the legacy CEL expression used to apply the mutation when patchType is not specified.
+	// +optional
+	Expression string `json:"expression,omitempty"`
 }
 
 // MutationTarget specifies the target of the mutation.
@@ -443,4 +456,52 @@ type MutationTarget struct {
 	// Kind specifies the kind of the target resource.
 	// +optional
 	Kind string `json:"kind,omitempty"`
+}
+
+// MutatingPatchType enumerates supported patch strategies.
+type MutatingPatchType string
+
+const (
+	// MutationPatchTypeApplyConfiguration uses structured merge apply configurations.
+	MutationPatchTypeApplyConfiguration MutatingPatchType = "ApplyConfiguration"
+	// MutationPatchTypeJSONPatch uses RFC 6902 JSON patches.
+	MutationPatchTypeJSONPatch MutatingPatchType = "JSONPatch"
+)
+
+// ApplyConfiguration describes the CEL expression to build an apply configuration.
+type ApplyConfiguration struct {
+	// Expression evaluated by CEL to create an apply configuration.
+	// +required
+	Expression string `json:"expression"`
+}
+
+// JSONPatch describes the CEL expression that renders a JSON patch array.
+type JSONPatch struct {
+	// Expression evaluated by CEL to create a JSON patch.
+	// +required
+	Expression string `json:"expression"`
+}
+
+// EffectivePatchType returns the patch type, defaulting to ApplyConfiguration.
+func (m Mutation) EffectivePatchType() MutatingPatchType {
+	if m.PatchType == "" {
+		return MutationPatchTypeApplyConfiguration
+	}
+	return m.PatchType
+}
+
+// ApplyConfigurationExpression returns the apply configuration expression with fallbacks.
+func (m Mutation) ApplyConfigurationExpression() string {
+	if m.ApplyConfiguration != nil && m.ApplyConfiguration.Expression != "" {
+		return m.ApplyConfiguration.Expression
+	}
+	return m.Expression
+}
+
+// JSONPatchExpression returns the JSON patch expression with fallbacks.
+func (m Mutation) JSONPatchExpression() string {
+	if m.JSONPatch != nil && m.JSONPatch.Expression != "" {
+		return m.JSONPatch.Expression
+	}
+	return m.Expression
 }

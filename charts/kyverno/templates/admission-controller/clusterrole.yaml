@@ -46,6 +46,10 @@ rules:
       - validatingadmissionpolicies
       - validatingadmissionpolicybindings
       {{- end }}
+      {{- if .Values.features.generateMutatingAdmissionPolicy.enabled }}
+      - mutatingadmissionpolicies
+      - mutatingadmissionpolicybindings
+      {{- end }}
     verbs:
       - create
       - delete
