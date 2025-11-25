@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/auth/checker"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
@@ -393,7 +392,7 @@ func (c controller) permissionsCheck(ctx context.Context, gvrs []metav1.GroupVer
 	for _, gvr := range gvrs {
 		for _, verb := range []string{"get", "list", "watch"} {
 			result, err := c.authChecker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, "", "", "", verb)
-			if baseerrors.Is(err, checker.ErrNoServiceAccount) {
+			if baseerrors.Is(err, auth.ErrNoServiceAccount) {
 				continue
 			} else if err != nil {
 				errs = append(errs, err)
