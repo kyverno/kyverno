@@ -264,6 +264,18 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return c.updateMpolStatus(ctx, mpol)
 	}
 
+	if polType == webhook.NamespacedMutatingPolicyType {
+		nmpol, err := c.client.PoliciesV1beta1().NamespacedMutatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("namespaced mutating policy not found", "name", name, "namespace", namespace)
+				return nil
+			}
+			return err
+		}
+		return c.updateNMpolStatus(ctx, nmpol)
+	}
+
 	if polType == webhook.GeneratingPolicyType {
 		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {

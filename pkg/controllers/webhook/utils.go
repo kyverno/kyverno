@@ -208,5 +208,6 @@ const (
 	ImageValidatingPolicyType           = "ImageValidatingPolicy"
 	NamespacedImageValidatingPolicyType = "NamespacedImageValidatingPolicy"
 	MutatingPolicyType                  = "MutatingPolicy"
+	NamespacedMutatingPolicyType        = "NamespacedMutatingPolicy"
 	GeneratingPolicyType                = "GeneratingPolicy"
 )
