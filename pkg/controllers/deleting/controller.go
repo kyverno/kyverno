@@ -190,7 +190,6 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 		if err != nil {
 			debug.Error(err, "failed to list resources")
-			errs = append(errs, err)
 			// record failure metric
 			if c.metrics != nil {
 				c.metrics.RecordDeletingFailure(ctx, gvr.Resource, "", policy, deleteOptions.PropagationPolicy)
