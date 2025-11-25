@@ -124,6 +124,11 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 
+	// Set up an event handler for when namespaced mutating policies change
+	if _, err := controllerutils.AddEventHandlersT(nmpolInformer.Informer(), c.addMP, c.updateMP, c.deleteMP); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+
 	// Set up an event handler for when policy exceptions change
 	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException); err != nil {
 		logger.Error(err, "failed to register event handlers")
