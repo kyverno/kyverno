@@ -63,6 +63,8 @@ func BuildRecorderKey(policyType, name, namespace string) string {
 		return MutatingPolicyType + "/" + name
 	case GeneratingPolicyType:
 		return GeneratingPolicyType + "/" + name
+	case NamespacedGeneratingPolicyType:
+		return NamespacedGeneratingPolicyType + "/" + name + "+" + namespace
 	}
 	return ""
 }

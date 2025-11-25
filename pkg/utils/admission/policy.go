@@ -54,7 +54,47 @@ func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
-		return api.NewGeneratingPolicy(policy), nil
+		// Convert v1alpha1 to v1beta1 for NewGeneratingPolicy
+		var webhookConfig *v1beta1.WebhookConfiguration
+		if policy.Spec.WebhookConfiguration != nil {
+			webhookConfig = &v1beta1.WebhookConfiguration{
+				TimeoutSeconds: policy.Spec.WebhookConfiguration.TimeoutSeconds,
+			}
+		}
+		var evalConfig *v1beta1.GeneratingPolicyEvaluationConfiguration
+		if policy.Spec.EvaluationConfiguration != nil {
+			evalConfig = &v1beta1.GeneratingPolicyEvaluationConfiguration{
+				Admission:                      (*v1beta1.AdmissionConfiguration)(policy.Spec.EvaluationConfiguration.Admission),
+				GenerateExistingConfiguration:  (*v1beta1.GenerateExistingConfiguration)(policy.Spec.EvaluationConfiguration.GenerateExistingConfiguration),
+				SynchronizationConfiguration:   (*v1beta1.SynchronizationConfiguration)(policy.Spec.EvaluationConfiguration.SynchronizationConfiguration),
+				OrphanDownstreamOnPolicyDelete: (*v1beta1.OrphanDownstreamOnPolicyDeleteConfiguration)(policy.Spec.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete),
+			}
+		}
+		generations := make([]v1beta1.Generation, len(policy.Spec.Generation))
+		for i, g := range policy.Spec.Generation {
+			generations[i] = v1beta1.Generation{Expression: g.Expression}
+		}
+		v1beta1Pol := &v1beta1.GeneratingPolicy{
+			TypeMeta:   policy.TypeMeta,
+			ObjectMeta: policy.ObjectMeta,
+			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConstraints:        policy.Spec.MatchConstraints,
+				MatchConditions:         policy.Spec.MatchConditions,
+				Variables:               policy.Spec.Variables,
+				EvaluationConfiguration: evalConfig,
+				WebhookConfiguration:    webhookConfig,
+				Generation:              generations,
+			},
+			Status: v1beta1.GeneratingPolicyStatus{
+				ConditionStatus: v1beta1.ConditionStatus{
+					Ready:      policy.Status.ConditionStatus.Ready,
+					Conditions: policy.Status.ConditionStatus.Conditions,
+				},
+			},
+		}
+		v1beta1Pol.TypeMeta.APIVersion = v1beta1.GroupVersion.String()
+		v1beta1Pol.TypeMeta.Kind = v1beta1.GeneratingPolicyKind
+		return api.NewGeneratingPolicy(v1beta1Pol), nil
 	case "DeletingPolicy":
 		var policy *v1beta1.DeletingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {

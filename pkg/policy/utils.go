@@ -49,7 +49,8 @@ func castPolicy(p interface{}) engineapi.GenericPolicy {
 	case *kyvernov1.Policy:
 		policy = engineapi.NewKyvernoPolicy(obj)
 	case *policiesv1alpha1.GeneratingPolicy:
-		policy = engineapi.NewGeneratingPolicy(obj)
+		v1beta1Pol := convertGpolV1Alpha1ToV1Beta1(obj)
+		policy = engineapi.NewGeneratingPolicy(v1beta1Pol)
 	}
 	return policy
 }

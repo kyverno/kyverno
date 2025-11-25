@@ -29,9 +29,8 @@ func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1alpha1.Gener
 	if nivpol := policy.AsNamespacedImageValidatingPolicy(); nivpol != nil {
 		return nivpol
 	}
-	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
-		return gpol
-	}
+	// Skip generating policies as v1beta1.GeneratingPolicy doesn't implement v1alpha1.GenericPolicy
+	// (missing GetTimeoutSeconds method)
 	if mpol := policy.AsMutatingPolicy(); mpol != nil {
 		return mpol
 	}
@@ -206,4 +205,5 @@ const (
 	NamespacedImageValidatingPolicyType = "NamespacedImageValidatingPolicy"
 	MutatingPolicyType                  = "MutatingPolicy"
 	GeneratingPolicyType                = "GeneratingPolicy"
+	NamespacedGeneratingPolicyType      = "NamespacedGeneratingPolicy"
 )

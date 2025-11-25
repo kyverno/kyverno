@@ -18,6 +18,7 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
@@ -117,6 +118,7 @@ func NewPolicyController(
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
 	urInformer kyvernov2informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
@@ -285,7 +287,8 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 		} else {
 			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
 		}
-		p = engineapi.NewGeneratingPolicy(gpol)
+		v1beta1Pol := convertGpolV1Alpha1ToV1Beta1(gpol)
+		p = engineapi.NewGeneratingPolicy(v1beta1Pol)
 	default:
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
@@ -497,7 +500,8 @@ func (pc *policyController) requeuePolicies() {
 	}
 	if gpols, err := pc.gpolLister.List(labels.Everything()); err == nil {
 		for _, gpol := range gpols {
-			pc.enqueuePolicy(engineapi.NewGeneratingPolicy(gpol))
+			v1beta1Pol := convertGpolV1Alpha1ToV1Beta1(gpol)
+			pc.enqueuePolicy(engineapi.NewGeneratingPolicy(v1beta1Pol))
 		}
 	} else {
 		logger.Error(err, "unable to list GeneratingPolicies")

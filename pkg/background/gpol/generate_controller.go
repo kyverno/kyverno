@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
 )
 
 // CELGenerateController is used to process URs that are generated as a result of an event from the trigger resource.
@@ -124,13 +125,24 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		} else {
 			request = celengine.RequestFromAdmission(c.context, *admissionRequest)
 		}
-		policy, err := c.provider.Get(context.TODO(), ur.Spec.GetPolicyKey())
+
+		policyKey := ur.Spec.GetPolicyKey()
+		namespace, name, err := cache.SplitMetaNamespaceKey(policyKey)
+		if err != nil {
+			logger.Error(err, "failed to parse policy key", "key", policyKey)
+			failures = append(failures, fmt.Errorf("gpol %s failed: failed to parse policy key: %v", policyKey, err))
+			continue
+		}
+		policy, err := c.provider.Get(context.TODO(), namespace, name)
 		if err != nil {
 			logger.Error(err, "failed to fetch gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
-		isSync := policy.Policy.Spec.SynchronizationEnabled()
+
+		spec := policy.Policy.GetSpec()
+
+		isSync := spec.SynchronizationEnabled()
 		gpolResponse, err := c.engine.Handle(request, policy, ur.Spec.RuleContext[i].CacheRestore)
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
@@ -146,7 +158,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				continue
 			}
 			engineResponse.PolicyResponse.Rules = []engineapi.RuleResponse{*res.Result}
-			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicy(&res.Policy))
+			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 			if res.Result.Status() == engineapi.RuleStatusSkip {
 				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
 				continue
@@ -174,7 +186,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		}
 		if c.reportsConfig.GenerateReportsEnabled() &&
 			len(engineResponse.PolicyResponse.Rules) > 0 &&
-			reportutils.IsPolicyReportable(&policy.Policy) {
+			reportutils.IsPolicyReportable(policy.Policy) {
 			if err := c.createReports(context.TODO(), *trigger, engineResponse); err != nil {
 				c.log.Error(err, "failed to create report")
 			}

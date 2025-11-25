@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -37,6 +38,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -135,6 +137,7 @@ type controller struct {
 	vpolLister        policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister       policiesv1beta1listers.NamespacedValidatingPolicyLister
 	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
+	ngpolLister       policiesv1beta1listers.NamespacedGeneratingPolicyLister
 	ivpolLister       policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister      policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	mpolLister        policiesv1alpha1listers.MutatingPolicyLister
@@ -183,6 +186,7 @@ func NewController(
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
@@ -220,6 +224,7 @@ func NewController(
 		vpolLister:          vpolInformer.Lister(),
 		nvpolLister:         nvpolInformer.Lister(),
 		gpolLister:          gpolInformer.Lister(),
+		ngpolLister:         ngpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
 		nivpolLister:        nivpolInformer.Lister(),
 		mpolLister:          mpolInformer.Lister(),
@@ -1459,10 +1464,35 @@ func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) 
 	gpols := make([]engineapi.GenericPolicy, 0)
 	for _, gpol := range generatingpolicies {
 		if gpol.Spec.AdmissionEnabled() {
-			gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+			// Convert v1alpha1 to v1beta1
+			unstructuredPol, err := kruntime.DefaultUnstructuredConverter.ToUnstructured(gpol)
+			if err != nil {
+				return nil, err
+			}
+			var v1beta1Pol policiesv1beta1.GeneratingPolicy
+			if err := kruntime.DefaultUnstructuredConverter.FromUnstructured(unstructuredPol, &v1beta1Pol); err != nil {
+				return nil, err
+			}
+			v1beta1Pol.TypeMeta.APIVersion = policiesv1beta1.GroupVersion.String()
+			v1beta1Pol.TypeMeta.Kind = policiesv1beta1.GeneratingPolicyKind
+			gpols = append(gpols, engineapi.NewGeneratingPolicy(&v1beta1Pol))
 		}
 	}
 	return gpols, nil
+}
+
+func (c *controller) getNamespacedGeneratingPolicies() ([]engineapi.GenericPolicy, error) {
+	namespacedgeneratingpolicies, err := c.ngpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	ngpols := make([]engineapi.GenericPolicy, 0)
+	for _, ngpol := range namespacedgeneratingpolicies {
+		if ngpol.Spec.AdmissionEnabled() {
+			ngpols = append(ngpols, engineapi.NewNamespacedGeneratingPolicy(ngpol))
+		}
+	}
+	return ngpols, nil
 }
 
 func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, error) {

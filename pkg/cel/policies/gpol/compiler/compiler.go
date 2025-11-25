@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
@@ -28,7 +29,7 @@ var (
 )
 
 type Compiler interface {
-	Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -110,9 +111,13 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 	return extendedBase, variablesProvider, nil
 }
 
-func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(policy.GetNamespace())
+	namespace := policy.GetNamespace()
+	if namespace == "" {
+		namespace = "default"
+	}
+	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(namespace)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -126,24 +131,32 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
-	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
+	matchConditions := make([]cel.Program, 0, len(policy.GetMatchConditions()))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, policy.Spec.MatchConditions...)
+		programs, errs := compiler.CompileMatchConditions(path, env, policy.GetMatchConditions()...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.GetVariables()...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
-	generations := make([]cel.Program, 0, len(policy.Spec.Generation))
+	spec := policy.GetSpec()
+	generations := make([]cel.Program, 0, len(spec.Generation))
 	{
 		path := path.Child("generate")
-		programs, errs := compiler.CompileGenerations(path, env, policy.Spec.Generation...)
+		// Convert v1beta1.Generation to v1alpha1.Generation
+		v1alpha1Generations := make([]policiesv1alpha1.Generation, len(spec.Generation))
+		for i, gen := range spec.Generation {
+			v1alpha1Generations[i] = policiesv1alpha1.Generation{
+				Expression: gen.Expression,
+			}
+		}
+		programs, errs := compiler.CompileGenerations(path, env, v1alpha1Generations...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}

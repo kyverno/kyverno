@@ -103,6 +103,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().MutatingPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("namespaceddeletingpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedDeletingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("namespacedgeneratingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedGeneratingPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("namespacedimagevalidatingpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedImageValidatingPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("namespacedvalidatingpolicies"):

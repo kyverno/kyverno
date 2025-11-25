@@ -64,7 +64,8 @@ type PolicyProcessor struct {
 	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1beta1.ValidatingPolicy
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
-	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
+	GeneratingPolicies                []policiesv1beta1.GeneratingPolicy
+	NamespacedGeneratingPolicies      []policiesv1beta1.NamespacedGeneratingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
@@ -456,17 +457,26 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// generating policies
-	if len(p.GeneratingPolicies) != 0 {
+	if len(p.GeneratingPolicies) != 0 || len(p.NamespacedGeneratingPolicies) != 0 {
 		compiler := gpolcompiler.NewCompiler()
-		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
-		for _, pol := range p.GeneratingPolicies {
-			compiled, errs := compiler.Compile(&pol, p.CELExceptions)
+		policies := make([]policiesv1beta1.GeneratingPolicyLike, 0, len(p.GeneratingPolicies)+len(p.NamespacedGeneratingPolicies))
+		for i := range p.GeneratingPolicies {
+			policies = append(policies, &p.GeneratingPolicies[i])
+		}
+		for i := range p.NamespacedGeneratingPolicies {
+			policies = append(policies, &p.NamespacedGeneratingPolicies[i])
+		}
+		// Compile all policies
+		compiledPolicies := make([]gpolengine.Policy, 0, len(policies))
+		for _, pol := range policies {
+			compiled, errs := compiler.Compile(pol, p.CELExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 			}
 			compiledPolicies = append(compiledPolicies, gpolengine.Policy{
 				Policy:         pol,
 				CompiledPolicy: compiled,
+				Exceptions:     p.CELExceptions,
 			})
 		}
 		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
@@ -474,7 +484,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 		if resource.Object != nil {
-			engine := gpolengine.NewEngine(p.Variables.Namespace, matching.NewMatcher())
+			eng := gpolengine.NewEngine(p.Variables.Namespace, matching.NewMatcher())
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
@@ -500,27 +510,27 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			for _, policy := range compiledPolicies {
-				engineResponse, err := engine.Handle(request, policy, false)
+			for _, compiledPolicy := range compiledPolicies {
+				reps, err := eng.Handle(request, compiledPolicy, false)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to apply generating policies on resource %s (%w)", resource.GetName(), err)
 				}
-				for _, res := range engineResponse.Policies {
-					if res.Result == nil {
+				for _, r := range reps.Policies {
+					if r.Result == nil {
 						continue
 					}
-					generateResponse := engineapi.EngineResponse{
-						Resource: *engineResponse.Trigger,
+					response := engineapi.EngineResponse{
+						Resource: *reps.Trigger,
 						PolicyResponse: engineapi.PolicyResponse{
-							Rules: []engineapi.RuleResponse{*res.Result},
+							Rules: []engineapi.RuleResponse{*r.Result},
 						},
 					}
-					generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicy(&res.Policy))
-					if err := p.processGenerateResponse(generateResponse, resPath); err != nil {
+					response = response.WithPolicy(engineapi.NewGeneratingPolicyFromLike(r.Policy))
+					if err := p.processGenerateResponse(response, resPath); err != nil {
 						return responses, err
 					}
-					p.Rc.addGenerateResponse(generateResponse)
-					responses = append(responses, generateResponse)
+					p.Rc.addGenerateResponse(response)
+					responses = append(responses, response)
 				}
 			}
 		}
