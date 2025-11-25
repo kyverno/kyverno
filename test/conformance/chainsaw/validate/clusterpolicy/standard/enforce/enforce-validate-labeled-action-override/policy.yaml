@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-labels-audit-labeled-namespaces
+spec:
+  background: true
+  rules:
+    - name: check-labels
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        failureAction: Enforce
+        failureActionOverrides:
+          - action: Audit
+            namespaceSelector:
+              matchExpressions:
+                - key: kyverno-audit
+                  operator: In
+                  values:
+                    - "true"
+        deny:
+          conditions:
+            any:
+            - key: "{{ request.object.metadata.labels.foo || '' }}"
+              operator: NotEquals
+              value: 'bar'
