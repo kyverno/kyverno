@@ -229,6 +229,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 			// match namespaces
 			if err := match.CheckNamespace(policy.GetNamespace(), resource); err != nil {
 				debug.Info("resource namespace didn't match policy namespace", "result", err)
+				continue
 			}
 			// match resource with match/exclude clause
 			matched := match.CheckMatchesResources(
