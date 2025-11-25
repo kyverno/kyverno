@@ -56,6 +56,7 @@ type controller struct {
 	vpolLister       policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister      policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister       policiesv1beta1listers.MutatingPolicyLister
+	nmpolLister      policiesv1beta1listers.NamespacedMutatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
 	celpolexLister   policiesv1alpha1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -78,6 +79,7 @@ func NewController(
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	celpolexInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -99,6 +101,7 @@ func NewController(
 		vpolLister:      vpolInformer.Lister(),
 		nvpolLister:     nvpolInformer.Lister(),
 		mpolLister:      mpolInformer.Lister(),
+		nmpolLister:     nmpolInformer.Lister(),
 		polexLister:     polexInformer.Lister(),
 		celpolexLister:  celpolexInformer.Lister(),
 		queue:           queue,

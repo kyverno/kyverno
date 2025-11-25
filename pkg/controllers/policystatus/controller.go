@@ -53,6 +53,7 @@ func NewController(
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	reportsSA string,
 	polStateRecorder webhook.StateRecorder,
@@ -156,6 +157,22 @@ func NewController(
 	)
 	if err != nil {
 		logger.Error(err, "failed to register event handlers for MutatingPolicy")
+	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		nmpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			nmpol, ok := obj.(*policiesv1beta1.NamespacedMutatingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, nmpol.Name, nmpol.Namespace))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for NamespacedMutatingPolicy")
 	}
 
 	_, _, err = controllerutils.AddExplicitEventHandlers(
