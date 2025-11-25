@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -178,7 +179,19 @@ func (v *validationHandler) HandleValidationAudit(
 	request handlers.AdmissionRequest,
 ) []engineapi.EngineResponse {
 	gvr := schema.GroupVersionResource(request.Resource)
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
+
+	// Get namespace object if namespace is specified
+	var namespace *corev1.Namespace
+	if request.Namespace != "" {
+		var err error
+		namespace, err = v.nsLister.Get(request.Namespace)
+		if err != nil {
+			v.log.V(4).Info("failed to get namespace", "namespace", request.Namespace, "error", err)
+			// Continue with nil namespace if we can't get it
+		}
+	}
+
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, namespace)
 	if len(policies) == 0 {
 		return nil
 	}
