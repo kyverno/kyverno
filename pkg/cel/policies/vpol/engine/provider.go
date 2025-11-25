@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -28,12 +29,13 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 
 func NewProvider(
 	compiler vpolcompiler.Compiler,
-	policies []policiesv1alpha1.ValidatingPolicy,
+	policies []policiesv1beta1.ValidatingPolicyLike,
 	exceptions []*policiesv1alpha1.PolicyException,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
-		actions := sets.New(policy.Spec.ValidationActions()...)
+		spec := policy.GetValidatingPolicySpec()
+		actions := sets.New(spec.ValidationActions()...)
 		var matchedExceptions []*policiesv1alpha1.PolicyException
 		for _, polex := range exceptions {
 			for _, ref := range polex.Spec.PolicyRefs {
@@ -42,7 +44,7 @@ func NewProvider(
 				}
 			}
 		}
-		compiled, errs := compiler.Compile(&policy, matchedExceptions)
+		compiled, errs := compiler.Compile(policy, matchedExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 		}
@@ -51,19 +53,28 @@ func NewProvider(
 			Policy:         policy,
 			CompiledPolicy: compiled,
 		})
-		generated, err := autogen.Autogen(&policy)
+		generated, err := autogen.Autogen(policy)
 		if err != nil {
 			return nil, err
 		}
 		for _, autogen := range generated {
-			policy.Spec = *autogen.Spec
-			compiled, errs := compiler.Compile(&policy, matchedExceptions)
+			var autogenPolicy policiesv1beta1.ValidatingPolicyLike
+			if vp, ok := policy.(*policiesv1beta1.ValidatingPolicy); ok {
+				vpCopy := vp.DeepCopy()
+				vpCopy.Spec = *autogen.Spec
+				autogenPolicy = vpCopy
+			} else if nvp, ok := policy.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
+				nvpCopy := nvp.DeepCopy()
+				nvpCopy.Spec = *autogen.Spec
+				autogenPolicy = nvpCopy
+			}
+			compiled, errs := compiler.Compile(autogenPolicy, matchedExceptions)
 			if len(errs) > 0 {
-				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
+				return nil, fmt.Errorf("failed to compile policy %s (%w)", autogenPolicy.GetName(), errs.ToAggregate())
 			}
 			out = append(out, Policy{
 				Actions:        actions,
-				Policy:         policy,
+				Policy:         autogenPolicy,
 				CompiledPolicy: compiled,
 			})
 		}
@@ -80,7 +91,13 @@ func NewKubeProvider(
 	polexEnabled bool,
 ) (Provider, error) {
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
-	builder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1alpha1.ValidatingPolicy{})
+
+	vpolBuilder := ctrl.NewControllerManagedBy(mgr).
+		For(&policiesv1beta1.ValidatingPolicy{})
+
+	nvpolBuilder := ctrl.NewControllerManagedBy(mgr).
+		For(&policiesv1beta1.NamespacedValidatingPolicy{})
+
 	if polexEnabled {
 		exceptionHandlerFuncs := &handler.Funcs{
 			CreateFunc: func(
@@ -126,10 +143,16 @@ func NewKubeProvider(
 				}
 			},
 		}
-		builder = builder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
+		vpolBuilder = vpolBuilder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
+		nvpolBuilder = nvpolBuilder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
 	}
-	if err := builder.Complete(reconciler); err != nil {
-		return nil, fmt.Errorf("failed to construct validatingpolicies manager: %w", err)
+
+	if err := vpolBuilder.Complete(reconciler); err != nil {
+		return nil, fmt.Errorf("failed to construct validatingpolicy controller: %w", err)
 	}
+	if err := nvpolBuilder.Complete(reconciler); err != nil {
+		return nil, fmt.Errorf("failed to construct namespacedvalidatingpolicy controller: %w", err)
+	}
+
 	return reconciler, nil
 }

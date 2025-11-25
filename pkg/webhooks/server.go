@@ -60,6 +60,7 @@ func NewServer(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	discovery dclient.IDiscovery,
+	webhookServerHost string,
 	webhookServerPort int32,
 ) Server {
 	mux := httprouter.New()
@@ -81,7 +82,7 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("MPOL"),
 	)
@@ -95,9 +96,22 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
 			WithAdmission(vpolLogger.WithName("validate")).
 			ToHandlerFunc("VPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		"/nvpol/*policies",
+		handlerFunc("VALIDATE", resourceHandlers.NamespacedValidatingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithAdmission(vpolLogger.WithName("validate")).
+			ToHandlerFunc("NVPOL"),
 	)
 	mux.HandlerFunc(
 		"POST",
@@ -108,7 +122,7 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
 			WithAdmission(ivpolLogger.WithName("validate")).
 			ToHandlerFunc("IVPOL"),
 	)
@@ -122,7 +136,7 @@ func NewServer(
 			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
 			WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
-			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
 			WithAdmission(resourceLogger.WithName("mutate")).
 			ToHandlerFunc("IVPOL"),
 	)
@@ -135,7 +149,7 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
 			WithAdmission(resourceLogger.WithName("generate")).
 			ToHandlerFunc("GPOL"),
 	)
@@ -152,7 +166,7 @@ func NewServer(
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
-				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
+				WithMetrics(resourceLogger, metrics.WebhookMutating).
 				WithAdmission(resourceLogger.WithName("mutate"))
 		},
 	)
@@ -168,7 +182,7 @@ func NewServer(
 				WithDump(debugModeOpts.DumpPayload).
 				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
-				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+				WithMetrics(resourceLogger, metrics.WebhookValidating).
 				WithAdmission(resourceLogger.WithName("validate"))
 		},
 	)
@@ -177,7 +191,7 @@ func NewServer(
 		config.PolicyMutatingWebhookServicePath,
 		handlerFunc("MUTATE", policyHandlers.Mutation, "").
 			WithDump(debugModeOpts.DumpPayload).
-			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookMutating).
+			WithMetrics(policyLogger, metrics.WebhookMutating).
 			WithAdmission(policyLogger.WithName("mutate")).
 			ToHandlerFunc("MUTATE"),
 	)
@@ -187,7 +201,7 @@ func NewServer(
 		handlerFunc("VALIDATE", policyHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(policyLogger, metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)
@@ -197,7 +211,7 @@ func NewServer(
 		handlerFunc("VALIDATE", exceptionHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(exceptionLogger, metrics.WebhookValidating).
 			WithAdmission(exceptionLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)
@@ -207,7 +221,7 @@ func NewServer(
 		handlerFunc("VALIDATE", celExceptionHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(celExceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(celExceptionLogger, metrics.WebhookValidating).
 			WithAdmission(celExceptionLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)
@@ -217,7 +231,7 @@ func NewServer(
 		handlerFunc("VALIDATE", globalContextHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(globalContextLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(globalContextLogger, metrics.WebhookValidating).
 			WithAdmission(globalContextLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)
@@ -232,7 +246,7 @@ func NewServer(
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
 		server: &http.Server{
-			Addr: fmt.Sprintf(":%d", webhookServerPort),
+			Addr: fmt.Sprintf("[%s]:%d", webhookServerHost, webhookServerPort),
 			TLSConfig: &tls.Config{
 				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 					certPem, keyPem, err := tlsProvider()

@@ -62,13 +62,25 @@ func NewFilteredPolicyExceptionInformer(client versioned.Interface, namespace st
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().PolicyExceptions(namespace).List(context.TODO(), options)
+				return client.PoliciesV1alpha1().PolicyExceptions(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PoliciesV1alpha1().PolicyExceptions(namespace).Watch(context.TODO(), options)
+				return client.PoliciesV1alpha1().PolicyExceptions(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.PoliciesV1alpha1().PolicyExceptions(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.PoliciesV1alpha1().PolicyExceptions(namespace).Watch(ctx, options)
 			},
 		},
 		&apipolicieskyvernoiov1alpha1.PolicyException{},

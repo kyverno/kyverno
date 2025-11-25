@@ -1557,6 +1557,25 @@
             "patch",
             "update"
           ]
+        },
+        {
+          "name": "volumeattributesclasses",
+          "singularName": "volumeattributesclass",
+          "namespaced": false,
+          "kind": "VolumeAttributesClass",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ],
+          "shortNames": [
+            "vac"
+          ]
         }
       ]
     }
@@ -1849,6 +1868,100 @@
           "singularName": "endpointslice",
           "namespaced": true,
           "kind": "EndpointSlice",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Group": {
+      "name": "resource.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "resource.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "resource.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    "VersionedResources": {
+      "v1": [
+        {
+          "name": "deviceclasses",
+          "singularName": "deviceclass",
+          "namespaced": false,
+          "kind": "DeviceClass",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "resourceclaims",
+          "singularName": "resourceclaim",
+          "namespaced": true,
+          "kind": "ResourceClaim",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "resourceclaims/status",
+          "singularName": "resourceclaim",
+          "namespaced": true,
+          "kind": "ResourceClaim",
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "name": "resourceclaimtemplates",
+          "singularName": "resourceclaimtemplate",
+          "namespaced": true,
+          "kind": "ResourceClaimTemplate",
+          "verbs": [
+            "create",
+            "delete",
+            "deletecollection",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "name": "resourceslices",
+          "singularName": "resourceslice",
+          "namespaced": false,
+          "kind": "ResourceSlice",
           "verbs": [
             "create",
             "delete",

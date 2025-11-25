@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -35,8 +36,14 @@ func NewEngine(nsResolver engine.NamespaceResolver, mapper meta.RESTMapper, cont
 }
 
 func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructured.Unstructured) (EngineResponse, error) {
+	var ns runtime.Object
 	if resource.GetAPIVersion() != "" && resource.GetKind() != "" {
 		namespace := resource.GetNamespace()
+
+		spec := policy.Policy.GetDeletingPolicySpec()
+		if spec == nil {
+			return EngineResponse{}, fmt.Errorf("deleting policy %s has no spec", policy.Policy.GetName())
+		}
 
 		mapping, err := e.mapper.RESTMapping(resource.GroupVersionKind().GroupKind(), resource.GroupVersionKind().Version)
 		if err != nil {
@@ -58,19 +65,18 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 			nil,
 		)
 
-		var ns runtime.Object
 		if namespace != "" {
 			ns = e.nsResolver(namespace)
 		}
 
-		if matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, ns); err != nil {
+		if matches, err := e.matchPolicy(spec.MatchConstraints, attr, ns); err != nil {
 			return EngineResponse{}, err
 		} else if !matches {
 			return EngineResponse{Match: false}, err
 		}
 	}
 
-	result, err := policy.CompiledPolicy.Evaluate(ctx, resource, e.context)
+	result, err := policy.CompiledPolicy.Evaluate(ctx, resource, ns, e.context)
 	if err != nil {
 		return EngineResponse{}, err
 	}
