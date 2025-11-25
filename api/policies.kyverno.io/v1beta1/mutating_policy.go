@@ -89,6 +89,13 @@ func (s *NamespacedMutatingPolicy) GetWebhookConfiguration() *WebhookConfigurati
 	return s.Spec.WebhookConfiguration
 }
 
+func (s *NamespacedMutatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
+}
+
 func (s *NamespacedMutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
 }
@@ -147,6 +154,13 @@ func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolic
 
 func (s *MutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
 	return s.Spec.WebhookConfiguration
+}
+
+func (s *MutatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
 }
 
 func (s *MutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
