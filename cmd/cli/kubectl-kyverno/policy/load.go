@@ -25,8 +25,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
@@ -346,23 +344,4 @@ func stdinLoad(loader loader) (*LoaderResults, error) {
 		policyStr = policyStr + scanner.Text() + "\n"
 	}
 	return loader("-", []byte(policyStr))
-}
-
-func convertNamespacedGeneratingPolicyToAlpha1(pol *policiesv1beta1.NamespacedGeneratingPolicy) (*policiesv1alpha1.GeneratingPolicy, error) {
-	if pol == nil {
-		return nil, nil
-	}
-	unstructuredPolicy, err := runtime.DefaultUnstructuredConverter.ToUnstructured(pol)
-	if err != nil {
-		return nil, err
-	}
-	var converted policiesv1alpha1.GeneratingPolicy
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredPolicy, &converted); err != nil {
-		return nil, err
-	}
-	converted.TypeMeta = metav1.TypeMeta{
-		APIVersion: policiesv1alpha1.SchemeGroupVersion.String(),
-		Kind:       "GeneratingPolicy",
-	}
-	return &converted, nil
 }

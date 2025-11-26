@@ -10,7 +10,6 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
-	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
@@ -41,7 +40,7 @@ type controller struct {
 	dclient          dclient.Interface
 	client           versioned.Interface
 	queue            workqueue.TypedRateLimitingInterface[any]
-	authChecker      auth.AuthChecker
+	authChecker      checker.AuthChecker
 	polStateRecorder webhook.StateRecorder
 }
 
@@ -64,7 +63,7 @@ func NewController(
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName}),
-		authChecker:      auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
+		authChecker:      checker.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
 		polStateRecorder: polStateRecorder,
 	}
 
@@ -260,6 +259,19 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		}
 		return c.updateGpolStatus(ctx, gpol)
 	}
+
+	if polType == webhook.NamespacedGeneratingPolicyType {
+		ngpol, err := c.client.PoliciesV1beta1().NamespacedGeneratingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("namespaced generating policy not found", "name", name, "namespace", namespace)
+				return nil
+			}
+			return err
+		}
+		return c.updateNGpolStatus(ctx, ngpol)
+	}
+
 	return nil
 }
 

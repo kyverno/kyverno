@@ -1281,6 +1281,19 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		gpols,
 		c.celExpressionCache)...)
 
+	ngpols, err := c.getNamespacedGeneratingPolicies()
+	if err != nil {
+		return err
+	}
+	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+		c.server,
+		config.NamespacedGeneratingPolicyWebhookName,
+		"/ngpol",
+		c.servicePort,
+		caBundle,
+		ngpols,
+		c.celExpressionCache)...)
+
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err

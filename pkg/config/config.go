@@ -58,6 +58,8 @@ const (
 	NamespacedValidatingPolicyWebhookName = "nvpol.validate.kyverno.svc"
 	// GeneratingPolicyWebhookName defines default webhook name for generatingpolicies
 	GeneratingPolicyWebhookName = "gpol.validate.kyverno.svc"
+	// NamespacedGeneratingPolicyWebhookName defines default webhook name for namespacedgeneratingpolicies
+	NamespacedGeneratingPolicyWebhookName = "ngpol.validate.kyverno.svc"
 	// MutatingPolicyWebhookName defines default webhook name for mutatingpolicies
 	MutatingPolicyWebhookName = "mpol.validate.kyverno.svc"
 	// ImageValidatingPolicyWebhookName defines default validating webhook name for imagevalidatingpolicies
