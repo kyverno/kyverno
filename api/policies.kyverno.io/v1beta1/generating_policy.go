@@ -55,6 +55,13 @@ func (s *GeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
 }
 
+func (s *GeneratingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration != nil {
+		return s.Spec.WebhookConfiguration.TimeoutSeconds
+	}
+	return nil
+}
+
 func (s *GeneratingPolicy) GetSpec() *GeneratingPolicySpec {
 	return &s.Spec
 }
@@ -106,6 +113,13 @@ func (s *NamespacedGeneratingPolicy) GetWebhookConfiguration() *WebhookConfigura
 
 func (s *NamespacedGeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
+}
+
+func (s *NamespacedGeneratingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration != nil {
+		return s.Spec.WebhookConfiguration.TimeoutSeconds
+	}
+	return nil
 }
 
 func (s *NamespacedGeneratingPolicy) GetSpec() *GeneratingPolicySpec {

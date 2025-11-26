@@ -22,10 +22,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
-		// Skip policies that don't implement GenericPolicy interface (e.g., GeneratingPolicy)
-		if p == nil {
-			continue
-		}
 		if validConditions(expressionCache, p.GetMatchConditions()) != nil {
 			fineGrained = append(fineGrained, policy)
 		} else if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
@@ -236,10 +232,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
-			// Skip policies that don't implement GenericPolicy interface (e.g., GeneratingPolicy)
-			if p == nil {
-				continue
-			}
 			webhookIgnore.NamespaceSelector = mergeLabelSelectors(
 				p.GetMatchConstraints().NamespaceSelector,
 				cfg.GetWebhook().NamespaceSelector,
