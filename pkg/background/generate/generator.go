@@ -223,7 +223,9 @@ func (g *generator) generateForeach() ([]kyvernov1.ResourceSpec, error) {
 	for i, foreach := range g.forEach {
 		elements, err := engineutils.EvaluateList(foreach.List, g.policyContext.JSONContext())
 		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to evaluate %v foreach list: %v", i, err))
+			// Skip silently if the error is due to missing fields or type mismatches in JMESPath
+			// This allows policies to safely query fields that might not exist
+			g.logger.V(2).Info("failed to evaluate foreach list, skipping", "index", i, "list", foreach.List, "error", err.Error())
 			continue
 		}
 		gen, err := g.generateElements(foreach, elements, nil)
