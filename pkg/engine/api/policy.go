@@ -132,6 +132,7 @@ type genericPolicy struct {
 	NamespacedImageValidatingPolicy *policiesv1beta1.NamespacedImageValidatingPolicy
 	MutatingPolicy                  *policiesv1alpha1.MutatingPolicy
 	GeneratingPolicy                *policiesv1alpha1.GeneratingPolicy
+	NamespacedGeneratingPolicy      *policiesv1alpha1.NamespacedGeneratingPolicy
 	DeletingPolicy                  policiesv1beta1.DeletingPolicyLike
 	// originalAPIVersion tracks the original API version for converted policies
 	originalAPIVersion string
@@ -516,6 +517,24 @@ func NewGeneratingPolicy(pol *policiesv1alpha1.GeneratingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:           pol,
 		GeneratingPolicy: pol,
+	}
+}
+
+func NewNamespacedGeneratingPolicy(pol *policiesv1alpha1.NamespacedGeneratingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:                     pol,
+		NamespacedGeneratingPolicy: pol,
+	}
+}
+
+func NewGeneratingPolicyFromLike(pol policiesv1alpha1.GeneratingPolicyLike) GenericPolicy {
+	switch typed := pol.(type) {
+	case *policiesv1alpha1.GeneratingPolicy:
+		return NewGeneratingPolicy(typed)
+	case *policiesv1alpha1.NamespacedGeneratingPolicy:
+		return NewNamespacedGeneratingPolicy(typed)
+	default:
+		return nil
 	}
 }
 

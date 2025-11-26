@@ -101,19 +101,20 @@ func (e *engineImpl) generate(
 	response := GeneratingPolicyResponse{
 		Policy: policy.Policy,
 	}
+	spec := policy.Policy.GetSpec()
 	if e.matcher != nil {
-		matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, namespace)
+		matches, err := e.matchPolicy(spec.MatchConstraints, attr, namespace)
 		if err != nil {
-			response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to execute matching", err, nil)
+			response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to execute matching", err, nil)
 			return response
 		} else if !matches {
 			return response
 		}
 	}
-	context.SetGenerateContext(policy.Policy.Name, request.Name, attr.GetNamespace(), request.Kind.Version, request.Kind.Group, request.Kind.Kind, triggerUID, cacheRestore)
+	context.SetGenerateContext(policy.Policy.GetName(), request.Name, attr.GetNamespace(), request.Kind.Version, request.Kind.Group, request.Kind.Kind, triggerUID, cacheRestore)
 	generatedResources, exceptions, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
-		response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to evaluate policy", err, nil)
+		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to evaluate policy", err, nil)
 		return response
 	}
 	if len(exceptions) != 0 {
@@ -165,7 +166,7 @@ func (e *engineImpl) generate(
 		}
 		return response
 	}
-	response.Result = engineapi.RulePass(policy.Policy.Name, engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)
+	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)
 	return response
 }
 

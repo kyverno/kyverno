@@ -130,7 +130,10 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
-		isSync := policy.Policy.Spec.SynchronizationEnabled()
+		isSync := false
+		if spec := policy.Policy.GetSpec(); spec != nil {
+			isSync = spec.SynchronizationEnabled()
+		}
 		gpolResponse, err := c.engine.Handle(request, policy, ur.Spec.RuleContext[i].CacheRestore)
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
@@ -146,7 +149,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				continue
 			}
 			engineResponse.PolicyResponse.Rules = []engineapi.RuleResponse{*res.Result}
-			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicy(&res.Policy))
+			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 			if res.Result.Status() == engineapi.RuleStatusSkip {
 				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
 				continue
@@ -174,7 +177,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		}
 		if c.reportsConfig.GenerateReportsEnabled() &&
 			len(engineResponse.PolicyResponse.Rules) > 0 &&
-			reportutils.IsPolicyReportable(&policy.Policy) {
+			reportutils.IsPolicyReportable(engineapi.NewGeneratingPolicyFromLike(policy.Policy).AsKyvernoPolicy()) {
 			if err := c.createReports(context.TODO(), *trigger, engineResponse); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
