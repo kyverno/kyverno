@@ -95,6 +95,12 @@ func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 		v1beta1Pol.TypeMeta.APIVersion = v1beta1.GroupVersion.String()
 		v1beta1Pol.TypeMeta.Kind = v1beta1.GeneratingPolicyKind
 		return api.NewGeneratingPolicy(v1beta1Pol), nil
+	case "NamespacedGeneratingPolicy":
+		var policy *v1beta1.NamespacedGeneratingPolicy
+		if err := json.Unmarshal(raw, &policy); err != nil {
+			return nil, err
+		}
+		return api.NewNamespacedGeneratingPolicy(policy), nil
 	case "DeletingPolicy":
 		var policy *v1beta1.DeletingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
