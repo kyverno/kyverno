@@ -114,9 +114,6 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	namespace := policy.GetNamespace()
-	if namespace == "" {
-		namespace = "default"
-	}
 	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(namespace)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
