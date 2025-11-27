@@ -6,7 +6,6 @@ import (
 	"sync"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +21,7 @@ import (
 
 type fakeClient struct {
 	client.Client
-	policy *policiesv1alpha1.MutatingPolicy
+	policy *policiesv1beta1.MutatingPolicy
 	err    error
 }
 
@@ -30,7 +29,7 @@ func (f *fakeClient) Get(_ context.Context, _ client.ObjectKey, obj client.Objec
 	if f.err != nil {
 		return f.err
 	}
-	*obj.(*policiesv1alpha1.MutatingPolicy) = *f.policy
+	*obj.(*policiesv1beta1.MutatingPolicy) = *f.policy
 	return nil
 }
 
@@ -49,7 +48,7 @@ func TestReconcile(t *testing.T) {
 	//})
 
 	t.Run("successful reconciliation", func(t *testing.T) {
-		mp := &policiesv1alpha1.MutatingPolicy{
+		mp := &policiesv1beta1.MutatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
 		}
 		rec := newReconciler(

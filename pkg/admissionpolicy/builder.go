@@ -245,7 +245,7 @@ func BuildMutatingAdmissionPolicy(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1alpha1.PolicyException,
 ) {
-	var matchConditions []admissionregistrationv1alpha1.MatchCondition
+	matchConditions := make([]admissionregistrationv1alpha1.MatchCondition, 0)
 	// convert celexceptions if exist
 	for _, exception := range exceptions {
 		for _, matchCondition := range exception.Spec.MatchConditions {
@@ -282,7 +282,7 @@ func BuildMutatingAdmissionPolicy(
 			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
 				return admissionregistrationv1alpha1.NamedRuleWithOperations{
 					ResourceNames:      rule.ResourceNames,
-					RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations(rule.RuleWithOperations),
+					RuleWithOperations: rule.RuleWithOperations,
 				}
 			}),
 		},

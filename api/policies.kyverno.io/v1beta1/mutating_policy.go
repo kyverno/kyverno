@@ -149,8 +149,7 @@ func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.Matc
 		})
 	}
 	if in.MatchPolicy != nil {
-		mp := admissionregistrationv1.MatchPolicyType(*in.MatchPolicy)
-		out.MatchPolicy = &mp
+		out.MatchPolicy = in.MatchPolicy
 	}
 	s.MatchConstraints = out
 }
