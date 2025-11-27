@@ -14,6 +14,7 @@ spec:
             - Pod
     name: disallow-default-sa
     validate:
+      allowExistingViolations: true
       message: default ServiceAccount should not be used
       assert:
         object:

@@ -12,6 +12,7 @@ spec:
             kinds:
               - Pod
       validate:
+        allowExistingViolations: true
         failureAction: Enforce
         pattern:
           metadata:
