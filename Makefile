@@ -652,6 +652,8 @@ define generate_crd
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
 		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
+		| $(SED) -e '/format: int32$$/d' \
+		| $(SED) -e '/format: int64$$/d' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/crds/templates/$(3)/$(1)
@@ -662,6 +664,8 @@ define generate_crd
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
 		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
+		| $(SED) -e '/format: int32$$/d' \
+		| $(SED) -e '/format: int64$$/d' \
  		>> ./charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/crds/templates/$(3)/$(1)
 endef
