@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -150,9 +151,10 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						},
 					},
 				},
-				Mutations: []policiesv1beta1.Mutation{
+				Mutations: []admissionregistrationv1alpha1.Mutation{
 					{
-						Expression: `Object{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
   spec: Object.spec{
     containers: object.spec.containers.map(container, Object.spec.containers{
       name: container.name,
@@ -162,6 +164,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
     })
   }
 }`,
+						},
 					},
 				},
 			},
@@ -186,9 +189,10 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						},
 					},
 				},
-				Mutations: []policiesv1beta1.Mutation{
+				Mutations: []admissionregistrationv1alpha1.Mutation{
 					{
-						Expression: `Object{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
   spec: Object.spec{
     containers: [Object.spec.containers{
       name: "app",
@@ -198,6 +202,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
     }]
   }
 }`,
+						},
 					},
 				},
 			},
@@ -222,9 +227,10 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						},
 					},
 				},
-				Mutations: []policiesv1beta1.Mutation{
+				Mutations: []admissionregistrationv1alpha1.Mutation{
 					{
-						Expression: `Object{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
   spec: Object.spec{
     containers: object.spec.containers.map(container, Object.spec.containers{
       name: container.name,
@@ -234,6 +240,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
     })
   }
 }`,
+						},
 					},
 				},
 			},
@@ -286,9 +293,10 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						Expression: "has(object.metadata.annotations) && ('inject-certs' in object.metadata.annotations && object.metadata.annotations['inject-certs'] == 'enabled')",
 					},
 				},
-				Mutations: []policiesv1beta1.Mutation{
+				Mutations: []admissionregistrationv1alpha1.Mutation{
 					{
-						Expression: `Object{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
   spec: Object.spec{
     containers: object.spec.containers.map(container, Object.spec.containers{
       name: container.name,
@@ -298,6 +306,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
     })
   }
 }`,
+						},
 					},
 				},
 			},
@@ -328,9 +337,10 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						Expression: "has(object.metadata.labels) && object.metadata.labels['app'] == 'myapp'",
 					},
 				},
-				Mutations: []policiesv1beta1.Mutation{
+				Mutations: []admissionregistrationv1alpha1.Mutation{
 					{
-						Expression: `Object{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
   spec: Object.spec{
     containers: [Object.spec.containers{
       name: "app",
@@ -340,6 +350,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
     }]
   }
 }`,
+						},
 					},
 				},
 			},
@@ -351,7 +362,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rules, err := generateRuleForControllersV1beta1(tt.spec, tt.configs)
+			rules, err := generateRuleForControllers(tt.spec, tt.configs)
 
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -368,8 +379,8 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					assert.Len(t, rule.Spec.Mutations, len(tt.spec.Mutations))
 
 					for _, mutation := range rule.Spec.Mutations {
-						if mutation.Expression != "" {
-							convertedExpr := mutation.Expression
+						if mutation.ApplyConfiguration != nil {
+							convertedExpr := mutation.ApplyConfiguration.Expression
 
 							if config == "cronjobs" {
 								assert.Contains(t, convertedExpr, "jobTemplate.spec.template.spec.containers")
@@ -404,9 +415,10 @@ func TestAutogenIntegration(t *testing.T) {
 						},
 					},
 				},
-				Mutations: []policiesv1beta1.Mutation{
+				Mutations: []admissionregistrationv1alpha1.Mutation{
 					{
-						Expression: `Object{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
   spec: Object.spec{
     containers: object.spec.containers.map(container, Object.spec.containers{
       name: container.name,
@@ -416,6 +428,7 @@ func TestAutogenIntegration(t *testing.T) {
     })
   }
 }`,
+						},
 					},
 				},
 			},
@@ -441,7 +454,7 @@ func TestAutogenIntegration(t *testing.T) {
 		assert.Equal(t, "deployments", deploymentAutogen.Targets[0].Resource)
 
 		assert.Len(t, deploymentAutogen.Spec.Mutations, 1)
-		convertedExpr := deploymentAutogen.Spec.Mutations[0].Expression
+		convertedExpr := deploymentAutogen.Spec.Mutations[0].ApplyConfiguration.Expression
 		assert.Contains(t, convertedExpr, "template.spec.containers")
 		assert.NotContains(t, convertedExpr, "object.spec.containers")
 	})
@@ -463,9 +476,10 @@ func TestAutogenIntegration(t *testing.T) {
 						},
 					},
 				},
-				Mutations: []policiesv1beta1.Mutation{
+				Mutations: []admissionregistrationv1alpha1.Mutation{
 					{
-						Expression: `Object{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
   spec: Object.spec{
     containers: object.spec.containers.map(container, Object.spec.containers{
       name: container.name,
@@ -475,6 +489,7 @@ func TestAutogenIntegration(t *testing.T) {
     })
   }
 }`,
+						},
 					},
 				},
 			},
@@ -500,7 +515,7 @@ func TestAutogenIntegration(t *testing.T) {
 		assert.Equal(t, "cronjobs", cronjobAutogen.Targets[0].Resource)
 
 		assert.Len(t, cronjobAutogen.Spec.Mutations, 1)
-		convertedExpr := cronjobAutogen.Spec.Mutations[0].Expression
+		convertedExpr := cronjobAutogen.Spec.Mutations[0].ApplyConfiguration.Expression
 		assert.Contains(t, convertedExpr, "jobTemplate.spec.template.spec.containers")
 		assert.NotContains(t, convertedExpr, "object.spec.containers")
 	})

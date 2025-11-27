@@ -16,28 +16,21 @@ func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1be
 		return nil, nil
 	}
 
-	spec := policy.GetSpec()
-
-	matchConstraints := spec.MatchConstraints
-	if !autogen.CanAutoGen(matchConstraints) {
+	matchConstraints := policy.GetMatchConstraints()
+	if !autogen.CanAutoGen(&matchConstraints) {
 		return nil, nil
 	}
 
 	actualControllers := autogen.AllConfigs
-	if spec.AutogenConfiguration != nil &&
-		spec.AutogenConfiguration.PodControllers != nil &&
-		spec.AutogenConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(spec.AutogenConfiguration.PodControllers.Controllers...)
+	if policy.GetSpec().AutogenConfiguration != nil &&
+		policy.GetSpec().AutogenConfiguration.PodControllers != nil &&
+		policy.GetSpec().AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(policy.GetSpec().AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return generateRuleForControllersV1beta1(spec, actualControllers)
+	return generateRuleForControllers(policy.GetSpec(), actualControllers)
 }
 
-// Deprecated: Use Autogen instead which now accepts MutatingPolicyLike
-func AutogenNamespaced(policy *policiesv1beta1.NamespacedMutatingPolicy) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
-	return Autogen(policy)
-}
-
-func generateRuleForControllersV1beta1(spec *policiesv1beta1.MutatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
+func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
@@ -52,7 +45,7 @@ func generateRuleForControllersV1beta1(spec *policiesv1beta1.MutatingPolicySpec,
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		match := autogen.CreateMatchConstraints(targets, operations)
-		spec.MatchConstraints = match
+		spec.SetMatchConstraints(*match)
 
 		for i := range spec.MatchConditions {
 			if spec.MatchConditions[i].Expression != "" {
@@ -62,9 +55,9 @@ func generateRuleForControllersV1beta1(spec *policiesv1beta1.MutatingPolicySpec,
 		}
 
 		for i := range spec.Mutations {
-			if spec.Mutations[i].Expression != "" {
-				convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].Expression, config)
-				spec.Mutations[i].Expression = convertedExpr
+			if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
+				convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
+				spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
 			}
 		}
 

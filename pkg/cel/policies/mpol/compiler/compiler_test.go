@@ -3,26 +3,31 @@ package compiler
 import (
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 )
 
 func TestCompile(t *testing.T) {
 	tests := []struct {
 		name    string
-		pol     *policiesv1beta1.MutatingPolicy
-		polex   []*policiesv1alpha1.PolicyException
+		pol     *v1beta1.MutatingPolicy
+		polex   []*v1alpha1.PolicyException
 		wantErr bool
 	}{
 		{
 			name: "valid applyConfiguration mutation",
-			pol: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					Mutations: []policiesv1beta1.Mutation{
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Mutations: []admissionregistrationv1alpha1.Mutation{
 						{
-							Expression: `Object{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+							PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+							ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+								Expression: `Object{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+							},
 						},
 					},
 				},
@@ -32,12 +37,12 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "invalid-expression in exception",
-			pol: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{},
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{},
 			},
-			polex: []*policiesv1alpha1.PolicyException{
+			polex: []*v1alpha1.PolicyException{
 				{
-					Spec: policiesv1alpha1.PolicyExceptionSpec{
+					Spec: v1alpha1.PolicyExceptionSpec{
 						MatchConditions: []admissionv1.MatchCondition{
 							{Expression: "invalid && expression"},
 						},
@@ -47,12 +52,15 @@ func TestCompile(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "valid mutation",
-			pol: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					Mutations: []policiesv1beta1.Mutation{
+			name: "valid jsonpatch mutation",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Mutations: []admissionregistrationv1alpha1.Mutation{
 						{
-							Expression: `Object{spec: Object.spec{restartPolicy: "Always"}}`,
+							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+								Expression: `[JSONPatch{op: "add", path: "/spec/restartPolicy", value: "Always"}]`,
+							},
 						},
 					},
 				},
@@ -62,17 +70,20 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "policy with variables",
-			pol: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					Variables: []admissionv1.Variable{
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Variables: []admissionregistrationv1.Variable{
 						{
 							Name:       "foo",
 							Expression: "object.metadata.name",
 						},
 					},
-					Mutations: []policiesv1beta1.Mutation{
+					Mutations: []admissionregistrationv1alpha1.Mutation{
 						{
-							Expression: `Object{}`,
+							PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+							ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+								Expression: `Object{}`,
+							},
 						},
 					},
 				},
@@ -82,9 +93,9 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "valid matchCondition expression",
-			pol: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					MatchConditions: []admissionv1.MatchCondition{
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "ns-is-test",
 							Expression: `true`,
@@ -97,9 +108,9 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "invalid matchCondition expression",
-			pol: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					MatchConditions: []admissionv1.MatchCondition{
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "ns-is-test",
 							Expression: `this is not a cel`,
@@ -111,12 +122,28 @@ func TestCompile(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid mutation expression with unsupported operator",
-			pol: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					Mutations: []policiesv1beta1.Mutation{
+			name: "invalid jsonPatch expression",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Mutations: []admissionregistrationv1alpha1.Mutation{
 						{
-							Expression: `contains(object.metadata.labels) ?? Object{metadata: Object.metadata{labels: {"managed": "true"}}} : Object{}`,
+							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+								Expression: `contains(object.metadata.labels) ??
+											[
+												JSONPatch{
+													op: "multiply",
+													path: "/metadata/labels/managed",
+													value: "true"
+												}
+											] : [
+												JSONPatch{
+													op: "add",
+													path: "/metadata/labels",
+													value: {"managed": "true"}
+												}
+											]`,
+							},
 						},
 					},
 				},
@@ -125,12 +152,15 @@ func TestCompile(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid mutation expression",
-			pol: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					Mutations: []policiesv1beta1.Mutation{
+			name: "invalid jsonPatch expression",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Mutations: []admissionregistrationv1alpha1.Mutation{
 						{
-							Expression: `invalid{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+							PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+							ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+								Expression: `invalid{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+							},
 						},
 					},
 				},

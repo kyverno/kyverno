@@ -16140,8 +16140,8 @@ Kubernetes admissionregistration/v1.MatchResources
 <td>
 <code>mutations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1beta1.Mutation">
-[]Mutation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Mutation
 </a>
 </em>
 </td>
@@ -16869,8 +16869,8 @@ Kubernetes admissionregistration/v1.MatchResources
 <td>
 <code>mutations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1beta1.Mutation">
-[]Mutation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Mutation
 </a>
 </em>
 </td>
@@ -17627,37 +17627,6 @@ bool
 <em>(Optional)</em>
 <p>Enabled controls if rules are applied during admission.
 Optional. Default value is &ldquo;true&rdquo;.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1beta1.ApplyConfiguration">ApplyConfiguration
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1beta1.Mutation">Mutation</a>)
-</p>
-<p>
-<p>ApplyConfiguration describes the CEL expression to build an apply configuration.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>expression</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Expression evaluated by CEL to create an apply configuration.</p>
 </td>
 </tr>
 </tbody>
@@ -19299,37 +19268,6 @@ string
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1beta1.JSONPatch">JSONPatch
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1beta1.Mutation">Mutation</a>)
-</p>
-<p>
-<p>JSONPatch describes the CEL expression that renders a JSON patch array.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>expression</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Expression evaluated by CEL to create a JSON patch.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1beta1.Key">Key
 </h3>
 <p>
@@ -19553,15 +19491,6 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1beta1.MutatingPatchType">MutatingPatchType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1beta1.Mutation">Mutation</a>)
-</p>
-<p>
-<p>MutatingPatchType enumerates supported patch strategies.</p>
-</p>
 <h3 id="policies.kyverno.io/v1beta1.MutatingPolicyAutogen">MutatingPolicyAutogen
 </h3>
 <p>
@@ -19773,8 +19702,7 @@ MutateExistingConfiguration
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1beta1.MutatingPolicy">MutatingPolicy</a>, 
 <a href="#policies.kyverno.io/v1beta1.NamespacedMutatingPolicy">NamespacedMutatingPolicy</a>, 
-<a href="#policies.kyverno.io/v1beta1.MutatingPolicyAutogen">MutatingPolicyAutogen</a>, 
-<a href="#policies.kyverno.io/v1beta1.NamespacedMutatingPolicyAutogen">NamespacedMutatingPolicyAutogen</a>)
+<a href="#policies.kyverno.io/v1beta1.MutatingPolicyAutogen">MutatingPolicyAutogen</a>)
 </p>
 <p>
 <p>MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.</p>
@@ -19895,8 +19823,8 @@ Kubernetes admissionregistration/v1.MatchResources
 <td>
 <code>mutations</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1beta1.Mutation">
-[]Mutation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#mutation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Mutation
 </a>
 </em>
 </td>
@@ -20019,101 +19947,8 @@ bool
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1beta1.Mutation">Mutation
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1beta1.MutatingPolicySpec">MutatingPolicySpec</a>)
-</p>
-<p>
-<p>Mutation specifies the CEL expression which is used to apply the Mutation.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>target</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1beta1.MutationTarget">
-MutationTarget
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Target specifies the target of the mutation.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>patchType</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1beta1.MutatingPatchType">
-MutatingPatchType
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PatchType indicates the patch strategy used.
-Allowed values are &ldquo;ApplyConfiguration&rdquo; and &ldquo;JSONPatch&rdquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>applyConfiguration</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1beta1.ApplyConfiguration">
-ApplyConfiguration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ApplyConfiguration defines desired configuration values applied via structured merge.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>jsonPatch</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1beta1.JSONPatch">
-JSONPatch
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>JSONPatch defines a JSON patch to perform a mutation on the object.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>expression</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Expression holds the legacy CEL expression used to apply the mutation when patchType is not specified.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="policies.kyverno.io/v1beta1.MutationTarget">MutationTarget
 </h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1beta1.Mutation">Mutation</a>)
-</p>
 <p>
 <p>MutationTarget specifies the target of the mutation.</p>
 </p>
@@ -20171,80 +20006,6 @@ string
 <td>
 <em>(Optional)</em>
 <p>Kind specifies the kind of the target resource.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1beta1.NamespacedMutatingPolicyAutogen">NamespacedMutatingPolicyAutogen
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1beta1.NamespacedMutatingPolicyAutogenStatus">NamespacedMutatingPolicyAutogenStatus</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>targets</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1beta1.Target">
-[]Target
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1beta1.MutatingPolicySpec">
-MutatingPolicySpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-</table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1beta1.NamespacedMutatingPolicyAutogenStatus">NamespacedMutatingPolicyAutogenStatus
-</h3>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>configs</code><br/>
-<em>
-<a href="#policies.kyverno.io/v1beta1.NamespacedMutatingPolicyAutogen">
-map[string]github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1.NamespacedMutatingPolicyAutogen
-</a>
-</em>
-</td>
-<td>
 </td>
 </tr>
 </tbody>
@@ -20762,7 +20523,6 @@ string
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1beta1.ImageValidatingPolicyAutogen">ImageValidatingPolicyAutogen</a>, 
 <a href="#policies.kyverno.io/v1beta1.MutatingPolicyAutogen">MutatingPolicyAutogen</a>, 
-<a href="#policies.kyverno.io/v1beta1.NamespacedMutatingPolicyAutogen">NamespacedMutatingPolicyAutogen</a>, 
 <a href="#policies.kyverno.io/v1beta1.ValidatingPolicyAutogen">ValidatingPolicyAutogen</a>)
 </p>
 <p>

@@ -162,7 +162,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			}
 
 			if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
-				policies, err := mpolautogen.AutogenNamespaced(nmpol)
+				policies, err := mpolautogen.Autogen(nmpol)
 				if err != nil {
 					continue
 				}
@@ -307,7 +307,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 			}
 			if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
-				rules, err := mpolautogen.AutogenNamespaced(nmpol)
+				rules, err := mpolautogen.Autogen(nmpol)
 				if err != nil {
 					continue
 				}

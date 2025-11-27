@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
@@ -40,8 +40,6 @@ type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-
-	spec := policy.GetSpec()
 
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
 	extendedEnvSet, err := baseEnvSet.Extend(
@@ -84,17 +82,13 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		StrictCost:    true,
 	}
 
-	if spec.Variables != nil {
-		v1beta1Vars := make([]admissionregistrationv1beta1.Variable, len(spec.Variables))
-		for i, v := range spec.Variables {
-			v1beta1Vars[i] = admissionregistrationv1beta1.Variable(v)
-		}
-		compositedCompiler.CompileAndStoreVariables(ConvertVariables(v1beta1Vars), optionsVars, environment.StoredExpressions)
+	if policy.GetSpec().Variables != nil {
+		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.GetSpec().Variables), optionsVars, environment.StoredExpressions)
 	}
 
 	// Compile match conditions and collect errors
 	var matcher matchconditions.Matcher = nil
-	matchConditions := spec.MatchConditions
+	matchConditions := policy.GetSpec().MatchConditions
 	if len(matchConditions) > 0 {
 		matchExpressionAccessors := make([]plugincel.ExpressionAccessor, len(matchConditions))
 		for i := range matchConditions {
@@ -133,18 +127,35 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	var patchers []patch.Patcher
 	patchOptions := optionsVars
 	patchOptions.HasPatchTypes = true
-	for i, m := range spec.Mutations {
-		if m.Expression != "" {
-			accessor := &patch.ApplyConfigurationCondition{Expression: m.Expression}
-			compileResult := compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
-			for _, err := range compileResult.CompilationErrors() {
-				allErrs = append(allErrs, field.Invalid(
-					field.NewPath("spec").Child("mutations").Index(i).Child("expression"),
-					m.Expression,
-					err.Error(),
-				))
+	for i, m := range policy.GetSpec().Mutations {
+		switch m.PatchType {
+		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
+			if m.JSONPatch != nil {
+				accessor := &patch.JSONPatchCondition{Expression: m.JSONPatch.Expression}
+				compileResult := compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
+				for _, err := range compileResult.CompilationErrors() {
+					allErrs = append(allErrs, field.Invalid(
+						field.NewPath("spec").Child("mutations").Index(i).Child("jsonPatch"),
+						m.JSONPatch.Expression,
+						err.Error(),
+					))
+				}
+
+				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
 			}
-			patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
+		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
+			if m.ApplyConfiguration != nil {
+				accessor := &patch.ApplyConfigurationCondition{Expression: m.ApplyConfiguration.Expression}
+				compileResult := compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
+				for _, err := range compileResult.CompilationErrors() {
+					allErrs = append(allErrs, field.Invalid(
+						field.NewPath("spec").Child("mutations").Index(i).Child("applyConfiguration"),
+						m.ApplyConfiguration.Expression,
+						err.Error(),
+					))
+				}
+				patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
+			}
 		}
 	}
 	return &Policy{

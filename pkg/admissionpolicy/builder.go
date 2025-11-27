@@ -13,6 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	slicesutils "github.com/kyverno/kyverno/pkg/utils/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -244,7 +245,7 @@ func BuildMutatingAdmissionPolicy(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1alpha1.PolicyException,
 ) {
-	matchConditions := make([]admissionregistrationv1alpha1.MatchCondition, 0, len(exceptions)+len(mp.Spec.MatchConditions))
+	var matchConditions []admissionregistrationv1alpha1.MatchCondition
 	// convert celexceptions if exist
 	for _, exception := range exceptions {
 		for _, matchCondition := range exception.Spec.MatchConditions {
@@ -256,84 +257,37 @@ func BuildMutatingAdmissionPolicy(
 			})
 		}
 	}
-	// Convert v1 MatchConditions to v1alpha1
 	for _, mc := range mp.Spec.MatchConditions {
-		matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition{
-			Name:       mc.Name,
-			Expression: mc.Expression,
-		})
+		matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition(mc))
 	}
 	// set owner reference
 	mapol.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: policiesv1beta1.GroupVersion.String(),
+			APIVersion: policiesv1alpha1.GroupVersion.String(),
 			Kind:       mp.GetKind(),
 			Name:       mp.GetName(),
 			UID:        mp.GetUID(),
 		},
 	}
-	// Convert v1beta1 Mutations to v1alpha1
-	mutations := make([]admissionregistrationv1alpha1.Mutation, len(mp.Spec.Mutations))
-	for i, m := range mp.Spec.Mutations {
-		switch m.EffectivePatchType() {
-		case policiesv1beta1.MutationPatchTypeJSONPatch:
-			mutations[i] = admissionregistrationv1alpha1.Mutation{
-				PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
-				JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
-					Expression: m.JSONPatchExpression(),
-				},
-			}
-		default:
-			mutations[i] = admissionregistrationv1alpha1.Mutation{
-				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
-				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-					Expression: m.ApplyConfigurationExpression(),
-				},
-			}
-		}
-	}
-	// Convert v1 Variables to v1alpha1
-	variables := make([]admissionregistrationv1alpha1.Variable, len(mp.Spec.Variables))
-	for i, v := range mp.Spec.Variables {
-		variables[i] = admissionregistrationv1alpha1.Variable{
-			Name:       v.Name,
-			Expression: v.Expression,
-		}
-	}
-	// Convert MatchConstraints from v1 to v1alpha1
-	var matchConstraints *admissionregistrationv1alpha1.MatchResources
-	if mp.Spec.MatchConstraints != nil {
-		// Convert ResourceRules
-		resourceRules := make([]admissionregistrationv1alpha1.NamedRuleWithOperations, len(mp.Spec.MatchConstraints.ResourceRules))
-		for i, rule := range mp.Spec.MatchConstraints.ResourceRules {
-			resourceRules[i] = admissionregistrationv1alpha1.NamedRuleWithOperations(rule)
-		}
-		// Convert ExcludeResourceRules
-		excludeResourceRules := make([]admissionregistrationv1alpha1.NamedRuleWithOperations, len(mp.Spec.MatchConstraints.ExcludeResourceRules))
-		for i, rule := range mp.Spec.MatchConstraints.ExcludeResourceRules {
-			excludeResourceRules[i] = admissionregistrationv1alpha1.NamedRuleWithOperations(rule)
-		}
-		matchConstraints = &admissionregistrationv1alpha1.MatchResources{
-			NamespaceSelector:    mp.Spec.MatchConstraints.NamespaceSelector,
-			ObjectSelector:       mp.Spec.MatchConstraints.ObjectSelector,
-			ResourceRules:        resourceRules,
-			ExcludeResourceRules: excludeResourceRules,
-			MatchPolicy:          (*admissionregistrationv1alpha1.MatchPolicyType)(mp.Spec.MatchConstraints.MatchPolicy),
-		}
-	}
-	// Convert FailurePolicy from v1 to v1alpha1
-	var failurePolicy *admissionregistrationv1alpha1.FailurePolicyType
-	if mp.Spec.FailurePolicy != nil {
-		fp := admissionregistrationv1alpha1.FailurePolicyType(*mp.Spec.FailurePolicy)
-		failurePolicy = &fp
-	}
+
+	fp := admissionregistrationv1alpha1.FailurePolicyType(*mp.Spec.FailurePolicy)
+
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
-		MatchConstraints:   matchConstraints,
-		MatchConditions:    matchConditions,
-		Mutations:          mutations,
-		Variables:          variables,
-		FailurePolicy:      failurePolicy,
+		MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
+			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
+				return admissionregistrationv1alpha1.NamedRuleWithOperations{
+					ResourceNames:      rule.ResourceNames,
+					RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations(rule.RuleWithOperations),
+				}
+			}),
+		},
+		MatchConditions: matchConditions,
+		Mutations:       mp.Spec.Mutations,
+		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
+			return admissionregistrationv1alpha1.Variable(v)
+		}),
+		FailurePolicy:      &fp,
 		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
 	}
 	// set labels

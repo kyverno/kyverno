@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -234,7 +235,7 @@ func TestEvaluate(t *testing.T) {
 
 	t.Run("successful match and mutation with mutateExisting enabled", func(t *testing.T) {
 		mutateExisting := true
-		mpol := policiesv1beta1.MutatingPolicy{
+		mpol := &policiesv1beta1.MutatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "add-label",
 			},
@@ -258,15 +259,18 @@ func TestEvaluate(t *testing.T) {
 						},
 					},
 				},
-				Mutations: []policiesv1beta1.Mutation{
+				Mutations: []admissionregistrationv1alpha1.Mutation{
 					{
-						Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+						},
 					},
 				},
 			},
 		}
 
-		pols := []policiesv1beta1.MutatingPolicyLike{&mpol}
+		pols := []policiesv1beta1.MutatingPolicyLike{mpol}
 
 		provider, err := NewProvider(compiler.NewCompiler(), pols, nil)
 
@@ -317,9 +321,12 @@ func TestHandle(t *testing.T) {
 								},
 							},
 						},
-						Mutations: []policiesv1beta1.Mutation{
+						Mutations: []admissionregistrationv1alpha1.Mutation{
 							{
-								Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+								PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+								ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+									Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+								},
 							},
 						},
 					},

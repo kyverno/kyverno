@@ -92,4 +92,3 @@ func (c controller) updateNMpolStatus(ctx context.Context, nmpol *policiesv1beta
 	)
 	return err
 }
-
