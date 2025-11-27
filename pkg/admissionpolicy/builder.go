@@ -263,14 +263,18 @@ func BuildMutatingAdmissionPolicy(
 	// set owner reference
 	mapol.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: policiesv1alpha1.GroupVersion.String(),
+			APIVersion: policiesv1beta1.GroupVersion.String(),
 			Kind:       mp.GetKind(),
 			Name:       mp.GetName(),
 			UID:        mp.GetUID(),
 		},
 	}
 
-	fp := admissionregistrationv1alpha1.FailurePolicyType(*mp.Spec.FailurePolicy)
+	var fpt *admissionregistrationv1alpha1.FailurePolicyType
+	if mp.Spec.FailurePolicy != nil {
+		conv := admissionregistrationv1alpha1.FailurePolicyType(*mp.Spec.FailurePolicy)
+		fpt = &conv
+	}
 
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
@@ -287,7 +291,7 @@ func BuildMutatingAdmissionPolicy(
 		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
 			return admissionregistrationv1alpha1.Variable(v)
 		}),
-		FailurePolicy:      &fp,
+		FailurePolicy:      fpt,
 		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
 	}
 	// set labels
