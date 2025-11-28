@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -66,6 +67,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	contextPath := ""
 	if testCase.Test.Context != "" {
 		contextPath = filepath.Join(testDir, testCase.Test.Context)
+		fmt.Fprintln(out, "testDir", testDir)
+		fmt.Fprintln(out, "contextPath", contextPath)
 	}
 	// values/variables
 	fmt.Fprintln(out, "  Loading values/variables", "...")
@@ -272,6 +275,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ParameterResources:                paramObjectsArr,
 			MutateLogPath:                     "",
 			Variables:                         vars,
+			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
@@ -298,6 +302,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
+				testCase.Fs,
 				contextPath,
 				false,
 			)
@@ -323,6 +328,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
+				testCase.Fs,
 				contextPath,
 			)
 			if err != nil {
@@ -353,6 +359,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
+			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
@@ -379,6 +386,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
+				testCase.Fs,
 				contextPath,
 				false,
 			)
@@ -404,6 +412,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
+				testCase.Fs,
 				contextPath,
 			)
 			if err != nil {
@@ -437,6 +446,7 @@ func applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 	registryAccess bool,
+	f billy.Filesystem,
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
@@ -464,7 +474,7 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, contextPath, registryAccess, true)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, true)
 	if err != nil {
 		return nil, err
 	}
@@ -569,6 +579,7 @@ func applyDeletingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 	registryAccess bool,
+	f billy.Filesystem,
 	contextPath string,
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
@@ -581,7 +592,7 @@ func applyDeletingPolicies(
 		return nil, err
 	}
 
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, contextPath, registryAccess, true)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, true)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	json_patch "github.com/evanphx/json-patch/v5"
+	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
@@ -76,6 +77,7 @@ type PolicyProcessor struct {
 	Variables                         *variables.Variables
 	ParameterResources                []runtime.Object
 	// TODO
+	ContextFs                 billy.Filesystem
 	ContextPath               string
 	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
@@ -290,7 +292,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -395,7 +397,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return nil, err
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -478,7 +480,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				CompiledPolicy: compiled,
 			})
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
