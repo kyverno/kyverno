@@ -15,8 +15,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.filter.outputs.should-run }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            should-run:
+              - 'pkg/**'
+              - 'api/**'
+              - 'cmd/**'
+              - 'charts/**'
+              - 'ext/**'
+
   define-matrix:
     runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should-run == 'true'
     outputs:
       upgrades: ${{ steps.upgrades.outputs.upgrades }}
     steps:
@@ -32,6 +51,8 @@ jobs:
 
   prepare-images:
     runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -55,6 +76,8 @@ jobs:
 
   prepare-cli:
     runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -85,7 +108,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -105,7 +129,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -125,7 +150,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -145,7 +171,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -165,7 +192,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -185,7 +213,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -206,7 +235,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -228,7 +258,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -248,7 +279,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -291,7 +323,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -301,7 +334,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
           upgrade-scenario: ${{ matrix.upgrade }}
-  
+
   generate-mutating-admission-policy:
     runs-on: ubuntu-latest
     permissions:
@@ -311,7 +344,8 @@ jobs:
       matrix:
         k8s-version: [v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -332,7 +366,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -352,7 +387,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -373,7 +409,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -395,7 +432,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -415,7 +453,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -436,7 +475,8 @@ jobs:
         kyverno-configs: [standard, default, standard,force-failure-policy-ignore]
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -457,7 +497,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -479,7 +520,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -522,7 +564,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -532,7 +575,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-admission-policy-reports
           upgrade-scenario: ${{ matrix.upgrade }}
-  
+
   mutating-admission-policy-reports:
     runs-on: ubuntu-latest
     permissions:
@@ -542,7 +585,8 @@ jobs:
       matrix:
         k8s-version: [v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -564,7 +608,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -587,7 +632,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -599,7 +645,7 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
           upgrade-scenario: ${{ matrix.upgrade }}
-    
+
   namespaced-image-validating-policies:
     runs-on: ubuntu-latest
     permissions:
@@ -610,7 +656,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -633,7 +680,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -656,7 +704,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -679,7 +728,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -702,7 +752,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -725,7 +776,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1, 2]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -747,7 +799,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -767,7 +820,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -788,7 +842,8 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
         shard-index: [0, 1]
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -810,7 +865,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -830,7 +886,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -850,7 +907,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
-    needs: [define-matrix, prepare-images]
+    needs: [check-changes, define-matrix, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/run-tests
@@ -876,7 +934,8 @@ jobs:
           - v1.33.x
         tests:
           - custom-sigstore
-    needs: prepare-images
+    needs: [check-changes, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -955,8 +1014,10 @@ jobs:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     needs:
+      - check-changes
       - prepare-images
       - prepare-cli
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -1089,7 +1150,9 @@ jobs:
         tests:
           - ^cli$
     needs:
+      - check-changes
       - prepare-cli
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -1136,7 +1199,8 @@ jobs:
       matrix:
         k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
         kyverno-version: ["3.2"]
-    needs: [prepare-images]
+    needs: [check-changes, prepare-images]
+    if: needs.check-changes.outputs.should-run == 'true'
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Install helm
@@ -1197,7 +1261,9 @@ jobs:
             values:
               - kyverno-cleanup
     needs:
+      - check-changes
       - prepare-images
+    if: needs.check-changes.outputs.should-run == 'true'
     name: ${{ matrix.k8s-version.name }} - kyverno uninstall
     steps:
       - name: Checkout kyverno/kyverno
@@ -1250,7 +1316,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ] 
+          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ]
           then
           exit 1
           fi
@@ -1301,7 +1367,7 @@ jobs:
       - helm-upgrade
       - helm-uninstall
     runs-on: ubuntu-latest
-    if: ${{ success() }}
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') }}
     steps:
       - run: ${{ true }}
 
@@ -1348,6 +1414,6 @@ jobs:
       - helm-upgrade
       - helm-uninstall
     runs-on: ubuntu-latest
-    if: ${{ failure() || cancelled() }}
+    if: ${{ always() && (cancelled() || contains(needs.*.result, 'failure')) }}
     steps:
       - run: ${{ false }}
