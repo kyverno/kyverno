@@ -130,7 +130,11 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          if [ -f load-report.html ]; then
+            mv load-report.html ../report
+          else
+            echo "load-report.html not found; skipping move."
+          fi
       - name: Extract P(95)
         id: extract-p95
         shell: bash
@@ -138,6 +142,15 @@ jobs:
           set -e
           echo "p95=$(grep http_req_duration load-testing/test-output.log | awk -F 'p\\(95\\)=' '{split($2,a,\"ms\"); print a[1]}')" >> $GITHUB_OUTPUT
           echo $GITHUB_OUTPUT
+      - name: Cleanup RBAC resources
+        if: always()
+        shell: bash
+        run: |
+          set -e
+          cd load-testing
+          if [ -f k6/rbac.yaml ]; then
+            kubectl delete -f k6/rbac.yaml --ignore-not-found || true
+          fi
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -217,7 +230,11 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          if [ -f load-report.html ]; then
+            mv load-report.html ../report
+          else
+            echo "load-report.html not found; skipping move."
+          fi
       - name: Compare P(95)
         shell: bash
         run: |
@@ -235,6 +252,15 @@ jobs:
         with:
           name: load-test-report.html
           path: report
+      - name: Cleanup RBAC resources
+        if: always()
+        shell: bash
+        run: |
+          set -e
+          cd load-testing
+          if [ -f k6/rbac.yaml ]; then
+            kubectl delete -f k6/rbac.yaml --ignore-not-found || true
+          fi
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -321,7 +347,11 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/${{ matrix.test.name }}.js -e SCENARIO=${{ matrix.test.scenario }} --vus ${{ matrix.test.concurrent_connections }} --iterations ${{ matrix.test.total_iterations }} ${{ matrix.test.extra_options }} --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          if [ -f load-report.html ]; then
+            mv load-report.html ../report
+          else
+            echo "load-report.html not found; skipping move."
+          fi
       - name: Collect Resource Metrics
         shell: bash
         run: |
@@ -342,6 +372,15 @@ jobs:
         with:
           name: report-${{ matrix.k8s-version }}-${{ matrix.test.name }}-${{ matrix.test.scenario }}-${{ matrix.test.replicas }}-${{ matrix.test.cpu_request }}-${{ matrix.test.memory_request }}-${{ matrix.test.memory_limit }}-${{ matrix.test.concurrent_connections }}
           path: report
+      - name: Cleanup RBAC resources
+        if: always()
+        shell: bash
+        run: |
+          set -e
+          cd load-testing
+          if [ -f k6/rbac.yaml ]; then
+            kubectl delete -f k6/rbac.yaml --ignore-not-found || true
+          fi
       - name: Debug failure
         # if: failure()
         uses: ./.github/actions/kyverno-logs

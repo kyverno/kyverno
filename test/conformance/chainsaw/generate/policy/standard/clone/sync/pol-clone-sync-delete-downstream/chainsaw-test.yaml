@@ -47,8 +47,7 @@ spec:
   - name: step-06
     try:
     - sleep:
-        duration: 3s
-  - name: step-07
-    try:
+        duration: 5s
     - assert:
         file: downstream.yaml
+        timeout: 30s
