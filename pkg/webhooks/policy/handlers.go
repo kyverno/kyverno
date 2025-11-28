@@ -79,6 +79,14 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
 
+	if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
+		warnings, err := mpolvalidation.Validate(nmpol)
+		if err != nil {
+			logger.Error(err, "NamespacedMutatingPolicy validation errors")
+		}
+		return admissionutils.Response(request.UID, err, warnings...)
+	}
+
 	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
 		warnings, err := gpolvalidation.Validate(gpol)
 		if err != nil {
