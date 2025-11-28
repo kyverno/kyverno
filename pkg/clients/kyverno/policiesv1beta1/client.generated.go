@@ -9,6 +9,7 @@ import (
 	mutatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/mutatingpolicies"
 	namespaceddeletingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/namespaceddeletingpolicies"
 	namespacedimagevalidatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/namespacedimagevalidatingpolicies"
+	namespacedmutatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/namespacedmutatingpolicies"
 	namespacedvalidatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/namespacedvalidatingpolicies"
 	policyexceptions "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/policyexceptions"
 	validatingpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/policiesv1beta1/validatingpolicies"
@@ -61,6 +62,10 @@ func (c *withMetrics) NamespacedImageValidatingPolicies(namespace string) github
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "NamespacedImageValidatingPolicy", c.clientType)
 	return namespacedimagevalidatingpolicies.WithMetrics(c.inner.NamespacedImageValidatingPolicies(namespace), recorder)
 }
+func (c *withMetrics) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.NamespacedMutatingPolicyInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "NamespacedMutatingPolicy", c.clientType)
+	return namespacedmutatingpolicies.WithMetrics(c.inner.NamespacedMutatingPolicies(namespace), recorder)
+}
 func (c *withMetrics) NamespacedValidatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.NamespacedValidatingPolicyInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "NamespacedValidatingPolicy", c.clientType)
 	return namespacedvalidatingpolicies.WithMetrics(c.inner.NamespacedValidatingPolicies(namespace), recorder)
@@ -100,6 +105,9 @@ func (c *withTracing) NamespacedDeletingPolicies(namespace string) github_com_ky
 func (c *withTracing) NamespacedImageValidatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.NamespacedImageValidatingPolicyInterface {
 	return namespacedimagevalidatingpolicies.WithTracing(c.inner.NamespacedImageValidatingPolicies(namespace), c.client, "NamespacedImageValidatingPolicy")
 }
+func (c *withTracing) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.NamespacedMutatingPolicyInterface {
+	return namespacedmutatingpolicies.WithTracing(c.inner.NamespacedMutatingPolicies(namespace), c.client, "NamespacedMutatingPolicy")
+}
 func (c *withTracing) NamespacedValidatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.NamespacedValidatingPolicyInterface {
 	return namespacedvalidatingpolicies.WithTracing(c.inner.NamespacedValidatingPolicies(namespace), c.client, "NamespacedValidatingPolicy")
 }
@@ -135,6 +143,9 @@ func (c *withLogging) NamespacedDeletingPolicies(namespace string) github_com_ky
 }
 func (c *withLogging) NamespacedImageValidatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.NamespacedImageValidatingPolicyInterface {
 	return namespacedimagevalidatingpolicies.WithLogging(c.inner.NamespacedImageValidatingPolicies(namespace), c.logger.WithValues("resource", "NamespacedImageValidatingPolicies").WithValues("namespace", namespace))
+}
+func (c *withLogging) NamespacedMutatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.NamespacedMutatingPolicyInterface {
+	return namespacedmutatingpolicies.WithLogging(c.inner.NamespacedMutatingPolicies(namespace), c.logger.WithValues("resource", "NamespacedMutatingPolicies").WithValues("namespace", namespace))
 }
 func (c *withLogging) NamespacedValidatingPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1beta1.NamespacedValidatingPolicyInterface {
 	return namespacedvalidatingpolicies.WithLogging(c.inner.NamespacedValidatingPolicies(namespace), c.logger.WithValues("resource", "NamespacedValidatingPolicies").WithValues("namespace", namespace))

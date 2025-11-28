@@ -72,7 +72,7 @@ type controller struct {
 	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	gpolLister     policiesv1alpha1listers.GeneratingPolicyLister
-	mpolLister     policiesv1alpha1listers.MutatingPolicyLister
+	mpolLister     policiesv1beta1listers.MutatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
@@ -106,7 +106,7 @@ func NewController(
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
