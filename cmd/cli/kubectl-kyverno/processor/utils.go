@@ -1,6 +1,8 @@
 package processor
 
 import (
+	"encoding/json"
+
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
@@ -48,6 +50,17 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 			if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
 				return nil, err
 			}
+		}
+		for _, imgData := range ctx.ContextSpec.Images {
+			raw, err := json.Marshal(imgData)
+			if err != nil {
+				return nil, err
+			}
+			var asMap map[string]any
+			if err := json.Unmarshal(raw, &asMap); err != nil {
+				return nil, err
+			}
+			fakeContextProvider.AddImageData(imgData.Image, asMap)
 		}
 	}
 	return fakeContextProvider, nil
