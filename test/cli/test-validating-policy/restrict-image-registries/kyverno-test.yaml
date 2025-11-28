@@ -1,4 +1,5 @@
 apiVersion: cli.kyverno.io/v1alpha1
+context: context.yaml
 kind: Test
 metadata:
   name: advanced-restrict-image-registries
@@ -24,5 +25,4 @@ results:
   - imageregistries-ns01/goodpod02
   - goodpod03
   result: pass
-context: context.yaml
 variables: value.yaml
