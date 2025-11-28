@@ -54,6 +54,9 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
+
+	// configuration is the configuration
+	configuration config.Configuration
 }
 
 // engineapi.PolicyContext interface
@@ -132,6 +135,10 @@ func (c *PolicyContext) SetElement(element unstructured.Unstructured) {
 
 func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
+}
+
+func (c *PolicyContext) Config() config.Configuration {
+	return c.configuration
 }
 
 func (c PolicyContext) Copy() engineapi.PolicyContext {
@@ -232,6 +239,7 @@ func NewPolicyContext(
 		return nil, err
 	}
 	policyContext := newPolicyContextWithJsonContext(operation, enginectx)
+	policyContext.configuration = configuration
 	if operation != kyvernov1.Delete {
 		policyContext = policyContext.WithNewResource(resource)
 	} else {
@@ -269,6 +277,7 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionOperation(true).
 		WithResourceKind(gvk, request.SubResource).
 		WithRequestResource(request.Resource)
+	policyContext.configuration = configuration
 
 	return policyContext, nil
 }
