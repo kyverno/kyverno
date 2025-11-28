@@ -138,6 +138,11 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
+			continue
+		}
+		if gpolResponse.Trigger == nil {
+			logger.V(4).Info("gpol response missing trigger", "gpol", ur.Spec.GetPolicyKey())
+			continue
 		}
 		engineResponse := engineapi.EngineResponse{
 			Resource:       *gpolResponse.Trigger,
@@ -152,6 +157,12 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 			if res.Result.Status() == engineapi.RuleStatusSkip {
 				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
+				if c.needsReports(*trigger) &&
+					reportutils.IsPolicyReportable(engineapi.NewGeneratingPolicyFromLike(res.Policy).AsKyvernoPolicy()) {
+					if err := c.createReports(context.TODO(), *trigger, engineResponse); err != nil {
+						c.log.Error(err, "failed to create report")
+					}
+				}
 				continue
 			}
 			for _, resource := range res.Result.GeneratedResources() {
@@ -174,12 +185,11 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
 				logger.Error(err, "failed to audit gpol", "gpol", ur.Spec.GetPolicyKey())
 			}
-		}
-		if c.reportsConfig.GenerateReportsEnabled() &&
-			len(engineResponse.PolicyResponse.Rules) > 0 &&
-			reportutils.IsPolicyReportable(engineapi.NewGeneratingPolicyFromLike(policy.Policy).AsKyvernoPolicy()) {
-			if err := c.createReports(context.TODO(), *trigger, engineResponse); err != nil {
-				c.log.Error(err, "failed to create report")
+			if c.needsReports(*trigger) &&
+				reportutils.IsPolicyReportable(engineapi.NewGeneratingPolicyFromLike(res.Policy).AsKyvernoPolicy()) {
+				if err := c.createReports(context.TODO(), *trigger, engineResponse); err != nil {
+					c.log.Error(err, "failed to create report")
+				}
 			}
 		}
 	}
@@ -235,6 +245,14 @@ func (c *CELGenerateController) createReports(
 		}
 	}
 	return nil
+}
+
+func (c *CELGenerateController) needsReports(trigger unstructured.Unstructured) bool {
+	createReport := c.reportsConfig.GenerateReportsEnabled()
+	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
+		createReport = false
+	}
+	return createReport
 }
 
 func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {
