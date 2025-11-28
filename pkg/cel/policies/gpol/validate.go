@@ -1,12 +1,12 @@
 package gpol
 
 import (
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func Validate(gpol *v1alpha1.GeneratingPolicy) ([]string, error) {
+func Validate(gpol policiesv1beta1.GeneratingPolicyLike) ([]string, error) {
 	warnings := make([]string, 0)
 	err := make(field.ErrorList, 0)
 
@@ -16,7 +16,12 @@ func Validate(gpol *v1alpha1.GeneratingPolicy) ([]string, error) {
 		err = errList
 	}
 
-	if gpol.Spec.MatchConstraints == nil || len(gpol.Spec.MatchConstraints.ResourceRules) == 0 {
+	spec := gpol.GetSpec()
+	if spec == nil {
+		return nil, field.Required(field.NewPath("spec"), "spec is required")
+	}
+
+	if spec.MatchConstraints == nil || len(spec.MatchConstraints.ResourceRules) == 0 {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 

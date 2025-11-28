@@ -110,6 +110,8 @@ rules:
       - namespacedimagevalidatingpolicies/status
       - generatingpolicies
       - generatingpolicies/status
+      - namespacedgeneratingpolicies
+      - namespacedgeneratingpolicies/status
       - mutatingpolicies
       - mutatingpolicies/status
     verbs:

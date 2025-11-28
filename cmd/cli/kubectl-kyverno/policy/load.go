@@ -43,6 +43,7 @@ var (
 	nivpV1alpha1       = policiesv1alpha1.SchemeGroupVersion.WithKind("NamespacedImageValidatingPolicy")
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	gpsV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("GeneratingPolicy")
+	ngpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedGeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
 	dpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("DeletingPolicy")
 	ndpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
@@ -70,7 +71,8 @@ type LoaderResults struct {
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
 	ImageValidatingPolicies           []policiesv1beta1.ImageValidatingPolicy
 	NamespacedImageValidatingPolicies []policiesv1beta1.NamespacedImageValidatingPolicy
-	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
+	GeneratingPolicies                []policiesv1beta1.GeneratingPolicy
+	NamespacedGeneratingPolicies      []policiesv1beta1.NamespacedGeneratingPolicy
 	DeletingPolicies                  []policiesv1beta1.DeletingPolicy
 	NamespacedDeletingPolicies        []policiesv1beta1.NamespacedDeletingPolicy
 	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
@@ -90,6 +92,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
 	l.NamespacedImageValidatingPolicies = append(l.NamespacedImageValidatingPolicies, results.NamespacedImageValidatingPolicies...)
 	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
+	l.NamespacedGeneratingPolicies = append(l.NamespacedGeneratingPolicies, results.NamespacedGeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
 	l.NamespacedDeletingPolicies = append(l.NamespacedDeletingPolicies, results.NamespacedDeletingPolicies...)
@@ -229,11 +232,17 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.MAPBindings = append(results.MAPBindings, *typed)
 		case gpsV1alpha1, gpsV1beta1:
-			typed, err := convert.To[policiesv1alpha1.GeneratingPolicy](untyped)
+			typed, err := convert.To[policiesv1beta1.GeneratingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.GeneratingPolicies = append(results.GeneratingPolicies, *typed)
+		case ngpV1beta1:
+			typed, err := convert.To[policiesv1beta1.NamespacedGeneratingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.NamespacedGeneratingPolicies = append(results.NamespacedGeneratingPolicies, *typed)
 		case dpV1alpha1, dpV1beta1:
 			typed, err := convert.To[policiesv1beta1.DeletingPolicy](untyped)
 			if err != nil {

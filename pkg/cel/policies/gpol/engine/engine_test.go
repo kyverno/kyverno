@@ -3,7 +3,8 @@ package engine
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -59,26 +60,27 @@ var (
 
 func TestHandle(t *testing.T) {
 	t.Run("should handle policy with match constraints and return response", func(t *testing.T) {
-		pol := Policy{
-			Policy: v1alpha1.GeneratingPolicy{
-				Spec: v1alpha1.GeneratingPolicySpec{
-					MatchConstraints: &admissionregistrationv1.MatchResources{
-						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-							{
-								ResourceNames: []string{"pods"},
-								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-									Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
-									Rule: admissionregistrationv1.Rule{
-										APIGroups:   []string{""},
-										APIVersions: []string{"v1"},
-										Resources:   []string{"pods"},
-									},
+		gpol := &policiesv1beta1.GeneratingPolicy{
+			Spec: policiesv1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							ResourceNames: []string{"pods"},
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
 								},
 							},
 						},
 					},
 				},
 			},
+		}
+		pol := Policy{
+			Policy: gpol,
 		}
 
 		resp, err := eng.Handle(req, pol, false)
@@ -112,26 +114,27 @@ func TestHandle(t *testing.T) {
 			false,
 			nil,
 		)
-		pol := Policy{
-			Policy: v1alpha1.GeneratingPolicy{
-				Spec: v1alpha1.GeneratingPolicySpec{
-					MatchConstraints: &admissionregistrationv1.MatchResources{
-						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-							{
-								ResourceNames: []string{"pods"},
-								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-									Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
-									Rule: admissionregistrationv1.Rule{
-										APIGroups:   []string{""},
-										APIVersions: []string{"v1"},
-										Resources:   []string{"pods"},
-									},
+		gpol := &policiesv1beta1.GeneratingPolicy{
+			Spec: policiesv1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							ResourceNames: []string{"pods"},
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
 								},
 							},
 						},
 					},
 				},
 			},
+		}
+		pol := Policy{
+			Policy: gpol,
 		}
 
 		resp, err := eng.Handle(req, pol, false)
@@ -140,17 +143,18 @@ func TestHandle(t *testing.T) {
 	})
 
 	t.Run("should evaluate policy with valid match condition on default namespace", func(t *testing.T) {
-		pol := Policy{
-			Policy: v1alpha1.GeneratingPolicy{
-				Spec: v1alpha1.GeneratingPolicySpec{
-					MatchConditions: []admissionregistrationv1.MatchCondition{
-						{
-							Name:       "valid-namespace",
-							Expression: "object.metadata.namespace == 'default'",
-						},
+		gpol := &policiesv1beta1.GeneratingPolicy{
+			Spec: policiesv1beta1.GeneratingPolicySpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "valid-namespace",
+						Expression: "object.metadata.namespace == 'default'",
 					},
 				},
 			},
+		}
+		pol := Policy{
+			Policy: gpol,
 		}
 
 		resp, err := eng.Handle(req, pol, false)
@@ -162,17 +166,18 @@ func TestHandle(t *testing.T) {
 		resource.SetName("valid")
 		resource.SetNamespace("valid-ns")
 
-		pol := Policy{
-			Policy: v1alpha1.GeneratingPolicy{
-				Spec: v1alpha1.GeneratingPolicySpec{
-					MatchConditions: []admissionregistrationv1.MatchCondition{
-						{
-							Name:       "valid-namespace",
-							Expression: "object.metadata.namespace == 'default'",
-						},
+		gpol := &policiesv1beta1.GeneratingPolicy{
+			Spec: policiesv1beta1.GeneratingPolicySpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "valid-namespace",
+						Expression: "object.metadata.namespace == 'default'",
 					},
 				},
 			},
+		}
+		pol := Policy{
+			Policy: gpol,
 		}
 
 		resp, err := eng.Handle(req, pol, false)
@@ -181,8 +186,8 @@ func TestHandle(t *testing.T) {
 	})
 
 	t.Run("should evaluate compiled policy without exceptions", func(t *testing.T) {
-		gpol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{
+		gpol := &policiesv1beta1.GeneratingPolicy{
+			Spec: policiesv1beta1.GeneratingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "valid-namespace",
@@ -196,7 +201,7 @@ func TestHandle(t *testing.T) {
 
 		pol := Policy{
 			Exceptions:     nil,
-			Policy:         *gpol,
+			Policy:         gpol,
 			CompiledPolicy: compiledGpol,
 		}
 		eng := NewEngine(nsResolver, nil)
@@ -207,8 +212,8 @@ func TestHandle(t *testing.T) {
 
 	t.Run("should evaluate compiled policy with variable expressions and policy exceptions", func(t *testing.T) {
 		obj.SetNamespace("default")
-		gpol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{
+		gpol := &policiesv1beta1.GeneratingPolicy{
+			Spec: policiesv1beta1.GeneratingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{
 					{
 						Name:       "apiResponse",
@@ -223,16 +228,16 @@ func TestHandle(t *testing.T) {
 						Expression: "object.metadata.name",
 					},
 				},
-				Generation: []v1alpha1.Generation{
+				Generation: []policiesv1beta1.Generation{
 					{
 						Expression: "generator.Apply(variables.nsName, variables.nsName)",
 					},
 				},
 			},
 		}
-		exceptions := []*v1alpha1.PolicyException{
+		exceptions := []*policiesv1alpha1.PolicyException{
 			{
-				Spec: v1alpha1.PolicyExceptionSpec{
+				Spec: policiesv1alpha1.PolicyExceptionSpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-namespace",
@@ -247,7 +252,7 @@ func TestHandle(t *testing.T) {
 
 		pol := Policy{
 			Exceptions:     exceptions,
-			Policy:         *gpol,
+			Policy:         gpol,
 			CompiledPolicy: compiledGpol,
 		}
 		eng := NewEngine(nsResolver, nil)

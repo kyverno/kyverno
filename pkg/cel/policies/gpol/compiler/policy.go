@@ -9,7 +9,6 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
@@ -72,7 +71,7 @@ func (p *Policy) Evaluate(
 			return nil, matchedExceptions, nil
 		}
 	}
-	dataNew[compiler.ExceptionsKey] = cellibs.Exception{
+	dataNew[compiler.ExceptionsKey] = libs.Exception{
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
 	}

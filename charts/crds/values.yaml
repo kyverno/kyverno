@@ -25,6 +25,7 @@ groups:
     namespacedimagevalidatingpolicies: true
     namespacedvalidatingpolicies: true
     namespaceddeletingpolicies: true
+    namespacedgeneratingpolicies: true
     policyexceptions: true
     mutatingpolicies: true
     generatingpolicies: true

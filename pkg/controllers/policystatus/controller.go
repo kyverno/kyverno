@@ -10,7 +10,6 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
-	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
@@ -41,7 +40,7 @@ type controller struct {
 	dclient          dclient.Interface
 	client           versioned.Interface
 	queue            workqueue.TypedRateLimitingInterface[any]
-	authChecker      auth.AuthChecker
+	authChecker      checker.AuthChecker
 	polStateRecorder webhook.StateRecorder
 }
 
@@ -54,6 +53,7 @@ func NewController(
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
 	reportsSA string,
 	polStateRecorder webhook.StateRecorder,
 ) Controller {
@@ -63,7 +63,7 @@ func NewController(
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName}),
-		authChecker:      auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
+		authChecker:      checker.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
 		polStateRecorder: polStateRecorder,
 	}
 
@@ -249,7 +249,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.GeneratingPolicyType {
-		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
+		gpol, err := c.client.PoliciesV1beta1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("generating policy not found", "name", name)
@@ -259,6 +259,19 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		}
 		return c.updateGpolStatus(ctx, gpol)
 	}
+
+	if polType == webhook.NamespacedGeneratingPolicyType {
+		ngpol, err := c.client.PoliciesV1beta1().NamespacedGeneratingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("namespaced generating policy not found", "name", name, "namespace", namespace)
+				return nil
+			}
+			return err
+		}
+		return c.updateNGpolStatus(ctx, ngpol)
+	}
+
 	return nil
 }
 
@@ -273,10 +286,6 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsMutatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsMutatingPolicy().GetStatus().ConditionStatus
-	case webhook.GeneratingPolicyType:
-		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
-		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
-		status = &policy.AsGeneratingPolicy().GetStatus().ConditionStatus
 	}
 
 	if !backgroundOnly {
@@ -323,6 +332,14 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 		matchConstraints = policy.AsNamespacedValidatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsNamespacedValidatingPolicy().GetSpec().AdmissionEnabled() && policy.AsNamespacedValidatingPolicy().GetSpec().BackgroundEnabled())
 		status = &policy.AsNamespacedValidatingPolicy().GetStatus().ConditionStatus
+	case webhook.GeneratingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
+		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
+		status = &policy.AsGeneratingPolicy().GetStatus().ConditionStatus
+	case webhook.NamespacedGeneratingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.NamespacedGeneratingPolicyType, policy.GetName(), policy.GetNamespace())
+		matchConstraints = policy.AsNamespacedGeneratingPolicy().GetMatchConstraints()
+		status = &policy.AsNamespacedGeneratingPolicy().GetStatus().ConditionStatus
 	}
 
 	if !backgroundOnly {
