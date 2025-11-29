@@ -115,7 +115,9 @@ type GenericPolicy interface {
 	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
 	AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 	// AsMutatingPolicy returns the mutating policy
-	AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy
+	AsMutatingPolicy() *policiesv1beta1.MutatingPolicy
+	// AsNamespacedMutatingPolicy returns the namespaced mutating policy
+	AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
@@ -130,7 +132,8 @@ type genericPolicy struct {
 	NamespacedValidatingPolicy      *policiesv1beta1.NamespacedValidatingPolicy
 	ImageValidatingPolicy           *policiesv1beta1.ImageValidatingPolicy
 	NamespacedImageValidatingPolicy *policiesv1beta1.NamespacedImageValidatingPolicy
-	MutatingPolicy                  *policiesv1alpha1.MutatingPolicy
+	MutatingPolicy                  *policiesv1beta1.MutatingPolicy
+	NamespacedMutatingPolicy        *policiesv1beta1.NamespacedMutatingPolicy
 	GeneratingPolicy                *policiesv1alpha1.GeneratingPolicy
 	NamespacedGeneratingPolicy      *policiesv1alpha1.NamespacedGeneratingPolicy
 	DeletingPolicy                  policiesv1beta1.DeletingPolicyLike
@@ -170,8 +173,12 @@ func (p *genericPolicy) AsNamespacedImageValidatingPolicy() *policiesv1beta1.Nam
 	return p.NamespacedImageValidatingPolicy
 }
 
-func (p *genericPolicy) AsMutatingPolicy() *policiesv1alpha1.MutatingPolicy {
+func (p *genericPolicy) AsMutatingPolicy() *policiesv1beta1.MutatingPolicy {
 	return p.MutatingPolicy
+}
+
+func (p *genericPolicy) AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy {
+	return p.NamespacedMutatingPolicy
 }
 
 func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy {
@@ -208,7 +215,15 @@ func (p *genericPolicy) GetAPIVersion() string {
 	case p.NamespacedImageValidatingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	case p.MutatingPolicy != nil:
-		return policiesv1alpha1.GroupVersion.String()
+		if apiVersion := p.MutatingPolicy.APIVersion; apiVersion != "" {
+			return apiVersion
+		}
+		return policiesv1beta1.GroupVersion.String()
+	case p.NamespacedMutatingPolicy != nil:
+		if apiVersion := p.NamespacedMutatingPolicy.APIVersion; apiVersion != "" {
+			return apiVersion
+		}
+		return policiesv1beta1.GroupVersion.String()
 	case p.GeneratingPolicy != nil:
 		return policiesv1alpha1.GroupVersion.String()
 	case p.DeletingPolicy != nil:
@@ -234,7 +249,9 @@ func (p *genericPolicy) GetKind() string {
 	case p.NamespacedImageValidatingPolicy != nil:
 		return p.NamespacedImageValidatingPolicy.GetKind()
 	case p.MutatingPolicy != nil:
-		return "MutatingPolicy"
+		return p.MutatingPolicy.GetKind()
+	case p.NamespacedMutatingPolicy != nil:
+		return p.NamespacedMutatingPolicy.GetKind()
 	case p.GeneratingPolicy != nil:
 		return "GeneratingPolicy"
 	case p.DeletingPolicy != nil:
@@ -250,6 +267,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 	case p.NamespacedValidatingPolicy != nil:
 		return true
 	case p.NamespacedImageValidatingPolicy != nil:
+		return true
+	case p.NamespacedMutatingPolicy != nil:
 		return true
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""
@@ -506,10 +525,28 @@ func NewImageValidatingPolicyFromLike(pol policiesv1beta1.ImageValidatingPolicyL
 	}
 }
 
-func NewMutatingPolicy(pol *policiesv1alpha1.MutatingPolicy) GenericPolicy {
+func NewMutatingPolicy(pol *policiesv1beta1.MutatingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:         pol,
 		MutatingPolicy: pol,
+	}
+}
+
+func NewNamespacedMutatingPolicy(pol *policiesv1beta1.NamespacedMutatingPolicy) GenericPolicy {
+	return &genericPolicy{
+		Object:                   pol,
+		NamespacedMutatingPolicy: pol,
+	}
+}
+
+func NewMutatingPolicyFromLike(pol policiesv1beta1.MutatingPolicyLike) GenericPolicy {
+	switch typed := pol.(type) {
+	case *policiesv1beta1.MutatingPolicy:
+		return NewMutatingPolicy(typed)
+	case *policiesv1beta1.NamespacedMutatingPolicy:
+		return NewNamespacedMutatingPolicy(typed)
+	default:
+		return nil
 	}
 }
 
