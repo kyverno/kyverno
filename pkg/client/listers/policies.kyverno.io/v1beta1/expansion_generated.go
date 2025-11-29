@@ -50,6 +50,14 @@ type NamespacedImageValidatingPolicyListerExpansion interface{}
 // NamespacedImageValidatingPolicyNamespaceLister.
 type NamespacedImageValidatingPolicyNamespaceListerExpansion interface{}
 
+// NamespacedMutatingPolicyListerExpansion allows custom methods to be added to
+// NamespacedMutatingPolicyLister.
+type NamespacedMutatingPolicyListerExpansion interface{}
+
+// NamespacedMutatingPolicyNamespaceListerExpansion allows custom methods to be added to
+// NamespacedMutatingPolicyNamespaceLister.
+type NamespacedMutatingPolicyNamespaceListerExpansion interface{}
+
 // NamespacedValidatingPolicyListerExpansion allows custom methods to be added to
 // NamespacedValidatingPolicyLister.
 type NamespacedValidatingPolicyListerExpansion interface{}
