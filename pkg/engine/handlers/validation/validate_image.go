@@ -13,7 +13,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -115,6 +117,15 @@ func (h validateImageHandler) Process(
 func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
 	var verified engineapi.ImageVerificationMetadataStatus
 	var err error
+
+	// Because of how admission mutation works with ephemeral containers, we can't rely on the verification annotation to validate.
+	// We don't want to incorrectly claim validation, so we skip the validation check for ephemeral containers.
+	// (It will technically be validated during the mutation phase anyway)
+	gvk, _ := ctx.ResourceKind()
+	if match.CheckKind([]string{gvk.String()}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "ephemeralcontainers", true) {
+		return engineapi.ImageVerificationSkip, nil
+	}
+
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
 		log.V(2).Info("missing digest", "image", imageInfo.String())
