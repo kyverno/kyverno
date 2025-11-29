@@ -5,6 +5,7 @@ import (
 
 	cel "github.com/google/cel-go/cel"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
@@ -28,7 +29,7 @@ var (
 )
 
 type Compiler interface {
-	Compile(policy *policiesv1alpha1.MutatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -37,7 +38,7 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
@@ -81,13 +82,13 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		StrictCost:    true,
 	}
 
-	if policy.Spec.Variables != nil {
-		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.Spec.Variables), optionsVars, environment.StoredExpressions)
+	if policy.GetSpec().Variables != nil {
+		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.GetSpec().Variables), optionsVars, environment.StoredExpressions)
 	}
 
 	// Compile match conditions and collect errors
 	var matcher matchconditions.Matcher = nil
-	matchConditions := policy.Spec.MatchConditions
+	matchConditions := policy.GetSpec().MatchConditions
 	if len(matchConditions) > 0 {
 		matchExpressionAccessors := make([]plugincel.ExpressionAccessor, len(matchConditions))
 		for i := range matchConditions {
@@ -107,7 +108,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		matcher = matchconditions.NewMatcher(
 			evaluator,
 			&failurePolicy,
-			"policy", "validate", policy.Name)
+			"policy", "validate", policy.GetName())
 	}
 
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
@@ -126,7 +127,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 	var patchers []patch.Patcher
 	patchOptions := optionsVars
 	patchOptions.HasPatchTypes = true
-	for i, m := range policy.Spec.Mutations {
+	for i, m := range policy.GetSpec().Mutations {
 		switch m.PatchType {
 		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {

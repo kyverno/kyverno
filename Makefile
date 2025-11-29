@@ -606,6 +606,7 @@ codegen-cli-crds: codegen-crds-cli
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedvalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_mutatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedmutatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_generatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_imagevalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedimagevalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
@@ -701,6 +702,7 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,policies.kyverno.io_namespacedimagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedimagevalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
 	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedmutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedmutatingpolicies)
 	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
 	$(call generate_crd,policies.kyverno.io_namespaceddeletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespaceddeletingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
