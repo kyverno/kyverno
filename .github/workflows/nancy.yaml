@@ -6,8 +6,8 @@ permissions: {}
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '23 2 * * *' # Every day at 02:23 UTC
+  # schedule:
+  #   - cron: '23 2 * * *' # Every day at 02:23 UTC
 
     
 
