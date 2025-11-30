@@ -169,9 +169,9 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 						}
 					}()
 				}
-				if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
-					logger.Error(err, "failed to audit gpol", "gpol", ur.Spec.GetPolicyKey())
-				}
+			}
+			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
+				logger.Error(err, "failed to audit gpol", "gpol", ur.Spec.GetPolicyKey())
 			}
 			if len(engineResponse.PolicyResponse.Rules) > 0 &&
 				reportutils.IsPolicyReportable(engineapi.NewGeneratingPolicyFromLike(res.Policy).AsKyvernoPolicy()) {
