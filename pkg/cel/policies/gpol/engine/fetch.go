@@ -61,7 +61,7 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	}
 
 	return Policy{
-		Policy:         *policy,
+		Policy:         policy,
 		Exceptions:     matchedExceptions,
 		CompiledPolicy: compiled,
 	}, nil
