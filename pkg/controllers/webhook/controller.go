@@ -137,7 +137,8 @@ type controller struct {
 	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister      policiesv1beta1listers.NamespacedImageValidatingPolicyLister
-	mpolLister        policiesv1alpha1listers.MutatingPolicyLister
+	mpolLister        policiesv1beta1listers.MutatingPolicyLister
+	nmpolLister       policiesv1beta1listers.NamespacedMutatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
@@ -185,7 +186,8 @@ func NewController(
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
@@ -223,6 +225,7 @@ func NewController(
 		ivpolLister:         ivpolInformer.Lister(),
 		nivpolLister:        nivpolInformer.Lister(),
 		mpolLister:          mpolInformer.Lister(),
+		nmpolLister:         nmpolInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
@@ -323,6 +326,12 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		mpolInformer.Informer(),
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
+		nmpolInformer.Informer(),
 		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -1024,6 +1033,20 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		mpols,
 		c.celExpressionCache)
 
+	nmpols, err := c.getNamespacedMutatingPolicies()
+	if err != nil {
+		return err
+	}
+
+	validate = append(validate, buildWebhookRules(cfg,
+		c.server,
+		config.MutatingPolicyWebhookName,
+		"/nmpol",
+		c.servicePort,
+		caBundle,
+		nmpols,
+		c.celExpressionCache)...)
+
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
@@ -1068,7 +1091,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
-	c.recordPolicyState(mpols...)
+	c.recordPolicyState(append(mpols, nmpols...)...)
 	return nil
 }
 
@@ -1505,6 +1528,20 @@ func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
 		}
 	}
 	return mpols, nil
+}
+
+func (c *controller) getNamespacedMutatingPolicies() ([]engineapi.GenericPolicy, error) {
+	policies, err := c.nmpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	nmpols := make([]engineapi.GenericPolicy, 0)
+	for _, nmpol := range policies {
+		if nmpol.Spec.AdmissionEnabled() && !nmpol.GetStatus().Generated {
+			nmpols = append(nmpols, engineapi.NewNamespacedMutatingPolicy(nmpol))
+		}
+	}
+	return nmpols, nil
 }
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {
