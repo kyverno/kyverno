@@ -78,7 +78,7 @@ type controller struct {
 	cpolLister            kyvernov1listers.ClusterPolicyLister
 	vpolLister            policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
-	mpolLister            policiesv1alpha1listers.MutatingPolicyLister
+	mpolLister            policiesv1beta1listers.MutatingPolicyLister
 	ivpolLister           policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister          policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	polexLister           kyvernov2listers.PolicyExceptionLister
@@ -121,7 +121,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
@@ -342,17 +342,17 @@ func (c *controller) deleteNVP(obj *policiesv1beta1.NamespacedValidatingPolicy) 
 	c.enqueueResources()
 }
 
-func (c *controller) addMP(obj *policiesv1alpha1.MutatingPolicy) {
+func (c *controller) addMP(obj *policiesv1beta1.MutatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateMP(old, obj *policiesv1alpha1.MutatingPolicy) {
+func (c *controller) updateMP(old, obj *policiesv1beta1.MutatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteMP(obj *policiesv1alpha1.MutatingPolicy) {
+func (c *controller) deleteMP(obj *policiesv1beta1.MutatingPolicy) {
 	c.enqueueResources()
 }
 

@@ -25,9 +25,13 @@ func (c controller) updateGpolStatus(ctx context.Context, gpol *policiesv1alpha1
 		if conditionStatus.Ready == nil || conditionStatus.IsReady() != ready {
 			conditionStatus.Ready = &ready
 		}
-		// assign
+		// assign - convert v1beta1.ConditionStatus to v1alpha1.ConditionStatus
 		gpol.Status = policiesv1alpha1.GeneratingPolicyStatus{
-			ConditionStatus: *conditionStatus,
+			ConditionStatus: policiesv1alpha1.ConditionStatus{
+				Conditions: conditionStatus.Conditions,
+				Ready:      conditionStatus.Ready,
+				Message:    conditionStatus.Message,
+			},
 		}
 		return nil
 	}
