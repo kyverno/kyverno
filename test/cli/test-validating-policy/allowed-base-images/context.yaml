@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Context
+metadata:
+  name: context
+spec:
+  resources:
+  - apiVersion: v1
+    data:
+      allowedbaseimages: gcr.io/distroless/static:nonroot
+    kind: ConfigMap
+    metadata:
+      name: baseimages
+      namespace: platform
+  images:
+  - image: ghcr.io/kyverno/test-busybox:1.35
+    manifest:
+      annotations:
+        org.opencontainers.image.base.name: gcr.io/distroless/static:nonroot
+  - image: ghcr.io/dlorenc/hello-ko:latest
+    manifest:
+      annotations:
+        org.opencontainers.image.base.name: gcr.io/distroless/static:root
