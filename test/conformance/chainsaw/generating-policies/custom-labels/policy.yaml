@@ -22,19 +22,17 @@ spec:
       expression: "object.metadata.name"
     - name: downstream
       expression: >-
-        [
-          {
-            "kind": dyn("Secret"),
-            "apiVersion": dyn("v1"),
-            "metadata": dyn({
-              "name": dyn("secret-name"),
-              "labels": dyn({"foo": "bar"})
-            }),
-            "type": dyn("Opaque"),
-            "data": dyn({
-              "foo": "YmFy"
-            })
-          }
-        ]
+        {
+          "kind": dyn("Secret"),
+          "apiVersion": dyn("v1"),
+          "metadata": dyn({
+            "name": dyn("secret-name"),
+            "labels": dyn({"foo": "bar"})
+          }),
+          "type": dyn("Opaque"),
+          "data": dyn({
+            "foo": "YmFy"
+          })
+        }
   generate:
     - expression: generator.Apply(variables.targetNs, [variables.downstream])
