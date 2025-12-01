@@ -64,4 +64,6 @@ type ResourceHandlers struct {
 	GeneratingPolicies Handler
 	// MutatingPolicies evaluates mutating policies against kube resources
 	MutatingPolicies Handler
+	// NamespacedMutatingPolicies evaluates namespaced mutating policies against kube resources
+	NamespacedMutatingPolicies Handler
 }

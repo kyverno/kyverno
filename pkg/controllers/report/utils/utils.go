@@ -268,8 +268,8 @@ func FetchNamespacedValidatingPolicies(nvpolLister policiesv1beta1listers.Namesp
 	return policies, nil
 }
 
-func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyLister) ([]policiesv1alpha1.MutatingPolicy, error) {
-	var policies []policiesv1alpha1.MutatingPolicy
+func FetchMutatingPolicies(mpolLister policiesv1beta1listers.MutatingPolicyLister) ([]policiesv1beta1.MutatingPolicy, error) {
+	var policies []policiesv1beta1.MutatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err

@@ -6,13 +6,12 @@ import (
 	"slices"
 	"strings"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func Autogen(policy *policiesv1alpha1.MutatingPolicy) (map[string]policiesv1alpha1.MutatingPolicyAutogen, error) {
+func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
@@ -23,15 +22,15 @@ func Autogen(policy *policiesv1alpha1.MutatingPolicy) (map[string]policiesv1alph
 	}
 
 	actualControllers := autogen.AllConfigs
-	if policy.Spec.AutogenConfiguration != nil &&
-		policy.Spec.AutogenConfiguration.PodControllers != nil &&
-		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
+	if policy.GetSpec().AutogenConfiguration != nil &&
+		policy.GetSpec().AutogenConfiguration.PodControllers != nil &&
+		policy.GetSpec().AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(policy.GetSpec().AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return generateRuleForControllers(&policy.Spec, actualControllers)
+	return generateRuleForControllers(policy.GetSpec(), actualControllers)
 }
 
-func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.MutatingPolicyAutogen, error) {
+func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
@@ -40,7 +39,7 @@ func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, confi
 			mapping[config.ReplacementsRef] = targets
 		}
 	}
-	rules := map[string]policiesv1alpha1.MutatingPolicyAutogen{}
+	rules := map[string]policiesv1beta1.MutatingPolicyAutogen{}
 	for _, config := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[config]
 		spec := spec.DeepCopy()
@@ -78,13 +77,8 @@ func generateRuleForControllers(spec *policiesv1alpha1.MutatingPolicySpec, confi
 			return 0
 		})
 
-		t := make([]policiesv1alpha1.Target, 0, len(targets))
-		for _, target := range targets {
-			t = append(t, policiesv1alpha1.Target(target))
-		}
-
-		rules[config] = policiesv1alpha1.MutatingPolicyAutogen{
-			Targets: t,
+		rules[config] = policiesv1beta1.MutatingPolicyAutogen{
+			Targets: targets,
 			Spec:    spec,
 		}
 	}
