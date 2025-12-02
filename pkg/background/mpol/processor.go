@@ -7,6 +7,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	libs "github.com/kyverno/kyverno/pkg/cel/libs"
@@ -15,10 +16,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/policy"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -62,20 +65,19 @@ func NewProcessor(client dclient.Interface,
 }
 
 func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
-	var failures []error
-	mpol, err := p.kyvernoClient.PoliciesV1alpha1().MutatingPolicies().Get(context.TODO(), ur.Spec.Policy, metav1.GetOptions{})
+	mpol, err := p.GetPolicy(ur)
 	if err != nil {
-		failures = append(failures, fmt.Errorf("failed to fetch mpol %s: %v", ur.Spec.GetPolicyKey(), err))
-		return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
+		return err
 	}
 
-	targetConstraints := mpol.GetSpec().GetMatchConstraints()
-	if len(mpol.GetSpec().GetTargetMatchConstraints().ResourceRules) != 0 {
-		targetConstraints = mpol.GetSpec().GetTargetMatchConstraints()
+	var failures []error
+	targetConstraints := mpol.GetMatchConstraints()
+	if len(mpol.GetTargetMatchConstraints().ResourceRules) != 0 {
+		targetConstraints = mpol.GetTargetMatchConstraints()
 	}
 
 	var targets *unstructured.UnstructuredList
-	results := collectGVK(p.client, p.mapper, targetConstraints)
+	results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
 	for ns, gvks := range results {
 		for r := range gvks {
 			if r.Kind == "Namespace" || ns == "*" {
@@ -116,7 +118,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			nil,
 		)
 
-		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.MatchNames(ur.Spec.Policy))
+		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(ur.Spec.Policy), mpolengine.Or(mpolengine.ClusteredPolicy(), mpolengine.NamespacedPolicy(attr.GetNamespace()))))
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue
@@ -178,7 +180,7 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	return nil
 }
 
-func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources) map[string]sets.Set[schema.GroupVersionKind] {
+func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) map[string]sets.Set[schema.GroupVersionKind] {
 	result := make(map[string]sets.Set[schema.GroupVersionKind])
 
 	gvkSet := sets.New[schema.GroupVersionKind]()
@@ -205,7 +207,14 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 		}
 	}
 
-	if m.NamespaceSelector != nil {
+	if ns != "" {
+		namespace, err := client.GetResource(context.TODO(), "v1", "Namespace", "", ns)
+		if err != nil {
+			return result
+		}
+		result[namespace.GetName()] = gvkSet
+		return result
+	} else if m.NamespaceSelector != nil {
 		namespaces, err := client.ListResource(context.TODO(), "v1", "Namespace", "", m.NamespaceSelector)
 		if err != nil {
 			return result
@@ -231,4 +240,27 @@ func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.Up
 		}
 	}
 	return nil
+}
+
+func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPolicyLike, error) {
+	var mpol v1beta1.MutatingPolicyLike
+	var err error
+
+	var failures []error
+	mpol, err = p.kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.TODO(), ur.Spec.Policy, metav1.GetOptions{})
+	if err == nil {
+		return mpol, nil
+	}
+
+	// Try NamespacedMutatingPolicy
+	if errors.IsNotFound(err) {
+		name, ns := policy.ParsePolicyKey(ur.Spec.Policy)
+		mpol, err = p.kyvernoClient.PoliciesV1beta1().NamespacedMutatingPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		if err == nil {
+			return mpol, nil
+		}
+	}
+
+	failures = append(failures, fmt.Errorf("failed to fetch mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+	return nil, updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 }
