@@ -27,6 +27,16 @@ func (f *fakeGpolLister) List(selector labels.Selector) ([]*policiesv1beta1.Gene
 	return nil, nil
 }
 
+type fakeNgpolLister struct{}
+
+func (f *fakeNgpolLister) List(selector labels.Selector) ([]*policiesv1alpha1.NamespacedGeneratingPolicy, error) {
+	return nil, nil
+}
+
+func (f *fakeNgpolLister) NamespacedGeneratingPolicies(namespace string) v1alpha1.NamespacedGeneratingPolicyNamespaceLister {
+	return nil
+}
+
 type fakePolexLister struct {
 	exceptions []*policiesv1alpha1.PolicyException
 	err        error
@@ -63,6 +73,7 @@ func TestGet(t *testing.T) {
 		fp := NewFetchProvider(
 			comp,
 			&fakeGpolLister{policy: gpol},
+			&fakeNgpolLister{},
 			&fakePolexLister{exceptions: []*policiesv1alpha1.PolicyException{exception}},
 			true,
 		)
@@ -80,6 +91,7 @@ func TestGet(t *testing.T) {
 		fp := NewFetchProvider(
 			comp,
 			&fakeGpolLister{err: errors.New("forced error")},
+			&fakeNgpolLister{},
 			&fakePolexLister{exceptions: []*policiesv1alpha1.PolicyException{nil}},
 			true,
 		)
@@ -94,6 +106,7 @@ func TestGet(t *testing.T) {
 		fp := NewFetchProvider(
 			comp,
 			&fakeGpolLister{policy: nil},
+			&fakeNgpolLister{},
 			&fakePolexLister{err: errors.New("error while test")},
 			true,
 		)

@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
@@ -17,18 +19,21 @@ type Provider interface {
 type fetchProvider struct {
 	compiler    compiler.Compiler
 	gpolLister  policiesv1beta1listers.GeneratingPolicyLister
+	ngpolLister policiesv1alpha1listers.NamespacedGeneratingPolicyLister
 	polexLister policiesv1alpha1listers.PolicyExceptionLister
 }
 
 func NewFetchProvider(
 	compiler compiler.Compiler,
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
+	ngpolLister policiesv1alpha1listers.NamespacedGeneratingPolicyLister,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *fetchProvider {
 	fp := &fetchProvider{
-		compiler:   compiler,
-		gpolLister: gpolLister,
+		compiler:    compiler,
+		gpolLister:  gpolLister,
+		ngpolLister: ngpolLister,
 	}
 
 	if polexEnabled {
@@ -38,9 +43,24 @@ func NewFetchProvider(
 }
 
 func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
-	policy, err := fp.gpolLister.Get(name)
-	if err != nil {
-		return Policy{}, err
+	var policy policiesv1alpha1.GeneratingPolicyLike
+	var err error
+
+	// Check if the name contains a namespace (format: "namespace/policy-name")
+	parts := strings.Split(name, "/")
+	if len(parts) == 2 {
+		// Namespaced policy
+		namespace, policyName := parts[0], parts[1]
+		policy, err = fp.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(policyName)
+		if err != nil {
+			return Policy{}, fmt.Errorf("namespaced generating policy %s/%s not found: %w", namespace, policyName, err)
+		}
+	} else {
+		// Cluster-scoped policy
+		policy, err = fp.gpolLister.Get(name)
+		if err != nil {
+			return Policy{}, fmt.Errorf("generating policy %s not found: %w", name, err)
+		}
 	}
 	var exceptions, matchedExceptions []*policiesv1alpha1.PolicyException
 	if fp.polexLister != nil {
@@ -52,7 +72,14 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	for _, polex := range exceptions {
 		for _, ref := range polex.Spec.PolicyRefs {
 			if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
-				matchedExceptions = append(matchedExceptions, polex)
+				// For namespaced policies, also check namespace match
+				if policy.GetNamespace() != "" {
+					if polex.GetNamespace() == policy.GetNamespace() {
+						matchedExceptions = append(matchedExceptions, polex)
+					}
+				} else {
+					matchedExceptions = append(matchedExceptions, polex)
+				}
 			}
 		}
 	}
