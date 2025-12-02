@@ -28,7 +28,7 @@ var (
 )
 
 type Compiler interface {
-	Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1alpha1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -110,7 +110,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 	return extendedBase, variablesProvider, nil
 }
 
-func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1alpha1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(policy.GetNamespace())
 	if err != nil {
@@ -126,24 +126,26 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.GeneratingPolicy, except
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
-	matchConditions := make([]cel.Program, 0, len(policy.Spec.MatchConditions))
+	spec := policy.GetSpec()
+
+	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, policy.Spec.MatchConditions...)
+		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, policy.Spec.Variables...)
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
-	generations := make([]cel.Program, 0, len(policy.Spec.Generation))
+	generations := make([]cel.Program, 0, len(spec.Generation))
 	{
 		path := path.Child("generate")
-		programs, errs := compiler.CompileGenerations(path, env, policy.Spec.Generation...)
+		programs, errs := compiler.CompileGenerations(path, env, spec.Generation...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
