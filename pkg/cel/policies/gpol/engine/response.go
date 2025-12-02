@@ -12,6 +12,6 @@ type EngineResponse struct {
 }
 
 type GeneratingPolicyResponse struct {
-	Policy policiesv1alpha1.GeneratingPolicy
+	Policy policiesv1alpha1.GeneratingPolicyLike
 	Result *engineapi.RuleResponse
 }
