@@ -32,6 +32,7 @@ type PoliciesV1alpha1Interface interface {
 	GeneratingPoliciesGetter
 	ImageValidatingPoliciesGetter
 	MutatingPoliciesGetter
+	NamespacedGeneratingPoliciesGetter
 	PolicyExceptionsGetter
 	ValidatingPoliciesGetter
 }
@@ -55,6 +56,10 @@ func (c *PoliciesV1alpha1Client) ImageValidatingPolicies() ImageValidatingPolicy
 
 func (c *PoliciesV1alpha1Client) MutatingPolicies() MutatingPolicyInterface {
 	return newMutatingPolicies(c)
+}
+
+func (c *PoliciesV1alpha1Client) NamespacedGeneratingPolicies(namespace string) NamespacedGeneratingPolicyInterface {
+	return newNamespacedGeneratingPolicies(c, namespace)
 }
 
 func (c *PoliciesV1alpha1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
