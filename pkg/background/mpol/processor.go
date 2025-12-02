@@ -66,7 +66,7 @@ func NewProcessor(client dclient.Interface,
 
 func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	mpol, err := p.GetPolicy(ur)
-	if err != nil {
+	if mpol == nil {
 		return err
 	}
 
