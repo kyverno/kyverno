@@ -115,6 +115,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: autogen
           upgrade-scenario: ${{ matrix.upgrade }}
+          chainsaw-config: autogen/.chainsaw.yaml
 
   background-only:
     runs-on: ubuntu-latest
