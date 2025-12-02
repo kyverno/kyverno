@@ -269,7 +269,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@06ed49dcd3f3ce2fc8d1988848245873a91550bc # v2.7.4
+        uses: fluxcd/flux2/action@8454b02a32e48d775b9f563cb51fdcb1787b5b93 # v2.7.5
         with:
           version: 0.35.0
       - name: Install Cosign
