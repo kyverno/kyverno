@@ -476,7 +476,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 			}
 			compiledPolicies = append(compiledPolicies, gpolengine.Policy{
-				Policy:         pol,
+				Policy:         engineapi.NewGeneratingPolicyFromLike(&pol).AsGeneratingPolicy(),
 				CompiledPolicy: compiled,
 			})
 		}
@@ -526,7 +526,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							Rules: []engineapi.RuleResponse{*res.Result},
 						},
 					}
-					generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicy(&res.Policy))
+					generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 					if err := p.processGenerateResponse(generateResponse, resPath); err != nil {
 						return responses, err
 					}
