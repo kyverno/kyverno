@@ -10,17 +10,17 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -65,7 +65,7 @@ type policyController struct {
 
 	pInformer    kyvernov1informers.ClusterPolicyInformer
 	npInformer   kyvernov1informers.PolicyInformer
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder events.EventRecorder
@@ -80,7 +80,7 @@ type policyController struct {
 	npLister kyvernov1listers.PolicyLister
 
 	// gpolLister can list/get generating policy from the shared informer's store
-	gpolLister policiesv1alpha1listers.GeneratingPolicyLister
+	gpolLister policiesv1beta1listers.GeneratingPolicyLister
 
 	// urLister can list/get update request from the shared informer's store
 	urLister kyvernov2listers.UpdateRequestLister
@@ -116,7 +116,7 @@ func NewPolicyController(
 	engine engineapi.Engine,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
 	urInformer kyvernov2informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
@@ -278,8 +278,8 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 			utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
 		}
 		p = engineapi.NewKyvernoPolicy(pol)
-	case *policiesv1alpha1.GeneratingPolicy:
-		gpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.GeneratingPolicy)
+	case *policiesv1beta1.GeneratingPolicy:
+		gpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1beta1.GeneratingPolicy)
 		if gpol.Spec.OrphanDownstreamOnPolicyDeleteEnabled() {
 			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), false)
 		} else {

@@ -425,7 +425,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	vpols []policiesv1beta1.ValidatingPolicy,
 	nvpols []policiesv1beta1.NamespacedValidatingPolicy,
-	gpols []policiesv1alpha1.GeneratingPolicy,
+	gpols []policiesv1beta1.GeneratingPolicy,
 	mpols []policiesv1beta1.MutatingPolicy,
 	nmpols []policiesv1beta1.NamespacedMutatingPolicy,
 	maps []admissionregistrationv1beta1.MutatingAdmissionPolicy,
@@ -806,7 +806,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1beta1.NamespacedValidatingPolicy,
 	[]policiesv1beta1.ImageValidatingPolicy,
 	[]policiesv1beta1.NamespacedImageValidatingPolicy,
-	[]policiesv1alpha1.GeneratingPolicy,
+	[]policiesv1beta1.GeneratingPolicy,
 	[]policiesv1beta1.DeletingPolicy,
 	[]policiesv1beta1.NamespacedDeletingPolicy,
 	[]policiesv1beta1.MutatingPolicy,
@@ -823,7 +823,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	var ivps []policiesv1beta1.ImageValidatingPolicy
 	var nivps []policiesv1beta1.NamespacedImageValidatingPolicy
-	var gps []policiesv1alpha1.GeneratingPolicy
+	var gps []policiesv1beta1.GeneratingPolicy
 	var dps []policiesv1beta1.DeletingPolicy
 	var ndps []policiesv1beta1.NamespacedDeletingPolicy
 	var mps []policiesv1beta1.MutatingPolicy
