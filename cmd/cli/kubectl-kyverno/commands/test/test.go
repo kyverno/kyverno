@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
-	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -29,15 +29,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
-	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
@@ -45,7 +44,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -69,6 +67,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	contextPath := ""
 	if testCase.Test.Context != "" {
 		contextPath = filepath.Join(testDir, testCase.Test.Context)
+		fmt.Fprintln(out, "testDir", testDir)
+		fmt.Fprintln(out, "contextPath", contextPath)
 	}
 	// values/variables
 	fmt.Fprintln(out, "  Loading values/variables", "...")
@@ -111,7 +111,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
@@ -135,7 +135,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
-	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir)
+	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
@@ -145,7 +145,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 
 	parameterResourcesPath := path.GetFullPaths(testCase.Test.ParamResources, testDir, isGit)
-	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, parameterResourcesPath, false, genericPolicies, dClient, "", false, false, testDir)
+	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, parameterResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load parameter resources (%s)", err)
 	}
@@ -180,7 +180,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.NamespacedValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.NamespacedDeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.NamespacedValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.NamespacedDeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies) + len(results.NamespacedMutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
@@ -266,6 +266,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespacedValidatingPolicies:      results.NamespacedValidatingPolicies,
 			GeneratingPolicies:                results.GeneratingPolicies,
 			MutatingPolicies:                  results.MutatingPolicies,
+			NamespacedMutatingPolicies:        results.NamespacedMutatingPolicies,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			Resource:                          *resource,
@@ -274,6 +275,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ParameterResources:                paramObjectsArr,
 			MutateLogPath:                     "",
 			Variables:                         vars,
+			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
@@ -300,6 +302,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
+				testCase.Fs,
 				contextPath,
 				false,
 			)
@@ -325,6 +328,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
+				testCase.Fs,
 				contextPath,
 			)
 			if err != nil {
@@ -348,12 +352,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			MutatingPolicies:                  results.MutatingPolicies,
+			NamespacedMutatingPolicies:        results.NamespacedMutatingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
+			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
@@ -380,6 +386,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
+				testCase.Fs,
 				contextPath,
 				false,
 			)
@@ -405,6 +412,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				&resultCounts,
 				dClient,
 				true,
+				testCase.Fs,
 				contextPath,
 			)
 			if err != nil {
@@ -438,6 +446,7 @@ func applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 	registryAccess bool,
+	f billy.Filesystem,
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
@@ -465,7 +474,7 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	contextProvider, err := newContextProvider(dclient, restMapper, contextPath, registryAccess)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, true)
 	if err != nil {
 		return nil, err
 	}
@@ -570,6 +579,7 @@ func applyDeletingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 	registryAccess bool,
+	f billy.Filesystem,
 	contextPath string,
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
@@ -582,7 +592,7 @@ func applyDeletingPolicies(
 		return nil, err
 	}
 
-	contextProvider, err := newContextProvider(dclient, restMapper, contextPath, registryAccess)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, true)
 	if err != nil {
 		return nil, err
 	}
@@ -604,7 +614,7 @@ func applyDeletingPolicies(
 			policyName := dpol.Policy.GetName()
 			resp, err := engine.Handle(context.TODO(), dpol, *resource)
 			if err != nil {
-				fmt.Printf("failed to apply policy %s on JSON payload: %v\n", resource.GetName(), err)
+				fmt.Printf("failed to apply policy %s on resource: %v\n", resource.GetName(), err)
 
 				response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
 				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
@@ -678,36 +688,4 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 		res.Object = convertNumericValuesToFloat64(res.Object).(map[string]interface{})
 	}
 	return resources
-}
-
-func newContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, contextPath string, registryAccess bool) (libs.Context, error) {
-	if dclient != nil {
-		return libs.NewContextProvider(
-			dclient,
-			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
-			gctxstore.New(),
-			restMapper,
-			true,
-		)
-	}
-
-	fakeContextProvider := libs.NewFakeContextProvider()
-	if contextPath != "" {
-		ctx, err := clicontext.Load(nil, contextPath)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, resource := range ctx.ContextSpec.Resources {
-			gvk := resource.GroupVersionKind()
-			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-			if err != nil {
-				return nil, err
-			}
-			if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return fakeContextProvider, nil
 }

@@ -16,6 +16,7 @@ func TestNewFakeContextProvider(t *testing.T) {
 	assert.Equal(
 		t, &FakeContextProvider{
 			resources: map[string]map[string]map[string]*unstructured.Unstructured{},
+			images:    map[string]map[string]any{},
 		},
 		cp,
 	)
@@ -26,9 +27,27 @@ func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
 	assert.Panics(t, func() { cp.GetGlobalReference("foo", "bar") })
 }
 
-func TestFakeContextProvider_GetImageData(t *testing.T) {
-	cp := &FakeContextProvider{}
-	assert.Panics(t, func() { cp.GetImageData("foo") })
+func TestFakeContextProvider_AddImageData(t *testing.T) {
+	cp := NewFakeContextProvider()
+
+	imageName := "nginx:latest"
+	imageData := map[string]any{
+		"image":    "nginx:latest",
+		"registry": "index.docker.io",
+		"digest":   "sha256:12345",
+		"manifest": map[string]any{
+			"annotations": map[string]any{
+				"org.opencontainers.image.base.name": "debian:latest",
+			},
+		},
+	}
+	cp.AddImageData(imageName, imageData)
+	got, err := cp.GetImageData(imageName)
+	assert.NoError(t, err)
+	assert.Equal(t, imageData, got)
+	got, err = cp.GetImageData("missing:latest")
+	assert.Error(t, err)
+	assert.Nil(t, got)
 }
 
 func TestFakeContextProvider_PostResource(t *testing.T) {
