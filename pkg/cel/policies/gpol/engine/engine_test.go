@@ -60,7 +60,7 @@ var (
 func TestHandle(t *testing.T) {
 	t.Run("should handle policy with match constraints and return response", func(t *testing.T) {
 		pol := Policy{
-			Policy: v1alpha1.GeneratingPolicy{
+			Policy: &v1alpha1.GeneratingPolicy{
 				Spec: v1alpha1.GeneratingPolicySpec{
 					MatchConstraints: &admissionregistrationv1.MatchResources{
 						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -113,7 +113,7 @@ func TestHandle(t *testing.T) {
 			nil,
 		)
 		pol := Policy{
-			Policy: v1alpha1.GeneratingPolicy{
+			Policy: &v1alpha1.GeneratingPolicy{
 				Spec: v1alpha1.GeneratingPolicySpec{
 					MatchConstraints: &admissionregistrationv1.MatchResources{
 						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -141,7 +141,7 @@ func TestHandle(t *testing.T) {
 
 	t.Run("should evaluate policy with valid match condition on default namespace", func(t *testing.T) {
 		pol := Policy{
-			Policy: v1alpha1.GeneratingPolicy{
+			Policy: &v1alpha1.GeneratingPolicy{
 				Spec: v1alpha1.GeneratingPolicySpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
@@ -163,7 +163,7 @@ func TestHandle(t *testing.T) {
 		resource.SetNamespace("valid-ns")
 
 		pol := Policy{
-			Policy: v1alpha1.GeneratingPolicy{
+			Policy: &v1alpha1.GeneratingPolicy{
 				Spec: v1alpha1.GeneratingPolicySpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
@@ -196,7 +196,7 @@ func TestHandle(t *testing.T) {
 
 		pol := Policy{
 			Exceptions:     nil,
-			Policy:         *gpol,
+			Policy:         gpol,
 			CompiledPolicy: compiledGpol,
 		}
 		eng := NewEngine(nsResolver, nil)
@@ -247,7 +247,7 @@ func TestHandle(t *testing.T) {
 
 		pol := Policy{
 			Exceptions:     exceptions,
-			Policy:         *gpol,
+			Policy:         gpol,
 			CompiledPolicy: compiledGpol,
 		}
 		eng := NewEngine(nsResolver, nil)

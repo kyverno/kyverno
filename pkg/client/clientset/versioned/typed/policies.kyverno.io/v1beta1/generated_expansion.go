@@ -18,4 +18,22 @@ limitations under the License.
 
 package v1beta1
 
+type DeletingPolicyExpansion interface{}
+
+type GeneratingPolicyExpansion interface{}
+
+type ImageValidatingPolicyExpansion interface{}
+
+type MutatingPolicyExpansion interface{}
+
+type NamespacedDeletingPolicyExpansion interface{}
+
+type NamespacedImageValidatingPolicyExpansion interface{}
+
+type NamespacedMutatingPolicyExpansion interface{}
+
+type NamespacedValidatingPolicyExpansion interface{}
+
+type PolicyExceptionExpansion interface{}
+
 type ValidatingPolicyExpansion interface{}

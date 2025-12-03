@@ -18,6 +18,62 @@ limitations under the License.
 
 package v1beta1
 
+// DeletingPolicyListerExpansion allows custom methods to be added to
+// DeletingPolicyLister.
+type DeletingPolicyListerExpansion interface{}
+
+// GeneratingPolicyListerExpansion allows custom methods to be added to
+// GeneratingPolicyLister.
+type GeneratingPolicyListerExpansion interface{}
+
+// ImageValidatingPolicyListerExpansion allows custom methods to be added to
+// ImageValidatingPolicyLister.
+type ImageValidatingPolicyListerExpansion interface{}
+
+// MutatingPolicyListerExpansion allows custom methods to be added to
+// MutatingPolicyLister.
+type MutatingPolicyListerExpansion interface{}
+
+// NamespacedDeletingPolicyListerExpansion allows custom methods to be added to
+// NamespacedDeletingPolicyLister.
+type NamespacedDeletingPolicyListerExpansion interface{}
+
+// NamespacedDeletingPolicyNamespaceListerExpansion allows custom methods to be added to
+// NamespacedDeletingPolicyNamespaceLister.
+type NamespacedDeletingPolicyNamespaceListerExpansion interface{}
+
+// NamespacedImageValidatingPolicyListerExpansion allows custom methods to be added to
+// NamespacedImageValidatingPolicyLister.
+type NamespacedImageValidatingPolicyListerExpansion interface{}
+
+// NamespacedImageValidatingPolicyNamespaceListerExpansion allows custom methods to be added to
+// NamespacedImageValidatingPolicyNamespaceLister.
+type NamespacedImageValidatingPolicyNamespaceListerExpansion interface{}
+
+// NamespacedMutatingPolicyListerExpansion allows custom methods to be added to
+// NamespacedMutatingPolicyLister.
+type NamespacedMutatingPolicyListerExpansion interface{}
+
+// NamespacedMutatingPolicyNamespaceListerExpansion allows custom methods to be added to
+// NamespacedMutatingPolicyNamespaceLister.
+type NamespacedMutatingPolicyNamespaceListerExpansion interface{}
+
+// NamespacedValidatingPolicyListerExpansion allows custom methods to be added to
+// NamespacedValidatingPolicyLister.
+type NamespacedValidatingPolicyListerExpansion interface{}
+
+// NamespacedValidatingPolicyNamespaceListerExpansion allows custom methods to be added to
+// NamespacedValidatingPolicyNamespaceLister.
+type NamespacedValidatingPolicyNamespaceListerExpansion interface{}
+
+// PolicyExceptionListerExpansion allows custom methods to be added to
+// PolicyExceptionLister.
+type PolicyExceptionListerExpansion interface{}
+
+// PolicyExceptionNamespaceListerExpansion allows custom methods to be added to
+// PolicyExceptionNamespaceLister.
+type PolicyExceptionNamespaceListerExpansion interface{}
+
 // ValidatingPolicyListerExpansion allows custom methods to be added to
 // ValidatingPolicyLister.
 type ValidatingPolicyListerExpansion interface{}

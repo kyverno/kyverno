@@ -46,6 +46,10 @@ rules:
       - validatingadmissionpolicies
       - validatingadmissionpolicybindings
       {{- end }}
+      {{- if .Values.features.generateMutatingAdmissionPolicy.enabled }}
+      - mutatingadmissionpolicies
+      - mutatingadmissionpolicybindings
+      {{- end }}
     verbs:
       - create
       - delete
@@ -102,12 +106,18 @@ rules:
     resources:
       - validatingpolicies
       - validatingpolicies/status
+      - namespacedvalidatingpolicies
+      - namespacedvalidatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
+      - namespacedimagevalidatingpolicies
+      - namespacedimagevalidatingpolicies/status
       - generatingpolicies
       - generatingpolicies/status
       - mutatingpolicies
       - mutatingpolicies/status
+      - namespacedmutatingpolicies
+      - namespacedmutatingpolicies/status
     verbs:
       - create
       - delete

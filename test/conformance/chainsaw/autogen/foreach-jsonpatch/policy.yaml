@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: mutate-pod-require-non-root-user
+  name: ($test.metadata.name)
 spec:
   schemaValidation: false
   rules:

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Node
+metadata:
+  name: kind-control-plane
+status:
+  capacity:
+    example.com/dongle: "4"

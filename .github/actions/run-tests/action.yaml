@@ -39,14 +39,14 @@ runs:
       id: helm
       uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
     - name: Install Cosign
-      uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
+      uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
     - name: Install chainsaw
       uses: kyverno/action-install-chainsaw@6354895e0f99ab23d3e38d85cf5c71b5dc21d727 # v0.2.13
       with:
         verify: true
     # create cluster
     - name: Create kind cluster
-      uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+      uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
       with:
         version: v0.29.0
         node_image: kindest/node:${{ inputs.k8s-version }}
@@ -54,7 +54,7 @@ runs:
         config: ${{ inputs.kind-config }}
     # deploy kyverno
     - name: Download kyverno images archive
-      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
       with:
         name: kyverno.tar
     - name: Load kyverno images archive in kind cluster
@@ -89,7 +89,7 @@ runs:
 
         echo "::set-output name=prev_version::$INSTALL_VERSION"
     - name: Checkout Previous Version
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       if: ${{ steps.determine-prev-version.outputs.prev_version != 'none' }}
       with:
         repository: kyverno/kyverno
@@ -143,7 +143,7 @@ runs:
 
         echo "::set-output name=next_version::$INSTALL_VERSION"
     - name: Checkout Next Version
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
       with:
         repository: kyverno/kyverno

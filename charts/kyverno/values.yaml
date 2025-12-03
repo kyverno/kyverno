@@ -109,10 +109,13 @@ crds:
       validatingpolicies: true
       policyexceptions: true
       imagevalidatingpolicies: true
+      namespacedimagevalidatingpolicies: true
       mutatingpolicies: true
+      namespacedmutatingpolicies: true
       generatingpolicies: true
       deletingpolicies: true
       namespaceddeletingpolicies: true
+      namespacedvalidatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -146,6 +149,16 @@ crds:
       - policies.kyverno.io
       - policyexceptions.kyverno.io
       - updaterequests.kyverno.io
+      - deletingpolicies.policies.kyverno.io
+      - generatingpolicies.policies.kyverno.io
+      - imagevalidatingpolicies.policies.kyverno.io
+      - namespacedimagevalidatingpolicies.policies.kyverno.io
+      - mutatingpolicies.policies.kyverno.io
+      - namespacedmutatingpolicies.policies.kyverno.io
+      - namespaceddeletingpolicies.policies.kyverno.io
+      - namespacedvalidatingpolicies.policies.kyverno.io
+      - policyexceptions.policies.kyverno.io
+      - validatingpolicies.policies.kyverno.io
 
     image:
       # -- (string) Image registry
@@ -453,6 +466,12 @@ metricsConfig:
     kyverno_image_validating_policy_execution_duration_seconds:
       # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
       disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_mutating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_generating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
     kyverno_admission_review_duration_seconds:
       # enabled: false
       disabledLabelDimensions: ["resource_namespace"]
@@ -488,12 +507,12 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: curlimages
     # -- Image repository
-    repository: busybox
+    repository: curl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.35'
+    tag: '8.10.1'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -1278,7 +1297,17 @@ backgroundController:
             - update
             - patch
             - delete
-
+        - apiGroups:
+            - resource.k8s.io
+          resources:
+            - resourceclaims
+            - resourceclaimtemplates
+          verbs:
+            - create
+            - delete
+            - update
+            - patch
+            - deletecollection
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []

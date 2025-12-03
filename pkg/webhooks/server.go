@@ -86,6 +86,19 @@ func NewServer(
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("MPOL"),
 	)
+	mux.HandlerFunc(
+		"POST",
+		"/nmpol/*policies",
+		handlerFunc("MUTATE", resourceHandlers.NamespacedMutatingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithAdmission(mpolLogger.WithName("mutate")).
+			ToHandlerFunc("NMPOL"),
+	)
 	// new vpol and ivpol handlers
 	mux.HandlerFunc(
 		"POST",
@@ -99,6 +112,19 @@ func NewServer(
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
 			WithAdmission(vpolLogger.WithName("validate")).
 			ToHandlerFunc("VPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		"/nvpol/*policies",
+		handlerFunc("VALIDATE", resourceHandlers.NamespacedValidatingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithAdmission(vpolLogger.WithName("validate")).
+			ToHandlerFunc("NVPOL"),
 	)
 	mux.HandlerFunc(
 		"POST",

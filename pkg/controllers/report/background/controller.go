@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
@@ -16,9 +17,11 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -34,6 +37,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -43,9 +47,11 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -68,20 +74,24 @@ type controller struct {
 	engine        engineapi.Engine
 
 	// listers
-	polLister        kyvernov1listers.PolicyLister
-	cpolLister       kyvernov1listers.ClusterPolicyLister
-	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
-	mpolLister       policiesv1alpha1listers.MutatingPolicyLister
-	ivpolLister      policiesv1alpha1listers.ImageValidatingPolicyLister
-	polexLister      kyvernov2listers.PolicyExceptionLister
-	celpolexListener policiesv1alpha1listers.PolicyExceptionLister
-	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
-	vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
-	mapLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
-	mapBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
-	bgscanrLister    cache.GenericLister
-	cbgscanrLister   cache.GenericLister
-	nsLister         corev1listers.NamespaceLister
+	polLister             kyvernov1listers.PolicyLister
+	cpolLister            kyvernov1listers.ClusterPolicyLister
+	vpolLister            policiesv1beta1listers.ValidatingPolicyLister
+	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
+	mpolLister            policiesv1beta1listers.MutatingPolicyLister
+	ivpolLister           policiesv1beta1listers.ImageValidatingPolicyLister
+	nivpolLister          policiesv1beta1listers.NamespacedImageValidatingPolicyLister
+	polexLister           kyvernov2listers.PolicyExceptionLister
+	celpolexListener      policiesv1alpha1listers.PolicyExceptionLister
+	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	vapBindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
+	mapLister             admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
+	mapAlphaLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
+	mapBindingLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister
+	mapAlphaBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
+	bgscanrLister         cache.GenericLister
+	cbgscanrLister        cache.GenericLister
+	nsLister              corev1listers.NamespaceLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[string]
@@ -109,15 +119,19 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
-	ivpolInformer policiesv1alpha1informers.ImageValidatingPolicyInformer,
+	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
+	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
-	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
-	mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
+	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
+	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
+	mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer,
+	mapAlphaBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
 	forceDelay time.Duration,
@@ -164,6 +178,12 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if nvpolInformer != nil {
+		c.nvpolLister = nvpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(nvpolInformer.Informer(), c.addNVP, c.updateNVP, c.deleteNVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if mpolInformer != nil {
 		c.mpolLister = mpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(mpolInformer.Informer(), c.addMP, c.updateMP, c.deleteMP); err != nil {
@@ -173,6 +193,12 @@ func NewController(
 	if ivpolInformer != nil {
 		c.ivpolLister = ivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(ivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nivpolInformer != nil {
+		c.nivpolLister = nivpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(nivpolInformer.Informer(), c.addNIVP, c.updateNIVP, c.deleteNIVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -200,9 +226,21 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if mapAlphaInformer != nil {
+		c.mapAlphaLister = mapAlphaInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapAlphaInformer.Informer(), c.addMAPAlpha, c.updateMAPAlpha, c.deleteMAPAlpha); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if mapBindingInformer != nil {
 		c.mapBindingLister = mapBindingInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(mapBindingInformer.Informer(), c.addMAPBinding, c.updateMAPBinding, c.deleteMAPBinding); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mapAlphaBindingInformer != nil {
+		c.mapAlphaBindingLister = mapAlphaBindingInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapAlphaBindingInformer.Informer(), c.addMAPAlphaBinding, c.updateMAPAlphaBinding, c.deleteMAPAlphaBinding); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -276,45 +314,73 @@ func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVP(obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) addVP(obj *policiesv1beta1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVP(old, obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) updateVP(old, obj *policiesv1beta1.ValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVP(obj *policiesv1alpha1.ValidatingPolicy) {
+func (c *controller) deleteVP(obj *policiesv1beta1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addMP(obj *policiesv1alpha1.MutatingPolicy) {
+func (c *controller) addNVP(obj *policiesv1beta1.NamespacedValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateMP(old, obj *policiesv1alpha1.MutatingPolicy) {
+func (c *controller) updateNVP(old, obj *policiesv1beta1.NamespacedValidatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteMP(obj *policiesv1alpha1.MutatingPolicy) {
+func (c *controller) deleteNVP(obj *policiesv1beta1.NamespacedValidatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
+func (c *controller) addMP(obj *policiesv1beta1.MutatingPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateIVP(old, obj *policiesv1alpha1.ImageValidatingPolicy) {
+func (c *controller) updateMP(old, obj *policiesv1beta1.MutatingPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteIVP(obj *policiesv1alpha1.ImageValidatingPolicy) {
+func (c *controller) deleteMP(obj *policiesv1beta1.MutatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addIVP(obj *policiesv1beta1.ImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateIVP(old, obj *policiesv1beta1.ImageValidatingPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteIVP(obj *policiesv1beta1.ImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addNIVP(obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateNIVP(old, obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteNIVP(obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
 	c.enqueueResources()
 }
 
@@ -346,31 +412,59 @@ func (c *controller) deleteVAPBinding(obj *admissionregistrationv1.ValidatingAdm
 	c.enqueueResources()
 }
 
-func (c *controller) addMAP(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
+func (c *controller) addMAP(obj *admissionregistrationv1beta1.MutatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateMAP(old, obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
+func (c *controller) updateMAP(old, obj *admissionregistrationv1beta1.MutatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteMAP(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
+func (c *controller) deleteMAP(obj *admissionregistrationv1beta1.MutatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addMAPBinding(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func (c *controller) addMAPAlpha(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateMAPBinding(old, obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func (c *controller) updateMAPAlpha(old, obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteMAPBinding(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+func (c *controller) deleteMAPAlpha(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) addMAPBinding(obj *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateMAPBinding(old, obj *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteMAPBinding(obj *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
+	c.enqueueResources()
+}
+
+func (c *controller) addMAPAlphaBinding(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateMAPAlphaBinding(old, obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteMAPAlphaBinding(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
 	c.enqueueResources()
 }
 
@@ -410,7 +504,7 @@ func (c *controller) needsReconcile(
 	hash string,
 	exceptions []kyvernov2.PolicyException,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) (string, bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
@@ -451,7 +545,7 @@ func (c *controller) needsReconcile(
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
 	for _, binding := range mapBindings {
-		expected[reportutils.MutatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
+		expected[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] = binding.GetResourceVersion()
 	}
 	actual := map[string]string{}
 	for key, value := range reportMetadata.GetLabels() {
@@ -478,7 +572,7 @@ func (c *controller) reconcileReport(
 	exceptions []kyvernov2.PolicyException,
 	celexceptions []*policiesv1alpha1.PolicyException,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
+	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) error {
 	// namespace labels to be used by the scanner
@@ -515,7 +609,7 @@ func (c *controller) reconcileReport(
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
 	for _, binding := range mapBindings {
-		expected[reportutils.MutatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
+		expected[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] = binding.GetResourceVersion()
 	}
 	actual := map[string]string{}
 	for key, value := range observed.GetLabels() {
@@ -553,7 +647,7 @@ func (c *controller) reconcileReport(
 		}
 		for _, binding := range mapBindings {
 			key := cache.MetaObjectToName(&binding).String()
-			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(binding)
+			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(&binding)
 		}
 		for _, result := range observed.GetResults() {
 			// The result is kept as it is if:
@@ -605,7 +699,7 @@ func (c *controller) reconcileReport(
 			}
 		} else if policy.AsMutatingAdmissionPolicy() != nil {
 			for _, binding := range mapBindings {
-				if actual[reportutils.MutatingAdmissionPolicyBindingLabel(binding)] != binding.GetResourceVersion() {
+				if actual[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] != binding.GetResourceVersion() {
 					reevaluate = true
 					break
 				}
@@ -730,6 +824,15 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
 		}
 	}
+	if c.nvpolLister != nil {
+		nvpols, err := utils.FetchNamespacedValidatingPolicies(c.nvpolLister, namespace)
+		if err != nil {
+			return err
+		}
+		for _, nvpol := range celpolicies.RemoveNoneBackgroundPolicies(nvpols) {
+			policies = append(policies, engineapi.NewNamespacedValidatingPolicy(&nvpol))
+		}
+	}
 	if c.mpolLister != nil {
 		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
 		if err != nil {
@@ -759,14 +862,12 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	}
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	if c.vapBindingLister != nil {
-		// load validating admission policy bindings
 		vapBindings, err = utils.FetchValidatingAdmissionPolicyBindings(c.vapBindingLister)
 		if err != nil {
 			return err
 		}
 	}
 	if c.mapLister != nil {
-		// load mutating admission policies
 		mapPolicies, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
 		if err != nil {
 			return err
@@ -775,15 +876,30 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			policies = append(policies, engineapi.NewMutatingAdmissionPolicy(&pol))
 		}
 	}
-	var mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	if c.mapAlphaLister != nil {
+		mapAlphaPolicies, err := utils.FetchMutatingAdmissionPoliciesAlpha(c.mapAlphaLister)
+		if err != nil {
+			return err
+		}
+		for _, pol := range mapAlphaPolicies {
+			policies = append(policies, engineapi.NewMutatingAdmissionPolicyAlpha(&pol))
+		}
+	}
+	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	if c.mapBindingLister != nil {
-		// load mutating admission policy bindings
 		mapBindings, err = utils.FetchMutatingAdmissionPolicyBindings(c.mapBindingLister)
 		if err != nil {
 			return err
 		}
 	}
-	// load policy exceptions with background process enabled
+	if c.mapAlphaBindingLister != nil {
+		mapAlphaBindings, err := utils.FetchMutatingAdmissionPolicyBindingsAlpha(c.mapAlphaBindingLister)
+		if err != nil {
+			return err
+		}
+		convertedBindings := engineapi.ConvertMutatingAdmissionPolicyBindingsAlpha(mapAlphaBindings)
+		mapBindings = append(mapBindings, convertedBindings...)
+	}
 	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, namespace)
 	if err != nil {
 		return err

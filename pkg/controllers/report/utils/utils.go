@@ -6,21 +6,25 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 )
 
 func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
@@ -139,7 +143,23 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 	return exceptions, nil
 }
 
-func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
+func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
+	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	if pols, err := mapLister.List(labels.Everything().Add(*r)); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, *pol)
+		}
+	}
+	return policies, nil
+}
+
+func FetchMutatingAdmissionPoliciesAlpha(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
@@ -155,7 +175,19 @@ func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1alpha1liste
 	return policies, nil
 }
 
-func FetchMutatingAdmissionPolicyBindings(mapBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
+func FetchMutatingAdmissionPolicyBindings(mapBindingLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, error) {
+	var bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+	if pols, err := mapBindingLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			bindings = append(bindings, *pol)
+		}
+	}
+	return bindings, nil
+}
+
+func FetchMutatingAdmissionPolicyBindingsAlpha(mapBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
 	var bindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
 	if pols, err := mapBindingLister.List(labels.Everything()); err != nil {
 		return nil, err
@@ -199,8 +231,8 @@ func FetchValidatingAdmissionPolicyBindings(vapBindingLister admissionregistrati
 	return bindings, nil
 }
 
-func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicyLister) ([]policiesv1alpha1.ValidatingPolicy, error) {
-	var policies []policiesv1alpha1.ValidatingPolicy
+func FetchValidatingPolicies(vpolLister policiesv1beta1listers.ValidatingPolicyLister) ([]policiesv1beta1.ValidatingPolicy, error) {
+	var policies []policiesv1beta1.ValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -215,8 +247,29 @@ func FetchValidatingPolicies(vpolLister policiesv1alpha1listers.ValidatingPolicy
 	return policies, nil
 }
 
-func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyLister) ([]policiesv1alpha1.MutatingPolicy, error) {
-	var policies []policiesv1alpha1.MutatingPolicy
+func FetchNamespacedValidatingPolicies(nvpolLister policiesv1beta1listers.NamespacedValidatingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedValidatingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var pols []*policiesv1beta1.NamespacedValidatingPolicy
+	if namespace != "" {
+		pols, err = nvpolLister.NamespacedValidatingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		pols, err = nvpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1beta1.NamespacedValidatingPolicy, 0, len(pols))
+	for _, pol := range pols {
+		policies = append(policies, *pol)
+	}
+	return policies, nil
+}
+
+func FetchMutatingPolicies(mpolLister policiesv1beta1listers.MutatingPolicyLister) ([]policiesv1beta1.MutatingPolicy, error) {
+	var policies []policiesv1beta1.MutatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -231,8 +284,8 @@ func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyList
 	return policies, nil
 }
 
-func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister) ([]policiesv1alpha1.ImageValidatingPolicy, error) {
-	var policies []policiesv1alpha1.ImageValidatingPolicy
+func FetchImageVerificationPolicies(ivpolLister policiesv1beta1listers.ImageValidatingPolicyLister) ([]policiesv1beta1.ImageValidatingPolicy, error) {
+	var policies []policiesv1beta1.ImageValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -243,6 +296,27 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVal
 		for _, pol := range pols {
 			policies = append(policies, *pol)
 		}
+	}
+	return policies, nil
+}
+
+func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1beta1listers.NamespacedImageValidatingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedImageValidatingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var pols []*policiesv1beta1.NamespacedImageValidatingPolicy
+	if namespace != "" {
+		pols, err = nivpolLister.NamespacedImageValidatingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		pols, err = nivpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1beta1.NamespacedImageValidatingPolicy, 0, len(pols))
+	for _, pol := range pols {
+		policies = append(policies, *pol)
 	}
 	return policies, nil
 }

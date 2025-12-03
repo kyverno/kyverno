@@ -17,6 +17,7 @@ import (
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
@@ -28,15 +29,20 @@ type Policy struct {
 	exceptions                []compiler.Exception
 }
 
-func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured, context libs.Context) (*EvaluationResult, error) {
+func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured, namespace runtime.Object, context libs.Context) (*EvaluationResult, error) {
 	vars := lazy.NewMapValue(compiler.VariablesType)
+	namespaceVal, err := utils.ObjectToResolveVal(namespace)
+	if err != nil {
+		return nil, err
+	}
 	dataNew := map[string]any{
-		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: context},
-		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
-		compiler.ImageDataKey:     imagedata.Context{ContextInterface: context},
-		compiler.ObjectKey:        object.UnstructuredContent(),
-		compiler.ResourceKey:      resource.Context{ContextInterface: context},
-		compiler.VariablesKey:     vars,
+		compiler.NamespaceObjectKey: namespaceVal,
+		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: context},
+		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
+		compiler.ImageDataKey:       imagedata.Context{ContextInterface: context},
+		compiler.ObjectKey:          object.UnstructuredContent(),
+		compiler.ResourceKey:        resource.Context{ContextInterface: context},
+		compiler.VariablesKey:       vars,
 	}
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {

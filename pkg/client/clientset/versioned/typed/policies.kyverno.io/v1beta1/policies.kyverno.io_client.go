@@ -28,12 +28,57 @@ import (
 
 type PoliciesV1beta1Interface interface {
 	RESTClient() rest.Interface
+	DeletingPoliciesGetter
+	GeneratingPoliciesGetter
+	ImageValidatingPoliciesGetter
+	MutatingPoliciesGetter
+	NamespacedDeletingPoliciesGetter
+	NamespacedImageValidatingPoliciesGetter
+	NamespacedMutatingPoliciesGetter
+	NamespacedValidatingPoliciesGetter
+	PolicyExceptionsGetter
 	ValidatingPoliciesGetter
 }
 
 // PoliciesV1beta1Client is used to interact with features provided by the policies.kyverno.io group.
 type PoliciesV1beta1Client struct {
 	restClient rest.Interface
+}
+
+func (c *PoliciesV1beta1Client) DeletingPolicies() DeletingPolicyInterface {
+	return newDeletingPolicies(c)
+}
+
+func (c *PoliciesV1beta1Client) GeneratingPolicies() GeneratingPolicyInterface {
+	return newGeneratingPolicies(c)
+}
+
+func (c *PoliciesV1beta1Client) ImageValidatingPolicies() ImageValidatingPolicyInterface {
+	return newImageValidatingPolicies(c)
+}
+
+func (c *PoliciesV1beta1Client) MutatingPolicies() MutatingPolicyInterface {
+	return newMutatingPolicies(c)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedDeletingPolicies(namespace string) NamespacedDeletingPolicyInterface {
+	return newNamespacedDeletingPolicies(c, namespace)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedImageValidatingPolicies(namespace string) NamespacedImageValidatingPolicyInterface {
+	return newNamespacedImageValidatingPolicies(c, namespace)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedMutatingPolicies(namespace string) NamespacedMutatingPolicyInterface {
+	return newNamespacedMutatingPolicies(c, namespace)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedValidatingPolicies(namespace string) NamespacedValidatingPolicyInterface {
+	return newNamespacedValidatingPolicies(c, namespace)
+}
+
+func (c *PoliciesV1beta1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
+	return newPolicyExceptions(c, namespace)
 }
 
 func (c *PoliciesV1beta1Client) ValidatingPolicies() ValidatingPolicyInterface {

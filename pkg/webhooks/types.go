@@ -54,6 +54,8 @@ type ResourceHandlers struct {
 	Validation Handler
 	// ValidatingPolicies evaluates validating policies against kube resources
 	ValidatingPolicies Handler
+	// NamespacedValidatingPolicies evaluates namespaced validating policies against kube resources
+	NamespacedValidatingPolicies Handler
 	// ImageVerificationPolicies evaluates imageverificationpolicies mutation phase against kube resources
 	ImageVerificationPoliciesMutation Handler
 	// ImageVerificationPolicies evaluates imageverificationpolicies validation phase against kube resources
@@ -62,4 +64,6 @@ type ResourceHandlers struct {
 	GeneratingPolicies Handler
 	// MutatingPolicies evaluates mutating policies against kube resources
 	MutatingPolicies Handler
+	// NamespacedMutatingPolicies evaluates namespaced mutating policies against kube resources
+	NamespacedMutatingPolicies Handler
 }

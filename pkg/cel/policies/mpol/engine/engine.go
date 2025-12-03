@@ -2,10 +2,12 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -13,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -51,11 +54,11 @@ func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 }
 
 type MutatingPolicyResponse struct {
-	Policy *policiesv1alpha1.MutatingPolicy
+	Policy policiesv1beta1.MutatingPolicyLike
 	Rules  []engineapi.RuleResponse
 }
 
-type Predicate = func(policiesv1alpha1.MutatingPolicy) bool
+type Predicate = func(policiesv1beta1.MutatingPolicyLike) bool
 
 type engineImpl struct {
 	provider        Provider
@@ -154,7 +157,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
-		Policy: &mpol.Policy,
+		Policy: mpol.Policy,
 		Rules:  []engineapi.RuleResponse{},
 	}
 
@@ -178,17 +181,58 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		return ruleResponse, nil
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
-		var keys []string
-		for i := range result.Exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(result.Exceptions[i])
+		keys := make([]string, 0, len(result.Exceptions))
+
+		var (
+			highestPriority int
+			selectedIndex   int
+		)
+		for i, ex := range result.Exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(ex)
 			if err != nil {
-				ruleResponse.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Mutation, "failed to compute exception key", err, nil))
+				ruleResponse.Rules = handlers.WithResponses(
+					engineapi.RuleError(
+						"exception",
+						engineapi.Mutation,
+						"failed to compute exception key",
+						err,
+						nil,
+					),
+				)
 				return ruleResponse, nil
 			}
+
 			keys = append(keys, key)
-			exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
+			exceptions = append(exceptions, engineapi.NewCELPolicyException(ex))
+
+			// evaluate exception priority from label
+			if val, ok := ex.GetLabels()[reportutils.LabelPolicyExceptionPriority]; ok {
+				if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
+					highestPriority = p
+					selectedIndex = i
+				}
+			}
 		}
-		ruleResponse.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Mutation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions))
+		// determine final result based on highest-priority exception
+		selectedException := result.Exceptions[selectedIndex]
+		reportResult := selectedException.Spec.ReportResult
+
+		joinedKeys := strings.Join(keys, ", ")
+		msgPrefix := "rule is %s due to policy exception: " + joinedKeys
+		switch reportResult {
+		case string(engineapi.RuleStatusPass):
+			ruleResponse.Rules = handlers.WithResponses(
+				engineapi.RulePass("exception", engineapi.Mutation,
+					fmt.Sprintf(msgPrefix, "passed"), nil,
+				).WithExceptions(exceptions),
+			)
+		default:
+			ruleResponse.Rules = handlers.WithResponses(
+				engineapi.RuleSkip("exception", engineapi.Mutation,
+					fmt.Sprintf(msgPrefix, "skipped"), nil,
+				).WithExceptions(exceptions),
+			)
+		}
 	} else {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}

@@ -148,7 +148,7 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 				Rules: []engineapi.RuleResponse{r.Result},
 			},
 		}
-		engineResponse = engineResponse.WithPolicy(engineapi.NewImageValidatingPolicy(r.Policy))
+		engineResponse = engineResponse.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 		allEngineResponses = append(allEngineResponses, engineResponse)
 		if reportutils.IsPolicyReportable(r.Policy) {
 			reportableEngineResponses = append(reportableEngineResponses, engineResponse)

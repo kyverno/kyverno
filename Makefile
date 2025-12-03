@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.33.1
+KIND_IMAGE           ?= kindest/node:v1.34.0
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -43,7 +43,7 @@ LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
-CODE_GEN_VERSION                   ?= v0.33.4
+CODE_GEN_VERSION                   ?= v0.34.1
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
@@ -604,10 +604,15 @@ codegen-cli-crds: codegen-crds-cli
 	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedvalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_mutatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedmutatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_generatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedgeneratingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_imagevalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedimagevalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_deletingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespaceddeletingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-cli-docs
@@ -689,9 +694,13 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
 	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
 	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedvalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedvalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedimagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedimagevalidatingpolicies)
 	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedgeneratingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedgeneratingpolicies)
 	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedmutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedmutatingpolicies)
 	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
 	$(call generate_crd,policies.kyverno.io_namespaceddeletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespaceddeletingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
@@ -782,7 +791,7 @@ codegen-fix-all: codegen-fix-tests
 
 .PHONY: codegen-all
 codegen-all: ## Generate all generated code
-# codegen-all: codegen-api-all
+codegen-all: codegen-api-all
 codegen-all: codegen-client-all
 codegen-all: codegen-crds-all
 codegen-all: codegen-cli-all
@@ -1158,7 +1167,7 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+	@$(HELM) install metrics-server metrics-server --repo https://kubernetes-sigs.github.io/metrics-server/ \
 		--namespace kube-system --wait \
 		--values ./scripts/config/dev/metrics-server.yaml
 
