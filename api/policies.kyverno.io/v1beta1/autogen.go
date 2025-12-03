@@ -1,39 +1,14 @@
 package v1beta1
 
-type PodControllersGenerationConfiguration struct {
-	Controllers []string `json:"controllers,omitempty"`
-}
+import "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 
-type Target struct {
-	Group    string `json:"group,omitempty"`
-	Version  string `json:"version"`
-	Resource string `json:"resource"`
-	Kind     string `json:"kind"`
-}
-
-type ValidatingPolicyAutogenStatus struct {
-	Configs map[string]ValidatingPolicyAutogen `json:"configs,omitempty"`
-}
-
-type ValidatingPolicyAutogen struct {
-	Targets []Target              `json:"targets"`
-	Spec    *ValidatingPolicySpec `json:"spec"`
-}
-
-type ImageValidatingPolicyAutogenStatus struct {
-	Configs map[string]ImageValidatingPolicyAutogen `json:"configs,omitempty"`
-}
-
-type ImageValidatingPolicyAutogen struct {
-	Targets []Target                   `json:"targets"`
-	Spec    *ImageValidatingPolicySpec `json:"spec"`
-}
-
-type MutatingPolicyAutogenStatus struct {
-	Configs map[string]MutatingPolicyAutogen `json:"configs,omitempty"`
-}
-
-type MutatingPolicyAutogen struct {
-	Targets []Target            `json:"targets"`
-	Spec    *MutatingPolicySpec `json:"spec"`
-}
+type (
+	PodControllersGenerationConfiguration = v1alpha1.PodControllersGenerationConfiguration
+	Target                                = v1alpha1.Target
+	ValidatingPolicyAutogenStatus         = v1alpha1.ValidatingPolicyAutogenStatus
+	ValidatingPolicyAutogen               = v1alpha1.ValidatingPolicyAutogen
+	ImageValidatingPolicyAutogenStatus    = v1alpha1.ImageValidatingPolicyAutogenStatus
+	ImageValidatingPolicyAutogen          = v1alpha1.ImageValidatingPolicyAutogen
+	MutatingPolicyAutogenStatus           = v1alpha1.MutatingPolicyAutogenStatus
+	MutatingPolicyAutogen                 = v1alpha1.MutatingPolicyAutogen
+)

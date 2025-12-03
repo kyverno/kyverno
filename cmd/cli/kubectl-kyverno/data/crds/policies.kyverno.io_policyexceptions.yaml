@@ -123,6 +123,7 @@ spec:
             - policyRefs
             type: object
         required:
+        - metadata
         - spec
         type: object
     served: true

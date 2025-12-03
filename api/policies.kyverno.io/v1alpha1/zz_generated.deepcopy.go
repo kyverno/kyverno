@@ -1111,6 +1111,11 @@ func (in *MutatingPolicyEvaluationConfiguration) DeepCopyInto(out *MutatingPolic
 		*out = new(AdmissionConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Background != nil {
+		in, out := &in.Background, &out.Background
+		*out = new(BackgroundConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.MutateExistingConfiguration != nil {
 		in, out := &in.MutateExistingConfiguration, &out.MutateExistingConfiguration
 		*out = new(MutateExistingConfiguration)
@@ -1167,22 +1172,22 @@ func (in *MutatingPolicySpec) DeepCopyInto(out *MutatingPolicySpec) {
 	*out = *in
 	if in.MatchConstraints != nil {
 		in, out := &in.MatchConstraints, &out.MatchConstraints
-		*out = new(admissionregistrationv1alpha1.MatchResources)
+		*out = new(admissionregistrationv1.MatchResources)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.FailurePolicy != nil {
 		in, out := &in.FailurePolicy, &out.FailurePolicy
-		*out = new(admissionregistrationv1alpha1.FailurePolicyType)
+		*out = new(admissionregistrationv1.FailurePolicyType)
 		**out = **in
 	}
 	if in.MatchConditions != nil {
 		in, out := &in.MatchConditions, &out.MatchConditions
-		*out = make([]admissionregistrationv1alpha1.MatchCondition, len(*in))
+		*out = make([]admissionregistrationv1.MatchCondition, len(*in))
 		copy(*out, *in)
 	}
 	if in.Variables != nil {
 		in, out := &in.Variables, &out.Variables
-		*out = make([]admissionregistrationv1alpha1.Variable, len(*in))
+		*out = make([]admissionregistrationv1.Variable, len(*in))
 		copy(*out, *in)
 	}
 	if in.AutogenConfiguration != nil {
@@ -1192,7 +1197,7 @@ func (in *MutatingPolicySpec) DeepCopyInto(out *MutatingPolicySpec) {
 	}
 	if in.TargetMatchConstraints != nil {
 		in, out := &in.TargetMatchConstraints, &out.TargetMatchConstraints
-		*out = new(admissionregistrationv1alpha1.MatchResources)
+		*out = new(admissionregistrationv1.MatchResources)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Mutations != nil {
