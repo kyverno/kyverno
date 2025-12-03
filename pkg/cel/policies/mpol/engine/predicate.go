@@ -35,3 +35,14 @@ func And(conditions ...Predicate) Predicate {
 		return true
 	}
 }
+
+func Or(conditions ...Predicate) Predicate {
+	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+		for _, condition := range conditions {
+			if condition != nil && condition(policy) {
+				return true
+			}
+		}
+		return false
+	}
+}

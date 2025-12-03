@@ -144,6 +144,10 @@ func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.A
 
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
+		if !Or(ClusteredPolicy(), NamespacedPolicy(attr.GetNamespace()))(mpol.Policy) {
+			continue
+		}
+
 		matcher := matching.NewMatcher()
 		matchConstraints := mpol.Policy.GetSpec().MatchConstraints
 		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: matchConstraints}, attr, namespace); err != nil || !ok {
