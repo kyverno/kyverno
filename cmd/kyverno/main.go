@@ -172,7 +172,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
 		kyvernoInformer.Policies().V1beta1().ImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),

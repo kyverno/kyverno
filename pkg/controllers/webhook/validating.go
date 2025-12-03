@@ -5,7 +5,6 @@ import (
 	"path"
 	"slices"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
@@ -60,7 +59,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.MatchConditions = append(webhook.MatchConditions, validConditions(expressionCache, p.GetMatchConditions())...)
 			}
 
-			if _, ok := p.(*policiesv1alpha1.GeneratingPolicy); ok {
+			if _, ok := p.(*policiesv1beta1.GeneratingPolicy); ok {
 				// all four operations including CONNECT are needed for generate.
 				for _, match := range p.GetMatchConstraints().ResourceRules {
 					rule := match.RuleWithOperations
@@ -317,7 +316,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					}
 				}
 			}
-			if _, ok := p.(*policiesv1alpha1.GeneratingPolicy); ok {
+			if _, ok := p.(*policiesv1beta1.GeneratingPolicy); ok {
 				// all four operations including CONNECT are needed for generate.
 				for _, match := range p.GetMatchConstraints().ResourceRules {
 					rule := match.RuleWithOperations

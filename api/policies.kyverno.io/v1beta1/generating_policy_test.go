@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -74,16 +75,15 @@ func TestGetFailurePolicyGpol(t *testing.T) {
 }
 
 func TestGetWebhookConfigurationGpol(t *testing.T) {
-	val := int32(3984)
 	gpol := &GeneratingPolicy{
 		Spec: GeneratingPolicySpec{
 			WebhookConfiguration: &WebhookConfiguration{
-				TimeoutSeconds: &val,
+				TimeoutSeconds: ptr.To[int32](3984),
 			},
 		},
 	}
-	res := gpol.GetWebhookConfiguration()
-	assert.Equal(t, res.TimeoutSeconds, &val, "timeout and val should be equal")
+	res := gpol.GetTimeoutSeconds()
+	assert.Equal(t, res, ptr.To[int32](3984), "timeout and val should be equal")
 }
 
 func TestVariablesGpol(t *testing.T) {
