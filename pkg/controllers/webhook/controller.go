@@ -15,10 +15,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -134,7 +132,7 @@ type controller struct {
 	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister       policiesv1beta1listers.NamespacedValidatingPolicyLister
-	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
+	gpolLister        policiesv1beta1listers.GeneratingPolicyLister
 	ivpolLister       policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister      policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	mpolLister        policiesv1beta1listers.MutatingPolicyLister
@@ -183,7 +181,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
