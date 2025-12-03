@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1alpha1.MutatingPolicy) error {
+func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy) error {
 	genericPolicy := engineapi.NewMutatingPolicy(mpol)
 	// check if the controller has the required permissions to generate MutatingAdmissionPolicies.
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermission(c.checker) {

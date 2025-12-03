@@ -1,6 +1,9 @@
 package processor
 
 import (
+	"encoding/json"
+
+	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -20,7 +23,7 @@ func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool
 	return false
 }
 
-func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, contextPath string, registryAccess bool, isFake bool) (libs.Context, error) {
+func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool) (libs.Context, error) {
 	if dclient != nil && !isFake {
 		return libs.NewContextProvider(
 			dclient,
@@ -33,7 +36,7 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, c
 
 	fakeContextProvider := libs.NewFakeContextProvider()
 	if contextPath != "" {
-		ctx, err := clicontext.Load(nil, contextPath)
+		ctx, err := clicontext.Load(f, contextPath)
 		if err != nil {
 			return nil, err
 		}
@@ -47,6 +50,17 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, c
 			if err := fakeContextProvider.AddResource(mapping.Resource, &resource); err != nil {
 				return nil, err
 			}
+		}
+		for _, imgData := range ctx.ContextSpec.Images {
+			raw, err := json.Marshal(imgData)
+			if err != nil {
+				return nil, err
+			}
+			var asMap map[string]any
+			if err := json.Unmarshal(raw, &asMap); err != nil {
+				return nil, err
+			}
+			fakeContextProvider.AddImageData(imgData.Image, asMap)
 		}
 	}
 	return fakeContextProvider, nil

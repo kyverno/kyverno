@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,18 +17,18 @@ func Test_ImageSignatureVerificationKeyless(t *testing.T) {
 	img, err := idf.FetchImageData(context.TODO(), image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
+	attestor := &v1beta1.Attestor{
 		Name: "test",
-		Cosign: &v1alpha1.Cosign{
-			Keyless: &v1alpha1.Keyless{
-				Identities: []v1alpha1.Identity{
+		Cosign: &v1beta1.Cosign{
+			Keyless: &v1beta1.Keyless{
+				Identities: []v1beta1.Identity{
 					{
 						Issuer:  "https://github.com/login/oauth",
 						Subject: "jim@nirmata.com",
 					},
 				},
 			},
-			CTLog: &v1alpha1.CTLog{
+			CTLog: &v1beta1.CTLog{
 				URL:               "https://rekor.sigstore.dev",
 				InsecureIgnoreSCT: true,
 			},
@@ -47,18 +47,18 @@ func Test_ImageSignatureVerificationFail(t *testing.T) {
 	img, err := idf.FetchImageData(context.TODO(), image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
+	attestor := &v1beta1.Attestor{
 		Name: "test",
-		Cosign: &v1alpha1.Cosign{
-			Keyless: &v1alpha1.Keyless{
-				Identities: []v1alpha1.Identity{
+		Cosign: &v1beta1.Cosign{
+			Keyless: &v1beta1.Keyless{
+				Identities: []v1beta1.Identity{
 					{
 						Issuer:  "https://github.com/login/oauth",
 						Subject: "jim@invalid.com",
 					},
 				},
 			},
-			CTLog: &v1alpha1.CTLog{
+			CTLog: &v1beta1.CTLog{
 				URL:               "https://rekor.sigstore.dev",
 				InsecureIgnoreSCT: true,
 			},
@@ -77,16 +77,16 @@ func Test_ImageSignatureVerificationKeyed(t *testing.T) {
 	img, err := idf.FetchImageData(context.TODO(), image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
+	attestor := &v1beta1.Attestor{
 		Name: "test",
-		Cosign: &v1alpha1.Cosign{
-			Key: &v1alpha1.Key{
+		Cosign: &v1beta1.Cosign{
+			Key: &v1beta1.Key{
 				Data: `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
 5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
 -----END PUBLIC KEY-----`,
 			},
-			CTLog: &v1alpha1.CTLog{
+			CTLog: &v1beta1.CTLog{
 				URL:                "https://rekor.sigstore.dev",
 				InsecureIgnoreTlog: true,
 			},
@@ -105,16 +105,16 @@ func Test_ImageSignatureVerificationKeyedFail(t *testing.T) {
 	img, err := idf.FetchImageData(context.TODO(), image)
 	assert.NoError(t, err)
 
-	attestor := &v1alpha1.Attestor{
+	attestor := &v1beta1.Attestor{
 		Name: "test",
-		Cosign: &v1alpha1.Cosign{
-			Key: &v1alpha1.Key{
+		Cosign: &v1beta1.Cosign{
+			Key: &v1beta1.Key{
 				Data: `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoKYkkX32oSx61B4iwKXa6llAF2dB
 IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 -----END PUBLIC KEY-----`,
 			},
-			CTLog: &v1alpha1.CTLog{
+			CTLog: &v1beta1.CTLog{
 				URL:                "https://rekor.sigstore.dev",
 				InsecureIgnoreTlog: true,
 			},

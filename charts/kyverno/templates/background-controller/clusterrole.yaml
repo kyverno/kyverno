@@ -52,6 +52,7 @@ rules:
     resources:
       - generatingpolicies
       - mutatingpolicies
+      - namespacedmutatingpolicies
       - policyexceptions
     verbs:
       - create

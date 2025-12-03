@@ -1,0 +1,19 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: test-nginx
+  namespace: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest

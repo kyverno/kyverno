@@ -29,7 +29,7 @@ func (c *controller) getValidatingPolicy(name string) (*policiesv1beta1.Validati
 }
 
 // getMutatingPolicy gets the Kyverno MutatingPolicy
-func (c *controller) getMutatingPolicy(name string) (*policiesv1alpha1.MutatingPolicy, error) {
+func (c *controller) getMutatingPolicy(name string) (*policiesv1beta1.MutatingPolicy, error) {
 	mpol, err := c.mpolLister.Get(name)
 	if err != nil {
 		return nil, err

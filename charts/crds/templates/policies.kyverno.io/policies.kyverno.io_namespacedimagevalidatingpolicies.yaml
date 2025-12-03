@@ -31,7 +31,7 @@ spec:
     - jsonPath: .status.conditionStatus.ready
       name: READY
       type: string
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
         properties:

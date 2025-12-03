@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: report-admission
+spec:
+  steps:
+  - name: create namespace
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: test-nivpol
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-namespaced-image-validating-policy-ready
+    use:
+      template: ../../_step-templates/namespaced-image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-report-admission-sample
+        - name: namespace
+          value: test-nivpol
+  - name: create deployment (should audit)
+    try:
+    - create:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: test
+            namespace: test-nivpol
+            labels:
+              env: dev
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: test
+            template:
+              metadata:
+                labels:
+                  app: test
+                  env: dev
+              spec:
+                containers:
+                - name: c
+                  image: ghcr.io/kyverno/test-verify-image:latest
+

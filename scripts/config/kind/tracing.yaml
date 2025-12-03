@@ -27,8 +27,6 @@ kubeadmConfigPatches:
     metricsBindAddress: 0.0.0.0
   - |-
     kind: KubeletConfiguration
-    featureGates:
-      KubeletTracing: true
     tracing:
       endpoint: localhost:4317
       samplingRatePerMillion: 1000000

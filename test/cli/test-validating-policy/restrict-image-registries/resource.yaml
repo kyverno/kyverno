@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: badpod01
+spec:
+  containers:
+  - name: busybox01
+    image: ghrc.io/kyverno/test-busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: badpod02
+  namespace: imageregistries-ns01
+spec:
+  initContainers:
+  - name: busybox01-init
+    image: ghcr.io/kyverno/test-busybox:1.35
+  - name: busybox02-init
+    image: ghcr.io/busybox:1.35
+  containers:
+  - name: busybox01
+    image: ghcr.io/busybox:1.35
+  - name: busybox02
+    image: corp.img.io/busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: badpod03
+  namespace: imageregistries-ns01
+spec:
+  initContainers:
+  - name: busybox01-init
+    image: corp.img.io/busybox:1.35
+  containers:
+  - name: busybox01
+    image: img.corp.com/busybox:1.35
+  - name: busybox02
+    image: docker.io/busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: badpod04
+spec:
+  initContainers:
+  - name: busybox01-init
+    image: corp.img.io/busybox:1.35
+  containers:
+  - name: busybox01
+    image: ghcr.io/busybox:1.35
+  - name: busybox02
+    image: ghcr.io/busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goodpod01
+  namespace: imageregistries-ns01
+spec:
+  initContainers:
+  - name: busybox01-init
+    image: img.corp.com/busybox:1.35
+  containers:
+  - name: busybox02
+    image: img.corp.com/busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goodpod02
+  namespace: imageregistries-ns01
+spec:
+  initContainers:
+  - name: busybox01-init
+    image: ghcr.io/busybox:1.35
+  containers:
+  - name: busybox01
+    image: docker.io/busybox:1.35
+  - name: busybox02
+    image: docker.io/busybox:1.35
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goodpod03
+spec:
+  initContainers:
+  - name: busybox01-init
+    image: myregistry/busybox:1.35
+  containers:
+  - name: busybox01
+    image: ghcr.io/busybox:1.35
+  - name: busybox02
+    image: ghcr.io/busybox:1.35
