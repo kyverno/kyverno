@@ -119,7 +119,7 @@ type GenericPolicy interface {
 	// AsNamespacedMutatingPolicy returns the namespaced mutating policy
 	AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy
 	// AsGeneratingPolicy returns the generating policy
-	AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy
+	AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
 	AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike
 }
@@ -134,8 +134,8 @@ type genericPolicy struct {
 	NamespacedImageValidatingPolicy *policiesv1beta1.NamespacedImageValidatingPolicy
 	MutatingPolicy                  *policiesv1beta1.MutatingPolicy
 	NamespacedMutatingPolicy        *policiesv1beta1.NamespacedMutatingPolicy
-	GeneratingPolicy                *policiesv1alpha1.GeneratingPolicy
-	NamespacedGeneratingPolicy      *policiesv1alpha1.NamespacedGeneratingPolicy
+	GeneratingPolicy                *policiesv1beta1.GeneratingPolicy
+	NamespacedGeneratingPolicy      *policiesv1beta1.NamespacedGeneratingPolicy
 	DeletingPolicy                  policiesv1beta1.DeletingPolicyLike
 	// originalAPIVersion tracks the original API version for converted policies
 	originalAPIVersion string
@@ -181,7 +181,7 @@ func (p *genericPolicy) AsNamespacedMutatingPolicy() *policiesv1beta1.Namespaced
 	return p.NamespacedMutatingPolicy
 }
 
-func (p *genericPolicy) AsGeneratingPolicy() *policiesv1alpha1.GeneratingPolicy {
+func (p *genericPolicy) AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy {
 	return p.GeneratingPolicy
 }
 
@@ -550,25 +550,25 @@ func NewMutatingPolicyFromLike(pol policiesv1beta1.MutatingPolicyLike) GenericPo
 	}
 }
 
-func NewGeneratingPolicy(pol *policiesv1alpha1.GeneratingPolicy) GenericPolicy {
+func NewGeneratingPolicy(pol *policiesv1beta1.GeneratingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:           pol,
 		GeneratingPolicy: pol,
 	}
 }
 
-func NewNamespacedGeneratingPolicy(pol *policiesv1alpha1.NamespacedGeneratingPolicy) GenericPolicy {
+func NewNamespacedGeneratingPolicy(pol *policiesv1beta1.NamespacedGeneratingPolicy) GenericPolicy {
 	return &genericPolicy{
 		Object:                     pol,
 		NamespacedGeneratingPolicy: pol,
 	}
 }
 
-func NewGeneratingPolicyFromLike(pol policiesv1alpha1.GeneratingPolicyLike) GenericPolicy {
+func NewGeneratingPolicyFromLike(pol policiesv1beta1.GeneratingPolicyLike) GenericPolicy {
 	switch typed := pol.(type) {
-	case *policiesv1alpha1.GeneratingPolicy:
+	case *policiesv1beta1.GeneratingPolicy:
 		return NewGeneratingPolicy(typed)
-	case *policiesv1alpha1.NamespacedGeneratingPolicy:
+	case *policiesv1beta1.NamespacedGeneratingPolicy:
 		return NewNamespacedGeneratingPolicy(typed)
 	default:
 		return nil
