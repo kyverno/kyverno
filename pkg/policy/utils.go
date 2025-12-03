@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"strings"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/ext/wildcard"
@@ -72,4 +74,12 @@ func policyKey(policy kyvernov1.PolicyInterface) string {
 		policyNameNamespaceKey = policy.GetName()
 	}
 	return policyNameNamespaceKey
+}
+
+func ParsePolicyKey(policy string) (string, string) {
+	parts := strings.Split(policy, "/")
+	if len(parts) == 2 {
+		return parts[1], parts[0]
+	}
+	return parts[0], ""
 }

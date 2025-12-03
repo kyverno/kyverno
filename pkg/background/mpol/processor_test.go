@@ -197,7 +197,7 @@ func TestCollectGVK_NoNamespaceSelector(t *testing.T) {
 		}},
 	}
 
-	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, m)
+	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, m, "")
 
 	assert.Contains(t, result, "*")
 	assert.Equal(t, 1, len(result["*"]))
