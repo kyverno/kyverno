@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
@@ -39,7 +40,7 @@ func newReconciler(
 }
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var policy policiesv1alpha1.ImageValidatingPolicy
+	var policy policiesv1beta1.ImageValidatingPolicy
 	err := r.client.Get(ctx, req.NamespacedName, &policy)
 	if errors.IsNotFound(err) {
 		r.lock.Lock()
@@ -74,7 +75,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			Name: name,
 		}
 		r.policies[namespacedName.String()] = Policy{
-			Policy: &policiesv1alpha1.ImageValidatingPolicy{
+			Policy: &policiesv1beta1.ImageValidatingPolicy{
 				TypeMeta:   policy.TypeMeta,
 				ObjectMeta: policy.ObjectMeta,
 				Spec:       *p.Spec,

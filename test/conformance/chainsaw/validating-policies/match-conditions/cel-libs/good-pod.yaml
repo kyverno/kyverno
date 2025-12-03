@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+spec:
+  containers:
+  - name: container01
+    image: corp.reg.com/busybox:1.35
+    securityContext:
+      allowPrivilegeEscalation: false

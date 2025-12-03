@@ -11,6 +11,6 @@ type GenericPolicy interface {
 	GetMatchConstraints() admissionregistrationv1.MatchResources
 	GetMatchConditions() []admissionregistrationv1.MatchCondition
 	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
-	GetWebhookConfiguration() *WebhookConfiguration
+	GetTimeoutSeconds() *int32
 	GetVariables() []admissionregistrationv1.Variable
 }

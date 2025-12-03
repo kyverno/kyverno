@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-privilege-escalation
+  name: ($test.metadata.name)
 status:
   autogen:
     rules:

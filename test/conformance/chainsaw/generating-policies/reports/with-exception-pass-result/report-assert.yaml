@@ -1,0 +1,56 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: v1
+    kind: Namespace
+    name: production-3
+results:
+- message: policy evaluated successfully
+  policy: reports-with-exceptions-pass-result
+  properties:
+    generated-resources: /v1, Kind=ConfigMap Name=zk-kafka-address Namespace=production-3
+    process: admission review
+  result: pass
+  scored: true
+  source: KyvernoGeneratingPolicy
+scope:
+  apiVersion: v1
+  kind: Namespace
+  name: production-3
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: v1
+    kind: Namespace
+    name: testing-3
+results:
+- policy: reports-with-exceptions-pass-result
+  properties:
+    exceptions: reports-with-exceptions
+    process: admission review
+  result: pass
+  scored: true
+  source: KyvernoGeneratingPolicy
+scope:
+  apiVersion: v1
+  kind: Namespace
+  name: testing-3
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

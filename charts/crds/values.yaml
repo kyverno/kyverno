@@ -1,9 +1,10 @@
-# -- Internal settings used with `helm template` to generate install manifest
-# @ignored
-templating:
-  enabled: false
-  debug: false
-  version: ~
+global:
+  # -- Internal settings used with `helm template` to generate install manifest
+  # @ignored
+  templating:
+    enabled: false
+    debug: false
+    version: ~
 
 groups:
   # -- Install CRDs in group `kyverno.io`
@@ -21,6 +22,9 @@ groups:
   policies:
     validatingpolicies: true
     imagevalidatingpolicies: true
+    namespacedimagevalidatingpolicies: true
+    namespacedvalidatingpolicies: true
+    namespaceddeletingpolicies: true
     policyexceptions: true
     mutatingpolicies: true
     generatingpolicies: true

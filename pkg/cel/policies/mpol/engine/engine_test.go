@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -49,7 +51,7 @@ func TestGetPatches(t *testing.T) {
 		data := patched.Object["data"].(map[string]interface{})
 		data["key2"] = "value2"
 
-		policy := &policiesv1alpha1.MutatingPolicy{
+		policy := &policiesv1beta1.MutatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "sample-policy",
 				Namespace: "default",
@@ -84,7 +86,7 @@ func TestGetPatches(t *testing.T) {
 		assert.Equal(t, "value2", patches[0].Value)
 
 		assert.Len(t, er.Policies, 1)
-		assert.Equal(t, "sample-policy", er.Policies[0].Policy.Name)
+		assert.Equal(t, "sample-policy", er.Policies[0].Policy.GetName())
 		assert.Len(t, er.Policies[0].Rules, 1)
 	})
 
@@ -142,29 +144,6 @@ func TestGetPatches(t *testing.T) {
 	})
 }
 
-// mock Context
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
-	panic("not implemented")
-}
-
 type mockAttributes struct{}
 
 func (m *mockAttributes) GetName() string      { return "" }
@@ -212,7 +191,7 @@ var (
 	nsResolver = func(ns string) *corev1.Namespace {
 		return nil
 	}
-	predicate     = func(p policiesv1alpha1.MutatingPolicy) bool { return true }
+	predicate     = func(p policiesv1beta1.MutatingPolicyLike) bool { return true }
 	typeConverter = compiler.NewStaticTypeConverterManager(openapi.NewClient(&rest.RESTClient{}))
 )
 
@@ -233,13 +212,13 @@ func (f *fakeTypeConverter) GetTypeConverter(gvk schema.GroupVersionKind) manage
 
 func TestEvaluate(t *testing.T) {
 	t.Run("no policies and no exceptions returns empty response without error", func(t *testing.T) {
-		pols := []policiesv1alpha1.MutatingPolicy{}
+		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1alpha1.PolicyException{}
 
 		provider, err := NewProvider(compiler.NewCompiler(), pols, polexs)
 
 		assert.NoError(t, err)
-		engine := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+		engine := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.NotNil(t, resp)
@@ -247,7 +226,7 @@ func TestEvaluate(t *testing.T) {
 	})
 
 	t.Run("provider fetch failure returns error and empty response", func(t *testing.T) {
-		engine := NewEngine(&mockFailingProvider{}, nsResolver, matcher, typeConverter, &fakeContext{})
+		engine := NewEngine(&mockFailingProvider{}, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.Error(t, err)
@@ -256,18 +235,18 @@ func TestEvaluate(t *testing.T) {
 
 	t.Run("successful match and mutation with mutateExisting enabled", func(t *testing.T) {
 		mutateExisting := true
-		mpol := policiesv1alpha1.MutatingPolicy{
+		mpol := &policiesv1beta1.MutatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "add-label",
 			},
-			Spec: policiesv1alpha1.MutatingPolicySpec{
-				EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
-					MutateExistingConfiguration: &policiesv1alpha1.MutateExistingConfiguration{
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
 						Enabled: &mutateExisting,
 					},
 				},
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
 							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 								Operations: []admissionregistrationv1.OperationType{"CREATE"},
@@ -291,7 +270,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		pols := []policiesv1alpha1.MutatingPolicy{mpol}
+		pols := []policiesv1beta1.MutatingPolicyLike{mpol}
 
 		provider, err := NewProvider(compiler.NewCompiler(), pols, nil)
 
@@ -300,7 +279,7 @@ func TestEvaluate(t *testing.T) {
 			provider,
 			func(ns string) *corev1.Namespace {
 				return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
-			}, matcher, &fakeTypeConverter{}, &fakeContext{})
+			}, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
 		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 
 		assert.NotNil(t, resp)
@@ -311,7 +290,7 @@ func TestEvaluate(t *testing.T) {
 func TestHandle(t *testing.T) {
 	tests := []struct {
 		name           string
-		policies       []policiesv1alpha1.MutatingPolicy
+		policies       []policiesv1beta1.MutatingPolicyLike
 		requestObject  string
 		kind           string
 		matchNamespace string
@@ -322,14 +301,14 @@ func TestHandle(t *testing.T) {
 	}{
 		{
 			name: "Successful match and mutation",
-			policies: []policiesv1alpha1.MutatingPolicy{
-				{
+			policies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "add-label",
 					},
-					Spec: policiesv1alpha1.MutatingPolicySpec{
-						MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-							ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
 									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 										Operations: []admissionregistrationv1.OperationType{"CREATE"},
@@ -356,34 +335,34 @@ func TestHandle(t *testing.T) {
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return true },
+			predicate:      func(p policiesv1beta1.MutatingPolicyLike) bool { return true },
 			expectPolicies: 1,
 			expectPatched:  true,
 			expectLabel:    "test",
 		},
 		{
 			name: "predicate returns false",
-			policies: []policiesv1alpha1.MutatingPolicy{
-				{
+			policies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "skip-policy"},
-					Spec:       policiesv1alpha1.MutatingPolicySpec{},
+					Spec:       policiesv1beta1.MutatingPolicySpec{},
 				},
 			},
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return false },
+			predicate:      func(p policiesv1beta1.MutatingPolicyLike) bool { return false },
 			expectPolicies: 0,
 			expectPatched:  false,
 		},
 		{
 			name: "no mutation specified",
-			policies: []policiesv1alpha1.MutatingPolicy{
-				{
+			policies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "no-mutation"},
-					Spec: policiesv1alpha1.MutatingPolicySpec{
-						MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-							ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
 									ResourceNames: []string{"Deployment"},
 								},
@@ -395,7 +374,7 @@ func TestHandle(t *testing.T) {
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return true },
+			predicate:      func(p policiesv1beta1.MutatingPolicyLike) bool { return true },
 			expectPolicies: 1,
 			expectPatched:  false,
 		},
@@ -419,7 +398,7 @@ func TestHandle(t *testing.T) {
 				},
 				matching.NewMatcher(),
 				&fakeTypeConverter{},
-				&fakeContext{},
+				&libs.FakeContextProvider{},
 			)
 
 			dryRun := true
@@ -484,12 +463,12 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 			},
 		}
 
-		pols := []policiesv1alpha1.MutatingPolicy{}
+		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1alpha1.PolicyException{}
 
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 
-		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 
 		resp := eng.MatchedMutateExistingPolicies(ctx, req)
 
@@ -512,11 +491,11 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 			},
 		}
 
-		pols := []policiesv1alpha1.MutatingPolicy{}
+		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1alpha1.PolicyException{}
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 
-		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 
 		resp := eng.MatchedMutateExistingPolicies(ctx, req)
 
