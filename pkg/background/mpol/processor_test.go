@@ -86,12 +86,12 @@ type fakeEngine struct {
 	mock.Mock
 }
 
-func (f *fakeEngine) Evaluate(ctx context.Context, adm admission.Attributes, amdv1 admissionv1.AdmissionRequest, filter func(policiesv1alpha1.MutatingPolicy) bool) (mpolengine.EngineResponse, error) {
+func (f *fakeEngine) Evaluate(ctx context.Context, adm admission.Attributes, amdv1 admissionv1.AdmissionRequest, filter mpolengine.Predicate) (mpolengine.EngineResponse, error) {
 	args := f.Called()
 	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
 }
 
-func (f *fakeEngine) Handle(ctx context.Context, engine engine.EngineRequest, filter func(policiesv1alpha1.MutatingPolicy) bool) (mpolengine.EngineResponse, error) {
+func (f *fakeEngine) Handle(ctx context.Context, engine engine.EngineRequest, filter mpolengine.Predicate) (mpolengine.EngineResponse, error) {
 	args := f.Called()
 	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
 }
@@ -197,7 +197,7 @@ func TestCollectGVK_NoNamespaceSelector(t *testing.T) {
 		}},
 	}
 
-	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, m)
+	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, m, "")
 
 	assert.Contains(t, result, "*")
 	assert.Equal(t, 1, len(result["*"]))

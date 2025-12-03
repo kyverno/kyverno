@@ -23,7 +23,7 @@ jobs:
       tests: ${{ steps.set-tests.outputs.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Set Tests
         id: set-tests
         run: echo "tests=$(jq -c . < ./test/load/k6/${{ github.event_name }}-matrix.json)" >> $GITHUB_OUTPUT
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
@@ -66,9 +66,9 @@ jobs:
         k8s-version: [v1.31.0]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -108,10 +108,18 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
         run: |
@@ -148,9 +156,9 @@ jobs:
         k8s-version: [v1.31.0]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -187,10 +195,18 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
         run: |
@@ -238,9 +254,9 @@ jobs:
         test: ${{ fromJson(needs.define-matrix.outputs.tests) }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -283,10 +299,18 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
         run: |
