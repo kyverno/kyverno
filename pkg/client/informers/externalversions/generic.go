@@ -87,8 +87,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().ImageValidatingPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("mutatingpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().MutatingPolicies().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("namespacedgeneratingpolicies"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().NamespacedGeneratingPolicies().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("policyexceptions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().PolicyExceptions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("validatingpolicies"):
@@ -105,6 +103,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().MutatingPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("namespaceddeletingpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedDeletingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("namespacedgeneratingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedGeneratingPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("namespacedimagevalidatingpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedImageValidatingPolicies().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("namespacedmutatingpolicies"):

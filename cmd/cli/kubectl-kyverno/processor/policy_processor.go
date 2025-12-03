@@ -65,7 +65,7 @@ type PolicyProcessor struct {
 	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1beta1.ValidatingPolicy
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
-	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
+	GeneratingPolicies                []policiesv1beta1.GeneratingPolicy
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicy
 	NamespacedMutatingPolicies        []policiesv1beta1.NamespacedMutatingPolicy
 	Resource                          unstructured.Unstructured
