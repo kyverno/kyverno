@@ -48,6 +48,7 @@ var (
 	ndpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
 	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
 	mpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("MutatingPolicy")
+	nmpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedMutatingPolicy")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapV1beta1         = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
@@ -70,10 +71,11 @@ type LoaderResults struct {
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
 	ImageValidatingPolicies           []policiesv1beta1.ImageValidatingPolicy
 	NamespacedImageValidatingPolicies []policiesv1beta1.NamespacedImageValidatingPolicy
-	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
+	GeneratingPolicies                []policiesv1beta1.GeneratingPolicy
 	DeletingPolicies                  []policiesv1beta1.DeletingPolicy
 	NamespacedDeletingPolicies        []policiesv1beta1.NamespacedDeletingPolicy
-	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
+	MutatingPolicies                  []policiesv1beta1.MutatingPolicy
+	NamespacedMutatingPolicies        []policiesv1beta1.NamespacedMutatingPolicy
 	NonFatalErrors                    []LoaderError
 }
 
@@ -94,6 +96,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
 	l.NamespacedDeletingPolicies = append(l.NamespacedDeletingPolicies, results.NamespacedDeletingPolicies...)
 	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
+	l.NamespacedMutatingPolicies = append(l.NamespacedMutatingPolicies, results.NamespacedMutatingPolicies...)
 }
 
 func (l *LoaderResults) addError(path string, err error) {
@@ -229,7 +232,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.MAPBindings = append(results.MAPBindings, *typed)
 		case gpsV1alpha1, gpsV1beta1:
-			typed, err := convert.To[policiesv1alpha1.GeneratingPolicy](untyped)
+			typed, err := convert.To[policiesv1beta1.GeneratingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
@@ -247,11 +250,17 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.NamespacedDeletingPolicies = append(results.NamespacedDeletingPolicies, *typed)
 		case mpV1alpha1, mpV1beta1:
-			typed, err := convert.To[policiesv1alpha1.MutatingPolicy](untyped)
+			typed, err := convert.To[policiesv1beta1.MutatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.MutatingPolicies = append(results.MutatingPolicies, *typed)
+		case nmpV1beta1:
+			typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.NamespacedMutatingPolicies = append(results.NamespacedMutatingPolicies, *typed)
 		default:
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}
