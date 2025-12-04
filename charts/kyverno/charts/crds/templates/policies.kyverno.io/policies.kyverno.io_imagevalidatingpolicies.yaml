@@ -20,7 +20,7 @@ spec:
     listKind: ImageValidatingPolicyList
     plural: imagevalidatingpolicies
     shortNames:
-    - ivpol
+    - imgvp
     singular: imagevalidatingpolicy
   scope: Cluster
   versions:
