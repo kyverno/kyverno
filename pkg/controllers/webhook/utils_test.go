@@ -687,40 +687,47 @@ func TestDeduplicateRules(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name     string
-		input    []admissionregistrationv1.RuleWithOperations
-		expected int
+		name          string
+		input         []admissionregistrationv1.RuleWithOperations
+		expectedCount int
+		expectedRules []admissionregistrationv1.RuleWithOperations
 	}{
 		{
-			name:     "No duplicates",
-			input:    []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
-			expected: 2,
+			name:          "No duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
+			expectedCount: 2,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
 		},
 		{
-			name:     "Simple exact duplicate",
-			input:    []admissionregistrationv1.RuleWithOperations{rule1, rule2_ExactDuplicate},
-			expected: 1,
+			name:          "Simple exact duplicate",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule2_ExactDuplicate},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1},
 		},
 		{
-			name:     "Logical duplicate (different slice order)",
-			input:    []admissionregistrationv1.RuleWithOperations{rule1, rule3_LogicalDuplicate},
-			expected: 1,
+			name:          "Logical duplicate (different slice order)",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule3_LogicalDuplicate},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1},
 		},
 		{
-			name:     "All types of duplicates and unique rules",
-			input:    []admissionregistrationv1.RuleWithOperations{rule1, rule2_ExactDuplicate, rule3_LogicalDuplicate, rule4_Unique},
-			expected: 2,
+			name:          "All types of duplicates and unique rules",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule2_ExactDuplicate, rule3_LogicalDuplicate, rule4_Unique},
+			expectedCount: 2,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
 		},
 		{
-			name:     "Empty list",
-			input:    []admissionregistrationv1.RuleWithOperations{},
-			expected: 0,
+			name:          "Empty list",
+			input:         []admissionregistrationv1.RuleWithOperations{},
+			expectedCount: 0,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := deDuplicatedRules(tc.input)
-			assert.Equal(t, tc.expected, len(result))
+			assert.Equal(t, tc.expectedCount, len(result))
+			assert.Equal(t, tc.expectedRules, result)
 		})
 	}
 }
