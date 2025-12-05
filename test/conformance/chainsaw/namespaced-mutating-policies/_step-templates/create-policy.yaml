@@ -1,10 +1,1 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/step-chainsaw-v1alpha1.json
-apiVersion: chainsaw.kyverno.io/v1alpha1
-kind: Step
-template: true
-bindings:
-- name: file
-  value: policy.yaml
-try:
-- create:
-    file: ($file)
+../../_step-templates/create-policy.yaml

@@ -1328,6 +1328,8 @@ jobs:
       - lease
       - mutate
       - namespaced-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-generating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
@@ -1375,6 +1377,8 @@ jobs:
       - lease
       - mutate
       - namespaced-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-generating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
