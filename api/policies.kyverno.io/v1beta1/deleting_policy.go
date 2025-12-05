@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/aptible/supercronic/cronexpr"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -12,6 +12,11 @@ import (
 const (
 	DeletingPolicyKind           = "DeletingPolicy"
 	NamespacedDeletingPolicyKind = "NamespacedDeletingPolicy"
+)
+
+type (
+	DeletingPolicySpec   = v1alpha1.DeletingPolicySpec
+	DeletingPolicyStatus = v1alpha1.DeletingPolicyStatus
 )
 
 // +genclient
@@ -79,59 +84,6 @@ type DeletingPolicyLike interface {
 	GetKind() string
 	GetExecutionTime() (*time.Time, error)
 	GetNextExecutionTime(time.Time) (*time.Time, error)
-}
-
-// DeletingPolicySpec is the specification of the desired behavior of the DeletingPolicy.
-type DeletingPolicySpec struct {
-	// MatchConstraints specifies what resources this policy is designed to validate.
-	// The AdmissionPolicy cares about a request if it matches _all_ Constraints.
-	// Required.
-	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints,omitempty"`
-
-	// Conditions is a list of conditions that must be met for a resource to be deleted.
-	// Conditions filter resources that have already been matched by the match constraints,
-	// namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
-	// There are a maximum of 64 conditions allowed.
-	//
-	// The exact matching logic is (in order):
-	//   1. If ANY condition evaluates to FALSE, the policy is skipped.
-	//   2. If ALL conditions evaluate to TRUE, the policy is executed.
-	//
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=name
-	// +optional
-	Conditions []admissionregistrationv1.MatchCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
-
-	// Variables contain definitions of variables that can be used in composition of other expressions.
-	// Each variable is defined as a named CEL expression.
-	// The variables defined here will be available under `variables` in other expressions of the policy
-	// except MatchConditions because MatchConditions are evaluated before the rest of the policy.
-	//
-	// The expression of a variable can refer to other variables defined earlier in the list but not those after.
-	// Thus, Variables must be sorted by the order of first appearance and acyclic.
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=name
-	// +optional
-	Variables []admissionregistrationv1.Variable `json:"variables,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
-
-	// The schedule in Cron format
-	// Required.
-	Schedule string `json:"schedule"`
-
-	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).
-	// +optional
-	// +kubebuilder:validation:Enum=Foreground;Background;Orphan
-	DeletionPropagationPolicy *metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
-}
-
-type DeletingPolicyStatus struct {
-	// +optional
-	ConditionStatus   ConditionStatus `json:"conditionStatus,omitempty"`
-	LastExecutionTime metav1.Time     `json:"lastExecutionTime,omitempty"`
 }
 
 // GetExecutionTime returns the execution time of the policy
