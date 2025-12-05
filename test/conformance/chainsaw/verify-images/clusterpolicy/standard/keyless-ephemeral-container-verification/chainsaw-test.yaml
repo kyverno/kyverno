@@ -1,0 +1,46 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: verify-ephemeral-container
+spec:
+  skip: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: verify-ephemeral-container
+  - name: create pod
+    try:
+    - apply:
+        file: pod.yaml
+        timeout: 1m30s
+
+  - name: debug pod
+    try:
+    - wait:
+        apiVersion: v1
+        kind: Pod
+        name: hello
+        timeout: 1m30s
+        for:
+          condition:
+            name: Ready
+            value: 'true'
+    - script:
+        content: "kubectl debug hello -n $NAMESPACE -it --profile=general --image=ghcr.io/lucchmielowski/hello:debug -- sh -c \"sleep 5\""
+        timeout: 1m30s
+    - script:
+        content: "kubectl debug hello -n $NAMESPACE -it --profile=general --image=ghcr.io/lucchmielowski/hello:unsigned -- sh -c \"sleep 5\""
+        timeout: 1m30s
+        check:
+          ($error != null): true
