@@ -12,11 +12,3 @@ spec:
         metadata:
           name: ($name)
           namespace: ($namespace)
-        status:
-          conditionStatus:
-            (conditions[?type == 'WebhookConfigured']):
-            - message: Webhook configured.
-              reason: Succeeded
-              status: "True"
-              type: WebhookConfigured
-            ready: true
