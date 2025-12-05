@@ -34,6 +34,8 @@ type Interface interface {
 	MutatingPolicies() MutatingPolicyInformer
 	// NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 	NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer
+	// NamespacedGeneratingPolicies returns a NamespacedGeneratingPolicyInformer.
+	NamespacedGeneratingPolicies() NamespacedGeneratingPolicyInformer
 	// NamespacedImageValidatingPolicies returns a NamespacedImageValidatingPolicyInformer.
 	NamespacedImageValidatingPolicies() NamespacedImageValidatingPolicyInformer
 	// NamespacedMutatingPolicies returns a NamespacedMutatingPolicyInformer.
@@ -80,6 +82,11 @@ func (v *version) MutatingPolicies() MutatingPolicyInformer {
 // NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 func (v *version) NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer {
 	return &namespacedDeletingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NamespacedGeneratingPolicies returns a NamespacedGeneratingPolicyInformer.
+func (v *version) NamespacedGeneratingPolicies() NamespacedGeneratingPolicyInformer {
+	return &namespacedGeneratingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // NamespacedImageValidatingPolicies returns a NamespacedImageValidatingPolicyInformer.

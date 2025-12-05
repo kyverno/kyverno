@@ -71,7 +71,7 @@ type LoaderResults struct {
 	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
 	ImageValidatingPolicies           []policiesv1beta1.ImageValidatingPolicy
 	NamespacedImageValidatingPolicies []policiesv1beta1.NamespacedImageValidatingPolicy
-	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
+	GeneratingPolicies                []policiesv1beta1.GeneratingPolicy
 	DeletingPolicies                  []policiesv1beta1.DeletingPolicy
 	NamespacedDeletingPolicies        []policiesv1beta1.NamespacedDeletingPolicy
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicy
@@ -232,7 +232,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			}
 			results.MAPBindings = append(results.MAPBindings, *typed)
 		case gpsV1alpha1, gpsV1beta1:
-			typed, err := convert.To[policiesv1alpha1.GeneratingPolicy](untyped)
+			typed, err := convert.To[policiesv1beta1.GeneratingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}

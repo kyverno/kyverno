@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine/api"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -50,7 +49,7 @@ func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 		}
 		return api.NewNamespacedImageValidatingPolicy(policy), nil
 	case "GeneratingPolicy":
-		var policy *v1alpha1.GeneratingPolicy
+		var policy *v1beta1.GeneratingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}

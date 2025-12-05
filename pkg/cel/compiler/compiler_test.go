@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	policiesv1alpgha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/stretchr/testify/assert"
@@ -532,16 +531,16 @@ func TestCompileMatchImageReferences(t *testing.T) {
 func TestCompileGenerations(t *testing.T) {
 	tests := []struct {
 		name        string
-		generations []policiesv1alpgha1.Generation
+		generations []policiesv1beta1.Generation
 		wantProgs   int
 		wantErrs    field.ErrorList
 	}{{
 		name:        "empty",
-		generations: []policiesv1alpgha1.Generation{},
+		generations: []policiesv1beta1.Generation{},
 		wantProgs:   0,
 	}, {
 		name: "valid",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []policiesv1beta1.Generation{{
 			Expression: `
 generator.Apply(
 	"default",
@@ -560,7 +559,7 @@ generator.Apply(
 		wantProgs: 1,
 	}, {
 		name: "multiple",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []policiesv1beta1.Generation{{
 			Expression: `
 generator.Apply(
 	"default",
@@ -594,7 +593,7 @@ generator.Apply(
 		wantProgs: 2,
 	}, {
 		name: "invalid",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []policiesv1beta1.Generation{{
 			Expression: `
 generator.ApplyAll(
 	"default",
@@ -632,7 +631,7 @@ generator.ApplyAll(
 		}},
 	}, {
 		name: "multiple invalid",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []policiesv1beta1.Generation{{
 			Expression: `
 generator.Apply(
 	"default",
@@ -683,7 +682,7 @@ generator.Apply(
 		}},
 	}, {
 		name: "bad type",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []policiesv1beta1.Generation{{
 			Expression: `"foo"`,
 		}},
 		wantProgs: 0,

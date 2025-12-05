@@ -81,7 +81,7 @@ func createrLeaderControllers(
 		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -317,7 +317,8 @@ func main() {
 				// create provider
 				gpolProvider := gpolengine.NewFetchProvider(
 					compiler,
-					kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(),
 					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
 					internal.PolicyExceptionEnabled(),
 				)

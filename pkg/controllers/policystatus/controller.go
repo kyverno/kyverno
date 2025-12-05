@@ -277,7 +277,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.GeneratingPolicyType {
-		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
+		gpol, err := c.client.PoliciesV1beta1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("generating policy not found", "name", name)

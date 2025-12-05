@@ -100,28 +100,28 @@ func GetCELPolicyInfos(policy GenericPolicy) (string, string, PolicyBackgroundMo
 	policyType := ""
 
 	switch p := policy.(type) {
-	case *v1beta1.ValidatingPolicy:
+	case v1beta1.ValidatingPolicyLike:
 		policyType = "Validating"
 
-		if p.Spec.BackgroundEnabled() {
+		if p.GetSpec().BackgroundEnabled() {
 			backgroundMode = BackgroundTrue
 		}
-		if slices.Contains(p.Spec.ValidationActions(), admissionregistrationv1.Deny) {
+		if slices.Contains(p.GetSpec().ValidationActions(), admissionregistrationv1.Deny) {
 			validationMode = admissionregistrationv1.Deny
 		}
-	case *v1beta1.ImageValidatingPolicy:
+	case v1beta1.ImageValidatingPolicyLike:
 		policyType = "ImageValidating"
 
-		if p.Spec.BackgroundEnabled() {
+		if p.GetSpec().BackgroundEnabled() {
 			backgroundMode = BackgroundTrue
 		}
-		if slices.Contains(p.Spec.ValidationActions(), admissionregistrationv1.Deny) {
+		if slices.Contains(p.GetSpec().ValidationActions(), admissionregistrationv1.Deny) {
 			validationMode = admissionregistrationv1.Deny
 		}
-	case *v1alpha1.MutatingPolicy:
+	case v1beta1.MutatingPolicyLike:
 		policyType = "Mutating"
 
-		if p.Spec.BackgroundEnabled() {
+		if p.GetSpec().BackgroundEnabled() {
 			backgroundMode = BackgroundTrue
 		}
 	case *v1alpha1.GeneratingPolicy:
