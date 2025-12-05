@@ -8,7 +8,8 @@ import (
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
-	"github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -29,11 +30,11 @@ func (f *fakeGpolLister) List(selector labels.Selector) ([]*policiesv1beta1.Gene
 
 type fakeNgpolLister struct{}
 
-func (f *fakeNgpolLister) List(selector labels.Selector) ([]*policiesv1alpha1.NamespacedGeneratingPolicy, error) {
+func (f *fakeNgpolLister) List(selector labels.Selector) ([]*policiesv1beta1.NamespacedGeneratingPolicy, error) {
 	return nil, nil
 }
 
-func (f *fakeNgpolLister) NamespacedGeneratingPolicies(namespace string) v1alpha1.NamespacedGeneratingPolicyNamespaceLister {
+func (f *fakeNgpolLister) NamespacedGeneratingPolicies(namespace string) policiesv1beta1listers.NamespacedGeneratingPolicyNamespaceLister {
 	return nil
 }
 
@@ -45,7 +46,7 @@ type fakePolexLister struct {
 func (f *fakePolexLister) List(_ labels.Selector) ([]*policiesv1alpha1.PolicyException, error) {
 	return f.exceptions, f.err
 }
-func (f *fakePolexLister) PolicyExceptions(namespace string) v1alpha1.PolicyExceptionNamespaceLister {
+func (f *fakePolexLister) PolicyExceptions(namespace string) policiesv1alpha1listers.PolicyExceptionNamespaceLister {
 	return nil
 }
 

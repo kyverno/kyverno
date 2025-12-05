@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -19,14 +20,14 @@ type Provider interface {
 type fetchProvider struct {
 	compiler    compiler.Compiler
 	gpolLister  policiesv1beta1listers.GeneratingPolicyLister
-	ngpolLister policiesv1alpha1listers.NamespacedGeneratingPolicyLister
+	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister
 	polexLister policiesv1alpha1listers.PolicyExceptionLister
 }
 
 func NewFetchProvider(
 	compiler compiler.Compiler,
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
-	ngpolLister policiesv1alpha1listers.NamespacedGeneratingPolicyLister,
+	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister,
 	polexLister policiesv1alpha1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *fetchProvider {
@@ -43,7 +44,7 @@ func NewFetchProvider(
 }
 
 func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
-	var policy policiesv1alpha1.GeneratingPolicyLike
+	var policy policiesv1beta1.GeneratingPolicyLike
 	var err error
 
 	// Check if the name contains a namespace (format: "namespace/policy-name")
@@ -72,14 +73,7 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	for _, polex := range exceptions {
 		for _, ref := range polex.Spec.PolicyRefs {
 			if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
-				// For namespaced policies, also check namespace match
-				if policy.GetNamespace() != "" {
-					if polex.GetNamespace() == policy.GetNamespace() {
-						matchedExceptions = append(matchedExceptions, polex)
-					}
-				} else {
-					matchedExceptions = append(matchedExceptions, polex)
-				}
+				matchedExceptions = append(matchedExceptions, polex)
 			}
 		}
 	}

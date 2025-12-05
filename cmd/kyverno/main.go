@@ -173,7 +173,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().NamespacedGeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies(),
 		kyvernoInformer.Policies().V1beta1().ImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
@@ -851,7 +851,7 @@ func main() {
 			setup.ReportingConfiguration,
 			eventGenerator,
 		)
-		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1alpha1().NamespacedGeneratingPolicies().Lister())
+		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister())
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
