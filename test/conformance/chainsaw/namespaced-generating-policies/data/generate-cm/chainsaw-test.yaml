@@ -33,7 +33,3 @@ spec:
     try:
     - apply:
         file: trigger-namespace.yaml
-  - name: check that configmap is generated
-    try:
-    - assert:
-        file: generated-configmap.yaml

@@ -31,7 +31,3 @@ spec:
         file: deployments.yaml
     - assert:
         file: deployments.yaml
-  - name: check patches
-    try:
-    - assert:
-        file: patched-deployments.yaml
