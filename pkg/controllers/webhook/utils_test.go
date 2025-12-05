@@ -685,6 +685,42 @@ func TestDeduplicateRules(t *testing.T) {
 			admissionregistrationv1.Update,
 		},
 	}
+	rule5_AnotherUnique := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"batch"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"jobs", "cronjobs"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Delete,
+		},
+	}
+	rule6_LogicalDuplicateOfRule5 := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"batch"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"cronjobs", "jobs"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Delete,
+			admissionregistrationv1.Create,
+		},
+	}
+	rule7_ExactDuplicateOfRule4 := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"statefulsets"},
+			Scope:       ptr.To(admissionregistrationv1.AllScopes),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
 
 	testCases := []struct {
 		name          string
@@ -715,6 +751,12 @@ func TestDeduplicateRules(t *testing.T) {
 			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule2_ExactDuplicate, rule3_LogicalDuplicate, rule4_Unique},
 			expectedCount: 2,
 			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
+		},
+		{
+			name:          "Multiple unique rules with mixed duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique, rule5_AnotherUnique, rule6_LogicalDuplicateOfRule5, rule7_ExactDuplicateOfRule4},
+			expectedCount: 3,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique, rule5_AnotherUnique},
 		},
 		{
 			name:          "Empty list",
