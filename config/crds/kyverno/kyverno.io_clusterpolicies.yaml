@@ -3004,7 +3004,6 @@ spec:
                       description: Validation is used to validate matching resources.
                       properties:
                         allowExistingViolations:
-                          default: true
                           description: AllowExistingViolations allows prexisting violating
                             resources to continue violating a policy.
                           type: boolean
@@ -8123,7 +8122,6 @@ spec:
                           description: Validation is used to validate matching resources.
                           properties:
                             allowExistingViolations:
-                              default: true
                               description: AllowExistingViolations allows prexisting
                                 violating resources to continue violating a policy.
                               type: boolean
@@ -18135,7 +18133,6 @@ spec:
                           description: Validation is used to validate matching resources.
                           properties:
                             allowExistingViolations:
-                              default: true
                               description: AllowExistingViolations allows prexisting
                                 violating resources to continue violating a policy.
                               type: boolean
