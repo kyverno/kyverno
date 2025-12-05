@@ -120,6 +120,8 @@ type GenericPolicy interface {
 	AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy
+	// AsNamespacedGeneratingPolicy returns the namespaced generating policy
+	AsNamespacedGeneratingPolicy() *policiesv1beta1.NamespacedGeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
 	AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike
 }
@@ -183,6 +185,10 @@ func (p *genericPolicy) AsNamespacedMutatingPolicy() *policiesv1beta1.Namespaced
 
 func (p *genericPolicy) AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy {
 	return p.GeneratingPolicy
+}
+
+func (p *genericPolicy) AsNamespacedGeneratingPolicy() *policiesv1beta1.NamespacedGeneratingPolicy {
+	return p.NamespacedGeneratingPolicy
 }
 
 func (p *genericPolicy) AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike {
@@ -269,6 +275,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 	case p.NamespacedImageValidatingPolicy != nil:
 		return true
 	case p.NamespacedMutatingPolicy != nil:
+		return true
+	case p.NamespacedGeneratingPolicy != nil:
 		return true
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""
