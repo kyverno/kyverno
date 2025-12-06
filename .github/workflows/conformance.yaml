@@ -739,6 +739,52 @@ jobs:
           shard-count: 3
           upgrade-scenario: ${{ matrix.upgrade }}
 
+  namespaced-mutating-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+        shard-index: [0, 1, 2]
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: namespaced-mutating-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
+          upgrade-scenario: ${{ matrix.upgrade }}
+
+  namespaced-generating-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
+        shard-index: [0, 1, 2]
+    needs: [define-matrix, prepare-images]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: namespaced-generating-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
+          upgrade-scenario: ${{ matrix.upgrade }}
+
   policy-exceptions-disabled:
     runs-on: ubuntu-latest
     permissions:
@@ -1282,6 +1328,8 @@ jobs:
       - lease
       - mutate
       - namespaced-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-generating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
@@ -1329,6 +1377,8 @@ jobs:
       - lease
       - mutate
       - namespaced-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-generating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
