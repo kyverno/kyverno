@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
 )
@@ -76,11 +75,6 @@ func NewProcessor(client dclient.Interface,
 		eventGen:      eventGen,
 	}
 }
-
-var (
-	vpolCompilerVersion = version.MajorMinor(1, 0)
-	compileError        = "validating policy compiler " + vpolCompilerVersion.String() + " error: %s"
-)
 
 func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	var (

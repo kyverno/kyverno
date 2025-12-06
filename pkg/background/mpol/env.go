@@ -10,8 +10,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/environment"
+)
+
+var (
+	targetConstraintsEnvironmentVersion = version.MajorMinor(1, 0)
+	compileError                        = "target constraints environment version compile error " + targetConstraintsEnvironmentVersion.String() + " error: %s"
 )
 
 func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
@@ -30,7 +36,7 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(targetConstraintsEnvironmentVersion, false)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, err
@@ -49,12 +55,12 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 	// go struct type resolution
 	extendedEnvSet, err := base.Extend(
 		environment.VersionedOptions{
-			IntroducedVersion: vpolCompilerVersion,
+			IntroducedVersion: targetConstraintsEnvironmentVersion,
 			EnvOptions:        baseOpts,
 		},
 		// libaries
 		environment.VersionedOptions{
-			IntroducedVersion: vpolCompilerVersion,
+			IntroducedVersion: targetConstraintsEnvironmentVersion,
 			EnvOptions: []cel.EnvOption{
 				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 				globalcontext.Lib(
