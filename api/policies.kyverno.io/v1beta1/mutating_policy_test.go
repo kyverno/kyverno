@@ -83,15 +83,17 @@ func TestMutatingPolicy_GetTargetMatchConstraints(t *testing.T) {
 			name: "with target match constraints",
 			policy: MutatingPolicy{
 				Spec: MutatingPolicySpec{
-					TargetMatchConstraints: &admissionregistrationv1.MatchResources{
-						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-							{
-								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-									Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
-									Rule: admissionregistrationv1.Rule{
-										APIGroups:   []string{"apps"},
-										APIVersions: []string{"v1"},
-										Resources:   []string{"deployments"},
+					TargetMatchConstraints: &TargetMatchConstraints{
+						MatchResources: admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
 									},
 								},
 							},
