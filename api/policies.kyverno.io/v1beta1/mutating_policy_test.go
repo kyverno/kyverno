@@ -508,3 +508,217 @@ func TestMutatingPolicySpec_MutateExistingEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespacedMutatingPolicy_GetMatchConstraints(t *testing.T) {
+	tests := []struct {
+		name     string
+		policy   NamespacedMutatingPolicy
+		expected admissionregistrationv1.MatchResources
+	}{
+		{
+			name: "nil match constraints",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{},
+			},
+			expected: admissionregistrationv1.MatchResources{},
+		},
+		{
+			name: "with match constraints",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{"apps"},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.policy.GetMatchConstraints()
+			if len(result.ResourceRules) != len(tt.expected.ResourceRules) {
+				t.Errorf("GetMatchConstraints() ResourceRules length = %v, want %v", len(result.ResourceRules), len(tt.expected.ResourceRules))
+			}
+		})
+	}
+}
+
+func TestNamespacedMutatingPolicy_GetTargetMatchConstraints(t *testing.T) {
+	tests := []struct {
+		name     string
+		policy   NamespacedMutatingPolicy
+		expected admissionregistrationv1.MatchResources
+	}{
+		{
+			name: "nil target match constraints",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{},
+			},
+			expected: admissionregistrationv1.MatchResources{},
+		},
+		{
+			name: "with target match constraints",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{
+					TargetMatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{"apps"},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.policy.GetTargetMatchConstraints()
+			if len(result.ResourceRules) != len(tt.expected.ResourceRules) {
+				t.Errorf("GetTargetMatchConstraints() ResourceRules length = %v, want %v", len(result.ResourceRules), len(tt.expected.ResourceRules))
+			}
+		})
+	}
+}
+
+func TestNamespacedMutatingPolicy_GetFailurePolicy(t *testing.T) {
+	tests := []struct {
+		name     string
+		policy   NamespacedMutatingPolicy
+		expected admissionregistrationv1.FailurePolicyType
+	}{
+		{
+			name: "nil failure policy",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{},
+			},
+			expected: admissionregistrationv1.Fail,
+		},
+		{
+			name: "with failure policy ignore",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{
+					FailurePolicy: &[]admissionregistrationv1.FailurePolicyType{admissionregistrationv1.Ignore}[0],
+				},
+			},
+			expected: admissionregistrationv1.Ignore,
+		},
+		{
+			name: "with failure policy fail",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{
+					FailurePolicy: &[]admissionregistrationv1.FailurePolicyType{admissionregistrationv1.Fail}[0],
+				},
+			},
+			expected: admissionregistrationv1.Fail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.policy.GetFailurePolicy()
+			if result != tt.expected {
+				t.Errorf("GetFailurePolicy() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNamespacedMutatingPolicy_BackgroundEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		policy   NamespacedMutatingPolicy
+		expected bool
+	}{
+		{
+			name: "nil evaluation configuration",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{},
+			},
+			expected: true,
+		},
+		{
+			name: "enabled false",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{
+					EvaluationConfiguration: &MutatingPolicyEvaluationConfiguration{
+						Background: &BackgroundConfiguration{
+							Enabled: &[]bool{false}[0],
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "enabled true",
+			policy: NamespacedMutatingPolicy{
+				Spec: MutatingPolicySpec{
+					EvaluationConfiguration: &MutatingPolicyEvaluationConfiguration{
+						Background: &BackgroundConfiguration{
+							Enabled: &[]bool{true}[0],
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.policy.BackgroundEnabled()
+			if result != tt.expected {
+				t.Errorf("BackgroundEnabled() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
