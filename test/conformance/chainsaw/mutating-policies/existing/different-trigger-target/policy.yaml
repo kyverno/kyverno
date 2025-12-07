@@ -9,28 +9,21 @@ spec:
       enabled: true
   matchConstraints:
     resourceRules:
-    - apiGroups: [ "" ]
-      apiVersions: [ "v1" ]
-      operations: [ "CREATE", "UPDATE"]
-      resources: [ "namespaces" ]
-      resourceNames: ["test-mpol-different-trigger-target-ns"]
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["namespaces"]
+        resourceNames: ["test-mpol-different-trigger-target-ns"]
   targetMatchConstraints:
-    namespaceSelector:
-      matchLabels:
-        test: "enabled"
-    resourceRules:
-    - apiGroups: [ "" ]
-      apiVersions: [ "v1" ]
-      operations: [ "CREATE", "UPDATE"]
-      resources: [ "configmaps" ]
+    expression: resource.List("v1", "secrets", "default")
   mutations:
-  - patchType: ApplyConfiguration
-    applyConfiguration:
-      expression: >
-        Object{
-          metadata: Object.metadata{
-            labels: Object.metadata.labels{
-              foo: "bar"
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >
+          Object{
+            metadata: Object.metadata{
+              labels: Object.metadata.labels{
+                foo: "bar"
+              }
             }
           }
-        } 

@@ -332,7 +332,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 		})
 	}
 
-	unstructuredResources, err := p.getResourcesFromExpression(mpol.GetTargetMatchConstraints().Expression, mpol.GetNamespace(), data)
+	unstructuredResources, err := p.getResourcesFromExpression(ctx, mpol.GetTargetMatchConstraints().Expression, mpol.GetNamespace(), data)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +355,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	return targets, nil
 }
 
-func (p *processor) getResourcesFromExpression(expr, policyNs string, data map[string]interface{}) (map[string]interface{}, error) {
+func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policyNs string, data map[string]interface{}) (map[string]interface{}, error) {
 	e, err := buildMpolTargetEvalEnv(policyNs)
 	if err != nil {
 		return nil, err
@@ -372,8 +372,7 @@ func (p *processor) getResourcesFromExpression(expr, policyNs string, data map[s
 	if err != nil {
 		return nil, err
 	}
-
-	out, _, err := prog.ContextEval(context.TODO(), data)
+	out, _, err := prog.ContextEval(ctx, data)
 	if err != nil {
 		return nil, err
 	}

@@ -14,7 +14,6 @@ import (
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyverno "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	meta "github.com/kyverno/kyverno/pkg/clients/metadata"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
@@ -25,11 +24,12 @@ import (
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
 
 func createClientConfig(logger logr.Logger, rateLimitQPS float64, rateLimitBurst int) *rest.Config {
-	clientConfig, err := config.CreateClientConfig(kubeconfig, rateLimitQPS, rateLimitBurst)
+	clientConfig, err := clientcmd.BuildConfigFromFlags("", "/Users/ammaryasser/.kube/config")
 	checkError(logger, err, "failed to create rest client configuration")
 	clientConfig.Wrap(
 		func(base http.RoundTripper) http.RoundTripper {
