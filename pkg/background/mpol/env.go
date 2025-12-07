@@ -17,7 +17,6 @@ import (
 
 var (
 	targetConstraintsEnvironmentVersion = version.MajorMinor(1, 0)
-	compileError                        = "target constraints environment version compile error " + targetConstraintsEnvironmentVersion.String() + " error: %s"
 )
 
 func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
