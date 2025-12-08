@@ -424,6 +424,7 @@ func constructValidatingAdmissionPolicyRules(
 				for i := range *rules {
 					if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
 						(*rules)[i].Resources = append((*rules)[i].Resources, resources...)
+						slices.Sort((*rules)[i].Resources)
 						isNewRule = false
 						break
 					}
@@ -462,6 +463,7 @@ func buildNamedRuleWithOperations(
 	operations []admissionregistrationv1.OperationType,
 	resources ...string,
 ) admissionregistrationv1.NamedRuleWithOperations {
+	slices.Sort(resources)
 	return admissionregistrationv1.NamedRuleWithOperations{
 		ResourceNames: resourceNames,
 		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
