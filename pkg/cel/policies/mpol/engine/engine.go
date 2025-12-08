@@ -80,7 +80,7 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 }
 
 func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, predicate Predicate) (EngineResponse, error) {
-	mpols := e.provider.Fetch(ctx, true) // i have the compiled variables at this stage, i can fetch them from the compiled policy
+	mpols := e.provider.Fetch(ctx, true)
 	var object *unstructured.Unstructured
 	if o, ok := attr.GetObject().(*unstructured.Unstructured); ok {
 		object = o

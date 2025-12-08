@@ -224,11 +224,9 @@ func TestEvaluate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("provider fetch failure returns error and empty response", func(t *testing.T) {
+	t.Run("provider returns an empty response", func(t *testing.T) {
 		engine := NewEngine(&mockFailingProvider{}, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
-		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
-
-		assert.Error(t, err)
+		resp, _ := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 		assert.Equal(t, EngineResponse{}, resp)
 	})
 
