@@ -166,6 +166,19 @@ func NewServer(
 			WithAdmission(resourceLogger.WithName("generate")).
 			ToHandlerFunc("GPOL"),
 	)
+	mux.HandlerFunc(
+		"POST",
+		"/ngpol/*policies",
+		handlerFunc("GENERATE", resourceHandlers.NamespacedGeneratingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithTopLevelGVK(discovery).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithAdmission(resourceLogger.WithName("generate")).
+			ToHandlerFunc("NGPOL"),
+	)
 	registerWebhookHandlersWithAll(
 		mux,
 		"MUTATE",
