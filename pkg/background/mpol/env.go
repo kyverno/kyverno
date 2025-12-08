@@ -15,9 +15,7 @@ import (
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var (
-	targetConstraintsEnvironmentVersion = version.MajorMinor(1, 0)
-)
+var targetConstraintsEnvironmentVersion = version.MajorMinor(1, 0)
 
 func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 	baseOpts := compiler.DefaultEnvOptions()
