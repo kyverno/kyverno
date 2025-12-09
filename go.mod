@@ -95,6 +95,7 @@ require (
 )
 
 require (
+	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.3 // indirect
 	github.com/go-openapi/swag/cmdutils v0.25.1 // indirect
 	github.com/go-openapi/swag/conv v0.25.1 // indirect
