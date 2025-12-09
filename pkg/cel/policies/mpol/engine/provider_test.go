@@ -74,8 +74,7 @@ func TestNewProvider(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, prov)
 
-				pols, err := prov.Fetch(context.Background(), false)
-				assert.NoError(t, err)
+				pols := prov.Fetch(context.Background(), false)
 				assert.GreaterOrEqual(t, len(pols), tt.expectedCount)
 			}
 		})
@@ -115,15 +114,13 @@ func TestStaticProviderFetch(t *testing.T) {
 	}
 
 	t.Run("fetch mutateExisting == true", func(t *testing.T) {
-		res, err := provider.Fetch(context.TODO(), true)
-		assert.NoError(t, err)
+		res := provider.Fetch(context.TODO(), true)
 		assert.Len(t, res, 1)
 		assert.Equal(t, "enabled-policy", res[0].Policy.GetName())
 	})
 
 	t.Run("fetch mutateExisting == false", func(t *testing.T) {
-		res, err := provider.Fetch(context.TODO(), false)
-		assert.NoError(t, err)
+		res := provider.Fetch(context.TODO(), false)
 		assert.Len(t, res, 1)
 		assert.Equal(t, "disabled-policy", res[0].Policy.GetName())
 	})
