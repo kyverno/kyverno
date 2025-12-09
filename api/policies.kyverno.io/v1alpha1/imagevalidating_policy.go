@@ -170,6 +170,31 @@ type ImageValidatingPolicySpec struct {
 	AutogenConfiguration *ImageValidatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 }
 
+// AdmissionEnabled checks if admission is set to true
+func (s ImageValidatingPolicySpec) AdmissionEnabled() bool {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
+		return true
+	}
+	return *s.EvaluationConfiguration.Admission.Enabled
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s ImageValidatingPolicySpec) BackgroundEnabled() bool {
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
+		return true
+	}
+	return *s.EvaluationConfiguration.Background.Enabled
+}
+
+// ValidationActions returns the validation actions.
+func (s ImageValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
+	const defaultValue = admissionregistrationv1.Deny
+	if len(s.ValidationAction) == 0 {
+		return []admissionregistrationv1.ValidationAction{defaultValue}
+	}
+	return s.ValidationAction
+}
+
 // MatchImageReference defines a Glob or a CEL expression for matching images
 // +kubebuilder:oneOf:={required:{glob}}
 // +kubebuilder:oneOf:={required:{expression}}

@@ -54,6 +54,10 @@ type ValidatingPolicyStatus struct {
 	Generated bool `json:"generated"`
 }
 
+func (status *ValidatingPolicyStatus) GetConditionStatus() *ConditionStatus {
+	return &status.ConditionStatus
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -175,6 +179,57 @@ type ValidatingPolicySpec struct {
 	// EvaluationConfiguration defines the configuration for the policy evaluation.
 	// +optional
 	EvaluationConfiguration *EvaluationConfiguration `json:"evaluation,omitempty"`
+}
+
+// GenerateValidatingAdmissionPolicyEnabled checks if validating admission policy generation is enabled
+func (s ValidatingPolicySpec) GenerateValidatingAdmissionPolicyEnabled() bool {
+	const defaultValue = false
+	if s.AutogenConfiguration == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.ValidatingAdmissionPolicy == nil {
+		return defaultValue
+	}
+	if s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled == nil {
+		return defaultValue
+	}
+	return *s.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled
+}
+
+// AdmissionEnabled checks if admission is set to true
+func (s ValidatingPolicySpec) AdmissionEnabled() bool {
+	const defaultValue = true
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.Admission.Enabled
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s ValidatingPolicySpec) BackgroundEnabled() bool {
+	const defaultValue = true
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
+		return defaultValue
+	}
+	return *s.EvaluationConfiguration.Background.Enabled
+}
+
+// EvaluationMode returns the evaluation mode of the policy.
+func (s ValidatingPolicySpec) EvaluationMode() EvaluationMode {
+	const defaultValue = EvaluationModeKubernetes
+	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
+		return defaultValue
+	}
+	return s.EvaluationConfiguration.Mode
+}
+
+// ValidationActions returns the validation actions.
+func (s ValidatingPolicySpec) ValidationActions() []admissionregistrationv1.ValidationAction {
+	const defaultValue = admissionregistrationv1.Deny
+	if len(s.ValidationAction) == 0 {
+		return []admissionregistrationv1.ValidationAction{defaultValue}
+	}
+	return s.ValidationAction
 }
 
 type ValidatingPolicyAutogenConfiguration struct {
