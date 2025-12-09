@@ -30,6 +30,38 @@ jobs:
             echo 'upgrades=["none"]' >> $GITHUB_OUTPUT
           fi
 
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run-all-tests: ${{ steps.detect.outputs.run-all-tests }}
+      test-paths: ${{ steps.detect.outputs.test-paths }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+      - name: Detect changed files
+        id: detect
+        run: |
+          set -e
+          # Get list of changed files
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD)
+          
+          # Check if core files changed (always run all tests)
+          if echo "$CHANGED_FILES" | grep -qE '^(pkg/|cmd/|api/|go.mod|go.sum|Makefile)'; then
+            echo "run-all-tests=true" >> $GITHUB_OUTPUT
+            echo "test-paths=" >> $GITHUB_OUTPUT
+          else
+            # Only run tests if test files changed
+            TEST_PATHS=$(echo "$CHANGED_FILES" | grep '^test/conformance/chainsaw/' | cut -d'/' -f4 | sort -u | tr '\n' ',' | sed 's/,$//')
+            if [ -z "$TEST_PATHS" ]; then
+              echo "run-all-tests=false" >> $GITHUB_OUTPUT
+              echo "test-paths=" >> $GITHUB_OUTPUT
+            else
+              echo "run-all-tests=false" >> $GITHUB_OUTPUT
+              echo "test-paths=$TEST_PATHS" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   prepare-images:
     runs-on: ubuntu-latest
     steps:
