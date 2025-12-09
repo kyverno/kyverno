@@ -20,12 +20,7 @@ var targetConstraintsEnvironmentVersion = version.MajorMinor(1, 0)
 func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
-		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
-		cel.Variable(compiler.OldObjectKey, cel.DynType),
-		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-		cel.Types(compiler.NamespaceType.CelType()),
-		cel.Types(compiler.RequestType.CelType()),
 		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
 		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
