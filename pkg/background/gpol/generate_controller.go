@@ -91,6 +91,9 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
 			continue
 		}
+		if ur.Spec.RuleContext[i].Synchronize {
+			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
+		}
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")

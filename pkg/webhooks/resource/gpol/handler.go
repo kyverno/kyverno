@@ -84,7 +84,7 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 					// delete downstream on trigger deletion in case synchronization is enabled
 					if gpol.Spec.SynchronizationEnabled() {
 						logger.V(4).Info("creating the UR to delete downstream on trigger's deletion", "operation", request.Operation, "policy", policy, "trigger", triggerSpec.String())
-						urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, true)
+						urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, true, false)
 						urSpec.Context = buildURContext(admissionRequest, userInfo)
 						if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
 							logger.Error(err, "failed to create update request for generate policy", "policy", policy)
@@ -95,7 +95,7 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 				} else {
 					// fire generation on trigger deletion
 					logger.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "policy", policy, "trigger", triggerSpec.String())
-					urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, false)
+					urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, false, false)
 					urSpec.Context = buildURContext(admissionRequest, userInfo)
 					if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
 						logger.Error(err, "failed to create update request for generate policy", "policy", policy)
@@ -104,8 +104,17 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 					}
 				}
 			} else {
-				logger.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "policy", policy)
-				urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, false)
+				synchronize := false
+				if request.Operation == admissionv1.Update {
+					gpol, err := h.gpolLister.Get(policy)
+					if err != nil {
+						logger.Error(err, "failed to get generating policy", "policy", policy)
+					} else {
+						synchronize = gpol.Spec.SynchronizationEnabled()
+					}
+				}
+				logger.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "policy", policy, "synchronize", synchronize)
+				urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, false, synchronize)
 				urSpec.Context = buildURContext(admissionRequest, userInfo)
 				if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
 					logger.Error(err, "failed to create update request for generate policy", "policy", policy)
