@@ -580,7 +580,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		return nil, err
 	}
 
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, c.ContextPath, c.RegistryAccess, !c.Cluster)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -697,7 +697,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 		return nil, err
 	}
 
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, c.ContextPath, c.RegistryAccess, !c.Cluster)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster)
 	if err != nil {
 		return nil, err
 	}
