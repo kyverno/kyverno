@@ -65,9 +65,9 @@ func (s *NamespacedMutatingPolicy) GetMatchConstraints() admissionregistrationv1
 	return *s.Spec.MatchConstraints
 }
 
-func (s *NamespacedMutatingPolicy) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+func (s *NamespacedMutatingPolicy) GetTargetMatchConstraints() TargetMatchConstraints {
 	if s.Spec.TargetMatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
+		return TargetMatchConstraints{}
 	}
 	return *s.Spec.TargetMatchConstraints
 }
@@ -154,9 +154,9 @@ func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.Matc
 	s.MatchConstraints = out
 }
 
-func (s *MutatingPolicy) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+func (s *MutatingPolicy) GetTargetMatchConstraints() TargetMatchConstraints {
 	if s.Spec.TargetMatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
+		return TargetMatchConstraints{}
 	}
 	return *s.Spec.TargetMatchConstraints
 }
@@ -235,7 +235,7 @@ type MutatingPolicyLike interface {
 	GetStatus() *MutatingPolicyStatus
 	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
 	GetMatchConstraints() admissionregistrationv1.MatchResources
-	GetTargetMatchConstraints() admissionregistrationv1.MatchResources
+	GetTargetMatchConstraints() TargetMatchConstraints
 	GetMatchConditions() []admissionregistrationv1.MatchCondition
 	GetVariables() []admissionregistrationv1.Variable
 	GetWebhookConfiguration() *WebhookConfiguration
@@ -262,6 +262,10 @@ type MutatingPolicySpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=Ignore;Fail
 	FailurePolicy *admissionregistrationv1.FailurePolicyType `json:"failurePolicy,omitempty"`
+
+	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
+	// +optional
+	TargetMatchConstraints *TargetMatchConstraints `json:"targetMatchConstraints,omitempty"`
 
 	// MatchConditions is a list of conditions that must be met for a request to be validated.
 	// Match conditions filter requests that have already been matched by the rules,
@@ -300,10 +304,6 @@ type MutatingPolicySpec struct {
 	// +optional
 	AutogenConfiguration *MutatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 
-	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
-	// +optional
-	TargetMatchConstraints *admissionregistrationv1.MatchResources `json:"targetMatchConstraints,omitempty"`
-
 	// mutations contain operations to perform on matching objects.
 	// mutations may not be empty; a minimum of one mutation is required.
 	// mutations are evaluated in order, and are reinvoked according to
@@ -334,6 +334,15 @@ type MutatingPolicySpec struct {
 	// reinvoked when mutations change the object after this mutation is invoked.
 	// Required.
 	ReinvocationPolicy admissionregistrationv1.ReinvocationPolicyType `json:"reinvocationPolicy,omitempty" protobuf:"bytes,7,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
+}
+
+type TargetMatchConstraints struct {
+	// +optional
+	Expression string `json:"expression,omitempty"`
+
+	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
+	// +optional
+	admissionregistrationv1.MatchResources `json:",inline"`
 }
 
 // GenerateMutatingAdmissionPolicyEnabled checks if mutating admission policy generation is enabled

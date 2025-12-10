@@ -62,6 +62,8 @@ type ResourceHandlers struct {
 	ImageVerificationPolicies Handler
 	// GeneratingPolicies evaluates generating policies against kube resources
 	GeneratingPolicies Handler
+	// NamespacedGeneratingPolicies evaluates namespaced generating policies against kube resources
+	NamespacedGeneratingPolicies Handler
 	// MutatingPolicies evaluates mutating policies against kube resources
 	MutatingPolicies Handler
 	// NamespacedMutatingPolicies evaluates namespaced mutating policies against kube resources
