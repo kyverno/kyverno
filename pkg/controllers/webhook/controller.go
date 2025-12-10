@@ -94,6 +94,11 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1"},
 	}
+	namespacedGeneratingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"namespacedgeneratingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1alpha1"},
+	}
 	deletingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"deletingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
@@ -133,6 +138,7 @@ type controller struct {
 	vpolLister        policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister       policiesv1beta1listers.NamespacedValidatingPolicyLister
 	gpolLister        policiesv1beta1listers.GeneratingPolicyLister
+	ngpolLister       policiesv1beta1listers.NamespacedGeneratingPolicyLister
 	ivpolLister       policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister      policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	mpolLister        policiesv1beta1listers.MutatingPolicyLister
@@ -182,6 +188,7 @@ func NewController(
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
@@ -220,6 +227,7 @@ func NewController(
 		vpolLister:          vpolInformer.Lister(),
 		nvpolLister:         nvpolInformer.Lister(),
 		gpolLister:          gpolInformer.Lister(),
+		ngpolLister:         ngpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
 		nivpolLister:        nivpolInformer.Lister(),
 		mpolLister:          mpolInformer.Lister(),
@@ -926,6 +934,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 					},
 				}, {
 					Rule: generatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}, {
+					Rule: namespacedGeneratingPolicyRule,
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,

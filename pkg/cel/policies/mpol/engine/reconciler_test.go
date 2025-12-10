@@ -160,9 +160,7 @@ func TestFetch(t *testing.T) {
 				lock:     &sync.RWMutex{},
 			}
 
-			got, err := r.Fetch(context.Background(), tt.mutateExisting)
-
-			assert.NoError(t, err)
+			got := r.Fetch(context.Background(), tt.mutateExisting)
 
 			var gotNames []string
 			for _, p := range got {
