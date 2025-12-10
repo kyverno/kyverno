@@ -2,16 +2,25 @@ package mpol
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	libs "github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -27,7 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
 type processor struct {
@@ -65,28 +76,39 @@ func NewProcessor(client dclient.Interface,
 }
 
 func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
+	var (
+		err      error
+		failures []error
+		targets  *unstructured.UnstructuredList
+	)
+
 	mpol, err := p.GetPolicy(ur)
 	if mpol == nil {
 		return err
 	}
 
-	var failures []error
 	targetConstraints := mpol.GetMatchConstraints()
-	if len(mpol.GetTargetMatchConstraints().ResourceRules) != 0 {
-		targetConstraints = mpol.GetTargetMatchConstraints()
+	if len(mpol.GetTargetMatchConstraints().ResourceRules) != 0 && mpol.GetTargetMatchConstraints().Expression == "" {
+		targetConstraints = mpol.GetTargetMatchConstraints().MatchResources
 	}
 
-	var targets *unstructured.UnstructuredList
-	results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
-	for ns, gvks := range results {
-		for r := range gvks {
-			if r.Kind == "Namespace" || ns == "*" {
-				ns = ""
+	if mpol.GetTargetMatchConstraints().Expression == "" {
+		results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
+		for ns, gvks := range results {
+			for r := range gvks {
+				if r.Kind == "Namespace" || ns == "*" {
+					ns = ""
+				}
+				targets, err = p.client.ListResource(context.TODO(), r.GroupVersion().String(), r.Kind, ns, targetConstraints.ObjectSelector)
+				if err != nil {
+					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.String(), ur.Spec.GetPolicyKey(), err))
+				}
 			}
-			targets, err = p.client.ListResource(context.TODO(), r.GroupVersion().String(), r.Kind, ns, targetConstraints.ObjectSelector)
-			if err != nil {
-				failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.String(), ur.Spec.GetPolicyKey(), err))
-			}
+		}
+	} else {
+		targets, err = p.getTargetsFromExpression(context.TODO(), ur, mpol)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -263,4 +285,99 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 
 	failures = append(failures, fmt.Errorf("failed to fetch mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 	return nil, updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
+}
+
+func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.UpdateRequest, mpol v1beta1.MutatingPolicyLike) (*unstructured.UnstructuredList, error) {
+	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest == nil ||
+		ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw == nil {
+		return nil, fmt.Errorf("invalid update request passed, the fields needed to extract resource data are nil")
+	}
+
+	var urResource unstructured.Unstructured
+	err := json.Unmarshal(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &urResource)
+	if err != nil {
+		return nil, err
+	}
+
+	originalObj, err := p.client.GetResource(ctx, urResource.GetAPIVersion(), urResource.GetKind(), urResource.GetNamespace(), urResource.GetName())
+	if err != nil {
+		return nil, err
+	}
+	pol, err := p.engine.GetCompiledPolicy(mpol.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	compiledVars := pol.CompiledPolicy.GetCompiledVariables()
+	data := map[string]any{
+		compiler.ObjectKey:        originalObj.Object,
+		compiler.ResourceKey:      resource.Context{ContextInterface: p.context},
+		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: p.context},
+		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
+		compiler.ImageDataKey:     imagedata.Context{ContextInterface: p.context},
+	}
+	vars := lazy.NewMapValue(compiler.VariablesType)
+	data[compiler.VariablesKey] = vars
+	for name, variable := range compiledVars {
+		vars.Append(name, func(*lazy.MapValue) ref.Val {
+			out, _, err := variable.ContextEval(ctx, data)
+			if out != nil {
+				return out
+			}
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return nil
+		})
+	}
+
+	unstructuredResources, err := p.getResourcesFromExpression(ctx, mpol.GetTargetMatchConstraints().Expression, mpol.GetNamespace(), data)
+	if err != nil {
+		return nil, err
+	}
+
+	targets := &unstructured.UnstructuredList{}
+
+	if items, ok := unstructuredResources["items"].([]interface{}); ok {
+		for _, o := range items {
+			m, ok := o.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("item is not a valid Kubernetes object: %#v", o)
+			}
+
+			targets.Items = append(targets.Items, unstructured.Unstructured{Object: m})
+		}
+		return targets, nil
+	}
+
+	targets.Items = append(targets.Items, unstructured.Unstructured{Object: unstructuredResources})
+	return targets, nil
+}
+
+func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policyNs string, data map[string]interface{}) (map[string]interface{}, error) {
+	e, err := buildMpolTargetEvalEnv(policyNs)
+	if err != nil {
+		return nil, err
+	}
+
+	ast, issues := e.Compile(expr)
+	if err := issues.Err(); err != nil {
+		return nil, field.Invalid(nil, expr, err.Error())
+	}
+	if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
+		return nil, field.Invalid(nil, expr, "output type of the target selector expression must be a map")
+	}
+	prog, err := e.Program(ast)
+	if err != nil {
+		return nil, err
+	}
+	out, _, err := prog.ContextEval(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	unstructuredResources, err := utils.ConvertToNative[map[string]interface{}](out)
+	if err != nil {
+		return nil, err
+	}
+	return unstructuredResources, nil
 }
