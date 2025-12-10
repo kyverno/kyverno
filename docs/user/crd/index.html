@@ -11431,8 +11431,8 @@ MutatingPolicyAutogenConfiguration
 <td>
 <code>targetMatchConstraints</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1alpha1-admissionregistration">
-Kubernetes admissionregistration/v1alpha1.MatchResources
+<a href="#policies.kyverno.io/v1alpha1.TargetMatchConstraints">
+TargetMatchConstraints
 </a>
 </em>
 </td>
@@ -14079,8 +14079,8 @@ MutatingPolicyAutogenConfiguration
 <td>
 <code>targetMatchConstraints</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1alpha1-admissionregistration">
-Kubernetes admissionregistration/v1alpha1.MatchResources
+<a href="#policies.kyverno.io/v1alpha1.TargetMatchConstraints">
+TargetMatchConstraints
 </a>
 </em>
 </td>
@@ -14778,6 +14778,53 @@ string
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.TargetMatchConstraints">TargetMatchConstraints
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.MutatingPolicySpec">MutatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>MatchResources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>MatchResources</code> are embedded into this type.)
+</p>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
 </td>
 </tr>
 </tbody>
@@ -16068,6 +16115,20 @@ or mis-configured policy definitions or bindings.</p>
 </tr>
 <tr>
 <td>
+<code>targetMatchConstraints</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1beta1.TargetMatchConstraints">
+TargetMatchConstraints
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>matchConditions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
@@ -16120,20 +16181,6 @@ MutatingPolicyAutogenConfiguration
 <td>
 <em>(Optional)</em>
 <p>AutogenConfiguration defines the configuration for the generation controller.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>targetMatchConstraints</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
-Kubernetes admissionregistration/v1.MatchResources
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
 </td>
 </tr>
 <tr>
@@ -16797,6 +16844,20 @@ or mis-configured policy definitions or bindings.</p>
 </tr>
 <tr>
 <td>
+<code>targetMatchConstraints</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1beta1.TargetMatchConstraints">
+TargetMatchConstraints
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>matchConditions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
@@ -16849,20 +16910,6 @@ MutatingPolicyAutogenConfiguration
 <td>
 <em>(Optional)</em>
 <p>AutogenConfiguration defines the configuration for the generation controller.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>targetMatchConstraints</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
-Kubernetes admissionregistration/v1.MatchResources
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
 </td>
 </tr>
 <tr>
@@ -19758,6 +19805,20 @@ or mis-configured policy definitions or bindings.</p>
 </tr>
 <tr>
 <td>
+<code>targetMatchConstraints</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1beta1.TargetMatchConstraints">
+TargetMatchConstraints
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>matchConditions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
@@ -19810,20 +19871,6 @@ MutatingPolicyAutogenConfiguration
 <td>
 <em>(Optional)</em>
 <p>AutogenConfiguration defines the configuration for the generation controller.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>targetMatchConstraints</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
-Kubernetes admissionregistration/v1.MatchResources
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
 </td>
 </tr>
 <tr>
@@ -20739,6 +20786,53 @@ string
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1beta1.TargetMatchConstraints">TargetMatchConstraints
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1beta1.MutatingPolicySpec">MutatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>MatchResources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>MatchResources</code> are embedded into this type.)
+</p>
+<em>(Optional)</em>
+<p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
 </td>
 </tr>
 </tbody>

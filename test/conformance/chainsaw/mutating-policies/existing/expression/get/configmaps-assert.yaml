@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm-1
+  namespace: myns
+  labels:
+    mentorship: kyverno
+data:
+  key1: value1
