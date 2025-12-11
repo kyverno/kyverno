@@ -108,7 +108,24 @@ jobs:
           name: scan.json
       - name: Set scan output
         id: set-scan-output
-        run: echo "results=$(cat scan.json | jq -c)" >> $GITHUB_OUTPUT
+        run: |
+          cat scan.json | jq -r '
+            .Results[] |
+            select(.Vulnerabilities != null and (.Vulnerabilities | length) > 0) |
+            "## Image: `\(.Target)`\n\n" +
+            "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
+            "|--------|---------|----------|------|-----------|-------|-------------|\n" +
+            (.Vulnerabilities | map(
+              "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
+              (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
+              " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
+              ((.Title // .Description // "N/A") | gsub("\n"; " ") | gsub("\\|"; "/") | .[0:100]) + " |"
+            ) | join("\n")) + "\n"
+          ' > results.md
+
+          echo "results<<EOF" >> $GITHUB_OUTPUT
+          cat results.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
