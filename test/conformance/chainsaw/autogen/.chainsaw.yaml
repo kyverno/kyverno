@@ -7,8 +7,9 @@ spec:
     apply: 30s
     assert: 90s
     error: 90s
+  parallel: 8
   fullName: true
-  failFast: true
+  failFast: false
   excludeTestRegex: '_.+'
   forceTerminationGracePeriod: 5s
   delayBeforeCleanup: 3s
