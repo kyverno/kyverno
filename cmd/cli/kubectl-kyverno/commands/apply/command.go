@@ -66,40 +66,41 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig            string
-	Context               string
-	Namespace             string
-	MutateLogPath         string
-	Variables             []string
-	ValuesFile            string
-	UserInfoPath          string
-	ContextPath           string
-	Cluster               bool
-	PolicyReport          bool
-	OutputFormat          string
-	Stdin                 bool
-	RegistryAccess        bool
-	AuditWarn             bool
-	ResourcePaths         []string
-	PolicyPaths           []string
-	TargetResourcePaths   []string
-	ParamResources        []string
-	GitBranch             string
-	GitUsername           string
-	GitPassword           string
-	warnExitCode          int
-	warnNoPassed          bool
-	Exception             []string
-	ContinueOnFail        bool
-	inlineExceptions      bool
-	GenerateExceptions    bool
-	GeneratedExceptionTTL time.Duration
-	JSONPaths             []string
-	ClusterWideResources  bool
-	Concurrent            int
-	BatchSize             int
-	ContinueOnError       bool
-	ShowPerformance       bool
+	KubeConfig                     string
+	Context                        string
+	Namespace                      string
+	MutateLogPath                  string
+	Variables                      []string
+	ValuesFile                     string
+	UserInfoPath                   string
+	ContextPath                    string
+	Cluster                        bool
+	PolicyReport                   bool
+	OutputFormat                   string
+	Stdin                          bool
+	RegistryAccess                 bool
+	AuditWarn                      bool
+	ResourcePaths                  []string
+	PolicyPaths                    []string
+	TargetResourcePaths            []string
+	ParamResources                 []string
+	GitBranch                      string
+	GitUsername                    string
+	GitPassword                    string
+	warnExitCode                   int
+	warnNoPassed                   bool
+	Exception                      []string
+	ContinueOnFail                 bool
+	inlineExceptions               bool
+	GenerateExceptions             bool
+	GeneratedExceptionTTL          time.Duration
+	JSONPaths                      []string
+	ClusterWideResources           bool
+	Concurrent                     int
+	BatchSize                      int
+	ContinueOnError                bool
+	ShowPerformance                bool
+	DefaultAllowExistingViolations bool
 }
 
 func Command() *cobra.Command {
@@ -208,6 +209,7 @@ func Command() *cobra.Command {
 	cmd.Flags().IntVar(&applyCommandConfig.BatchSize, "batch-size", 100, "Number of resources to fetch per API call")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnError, "continue-on-error", true, "Continue processing despite resource loading errors")
 	cmd.Flags().BoolVar(&applyCommandConfig.ShowPerformance, "show-performance", false, "Show resource loading performance metrics")
+	cmd.Flags().BoolVar(&applyCommandConfig.DefaultAllowExistingViolations, "allow-existing-violations", false, "Set the default value for allowExistingViolations")
 	return cmd
 }
 
@@ -243,6 +245,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(nivps)+len(gps)+len(dps)+len(ndps))
 	for _, pol := range kpols {
 		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
@@ -501,6 +504,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			NamespaceCache:                    namespaceCache,
+			DefaultAllowExistingViolations:    c.DefaultAllowExistingViolations,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -541,6 +545,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			NamespaceCache:                    namespaceCache,
+			DefaultAllowExistingViolations:    c.DefaultAllowExistingViolations,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

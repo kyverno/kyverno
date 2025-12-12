@@ -12,6 +12,7 @@ spec:
           - Pod
     name: disallow-annotations
     validate:
+      allowExistingViolations: true
       failureAction: Enforce
       message: One or more annotations is not allowed per the policies disallowed
         values list.
