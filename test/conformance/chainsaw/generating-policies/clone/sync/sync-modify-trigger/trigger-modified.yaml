@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  foo: Z2l0bGFi
+kind: Secret
+metadata:
+  name: sync-modify-trigger
+  namespace: default
+  labels:
+    argocd.argoproj.io/secret-type: repository
+type: Opaque

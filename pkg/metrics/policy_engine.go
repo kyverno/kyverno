@@ -126,7 +126,7 @@ func (m *policyEngineMetrics) RecordResponse(
 			attribute.String("rule_name", ruleName),
 			attribute.String("rule_result", string(ruleResult)),
 			attribute.String("rule_type", string(ruleType)),
-			attribute.String("execution_cause", string(executionCause)),
+			attribute.String("rule_execution_cause", string(executionCause)),
 			attribute.String("dry_run", strconv.FormatBool(admissionInfo.DryRun)),
 		}
 

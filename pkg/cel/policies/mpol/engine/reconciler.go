@@ -115,7 +115,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, error) {
+func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	var policies []Policy
@@ -123,7 +123,7 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, 
 		for _, p := range r.policies {
 			policies = append(policies, p...)
 		}
-		return policies, nil
+		return policies
 	}
 
 	for _, p := range r.policies {
@@ -133,15 +133,11 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, 
 			}
 		}
 	}
-	return policies, nil
+	return policies
 }
 
 func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
-	policies, err := r.Fetch(ctx, true)
-	if err != nil {
-		return nil
-	}
-
+	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
 		if !Or(ClusteredPolicy(), NamespacedPolicy(attr.GetNamespace()))(mpol.Policy) {

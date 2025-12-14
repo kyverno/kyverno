@@ -95,6 +95,14 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
 
+	if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
+		warnings, err := gpolvalidation.Validate(ngpol)
+		if err != nil {
+			logger.Error(err, "NamespacedGeneratingPolicy validation errors")
+		}
+		return admissionutils.Response(request.UID, err, warnings...)
+	}
+
 	if dpol := policy.AsDeletingPolicy(); dpol != nil {
 		warnings, err := dpolvalidation.Validate(dpol)
 		if err != nil {
