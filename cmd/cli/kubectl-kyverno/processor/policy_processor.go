@@ -403,12 +403,34 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		if resource.Object != nil {
 			eng := vpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
-			// map gvk to gvr
-			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			mapping := schema.GroupVersionResource{
+				Group:   gvk.Group,
+				Version: gvk.Version,
 			}
-			gvr := mapping.Resource
+			found := false
+			kindPrefix := strings.ToLower(gvk.Kind)
+
+			for _, newVp := range p.ValidatingPolicies {
+				if newVp.Spec.MatchConstraints != nil {
+					for _, r := range newVp.Spec.MatchConstraints.ResourceRules {
+						for _, newR := range r.Resources {
+							if strings.HasPrefix(newR, kindPrefix) {
+								mapping.Resource = newR
+								found = true
+								break
+							}
+						}
+						if found {
+							break
+						}
+					}
+				}
+				if found {
+					break
+				}
+			}
+
+			gvr := mapping
 			var user authenticationv1.UserInfo
 			if p.UserInfo != nil {
 				user = p.UserInfo.AdmissionUserInfo
