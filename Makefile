@@ -731,9 +731,13 @@ codegen-manifest-install-latest: helm-setup-openreports
 		--set global.templating.version=latest \
 		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
+		--set admissionController.nodeSelector."kubernetes\.io/os"=linux \
 		--set cleanupController.image.tag=latest \
 		--set reportsController.image.tag=latest \
 		--set backgroundController.image.tag=latest \
+		--set backgroundController.nodeSelector."kubernetes\.io/os"=linux \
+        --set cleanupController.nodeSelector."kubernetes\.io/os"=linux \
+        --set reportsController.nodeSelector."kubernetes\.io/os"=linux \
  		| $(SED) -e '/^#.*/d' \
 		> $(INSTALL_MANIFEST_PATH)
 
