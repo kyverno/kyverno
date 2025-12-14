@@ -403,34 +403,44 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		if resource.Object != nil {
 			eng := vpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
-			mapping := schema.GroupVersionResource{
-				Group:   gvk.Group,
-				Version: gvk.Version,
-			}
-			found := false
-			kindPrefix := strings.ToLower(gvk.Kind)
+			// map gvk to gvr
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				if p.Client == nil {
+					// Offline / fallback mode: heuristic mapping
+					mapping.Resource = schema.GroupVersionResource{
+						Group:   gvk.Group,
+						Version: gvk.Version,
+					}
 
-			for _, newVp := range p.ValidatingPolicies {
-				if newVp.Spec.MatchConstraints != nil {
-					for _, r := range newVp.Spec.MatchConstraints.ResourceRules {
-						for _, newR := range r.Resources {
-							if strings.HasPrefix(newR, kindPrefix) {
-								mapping.Resource = newR
-								found = true
-								break
+					found := false
+					kindPrefix := strings.ToLower(gvk.Kind)
+
+					for _, newVp := range p.ValidatingPolicies {
+						if newVp.Spec.MatchConstraints != nil {
+							for _, r := range newVp.Spec.MatchConstraints.ResourceRules {
+								for _, newR := range r.Resources {
+									if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
+										mapping.Resource.Resource = newR
+										found = true
+										break
+									}
+								}
+								if found {
+									break
+								}
 							}
 						}
 						if found {
 							break
 						}
 					}
-				}
-				if found {
-					break
+				} else {
+					return nil, fmt.Errorf("failed to map GVK to GVR %s (%v)", gvk, err)
 				}
 			}
 
-			gvr := mapping
+			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
 			if p.UserInfo != nil {
 				user = p.UserInfo.AdmissionUserInfo
