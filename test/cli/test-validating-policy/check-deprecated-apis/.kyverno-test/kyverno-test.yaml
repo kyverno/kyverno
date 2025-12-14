@@ -14,14 +14,14 @@ results:
   - bad-cronjob
   result: fail
 - isValidatingPolicy: true
-  kind: CronJob
-  policy: check-deprecated-apis
-  resources:
-  - good-cronjob
-  result: skip
-- isValidatingPolicy: true
   kind: FlowSchema
   policy: check-deprecated-apis
   resources:
   - bad-flowschema
   result: fail
+- isValidatingPolicy: true
+  kind: CronJob
+  policy: check-deprecated-apis
+  resources:
+  - good-cronjob
+  result: skip
