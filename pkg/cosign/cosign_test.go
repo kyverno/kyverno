@@ -483,7 +483,6 @@ func TestCosignMatchSignatures(t *testing.T) {
 }
 
 func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
-	// Create payloads with different annotations
 	payload1 := payload.SimpleContainerImage{
 		Optional: map[string]interface{}{"pipeline": "ci"},
 	}
@@ -491,37 +490,30 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 		Optional: map[string]interface{}{"pipeline": "cd"},
 	}
 
-	// Test: Should pass if at least one payload matches "pipeline=ci"
 	err := checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{"pipeline": "ci"})
 	assert.NilError(t, err)
 
-	// Test: Should pass if at least one payload matches "pipeline=cd"
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{"pipeline": "cd"})
 	assert.NilError(t, err)
 
-	// Test: Should fail if neither payload matches
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{"pipeline": "staging"})
 	assert.ErrorContains(t, err, "no signature matched the required annotations")
 
-	// Test: Empty annotations should pass
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{})
 	assert.NilError(t, err)
 
-	// Test: Single payload that matches should pass
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
 		map[string]string{"pipeline": "ci"})
 	assert.NilError(t, err)
 
-	// Test: Single payload that doesn't match should fail
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
 		map[string]string{"pipeline": "cd"})
 	assert.ErrorContains(t, err, "no signature matched the required annotations")
 
-	// Test: Multiple annotations - payload must match all
 	payloadMulti := payload.SimpleContainerImage{
 		Optional: map[string]interface{}{"pipeline": "ci", "env": "prod"},
 	}
@@ -529,7 +521,6 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 		map[string]string{"pipeline": "ci", "env": "prod"})
 	assert.NilError(t, err)
 
-	// Test: Multiple annotations - partial match should fail
 	err = checkAnnotations([]payload.SimpleContainerImage{payloadMulti},
 		map[string]string{"pipeline": "ci", "env": "staging"})
 	assert.ErrorContains(t, err, "no signature matched the required annotations")
