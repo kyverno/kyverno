@@ -407,6 +407,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
+				found := false
 				if !p.Cluster {
 					// Offline / fallback mode: heuristic mapping
 					mapping = &meta.RESTMapping{
@@ -416,7 +417,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 
-					found := false
 					kindPrefix := strings.ToLower(gvk.Kind)
 
 					for _, newVp := range p.ValidatingPolicies {
@@ -438,9 +438,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							break
 						}
 					}
-				} else {
-					return nil, fmt.Errorf("failed to map GVK to GVR %s (%v)", gvk, err)
 				}
+				if !found {
+					if p.Cluster {
+						return nil, fmt.Errorf("failed to map GVK to GVR %s (%v)", gvk, err)
+					}
+					return nil, fmt.Errorf("failed to heuristically map GVK to GVR %s", gvk)
+				}
+
 			}
 
 			gvr := mapping.Resource
