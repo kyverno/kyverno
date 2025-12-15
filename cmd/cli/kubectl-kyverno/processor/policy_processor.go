@@ -409,7 +409,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if err != nil {
 				found := false
 				if !p.Cluster {
-					// Offline / fallback mode: heuristic mapping
 					mapping = &meta.RESTMapping{
 						Resource: schema.GroupVersionResource{
 							Group:   gvk.Group,
@@ -443,9 +442,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					if p.Cluster {
 						return nil, fmt.Errorf("failed to map GVK to GVR %s (%v)", gvk, err)
 					}
-					return nil, fmt.Errorf("failed to heuristically map GVK to GVR %s", gvk)
+					return nil, fmt.Errorf("failed to get GVR from  %s", gvk)
 				}
-
 			}
 
 			gvr := mapping.Resource
