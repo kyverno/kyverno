@@ -23,7 +23,7 @@ import (
 )
 
 type Provider interface {
-	Fetch(context.Context, bool) ([]Policy, error)
+	Fetch(context.Context, bool) []Policy
 	MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace) []string
 }
 
@@ -104,22 +104,18 @@ type staticProvider struct {
 	policies []Policy
 }
 
-func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, error) {
+func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	var filtered []Policy
 	for _, pol := range p.policies {
 		if mutateExisting == pol.Policy.GetSpec().MutateExistingEnabled() {
 			filtered = append(filtered, pol)
 		}
 	}
-	return filtered, nil
+	return filtered
 }
 
 func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
-	policies, err := r.Fetch(ctx, true)
-	if err != nil {
-		return nil
-	}
-
+	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
 		matcher := matching.NewMatcher()

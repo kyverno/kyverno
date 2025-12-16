@@ -29,6 +29,7 @@ type Engine interface {
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
+	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
 }
 
 type EngineResponse struct {
@@ -79,11 +80,7 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 }
 
 func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, predicate Predicate) (EngineResponse, error) {
-	mpols, err := e.provider.Fetch(ctx, true)
-	if err != nil {
-		return EngineResponse{}, err
-	}
-
+	mpols := e.provider.Fetch(ctx, true)
 	var object *unstructured.Unstructured
 	if o, ok := attr.GetObject().(*unstructured.Unstructured); ok {
 		object = o
@@ -107,10 +104,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 
 func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
 	var response EngineResponse
-	mpols, err := e.provider.Fetch(ctx, false)
-	if err != nil {
-		return response, err
-	}
+	mpols := e.provider.Fetch(ctx, false)
 
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {
@@ -237,6 +231,16 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
 	return ruleResponse, result.PatchedResource
+}
+
+func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
+	pols := e.provider.Fetch(context.TODO(), true)
+	for _, p := range pols {
+		if p.Policy.GetName() == policyName {
+			return p, nil
+		}
+	}
+	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
 }
 
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {

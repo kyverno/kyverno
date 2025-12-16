@@ -91,6 +91,10 @@ func (f *fakeEngine) Evaluate(ctx context.Context, adm admission.Attributes, amd
 	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
 }
 
+func (f *fakeEngine) GetCompiledPolicy(policyName string) (mpolengine.Policy, error) {
+	return mpolengine.Policy{}, nil
+}
+
 func (f *fakeEngine) Handle(ctx context.Context, engine engine.EngineRequest, filter mpolengine.Predicate) (mpolengine.EngineResponse, error) {
 	args := f.Called()
 	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
@@ -112,8 +116,7 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		&libs.FakeContextProvider{},
 		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
-		event.NewFake(),
-	)
+		event.NewFake())
 
 	ur := &kyvernov2.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
