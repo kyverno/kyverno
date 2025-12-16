@@ -238,7 +238,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range mpols {
 		if pol := policy.AsMutatingPolicy(); pol != nil {
 			compiler := mpolcompiler.NewCompiler()
-			provider, err := mpolengine.NewProvider(compiler, []policiesv1alpha1.MutatingPolicy{*pol}, exceptions)
+			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&mpols[i]] = ScanResult{nil, err}
@@ -263,7 +263,7 @@ func (s *scanner) ScanResource(
 
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
-				results[&vpols[i]] = ScanResult{nil, err}
+				results[&mpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			request := celengine.Request(
@@ -306,7 +306,7 @@ func (s *scanner) ScanResource(
 
 	for i, policy := range ivpols {
 		if pol := policy.AsImageValidatingPolicy(); pol != nil {
-			provider, err := ivpolengine.NewProvider([]policiesv1alpha1.ImageValidatingPolicyLike{pol}, exceptions)
+			provider, err := ivpolengine.NewProvider([]policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}

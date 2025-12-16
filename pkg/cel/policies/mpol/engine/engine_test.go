@@ -3,10 +3,10 @@ package engine
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -50,7 +50,7 @@ func TestGetPatches(t *testing.T) {
 		data := patched.Object["data"].(map[string]interface{})
 		data["key2"] = "value2"
 
-		policy := &policiesv1alpha1.MutatingPolicy{
+		policy := &policiesv1beta1.MutatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "sample-policy",
 				Namespace: "default",
@@ -85,7 +85,7 @@ func TestGetPatches(t *testing.T) {
 		assert.Equal(t, "value2", patches[0].Value)
 
 		assert.Len(t, er.Policies, 1)
-		assert.Equal(t, "sample-policy", er.Policies[0].Policy.Name)
+		assert.Equal(t, "sample-policy", er.Policies[0].Policy.GetName())
 		assert.Len(t, er.Policies[0].Rules, 1)
 	})
 
@@ -190,14 +190,14 @@ var (
 	nsResolver = func(ns string) *corev1.Namespace {
 		return nil
 	}
-	predicate     = func(p policiesv1alpha1.MutatingPolicy) bool { return true }
+	predicate     = func(p policiesv1beta1.MutatingPolicyLike) bool { return true }
 	typeConverter = compiler.NewStaticTypeConverterManager(openapi.NewClient(&rest.RESTClient{}))
 )
 
 type mockFailingProvider struct{}
 
-func (m *mockFailingProvider) Fetch(ctx context.Context, mutate bool) ([]Policy, error) {
-	return nil, errors.New("fetch failed")
+func (m *mockFailingProvider) Fetch(ctx context.Context, mutate bool) []Policy {
+	return nil
 }
 func (m *mockFailingProvider) MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace) []string {
 	return nil
@@ -211,7 +211,7 @@ func (f *fakeTypeConverter) GetTypeConverter(gvk schema.GroupVersionKind) manage
 
 func TestEvaluate(t *testing.T) {
 	t.Run("no policies and no exceptions returns empty response without error", func(t *testing.T) {
-		pols := []policiesv1alpha1.MutatingPolicy{}
+		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1alpha1.PolicyException{}
 
 		provider, err := NewProvider(compiler.NewCompiler(), pols, polexs)
@@ -224,28 +224,26 @@ func TestEvaluate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("provider fetch failure returns error and empty response", func(t *testing.T) {
+	t.Run("provider returns an empty response", func(t *testing.T) {
 		engine := NewEngine(&mockFailingProvider{}, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
-		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
-
-		assert.Error(t, err)
+		resp, _ := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 		assert.Equal(t, EngineResponse{}, resp)
 	})
 
 	t.Run("successful match and mutation with mutateExisting enabled", func(t *testing.T) {
 		mutateExisting := true
-		mpol := policiesv1alpha1.MutatingPolicy{
+		mpol := &policiesv1beta1.MutatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "add-label",
 			},
-			Spec: policiesv1alpha1.MutatingPolicySpec{
-				EvaluationConfiguration: &policiesv1alpha1.MutatingPolicyEvaluationConfiguration{
-					MutateExistingConfiguration: &policiesv1alpha1.MutateExistingConfiguration{
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
 						Enabled: &mutateExisting,
 					},
 				},
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
 							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 								Operations: []admissionregistrationv1.OperationType{"CREATE"},
@@ -269,7 +267,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		pols := []policiesv1alpha1.MutatingPolicy{mpol}
+		pols := []policiesv1beta1.MutatingPolicyLike{mpol}
 
 		provider, err := NewProvider(compiler.NewCompiler(), pols, nil)
 
@@ -289,7 +287,7 @@ func TestEvaluate(t *testing.T) {
 func TestHandle(t *testing.T) {
 	tests := []struct {
 		name           string
-		policies       []policiesv1alpha1.MutatingPolicy
+		policies       []policiesv1beta1.MutatingPolicyLike
 		requestObject  string
 		kind           string
 		matchNamespace string
@@ -300,14 +298,14 @@ func TestHandle(t *testing.T) {
 	}{
 		{
 			name: "Successful match and mutation",
-			policies: []policiesv1alpha1.MutatingPolicy{
-				{
+			policies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "add-label",
 					},
-					Spec: policiesv1alpha1.MutatingPolicySpec{
-						MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-							ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
 									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 										Operations: []admissionregistrationv1.OperationType{"CREATE"},
@@ -334,34 +332,34 @@ func TestHandle(t *testing.T) {
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return true },
+			predicate:      func(p policiesv1beta1.MutatingPolicyLike) bool { return true },
 			expectPolicies: 1,
 			expectPatched:  true,
 			expectLabel:    "test",
 		},
 		{
 			name: "predicate returns false",
-			policies: []policiesv1alpha1.MutatingPolicy{
-				{
+			policies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "skip-policy"},
-					Spec:       policiesv1alpha1.MutatingPolicySpec{},
+					Spec:       policiesv1beta1.MutatingPolicySpec{},
 				},
 			},
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return false },
+			predicate:      func(p policiesv1beta1.MutatingPolicyLike) bool { return false },
 			expectPolicies: 0,
 			expectPatched:  false,
 		},
 		{
 			name: "no mutation specified",
-			policies: []policiesv1alpha1.MutatingPolicy{
-				{
+			policies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "no-mutation"},
-					Spec: policiesv1alpha1.MutatingPolicySpec{
-						MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-							ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
 									ResourceNames: []string{"Deployment"},
 								},
@@ -373,7 +371,7 @@ func TestHandle(t *testing.T) {
 			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
 			kind:           "Deployment",
 			matchNamespace: "default",
-			predicate:      func(p policiesv1alpha1.MutatingPolicy) bool { return true },
+			predicate:      func(p policiesv1beta1.MutatingPolicyLike) bool { return true },
 			expectPolicies: 1,
 			expectPatched:  false,
 		},
@@ -462,7 +460,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 			},
 		}
 
-		pols := []policiesv1alpha1.MutatingPolicy{}
+		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1alpha1.PolicyException{}
 
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
@@ -490,7 +488,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 			},
 		}
 
-		pols := []policiesv1alpha1.MutatingPolicy{}
+		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1alpha1.PolicyException{}
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 

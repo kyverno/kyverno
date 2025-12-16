@@ -18,7 +18,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: disallow-privilege-escalation
+          value: ($test.metadata.name)
   - name: check autogen
     try:
     - assert:
