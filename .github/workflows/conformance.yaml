@@ -1224,12 +1224,10 @@ jobs:
           - name: v1.33
             version: v1.33.1
         key-algorithm:
-          # RSA should pass with current implementation
           - name: rsa
             test-dir: rsa-cert-manager
-          # ECDSA will fail until Phase 1 implementation - uncomment when ready
-          # - name: ecdsa
-          #   test-dir: ecdsa-cert-manager
+          - name: ecdsa
+            test-dir: ecdsa-cert-manager
     needs:
       - prepare-images
     name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}

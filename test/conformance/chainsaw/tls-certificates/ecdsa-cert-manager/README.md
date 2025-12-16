@@ -6,16 +6,6 @@ This test verifies that Kyverno works correctly with ECDSA certificates provided
 
 This test verifies that Kyverno can use externally managed ECDSA TLS certificates from cert-manager.
 
-## Expected Result
-
-This test should **fail** since Kyverno does not currently support ECDSA certificates.
-
-The expected error message from the admission controller is:
-
-```
-failed to validate certificates error="x509: failed to parse private key (use ParseECPrivateKey instead for this key format)"
-```
-
 ## Prerequisites
 
 - cert-manager must be installed in the cluster before running this test
@@ -34,3 +24,11 @@ failed to validate certificates error="x509: failed to parse private key (use Pa
 5. **Install Kyverno**: Install Kyverno using Helm (certificates already in place)
 6. **Verify Kyverno ready**: Assert that Kyverno admission controller is ready
 7. **Test webhook**: Apply a test policy to verify webhook functionality
+
+## Expected Result
+
+This test should **pass** as Kyverno supports externally managed ECDSA certificates.
+
+## Reference Issue(s)
+
+- https://github.com/kyverno/kyverno/issues/14517
