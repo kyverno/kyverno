@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: mutate-existing-trigger-test
+  namespace: trigger-test-ns
+spec:
+  background: true
+  rules:
+  - name: mutate-secret-on-configmap
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - dictionary-1
+    mutate:
+      mutateExistingOnPolicyUpdate: true
+      targets:
+        - apiVersion: v1
+          kind: Secret
+          name: secret-1
+          namespace: trigger-test-ns
+      patchStrategicMerge:
+        metadata:
+          labels:
+            mutated: "true"
