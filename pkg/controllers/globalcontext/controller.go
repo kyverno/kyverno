@@ -152,7 +152,6 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			ctx,
 			gce,
 			c.eventGen,
-			c.kubeClient,
 			c.dclient.GetDynamicInterface(),
 			logger,
 			gvr,
