@@ -32,6 +32,8 @@ var (
 	metricsPort          int
 	metricsCaSecretName  string
 	metricsTlsSecretName string
+	renewBefore          time.Duration
+	serverIP             string
 	transportCreds       string
 	disableMetricsExport bool
 	// kubeconfig
