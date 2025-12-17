@@ -1,0 +1,32 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: mutate-existing-mpol-test
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["configmaps"]
+      resourceNames: ["trigger-cm"]
+  targetMatchConstraints:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: mpol-trigger-test-ns
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["secrets"]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: |
+        Object{
+          metadata: Object.metadata{
+            labels: {"mutated": "true"}
+          }
+        }

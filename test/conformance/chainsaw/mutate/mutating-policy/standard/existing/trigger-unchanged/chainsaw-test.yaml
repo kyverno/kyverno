@@ -1,0 +1,36 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mpol-trigger-unchanged
+spec:
+  steps:
+  - name: create-namespace-and-secret
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+    - apply:
+        file: chainsaw-step-01-apply-1-2.yaml
+  - name: create-mutating-policy
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+    - sleep:
+        duration: 5s
+  - name: create-trigger-configmap
+    try:
+    - apply:
+        file: chainsaw-step-03-apply-1-1.yaml
+    - sleep:
+        duration: 5s
+  - name: update-trigger-to-fire-mutation
+    try:
+    - apply:
+        file: chainsaw-step-04-apply-1-1.yaml
+    - sleep:
+        duration: 10s
+  - name: verify-target-mutated-trigger-unchanged
+    try:
+    - assert:
+        file: chainsaw-step-05-assert-1-1.yaml
+    - assert:
+        file: chainsaw-step-05-assert-1-2.yaml
