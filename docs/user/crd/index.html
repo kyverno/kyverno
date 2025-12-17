@@ -33,6 +33,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
 </li>
 <li>
+<a href="#policies.kyverno.io%2fv1"><b style="color: white">policies.kyverno.io/v1</b></a>
+</li>
+<li>
 <a href="#policies.kyverno.io%2fv1alpha1"><b style="color: white">policies.kyverno.io/v1alpha1</b></a>
 </li>
 <li>
@@ -10601,6 +10604,271 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <em>(Optional)</em>
 <p>Assert defines a kyverno-json assertion tree.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="policies.kyverno.io/v1">policies.kyverno.io/v1</h2>
+<p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#policies.kyverno.io/v1.PolicyException">PolicyException</a>
+</li></ul>
+<hr />
+<h3 id="policies.kyverno.io/v1.PolicyException">PolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+policies.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1.PolicyExceptionSpec">
+PolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>policyRefs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1.PolicyRef">
+[]PolicyRef
+</a>
+</em>
+</td>
+<td>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images specifies container images to be excluded from policy evaluation.
+These excluded images can be referenced in CEL expressions via <code>exceptions.allowedImages</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowedValues</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
+These values can be referenced in CEL expressions via <code>exceptions.allowedValues</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>reportResult</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReportResult indicates whether the policy exception should be reported in the policy report
+as a skip result or pass result. Defaults to &ldquo;skip&rdquo;.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyRefs</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1.PolicyRef">
+[]PolicyRef
+</a>
+</em>
+</td>
+<td>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images specifies container images to be excluded from policy evaluation.
+These excluded images can be referenced in CEL expressions via <code>exceptions.allowedImages</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowedValues</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
+These values can be referenced in CEL expressions via <code>exceptions.allowedValues</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>reportResult</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReportResult indicates whether the policy exception should be reported in the policy report
+as a skip result or pass result. Defaults to &ldquo;skip&rdquo;.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1.PolicyRef">PolicyRef
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the name of the policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind is the kind of the policy</p>
 </td>
 </tr>
 </tbody>
