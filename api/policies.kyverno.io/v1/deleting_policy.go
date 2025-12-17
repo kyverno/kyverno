@@ -35,7 +35,6 @@ type DeletingPolicy struct {
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:storageversion
 
 type NamespacedDeletingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`

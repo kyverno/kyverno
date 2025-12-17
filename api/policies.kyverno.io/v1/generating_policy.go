@@ -17,7 +17,6 @@ const (
 // +kubebuilder:resource:path=generatingpolicies,scope="Cluster",shortName=gpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:storageversion
 
 type GeneratingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`

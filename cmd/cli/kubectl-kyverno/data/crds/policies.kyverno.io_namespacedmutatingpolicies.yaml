@@ -2201,7 +2201,7 @@ spec:
     selectableFields:
     - jsonPath: .spec.evaluation.mode
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
   - additionalPrinterColumns:
