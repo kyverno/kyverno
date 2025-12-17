@@ -31,7 +31,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -54,7 +54,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make build-cli
       - name: upload images archive
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: kubectl-kyverno
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
@@ -862,7 +862,7 @@ jobs:
           kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -933,7 +933,7 @@ jobs:
         with:
           verify: true
       - name: Download kyverno CLI archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kubectl-kyverno
       - name: Install Kyverno CLI
@@ -952,7 +952,7 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -1006,7 +1006,7 @@ jobs:
           set -e
           make kind-create-cluster
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -1050,7 +1050,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       # install tools
       - name: Download kyverno CLI archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kubectl-kyverno
       - name: Install Cosign
@@ -1107,7 +1107,7 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -1173,7 +1173,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
