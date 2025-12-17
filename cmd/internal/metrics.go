@@ -3,15 +3,21 @@ package internal
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
+	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	kyvernotls "github.com/kyverno/kyverno/pkg/tls"
 	otlp "go.opentelemetry.io/otel"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -19,6 +25,13 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 	logger = logger.WithName("metrics")
 	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds, "tlsSecretName", metricsTlsSecretName)
 	metricsAddr := fmt.Sprintf("[%s]:%d", metricsHost, metricsPort)
+
+	tlsSecretInformer := informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsTlsSecretName, resyncPeriod)
+	caSecretInformer := informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsCaSecretName, resyncPeriod)
+	if !informers.StartInformersAndWaitForCacheSync(ctx, logger, caSecretInformer, tlsSecretInformer) {
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
 	// in case of otel collector being GRPC the metrics Host is the target address instead of the listening address
 	metricsConfig, tlsProvider, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
 		ctx,
@@ -29,6 +42,8 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		metricsConfiguration,
 		transportCreds,
 		kubeClient,
+		tlsSecretInformer,
+		caSecretInformer,
 		metricsCaSecretName,
 		metricsTlsSecretName,
 		logging.WithName("metrics"),
@@ -94,5 +109,34 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 			}
 		}()
 	}
+	// controllers
+	renewer := kyvernotls.NewCertRenewer(
+		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		kyvernotls.CertRenewalInterval,
+		kyvernotls.CAValidityDuration,
+		kyvernotls.TLSValidityDuration,
+		renewBefore,
+		serverIP,
+		config.KyvernoServiceName(),
+		config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
+		config.KyvernoNamespace(),
+		metricsCaSecretName,
+		metricsTlsSecretName,
+	)
+	certController := NewController(
+		certmanager.ControllerName,
+		certmanager.NewController(
+			caSecretInformer,
+			tlsSecretInformer,
+			renewer,
+			metricsCaSecretName,
+			metricsTlsSecretName,
+			config.KyvernoNamespace(),
+		),
+		certmanager.Workers,
+	)
+
+	var wg wait.Group
+	certController.Run(ctx, logger, &wg)
 	return metricsConfig, cancel
 }
