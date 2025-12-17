@@ -760,6 +760,8 @@ spec:
                       x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-type: atomic
+                  expression:
+                    type: string
                   matchPolicy:
                     description: |-
                       matchPolicy defines how the "MatchResources" list is used to match incoming requests.
@@ -1800,6 +1802,8 @@ spec:
                                     x-kubernetes-map-type: atomic
                                   type: array
                                   x-kubernetes-list-type: atomic
+                                expression:
+                                  type: string
                                 matchPolicy:
                                   description: |-
                                     matchPolicy defines how the "MatchResources" list is used to match incoming requests.
