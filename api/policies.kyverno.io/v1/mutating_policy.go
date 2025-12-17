@@ -1,13 +1,9 @@
-package v1beta1
+package v1
 
 import (
-	"context"
-
-	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -19,7 +15,6 @@ import (
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +kubebuilder:selectablefield:JSONPath=`.spec.evaluation.mode`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:storageversion
 
 type MutatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -28,11 +23,6 @@ type MutatingPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status MutatingPolicyStatus `json:"status,omitempty"`
-}
-
-// BackgroundEnabled checks if background is set to true
-func (s MutatingPolicy) BackgroundEnabled() bool {
-	return s.Spec.BackgroundEnabled()
 }
 
 // +genclient
@@ -54,66 +44,6 @@ type NamespacedMutatingPolicy struct {
 	Status MutatingPolicyStatus `json:"status,omitempty"`
 }
 
-// BackgroundEnabled checks if background is set to true
-func (s NamespacedMutatingPolicy) BackgroundEnabled() bool {
-	return s.Spec.BackgroundEnabled()
-}
-
-func (s *NamespacedMutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.MatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-	return *s.Spec.MatchConstraints
-}
-
-func (s *NamespacedMutatingPolicy) GetTargetMatchConstraints() TargetMatchConstraints {
-	if s.Spec.TargetMatchConstraints == nil {
-		return TargetMatchConstraints{}
-	}
-	return *s.Spec.TargetMatchConstraints
-}
-
-func (s *NamespacedMutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.Spec.MatchConditions
-}
-
-func (s *NamespacedMutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
-		return admissionregistrationv1.Ignore
-	}
-	if s.Spec.FailurePolicy == nil {
-		return admissionregistrationv1.Fail
-	}
-	return *s.Spec.FailurePolicy
-}
-
-func (s *NamespacedMutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
-}
-
-func (s *NamespacedMutatingPolicy) GetTimeoutSeconds() *int32 {
-	if s.Spec.WebhookConfiguration == nil {
-		return nil
-	}
-	return s.Spec.WebhookConfiguration.TimeoutSeconds
-}
-
-func (s *NamespacedMutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
-	return s.Spec.Variables
-}
-
-func (s *NamespacedMutatingPolicy) GetSpec() *MutatingPolicySpec {
-	return &s.Spec
-}
-
-func (s *NamespacedMutatingPolicy) GetStatus() *MutatingPolicyStatus {
-	return &s.Status
-}
-
-func (s *NamespacedMutatingPolicy) GetKind() string {
-	return "NamespacedMutatingPolicy"
-}
-
 type MutatingPolicyStatus struct {
 	// +optional
 	ConditionStatus ConditionStatus `json:"conditionStatus,omitempty"`
@@ -124,87 +54,6 @@ type MutatingPolicyStatus struct {
 	// Generated indicates whether a MutatingAdmissionPolicy is generated from the policy or not
 	// +optional
 	Generated bool `json:"generated"`
-}
-
-func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.MatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-	return *s.Spec.MatchConstraints
-}
-
-func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.MatchResources) {
-	out := &admissionregistrationv1.MatchResources{}
-	out.NamespaceSelector = in.NamespaceSelector
-	out.ObjectSelector = in.ObjectSelector
-	for _, ex := range in.ExcludeResourceRules {
-		out.ExcludeResourceRules = append(out.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
-			ResourceNames:      ex.ResourceNames,
-			RuleWithOperations: ex.RuleWithOperations,
-		})
-	}
-	for _, ex := range in.ResourceRules {
-		out.ResourceRules = append(out.ResourceRules, admissionregistrationv1.NamedRuleWithOperations{
-			ResourceNames:      ex.ResourceNames,
-			RuleWithOperations: ex.RuleWithOperations,
-		})
-	}
-	if in.MatchPolicy != nil {
-		out.MatchPolicy = in.MatchPolicy
-	}
-	s.MatchConstraints = out
-}
-
-func (s *MutatingPolicy) GetTargetMatchConstraints() TargetMatchConstraints {
-	if s.Spec.TargetMatchConstraints == nil {
-		return TargetMatchConstraints{}
-	}
-	return *s.Spec.TargetMatchConstraints
-}
-
-func (s *MutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.Spec.MatchConditions
-}
-
-func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
-		return admissionregistrationv1.Ignore
-	}
-	if s.Spec.FailurePolicy == nil {
-		return admissionregistrationv1.Fail
-	}
-	return *s.Spec.FailurePolicy
-}
-
-func (s *MutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
-}
-
-func (s *MutatingPolicy) GetTimeoutSeconds() *int32 {
-	if s.Spec.WebhookConfiguration == nil {
-		return nil
-	}
-	return s.Spec.WebhookConfiguration.TimeoutSeconds
-}
-
-func (s *MutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
-	return s.Spec.Variables
-}
-
-func (s *MutatingPolicy) GetSpec() *MutatingPolicySpec {
-	return &s.Spec
-}
-
-func (s *MutatingPolicy) GetStatus() *MutatingPolicyStatus {
-	return &s.Status
-}
-
-func (s *MutatingPolicy) GetKind() string {
-	return "MutatingPolicy"
-}
-
-func (status *MutatingPolicyStatus) GetConditionStatus() *ConditionStatus {
-	return &status.ConditionStatus
 }
 
 // +kubebuilder:object:root=true
@@ -225,23 +74,6 @@ type NamespacedMutatingPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []NamespacedMutatingPolicy `json:"items"`
-}
-
-// MutatingPolicyLike captures the common behaviour shared by mutating policies regardless of scope.
-// +k8s:deepcopy-gen=false
-type MutatingPolicyLike interface {
-	metav1.Object
-	runtime.Object
-	GetSpec() *MutatingPolicySpec
-	GetStatus() *MutatingPolicyStatus
-	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
-	GetMatchConstraints() admissionregistrationv1.MatchResources
-	GetTargetMatchConstraints() TargetMatchConstraints
-	GetMatchConditions() []admissionregistrationv1.MatchCondition
-	GetVariables() []admissionregistrationv1.Variable
-	GetWebhookConfiguration() *WebhookConfiguration
-	BackgroundEnabled() bool
-	GetKind() string
 }
 
 // MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.
@@ -344,67 +176,6 @@ type TargetMatchConstraints struct {
 	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
 	// +optional
 	admissionregistrationv1.MatchResources `json:",inline"`
-}
-
-// GenerateMutatingAdmissionPolicyEnabled checks if mutating admission policy generation is enabled
-func (s MutatingPolicySpec) GenerateMutatingAdmissionPolicyEnabled() bool {
-	const defaultValue = false
-	if s.AutogenConfiguration == nil {
-		return defaultValue
-	}
-	if s.AutogenConfiguration.MutatingAdmissionPolicy == nil {
-		return defaultValue
-	}
-	if s.AutogenConfiguration.MutatingAdmissionPolicy.Enabled == nil {
-		return defaultValue
-	}
-	return *s.AutogenConfiguration.MutatingAdmissionPolicy.Enabled
-}
-
-// AdmissionEnabled checks if admission is set to true
-func (s MutatingPolicySpec) AdmissionEnabled() bool {
-	const defaultValue = true
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.Admission.Enabled
-}
-
-// BackgroundEnabled checks if background is set to true
-func (s MutatingPolicySpec) BackgroundEnabled() bool {
-	const defaultValue = true
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Background == nil || s.EvaluationConfiguration.Background.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.Background.Enabled
-}
-
-// EvaluationMode returns the evaluation mode of the policy.
-func (s MutatingPolicySpec) EvaluationMode() EvaluationMode {
-	const defaultValue = EvaluationModeKubernetes
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
-		return defaultValue
-	}
-	return s.EvaluationConfiguration.Mode
-}
-
-// GetReinvocationPolicy returns the reinvocation policy of the MutatingPolicy
-func (s *MutatingPolicySpec) GetReinvocationPolicy() admissionregistrationv1.ReinvocationPolicyType {
-	const defaultValue = admissionregistrationv1.NeverReinvocationPolicy
-	if s.ReinvocationPolicy == "" {
-		return defaultValue
-	}
-	return s.ReinvocationPolicy
-}
-
-// MutateExistingEnabled checks if mutate existing is set to true
-func (s MutatingPolicySpec) MutateExistingEnabled() bool {
-	if s.EvaluationConfiguration == nil ||
-		s.EvaluationConfiguration.MutateExistingConfiguration == nil ||
-		s.EvaluationConfiguration.MutateExistingConfiguration.Enabled == nil {
-		return false
-	}
-	return *s.EvaluationConfiguration.MutateExistingConfiguration.Enabled
 }
 
 type MutatingPolicyEvaluationConfiguration struct {

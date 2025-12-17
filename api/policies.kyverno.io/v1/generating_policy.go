@@ -1,28 +1,14 @@
-package v1beta1
+package v1
 
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
 	GeneratingPolicyKind           = "GeneratingPolicy"
 	NamespacedGeneratingPolicyKind = "NamespacedGeneratingPolicy"
 )
-
-// GeneratingPolicyLike captures the common behaviour shared by generating policies regardless of scope.
-// +k8s:deepcopy-gen=false
-type GeneratingPolicyLike interface {
-	metav1.Object
-	runtime.Object
-	GetSpec() *GeneratingPolicySpec
-	GetStatus() *GeneratingPolicyStatus
-	GetMatchConstraints() admissionregistrationv1.MatchResources
-	GetMatchConditions() []admissionregistrationv1.MatchCondition
-	GetVariables() []admissionregistrationv1.Variable
-	GetKind() string
-}
 
 // +genclient
 // +genclient:nonNamespaced
@@ -42,52 +28,12 @@ type GeneratingPolicy struct {
 	Status GeneratingPolicyStatus `json:"status,omitempty"`
 }
 
-func (s *GeneratingPolicy) GetKind() string {
-	return GeneratingPolicyKind
-}
-
-func (s *GeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.MatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-	return *s.Spec.MatchConstraints
-}
-
-func (s *GeneratingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.Spec.MatchConditions
-}
-
-func (s *GeneratingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	return admissionregistrationv1.Ignore
-}
-
-func (s *GeneratingPolicy) GetTimeoutSeconds() *int32 {
-	if s.Spec.WebhookConfiguration == nil {
-		return nil
-	}
-
-	return s.Spec.WebhookConfiguration.TimeoutSeconds
-}
-
-func (s *GeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
-	return s.Spec.Variables
-}
-
-func (s *GeneratingPolicy) GetSpec() *GeneratingPolicySpec {
-	return &s.Spec
-}
-
-func (s *GeneratingPolicy) GetStatus() *GeneratingPolicyStatus {
-	return &s.Status
-}
-
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Namespaced",shortName=ngpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:storageversion
 //
 // NamespacedGeneratingPolicy is the namespaced CEL-based generating policy.
 type NamespacedGeneratingPolicy struct {
@@ -97,45 +43,6 @@ type NamespacedGeneratingPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status GeneratingPolicyStatus `json:"status,omitempty"`
-}
-
-func (s *NamespacedGeneratingPolicy) GetKind() string {
-	return NamespacedGeneratingPolicyKind
-}
-
-func (s *NamespacedGeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.MatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-	return *s.Spec.MatchConstraints
-}
-
-func (s *NamespacedGeneratingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.Spec.MatchConditions
-}
-
-func (s *NamespacedGeneratingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	return admissionregistrationv1.Ignore
-}
-
-func (s *NamespacedGeneratingPolicy) GetTimeoutSeconds() *int32 {
-	if s.Spec.WebhookConfiguration == nil {
-		return nil
-	}
-
-	return s.Spec.WebhookConfiguration.TimeoutSeconds
-}
-
-func (s *NamespacedGeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
-	return s.Spec.Variables
-}
-
-func (s *NamespacedGeneratingPolicy) GetSpec() *GeneratingPolicySpec {
-	return &s.Spec
-}
-
-func (s *NamespacedGeneratingPolicy) GetStatus() *GeneratingPolicyStatus {
-	return &s.Status
 }
 
 // +kubebuilder:object:root=true
@@ -210,55 +117,6 @@ type GeneratingPolicySpec struct {
 	// Required.
 	// +kubebuilder:validation:MinItems=1
 	Generation []Generation `json:"generate"`
-}
-
-func (s GeneratingPolicySpec) OrphanDownstreamOnPolicyDeleteEnabled() bool {
-	const defaultValue = false
-	if s.EvaluationConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled
-}
-
-func (s GeneratingPolicySpec) GenerateExistingEnabled() bool {
-	const defaultValue = false
-	if s.EvaluationConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.GenerateExistingConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled
-}
-
-func (s GeneratingPolicySpec) SynchronizationEnabled() bool {
-	const defaultValue = false
-	if s.EvaluationConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.SynchronizationConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.SynchronizationConfiguration.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.SynchronizationConfiguration.Enabled
-}
-
-func (s GeneratingPolicySpec) AdmissionEnabled() bool {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
-		return true
-	}
-	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
 type GeneratingPolicyEvaluationConfiguration struct {

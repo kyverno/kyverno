@@ -1,15 +1,14 @@
-package v1alpha1
+package v1
 
 import (
-	"fmt"
-	"reflect"
-
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	ImageValidatingPolicyKind           = "ImageValidatingPolicy"
+	NamespacedImageValidatingPolicyKind = "NamespacedImageValidatingPolicy"
 )
 
 // +genclient
@@ -20,7 +19,6 @@ import (
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:deprecatedversion
 
 type ImageValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -29,6 +27,33 @@ type ImageValidatingPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status ImageValidatingPolicyStatus `json:"status,omitempty"`
+}
+
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope="Namespaced",shortName=nivpol,categories=kyverno
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NamespacedImageValidatingPolicy struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ImageValidatingPolicySpec `json:"spec"`
+	// Status contains policy runtime data.
+	// +optional
+	Status ImageValidatingPolicyStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacedImageValidatingPolicyList is a list of NamespacedImageValidatingPolicy instances
+type NamespacedImageValidatingPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []NamespacedImageValidatingPolicy `json:"items"`
 }
 
 type ImageValidatingPolicyStatus struct {
@@ -238,50 +263,6 @@ type Attestor struct {
 	Notary *Notary `json:"notary,omitempty"`
 }
 
-func (v Attestor) ConvertToNative(typeDesc reflect.Type) (any, error) {
-	if reflect.TypeOf(v).AssignableTo(typeDesc) {
-		return v, nil
-	}
-	return nil, fmt.Errorf("type conversion error from 'Image' to '%v'", typeDesc)
-}
-
-func (v Attestor) ConvertToType(typeVal ref.Type) ref.Val {
-	switch typeVal {
-	case cel.ObjectType("imageverify.attestor"):
-		return v
-	default:
-		return types.NewErr("type conversion error from '%s' to '%s'", cel.ObjectType("imageverify.attestor"), typeVal)
-	}
-}
-
-func (v Attestor) Equal(other ref.Val) ref.Val {
-	img, ok := other.(Attestor)
-	if !ok {
-		return types.MaybeNoSuchOverloadErr(other)
-	}
-	return types.Bool(reflect.DeepEqual(v, img))
-}
-
-func (v Attestor) Type() ref.Type {
-	return cel.ObjectType("imageverify.attestor")
-}
-
-func (v Attestor) Value() any {
-	return v
-}
-
-func (a Attestor) GetKey() string {
-	return a.Name
-}
-
-func (a Attestor) IsCosign() bool {
-	return a.Cosign != nil
-}
-
-func (a Attestor) IsNotary() bool {
-	return a.Notary != nil
-}
-
 // Cosign defines attestor configuration for Cosign based signatures
 type Cosign struct {
 	// Key defines the type of key to validate the image.
@@ -468,18 +449,6 @@ type Attestation struct {
 	Referrer *Referrer `json:"referrer,omitempty"`
 }
 
-func (a Attestation) GetKey() string {
-	return a.Name
-}
-
-func (a Attestation) IsInToto() bool {
-	return a.InToto != nil
-}
-
-func (a Attestation) IsReferrer() bool {
-	return a.Referrer != nil
-}
-
 type InToto struct {
 	// Type defines the type of attestation contained within the statement.
 	Type string `json:"type"`
@@ -488,14 +457,6 @@ type InToto struct {
 type Referrer struct {
 	// Type defines the type of attestation attached to the image.
 	Type string `json:"type"`
-}
-
-// EvaluationMode returns the evaluation mode of the policy.
-func (s ImageValidatingPolicySpec) EvaluationMode() EvaluationMode {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Mode == "" {
-		return EvaluationModeKubernetes
-	}
-	return s.EvaluationConfiguration.Mode
 }
 
 type ImageValidatingPolicyAutogenConfiguration struct {

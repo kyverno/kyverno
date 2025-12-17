@@ -9,7 +9,7 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException struct {
