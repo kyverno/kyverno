@@ -25,7 +25,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -175,7 +175,7 @@ func (in *ConditionStatus) DeepCopyInto(out *ConditionStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1.Condition, len(*in))
+		*out = make([]metav1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -353,7 +353,7 @@ func (in *DeletingPolicySpec) DeepCopyInto(out *DeletingPolicySpec) {
 	}
 	if in.DeletionPropagationPolicy != nil {
 		in, out := &in.DeletionPropagationPolicy, &out.DeletionPropagationPolicy
-		*out = new(v1.DeletionPropagation)
+		*out = new(metav1.DeletionPropagation)
 		**out = **in
 	}
 	return

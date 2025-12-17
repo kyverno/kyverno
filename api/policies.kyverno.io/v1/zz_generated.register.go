@@ -22,7 +22,7 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -31,11 +31,11 @@ import (
 const GroupName = "policies.kyverno.io"
 
 // GroupVersion specifies the group and the version used to register the objects.
-var GroupVersion = v1.GroupVersion{Group: GroupName, Version: "v1beta1"}
+var GroupVersion = metav1.GroupVersion{Group: GroupName, Version: "v1"}
 
 // SchemeGroupVersion is group version used to register these objects
 // Deprecated: use GroupVersion instead.
-var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1beta1"}
+var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1"}
 
 // Resource takes an unqualified resource and returns a Group qualified GroupResource
 func Resource(resource string) schema.GroupResource {
@@ -85,6 +85,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ValidatingPolicyList{},
 	)
 	// AddToGroupVersion allows the serialization of client types like ListOptions.
-	v1.AddToGroupVersion(scheme, SchemeGroupVersion)
+	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
 }
