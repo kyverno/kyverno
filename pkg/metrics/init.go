@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -28,6 +28,8 @@ func InitMetrics(
 	metricsConfiguration config.MetricsConfiguration,
 	transportCreds string,
 	kubeClient kubernetes.Interface,
+	tlsSecretInformer v1.SecretInformer,
+	caSecretInformer v1.SecretInformer,
 	metricsCaSecretName string,
 	metricsTlsSecretName string,
 	logger logr.Logger,
@@ -46,7 +48,7 @@ func InitMetrics(
 			return nil, nil, fmt.Errorf("Metrics TLS secret name is not provided")
 		}
 
-		secret, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(ctx, metricsTlsSecretName, metav1.GetOptions{})
+		secret, err := tlsSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTlsSecretName)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get metrics TLS secret %s: %w", metricsTlsSecretName, err)
 		}
