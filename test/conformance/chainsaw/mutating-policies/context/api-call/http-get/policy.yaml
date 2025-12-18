@@ -1,4 +1,4 @@
-apiVersion: policies.kyverno.io/v1alpha1
+apiVersion: policies.kyverno.io/v1beta1
 kind: MutatingPolicy
 metadata:
   name: mpol-http-get

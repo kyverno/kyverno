@@ -25,6 +25,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
+	policiesv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1beta1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
@@ -41,6 +42,7 @@ type Interface interface {
 	KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface
 	PoliciesV1alpha1() policiesv1alpha1.PoliciesV1alpha1Interface
 	PoliciesV1beta1() policiesv1beta1.PoliciesV1beta1Interface
+	PoliciesV1() policiesv1.PoliciesV1Interface
 	Wgpolicyk8sV1alpha2() wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface
 	ReportsV1() reportsv1.ReportsV1Interface
 }
@@ -53,6 +55,7 @@ type Clientset struct {
 	kyvernoV2alpha1     *kyvernov2alpha1.KyvernoV2alpha1Client
 	policiesV1alpha1    *policiesv1alpha1.PoliciesV1alpha1Client
 	policiesV1beta1     *policiesv1beta1.PoliciesV1beta1Client
+	policiesV1          *policiesv1.PoliciesV1Client
 	wgpolicyk8sV1alpha2 *wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Client
 	reportsV1           *reportsv1.ReportsV1Client
 }
@@ -80,6 +83,11 @@ func (c *Clientset) PoliciesV1alpha1() policiesv1alpha1.PoliciesV1alpha1Interfac
 // PoliciesV1beta1 retrieves the PoliciesV1beta1Client
 func (c *Clientset) PoliciesV1beta1() policiesv1beta1.PoliciesV1beta1Interface {
 	return c.policiesV1beta1
+}
+
+// PoliciesV1 retrieves the PoliciesV1Client
+func (c *Clientset) PoliciesV1() policiesv1.PoliciesV1Interface {
+	return c.policiesV1
 }
 
 // Wgpolicyk8sV1alpha2 retrieves the Wgpolicyk8sV1alpha2Client
@@ -156,6 +164,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.policiesV1, err = policiesv1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.wgpolicyk8sV1alpha2, err = wgpolicyk8sv1alpha2.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -190,6 +202,7 @@ func New(c rest.Interface) *Clientset {
 	cs.kyvernoV2alpha1 = kyvernov2alpha1.New(c)
 	cs.policiesV1alpha1 = policiesv1alpha1.New(c)
 	cs.policiesV1beta1 = policiesv1beta1.New(c)
+	cs.policiesV1 = policiesv1.New(c)
 	cs.wgpolicyk8sV1alpha2 = wgpolicyk8sv1alpha2.New(c)
 	cs.reportsV1 = reportsv1.New(c)
 
