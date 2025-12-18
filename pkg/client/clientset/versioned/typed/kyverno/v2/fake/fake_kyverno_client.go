@@ -36,6 +36,10 @@ func (c *FakeKyvernoV2) ClusterCleanupPolicies() v2.ClusterCleanupPolicyInterfac
 	return newFakeClusterCleanupPolicies(c)
 }
 
+func (c *FakeKyvernoV2) GlobalContextEntries() v2.GlobalContextEntryInterface {
+	return newFakeGlobalContextEntries(c)
+}
+
 func (c *FakeKyvernoV2) PolicyExceptions(namespace string) v2.PolicyExceptionInterface {
 	return newFakePolicyExceptions(c, namespace)
 }
