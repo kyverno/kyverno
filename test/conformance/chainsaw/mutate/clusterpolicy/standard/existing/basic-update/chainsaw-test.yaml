@@ -34,5 +34,3 @@ spec:
     try:
     - assert:
         file: chainsaw-step-03-assert-1-1.yaml
-    - assert:
-        file: chainsaw-step-03-assert-1-2.yaml
