@@ -17,12 +17,15 @@ concurrency:
 jobs:
   cli-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Add job timeout to prevent excessive runtime
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
+        with:
+          free-disk-space: false  # Disable disk cleanup for CLI tests
       - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
