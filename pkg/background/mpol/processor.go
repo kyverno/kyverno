@@ -147,11 +147,17 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		}
 		if response.PatchedResource != nil {
 			object, err = p.client.GetResource(context.TODO(), object.GetAPIVersion(), object.GetKind(), object.GetNamespace(), object.GetName())
-			new := response.PatchedResource
-			new.SetResourceVersion(object.GetResourceVersion())
 			if err != nil {
 				failures = append(failures, fmt.Errorf("failed to refresh target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+				continue
 			}
+			if object == nil {
+				failures = append(failures, fmt.Errorf("target resource not found for mpol %s", ur.Spec.GetPolicyKey()))
+				continue
+			}
+
+			new := response.PatchedResource
+			new.SetResourceVersion(object.GetResourceVersion())
 			if _, err := p.client.UpdateResource(context.TODO(), new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.Object, false, ""); err != nil {
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			}
@@ -297,6 +303,11 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	err := json.Unmarshal(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &urResource)
 	if err != nil {
 		return nil, err
+	}
+
+	// Prevent nil pointer crash on malformed admission request
+	if urResource.Object == nil {
+		return nil, nil
 	}
 
 	originalObj, err := p.client.GetResource(ctx, urResource.GetAPIVersion(), urResource.GetKind(), urResource.GetNamespace(), urResource.GetName())
