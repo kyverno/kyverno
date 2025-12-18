@@ -1,13 +1,11 @@
 package report
 
-
 import (
     "cmp"
     "encoding/json"
     "slices"
     "strings"
     "time"
-
 
     "github.com/go-logr/logr"
     "github.com/kyverno/kyverno/api/kyverno"
@@ -21,7 +19,6 @@ import (
     "k8s.io/apimachinery/pkg/runtime/schema"
     "k8s.io/client-go/tools/cache"
 )
-
 
 func SortReportResults(results []openreportsv1alpha1.ReportResult) {
     slices.SortFunc(results, func(a openreportsv1alpha1.ReportResult, b openreportsv1alpha1.ReportResult) int {
@@ -46,7 +43,6 @@ func SortReportResults(results []openreportsv1alpha1.ReportResult) {
     })
 }
 
-
 func CalculateSummary(results []openreportsv1alpha1.ReportResult) (summary openreportsv1alpha1.ReportSummary) {
     for _, res := range results {
         switch res.Result {
@@ -65,7 +61,6 @@ func CalculateSummary(results []openreportsv1alpha1.ReportResult) (summary openr
     return
 }
 
-
 func toPolicyResult(status engineapi.RuleStatus) openreportsv1alpha1.Result {
     switch status {
     case engineapi.RuleStatusPass:
@@ -81,7 +76,6 @@ func toPolicyResult(status engineapi.RuleStatus) openreportsv1alpha1.Result {
     }
     return ""
 }
-
 
 func SeverityFromString(severity string) openreportsv1alpha1.ResultSeverity {
     switch severity {
@@ -99,11 +93,9 @@ func SeverityFromString(severity string) openreportsv1alpha1.ResultSeverity {
     return ""
 }
 
-
 func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.RuleResponse, resource *corev1.ObjectReference) openreportsv1alpha1.ReportResult {
     policyName, _ := cache.MetaNamespaceKeyFunc(pol)
     annotations := pol.GetAnnotations()
-
 
     result := openreportsv1alpha1.ReportResult{
         Source:      SourceKyverno,
@@ -119,7 +111,6 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
         Category: annotations[kyverno.AnnotationPolicyCategory],
         Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
     }
-
 
     // override message from reportProperties if provided
     if result.Properties != nil {
@@ -152,9 +143,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
         }
     }
 
-
     var process string
-
 
     switch {
     case pol.AsValidatingAdmissionPolicy() != nil:
@@ -165,7 +154,6 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
             addProperty("binding", binding.Name, &result)
         }
 
-
     case pol.AsMutatingAdmissionPolicy() != nil:
         result.Source = SourceMutatingAdmissionPolicy
         result.Policy = ruleResult.Name()
@@ -174,29 +162,24 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
             addProperty("mapBinding", binding.Name, &result)
         }
 
-
     case pol.AsValidatingPolicy() != nil:
         vp := pol.AsValidatingPolicy()
         result.Source = SourceValidatingPolicy
         process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
-
 
     case pol.AsMutatingPolicy() != nil:
         mpol := pol.AsMutatingPolicy()
         result.Source = SourceMutatingPolicy
         process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
 
-
     case pol.AsImageValidatingPolicy() != nil:
         ivp := pol.AsImageValidatingPolicy()
         result.Source = SourceImageValidatingPolicy
         process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
 
-
     case pol.AsGeneratingPolicy() != nil:
         result.Source = SourceGeneratingPolicy
         process = "admission review"
-
 
     case pol.AsKyvernoPolicy() != nil:
         kyvernoPolicy := pol.AsKyvernoPolicy()
@@ -205,20 +188,17 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
     }
     addProperty("process", process, &result)
 
-
     if result.Result == "fail" && !result.Scored {
         result.Result = "warn"
     }
-
 
     if resource != nil {
         result.Subjects = []corev1.ObjectReference{*resource}
     }
 
-    // FIX #14213: If the rule result is due to a PolicyException, mark it as skip
-    // This ensures that background scan results don't overwrite admission-time exception handling
+    // FIX #14213: If the rule result is due to a PolicyException, treat it as pass in reports
     if ruleResult.IsException() {
-        result.Result = "skip"
+        result.Result = openreports.StatusPass
     }
 
     if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
@@ -229,23 +209,18 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
         addProperty("exceptions", strings.Join(names, ","), &result)
     }
 
-
     if pss := ruleResult.PodSecurityChecks(); pss != nil && len(pss.Checks) > 0 {
         addPodSecurityProperties(pss, &result)
     }
     return result
 }
 
-
 func addProperty(k, v string, result *openreportsv1alpha1.ReportResult) {
     if result.Properties == nil {
         result.Properties = map[string]string{}
     }
-
-
     result.Properties[k] = v
 }
-
 
 func selectProcess(background, admission bool) string {
     switch {
@@ -258,13 +233,11 @@ func selectProcess(background, admission bool) string {
     }
 }
 
-
 type Control struct {
     ID     string
     Name   string
     Images []string
 }
-
 
 func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *openreportsv1alpha1.ReportResult) {
     if pss == nil {
@@ -295,18 +268,14 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *openrepo
     }
 }
 
-
 func EngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
     results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
     for _, ruleResult := range response.PolicyResponse.Rules {
         result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
         results = append(results, result)
     }
-
-
     return results
 }
-
 
 func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
     results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
@@ -317,11 +286,8 @@ func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []
         }
         results = append(results, result)
     }
-
-
     return results
 }
-
 
 func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
     results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
@@ -336,11 +302,8 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
         }
         results = append(results, result)
     }
-
-
     return results
 }
-
 
 func SplitResultsByPolicy(logger logr.Logger, results []openreportsv1alpha1.ReportResult) map[string][]openreportsv1alpha1.ReportResult {
     resultsMap := map[string][]openreportsv1alpha1.ReportResult{}
@@ -366,13 +329,11 @@ func SplitResultsByPolicy(logger logr.Logger, results []openreportsv1alpha1.Repo
     return resultsMap
 }
 
-
 func SetResults(report reportsv1.ReportInterface, results ...openreportsv1alpha1.ReportResult) {
     SortReportResults(results)
     report.SetResults(results)
     report.SetSummary(CalculateSummary(results))
 }
-
 
 func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
     var ruleResults []openreportsv1alpha1.ReportResult
@@ -384,7 +345,6 @@ func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi
     SetResults(report, ruleResults...)
 }
 
-
 func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
     var ruleResults []openreportsv1alpha1.ReportResult
     for _, result := range engineResponses {
@@ -394,7 +354,6 @@ func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...e
     }
     SetResults(report, ruleResults...)
 }
-
 
 func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
     var ruleResults []openreportsv1alpha1.ReportResult
@@ -406,7 +365,6 @@ func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ..
     SetResults(report, ruleResults...)
 }
 
-
 func getResourceInfo(gvk schema.GroupVersionKind, name, namespace string) string {
     info := gvk.String() + " Name=" + name
     if len(namespace) != 0 {
@@ -414,3 +372,6 @@ func getResourceInfo(gvk schema.GroupVersionKind, name, namespace string) string
     }
     return info
 }
+  
+
+
