@@ -31,7 +31,7 @@ spec:
     try:
     - delete:
         ref:
-          apiVersion: policies.kyverno.io/v1alpha1
+          apiVersion: policies.kyverno.io/v1beta1
           kind: GeneratingPolicy
           name: zk-kafka-address
   - name: sleep
