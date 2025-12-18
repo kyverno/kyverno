@@ -29,7 +29,7 @@ var (
 
 type LoaderResults struct {
 	Exceptions    []*kyvernov2.PolicyException
-	CELExceptions []*policiesv1alpha1.PolicyException
+	CELExceptions []*policiesv1beta1.PolicyException
 }
 
 func Load(paths ...string) (*LoaderResults, error) {
@@ -78,7 +78,7 @@ func load(content []byte) (*LoaderResults, error) {
 			}
 			results.Exceptions = append(results.Exceptions, exception)
 		case celExceptionV1alpha1, celExceptionV1beta1, celExceptionV1:
-			exception, err := convert.To[policiesv1alpha1.PolicyException](untyped)
+			exception, err := convert.To[policiesv1beta1.PolicyException](untyped)
 			if err != nil {
 				return nil, err
 			}
