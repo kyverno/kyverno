@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
