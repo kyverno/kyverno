@@ -501,7 +501,7 @@ func main() {
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries(),
 				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
