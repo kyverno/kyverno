@@ -24,6 +24,7 @@ import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policieskyvernoiov1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1"
 	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	v1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
@@ -80,6 +81,20 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=kyverno.io, Version=v2alpha1
 	case v2alpha1.SchemeGroupVersion.WithResource("globalcontextentries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().GlobalContextEntries().Informer()}, nil
+
+		// Group=kyverno.io, Version=v2beta1
+	case v2beta1.SchemeGroupVersion.WithResource("cleanuppolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().CleanupPolicies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("clustercleanuppolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().ClusterCleanupPolicies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("clusterpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().ClusterPolicies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("globalcontextentries"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().GlobalContextEntries().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("policies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().Policies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("policyexceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().PolicyExceptions().Informer()}, nil
 
 		// Group=policies.kyverno.io, Version=v1
 	case policieskyvernoiov1.SchemeGroupVersion.WithResource("deletingpolicies"):
