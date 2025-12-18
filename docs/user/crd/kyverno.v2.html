@@ -938,6 +938,63 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>description</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Description provides context for why this exception exists.
+Can be used to store references like ServiceNow ticket numbers.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expiresAt</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Time</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExpiresAt specifies when this exception should stop being applied.
+The exception will be ignored after this time (not deleted).
+Format: RFC3339 timestamp (e.g., &quot;2026-12-31T23:59:59Z&quot;)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
             </table>
           
@@ -2293,6 +2350,63 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 
           <p>PodSecurity specifies the Pod Security Standard controls to be excluded.
 Applicable only to policies that have validate.podSecurity subrule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>description</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Description provides context for why this exception exists.
+Can be used to store references like ServiceNow ticket numbers.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expiresAt</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Time</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExpiresAt specifies when this exception should stop being applied.
+The exception will be ignored after this time (not deleted).
+Format: RFC3339 timestamp (e.g., &quot;2026-12-31T23:59:59Z&quot;)</p>
 
 
           

@@ -6248,6 +6248,35 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 Applicable only to policies that have validate.podSecurity subrule.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>description</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Description provides context for why this exception exists.
+Can be used to store references like ServiceNow ticket numbers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expiresAt</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExpiresAt specifies when this exception should stop being applied.
+The exception will be ignored after this time (not deleted).
+Format: RFC3339 timestamp (e.g., &ldquo;2026-12-31T23:59:59Z&rdquo;)</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -6896,6 +6925,35 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <em>(Optional)</em>
 <p>PodSecurity specifies the Pod Security Standard controls to be excluded.
 Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>description</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Description provides context for why this exception exists.
+Can be used to store references like ServiceNow ticket numbers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expiresAt</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExpiresAt specifies when this exception should stop being applied.
+The exception will be ignored after this time (not deleted).
+Format: RFC3339 timestamp (e.g., &ldquo;2026-12-31T23:59:59Z&rdquo;)</p>
 </td>
 </tr>
 </tbody>
