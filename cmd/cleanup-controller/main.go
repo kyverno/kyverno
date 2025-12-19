@@ -239,7 +239,7 @@ func main() {
 					compiler.NewCompiler(),
 					kyvernoInformer.Policies().V1beta1().DeletingPolicies().Lister(),
 					kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies().Lister(),
-					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+					kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(),
 					internal.PolicyExceptionEnabled(),
 				)
 

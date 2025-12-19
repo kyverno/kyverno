@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -212,7 +211,7 @@ func (f *fakeTypeConverter) GetTypeConverter(gvk schema.GroupVersionKind) manage
 func TestEvaluate(t *testing.T) {
 	t.Run("no policies and no exceptions returns empty response without error", func(t *testing.T) {
 		pols := []policiesv1beta1.MutatingPolicyLike{}
-		polexs := []*policiesv1alpha1.PolicyException{}
+		polexs := []*policiesv1beta1.PolicyException{}
 
 		provider, err := NewProvider(compiler.NewCompiler(), pols, polexs)
 
@@ -461,7 +460,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 		}
 
 		pols := []policiesv1beta1.MutatingPolicyLike{}
-		polexs := []*policiesv1alpha1.PolicyException{}
+		polexs := []*policiesv1beta1.PolicyException{}
 
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 
@@ -489,7 +488,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 		}
 
 		pols := []policiesv1beta1.MutatingPolicyLike{}
-		polexs := []*policiesv1alpha1.PolicyException{}
+		polexs := []*policiesv1beta1.PolicyException{}
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 
 		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})

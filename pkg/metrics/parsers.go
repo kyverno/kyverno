@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -124,7 +123,7 @@ func GetCELPolicyInfos(policy GenericPolicy) (string, string, PolicyBackgroundMo
 		if p.GetSpec().BackgroundEnabled() {
 			backgroundMode = BackgroundTrue
 		}
-	case *v1alpha1.GeneratingPolicy:
+	case v1beta1.GeneratingPolicyLike:
 		policyType = "Generating"
 	}
 

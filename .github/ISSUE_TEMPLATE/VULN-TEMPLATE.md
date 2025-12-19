@@ -1,5 +1,5 @@
 ---
-title: Vulnerabilities detected
+title: Vulnerabilities detected in {{ env.IMAGE }}
 labels: security
 ---
 High or critical vulnerabilities detected in Kyverno container images.
