@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-
 	"regexp"
 
 	"github.com/go-git/go-billy/v5"
