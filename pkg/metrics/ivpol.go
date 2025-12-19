@@ -55,7 +55,7 @@ func (m *imageValidatingMetrics) RecordDuration(ctx context.Context, seconds flo
 		attribute.String("resource_kind", resource.GetKind()),
 		attribute.String("resource_namespace", resource.GetNamespace()),
 		attribute.String("resource_request_operation", strings.ToLower(operation)),
-		attribute.String("execution_cause", ruleExecutionCause),
+		attribute.String("rule_execution_cause", ruleExecutionCause),
 		attribute.String("result", status),
 	))
 }
