@@ -26,6 +26,8 @@ import (
 	fakekyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2/fake"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	fakekyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1/fake"
+	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
+	fakekyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1/fake"
 	policiesv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1"
 	fakepoliciesv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1/fake"
 	policiesv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1alpha1"
@@ -115,6 +117,11 @@ func (c *Clientset) KyvernoV2() kyvernov2.KyvernoV2Interface {
 // KyvernoV2alpha1 retrieves the KyvernoV2alpha1Client
 func (c *Clientset) KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface {
 	return &fakekyvernov2alpha1.FakeKyvernoV2alpha1{Fake: &c.Fake}
+}
+
+// KyvernoV2beta1 retrieves the KyvernoV2beta1Client
+func (c *Clientset) KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface {
+	return &fakekyvernov2beta1.FakeKyvernoV2beta1{Fake: &c.Fake}
 }
 
 // PoliciesV1alpha1 retrieves the PoliciesV1alpha1Client
