@@ -20,5 +20,5 @@
 /cmd/cli/               @aerosouund @yrsuthari
 /pkg/openreports        @aerosouund
 /pkg/controller/report  @aerosouund
-/pkg/cel                @aerosouund @realshuting
+/pkg/cel                @aerosouund @realshuting @liuxu623
 /pkg/admissionpolicy    @aerosouund
