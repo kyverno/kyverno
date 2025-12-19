@@ -7,7 +7,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
@@ -29,7 +28,7 @@ var (
 )
 
 type Compiler interface {
-	Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -111,7 +110,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 	return extendedBase, variablesProvider, nil
 }
 
-func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(policy.GetNamespace())
 	if err != nil {
