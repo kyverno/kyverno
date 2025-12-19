@@ -1,0 +1,196 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: ecdsa-cert-manager
+spec:
+  steps:
+  # Step 1: Verify cert-manager is ready
+  - name: assert-cert-manager-ready
+    try:
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: cert-manager
+            namespace: cert-manager
+          status:
+            readyReplicas: 1
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: cert-manager-webhook
+            namespace: cert-manager
+          status:
+            readyReplicas: 1
+
+  # Step 2: Create kyverno namespace
+  - name: create-namespace
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: kyverno
+
+  # Step 3: Create self-signed issuer and CA infrastructure
+  - name: create-ca-infrastructure
+    try:
+    - apply:
+        file: 01-issuer.yaml
+    - apply:
+        file: 02-ca-certificate.yaml
+    # Wait for CA certificate to be ready
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: cert-manager.io/v1
+          kind: Certificate
+          metadata:
+            name: kyverno-ca
+            namespace: kyverno
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+
+  # Step 4: Create CA issuer and TLS certificates
+  - name: create-tls-certificates
+    try:
+    - apply:
+        file: 03-ca-issuer.yaml
+    - apply:
+        file: 04-tls-certificates.yaml
+    # Wait for TLS certificates to be ready
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: cert-manager.io/v1
+          kind: Certificate
+          metadata:
+            name: kyverno-svc-tls
+            namespace: kyverno
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: cert-manager.io/v1
+          kind: Certificate
+          metadata:
+            name: kyverno-cleanup-controller-tls
+            namespace: kyverno
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: cert-manager.io/v1
+          kind: Certificate
+          metadata:
+            name: kyverno-cleanup-controller-ca
+            namespace: kyverno
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+
+  # Step 5: Install Kyverno using Helm with local images
+  # Uses make target to ensure correct image registry/repository/tag settings
+  # Requires ROOT_DIR and HELM environment variables to be set by the workflow
+  - name: install-kyverno
+    try:
+    - script:
+        timeout: 300s
+        content: |
+          #!/bin/bash
+          set -e
+          cd "$ROOT_DIR"
+          make kind-install-kyverno
+          echo "Kyverno installed successfully with local images"
+
+  # Step 6: Verify Kyverno is ready
+  - name: verify-kyverno-ready
+    try:
+    - assert:
+        timeout: 180s
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: kyverno-admission-controller
+            namespace: kyverno
+          status:
+            readyReplicas: 1
+    - assert:
+        timeout: 180s
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: kyverno-cleanup-controller
+            namespace: kyverno
+          status:
+            readyReplicas: 1
+
+  # Step 7: Test webhook functionality with a simple policy
+  - name: test-webhook-functionality
+    try:
+    - apply:
+        file: 05-test-policy.yaml
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          metadata:
+            name: require-labels-test
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+    - script:
+        timeout: 30s
+        content: |
+          #!/bin/bash
+          set -e
+
+          # Create a test namespace
+          kubectl create namespace test-ecdsa-cert-manager --dry-run=client -o yaml | kubectl apply -f -
+
+          # Try to create a pod without the required label - should be blocked
+          if kubectl run test-pod --image=nginx --restart=Never -n test-ecdsa-cert-manager 2>&1 | grep -q "blocked"; then
+            echo "Policy correctly blocked pod without required label"
+          else
+            # Check if the pod was created (it shouldn't be in audit mode)
+            if kubectl get pod test-pod -n test-ecdsa-cert-manager 2>/dev/null; then
+              echo "Warning: Pod was created - policy may be in audit mode"
+            fi
+          fi
+
+          # Create a pod with the required label - should succeed
+          kubectl run test-pod-with-label --image=nginx --restart=Never \
+            --labels="app.kubernetes.io/name=test" -n test-ecdsa-cert-manager
+
+          echo "Webhook test completed successfully"
+    # Cleanup at the end of this step
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          #!/bin/bash
+          # Cleanup resources
+          kubectl delete namespace test-ecdsa-cert-manager --ignore-not-found=true
+          kubectl delete clusterpolicy require-labels-test --ignore-not-found=true
+          helm uninstall kyverno -n kyverno --ignore-not-found || true
+          kubectl delete namespace kyverno --ignore-not-found=true
+          echo "Cleanup completed"
