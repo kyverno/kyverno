@@ -100,19 +100,20 @@ const (
 
 // keys in config map
 const (
-	resourceFilters               = "resourceFilters"
-	defaultRegistry               = "defaultRegistry"
-	enableDefaultRegistryMutation = "enableDefaultRegistryMutation"
-	excludeGroups                 = "excludeGroups"
-	excludeUsernames              = "excludeUsernames"
-	excludeRoles                  = "excludeRoles"
-	excludeClusterRoles           = "excludeClusterRoles"
-	generateSuccessEvents         = "generateSuccessEvents"
-	webhooks                      = "webhooks"
-	webhookAnnotations            = "webhookAnnotations"
-	webhookLabels                 = "webhookLabels"
-	matchConditions               = "matchConditions"
-	updateRequestThreshold        = "updateRequestThreshold"
+	resourceFilters                = "resourceFilters"
+	defaultRegistry                = "defaultRegistry"
+	enableDefaultRegistryMutation  = "enableDefaultRegistryMutation"
+	excludeGroups                  = "excludeGroups"
+	excludeUsernames               = "excludeUsernames"
+	excludeRoles                   = "excludeRoles"
+	excludeClusterRoles            = "excludeClusterRoles"
+	generateSuccessEvents          = "generateSuccessEvents"
+	webhooks                       = "webhooks"
+	webhookAnnotations             = "webhookAnnotations"
+	webhookLabels                  = "webhookLabels"
+	matchConditions                = "matchConditions"
+	updateRequestThreshold         = "updateRequestThreshold"
+	defaultAllowExistingViolations = "defaultAllowExistingViolations"
 )
 
 const UpdateRequestThreshold = 1000
@@ -204,24 +205,27 @@ type Configuration interface {
 	OnChanged(func())
 	// GetUpdateRequestThreshold gets the threshold limit for the total number of updaterequests
 	GetUpdateRequestThreshold() int64
+	// GetDefaultAllowExistingViolations returns the default value for allowExistingViolations
+	GetDefaultAllowExistingViolations() bool
 }
 
 // configuration stores the configuration
 type configuration struct {
-	skipResourceFilters           bool
-	defaultRegistry               string
-	enableDefaultRegistryMutation bool
-	exclusions                    match
-	inclusions                    match
-	filters                       []filter
-	generateSuccessEvents         bool
-	webhook                       WebhookConfig
-	webhookAnnotations            map[string]string
-	webhookLabels                 map[string]string
-	matchConditions               []admissionregistrationv1.MatchCondition
-	mux                           sync.RWMutex
-	callbacks                     []func()
-	updateRequestThreshold        int64
+	skipResourceFilters            bool
+	defaultRegistry                string
+	enableDefaultRegistryMutation  bool
+	exclusions                     match
+	inclusions                     match
+	filters                        []filter
+	generateSuccessEvents          bool
+	webhook                        WebhookConfig
+	webhookAnnotations             map[string]string
+	webhookLabels                  map[string]string
+	matchConditions                []admissionregistrationv1.MatchCondition
+	mux                            sync.RWMutex
+	callbacks                      []func()
+	updateRequestThreshold         int64
+	defaultAllowExistingViolations bool
 }
 
 type match struct {
@@ -356,6 +360,18 @@ func (cd *configuration) GetUpdateRequestThreshold() int64 {
 	return cd.updateRequestThreshold
 }
 
+func (cd *configuration) GetDefaultAllowExistingViolations() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.defaultAllowExistingViolations
+}
+
+func (cd *configuration) SetDefaultAllowExistingViolations(value bool) {
+	cd.mux.Lock()
+	defer cd.mux.Unlock()
+	cd.defaultAllowExistingViolations = value
+}
+
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	if cm != nil {
 		cd.load(cm)
@@ -384,6 +400,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	cd.matchConditions = nil
+	cd.defaultAllowExistingViolations = false
 	// load filters
 	cd.filters = parseKinds(data[resourceFilters])
 	cd.updateRequestThreshold = UpdateRequestThreshold
@@ -517,6 +534,20 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.V(2).Info("matchConditions configured")
 		}
 	}
+	// load defaultAllowExistingViolations
+	defaultAllowExistingViolations, ok := data[defaultAllowExistingViolations]
+	if !ok {
+		logger.V(2).Info("defaultAllowExistingViolations not set")
+	} else {
+		logger := logger.WithValues("defaultAllowExistingViolations", defaultAllowExistingViolations)
+		val, err := strconv.ParseBool(defaultAllowExistingViolations)
+		if err != nil {
+			logger.Error(err, "defaultAllowExistingViolations is not a boolean")
+		} else {
+			cd.defaultAllowExistingViolations = val
+			logger.V(2).Info("defaultAllowExistingViolations configured")
+		}
+	}
 	threshold, ok := data[updateRequestThreshold]
 	if !ok {
 		logger.V(2).Info("enableDefaultRegistryMutation not set")
@@ -545,6 +576,7 @@ func (cd *configuration) unload() {
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
+	cd.defaultAllowExistingViolations = false
 	logger.V(2).Info("configuration unloaded")
 }
 
