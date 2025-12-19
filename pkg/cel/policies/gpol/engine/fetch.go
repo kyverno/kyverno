@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -21,14 +19,14 @@ type fetchProvider struct {
 	compiler    compiler.Compiler
 	gpolLister  policiesv1beta1listers.GeneratingPolicyLister
 	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister
-	polexLister policiesv1alpha1listers.PolicyExceptionLister
+	polexLister policiesv1beta1listers.PolicyExceptionLister
 }
 
 func NewFetchProvider(
 	compiler compiler.Compiler,
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
 	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister,
-	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexLister policiesv1beta1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *fetchProvider {
 	fp := &fetchProvider{
@@ -63,7 +61,7 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 			return Policy{}, fmt.Errorf("generating policy %s not found: %w", name, err)
 		}
 	}
-	var exceptions, matchedExceptions []*policiesv1alpha1.PolicyException
+	var exceptions, matchedExceptions []*policiesv1beta1.PolicyException
 	if fp.polexLister != nil {
 		exceptions, err = fp.polexLister.List(labels.Everything())
 		if err != nil {
