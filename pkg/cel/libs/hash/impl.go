@@ -19,7 +19,6 @@ func (c *impl) sha1_string(arg ref.Val) ref.Val {
 	if value, err := utils.ConvertToNative[string](arg); err != nil {
 		return types.WrapErr(err)
 	} else {
-
 		hasher := sha1.New()
 		hasher.Write([]byte(value))
 
@@ -31,7 +30,6 @@ func (c *impl) sha256_string(arg ref.Val) ref.Val {
 	if value, err := utils.ConvertToNative[string](arg); err != nil {
 		return types.WrapErr(err)
 	} else {
-
 		hasher := sha256.New()
 		hasher.Write([]byte(value))
 
@@ -43,7 +41,6 @@ func (c *impl) md5_string(arg ref.Val) ref.Val {
 	if value, err := utils.ConvertToNative[string](arg); err != nil {
 		return types.WrapErr(err)
 	} else {
-
 		hasher := md5.New()
 		hasher.Write([]byte(value))
 
