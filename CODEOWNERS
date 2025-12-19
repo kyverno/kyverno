@@ -1,7 +1,7 @@
 # Areas of code where owners always wants to be a reviewer/notified.
 /api                    @eddycharly @realshuting
 /api/kyverno/v1         @eddycharly
-/charts                 @eddycharly
+/charts                 @eddycharly @realshuting
 /docs                   @yrsuthari
 /pkg/autogen            @eddycharly
 /pkg/background         @realshuting
@@ -20,5 +20,5 @@
 /cmd/cli/               @aerosouund @yrsuthari
 /pkg/openreports        @aerosouund
 /pkg/controller/report  @aerosouund
-/pkg/cel                @aerosouund
+/pkg/cel                @aerosouund @realshuting
 /pkg/admissionpolicy    @aerosouund

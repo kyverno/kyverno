@@ -9,7 +9,7 @@ import (
 	cel "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -188,9 +188,9 @@ func (p *Policy) Evaluate(
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
 
-func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) ([]*policiesv1alpha1.PolicyException, error) {
+func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) ([]*policiesv1beta1.PolicyException, error) {
 	var errs []error
-	matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+	matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)

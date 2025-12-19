@@ -2,7 +2,6 @@ package eval
 
 import (
 	"github.com/google/cel-go/cel"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -27,7 +26,7 @@ import (
 var ivpolCompilerVersion = version.MajorMinor(1, 0)
 
 type Compiler interface {
-	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
+	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
@@ -44,7 +43,7 @@ type compilerImpl struct {
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 
 	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(ivpolicy)
