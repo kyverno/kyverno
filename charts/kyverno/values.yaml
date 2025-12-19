@@ -44,7 +44,8 @@ global:
   #   value: 'https://proxy.example.com:3128'
 
   # -- Global node labels for pod assignment. Non-global values will override the global value.
-  nodeSelector: {}
+  nodeSelector: 
+    kubernetes.io/os: linux
 
   # -- Global List of node taints to tolerate. Non-global values will override the global value.
   tolerations: []
