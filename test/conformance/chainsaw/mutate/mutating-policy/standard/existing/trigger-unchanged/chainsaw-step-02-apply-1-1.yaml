@@ -5,6 +5,9 @@ metadata:
   namespace: mpol-trigger-test-ns
 spec:
   failurePolicy: Ignore
+  evaluation:
+    mutateExisting:
+      enabled: true
   matchConstraints:
     resourceRules:
     - apiGroups: [""]
