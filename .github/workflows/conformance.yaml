@@ -1205,10 +1205,78 @@ jobs:
         shell: bash
         run: |
           set -e
-          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ] 
+          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ]
           then
           exit 1
           fi
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  cert-manager-certificates:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - name: v1.33
+            version: v1.33.1
+        key-algorithm:
+          - name: rsa
+            test-dir: rsa-cert-manager
+          - name: ecdsa
+            test-dir: ecdsa-cert-manager
+    needs:
+      - prepare-images
+    name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}
+    steps:
+      - name: Checkout kyverno/kyverno
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.12
+        with:
+          verify: true
+      - name: Create kind cluster
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        with:
+          version: v0.29.0
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install cert-manager
+        shell: bash
+        run: |
+          set -e
+          helm repo add jetstack https://charts.jetstack.io
+          helm install cert-manager jetstack/cert-manager \
+            --namespace cert-manager --create-namespace \
+            --set crds.enabled=true --wait --timeout 300s
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          ROOT_DIR: ${{ github.workspace }}
+          HELM: ${{ steps.helm.outputs.helm-path }}
+        run: |
+          set -e
+          cd ./test/conformance/chainsaw
+          chainsaw test tls-certificates/${{ matrix.key-algorithm.test-dir }} \
+            --config ../../../.chainsaw.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -1257,6 +1325,7 @@ jobs:
       - check-tests
       - helm-upgrade
       - helm-uninstall
+      - cert-manager-certificates
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
@@ -1306,6 +1375,7 @@ jobs:
       - check-tests
       - helm-upgrade
       - helm-uninstall
+      - cert-manager-certificates
     runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:

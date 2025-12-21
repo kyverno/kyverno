@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
@@ -25,7 +25,7 @@ import (
 type entry struct {
 	lister      cache.GenericLister
 	stop        func()
-	gce         *kyvernov2alpha1.GlobalContextEntry
+	gce         *kyvernov2beta1.GlobalContextEntry
 	eventGen    event.Interface
 	projections []store.Projection
 	jp          jmespath.Interface
@@ -39,7 +39,7 @@ type entry struct {
 
 func New(
 	ctx context.Context,
-	gce *kyvernov2alpha1.GlobalContextEntry,
+	gce *kyvernov2beta1.GlobalContextEntry,
 	eventGen event.Interface,
 	dClient dynamic.Interface,
 	logger logr.Logger,

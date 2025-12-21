@@ -185,7 +185,7 @@ func main() {
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries(),
 				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
@@ -239,7 +239,7 @@ func main() {
 					compiler.NewCompiler(),
 					kyvernoInformer.Policies().V1beta1().DeletingPolicies().Lister(),
 					kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies().Lister(),
-					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+					kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(),
 					internal.PolicyExceptionEnabled(),
 				)
 
