@@ -6,6 +6,7 @@
 
 {{- define "kyverno.admission-controller.labels" -}}
 {{- template "kyverno.labels.merge" (list
+  (include "kyverno.labels.name" (include "kyverno.admission-controller.name" .))
   (include "kyverno.labels.common" .)
   (include "kyverno.admission-controller.matchLabels" .)
 ) -}}
