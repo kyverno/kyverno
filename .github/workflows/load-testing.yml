@@ -9,6 +9,9 @@ on:
     branches:
       - "main"
       - "release*"
+    paths:
+      - "cmd/**"
+      - "pkg/**"
   schedule:
     - cron: "27 0 * * 0"
 
