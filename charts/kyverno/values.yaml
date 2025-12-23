@@ -1407,7 +1407,7 @@ backgroundController:
       memory: 64Mi
 
   # -- Node labels for pod assignment
-  nodeSelector: 
+  nodeSelector:
     kubernetes.io/os: linux
 
   # -- List of node taints to tolerate
