@@ -88,6 +88,7 @@ func main() {
 		renewBefore              time.Duration
 		maxAPICallResponseLength int64
 		autoDeleteWebhooks       bool
+		tlsKeyAlgorithm          string
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -103,6 +104,7 @@ func main() {
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.BoolVar(&autoDeleteWebhooks, "autoDeleteWebhooks", false, "Set this flag to 'true' to enable autodeletion of webhook configurations using finalizers (requires extra permissions).")
+	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -140,6 +142,11 @@ func main() {
 		}
 		if err := sanityChecks(setup.ApiServerClient); err != nil {
 			setup.Logger.Error(err, "sanity checks failed")
+			os.Exit(1)
+		}
+		keyAlgorithm, err := tls.ParseKeyAlgorithm(tlsKeyAlgorithm)
+		if err != nil {
+			setup.Logger.Error(err, "invalid tlsKeyAlgorithm flag")
 			os.Exit(1)
 		}
 
@@ -256,6 +263,7 @@ func main() {
 					config.KyvernoNamespace(),
 					caSecretName,
 					tlsSecretName,
+					keyAlgorithm,
 				)
 				certController := internal.NewController(
 					certmanager.ControllerName,

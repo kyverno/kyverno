@@ -387,6 +387,7 @@ The chart values are organised per component.
 | admissionController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
+| admissionController.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
 | admissionController.replicas | int | `nil` | Desired number of pods |
 | admissionController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | admissionController.resyncPeriod | string | `"15m"` | Resync period for informers |
@@ -576,6 +577,7 @@ The chart values are organised per component.
 | cleanupController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
+| cleanupController.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
 | cleanupController.image.registry | string | `nil` | Image registry |
 | cleanupController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
