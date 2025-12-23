@@ -28,4 +28,6 @@ spec:
   - name: verify-trigger-unchanged
     try:
     - assert:
+        file: chainsaw-step-05-assert-1-1.yaml
+    - assert:
         file: chainsaw-step-05-assert-1-2.yaml

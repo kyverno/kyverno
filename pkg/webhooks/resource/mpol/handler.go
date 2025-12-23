@@ -92,6 +92,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	}()
 
 	go func() {
+		ctx := context.Background()
 		mpols := h.engine.MatchedMutateExistingPolicies(ctx, request)
 		for _, p := range mpols {
 			logger.V(4).Info("creating a UR for mpol", "name", p)

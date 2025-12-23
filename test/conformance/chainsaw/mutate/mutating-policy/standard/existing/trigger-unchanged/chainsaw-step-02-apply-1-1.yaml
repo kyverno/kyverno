@@ -12,12 +12,14 @@ spec:
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
       resources: ["configmaps"]
       resourceNames: ["trigger-cm"]
   targetMatchConstraints:
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
       resources: ["secrets"]
       resourceNames: ["target-secret"]
   mutations:
