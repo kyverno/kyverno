@@ -80,6 +80,17 @@ type PolicyExceptionSpec struct {
 	// Applicable only to policies that have validate.podSecurity subrule.
 	// +optional
 	PodSecurity []kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty"`
+
+	// Description provides context for why this exception exists.
+	// Can be used to store references like ServiceNow ticket numbers.
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// ExpiresAt specifies when this exception should stop being applied.
+	// The exception will be ignored after this time (not deleted).
+	// Format: RFC3339 timestamp (e.g., "2026-12-31T23:59:59Z")
+	// +optional
+	ExpiresAt *metav1.Time `json:"expiresAt,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
