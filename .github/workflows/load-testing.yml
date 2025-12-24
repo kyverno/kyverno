@@ -9,6 +9,9 @@ on:
     branches:
       - "main"
       - "release*"
+    paths:
+      - "cmd/**"
+      - "pkg/**"
   schedule:
     - cron: "27 0 * * 0"
 
@@ -63,7 +66,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -130,7 +133,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Extract P(95)
         id: extract-p95
         shell: bash
@@ -153,7 +163,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -217,7 +227,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Compare P(95)
         shell: bash
         run: |
@@ -250,7 +267,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
         test: ${{ fromJson(needs.define-matrix.outputs.tests) }}
     steps:
       - name: Checkout kyverno/kyverno
@@ -321,7 +338,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/${{ matrix.test.name }}.js -e SCENARIO=${{ matrix.test.scenario }} --vus ${{ matrix.test.concurrent_connections }} --iterations ${{ matrix.test.total_iterations }} ${{ matrix.test.extra_options }} --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Collect Resource Metrics
         shell: bash
         run: |
