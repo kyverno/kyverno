@@ -13,6 +13,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/openreports"
+	"github.com/kyverno/kyverno/pkg/utils/testutil"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	orfake "github.com/openreports/reports-api/pkg/client/clientset/versioned/fake"
 
@@ -190,7 +191,7 @@ func TestController(t *testing.T) {
 
 func TestControllerWithOpenreports(t *testing.T) {
 	metaFactory, _, metaClient := newFakeMetaClient()
-	client := versionedfake.NewSimpleClientset()
+	client := testutil.NewKyvernoFakeClient()
 	orClient := orfake.NewSimpleClientset()
 	kyvernoFactory := kyvernoinformer.NewSharedInformerFactory(client, 1*time.Second)
 
