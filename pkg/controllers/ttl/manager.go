@@ -155,7 +155,7 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 	// Perform preflight check before starting the informer
 	if err := m.preflightCheck(ctx, gvr, logger); err != nil {
 		logger.Error(err, "preflight check failed, skipping resource")
-		return nil 
+		return nil
 	}
 
 	indexers := cache.Indexers{
