@@ -5,6 +5,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
@@ -73,6 +74,9 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 				),
 				user.Lib(
 					user.Latest(),
+				),
+				hash.Lib(
+					hash.Latest(),
 				),
 			},
 		},
