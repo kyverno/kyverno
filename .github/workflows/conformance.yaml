@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.6, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
