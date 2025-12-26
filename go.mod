@@ -49,7 +49,7 @@ require (
 	github.com/sigstore/cosign/v2 v2.4.1
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
 	github.com/sigstore/rekor v1.4.3
-	github.com/sigstore/sigstore v1.9.5
+	github.com/sigstore/sigstore v1.10.3
 	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.10.3
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.10.3
@@ -108,6 +108,7 @@ require (
 	github.com/go-openapi/swag/stringutils v0.25.1 // indirect
 	github.com/go-openapi/swag/typeutils v0.25.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.25.1 // indirect
+	github.com/miekg/dns v1.1.61 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
@@ -198,7 +199,7 @@ require (
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.18.1 // indirect
-	github.com/coreos/go-oidc/v3 v3.14.1 // indirect
+	github.com/coreos/go-oidc/v3 v3.17.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
@@ -249,7 +250,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.26.1
-	github.com/google/certificate-transparency-go v1.3.1 // indirect
+	github.com/google/certificate-transparency-go v1.3.2-0.20250507091337-0eddb39e94f8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-github/v55 v55.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -284,7 +285,6 @@ require (
 	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/kyverno/pkg/ext v0.0.0-20240418121121-df8add26c55c // indirect
-	github.com/letsencrypt/boulder v0.0.0-20240823215653-da7865cb107b // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -330,7 +330,6 @@ require (
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sassoftware/relic v7.2.1+incompatible // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
-	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/sergi/go-diff v1.4.0
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
@@ -339,7 +338,6 @@ require (
 	github.com/sigstore/timestamp-authority v1.2.4 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/skeema/knownhosts v1.3.1 // indirect
-	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
@@ -355,7 +353,6 @@ require (
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.0.2 // indirect
-	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
 	github.com/vbatts/tar-split v0.12.2 // indirect
@@ -372,7 +369,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.6.5 // indirect
 	go.mongodb.org/mongo-driver v1.17.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.step.sm/crypto v0.74.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
