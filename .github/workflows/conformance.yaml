@@ -1088,7 +1088,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.6, v1.34.2, v1.35.0]        kyverno-version: ["3.2"]
+        k8s-version: [v1.33.6, v1.34.2, v1.35.0]        
+        kyverno-version: ["3.2"]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
