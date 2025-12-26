@@ -827,7 +827,6 @@ jobs:
         k8s-version:
           - v1.33.x
           - v1.34.x
-          - v1.35.x
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -848,7 +847,7 @@ jobs:
           verify: true
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@819d566d24a563bb99666dbda770871eb85710a1
+        uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version }}
