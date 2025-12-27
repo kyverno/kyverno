@@ -48,6 +48,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -405,8 +406,45 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				found := false
+				if !p.Cluster {
+					mapping = &meta.RESTMapping{
+						Resource: schema.GroupVersionResource{
+							Group:   gvk.Group,
+							Version: gvk.Version,
+						},
+					}
+
+					kindPrefix := strings.ToLower(gvk.Kind)
+
+					for _, newVp := range p.ValidatingPolicies {
+						if newVp.Spec.MatchConstraints != nil {
+							for _, r := range newVp.Spec.MatchConstraints.ResourceRules {
+								for _, newR := range r.Resources {
+									if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
+										mapping.Resource.Resource = newR
+										found = true
+										break
+									}
+								}
+								if found {
+									break
+								}
+							}
+						}
+						if found {
+							break
+						}
+					}
+				}
+				if !found {
+					if p.Cluster {
+						return nil, fmt.Errorf("failed to map GVK to GVR %s (%v)", gvk, err)
+					}
+					return nil, fmt.Errorf("failed to get GVR from  %s", gvk)
+				}
 			}
+
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
 			if p.UserInfo != nil {
