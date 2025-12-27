@@ -22,7 +22,6 @@ type TestEnvironment struct {
 	*envtest.Environment
 	Config *rest.Config
 	Client client.Client
-	ctx    context.Context
 	cancel context.CancelFunc
 }
 
@@ -30,13 +29,18 @@ type TestEnvironment struct {
 func SetupEnvTest() (*TestEnvironment, error) {
 	logf.SetLogger(zap.New(zap.WriteTo(os.Stdout), zap.UseDevMode(true)))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 
 	// Find CRD path
 	crdPath := getCRDPath()
 
 	testEnv := &envtest.Environment{
-		CRDDirectoryPaths:     []string{crdPath},
+		CRDDirectoryPaths: []string{
+			filepath.Join(crdPath, "kyverno"),
+			filepath.Join(crdPath, "policies.kyverno.io"),
+			filepath.Join(crdPath, "policyreport"),
+			filepath.Join(crdPath, "reports"),
+		},
 		ErrorIfCRDPathMissing: true,
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			CleanUpAfterUse: true,
@@ -74,7 +78,6 @@ func SetupEnvTest() (*TestEnvironment, error) {
 		Environment: testEnv,
 		Config:      cfg,
 		Client:      k8sClient,
-		ctx:         ctx,
 		cancel:      cancel,
 	}, nil
 }
@@ -83,11 +86,6 @@ func SetupEnvTest() (*TestEnvironment, error) {
 func (te *TestEnvironment) Stop() error {
 	te.cancel()
 	return te.Environment.Stop()
-}
-
-// Context returns the test context
-func (te *TestEnvironment) Context() context.Context {
-	return te.ctx
 }
 
 // getCRDPath finds the CRD directory

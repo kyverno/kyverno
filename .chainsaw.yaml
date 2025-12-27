@@ -7,9 +7,9 @@ spec:
     apply: 30s
     assert: 90s
     error: 90s
-  parallel: 8  # Changed from 1 to 8 - run 8 tests simultaneously
+  parallel: 1
   fullName: true
-  failFast: false  # Changed from true to continue on failures
+  failFast: true 
   excludeTestRegex: '_.+'
   forceTerminationGracePeriod: 5s
   delayBeforeCleanup: 3s

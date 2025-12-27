@@ -1,0 +1,89 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: scaling-inlined
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: test-validate
+  - name: create policy
+    try:
+    - apply:
+        resource:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          metadata:
+            name: nginx-test-scaling-policy
+          spec:
+            background: false
+            rules:
+            - match:
+                resources:
+                  kinds:
+                  - Deployment/scale
+                  names:
+                  - nginx-test
+                  namespaces:
+                  - test-validate
+              name: validate-nginx-test
+              validate:
+                failureAction: Enforce
+                message: nginx-test needs to have 2 replicas
+                pattern:
+                  spec:
+                    replicas: 2
+            webhookConfiguration:
+              failurePolicy: Fail
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: nginx-test-scaling-policy
+  - try:
+    - apply:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            labels:
+              app: nginx-test
+            name: nginx-test
+            namespace: test-validate
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: nginx-test
+            template:
+              metadata:
+                labels:
+                  app: nginx-test
+              spec:
+                containers:
+                - image: nginx
+                  name: nginx
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            labels:
+              app: nginx-test
+            name: nginx-test
+            namespace: test-validate
+          status:
+            replicas: 2
+  - name: step-02
+    try:
+    - script:
+        content: kubectl scale deployment nginx-test --replicas=1 -n test-validate
+        check:
+          (contains($stderr, 'nginx-test needs to have 2 replicas')): true
