@@ -16,8 +16,8 @@
 /pkg/validation         @realshuting @kyverno/kyverno-core-maintainers 
 /pkg/webhooks           @eddycharly @realshuting @kyverno/kyverno-core-maintainers 
 /test                   @eddycharly @realshuting @MariamFahmy98 @kyverno/kyverno-core-maintainers 
-/pkg/cosign             @Vishal-Chdhry @kyverno/kyverno-core-maintainers 
-/pkg/notary             @Vishal-Chdhry @kyverno/kyverno-core-maintainers 
+/pkg/cosign             @Vishal-Chdhry @lucchmielowski @kyverno/kyverno-core-maintainers 
+/pkg/notary             @Vishal-Chdhry @lucchmielowski @kyverno/kyverno-core-maintainers 
 /cmd/cli/               @aerosouund @yrsuthari @kyverno/kyverno-core-maintainers 
 /pkg/openreports        @aerosouund @kyverno/kyverno-core-maintainers 
 /pkg/controller/report  @aerosouund @kyverno/kyverno-core-maintainers 
