@@ -76,6 +76,15 @@ func (r ResourceDescription) GetOperations() []string {
 	return ops
 }
 
+func (r ResourceDescription) ContainsKind(kind string) bool {
+	for _, k := range r.Kinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // Validate implements programmatic validation
 func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if r.Name != "" && len(r.Names) > 0 {
