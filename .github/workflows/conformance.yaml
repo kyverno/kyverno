@@ -986,7 +986,7 @@ jobs:
           chainsaw test . \
             --shard-index ${{ matrix.shard-index }} \
             --shard-count 12 \
-            --exclude-test-regex "^chainsaw/(${QUARANTINED_POLICY_LIBRARY_TESTS})" \
+            --exclude-test-regex "(${QUARANTINED_POLICY_LIBRARY_TESTS})" \
             --no-color=false
       - name: Debug failure
         if: failure()
