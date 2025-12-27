@@ -1,0 +1,14 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vpol-test-json-with-exceptions
+exceptions:
+  - exception.yaml
+policies:
+  - policy.yaml
+jsonPayload: ./skipped-payload.json
+results:
+  - kind: ""
+    policy: check-json-data
+    result: skip
+
