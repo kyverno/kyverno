@@ -1,8 +1,10 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
 name: Conformance tests
-
 permissions: {}
+
+env:
+ QUARANTINED_POLICY_LIBRARY_TESTS: "restrict-node-label-creation|disallow-proc-mount"
 
 on:
   pull_request:
@@ -639,6 +641,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
+          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
@@ -702,6 +705,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
+          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
@@ -983,7 +987,7 @@ jobs:
           chainsaw test . \
             --shard-index ${{ matrix.shard-index }} \
             --shard-count 12 \
-            --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
+            --exclude-test-regex "(${QUARANTINED_POLICY_LIBRARY_TESTS})$" \
             --no-color=false
       - name: Debug failure
         if: failure()

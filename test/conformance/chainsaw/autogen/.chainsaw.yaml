@@ -9,7 +9,6 @@ spec:
     error: 90s
   fullName: true
   failFast: true
-  excludeTestRegex: '_.+'
   forceTerminationGracePeriod: 5s
   delayBeforeCleanup: 3s
   template: true

@@ -28,6 +28,9 @@ inputs:
   shard-count:
     description: Shard count
     default: '0'
+  quarantined-tests:
+    description: tests to exclude from the run, pipe separated
+    default: ''
 runs:
   using: composite
   steps:
@@ -78,6 +81,15 @@ runs:
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno-wait-ready
+
+    - name: Add excluded tests
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.quarantined-tests }}" ]; then
+          EXCLUDE="--exclude-test-regex '(${{ inputs.quarantined-tests }})$'"
+          echo "EXCLUDE=$EXCLUDE" >> "$GITHUB_ENV"
+          echo "excluded tests: '$EXCLUDE'"
+        fi
     # run tests
     - name: Test with Chainsaw
       shell: bash
@@ -88,7 +100,7 @@ runs:
         cd ./test/conformance/chainsaw
         chainsaw test ${{ inputs.tests-path }} \
           --config ${{ inputs.chainsaw-config }} \
-          --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
+          --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' $EXCLUDE \
           --shard-index ${{ inputs.shard-index }} \
           --shard-count ${{ inputs.shard-count }}
     # debug
