@@ -86,7 +86,7 @@ runs:
       shell: bash
       run: |
         if [ -n "${{ inputs.quarantined-tests }}" ]; then
-          EXCLUDE="--exclude-test-regex '(${{ inputs.quarantined-tests }})$'"
+          EXCLUDE="--exclude-test-regex '^chainsaw/${{ .inputs.chainsaw-tests }}/(${{ inputs.quarantined-tests }})'"
           echo "EXCLUDE=$EXCLUDE" >> "$GITHUB_ENV"
           echo "excluded tests: '$EXCLUDE'"
         fi

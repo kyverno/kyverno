@@ -284,6 +284,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy
+          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
 
@@ -985,7 +986,7 @@ jobs:
           chainsaw test . \
             --shard-index ${{ matrix.shard-index }} \
             --shard-count 12 \
-            --exclude-test-regex "(${QUARANTINED_POLICY_LIBRARY_TESTS})$" \
+            --exclude-test-regex "^chainsaw/(${QUARANTINED_POLICY_LIBRARY_TESTS})" \
             --no-color=false
       - name: Debug failure
         if: failure()
