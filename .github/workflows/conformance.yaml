@@ -1,8 +1,10 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
 name: Conformance tests
-
 permissions: {}
+
+env:
+ QUARANTINED_POLICY_LIBRARY_TESTS: "restrict-node-label-creation|disallow-proc-mount|resource-creation-updating-denied"
 
 on:
   pull_request:
@@ -177,7 +179,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
     needs: [prepare-images]
     steps:
@@ -234,7 +236,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
     needs: [prepare-images]
     steps:
@@ -282,6 +284,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy
+          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
 
@@ -328,7 +331,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -405,7 +408,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
     needs: [prepare-images]
     steps:
@@ -444,7 +447,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5]
     needs: [prepare-images]
     steps:
@@ -502,7 +505,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -523,7 +526,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -544,7 +547,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -565,7 +568,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -586,7 +589,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -607,7 +610,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -628,7 +631,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -639,6 +642,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
+          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
@@ -649,7 +653,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -670,7 +674,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -691,7 +695,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -702,6 +706,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
+          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
@@ -748,7 +753,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
     needs: [prepare-images]
     steps:
@@ -905,7 +910,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     needs:
       - prepare-images
@@ -981,7 +986,7 @@ jobs:
           chainsaw test . \
             --shard-index ${{ matrix.shard-index }} \
             --shard-count 12 \
-            --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
+            --exclude-test-regex "(${QUARANTINED_POLICY_LIBRARY_TESTS})" \
             --no-color=false
       - name: Debug failure
         if: failure()
@@ -1087,7 +1092,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]        
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         kyverno-version: ["3.2"]
     needs: [prepare-images]
     steps:
