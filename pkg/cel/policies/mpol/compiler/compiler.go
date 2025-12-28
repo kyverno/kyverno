@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
 	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
@@ -64,6 +65,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				math.Lib(math.Latest()),
 				resource.Lib(policy.GetNamespace(), resource.Latest()),
 				user.Lib(user.Latest()),
+				json.Lib(&json.JsonImpl{}, json.Latest()),
 			},
 		},
 	)
