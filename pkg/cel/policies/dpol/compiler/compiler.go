@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -151,6 +152,9 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 				),
 				hash.Lib(
 					hash.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
 				),
 			},
 		},
