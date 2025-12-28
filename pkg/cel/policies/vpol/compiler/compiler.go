@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -260,6 +261,9 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 				),
 				hash.Lib(
 					hash.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
 				),
 			},
 		},
