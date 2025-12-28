@@ -22,3 +22,11 @@ func (c *impl) random(arg ref.Val) ref.Val {
 		return c.NativeToValue(out)
 	}
 }
+
+func (c *impl) random_default_expr(vals ...ref.Val) ref.Val {
+	out, err := regen.Generate("[0-9a-z]{8}")
+	if err != nil {
+		return types.WrapErr(err)
+	}
+	return c.NativeToValue(out)
+}

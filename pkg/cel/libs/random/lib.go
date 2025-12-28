@@ -50,6 +50,12 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				types.StringType,
 				cel.UnaryBinding(impl.random),
 			),
+			cel.Overload(
+				"random_string_default_expr",
+				[]*cel.Type{types.StringType},
+				types.StringType,
+				cel.FunctionBinding(impl.random_default_expr),
+			),
 		},
 	}
 	// create env options corresponding to our function overloads
