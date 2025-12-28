@@ -196,9 +196,10 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
         result.Subjects = []corev1.ObjectReference{*resource}
     }
 
-    // FIX #14213: If the rule result is due to a PolicyException, treat it as pass in reports
+    // If the rule result is due to a PolicyException, keep reporting it as skip for now.
+    // Maintainers are still deciding whether this should eventually be pass or stay skip. [web:160][web:59]
     if ruleResult.IsException() {
-        result.Result = openreports.StatusPass
+        result.Result = openreports.StatusSkip
     }
 
     if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
