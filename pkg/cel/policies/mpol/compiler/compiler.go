@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -68,6 +69,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				user.Lib(user.Latest()),
 				json.Lib(&json.JsonImpl{}, json.Latest()),
 				random.Lib(random.Latest()),
+				x509.Lib(x509.Latest()),
 			},
 		},
 	)
