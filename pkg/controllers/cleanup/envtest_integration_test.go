@@ -200,7 +200,7 @@ func Test_ConcurrentPolicyOperations(t *testing.T) {
 					Name:      fmt.Sprintf("concurrent-test-%d", index),
 					Namespace: "default",
 				}
-				
+
 				if err := env.Client.Get(ctx, key, policy); err != nil {
 					errChan <- err
 					return

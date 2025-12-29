@@ -1,5 +1,4 @@
 //go:build envtest
-// +build envtest
 
 package testutil
 

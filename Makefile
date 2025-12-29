@@ -1236,10 +1236,6 @@ envtest: ## Download and setup envtest binaries
 	@echo "EnvTest ready. Use 'make test-integration' to run integration tests." >&2
 
 .PHONY: test-unit
-test-unit: ## Run unit tests (fast, with fake clients)
-	@echo "Running unit tests..." >&2
-	@go test -race -p 4 -covermode atomic ./pkg/controllers/cleanup/... -run="Test_Cleanup|Test_CleanupPolicy_WithFakeClient|Test_CleanupPolicy_Lifecycle"
-
 .PHONY: test-integration
 test-integration: envtest ## Run integration tests (slower, with real API server)
 	@echo "Running integration tests with envtest..." >&2
