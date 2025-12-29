@@ -1199,3 +1199,51 @@ dev-lab-kwok: ## Deploy kwok
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
+
+
+
+#################
+# ENVTEST SETUP #
+#################
+ENVTEST_K8S_VERSION = 1.28.0
+ENVTEST = $(shell go env GOPATH)/bin/setup-envtest
+KUBEBUILDER_ASSETS ?= $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null)
+
+.PHONY: envtest
+envtest: ## Download and setup envtest binaries
+	@echo "Setting up envtest..." >&2
+	@test -f $(ENVTEST) || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) >/dev/null 2>&1 || true
+	@echo "EnvTest ready. Use 'make test-envtest' to run integration tests." >&2
+
+.PHONY: test-envtest
+test-envtest: envtest ## Run tests with envtest (integration tests)
+	@echo "Running envtest integration tests..." >&2
+	@KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -v -tags envtest ./pkg/controllers/cleanup/... -run Test_CleanupPolicy_WithEnvTest
+
+#################
+# ENVTEST SETUP #
+#################
+ENVTEST_K8S_VERSION = 1.28.0
+ENVTEST = $(shell go env GOPATH)/bin/setup-envtest
+KUBEBUILDER_ASSETS ?= $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null)
+
+.PHONY: envtest
+envtest: ## Download and setup envtest binaries
+	@echo "Setting up envtest..." >&2
+	@test -f $(ENVTEST) || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) >/dev/null 2>&1 || true
+	@echo "EnvTest ready. Use 'make test-integration' to run integration tests." >&2
+
+.PHONY: test-unit
+test-unit: ## Run unit tests (fast, with fake clients)
+	@echo "Running unit tests..." >&2
+	@go test -race -p 4 -covermode atomic ./pkg/controllers/cleanup/... -run="Test_Cleanup|Test_CleanupPolicy_WithFakeClient|Test_CleanupPolicy_Lifecycle"
+
+.PHONY: test-integration
+test-integration: envtest ## Run integration tests (slower, with real API server)
+	@echo "Running integration tests with envtest..." >&2
+	@KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -v -tags envtest -timeout 5m ./pkg/controllers/cleanup/... -run="Test_CleanupController"
+
+.PHONY: test-all
+test-all: test-unit test-integration ## Run all tests (unit + integration)
