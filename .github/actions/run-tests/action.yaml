@@ -29,7 +29,7 @@ inputs:
     description: Shard count
     default: '0'
   quarantined-tests:
-    description: tests to exclude from the run, pipe separated
+    description: tests to exclude from the run, comma separated
     default: ''
 runs:
   using: composite
