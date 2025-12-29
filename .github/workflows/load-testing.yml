@@ -125,6 +125,12 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
@@ -219,6 +225,12 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
@@ -330,6 +342,12 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
