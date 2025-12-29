@@ -95,23 +95,26 @@ runs:
         IFS=',' read -ra TEST_DIRS <<< "${{ inputs.quarantined-tests }}"
 
         for DIR_NAME in "${TEST_DIRS[@]}"; do
-          FOUND_TEST_DIR=$(find ./test/conformance/chainsaw/${{ inputs.chainsaw-tests }} -type d -name "$DIR_NAME" -print -quit)
-          if [ -z "$FOUND_TEST_DIR" ]; then
-            echo "Error: invalid test name, didn't find a directory with a similar name"
+          # Find ALL matching directories
+          mapfile -t FOUND_DIRS < <(find ./test/conformance/chainsaw/${{ inputs.tests-path }} -type d -name "$DIR_NAME")
+
+          if [ ${#FOUND_DIRS[@]} -eq 0 ]; then
+            echo "Error: No directories found matching '$DIR_NAME'"
             continue
           fi
 
-          echo "Found directory: $FOUND_TEST_DIR"
+          for FOUND_TEST_DIR in "${FOUND_DIRS[@]}"; do
+            echo "Found directory: $FOUND_TEST_DIR"
 
-          # Look for chainsaw-test.yaml
-          TEST_FILE="$FOUND_TEST_DIR/chainsaw-test.yaml"
+            TEST_FILE="$FOUND_TEST_DIR/chainsaw-test.yaml"
+            if [ ! -f "$TEST_FILE" ]; then
+              echo "Error: chainsaw-test.yaml not found in $FOUND_TEST_DIR"
+              continue
+            fi
 
-          if [ ! -f "$TEST_FILE" ]; then
-            echo "Error: chainsaw-test.yaml not found in $FOUND_TEST_DIR"
-            continue
-          fi
-
-          yq eval '.spec.skip = true' -i "$TEST_FILE"
+            yq eval '.spec.skip = true' -i "$TEST_FILE"
+            echo "Set skip: true in $TEST_FILE"
+          done
         done
     # run tests
     - name: Test with Chainsaw
