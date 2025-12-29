@@ -816,6 +816,10 @@ The chart values are organised per component.
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
 | rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
+| reportsServer.enabled | bool | `false` | Enable reports-server deployment alongside Kyverno |
+| reportsServer.waitForReady | bool | `true` | Wait for reports-server to be ready before starting Kyverno components |
+| reportsServer.readinessTimeout | int | `300` | Timeout for waiting for reports-server readiness (in seconds) |
+| openreports.enabled | bool | `false` |  |
 | openreports.enabled | bool | `false` | Enable OpenReports feature in controllers |
 | openreports.installCrds | bool | `false` | Whether to install CRDs from the upstream OpenReports chart. Setting this to true requires enabled to also be true. |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
@@ -883,6 +887,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
+| https://kyverno.github.io/reports-server/ | reports-server | 0.1.3 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
