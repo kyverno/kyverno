@@ -40,8 +40,8 @@ runs:
       uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
     - name: Install Cosign
       uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
-    - name: Install yq
-      uses: chrisdickinson/setup-yq@latest
+    - name: Setup yq
+      uses: mikefarah/yq@v4.46.1
     - name: Install chainsaw
       uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
       with:
