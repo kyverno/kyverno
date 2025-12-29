@@ -9,6 +9,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -75,8 +78,18 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 				user.Lib(
 					user.Latest(),
 				),
+				math.Lib(
+					math.Latest(),
+				),
 				hash.Lib(
 					hash.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
 				),
 			},
 		},
