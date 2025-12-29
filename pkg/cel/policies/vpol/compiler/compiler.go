@@ -11,9 +11,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -45,7 +48,7 @@ type compilerImpl struct{}
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
 	case policiesv1beta1.EvaluationModeJSON:
-		return c.compileForJSON(policy)
+		return c.compileForJSON(policy, exceptions)
 	default:
 		return c.compileForKubernetes(policy, exceptions)
 	}
@@ -122,7 +125,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	}, nil
 }
 
-func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -185,12 +188,26 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		}
 	}
 
+	// Compile exceptions' match conditions for JSON mode
+	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		compiledExceptions = append(compiledExceptions, compiler.Exception{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
+		})
+	}
+
 	return &Policy{
 		mode:            policiesv1beta1.EvaluationModeJSON,
 		failurePolicy:   policy.GetFailurePolicy(),
 		matchConditions: matchConditions,
 		variables:       variables,
 		validations:     validations,
+		exceptions:      compiledExceptions,
 	}, nil
 }
 
@@ -256,6 +273,16 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 				),
 				user.Lib(
 					user.Latest(),
+				),
+				hash.Lib(
+					hash.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
 				),
 			},
 		},

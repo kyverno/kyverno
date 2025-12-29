@@ -11,4 +11,7 @@ var (
 	ImageVerifyVersion   = version.MajorMinor(1, 0)
 	ResourceVersion      = version.MajorMinor(1, 0)
 	UserVersion          = version.MajorMinor(1, 0)
+	HashVersion          = version.MajorMinor(1, 0)
+	MathVersion          = version.MajorMinor(1, 0)
+	JsonVersion          = version.MajorMinor(1, 0)
 )
