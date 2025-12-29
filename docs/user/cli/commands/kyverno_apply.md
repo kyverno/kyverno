@@ -38,10 +38,13 @@ kyverno apply [flags]
 
 ```
       --audit-warn                         If set to true, will flag audit policies as warnings instead of failures
+      --batch-size int                     Number of resources to fetch per API call (default 100)
   -c, --cluster                            Checks if policies should be applied to cluster in the current context
       --cluster-wide-resources             If set to true, will apply policies to cluster-wide resources
+      --concurrent int                     Number of concurrent workers for resource loading (default 1)
       --context string                     The name of the kubeconfig context to use
       --context-file string                File containing context data for CEL policies
+      --continue-on-error                  Continue processing despite resource loading errors (default true)
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
       --detailed-results                   If set to true, display detailed results
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
@@ -56,6 +59,7 @@ kyverno apply [flags]
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
   -o, --output string                      Prints the mutated/generated resources in provided file/directory
       --output-format string               Specifies the policy report format (json or yaml). Default: yaml. (default "yaml")
+      --parameter-resource strings         Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters
       --password string                    Password for connecting to git repository
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
       --registry                           If set to true, access the image registry using local docker credentials to populate external data
@@ -63,6 +67,7 @@ kyverno apply [flags]
   -r, --resource strings                   Path to resource files
       --resources strings                  Path to resource files
   -s, --set strings                        Variables that are required
+      --show-performance                   Show resource loading performance metrics
   -i, --stdin                              Optional mutate policy parameter to pipe directly through to kubectl
   -t, --table                              Show results in table format
       --target-resource strings            Path to individual files containing target resources files for policies that have mutate existing

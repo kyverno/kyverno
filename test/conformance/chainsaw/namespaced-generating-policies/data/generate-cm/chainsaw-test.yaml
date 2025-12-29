@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generate-configmap
+spec:
+  steps:
+  - name: create namespace
+    try:
+    - create:
+        file: namespace.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-namespaced-generating-policy-ready
+    use:
+      template: ../../../_step-templates/namespaced-generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: generate-configmap
+        - name: namespace
+          value: test-namespace
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: create trigger namespace
+    try:
+    - apply:
+        file: trigger-namespace.yaml

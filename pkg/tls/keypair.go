@@ -1,6 +1,7 @@
 package tls
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -14,16 +15,26 @@ import (
 
 // generateCA creates the self-signed CA cert and private key
 // it will be used to sign the webhook server certificate
-func generateCA(key *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
+func generateCA(key crypto.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
+
+	var (
+		rsaKey *rsa.PrivateKey
+		ok     bool
+	)
 	if key == nil {
 		newKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
 			return nil, nil, err
 		}
-		key = newKey
+		rsaKey = newKey
+	} else {
+		if rsaKey, ok = key.(*rsa.PrivateKey); !ok {
+			return nil, nil, fmt.Errorf("existing key is not RSA, cannot regenerate CA with different key type")
+		}
 	}
+
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(0),
 		Subject: pkix.Name{
@@ -35,7 +46,7 @@ func generateCA(key *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.P
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}
-	der, err := x509.CreateCertificate(rand.Reader, templ, templ, key.Public(), key)
+	der, err := x509.CreateCertificate(rand.Reader, templ, templ, rsaKey.Public(), rsaKey)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -43,12 +54,12 @@ func generateCA(key *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.P
 	if err != nil {
 		return nil, nil, err
 	}
-	return key, cert, nil
+	return rsaKey, cert, nil
 }
 
 // generateTLS takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration, commonName string, dnsNames []string) (*rsa.PrivateKey, *x509.Certificate, error) {
+func generateTLS(server string, caCert *x509.Certificate, caKey crypto.PrivateKey, certValidityDuration time.Duration, commonName string, dnsNames []string) (*rsa.PrivateKey, *x509.Certificate, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
 	var ips []net.IP

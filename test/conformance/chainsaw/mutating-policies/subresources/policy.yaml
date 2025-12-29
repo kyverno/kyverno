@@ -1,0 +1,25 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mpol-subresources
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE" ]
+      resources: ["nodes", "nodes/status" ]
+  matchConditions:
+  - name: is-kind-controller-plane-name
+    expression: object.metadata.name == 'kind-control-plane'
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          status: Object.status{
+            capacity: Object.status.capacity{
+              example.com/dongle: "4"
+            }
+          }
+        }ß

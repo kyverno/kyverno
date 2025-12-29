@@ -12,6 +12,7 @@ import (
 // +kubebuilder:resource:path=generatingpolicies,scope="Cluster",shortName=gpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:deprecatedversion
 
 type GeneratingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -20,41 +21,6 @@ type GeneratingPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status GeneratingPolicyStatus `json:"status,omitempty"`
-}
-
-func (s *GeneratingPolicy) GetKind() string {
-	return "GeneratingPolicy"
-}
-
-func (s *GeneratingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
-	if s.Spec.MatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
-	}
-	return *s.Spec.MatchConstraints
-}
-
-func (s *GeneratingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
-	return s.Spec.MatchConditions
-}
-
-func (s *GeneratingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
-	return admissionregistrationv1.Ignore
-}
-
-func (s *GeneratingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
-	return s.Spec.WebhookConfiguration
-}
-
-func (s *GeneratingPolicy) GetVariables() []admissionregistrationv1.Variable {
-	return s.Spec.Variables
-}
-
-func (s *GeneratingPolicy) GetSpec() *GeneratingPolicySpec {
-	return &s.Spec
-}
-
-func (s *GeneratingPolicy) GetStatus() *GeneratingPolicyStatus {
-	return &s.Status
 }
 
 // +kubebuilder:object:root=true
@@ -78,9 +44,6 @@ type GeneratingPolicySpec struct {
 	// Match conditions filter requests that have already been matched by the rules,
 	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 	// There are a maximum of 64 match conditions allowed.
-	//
-	// If a parameter object is provided, it can be accessed via the `params` handle in the same
-	// manner as validation expressions.
 	//
 	// The exact matching logic is (in order):
 	//   1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
@@ -122,55 +85,6 @@ type GeneratingPolicySpec struct {
 	// Required.
 	// +kubebuilder:validation:MinItems=1
 	Generation []Generation `json:"generate"`
-}
-
-func (s GeneratingPolicySpec) OrphanDownstreamOnPolicyDeleteEnabled() bool {
-	const defaultValue = false
-	if s.EvaluationConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.OrphanDownstreamOnPolicyDelete.Enabled
-}
-
-func (s GeneratingPolicySpec) GenerateExistingEnabled() bool {
-	const defaultValue = false
-	if s.EvaluationConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.GenerateExistingConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.GenerateExistingConfiguration.Enabled
-}
-
-func (s GeneratingPolicySpec) SynchronizationEnabled() bool {
-	const defaultValue = false
-	if s.EvaluationConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.SynchronizationConfiguration == nil {
-		return defaultValue
-	}
-	if s.EvaluationConfiguration.SynchronizationConfiguration.Enabled == nil {
-		return defaultValue
-	}
-	return *s.EvaluationConfiguration.SynchronizationConfiguration.Enabled
-}
-
-func (s GeneratingPolicySpec) AdmissionEnabled() bool {
-	if s.EvaluationConfiguration == nil || s.EvaluationConfiguration.Admission == nil || s.EvaluationConfiguration.Admission.Enabled == nil {
-		return true
-	}
-	return *s.EvaluationConfiguration.Admission.Enabled
 }
 
 type GeneratingPolicyEvaluationConfiguration struct {

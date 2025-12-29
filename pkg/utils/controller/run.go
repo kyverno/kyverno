@@ -7,9 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	sdkmetric "go.opentelemetry.io/otel/metric"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -19,48 +16,12 @@ import (
 
 type reconcileFunc func(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error
 
-type controllerMetrics struct {
-	controllerName string
-	reconcileTotal sdkmetric.Int64Counter
-	requeueTotal   sdkmetric.Int64Counter
-	queueDropTotal sdkmetric.Int64Counter
-}
-
-func newControllerMetrics(logger logr.Logger, controllerName string) *controllerMetrics {
-	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
-	reconcileTotal, err := meter.Int64Counter(
-		"kyverno_controller_reconcile",
-		sdkmetric.WithDescription("can be used to track number of reconciliation cycles"))
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_controller_reconcile_total")
-	}
-	requeueTotal, err := meter.Int64Counter(
-		"kyverno_controller_requeue",
-		sdkmetric.WithDescription("can be used to track number of reconciliation errors"))
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_controller_requeue_total")
-	}
-	queueDropTotal, err := meter.Int64Counter(
-		"kyverno_controller_drop",
-		sdkmetric.WithDescription("can be used to track number of queue drops"))
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_controller_drop_total")
-	}
-	return &controllerMetrics{
-		controllerName: controllerName,
-		reconcileTotal: reconcileTotal,
-		requeueTotal:   requeueTotal,
-		queueDropTotal: queueDropTotal,
-	}
-}
-
 func Run[T comparable](ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.TypedRateLimitingInterface[T], n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
 	logger.V(2).Info("starting ...")
 	defer logger.V(2).Info("stopped")
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	defer runtime.HandleCrash()
-	metric := newControllerMetrics(logger, controllerName)
 	func() {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -71,7 +32,7 @@ func Run[T comparable](ctx context.Context, logger logr.Logger, controllerName s
 				logger.V(4).Info("starting worker")
 				defer logger.V(4).Info("worker stopped")
 				defer wg.Done()
-				wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, metric, queue, maxRetries, r) }, period)
+				wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, controllerName, queue, maxRetries, r) }, period)
 			}(logger.WithName("worker").WithValues("id", i))
 		}
 		for i, routine := range routines {
@@ -88,24 +49,26 @@ func Run[T comparable](ctx context.Context, logger logr.Logger, controllerName s
 	logger.V(4).Info("waiting for workers to terminate ...")
 }
 
-func worker[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, r reconcileFunc) {
-	for processNextWorkItem(ctx, logger, metric, queue, maxRetries, r) {
+func worker[T comparable](ctx context.Context, logger logr.Logger, controllerName string, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, r reconcileFunc) {
+	for processNextWorkItem(ctx, logger, controllerName, queue, maxRetries, r) {
 	}
 }
 
-func processNextWorkItem[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, r reconcileFunc) bool {
+func processNextWorkItem[T comparable](ctx context.Context, logger logr.Logger, controllerName string, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, r reconcileFunc) bool {
 	if obj, quit := queue.Get(); !quit {
 		defer queue.Done(obj)
-		handleErr(ctx, logger, metric, queue, maxRetries, reconcile(ctx, logger, obj, r), obj)
+		handleErr(ctx, logger, controllerName, queue, maxRetries, reconcile(ctx, logger, obj, r), obj)
 		return true
 	}
 	return false
 }
 
-func handleErr[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, err error, obj T) {
-	if metric.reconcileTotal != nil {
-		metric.reconcileTotal.Add(ctx, 1, sdkmetric.WithAttributes(attribute.String("controller_name", metric.controllerName)))
+func handleErr[T comparable](ctx context.Context, logger logr.Logger, controllerName string, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, err error, obj T) {
+	metric := metrics.GetControllerMetrics()
+	if metric != nil {
+		metric.RecordReconcileIncrease(ctx, controllerName)
 	}
+
 	if err == nil {
 		queue.Forget(obj)
 	} else if errors.IsNotFound(err) {
@@ -114,27 +77,14 @@ func handleErr[T comparable](ctx context.Context, logger logr.Logger, metric *co
 	} else if queue.NumRequeues(obj) < maxRetries {
 		logger.V(3).Info("Retrying request", "obj", obj, "error", err.Error())
 		queue.AddRateLimited(obj)
-		if metric.requeueTotal != nil {
-			metric.requeueTotal.Add(
-				ctx,
-				1,
-				sdkmetric.WithAttributes(
-					attribute.String("controller_name", metric.controllerName),
-					attribute.Int("num_requeues", queue.NumRequeues(obj)),
-				),
-			)
+		if metric != nil {
+			metric.RecordRequeueIncrease(ctx, controllerName, queue.NumRequeues(obj))
 		}
 	} else {
 		logger.Error(err, "Failed to process request", "obj", obj)
 		queue.Forget(obj)
-		if metric.queueDropTotal != nil {
-			metric.queueDropTotal.Add(
-				ctx,
-				1,
-				sdkmetric.WithAttributes(
-					attribute.String("controller_name", metric.controllerName),
-				),
-			)
+		if metric != nil {
+			metric.RecordQueueDrop(ctx, controllerName)
 		}
 	}
 }

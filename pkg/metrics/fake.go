@@ -7,10 +7,8 @@ import (
 )
 
 func NewFakeMetricsConfig() *MetricsConfig {
-	mc := &MetricsConfig{
-		config: config.NewDefaultMetricsConfiguration(),
-		Log:    klog.NewKlogr(),
-	}
+	mc := NewMetricsConfigManager(klog.NewKlogr(), config.NewDefaultMetricsConfiguration())
+
 	_ = mc.initializeMetrics(otel.GetMeterProvider())
 	return mc
 }

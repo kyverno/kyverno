@@ -1,4 +1,4 @@
-apiVersion: policies.kyverno.io/v1alpha1
+apiVersion: policies.kyverno.io/v1beta1
 kind: MutatingPolicy
 metadata:
   name: mpol-http-post
@@ -17,7 +17,7 @@ spec:
         {"labels": object.metadata.labels.app},{"Content-Type": "application/json"})
     - name: envVariable
       expression: >-
-        has(variables.apiResponse) && has(variables.apiResponse.recieved) && 'recieved' in variables.apiResponse ? variables.apiResponse.recieved : 'unknown'
+        has(variables.apiResponse) && has(variables.apiResponse.received) && 'received' in variables.apiResponse ? variables.apiResponse.received : 'unknown'
   mutations:
     - patchType: ApplyConfiguration
       applyConfiguration:

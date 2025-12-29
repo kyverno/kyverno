@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: cleanup-old-test-pods
+spec:
+  conditions:
+    - expression: has(namespaceObject.metadata.labels) && has(namespaceObject.metadata.labels.environment) && namespaceObject.metadata.labels.environment == 'test'
+      name: is-test-namespace
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        resources:
+          - pods
+  schedule: '*/1 * * * *'

@@ -15,4 +15,5 @@ const (
 	ResourceKey        = "resource"
 	GeneratorKey       = "generator"
 	VariablesKey       = "variables"
+	ExceptionsKey      = "exceptions"
 )

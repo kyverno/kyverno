@@ -14,6 +14,8 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/ext/resource/convert"
@@ -23,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
@@ -34,12 +37,32 @@ var (
 	vapV1              = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	vpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	vpV1               = policiesv1.SchemeGroupVersion.WithKind("ValidatingPolicy")
+	nvpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedValidatingPolicy")
+	nvpV1              = policiesv1.SchemeGroupVersion.WithKind("NamespacedValidatingPolicy")
 	ivpV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	ivpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	ivpV1              = policiesv1.SchemeGroupVersion.WithKind("ImageValidatingPolicy")
+	nivpV1beta1        = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedImageValidatingPolicy")
+	nivpV1             = policiesv1.SchemeGroupVersion.WithKind("NamespacedImageValidatingPolicy")
 	gpsV1alpha1        = policiesv1alpha1.SchemeGroupVersion.WithKind("GeneratingPolicy")
+	gpsV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("GeneratingPolicy")
+	gpsV1              = policiesv1.SchemeGroupVersion.WithKind("GeneratingPolicy")
 	dpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("DeletingPolicy")
+	dpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("DeletingPolicy")
+	dpV1               = policiesv1.SchemeGroupVersion.WithKind("DeletingPolicy")
+	ndpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
+	ndpV1              = policiesv1.SchemeGroupVersion.WithKind("NamespacedDeletingPolicy")
 	mpV1alpha1         = policiesv1alpha1.SchemeGroupVersion.WithKind("MutatingPolicy")
+	mpV1beta1          = policiesv1beta1.SchemeGroupVersion.WithKind("MutatingPolicy")
+	mpV1               = policiesv1.SchemeGroupVersion.WithKind("MutatingPolicy")
+	nmpV1beta1         = policiesv1beta1.SchemeGroupVersion.WithKind("NamespacedMutatingPolicy")
+	nmpV1              = policiesv1.SchemeGroupVersion.WithKind("NamespacedMutatingPolicy")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapV1beta1         = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
+	mapBindingV1beta1  = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	defaultLoader      = kubectlValidateLoader
 )
 
@@ -49,17 +72,21 @@ type LoaderError struct {
 }
 
 type LoaderResults struct {
-	Policies                []kyvernov1.PolicyInterface
-	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
-	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MAPs                    []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	MAPBindings             []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
-	ValidatingPolicies      []policiesv1alpha1.ValidatingPolicy
-	ImageValidatingPolicies []policiesv1alpha1.ImageValidatingPolicy
-	GeneratingPolicies      []policiesv1alpha1.GeneratingPolicy
-	DeletingPolicies        []policiesv1alpha1.DeletingPolicy
-	MutatingPolicies        []policiesv1alpha1.MutatingPolicy
-	NonFatalErrors          []LoaderError
+	Policies                          []kyvernov1.PolicyInterface
+	VAPs                              []admissionregistrationv1.ValidatingAdmissionPolicy
+	VAPBindings                       []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	MAPs                              []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	MAPBindings                       []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+	ValidatingPolicies                []policiesv1beta1.ValidatingPolicy
+	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
+	ImageValidatingPolicies           []policiesv1beta1.ImageValidatingPolicy
+	NamespacedImageValidatingPolicies []policiesv1beta1.NamespacedImageValidatingPolicy
+	GeneratingPolicies                []policiesv1beta1.GeneratingPolicy
+	DeletingPolicies                  []policiesv1beta1.DeletingPolicy
+	NamespacedDeletingPolicies        []policiesv1beta1.NamespacedDeletingPolicy
+	MutatingPolicies                  []policiesv1beta1.MutatingPolicy
+	NamespacedMutatingPolicies        []policiesv1beta1.NamespacedMutatingPolicy
+	NonFatalErrors                    []LoaderError
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {
@@ -73,10 +100,13 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.MAPs = append(l.MAPs, results.MAPs...)
 	l.MAPBindings = append(l.MAPBindings, results.MAPBindings...)
 	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
+	l.NamespacedImageValidatingPolicies = append(l.NamespacedImageValidatingPolicies, results.NamespacedImageValidatingPolicies...)
 	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
+	l.NamespacedDeletingPolicies = append(l.NamespacedDeletingPolicies, results.NamespacedDeletingPolicies...)
 	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
+	l.NamespacedMutatingPolicies = append(l.NamespacedMutatingPolicies, results.NamespacedMutatingPolicies...)
 }
 
 func (l *LoaderResults) addError(path string, err error) {
@@ -175,48 +205,72 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.VAPBindings = append(results.VAPBindings, *typed)
-		case vpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.ValidatingPolicy](untyped)
+		case vpV1alpha1, vpV1beta1, vpV1:
+			typed, err := convert.To[policiesv1beta1.ValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.ValidatingPolicies = append(results.ValidatingPolicies, *typed)
-		case ivpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.ImageValidatingPolicy](untyped)
+		case nvpV1beta1, nvpV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.NamespacedValidatingPolicies = append(results.NamespacedValidatingPolicies, *typed)
+		case ivpV1alpha1, ivpV1beta1, ivpV1:
+			typed, err := convert.To[policiesv1beta1.ImageValidatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
-		case mapV1alpha1:
-			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicy](untyped)
+		case nivpV1beta1, nivpV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedImageValidatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.NamespacedImageValidatingPolicies = append(results.NamespacedImageValidatingPolicies, *typed)
+		case mapV1alpha1, mapV1beta1:
+			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.MAPs = append(results.MAPs, *typed)
-		case mapBindingV1alpha1:
-			typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding](untyped)
+		case mapBindingV1alpha1, mapBindingV1beta1:
+			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.MAPBindings = append(results.MAPBindings, *typed)
-		case gpsV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.GeneratingPolicy](untyped)
+		case gpsV1alpha1, gpsV1beta1, gpsV1:
+			typed, err := convert.To[policiesv1beta1.GeneratingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.GeneratingPolicies = append(results.GeneratingPolicies, *typed)
-		case dpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.DeletingPolicy](untyped)
+		case dpV1alpha1, dpV1beta1, dpV1:
+			typed, err := convert.To[policiesv1beta1.DeletingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.DeletingPolicies = append(results.DeletingPolicies, *typed)
-		case mpV1alpha1:
-			typed, err := convert.To[policiesv1alpha1.MutatingPolicy](untyped)
+		case ndpV1beta1, ndpV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedDeletingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.NamespacedDeletingPolicies = append(results.NamespacedDeletingPolicies, *typed)
+		case mpV1alpha1, mpV1beta1, mpV1:
+			typed, err := convert.To[policiesv1beta1.MutatingPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.MutatingPolicies = append(results.MutatingPolicies, *typed)
+		case nmpV1beta1, nmpV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](untyped)
+			if err != nil {
+				return nil, err
+			}
+			results.NamespacedMutatingPolicies = append(results.NamespacedMutatingPolicies, *typed)
 		default:
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}

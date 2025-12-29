@@ -49,12 +49,16 @@ func (s *Recorder) Reset() {
 }
 
 // BuildRecorderKey builds policy key in kind/name format
-func BuildRecorderKey(policyType, name string) string {
+func BuildRecorderKey(policyType, name, namespace string) string {
 	switch policyType {
 	case ValidatingPolicyType:
 		return ValidatingPolicyType + "/" + name
+	case NamespacedValidatingPolicyType:
+		return NamespacedValidatingPolicyType + "/" + name + "+" + namespace
 	case ImageValidatingPolicyType:
 		return ImageValidatingPolicyType + "/" + name
+	case NamespacedImageValidatingPolicyType:
+		return NamespacedImageValidatingPolicyType + "/" + name + "+" + namespace
 	case MutatingPolicyType:
 		return MutatingPolicyType + "/" + name
 	case GeneratingPolicyType:
@@ -64,10 +68,16 @@ func BuildRecorderKey(policyType, name string) string {
 }
 
 // ParseRecorderKey parses policy key in kind/name format
-func ParseRecorderKey(key string) (policyType, name string) {
+func ParseRecorderKey(key string) (policyType, name, namespace string) {
 	vars := strings.Split(key, "/")
 	if len(vars) < 2 {
-		return "", ""
+		return "", "", ""
 	}
-	return vars[0], vars[1]
+
+	parts := strings.Split(vars[1], "+")
+	if len(parts) == 2 {
+		return vars[0], parts[0], parts[1]
+	}
+
+	return vars[0], vars[1], ""
 }

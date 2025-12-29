@@ -1,11 +1,11 @@
-# -- Internal settings used with `helm template` to generate install manifest
-# @ignored
-templating:
-  enabled: false
-  debug: false
-  version: ~
-
 global:
+
+  # -- Internal settings used with `helm template` to generate install manifest
+  # @ignored
+  templating:
+    enabled: false
+    debug: false
+    version: ~
 
   image:
     # -- (string) Global value that allows to set a single image registry across all deployments.
@@ -77,7 +77,10 @@ rbac:
 
 # Use openreports.io as the API group for reporting
 openreports:
+  # -- Enable OpenReports feature in controllers
   enabled: false
+  # -- Whether to install CRDs from the upstream OpenReports chart. Setting this to true requires enabled to also be true.
+  installCrds: false
 
 # CRDs configuration
 crds:
@@ -106,9 +109,13 @@ crds:
       validatingpolicies: true
       policyexceptions: true
       imagevalidatingpolicies: true
+      namespacedimagevalidatingpolicies: true
       mutatingpolicies: true
+      namespacedmutatingpolicies: true
       generatingpolicies: true
       deletingpolicies: true
+      namespaceddeletingpolicies: true
+      namespacedvalidatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -142,6 +149,16 @@ crds:
       - policies.kyverno.io
       - policyexceptions.kyverno.io
       - updaterequests.kyverno.io
+      - deletingpolicies.policies.kyverno.io
+      - generatingpolicies.policies.kyverno.io
+      - imagevalidatingpolicies.policies.kyverno.io
+      - namespacedimagevalidatingpolicies.policies.kyverno.io
+      - mutatingpolicies.policies.kyverno.io
+      - namespacedmutatingpolicies.policies.kyverno.io
+      - namespaceddeletingpolicies.policies.kyverno.io
+      - namespacedvalidatingpolicies.policies.kyverno.io
+      - policyexceptions.policies.kyverno.io
+      - validatingpolicies.policies.kyverno.io
 
     image:
       # -- (string) Image registry
@@ -443,6 +460,18 @@ metricsConfig:
     kyverno_policy_execution_duration_seconds:
       # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
       disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_validating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_image_validating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_mutating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_generating_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
     kyverno_admission_review_duration_seconds:
       # enabled: false
       disabledLabelDimensions: ["resource_namespace"]
@@ -478,12 +507,12 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: curlimages
     # -- Image repository
-    repository: busybox
+    repository: curl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.35'
+    tag: '8.10.1'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -522,6 +551,9 @@ test:
   # -- Node labels for pod assignment
   nodeSelector: {}
 
+   # -- Additional Pod annotations
+  podAnnotations: {}
+
   # -- List of node taints to tolerate
   tolerations: []
 
@@ -539,9 +571,9 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: registry.k8s.io
     # -- Image repository
-    repository: registry.k8s.io/kubectl
+    repository: kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
     tag: 'v1.32.7'
@@ -974,7 +1006,7 @@ admissionController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-    # -- Unhealty pod eviction policy to be used.
+    # -- Unhealthy pod eviction policy to be used.
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
@@ -1265,7 +1297,17 @@ backgroundController:
             - update
             - patch
             - delete
-
+        - apiGroups:
+            - resource.k8s.io
+          resources:
+            - resourceclaims
+            - resourceclaimtemplates
+          verbs:
+            - create
+            - delete
+            - update
+            - patch
+            - deletecollection
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
@@ -1422,7 +1464,7 @@ backgroundController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-    # -- Unhealty pod eviction policy to be used.
+    # -- Unhealthy pod eviction policy to be used.
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
@@ -1621,10 +1663,6 @@ cleanupController:
   # in case you are using hostNetwork: true, you might want to change the port the cleanupController is listening to
   server:
     port: 9443
-  # -- cleanupController webhook server port
-  # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
-  webhookServer:
-    port: 9443
 
   # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
   # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
@@ -1759,7 +1797,7 @@ cleanupController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-    # -- Unhealty pod eviction policy to be used.
+    # -- Unhealthy pod eviction policy to be used.
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
@@ -2063,7 +2101,7 @@ reportsController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-    # -- Unhealty pod eviction policy to be used.
+    # -- Unhealthy pod eviction policy to be used.
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
