@@ -52,7 +52,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			),
 			cel.Overload(
 				"random_string_default_expr",
-				[]*cel.Type{types.StringType},
+				[]*cel.Type{},
 				types.StringType,
 				cel.FunctionBinding(impl.random_default_expr),
 			),
