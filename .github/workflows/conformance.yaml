@@ -3,9 +3,6 @@
 name: Conformance tests
 permissions: {}
 
-env:
- QUARANTINED_POLICY_LIBRARY_TESTS: "restrict-node-label-creation|disallow-proc-mount|resource-creation-updating-denied"
-
 on:
   pull_request:
     branches:
@@ -986,7 +983,6 @@ jobs:
           chainsaw test . \
             --shard-index ${{ matrix.shard-index }} \
             --shard-count 12 \
-            --exclude-test-regex "(${QUARANTINED_POLICY_LIBRARY_TESTS})" \
             --no-color=false
       - name: Debug failure
         if: failure()
