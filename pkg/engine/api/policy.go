@@ -2,7 +2,6 @@ package api
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -120,6 +119,8 @@ type GenericPolicy interface {
 	AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy
+	// AsNamespacedGeneratingPolicy returns the namespaced generating policy
+	AsNamespacedGeneratingPolicy() *policiesv1beta1.NamespacedGeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
 	AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike
 }
@@ -185,6 +186,10 @@ func (p *genericPolicy) AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy {
 	return p.GeneratingPolicy
 }
 
+func (p *genericPolicy) AsNamespacedGeneratingPolicy() *policiesv1beta1.NamespacedGeneratingPolicy {
+	return p.NamespacedGeneratingPolicy
+}
+
 func (p *genericPolicy) AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike {
 	return p.DeletingPolicy
 }
@@ -204,16 +209,16 @@ func (p *genericPolicy) GetAPIVersion() string {
 		if apiVersion := p.ValidatingPolicy.APIVersion; apiVersion != "" {
 			return apiVersion
 		}
-		return policiesv1alpha1.GroupVersion.String()
+		return policiesv1beta1.GroupVersion.String()
 	case p.NamespacedValidatingPolicy != nil:
 		if apiVersion := p.NamespacedValidatingPolicy.APIVersion; apiVersion != "" {
 			return apiVersion
 		}
 		return policiesv1beta1.GroupVersion.String()
 	case p.ImageValidatingPolicy != nil:
-		return policiesv1alpha1.GroupVersion.String()
+		return policiesv1beta1.GroupVersion.String()
 	case p.NamespacedImageValidatingPolicy != nil:
-		return policiesv1alpha1.GroupVersion.String()
+		return policiesv1beta1.GroupVersion.String()
 	case p.MutatingPolicy != nil:
 		if apiVersion := p.MutatingPolicy.APIVersion; apiVersion != "" {
 			return apiVersion
@@ -225,9 +230,9 @@ func (p *genericPolicy) GetAPIVersion() string {
 		}
 		return policiesv1beta1.GroupVersion.String()
 	case p.GeneratingPolicy != nil:
-		return policiesv1alpha1.GroupVersion.String()
+		return policiesv1beta1.GroupVersion.String()
 	case p.DeletingPolicy != nil:
-		return policiesv1alpha1.GroupVersion.String()
+		return policiesv1beta1.GroupVersion.String()
 	}
 	return ""
 }
@@ -269,6 +274,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 	case p.NamespacedImageValidatingPolicy != nil:
 		return true
 	case p.NamespacedMutatingPolicy != nil:
+		return true
+	case p.NamespacedGeneratingPolicy != nil:
 		return true
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""

@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -12,8 +13,8 @@ import (
 // +kubebuilder:resource:path=mutatingpolicies,scope="Cluster",shortName=mpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
-// +kubebuilder:storageversion
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:deprecatedversion
 
 type MutatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -95,7 +96,7 @@ type MutatingPolicySpec struct {
 
 	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
 	// +optional
-	TargetMatchConstraints *admissionregistrationv1alpha1.MatchResources `json:"targetMatchConstraints,omitempty"`
+	TargetMatchConstraints *TargetMatchConstraints `json:"targetMatchConstraints,omitempty"`
 
 	// mutations contain operations to perform on matching objects.
 	// mutations may not be empty; a minimum of one mutation is required.
@@ -150,6 +151,15 @@ type MAPGenerationConfiguration struct {
 	// Enabled specifies whether to generate a Kubernetes MutatingAdmissionPolicy.
 	// Optional. Defaults to "false" if not specified.
 	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type TargetMatchConstraints struct {
+	// +optional
+	Expression string `json:"expression,omitempty"`
+
+	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
+	// +optional
+	admissionregistrationv1.MatchResources `json:",inline"`
 }
 
 type MutateExistingConfiguration struct {

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -38,7 +37,7 @@ type ImageVerifyEngineResponse struct {
 
 type ImageVerifyPolicyResponse struct {
 	Policy     policiesv1beta1.ImageValidatingPolicyLike
-	Exceptions []*policiesv1alpha1.PolicyException
+	Exceptions []*policiesv1beta1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 	Result     engineapi.RuleResponse
 }
