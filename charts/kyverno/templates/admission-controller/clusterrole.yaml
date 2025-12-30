@@ -42,14 +42,12 @@ rules:
     resources:
       - mutatingwebhookconfigurations
       - validatingwebhookconfigurations
-      {{- if .Values.features.generateValidatingAdmissionPolicy.enabled }}
+      # Always grant permissions for admission policies to support per-policy generation overrides 
+      # even when global generateValidatingAdmissionPolicy/generateMutatingAdmissionPolicy flags are disabled.
       - validatingadmissionpolicies
       - validatingadmissionpolicybindings
-      {{- end }}
-      {{- if .Values.features.generateMutatingAdmissionPolicy.enabled }}
       - mutatingadmissionpolicies
       - mutatingadmissionpolicybindings
-      {{- end }}
     verbs:
       - create
       - delete

@@ -308,21 +308,21 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
-	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-	generateMAPs := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
-	if generateVAPs || generateMAPs {
+	vapsRegistered, _ := admissionpolicy.IsValidatingAdmissionPolicyRegistered(kubeClient)
+	mapsRegistered, _ := admissionpolicy.IsMutatingAdmissionPolicyRegistered(kubeClient)
+	if vapsRegistered || mapsRegistered {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 
 		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-		if generateVAPs {
+		if vapsRegistered {
 			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 		}
 
 		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
 		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
-		if generateMAPs {
+		if mapsRegistered {
 			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
 			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
 		}
