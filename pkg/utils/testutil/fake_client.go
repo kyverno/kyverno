@@ -5,7 +5,6 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernofake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
