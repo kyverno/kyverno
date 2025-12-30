@@ -1207,26 +1207,9 @@ help: ## Shows the available commands
 #################
 ENVTEST_K8S_VERSION = 1.28.0
 ENVTEST = $(shell go env GOPATH)/bin/setup-envtest
-KUBEBUILDER_ASSETS ?= $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null)
-
-.PHONY: envtest
-envtest: ## Download and setup envtest binaries
-	@echo "Setting up envtest..." >&2
-	@test -f $(ENVTEST) || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) >/dev/null 2>&1 || true
-	@echo "EnvTest ready. Use 'make test-envtest' to run integration tests." >&2
-
-.PHONY: test-envtest
-test-envtest: envtest ## Run tests with envtest (integration tests)
-	@echo "Running envtest integration tests..." >&2
-	@KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -v -tags envtest ./pkg/controllers/cleanup/... -run Test_CleanupPolicy_WithEnvTest
-
-#################
-# ENVTEST SETUP #
-#################
-ENVTEST_K8S_VERSION = 1.28.0
-ENVTEST = $(shell go env GOPATH)/bin/setup-envtest
-KUBEBUILDER_ASSETS ?= $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null)
+# Initialize KUBEBUILDER_ASSETS if not already set. 
+# We use a lazy assignment to ensure it's evaluated when needed.
+KUBEBUILDER_ASSETS = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null)
 
 .PHONY: envtest
 envtest: ## Download and setup envtest binaries
@@ -1235,11 +1218,10 @@ envtest: ## Download and setup envtest binaries
 	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) >/dev/null 2>&1 || true
 	@echo "EnvTest ready. Use 'make test-integration' to run integration tests." >&2
 
-.PHONY: test-unit
 .PHONY: test-integration
 test-integration: envtest ## Run integration tests (slower, with real API server)
 	@echo "Running integration tests with envtest..." >&2
-	@KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -v -tags envtest -timeout 5m ./pkg/controllers/cleanup/... -run="Test_CleanupController"
+	@KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -v -tags envtest -timeout 5m ./pkg/controllers/cleanup/...
 
 .PHONY: test-all
 test-all: test-unit test-integration ## Run all tests (unit + integration)
