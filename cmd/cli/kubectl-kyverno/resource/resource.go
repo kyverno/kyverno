@@ -1,12 +1,14 @@
 package resource
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -17,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
+
+var helmTemplateRegex = regexp.MustCompile(`:\s*(\{\{[^"'\n]+\}\})`)
 
 func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	documents, err := yamlutils.SplitDocuments(resourceBytes)
@@ -39,11 +43,19 @@ func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error)
 	_, metaData, decodeErr := decode(resourceYaml, nil, nil)
 	if decodeErr != nil {
 		if !strings.Contains(decodeErr.Error(), "no kind") {
+			fixedYaml := helmTemplateRegex.ReplaceAll(resourceYaml, []byte(`: "$1"`))
+			if !bytes.Equal(fixedYaml, resourceYaml) {
+				return YamlToUnstructured(fixedYaml)
+			}
 			return nil, decodeErr
 		}
 	}
 	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
 	if err != nil {
+		fixedYaml := helmTemplateRegex.ReplaceAll(resourceYaml, []byte(`: "$1"`))
+		if !bytes.Equal(fixedYaml, resourceYaml) {
+			return YamlToUnstructured(fixedYaml)
+		}
 		return nil, err
 	}
 	resource, err := kubeutils.BytesToUnstructured(resourceJSON)
