@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: require-multiple-replicas
+  namespace: myns
+  labels:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: true
+  rules:
+    - name: require-multiple-replicas
+      skipBackgroundRequests: false
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+      validate:
+        allowExistingViolations: false
+        pattern:
+          spec:
+            replicas: ">1"
+  validationFailureAction: Audit
