@@ -14,4 +14,6 @@ var (
 	HashVersion          = version.MajorMinor(1, 0)
 	MathVersion          = version.MajorMinor(1, 0)
 	JsonVersion          = version.MajorMinor(1, 0)
+	RandomVersion        = version.MajorMinor(1, 0)
+	X509Version          = version.MajorMinor(1, 0)
 )
