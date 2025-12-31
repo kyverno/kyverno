@@ -14,6 +14,11 @@ import (
 )
 
 const (
+	// DefaultKeyAlgorithm is the default key algorithm for self-signed certificates
+	DefaultKeyAlgorithm = RSA
+)
+
+const (
 	// CertRenewalInterval is the renewal interval for rootCA
 	CertRenewalInterval = 12 * time.Hour
 	// CAValidityDuration is the valid duration for CA certificates
@@ -53,12 +58,13 @@ type certRenewer struct {
 	renewBefore         time.Duration
 
 	// server is an IP address or domain name where Kyverno controller runs. Only required if out-of-cluster.
-	server     string
-	commonName string
-	dnsNames   []string
-	namespace  string
-	caSecret   string
-	pairSecret string
+	server       string
+	commonName   string
+	dnsNames     []string
+	namespace    string
+	caSecret     string
+	pairSecret   string
+	keyAlgorithm KeyAlgorithm
 }
 
 // NewCertRenewer returns an instance of CertRenewer
@@ -74,7 +80,12 @@ func NewCertRenewer(
 	namespace string,
 	caSecret string,
 	pairSecret string,
+	keyAlgorithm KeyAlgorithm,
 ) *certRenewer {
+	// Default to RSA if no algorithm specified
+	if keyAlgorithm == "" {
+		keyAlgorithm = DefaultKeyAlgorithm
+	}
 	return &certRenewer{
 		client:              client,
 		certRenewalInterval: certRenewalInterval,
@@ -87,6 +98,7 @@ func NewCertRenewer(
 		namespace:           namespace,
 		caSecret:            caSecret,
 		pairSecret:          pairSecret,
+		keyAlgorithm:        keyAlgorithm,
 	}
 }
 
@@ -107,7 +119,7 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 	if secret != nil && secret.Type != corev1.SecretTypeTLS {
 		return c.client.Delete(ctx, secret.Name, metav1.DeleteOptions{})
 	}
-	caKey, caCert, err := generateCA(key, c.caValidityDuration)
+	caKey, caCert, err := generateCA(key, c.caValidityDuration, c.keyAlgorithm)
 	if err != nil {
 		return fmt.Errorf("failed to generate CA (%w)", err)
 	}
@@ -154,7 +166,7 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 	if secret != nil && secret.Type != corev1.SecretTypeTLS {
 		return c.client.Delete(ctx, secret.Name, metav1.DeleteOptions{})
 	}
-	tlsKey, tlsCert, err := generateTLS(c.server, caCerts[len(caCerts)-1], caKey, c.tlsValidityDuration, c.commonName, c.dnsNames)
+	tlsKey, tlsCert, err := generateTLS(c.server, caCerts[len(caCerts)-1], caKey, c.tlsValidityDuration, c.commonName, c.dnsNames, c.keyAlgorithm)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS (%w)", err)
 	}
