@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-hash
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  variables:
+    - name: expectedHash
+      expression: >-
+        "403554a5dfea78d1ca4a8ff5830ac2ae"
+    - name: md5sum
+      expression: >-
+        md5(object.spec.template.spec.containers[0].image)
+    - name: accept
+      expression: >-
+        variables.md5sum == variables.expectedHash
+  validations:
+    - expression: >-
+        variables.accept
+      messageExpression: >-
+        'Expected MD5 hash ' + variables.expectedHash + ', got: ' + variables.md5sum
