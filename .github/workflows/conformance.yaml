@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -86,7 +86,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -105,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -123,7 +123,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -141,7 +141,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -159,7 +159,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -177,7 +177,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
     needs: [prepare-images]
     steps:
@@ -198,7 +198,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -216,7 +216,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -234,7 +234,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
     needs: [prepare-images]
     steps:
@@ -255,7 +255,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -292,7 +292,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -310,7 +310,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -328,7 +328,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -349,7 +349,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -367,7 +367,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -387,7 +387,7 @@ jobs:
       matrix:
         kyverno-configs:
           [standard, default, standard, force-failure-policy-ignore]
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -405,7 +405,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
     needs: [prepare-images]
     steps:
@@ -426,7 +426,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -444,7 +444,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5]
     needs: [prepare-images]
     steps:
@@ -465,7 +465,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -502,7 +502,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -523,7 +523,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -544,7 +544,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -565,7 +565,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -586,7 +586,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -607,7 +607,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -628,7 +628,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -649,7 +649,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -670,7 +670,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -691,7 +691,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
@@ -712,7 +712,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -730,7 +730,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -748,7 +748,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
     needs: [prepare-images]
     steps:
@@ -769,7 +769,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -787,7 +787,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -805,7 +805,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -825,10 +825,8 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version:
-          - v1.30.x
-          - v1.31.x
-          - v1.32.x
           - v1.33.x
+          - v1.34.x
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -849,7 +847,7 @@ jobs:
           verify: true
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@819d566d24a563bb99666dbda770871eb85710a1
+        uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version }}
@@ -907,7 +905,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     needs:
       - prepare-images
@@ -1089,7 +1087,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.12, v1.32.8, v1.33.4, v1.34.0]
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         kyverno-version: ["3.2"]
     needs: [prepare-images]
     steps:
@@ -1205,13 +1203,72 @@ jobs:
         shell: bash
         run: |
           set -e
-          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ] 
+          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ]
           then
           exit 1
           fi
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
+
+  cert-manager-certificates:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - name: v1.33
+            version: v1.33.1
+        key-algorithm:
+          - name: rsa
+            test-dir: rsa-cert-manager
+          - name: ecdsa
+            test-dir: ecdsa-cert-manager
+    needs:
+      - prepare-images
+    name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version.version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
+          install-cert-manager: 'true'
+          cert-manager-certs-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
+
+  self-signed-certificates:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - name: v1.33
+            version: v1.33.1
+        key-algorithm:
+          - name: ecdsa
+            test-dir: ecdsa-self-signed
+            helm-settings: --set admissionController.tlsKeyAlgorithm=ECDSA --set cleanupController.tlsKeyAlgorithm=ECDSA
+          - name: ed25519
+            test-dir: ed25519-self-signed
+            helm-settings: --set admissionController.tlsKeyAlgorithm=Ed25519 --set cleanupController.tlsKeyAlgorithm=Ed25519
+    needs:
+      - prepare-images
+    name: ${{ matrix.k8s-version.name }} - self-signed ${{ matrix.key-algorithm.name }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version.version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
+          explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
 
   conformance-required-success:
     name: conformance-required
@@ -1257,6 +1314,8 @@ jobs:
       - check-tests
       - helm-upgrade
       - helm-uninstall
+      - cert-manager-certificates
+      - self-signed-certificates
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
@@ -1306,6 +1365,8 @@ jobs:
       - check-tests
       - helm-upgrade
       - helm-uninstall
+      - cert-manager-certificates
+      - self-signed-certificates
     runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:
