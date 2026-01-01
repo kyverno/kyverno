@@ -5,10 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,14 +37,14 @@ func (f *fakeNgpolLister) NamespacedGeneratingPolicies(namespace string) policie
 }
 
 type fakePolexLister struct {
-	exceptions []*policiesv1alpha1.PolicyException
+	exceptions []*policiesv1beta1.PolicyException
 	err        error
 }
 
-func (f *fakePolexLister) List(_ labels.Selector) ([]*policiesv1alpha1.PolicyException, error) {
+func (f *fakePolexLister) List(_ labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
 	return f.exceptions, f.err
 }
-func (f *fakePolexLister) PolicyExceptions(namespace string) policiesv1alpha1listers.PolicyExceptionNamespaceLister {
+func (f *fakePolexLister) PolicyExceptions(namespace string) policiesv1beta1listers.PolicyExceptionNamespaceLister {
 	return nil
 }
 
@@ -60,9 +58,9 @@ func TestGet(t *testing.T) {
 		}
 		gpol.TypeMeta.Kind = "GeneratingPolicy"
 
-		exception := &policiesv1alpha1.PolicyException{
-			Spec: policiesv1alpha1.PolicyExceptionSpec{
-				PolicyRefs: []policiesv1alpha1.PolicyRef{
+		exception := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
 					{
 						Name: "test-policy",
 						Kind: "GeneratingPolicy",
@@ -75,7 +73,7 @@ func TestGet(t *testing.T) {
 			comp,
 			&fakeGpolLister{policy: gpol},
 			&fakeNgpolLister{},
-			&fakePolexLister{exceptions: []*policiesv1alpha1.PolicyException{exception}},
+			&fakePolexLister{exceptions: []*policiesv1beta1.PolicyException{exception}},
 			true,
 		)
 
@@ -93,7 +91,7 @@ func TestGet(t *testing.T) {
 			comp,
 			&fakeGpolLister{err: errors.New("forced error")},
 			&fakeNgpolLister{},
-			&fakePolexLister{exceptions: []*policiesv1alpha1.PolicyException{nil}},
+			&fakePolexLister{exceptions: []*policiesv1beta1.PolicyException{nil}},
 			true,
 		)
 
