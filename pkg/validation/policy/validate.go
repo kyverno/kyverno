@@ -400,7 +400,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				if k == "Pod" && podControllerAutoGenExclusion(policy) {
 					msg := "Policies that match Pods apply to all Pods including those created and managed by controllers " +
 						"excluded from autogen. Use preconditions to exclude the Pods managed by controllers which are " +
-						"excluded from autogen. Refer to https://kyverno.io/docs/writing-policies/autogen/ for details."
+						"excluded from autogen. Refer to https://kyverno.io/docs/policy-types/cluster-policy/autogen/ for details."
 
 					warnings = append(warnings, msg)
 				}
