@@ -237,6 +237,10 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
+				if apierrors.IsNotFound(err) {
+					debug.Info("resource not found")
+					continue
+				}
 				if c.metrics != nil {
 					c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}

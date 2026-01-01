@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	admissionv1 "k8s.io/apiserver/pkg/admission"
@@ -26,7 +25,7 @@ func TestNewProvider(t *testing.T) {
 	tests := []struct {
 		name          string
 		pols          []policiesv1beta1.MutatingPolicyLike
-		exceptions    []*policiesv1alpha1.PolicyException
+		exceptions    []*policiesv1beta1.PolicyException
 		expectErr     bool
 		expectedCount int
 	}{
@@ -47,10 +46,10 @@ func TestNewProvider(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "policy-exc"},
 				},
 			},
-			exceptions: []*policiesv1alpha1.PolicyException{
+			exceptions: []*policiesv1beta1.PolicyException{
 				{
-					Spec: policiesv1alpha1.PolicyExceptionSpec{
-						PolicyRefs: []policiesv1alpha1.PolicyRef{
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						PolicyRefs: []policiesv1beta1.PolicyRef{
 							{
 								Name: "policy-exc",
 								Kind: "MutatingPolicy",

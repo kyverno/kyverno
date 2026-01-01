@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"go.opentelemetry.io/otel/metric"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -125,8 +126,38 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 	return nil
 }
 
+// preflightCheck performs a lightweight authorization check before starting an informer.
+// This prevents the informer from failing repeatedly if the service account lacks
+// permission to list/watch the resource (403 Forbidden), which can cause cascading
+// failures similar to those described in https://github.com/projectcalico/calico/issues/9527
+func (m *manager) preflightCheck(ctx context.Context, gvr schema.GroupVersionResource, logger logr.Logger) error {
+	opts := metav1.ListOptions{
+		LabelSelector: kyverno.LabelCleanupTtl,
+		Limit:         1,
+	}
+	_, err := m.metadataClient.Resource(gvr).List(ctx, opts)
+	if err != nil {
+		// Check if it's a 403 Forbidden - don't start informer for forbidden resources
+		if apierrors.IsForbidden(err) {
+			return fmt.Errorf("preflight authorization check failed: %w", err)
+		}
+		// For NotFound errors, we can still proceed as the resource type might exist but have no items
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("preflight check failed: %w", err)
+		}
+	}
+	return nil
+}
+
 func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, workers int) error {
 	logger := m.logger.WithValues("gvr", gvr)
+
+	// Perform preflight check before starting the informer
+	if err := m.preflightCheck(ctx, gvr, logger); err != nil {
+		logger.Error(err, "preflight check failed, skipping resource")
+		return nil
+	}
+
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
