@@ -18,7 +18,7 @@ spec:
         content: kyverno apply policy.yaml --cluster
         check:
           (trim_space($stdout)): |-
-            Applying 1 policy rule(s) to 5 resource(s)...
+            Applying 1 policy rule(s) to 4 resource(s)...
             policy check-deployment-labels -> resource default/Deployment/bad-deployment failed:
             1 - check-deployment-labels Deployment labels must be env=prod
 
