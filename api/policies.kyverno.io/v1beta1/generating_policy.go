@@ -87,6 +87,7 @@ func (s *GeneratingPolicy) GetStatus() *GeneratingPolicyStatus {
 // +kubebuilder:resource:scope="Namespaced",shortName=ngpol,categories=kyverno
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
 //
 // NamespacedGeneratingPolicy is the namespaced CEL-based generating policy.
 type NamespacedGeneratingPolicy struct {

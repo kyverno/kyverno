@@ -7,7 +7,6 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -243,7 +242,7 @@ func BuildValidatingAdmissionPolicyBinding(
 func BuildMutatingAdmissionPolicy(
 	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mp *policiesv1beta1.MutatingPolicy,
-	exceptions []policiesv1alpha1.PolicyException,
+	exceptions []policiesv1beta1.PolicyException,
 ) {
 	matchConditions := make([]admissionregistrationv1alpha1.MatchCondition, 0)
 	// convert celexceptions if exist

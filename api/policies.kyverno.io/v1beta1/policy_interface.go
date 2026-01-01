@@ -1,4 +1,4 @@
-package v1alpha1
+package v1beta1
 
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
