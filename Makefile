@@ -461,10 +461,12 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--input ./api/kyverno/v1 \
 		--input ./api/kyverno/v2 \
 		--input ./api/kyverno/v2alpha1 \
+		--input ./api/kyverno/v2beta1 \
 		--input ./api/reports/v1 \
 		--input ./api/policyreport/v1alpha2 \
 		--input ./api/policies.kyverno.io/v1alpha1 \
-		--input ./api/policies.kyverno.io/v1beta1
+		--input ./api/policies.kyverno.io/v1beta1 \
+		--input ./api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
@@ -478,10 +480,12 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
+		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
 		./api/policies.kyverno.io/v1alpha1 \
-		./api/policies.kyverno.io/v1beta1
+		./api/policies.kyverno.io/v1beta1 \
+		./api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
@@ -497,10 +501,12 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
+		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
 		./api/policies.kyverno.io/v1alpha1 \
-		./api/policies.kyverno.io/v1beta1
+		./api/policies.kyverno.io/v1beta1 \
+		./api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: ## Generate client wrappers
@@ -541,6 +547,7 @@ codegen-crds-policies: $(CONTROLLER_GEN)
 	@$(CONTROLLER_GEN) \
 		paths=./api/policies.kyverno.io/v1alpha1/... \
 		paths=./api/policies.kyverno.io/v1beta1/... \
+		paths=./api/policies.kyverno.io/v1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policies.kyverno.io
 

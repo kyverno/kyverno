@@ -9,6 +9,9 @@ on:
     branches:
       - "main"
       - "release*"
+    paths:
+      - "cmd/**"
+      - "pkg/**"
   schedule:
     - cron: "27 0 * * 0"
 
@@ -44,7 +47,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -63,7 +66,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -83,7 +86,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -122,6 +125,12 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
@@ -130,7 +139,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Extract P(95)
         id: extract-p95
         shell: bash
@@ -153,7 +169,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -173,7 +189,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -209,6 +225,12 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
@@ -217,7 +239,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Compare P(95)
         shell: bash
         run: |
@@ -231,7 +260,7 @@ jobs:
             exit 1
           fi
       - name: Archive Report
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: load-test-report.html
           path: report
@@ -250,7 +279,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
         test: ${{ fromJson(needs.define-matrix.outputs.tests) }}
     steps:
       - name: Checkout kyverno/kyverno
@@ -271,7 +300,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -313,6 +342,12 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
@@ -321,7 +356,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/${{ matrix.test.name }}.js -e SCENARIO=${{ matrix.test.scenario }} --vus ${{ matrix.test.concurrent_connections }} --iterations ${{ matrix.test.total_iterations }} ${{ matrix.test.extra_options }} --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Collect Resource Metrics
         shell: bash
         run: |
@@ -338,7 +380,7 @@ jobs:
           sleep 60
           ./test/load/k6/reports-size-in-etcd.sh > report/reports-size-in-etcd.txt
       - name: Archive Report
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: report-${{ matrix.k8s-version }}-${{ matrix.test.name }}-${{ matrix.test.scenario }}-${{ matrix.test.replicas }}-${{ matrix.test.cpu_request }}-${{ matrix.test.memory_request }}-${{ matrix.test.memory_limit }}-${{ matrix.test.concurrent_connections }}
           path: report
