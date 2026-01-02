@@ -15,7 +15,10 @@ func CheckKind(kinds []string, gvk schema.GroupVersionKind, subresource string, 
 	for _, k := range kinds {
 		group, version, kind, sub := kubeutils.ParseKindSelector(k)
 		if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
-			if wildcard.Match(sub, subresource) {
+			// If no subresource is specified in the kind selector (sub is empty), match regardless of the actual subresource.
+			// This allows "Pod" to match "Pod/exec", "Pod/log", etc., which is the expected behavior for exceptions and exclude blocks.
+			// If a subresource is specified (e.g., "Pod/exec"), only match that specific subresource.
+			if sub == "" || wildcard.Match(sub, subresource) {
 				return true
 			} else if allowEphemeralContainers && gvk == podGVK && subresource == "ephemeralcontainers" {
 				return true
