@@ -159,6 +159,7 @@ spec:
           args:
             - --caSecretName={{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
             - --tlsSecretName={{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
+            - --tlsKeyAlgorithm={{ .Values.admissionController.tlsKeyAlgorithm | default "RSA" }}
             {{- if .Values.backgroundController.enabled }}
             - --backgroundServiceAccountName=system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}
             {{- end }}

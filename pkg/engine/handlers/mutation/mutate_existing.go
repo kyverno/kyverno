@@ -119,5 +119,8 @@ func (h mutateExistingHandler) Process(
 			responses = append(responses, *ruleResponse)
 		}
 	}
+	// For mutateExisting, do not return the mutated resource. Return the original resource.
+	// The actual mutation will be applied to targets by the background controller via UpdateRequest.
+	// This prevents the trigger resource from being mutated during admission.
 	return resource, responses
 }
