@@ -1205,7 +1205,8 @@ help: ## Shows the available commands
 #################
 # ENVTEST SETUP #
 #################
-ENVTEST_K8S_VERSION = 1.28.0
+ENVTEST_K8S_VERSION = 1.31.0
+ENVTEST_VERSION ?= latest
 ENVTEST = $(shell go env GOPATH)/bin/setup-envtest
 # Initialize KUBEBUILDER_ASSETS if not already set. 
 # We use a lazy assignment to ensure it's evaluated when needed.
@@ -1214,7 +1215,7 @@ KUBEBUILDER_ASSETS = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/de
 .PHONY: envtest
 envtest: ## Download and setup envtest binaries
 	@echo "Setting up envtest..." >&2
-	@test -f $(ENVTEST) || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	@test -f $(ENVTEST) || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
 	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) >/dev/null 2>&1 || true
 	@echo "EnvTest ready. Use 'make test-integration' to run integration tests." >&2
 
