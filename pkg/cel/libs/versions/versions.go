@@ -18,4 +18,5 @@ var (
 	RandomVersion        = version.MajorMinor(1, 0)
 	X509Version          = version.MajorMinor(1, 0)
 	TimeVersion          = version.MajorMinor(1, 0)
+	TransformVersion     = version.MajorMinor(1, 0)
 )
