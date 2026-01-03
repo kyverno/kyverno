@@ -15,4 +15,4 @@ dependencies:
   repository: https://kyverno.github.io/reports-server/
   version: 0.1.6
 digest: sha256:13bbf04b31ad64d567f2bef9e71d184f851cf16e87e174a51259a480586e580d
-generated: "2026-01-21T16:40:04.866572+01:00"
+generated: "2026-01-26T11:37:18.012411+01:00"
