@@ -82,6 +82,17 @@ openreports:
   # -- Whether to install CRDs from the upstream OpenReports chart. Setting this to true requires enabled to also be true.
   installCrds: false
 
+# Reports Server configuration
+reportsServer:
+  # -- Enable reports-server deployment alongside Kyverno
+  enabled: false
+
+  # -- Wait for reports-server to be ready before starting Kyverno components
+  waitForReady: true
+
+  # -- Timeout for waiting for reports-server readiness (in seconds)
+  readinessTimeout: 300
+
 # CRDs configuration
 crds:
 
@@ -507,12 +518,12 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: curlimages
+    registry: bitnami
     # -- Image repository
-    repository: curl
+    repository: kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '8.10.1'
+    tag: latest
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
