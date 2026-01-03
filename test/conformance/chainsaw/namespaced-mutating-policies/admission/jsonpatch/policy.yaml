@@ -1,0 +1,34 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedMutatingPolicy
+metadata:
+  name: test-nmpol-jsonpatch
+  namespace: test-namespace
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "apps" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE" ]
+      resources: [ "deployments" ]
+  matchConditions:
+  - name: is-test-namespace
+    expression: request.namespace == 'test-namespace'
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        has(object.metadata.labels) ?
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels/managed",
+            value: "namespaced"
+          }
+        ] :
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels",
+            value: {"managed": "namespaced"}
+          }
+        ]

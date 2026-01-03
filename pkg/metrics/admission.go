@@ -9,7 +9,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func GetAdmissionMetrics() AdmissionMetrics {
@@ -28,7 +27,7 @@ type admissionMetrics struct {
 }
 
 type AdmissionMetrics interface {
-	RecordRequest(ctx context.Context, allowed bool, namespace string, operation admissionv1.Operation, gvk schema.GroupVersionKind, startTime time.Time, attrs ...attribute.KeyValue)
+	RecordRequest(ctx context.Context, allowed bool, namespace string, operation admissionv1.Operation, kind string, startTime time.Time, attrs ...attribute.KeyValue)
 }
 
 func (m *admissionMetrics) init(meter metric.Meter) {
@@ -50,7 +49,7 @@ func (m *admissionMetrics) init(meter metric.Meter) {
 	}
 }
 
-func (m *admissionMetrics) RecordRequest(ctx context.Context, allowed bool, namespace string, operation admissionv1.Operation, gvk schema.GroupVersionKind, startTime time.Time, attrs ...attribute.KeyValue) {
+func (m *admissionMetrics) RecordRequest(ctx context.Context, allowed bool, namespace string, operation admissionv1.Operation, kind string, startTime time.Time, attrs ...attribute.KeyValue) {
 	if m.durationMetric == nil || m.requestsMetric == nil {
 		return
 	}
@@ -60,7 +59,7 @@ func (m *admissionMetrics) RecordRequest(ctx context.Context, allowed bool, name
 	}
 
 	attributes := []attribute.KeyValue{
-		attribute.String("resource_kind", gvk.Kind),
+		attribute.String("resource_kind", kind),
 		attribute.String("resource_namespace", namespace),
 		attribute.String("resource_request_operation", strings.ToLower(string(operation))),
 		attribute.Bool("request_allowed", allowed),

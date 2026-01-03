@@ -5,7 +5,6 @@ import (
 	"path"
 	"slices"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
@@ -60,7 +59,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.MatchConditions = append(webhook.MatchConditions, validConditions(expressionCache, p.GetMatchConditions())...)
 			}
 
-			if _, ok := p.(*policiesv1alpha1.GeneratingPolicy); ok {
+			if _, ok := p.(*policiesv1beta1.GeneratingPolicy); ok {
 				// all four operations including CONNECT are needed for generate.
 				for _, match := range p.GetMatchConstraints().ResourceRules {
 					rule := match.RuleWithOperations
@@ -143,23 +142,36 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 			}
 
-			if mpol, ok := p.(*policiesv1alpha1.MutatingPolicy); ok {
+			if mpol := policy.AsMutatingPolicy(); mpol != nil {
 				policies, err := mpolautogen.Autogen(mpol)
 				if err != nil {
 					logger.Error(err, "failed to auto-generate mutating policy", "policy", mpol.GetName())
 					continue
 				}
 				for _, config := range slices.Sorted(maps.Keys(policies)) {
-					policy := policies[config]
-					targets := make([]policiesv1beta1.Target, 0, len(policy.Targets))
-					for _, target := range policy.Targets {
-						targets = append(targets, policiesv1beta1.Target(target))
-					}
+					autogenPolicy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, targets, validConditions(expressionCache, policy.Spec.GetMatchConditions()))...,
+						autogen.CreateMatchConditions(config, autogenPolicy.Targets, validConditions(expressionCache, autogenPolicy.Spec.MatchConditions))...,
 					)
-					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
+					for _, match := range autogenPolicy.Spec.MatchConstraints.ResourceRules {
+						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+					}
+				}
+			}
+
+			if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
+				policies, err := mpolautogen.Autogen(nmpol)
+				if err != nil {
+					continue
+				}
+				for _, config := range slices.Sorted(maps.Keys(policies)) {
+					autogenPolicy := policies[config]
+					webhook.MatchConditions = append(
+						webhook.MatchConditions,
+						autogen.CreateMatchConditions(config, autogenPolicy.Targets, validConditions(expressionCache, autogenPolicy.Spec.MatchConditions))...,
+					)
+					for _, match := range autogenPolicy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 					}
 				}
@@ -282,7 +294,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					}
 				}
 			}
-			if mpol, ok := p.(*policiesv1alpha1.MutatingPolicy); ok {
+			if mpol := policy.AsMutatingPolicy(); mpol != nil {
 				rules, err := mpolautogen.Autogen(mpol)
 				if err != nil {
 					continue
@@ -293,7 +305,18 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					}
 				}
 			}
-			if _, ok := p.(*policiesv1alpha1.GeneratingPolicy); ok {
+			if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
+				rules, err := mpolautogen.Autogen(nmpol)
+				if err != nil {
+					continue
+				}
+				for _, rule := range rules {
+					for _, match := range rule.Spec.MatchConstraints.ResourceRules {
+						webhookRules = append(webhookRules, match.RuleWithOperations)
+					}
+				}
+			}
+			if _, ok := p.(*policiesv1beta1.GeneratingPolicy); ok {
 				// all four operations including CONNECT are needed for generate.
 				for _, match := range p.GetMatchConstraints().ResourceRules {
 					rule := match.RuleWithOperations

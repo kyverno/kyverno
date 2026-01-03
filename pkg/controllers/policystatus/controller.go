@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/auth/checker"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
@@ -52,7 +51,8 @@ func NewController(
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
 	reportsSA string,
 	polStateRecorder webhook.StateRecorder,
@@ -147,7 +147,7 @@ func NewController(
 		mpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
-			mpol, ok := obj.(*policiesv1alpha1.MutatingPolicy)
+			mpol, ok := obj.(*policiesv1beta1.MutatingPolicy)
 			if !ok {
 				return ""
 			}
@@ -156,6 +156,22 @@ func NewController(
 	)
 	if err != nil {
 		logger.Error(err, "failed to register event handlers for MutatingPolicy")
+	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		nmpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			nmpol, ok := obj.(*policiesv1beta1.NamespacedMutatingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, nmpol.Name, nmpol.Namespace))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for NamespacedMutatingPolicy")
 	}
 
 	_, _, err = controllerutils.AddExplicitEventHandlers(
@@ -237,7 +253,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.MutatingPolicyType {
-		mpol, err := c.client.PoliciesV1alpha1().MutatingPolicies().Get(ctx, name, metav1.GetOptions{})
+		mpol, err := c.client.PoliciesV1beta1().MutatingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("mutating policy not found", "name", name)
@@ -248,8 +264,20 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 		return c.updateMpolStatus(ctx, mpol)
 	}
 
+	if polType == webhook.NamespacedMutatingPolicyType {
+		nmpol, err := c.client.PoliciesV1beta1().NamespacedMutatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("namespaced mutating policy not found", "name", name, "namespace", namespace)
+				return nil
+			}
+			return err
+		}
+		return c.updateNMpolStatus(ctx, nmpol)
+	}
+
 	if polType == webhook.GeneratingPolicyType {
-		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
+		gpol, err := c.client.PoliciesV1beta1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("generating policy not found", "name", name)
@@ -262,37 +290,45 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	return nil
 }
 
-func (c controller) reconcileConditions(ctx context.Context, policy engineapi.GenericPolicy) *policiesv1alpha1.ConditionStatus {
+func (c controller) reconcileConditions(ctx context.Context, policy engineapi.GenericPolicy) *policiesv1beta1.ConditionStatus {
 	var key string
 	var matchConstraints admissionregistrationv1.MatchResources
-	status := &policiesv1alpha1.ConditionStatus{}
+	status := &policiesv1beta1.ConditionStatus{}
 	backgroundOnly := false
 	switch policy.GetKind() {
 	case webhook.MutatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
 		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsMutatingPolicy().GetSpec().BackgroundEnabled())
-		status = &policy.AsMutatingPolicy().GetStatus().ConditionStatus
+		// MutatingPolicy uses v1beta1.ConditionStatus, convert to return type
+		v1beta1Status := policy.AsMutatingPolicy().GetStatus().ConditionStatus
+		status = &v1beta1Status
 	case webhook.GeneratingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
-		status = &policy.AsGeneratingPolicy().GetStatus().ConditionStatus
+		// GeneratingPolicy uses v1alpha1.ConditionStatus, convert to v1beta1
+		v1alpha1Status := policy.AsGeneratingPolicy().GetStatus().ConditionStatus
+		status = &policiesv1beta1.ConditionStatus{
+			Conditions: v1alpha1Status.Conditions,
+			Ready:      v1alpha1Status.Ready,
+			Message:    v1alpha1Status.Message,
+		}
 	}
 
 	if !backgroundOnly {
 		if ready, ok := c.polStateRecorder.Ready(key); ready {
-			status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
+			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
 		} else if ok {
-			status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
+			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
 		}
 	}
 
 	gvrs := c.resolveGVRs(matchConstraints.ResourceRules)
 	errs := c.permissionsCheck(ctx, gvrs)
 	if errs != nil {
-		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
 	} else {
-		status.SetReadyByCondition(policiesv1alpha1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
 	}
 	return status
 }
@@ -368,7 +404,7 @@ func (c controller) permissionsCheck(ctx context.Context, gvrs []metav1.GroupVer
 	for _, gvr := range gvrs {
 		for _, verb := range []string{"get", "list", "watch"} {
 			result, err := c.authChecker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, "", "", "", verb)
-			if baseerrors.Is(err, checker.ErrNoServiceAccount) {
+			if baseerrors.Is(err, auth.ErrNoServiceAccount) {
 				continue
 			} else if err != nil {
 				errs = append(errs, err)

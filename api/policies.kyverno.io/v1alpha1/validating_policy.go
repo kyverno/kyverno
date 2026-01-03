@@ -15,7 +15,7 @@ import (
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +kubebuilder:selectablefield:JSONPath=`.spec.evaluation.mode`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 
 type ValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`

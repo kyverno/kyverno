@@ -65,6 +65,9 @@ func processNextWorkItem[T comparable](ctx context.Context, logger logr.Logger, 
 
 func handleErr[T comparable](ctx context.Context, logger logr.Logger, controllerName string, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, err error, obj T) {
 	metric := metrics.GetControllerMetrics()
+	if metric != nil {
+		metric.RecordReconcileIncrease(ctx, controllerName)
+	}
 
 	if err == nil {
 		queue.Forget(obj)

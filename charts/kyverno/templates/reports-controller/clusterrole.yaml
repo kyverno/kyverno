@@ -64,7 +64,9 @@ rules:
       - namespacedimagevalidatingpolicies
       - namespacedimagevalidatingpolicies/status
       - generatingpolicies
+      - namespacedgeneratingpolicies
       - mutatingpolicies
+      - namespacedmutatingpolicies
     verbs:
       - create
       - delete

@@ -17,7 +17,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: restrict-image-registries
+          value: ($test.metadata.name)
   - name: check autogen
     try:
     - assert:

@@ -14,7 +14,7 @@ kind: Event
 metadata:
   namespace: default
 involvedObject:
-  apiVersion: policies.kyverno.io/v1alpha1
+  apiVersion: policies.kyverno.io/v1beta1
   kind: ValidatingPolicy
   name: check-deployment-labels-deny
 reason: PolicyViolation

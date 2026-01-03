@@ -10,10 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
@@ -94,7 +92,7 @@ type controller struct {
 	cpolLister     kyvernov1listers.ClusterPolicyLister
 	vpolLister     policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
-	mpolLister     policiesv1alpha1listers.MutatingPolicyLister
+	mpolLister     policiesv1beta1listers.MutatingPolicyLister
 	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -116,7 +114,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -416,11 +414,11 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			return err
 		}
 		for _, policy := range mpols {
-			matchConstraints := policy.Spec.GetMatchConstraints()
-			kinds := admissionpolicy.GetKinds(&matchConstraints, restMapper)
+			matchConstraints := policy.Spec.MatchConstraints
+			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
 			for _, policy := range policy.Status.Autogen.Configs {
-				matchConstraints := policy.Spec.GetMatchConstraints()
-				genKinds := admissionpolicy.GetKinds(&matchConstraints, restMapper)
+				matchConstraints := policy.Spec.MatchConstraints
+				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
 
 				kinds = append(kinds, genKinds...)
 			}

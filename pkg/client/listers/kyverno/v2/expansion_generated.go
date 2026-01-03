@@ -30,6 +30,10 @@ type CleanupPolicyNamespaceListerExpansion interface{}
 // ClusterCleanupPolicyLister.
 type ClusterCleanupPolicyListerExpansion interface{}
 
+// GlobalContextEntryListerExpansion allows custom methods to be added to
+// GlobalContextEntryLister.
+type GlobalContextEntryListerExpansion interface{}
+
 // PolicyExceptionListerExpansion allows custom methods to be added to
 // PolicyExceptionLister.
 type PolicyExceptionListerExpansion interface{}

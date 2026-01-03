@@ -26,7 +26,7 @@ func (w *metricWrapper) Evaluate(ctx context.Context, attr admission.Attributes,
 			continue
 		}
 
-		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, *policy.Policy, response.Resource, string(request.Operation))
+		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Operation))
 	}
 
 	return response, nil
@@ -43,7 +43,7 @@ func (w *metricWrapper) Handle(ctx context.Context, request engine.EngineRequest
 			continue
 		}
 
-		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, *policy.Policy, response.Resource, string(request.Request.Operation))
+		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
 	}
 
 	return response, nil
@@ -51,6 +51,10 @@ func (w *metricWrapper) Handle(ctx context.Context, request engine.EngineRequest
 
 func (w *metricWrapper) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
 	return w.inner.MatchedMutateExistingPolicies(ctx, request)
+}
+
+func (w *metricWrapper) GetCompiledPolicy(policyName string) (Policy, error) {
+	return w.inner.GetCompiledPolicy(policyName)
 }
 
 func NewMetricWrapper(inner Engine, ruleExecutionCause metrics.RuleExecutionCause) Engine {

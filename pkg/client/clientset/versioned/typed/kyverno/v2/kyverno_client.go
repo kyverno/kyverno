@@ -30,6 +30,7 @@ type KyvernoV2Interface interface {
 	RESTClient() rest.Interface
 	CleanupPoliciesGetter
 	ClusterCleanupPoliciesGetter
+	GlobalContextEntriesGetter
 	PolicyExceptionsGetter
 	UpdateRequestsGetter
 }
@@ -45,6 +46,10 @@ func (c *KyvernoV2Client) CleanupPolicies(namespace string) CleanupPolicyInterfa
 
 func (c *KyvernoV2Client) ClusterCleanupPolicies() ClusterCleanupPolicyInterface {
 	return newClusterCleanupPolicies(c)
+}
+
+func (c *KyvernoV2Client) GlobalContextEntries() GlobalContextEntryInterface {
+	return newGlobalContextEntries(c)
 }
 
 func (c *KyvernoV2Client) PolicyExceptions(namespace string) PolicyExceptionInterface {

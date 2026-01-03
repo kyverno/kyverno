@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+context: context.yaml
+kind: Test
+metadata:
+  name: allowed-base-images
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: allowed-base-images
+  resources:
+  - badpod01
+  - badpod02
+  - badpod03
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: allowed-base-images
+  resources:
+  - goodpod01
+  - goodpod02
+  result: pass

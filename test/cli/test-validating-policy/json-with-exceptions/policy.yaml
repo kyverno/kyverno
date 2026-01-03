@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-json-data
+spec:
+  evaluation:
+    mode: JSON
+  validations:
+    - message: "data.value must be greater than 10"
+      expression: >- 
+        object.data.value > 10
+

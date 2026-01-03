@@ -1,21 +1,27 @@
 package tls
 
 import (
-	"crypto/rsa"
+	"crypto"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func privateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
+func privateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
+	// Use PKCS#8 format which supports all key types (RSA, ECDSA, Ed25519)
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
 	privateKey := &pem.Block{
 		Type:  "PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(rsaKey),
+		Bytes: keyBytes,
 	}
-	return pem.EncodeToMemory(privateKey)
+	return pem.EncodeToMemory(privateKey), nil
 }
 
 func certificateToPem(certs ...*x509.Certificate) []byte {
@@ -30,9 +36,28 @@ func certificateToPem(certs ...*x509.Certificate) []byte {
 	return raw
 }
 
-func pemToPrivateKey(raw []byte) (*rsa.PrivateKey, error) {
+func pemToPrivateKey(raw []byte) (crypto.PrivateKey, error) {
 	block, _ := pem.Decode(raw)
-	return x509.ParsePKCS1PrivateKey(block.Bytes)
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block")
+	}
+
+	// Try PKCS#8 first (works for all key types including Ed25519, ECDSA, and RSA)
+	if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
+		return key, nil
+	}
+
+	// Try EC private key (SEC1 format)
+	if key, err := x509.ParseECPrivateKey(block.Bytes); err == nil {
+		return key, nil
+	}
+
+	// Try RSA private key (PKCS#1 format, legacy)
+	if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
+		return key, nil
+	}
+
+	return nil, errors.New("failed to parse private key: unsupported format")
 }
 
 func pemToCertificates(raw []byte) []*x509.Certificate {

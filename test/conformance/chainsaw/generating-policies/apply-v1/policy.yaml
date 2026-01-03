@@ -1,0 +1,38 @@
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: match-namespace-with-ns-selector
+spec:
+  evaluation:
+    generateExisting:
+      enabled: true
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["namespaces"]
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/managed-by: my-app
+  variables:
+    - name: targetNs
+      expression: "object.metadata.name"
+    - name: downstream
+      expression: >-
+        {
+          "kind": dyn("Secret"),
+          "apiVersion": dyn("v1"),
+          "metadata": dyn({
+            "name": dyn("secret-name"),
+            "labels": dyn({"foo": "bar"})
+          }),
+          "type": dyn("Opaque"),
+          "data": dyn({
+            "foo": "YmFy"
+          })
+        }
+  generate:
+    - expression: generator.Apply(variables.targetNs, [variables.downstream])

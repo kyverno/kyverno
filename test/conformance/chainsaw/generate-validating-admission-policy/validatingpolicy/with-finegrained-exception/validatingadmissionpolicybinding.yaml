@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicyBinding
 metadata:
   name: vpol-allow-specific-values-binding
   ownerReferences:
-  - apiVersion: policies.kyverno.io/v1alpha1
+  - apiVersion: policies.kyverno.io/v1beta1
     kind: ValidatingPolicy
     name: allow-specific-values
 spec:
