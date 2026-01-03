@@ -50,7 +50,6 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 }
 
 func (c *lib) namespacedEnv(env *cel.Env) (*cel.Env, error) {
-
 	impl := namespacedImpl{
 		namespace: c.namespace,
 		Adapter:   env.CELTypeAdapter(),
@@ -124,7 +123,6 @@ func (c *lib) namespacedEnv(env *cel.Env) (*cel.Env, error) {
 }
 
 func (c *lib) clusterEnv(env *cel.Env) (*cel.Env, error) {
-
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}
