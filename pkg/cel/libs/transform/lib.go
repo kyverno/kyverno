@@ -44,13 +44,11 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	return env.Extend(
 		cel.Function(
 			"listObjToMap",
-			cel.FunctionOpt(
-				cel.Overload(
-					"list_of_object_to_map",
-					[]*cel.Type{types.ListType, types.ListType, types.StringType, types.StringType},
-					types.MapType,
-					cel.FunctionBinding(impl.list_of_objects_to_map),
-				),
+			cel.Overload(
+				"list_of_object_to_map",
+				[]*cel.Type{types.ListType, types.ListType, types.StringType, types.StringType},
+				types.MapType,
+				cel.FunctionBinding(impl.list_of_objects_to_map),
 			),
 		),
 	)
