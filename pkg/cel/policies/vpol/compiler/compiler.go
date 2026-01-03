@@ -118,6 +118,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	return &Policy{
 		mode:             policiesv1beta1.EvaluationModeKubernetes,
 		failurePolicy:    policy.GetFailurePolicy(),
+		matchConstraints: spec.MatchConstraints,
 		matchConditions:  matchConditions,
 		variables:        variables,
 		validations:      validations,
@@ -205,6 +206,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	return &Policy{
 		mode:            policiesv1beta1.EvaluationModeJSON,
 		failurePolicy:   policy.GetFailurePolicy(),
+		matchConstraints: spec.MatchConstraints,
 		matchConditions: matchConditions,
 		variables:       variables,
 		validations:     validations,

@@ -27,11 +27,16 @@ import (
 type Policy struct {
 	mode             policiesv1beta1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConstraints *admissionregistrationv1.MatchResources
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 func (p *Policy) Evaluate(
