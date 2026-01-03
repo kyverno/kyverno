@@ -9,7 +9,7 @@ status:
         any:
         - resources:
             kinds:
-            - Deployment
+            - apps/v1/Deployment
       name: autogen-require-image-tag
       validate:
         failureAction: Audit
@@ -24,7 +24,7 @@ status:
         any:
         - resources:
             kinds:
-            - Deployment
+            - apps/v1/Deployment
       name: autogen-validate-image-tag
       validate:
         failureAction: Audit

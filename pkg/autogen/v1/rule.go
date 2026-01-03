@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	internal "github.com/kyverno/kyverno/pkg/autogen/v1/internal"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	internal "github.com/kyverno/kyverno/pkg/autogen/v1/internal"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"

@@ -9,9 +9,9 @@ status:
         any:
         - resources:
             kinds:
-            - Deployment
-            - Job
-            - StatefulSet
+            - apps/v1/Deployment
+            - batch/v1/Job
+            - apps/v1/StatefulSet
       name: autogen-require-image-tag
       validate:
         failureAction: Audit
@@ -26,9 +26,9 @@ status:
         any:
         - resources:
             kinds:
-            - Deployment
-            - Job
-            - StatefulSet
+            - apps/v1/Deployment
+            - batch/v1/Job
+            - apps/v1/StatefulSet
       name: autogen-validate-image-tag
       validate:
         failureAction: Audit
